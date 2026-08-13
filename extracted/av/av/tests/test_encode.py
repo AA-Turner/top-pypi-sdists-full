@@ -162,6 +162,26 @@ class TestBasicVideoEncoding(TestCase):
                 assert packet.time_base == Fraction(1, 24)
                 output.mux(packet)
 
+    def test_set_rate_after_add_stream(self) -> None:
+        path = self.sandboxed("deferred_rate.mp4")
+
+        with av.open(path, "w") as output:
+            stream = output.add_stream("mpeg4")
+            stream.codec_context.framerate = Fraction(30, 1)
+            stream.width = 16
+            stream.height = 16
+
+            for i in range(30):
+                frame = VideoFrame(16, 16, "yuv420p")
+                frame.pts = i
+                frame.time_base = Fraction(1, 30)
+                output.mux(stream.encode(frame))
+
+            output.mux(stream.encode(None))
+
+        with av.open(path) as input_:
+            assert input_.streams.video[0].average_rate == 30
+
     def test_encoding_with_unicode_filename(self) -> None:
         path = self.sandboxed("¢∞§¶•ªº.mov")
 
@@ -248,6 +268,30 @@ class TestSubtitleEncoding:
 
 
 class TestEncodeStreamSemantics(TestCase):
+    def test_reconfigure_stream_after_mux(self) -> None:
+        output_bytes = io.BytesIO()
+        with av.open(output_bytes, "w", format="mp4") as output:
+            first = output.add_stream("ffv1", rate=30)
+            second = output.add_stream("ffv1", rate=30)
+
+            first.format = av.VideoFormat("bgr0", width=16, height=16)
+            frame = VideoFrame(16, 16, "bgr0")
+            frame.pts = 0
+            frame.time_base = Fraction(1, 30)
+            output.mux(first.encode(frame))
+
+            # Muxing the first packet writes the header and opens every stream.
+            # Changing the second encoder now used to corrupt FFV1 state and crash.
+            assert second.codec_context.is_open
+            with pytest.raises(RuntimeError, match="Cannot change format"):
+                second.format = av.VideoFormat("bgr0", width=16, height=16)
+            with pytest.raises(RuntimeError, match="Cannot change width"):
+                second.width = 16
+            with pytest.raises(RuntimeError, match="Cannot change height"):
+                second.height = 16
+            with pytest.raises(RuntimeError, match="Cannot change pix_fmt"):
+                second.pix_fmt = "bgr0"
+
     def test_stream_index(self) -> None:
         with av.open(self.sandboxed("output.mov"), "w") as output:
             vstream = output.add_stream("mpeg4", 24)

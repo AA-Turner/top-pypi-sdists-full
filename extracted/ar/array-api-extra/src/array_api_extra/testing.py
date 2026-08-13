@@ -28,8 +28,11 @@ from ._lib._utils._compat import (
     is_torch_namespace,
     to_device,
 )
+from ._lib._utils._compat import (
+    device as get_device,
+)
 from ._lib._utils._helpers import jax_autojit, pickle_flatten, pickle_unflatten
-from ._lib._utils._typing import Array, Device
+from ._lib._utils._typing import Array, ArrayNamespace, Device
 
 __all__ = [
     "assert_close",
@@ -291,7 +294,7 @@ def patch_lazy_xp_functions(
     request: pytest.FixtureRequest,
     monkeypatch: pytest.MonkeyPatch | None = None,
     *,
-    xp: ModuleType,
+    xp: ArrayNamespace,
 ) -> contextlib.AbstractContextManager[None]:
     """
     Test lazy execution of functions tagged with :func:`lazy_xp_function`.
@@ -548,7 +551,7 @@ def _dask_wrap(
     return wrapper
 
 
-def _require_numpy() -> ModuleType:  # numpydoc ignore=RT01
+def _require_numpy() -> ArrayNamespace:  # numpydoc ignore=RT01
     """
     Import and return `numpy` if it is available, otherwise raise informative error.
     """
@@ -564,14 +567,15 @@ def _require_numpy() -> ModuleType:  # numpydoc ignore=RT01
     return np
 
 
-def _check_ns_shape_dtype(
+def _check_ns_shape_dtype_device(
     actual: Array,
     desired: Array,
     check_dtype: bool,
     check_shape: bool,
     check_scalar: bool,
-    xp: ModuleType | None = None,
-) -> tuple[Array, Array, ModuleType, ModuleType]:  # numpydoc ignore=RT03
+    check_device: bool,
+    xp: ArrayNamespace | None = None,
+) -> tuple[Array, Array, ArrayNamespace, ArrayNamespace]:  # numpydoc ignore=RT03
     """
     Assert that namespace, shape and dtype of the two arrays match.
 
@@ -588,6 +592,8 @@ def _check_ns_shape_dtype(
     check_scalar : bool, default: False
         NumPy only: whether to check agreement between actual and desired types -
         0d array vs scalar.
+    check_device : bool, default: True
+        Whether to check agreement between actual and desired devices.
     xp : array_namespace, optional
         A standard-compatible namespace which `actual` and `desired` must match.
 
@@ -655,6 +661,12 @@ def _check_ns_shape_dtype(
     if check_dtype:
         msg = f"dtypes do not match: {actual.dtype} != {desired.dtype}"
         assert actual.dtype == desired.dtype, msg
+    if check_device:
+        msg = (
+            f"Devices do not match.\nActual: {get_device(actual)}\n"
+            f"Desired: {get_device(desired)}"
+        )
+        assert get_device(actual) == get_device(desired), msg
     desired = desired_xp.broadcast_to(desired, actual_shape)
     return actual, desired, desired_xp, np
 
@@ -669,7 +681,7 @@ def _is_materializable(x: Array) -> bool:  # numpydoc ignore=PR01,RT01
 
 
 def _as_numpy_array(  # numpydoc ignore=PR01,RT01
-    array: Array, *, xp: ModuleType
+    array: Array, *, xp: ArrayNamespace
 ) -> np.typing.NDArray[Any]:
     """
     Convert array to NumPy, bypassing GPU-CPU transfer guards and densification guards.
@@ -714,7 +726,8 @@ def assert_close(
     check_dtype: bool = True,
     check_shape: bool = True,
     check_scalar: bool = False,
-    xp: ModuleType | None = None,
+    check_device: bool = True,
+    xp: ArrayNamespace | None = None,
 ) -> None:
     """
     Check that two arrays are close, up to tolerance ``atol + rtol * abs(desired)``.
@@ -746,6 +759,8 @@ def assert_close(
     check_scalar : bool, default: False
         NumPy only: whether to check agreement between actual and desired types —
         0-D :class:`numpy.ndarray` vs scalar (e.g. :class:`numpy.double`).
+    check_device : bool, default: True
+        Whether to check agreement between actual and desired devices.
     xp : array_namespace, optional
         A standard-compatible namespace which `actual` and `desired` must match.
 
@@ -777,8 +792,8 @@ def assert_close(
     Array arguments to `atol` and `rtol` must be valid input to :class:`float`.
     """
     __tracebackhide__ = True
-    actual, desired, xp, np = _check_ns_shape_dtype(
-        actual, desired, check_dtype, check_shape, check_scalar, xp
+    actual, desired, xp, np = _check_ns_shape_dtype_device(
+        actual, desired, check_dtype, check_shape, check_scalar, check_device, xp
     )
     if not _is_materializable(actual):
         return
@@ -818,7 +833,8 @@ def assert_equal(
     check_dtype: bool = True,
     check_shape: bool = True,
     check_scalar: bool = False,
-    xp: ModuleType | None = None,
+    check_device: bool = True,
+    xp: ArrayNamespace | None = None,
 ) -> None:
     """
     Check that two arrays are equal.
@@ -844,6 +860,8 @@ def assert_equal(
     check_scalar : bool, default: False
         NumPy only: whether to check agreement between actual and desired types —
         0-D :class:`numpy.ndarray` vs scalar (e.g. :class:`numpy.double`).
+    check_device : bool, default: True
+        Whether to check agreement between actual and desired devices.
     xp : array_namespace, optional
         A standard-compatible namespace which `actual` and `desired` must match.
 
@@ -861,8 +879,8 @@ def assert_equal(
     numpy.testing.assert_array_equal : Similar function for NumPy arrays.
     """
     __tracebackhide__ = True
-    actual, desired, xp, np = _check_ns_shape_dtype(
-        actual, desired, check_dtype, check_shape, check_scalar, xp
+    actual, desired, xp, np = _check_ns_shape_dtype_device(
+        actual, desired, check_dtype, check_shape, check_scalar, check_device, xp
     )
     if not _is_materializable(actual):
         return
@@ -882,7 +900,8 @@ def assert_less(
     check_dtype: bool = True,
     check_shape: bool = True,
     check_scalar: bool = False,
-    xp: ModuleType | None = None,
+    check_device: bool = True,
+    xp: ArrayNamespace | None = None,
 ) -> None:
     """
     Check that two arrays are ordered by less than.
@@ -906,6 +925,8 @@ def assert_less(
     check_scalar : bool, default: False
         NumPy only: whether to check agreement between actual and desired types —
         0-D :class:`numpy.ndarray` vs scalar (e.g. :class:`numpy.double`).
+    check_device : bool, default: True
+        Whether to check agreement between actual and desired devices.
     xp : array_namespace, optional
         A standard-compatible namespace which `x` and `y` must match.
 
@@ -923,8 +944,8 @@ def assert_less(
     numpy.testing.assert_array_less : Similar function for NumPy arrays.
     """
     __tracebackhide__ = True
-    x, y, xp, np = _check_ns_shape_dtype(
-        x, y, check_dtype, check_shape, check_scalar, xp
+    x, y, xp, np = _check_ns_shape_dtype_device(
+        x, y, check_dtype, check_shape, check_scalar, check_device, xp
     )
     if not _is_materializable(x):
         return
@@ -941,7 +962,8 @@ def assert_close_nulp(
     check_dtype: bool = True,
     check_shape: bool = True,
     check_scalar: bool = False,
-    xp: ModuleType | None = None,
+    check_device: bool = True,
+    xp: ArrayNamespace | None = None,
 ) -> None:
     """
     Compare two arrays relatively to their spacing.
@@ -966,6 +988,8 @@ def assert_close_nulp(
     check_scalar : bool, default: False
         NumPy only: whether to check agreement between actual and desired types —
         0-D :class:`numpy.ndarray` vs scalar (e.g. :class:`numpy.double`).
+    check_device : bool, default: True
+        Whether to check agreement between actual and desired devices.
     xp : array_namespace, optional
         A standard-compatible namespace which `actual` and `desired` must match.
 
@@ -996,8 +1020,8 @@ def assert_close_nulp(
     where ``spacing(x)`` is the distance between ``x`` and the nearest adjacent number
     representable by in the data type of ``x``.
     """
-    actual, desired, xp, np = _check_ns_shape_dtype(
-        actual, desired, check_dtype, check_shape, check_scalar, xp
+    actual, desired, xp, np = _check_ns_shape_dtype_device(
+        actual, desired, check_dtype, check_shape, check_scalar, check_device, xp
     )
     if not _is_materializable(actual):
         return

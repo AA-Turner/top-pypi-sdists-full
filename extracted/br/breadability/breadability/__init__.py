@@ -6,6 +6,5 @@ from __future__ import (
     print_function,
     unicode_literals
 )
-import pkg_resources
 
-__version__ = pkg_resources.get_distribution("breadability").version
+__version__ = "0.1.21"

@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 import pytest
 from tibs import Tibs, Mutibs, ByteOrder, Codec
+import hashlib
+import io
 import random
+import sys
 
 
 def _reference_bits_from_bytes(data, offset=0, length=None):
@@ -229,36 +232,34 @@ def test_from_i():
 
 
 def test_from_i_errors():
-    with pytest.raises(OverflowError):
+    with pytest.raises(ValueError):
         _ = Tibs.from_i(4, 2)
 
 
 def test_signed_int_from_large_ints():
-    with pytest.raises(ValueError):
-        _ = Tibs.from_i(-1, 129)
+    # 129 bits used to be rejected; there's no upper limit on the length now.
+    # See test_large_ints.py for fuller coverage.
+    assert Tibs.from_i(-1, 129).all()
     a = Tibs.from_i(-1, 128)
     assert a.all()
     assert a.to_i() == -1
     assert not Tibs.from_i(0, 128).any()
     assert Tibs.from_i(17, 128).to_i() == 17
     assert Tibs.from_i(-17, 128).to_i() == -17
-    with pytest.raises(ValueError):
-        _ = Mutibs.from_i(-1, 129)
+    assert Mutibs.from_i(-1, 129).all()
     b = Mutibs.from_i(-1, 128)
     assert b.all()
     assert b.to_i() == -1
 
 
 def test_unsigned_int_from_large_ints():
-    with pytest.raises(ValueError):
-        _ = Tibs.from_u(0, 129)
+    assert not Tibs.from_u(0, 129).any()
     a = Tibs.from_u(0, 128)
     assert not a.any()
     assert a.to_u() == 0
     assert Tibs.from_u((1 << 128) - 1, 128).all()
     assert Tibs.from_u(17, 128).to_u() == 17
-    with pytest.raises(ValueError):
-        _ = Mutibs.from_u(0, 129)
+    assert not Mutibs.from_u(0, 129).any()
     b = Mutibs.from_u(0, 128)
     assert not b.any()
     assert b.to_u() == 0
@@ -289,14 +290,89 @@ def test_from_f():
 
 def test_raw_bytes_and_offset():
     a = Tibs('0xff00ff')
-    raw_bytes, offset, length = a.to_raw_data()
+    raw_bytes, offset, length = a._raw_data()
     assert raw_bytes == b'\xff\x00\xff'
     assert offset == 0
     b = a[4:20]
-    raw_bytes, offset, length = b.to_raw_data()
+    raw_bytes, offset, length = b._raw_data()
     assert offset == 4
     assert raw_bytes == b'\xff\x00\xff'
     assert Tibs.from_bytes(raw_bytes) & '0x0ffff0' == Tibs('0x0f00f0')
+
+
+def test_buffer_protocol_round_trip():
+    a = Tibs.from_bytes(b'hello world')
+    mv = memoryview(a)
+    assert bytes(mv) == a.to_bytes()
+    assert mv.readonly is True
+    assert mv.format == 'B'
+    assert len(mv) == len(a.to_bytes())
+
+
+def test_buffer_protocol_is_writable_false():
+    a = Tibs('0xff00')
+    mv = memoryview(a)
+    with pytest.raises(TypeError):
+        mv[0] = 0
+
+
+def test_buffer_protocol_keeps_owner_alive():
+    data = bytes(range(256)) * 4
+    a = Tibs.from_bytes(data)
+    mv = memoryview(a)
+    del a
+    assert bytes(mv) == data
+
+
+def test_buffer_protocol_mid_byte_offset_raises():
+    a = Tibs.from_bytes(b'hello')
+    b = a[3:]
+    with pytest.raises(BufferError):
+        memoryview(b)
+
+
+def test_buffer_protocol_unaligned_length_raises():
+    # A byte-aligned start isn't enough: a partial final byte can't be exported
+    # either, because the bits past the logical length belong to whatever the
+    # storage was sliced out of.
+    a = Tibs('0b101')
+    with pytest.raises(BufferError):
+        memoryview(a)
+    assert a.to_padded_bytes() == b'\xa0'
+
+
+def test_buffer_protocol_bytes_do_not_depend_on_provenance():
+    # Equal values must present equal bytes, and unequal values unequal ones.
+    # Exporting a partial final byte broke both directions: Tibs('0xffff')[0:4]
+    # would have shown 0xff where Tibs('0b1111') showed 0xf0, and 0b1010 and
+    # 0b10100 would both have shown 0xa0.
+    sliced, literal = Tibs('0xffff')[0:4], Tibs('0b1111')
+    assert sliced == literal
+    for a in (sliced, literal, Tibs('0b1010'), Tibs('0b10100')):
+        with pytest.raises(BufferError):
+            memoryview(a)
+    # Whole bytes are unaffected, however the Tibs was made.
+    assert bytes(memoryview(Tibs('0xffff')[0:8])) == bytes(memoryview(Tibs('0xff')))
+
+
+def test_buffer_protocol_simple_consumer():
+    # hashlib and BytesIO.write request PyBUF_SIMPLE, which asks for no format
+    # string. That is a separate branch from the memoryview() path above.
+    a = Tibs.from_bytes(b'hello world')
+    assert hashlib.sha256(a).hexdigest() == hashlib.sha256(b'hello world').hexdigest()
+    buffer = io.BytesIO()
+    buffer.write(a)
+    assert buffer.getvalue() == b'hello world'
+
+
+def test_buffer_protocol_repeated_export_releases_owner():
+    a = Tibs.from_bytes(b'hello world')
+    before = sys.getrefcount(a)
+    for _ in range(1000):
+        memoryview(a).release()
+    for _ in range(1000):
+        memoryview(a)
+    assert sys.getrefcount(a) == before
 
 
 def test_mutibs_raw_bytes_and_offset():
@@ -304,13 +380,16 @@ def test_mutibs_raw_bytes_and_offset():
     b = a[4:]
     b += '0x77'
     assert b == Tibs('0xf77')
-    raw_bytes, offset, length = b.to_raw_data()
-    assert Tibs.from_bytes(raw_bytes) & '0x0fff' == Tibs('0x0f77')
-    assert offset == 4
+    # The offset says where the value starts within the bytes returned, and is
+    # what has to be fed back to read them. Slicing a Mutibs copies rather than
+    # sharing, so the copy is free to start on a byte boundary and does; only
+    # Tibs, which slices by sharing storage, has to report a non-zero offset.
+    raw_bytes, offset, length = b._raw_data()
+    assert Tibs.from_bytes(raw_bytes, offset, length) == Tibs('0xf77')
+    assert length == 12
     assert b == Tibs('0xf77')
-    raw_bytes, offset, length = b.as_raw_data()
-    assert Tibs.from_bytes(raw_bytes) & '0x0fff' == Tibs('0x0f77')
-    assert offset == 4
+    raw_bytes, offset, length = b.take_raw_data()
+    assert Tibs.from_bytes(raw_bytes, offset, length) == Tibs('0xf77')
     assert length == 12
     assert b == Tibs()
 
@@ -321,11 +400,11 @@ def test_from_bytes_offsets():
     assert a == Tibs('0xff00ee11')
     b = Tibs.from_bytes(x, None, 16)
     assert b == Tibs('0xff00')
-    c = Tibs.from_bytes(x, offset=16)
+    c = Tibs.from_bytes(x, bit_offset=16)
     assert c == Tibs('0xee11')
     d = Tibs.from_bytes(x, 4, 12)
     assert d == Tibs('0xf00')
-    e = Mutibs.from_bytes(x, length=4, offset=28)
+    e = Mutibs.from_bytes(x, bit_length=4, bit_offset=28)
     assert e == Tibs('0x1')
     f = Mutibs.from_bytes(x, 0, 32)
     assert f == a
@@ -364,15 +443,15 @@ def test_to_padded_bytes_unaligned_slices_match_reference():
 def test_from_bytes_errors():
     x = b'\xff\x00\xee\x11'
     with pytest.raises(ValueError):
-        _ = Tibs.from_bytes(x, length=33)
+        _ = Tibs.from_bytes(x, bit_length=33)
     with pytest.raises(ValueError):
         _ = Tibs.from_bytes(x, None, -1)
     with pytest.raises(ValueError):
-        _ = Tibs.from_bytes(x, offset=-1)
+        _ = Tibs.from_bytes(x, bit_offset=-1)
     with pytest.raises(ValueError):
-        _ = Tibs.from_bytes(x, length=-1)
+        _ = Tibs.from_bytes(x, bit_length=-1)
     with pytest.raises(ValueError):
-        _ = Tibs.from_bytes(x, offset=28, length=5)
+        _ = Tibs.from_bytes(x, bit_offset=28, bit_length=5)
 
 
 def test_bit_ops_alignments():
@@ -390,13 +469,13 @@ def test_bit_ops_alignments():
 def test_raw_data_bug():
     a = Mutibs.from_bytes(b'hello')
     b = a[8:]
-    assert a.to_raw_data() == (b'hello', 0, 40)
-    assert b.to_raw_data() == (b'ello', 0, 32)
+    assert a._raw_data() == (b'hello', 0, 40)
+    assert b._raw_data() == (b'ello', 0, 32)
 
     a = Tibs.from_bytes(b'hello')
     b = a[8:]
-    assert a.to_raw_data() == (b'hello', 0, 40)
-    assert b.to_raw_data() == (b'ello', 0, 32)
+    assert a._raw_data() == (b'hello', 0, 40)
+    assert b._raw_data() == (b'ello', 0, 32)
 
 
 def test_from_bools_generator():
@@ -474,17 +553,55 @@ def test_count_with_range():
         _ = a.count(1, 8, 2)
 
 
-def test_tibs_set_at_returns_new_instance():
+def test_count_byte_aligned():
+    t = Tibs('0x1f2e3f')
+    # Byte-aligned bytes with low nibble 0xf: only the first and last bytes.
+    assert t.count('0x0f', mask='0x0f', byte_aligned=True) == 2
+    # A whole-byte needle uses the byte-oriented fast path.
+    t = Tibs('0xabababab')
+    assert t.count('0xab', byte_aligned=True) == 4
+    assert t.count('0xab') == 4
+    # byte_aligned on a single bit restricts to bit positions on byte boundaries.
+    b = Tibs('0b1000_0001_1000_0000')
+    assert b.count(1) == 3
+    assert b.count(1, byte_aligned=True) == 2
+
+
+def test_count_byte_aligned_matches_find_all():
+    # count must agree with len(find_all) across needle lengths, ranges,
+    # alignment and masks, since it shares the same search dispatch.
+    haystack = Tibs.from_random(20011, seed=b'count-fastpath')
+    needles = ['0b0', '0b1', '0xa', '0xabc', '0xabcd', '0b101',
+               Tibs.from_random(17, seed=b'n1'),
+               Tibs.from_random(64, seed=b'n2'),
+               Tibs.from_random(129, seed=b'n3')]
+    for needle in needles:
+        for byte_aligned in (False, True):
+            for start, end in [(None, None), (3, 19997), (5, 12345)]:
+                expected = len(haystack.find_all(
+                    needle, start=start, end=end, byte_aligned=byte_aligned))
+                assert haystack.count(
+                    needle, start=start, end=end, byte_aligned=byte_aligned) == expected
+    # And with a mask, against the masked find_all.
+    for needle, mask in [('0x0f', '0x0f'), ('0xabcd', '0xf0f0')]:
+        for byte_aligned in (False, True):
+            expected = len(haystack.find_all(
+                needle, mask=mask, byte_aligned=byte_aligned))
+            assert haystack.count(
+                needle, mask=mask, byte_aligned=byte_aligned) == expected
+
+
+def test_tibs_with_set_returns_new_instance():
     a = Tibs('0b0000')
-    b = a.set_at([0, -1])
+    b = a.with_set([0, -1])
     assert a == Tibs('0b0000')
     assert b == Tibs('0b1001')
     assert isinstance(b, Tibs)
 
 
-def test_tibs_unset_at_returns_new_instance():
+def test_tibs_unwith_set_returns_new_instance():
     a = Tibs('0b1111')
-    b = a.unset_at(range(2))
+    b = a.with_unset(range(2))
     assert a == Tibs('0b1111')
     assert b == Tibs('0b0011')
 
@@ -549,7 +666,7 @@ def test_special_method_creation_fails():
         _ = m ^ 'percy'
 
 
-def test_rfind_all():
+def test_rfind_all_iter():
     t = Mutibs.from_zeros(100)
     t.set([4, 8, 14, 99])
     a = t.to_tibs().rfind_all_iter([1])
@@ -673,7 +790,7 @@ def encode_long_int(u: int) -> Tibs:
         m += [1] + chunk  # With continuation bit
     m += [0] + chunks[-1]
     assert len(m) % 8 == 0
-    return m.as_tibs()
+    return m.take_tibs()
 
 
 def decode_to_long_int(t: Tibs) -> int:
@@ -764,14 +881,14 @@ def decode_tibs(b: bytes) -> Tibs:
             m_out = m[7:8]
         else:
             m_out = Mutibs()
-        return m_out.as_tibs()
+        return m_out.take_tibs()
 
     if short_form_flag:
         byte_length = m[2:5].to_u() + 1
         bit_padding = m[5:8].to_u()
         short_length = byte_length * 8 - bit_padding
         m_out = m[8:8 + short_length]
-        return m_out.as_tibs()
+        return m_out.take_tibs()
 
     codec = m[2:5].to_u()
     assert codec == 0
@@ -782,11 +899,11 @@ def decode_tibs(b: bytes) -> Tibs:
         if byte[0] == 0:
             break
     data_start = 8 + len(u)
-    byte_length = decode_to_long_int(u.as_tibs())
+    byte_length = decode_to_long_int(u.take_tibs())
     m_out = m[data_start: data_start + byte_length * 8]
     if bit_padding:
         m_out = m_out[:-bit_padding]
-    return m_out.as_tibs()
+    return m_out.take_tibs()
 
 
 def test_encoding():
@@ -849,3 +966,337 @@ def test_raw_encoding_is_stable_key_for_tibs_and_mutibs():
     assert Mutibs("0b101").encode(Codec.Raw) in keys
     decoded_keys = {Tibs.decode(key).encode(Codec.Raw) for key in keys}
     assert decoded_keys == keys
+
+
+def test_find_with_mask():
+    t = Tibs('0x1f2e3f')
+    # Every byte whose low nibble is 1111, whatever the high nibble.
+    assert t.find('0x0f', mask='0x0f', byte_aligned=True) == 0
+    assert t.rfind('0x0f', mask='0x0f', byte_aligned=True) == 16
+    assert t.find_all('0x0f', mask='0x0f', byte_aligned=True) == [0, 16]
+    # count honours byte_aligned too, so it matches the aligned find_all count.
+    assert t.count('0x0f', mask='0x0f', byte_aligned=True) == 2
+    # Without it, the unaligned matches are seen as well.
+    assert t.count('0x0f', mask='0x0f') == 4
+    assert t.find_all('0x0f', mask='0x0f') == [0, 14, 15, 16]
+    # The masked-out bits of the needle are ignored, whatever they are.
+    assert t.find_all('0xff', mask='0x0f', byte_aligned=True) == [0, 16]
+
+
+def test_find_with_mask_matches_unmasked():
+    t = Tibs('0b10111011')
+    assert t.find_all('0b11', mask='0b11') == t.find_all('0b11') == [2, 3, 6]
+    assert t.find('0b11', mask='0b11') == t.find('0b11')
+    assert t.rfind('0b11', mask='0b11') == t.rfind('0b11')
+    assert t.count('0b11', mask='0b11') == t.count('0b11')
+
+
+def test_find_with_empty_mask_matches_everywhere():
+    t = Tibs('0b10111011')
+    assert t.find_all('0b11', mask='0b00') == [0, 1, 2, 3, 4, 5, 6]
+    assert t.find('0b11', mask='0b00') == 0
+    assert t.rfind('0b11', mask='0b00') == 6
+    assert t.count('0b11', mask='0b00') == 7
+    assert t.count(1, mask='0b0') == 8
+    assert t.find_all('0b11', mask='0b00', byte_aligned=True) == [0]
+
+
+def test_find_with_mask_and_slice():
+    t = Tibs('0b10111011')
+    assert t.find('0b00', mask='0b10') == 1
+    assert t.find('0b00', mask='0b10', start=2) == 5
+    assert t.rfind('0b00', mask='0b10') == 5
+    assert t.find('0b00', mask='0b10', start=2, end=5) is None
+
+
+def test_find_with_mask_long_needles():
+    # Needles over 64 bits use a filter window plus verification.
+    haystack = Tibs.from_random(4000, seed=b'masked')
+    for needle_length in [64, 65, 100, 200]:
+        for at in [0, 5, 1234, 4000 - needle_length]:
+            needle = haystack[at:at + needle_length]
+            # A mask with its set bits only at the very end, so the filter
+            # window doesn't sit at the start of the needle.
+            late = Tibs.from_zeros(needle_length - 8) + Tibs.from_ones(8)
+            for mask in [Tibs.from_ones(needle_length), late]:
+                assert haystack.find(needle, mask=mask) is not None
+                assert at in haystack.find_all(needle, mask=mask)
+                assert haystack.rfind(needle, mask=mask) >= at
+    # Flipping a masked-out bit still matches, flipping a masked-in one doesn't.
+    needle = Mutibs(haystack[100:300])
+    mask = Mutibs.from_ones(200)
+    mask[50] = 0
+    needle[50] = not needle[50]
+    assert haystack.find(needle, mask=mask) == 100
+    assert haystack.find(needle) is None
+    assert haystack.find(needle, mask=Tibs.from_ones(200)) is None
+
+
+def test_find_all_iter_with_mask():
+    t = Tibs('0x1f2e3f')
+    positions = t.find_all('0x0f', mask='0x0f')
+    assert list(t.find_all_iter('0x0f', mask='0x0f')) == positions
+    assert list(t.rfind_all_iter('0x0f', mask='0x0f')) == positions[::-1]
+    long_needle = Tibs.from_zeros(65)
+    haystack = Tibs.from_zeros(500)
+    mask = Tibs.from_ones(64) + Tibs('0b0')
+    assert list(haystack.find_all_iter(long_needle, mask=mask)) == list(range(500 - 64))
+
+
+def test_replaced_with_mask():
+    t = Tibs('0x1f2e3f')
+    assert t.replaced('0x0f', '0x00', mask='0x0f', byte_aligned=True) == Tibs('0x002e00')
+    # The whole match is replaced, and new can be a different length.
+    assert t.replaced('0x0f', '0b1', mask='0x0f', byte_aligned=True) == Tibs('0b1001011101')
+    assert t.replaced('0x0f', '0x00', mask='0x0f', byte_aligned=True, count=1) == Tibs('0x002e3f')
+    assert t.replaced('0x0f', '0x00', mask='0xff', byte_aligned=True) == t
+
+
+def test_mask_length_must_match():
+    t = Tibs('0x1f2e3f')
+    with pytest.raises(ValueError):
+        t.find('0x0f', mask='0b0')
+    with pytest.raises(ValueError):
+        t.rfind('0x0f', mask=Tibs.from_zeros(9))
+    with pytest.raises(ValueError):
+        t.find_all('0x0f', mask='0x0fff')
+    with pytest.raises(ValueError):
+        t.find_all_iter('0x0f', mask='0x0fff')
+    with pytest.raises(ValueError):
+        t.count('0x0f', mask='0x0fff')
+    with pytest.raises(ValueError):
+        t.replaced('0x0f', '0x00', mask='0b1')
+    with pytest.raises(ValueError):
+        t.find('', mask='')
+
+
+def test_find_with_mask_against_reference():
+    random.seed(42)
+    for _ in range(200):
+        haystack_length = random.choice([8, 17, 64, 70, 200])
+        needle_length = random.randint(1, min(haystack_length, 80))
+        haystack = Tibs.from_bools(random.choice([0, 0, 1]) for _ in range(haystack_length))
+        needle = Tibs.from_bools(random.getrandbits(1) for _ in range(needle_length))
+        mask = Tibs.from_bools(random.random() < random.choice([0.1, 0.5, 0.95])
+                               for _ in range(needle_length))
+        byte_aligned = random.random() < 0.4
+        start = random.randint(0, haystack_length)
+        end = random.randint(start, haystack_length)
+
+        expected = [p for p in range(start, end - needle_length + 1)
+                    if (not byte_aligned or p % 8 == 0)
+                    and all(haystack[p + i] == needle[i]
+                            for i in range(needle_length) if mask[i])]
+        assert haystack.find_all(needle, start, end, byte_aligned, mask) == expected
+        assert haystack.find(needle, start, end, byte_aligned, mask) == (
+            expected[0] if expected else None)
+        assert haystack.rfind(needle, start, end, byte_aligned, mask) == (
+            expected[-1] if expected else None)
+        assert list(haystack.find_all_iter(needle, start, end, byte_aligned, mask)) == expected
+        assert list(haystack.rfind_all_iter(needle, start, end, byte_aligned, mask)) == expected[::-1]
+
+
+def _pairwise_reference(a, b):
+    """The eight operations spelled out with the pre-existing operators."""
+    return (
+        (a & b).count(1),
+        (a | b).count(1),
+        (a ^ b).count(1),
+        a.count(1) - (a & b).count(1),
+        (a & b).any(),
+        not (a & b).any(),
+        (a & b) == a,
+        (a & b) == b,
+    )
+
+
+def _pairwise_actual(a, b):
+    return (a.count_and(b), a.count_or(b), a.count_xor(b), a.count_andnot(b),
+            a.intersects(b), a.is_disjoint(b), a.is_subset_of(b), a.is_superset_of(b))
+
+
+def test_pairwise_worked_example():
+    a, b = Tibs('0b1100'), Tibs('0b1010')
+    assert a.count_and(b) == 1     # position 0 only
+    assert a.count_or(b) == 3      # positions 0, 1, 2
+    assert a.count_xor(b) == 2     # positions 1, 2 — the Hamming distance
+    assert a.count_andnot(b) == 1  # position 1
+    assert a.intersects(b) is True
+    assert a.is_disjoint(b) is False
+    assert a.is_subset_of(b) is False
+    assert a.is_superset_of(b) is False  # position 2 is set in b but not in a
+    # A set bit means membership, so the operations ignore matching zeros.
+    assert Tibs('0b1000').is_subset_of('0b1010') is True
+    assert Tibs('0b1010').is_superset_of('0b1000') is True
+    assert Tibs('0b1100').intersects('0b0011') is False
+    assert Tibs('0b1100').is_disjoint('0b0011') is True
+
+
+def test_pairwise_promotes_arguments():
+    assert Tibs('0xff').count_and('0x0f') == 4
+    assert Tibs('0xff').count_and(b'\x0f') == 4
+    assert Tibs('0xff').count_and(Mutibs('0x0f')) == 4
+    assert Tibs('0b1010').is_subset_of([1, 1, 1, 1]) is True
+    assert Tibs('0b1111').is_superset_of([1, 0, 1, 0]) is True
+    assert Tibs('0xff').is_disjoint(b'\x00') is True
+
+
+def test_pairwise_edge_cases():
+    empty, zeros, ones = Tibs(''), Tibs('0b0000'), Tibs('0b1111')
+    # The empty set is a subset of everything and intersects nothing.
+    assert zeros.is_subset_of('0b1010') is True
+    assert zeros.intersects(ones) is False
+    assert zeros.is_disjoint(ones) is True
+    assert empty.is_subset_of(empty) is True
+    assert empty.is_superset_of(empty) is True
+    assert empty.intersects(empty) is False
+    assert empty.is_disjoint(empty) is True
+    assert empty.count_and(empty) == 0
+    # Subset is reflexive, and mutual subsets are equal.
+    for t in [empty, zeros, ones, Tibs('0b1010')]:
+        assert t.is_subset_of(t) is True
+        assert t.is_superset_of(t) is True
+    assert ones.is_subset_of(zeros) is False
+    assert zeros.is_subset_of(ones) is True
+    # Superset is subset with the operands swapped.
+    assert ones.is_superset_of(zeros) is True
+    assert zeros.is_superset_of(ones) is False
+    # Everything is disjoint from all-zeros, including all-zeros itself.
+    assert zeros.is_disjoint(zeros) is True
+    assert ones.is_disjoint(ones) is False
+
+
+def test_pairwise_length_mismatch():
+    a = Tibs('0b1010')
+    for call in [lambda: a.count_and('0b101'), lambda: a.count_or('0b101'),
+                 lambda: a.count_xor('0b101'), lambda: a.count_andnot('0b101'),
+                 lambda: a.intersects('0b101'), lambda: a.is_disjoint('0b101'),
+                 lambda: a.is_subset_of('0b101'), lambda: a.is_superset_of('0b101')]:
+        with pytest.raises(ValueError):
+            call()
+
+
+def test_pairwise_unaligned_operands():
+    # Operands taken as slices of dense parents carry set padding bits either
+    # side of their live range; those must not leak into the answers.
+    parents = [Tibs.from_ones(600), Tibs.from_zeros(600),
+               Tibs.from_random(600, seed=b'pairwise')]
+    for pa in parents:
+        for pb in parents:
+            for offset_a in range(8):
+                for offset_b in range(8):
+                    for length in [1, 7, 8, 9, 63, 64, 65, 71, 128, 200]:
+                        a = pa[offset_a:offset_a + length]
+                        b = pb[offset_b:offset_b + length]
+                        assert _pairwise_actual(a, b) == _pairwise_reference(a, b)
+
+
+def test_pairwise_identities():
+    random.seed(4)
+    for _ in range(300):
+        n = random.randint(0, 300)
+        a = Tibs.from_bools(random.choice([0, 0, 1]) for _ in range(n))
+        b = Tibs.from_bools(random.choice([0, 0, 1]) for _ in range(n))
+        assert _pairwise_actual(a, b) == _pairwise_reference(a, b)
+        assert a.count_xor(b) == a.count_or(b) - a.count_and(b)
+        assert a.count_xor(b) == a.count_andnot(b) + b.count_andnot(a)
+        assert a.count_or(b) == a.count(1) + b.count(1) - a.count_and(b)
+        assert a.intersects(b) == (a.count_and(b) > 0)
+        assert a.is_disjoint(b) == (a.count_and(b) == 0)
+        assert a.is_subset_of(b) == (a.count_andnot(b) == 0)
+        assert a.is_superset_of(b) == (b.count_andnot(a) == 0)
+        assert (a.is_subset_of(b) and b.is_subset_of(a)) == (a == b)
+        # Each new predicate is the mirror or the negation of an old one.
+        assert a.is_disjoint(b) == (not a.intersects(b))
+        assert a.is_superset_of(b) == b.is_subset_of(a)
+
+
+def test_count_defaults_to_set_bits():
+    for cls in (Tibs, Mutibs):
+        t = cls('0xef')
+        assert t.count() == t.count(1) == 7
+        assert t.count(0) == 1
+        # The optional value leaves the other parameters usable by keyword.
+        assert t.count(start=0, end=4) == 3
+        assert t.count(1, 0, 4) == 3
+        assert cls('').count() == 0
+        assert cls.from_ones(100).count() == 100
+        assert cls.from_zeros(100).count() == 0
+    # An unset one-bit mask still matches every position.
+    assert Tibs('0xef').count(mask='0b0') == 8
+
+
+def _ref_extract(word, mask):
+    return Tibs.from_bools(b for b, m in zip(word, mask) if m)
+
+
+def _ref_deposit(word, value, mask):
+    vbits = iter(value)
+    return Tibs.from_bools(next(vbits) if m else w for w, m in zip(word, mask))
+
+
+def test_extract_deposit_worked_example():
+    word, mask = Tibs('0b11010110'), Tibs('0b10110000')
+    assert word.extracted(mask) == Tibs('0b101')
+    assert word.deposited('0b111', mask) == Tibs('0b11110110')
+    # extract reads, deposit writes; the original is untouched by deposited.
+    assert word == Tibs('0b11010110')
+
+
+def test_extract_deposit_edge_cases():
+    t = Tibs('0b1011')
+    # All-zeros mask: nothing selected.
+    assert t.extracted('0b0000') == Tibs()
+    assert t.deposited('', '0b0000') == t
+    # All-ones mask: extract is a copy, deposit overwrites wholly.
+    assert t.extracted('0b1111') == t
+    assert t.deposited('0b0000', '0b1111') == Tibs('0b0000')
+    # Empty container.
+    assert Tibs('').extracted('') == Tibs()
+    assert Tibs('').deposited('', '') == Tibs()
+
+
+def test_extract_deposit_promotes_arguments():
+    assert Tibs.from_zeros(8).deposited(b'\xff', Tibs.from_ones(8)) == Tibs('0xff')
+    assert Tibs('0xff').extracted(Mutibs('0x0f')) == Tibs('0b1111')
+    assert Tibs('0b0000').deposited([1, 1], [True, False, True, False]) == Tibs('0b1010')
+
+
+def test_extract_deposit_errors():
+    t = Tibs('0b1011')
+    with pytest.raises(ValueError):
+        t.extracted('0b101')                 # mask length != self length
+    with pytest.raises(ValueError):
+        t.deposited('0b1', '0b101')        # mask length != self length
+    with pytest.raises(ValueError):
+        t.deposited('0b1', '0b1100')       # value length != mask.count()
+
+
+def test_extract_deposit_unaligned():
+    # Slices taken at non-byte offsets from dense parents; a padding bug would
+    # show up as extra or missing bits in the result.
+    parents = [Tibs.from_ones(400), Tibs.from_zeros(400),
+               Tibs.from_random(400, seed=b'ed')]
+    for pw in parents:
+        for pm in parents:
+            for offset in range(8):
+                for length in [1, 8, 9, 65, 130]:
+                    word, mask = pw[offset:offset + length], pm[offset:offset + length]
+                    got = word.extracted(mask)
+                    assert got == _ref_extract(word, mask)
+                    value = Tibs.from_ones(mask.count())
+                    assert word.deposited(value, mask) == _ref_deposit(word, value, mask)
+
+
+def test_extract_deposit_roundtrip_and_reference():
+    random.seed(9)
+    for _ in range(300):
+        n = random.randint(0, 250)
+        word = Tibs.from_bools(random.getrandbits(1) for _ in range(n))
+        mask = Tibs.from_bools(random.random() < 0.5 for _ in range(n))
+        value = Tibs.from_bools(random.getrandbits(1) for _ in range(mask.count()))
+        assert word.extracted(mask) == _ref_extract(word, mask)
+        assert word.deposited(value, mask) == _ref_deposit(word, value, mask)
+        # extract and deposit are inverses.
+        assert word.deposited(word.extracted(mask), mask) == word
+        assert word.deposited(value, mask).extracted(mask) == value

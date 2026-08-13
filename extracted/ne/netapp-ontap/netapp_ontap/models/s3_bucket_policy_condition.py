@@ -25,11 +25,23 @@ class S3BucketPolicyConditionSchema(ResourceSchema, metaclass=ResourceSchemaMeta
 
 Example: ["/"] """
 
+    if_match = marshmallow_fields.List(marshmallow_fields.Str, data_key="if_match", allow_none=True)
+    r""" Controls conditional writes via If-Match header, evaluated with the Null operator; indicates whether the If-Match header is present or not.
+
+
+Example: ["true"] """
+
+    if_none_match = marshmallow_fields.Boolean(data_key="if_none_match", allow_none=True)
+    r""" Controls conditional writes via If-None-Match header, evaluated with the Null operator; indicates whether the If-None-Match header is present or not. """
+
     max_keys = marshmallow_fields.List(Size, data_key="max_keys", allow_none=True)
     r""" An array of maximum keys that are allowed or denied to be retrieved using an S3 list operation, based on the condition operator specified.
 
 
 Example: [1000] """
+
+    object_creation_operation = marshmallow_fields.Boolean(data_key="object_creation_operation", allow_none=True)
+    r""" Controls object creation requests, evaluated with the Bool operator; indicates whether it is an object-creation request or not. """
 
     operator = marshmallow_fields.Str(data_key="operator", allow_none=True)
     r""" Condition operator that is applied to the specified condition key.
@@ -49,7 +61,9 @@ Valid choices:
 * numeric_greater_than
 * numeric_greater_than_equals
 * numeric_less_than
-* numeric_less_than_equals """
+* numeric_less_than_equals
+* bool
+* null """
 
     prefixes = marshmallow_fields.List(marshmallow_fields.Str, data_key="prefixes", allow_none=True)
     r""" An array of prefixes that are compared with the input prefix value specified at the time of execution of an S3-based command, using the condition operator specified.
@@ -75,33 +89,42 @@ Example: ["user1"] """
 
     gettable_fields = [
         "delimiters",
+        "if_match",
+        "if_none_match",
         "max_keys",
+        "object_creation_operation",
         "operator",
         "prefixes",
         "source_ips",
         "usernames",
     ]
-    """delimiters,max_keys,operator,prefixes,source_ips,usernames,"""
+    """delimiters,if_match,if_none_match,max_keys,object_creation_operation,operator,prefixes,source_ips,usernames,"""
 
     patchable_fields = [
         "delimiters",
+        "if_match",
+        "if_none_match",
         "max_keys",
+        "object_creation_operation",
         "operator",
         "prefixes",
         "source_ips",
         "usernames",
     ]
-    """delimiters,max_keys,operator,prefixes,source_ips,usernames,"""
+    """delimiters,if_match,if_none_match,max_keys,object_creation_operation,operator,prefixes,source_ips,usernames,"""
 
     postable_fields = [
         "delimiters",
+        "if_match",
+        "if_none_match",
         "max_keys",
+        "object_creation_operation",
         "operator",
         "prefixes",
         "source_ips",
         "usernames",
     ]
-    """delimiters,max_keys,operator,prefixes,source_ips,usernames,"""
+    """delimiters,if_match,if_none_match,max_keys,object_creation_operation,operator,prefixes,source_ips,usernames,"""
 
 
 class S3BucketPolicyCondition(Resource):

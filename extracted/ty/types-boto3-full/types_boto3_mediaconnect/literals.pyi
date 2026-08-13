@@ -35,6 +35,7 @@ __all__ = (
     "EncodingNameType",
     "EncodingProfileType",
     "EntitlementStatusType",
+    "FabricLatencyModeType",
     "FailoverInputSourcePriorityModeType",
     "FailoverModeType",
     "FlowActiveWaiterName",
@@ -134,6 +135,7 @@ EncoderProfileType = Literal["high", "main"]
 EncodingNameType = Literal["jxsv", "pcm", "raw", "smpte291"]
 EncodingProfileType = Literal["CONTRIBUTION_H264_DEFAULT", "DISTRIBUTION_H264_DEFAULT"]
 EntitlementStatusType = Literal["DISABLED", "ENABLED"]
+FabricLatencyModeType = Literal["BALANCED", "LOW_LATENCY"]
 FailoverInputSourcePriorityModeType = Literal["NO_PRIORITY", "PRIMARY_SECONDARY"]
 FailoverModeType = Literal["FAILOVER", "MERGE"]
 FlowActiveWaiterName = Literal["flow_active"]

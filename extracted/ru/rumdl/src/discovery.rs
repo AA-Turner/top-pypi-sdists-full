@@ -6,6 +6,7 @@
 //! live in this module:
 //!
 //! - the markdown extension set and how it is matched,
+//! - the final source-kind gate for each adapter's capabilities,
 //! - how ignore-file handling (`.gitignore`, `.markdownlintignore`, hidden
 //!   entries) is configured on a walker,
 //! - how `exclude` patterns from config are expanded and matched.
@@ -125,6 +126,93 @@ impl ExplicitIncludeMatchers {
     /// pattern in full.
     pub fn matches_relative_path(&self, path: &str) -> bool {
         self.matchers.iter().any(|m| m.path_matcher.is_match(path))
+    }
+}
+
+/// Source kinds an adapter can interpret after a path passes include matching.
+///
+/// The CLI can extract Markdown from Rust doc comments, while the language
+/// server indexes complete Markdown documents and must not parse a Rust source
+/// file as if the whole file were Markdown. A CLI `--include` is stronger still:
+/// it explicitly asks rumdl to process whatever the pattern selects.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LintableFileMode {
+    Markdown,
+    MarkdownAndRust,
+    Any,
+}
+
+/// The shared final gate for files yielded by CLI and LSP discovery walks.
+///
+/// Include overrides decide *where* to look. This selector decides whether a
+/// matching file is a source the adapter can interpret. Explicit config
+/// includes can name template-like Markdown files beyond the standard
+/// extensions; Rust remains capability-gated even when explicitly named.
+pub struct LintablePathSelector {
+    base: Option<PathBuf>,
+    explicit: ExplicitIncludeMatchers,
+    mode: LintableFileMode,
+}
+
+impl LintablePathSelector {
+    pub fn new(base: Option<&Path>, includes: &[String], mode: LintableFileMode) -> Self {
+        Self {
+            base: base.map(Path::to_path_buf),
+            explicit: ExplicitIncludeMatchers::new(includes),
+            mode,
+        }
+    }
+
+    /// Whether an included path is a source this adapter can interpret.
+    pub fn keeps(&self, path: &Path) -> bool {
+        if self.mode == LintableFileMode::Any {
+            return true;
+        }
+        if has_markdown_extension(path) {
+            return true;
+        }
+
+        // Rust doc-comment extraction currently dispatches on lowercase `.rs`.
+        // Keep this capability gate identical to the downstream processor.
+        let is_rust = path.extension().and_then(OsStr::to_str) == Some("rs");
+        if is_rust {
+            return self.mode == LintableFileMode::MarkdownAndRust;
+        }
+
+        match self.base.as_deref().and_then(|base| path_relative_to(path, base)) {
+            Some(relative) => self.explicit.matches_relative_path(&relative),
+            // Outside the pattern base only unanchored patterns can still apply;
+            // matching the full path covers those.
+            None => self.explicit.matches_relative_path(&path.to_string_lossy()),
+        }
+    }
+
+    /// Apply the corresponding coarse file-type filter to a discovery walk.
+    /// [`Self::keeps`] remains the precise final gate because type filters only
+    /// see file names, not root-relative include paths.
+    pub fn configure_types(&self, builder: &mut ignore::WalkBuilder) -> Result<(), ignore::Error> {
+        if self.mode == LintableFileMode::Any {
+            return Ok(());
+        }
+
+        let mut types = ignore::types::TypesBuilder::new();
+        types.add_defaults();
+        for extension in MARKDOWN_EXTENSIONS {
+            types.add("markdown", &any_case_extension_glob(extension))?;
+        }
+        types.select("markdown");
+        if self.mode == LintableFileMode::MarkdownAndRust {
+            types.add("rustdoc", "*.rs")?;
+            types.select("rustdoc");
+        }
+        for glob in self.explicit.file_name_globs() {
+            types.add("configinclude", glob)?;
+        }
+        if !self.explicit.is_empty() {
+            types.select("configinclude");
+        }
+        builder.types(types.build()?);
+        Ok(())
     }
 }
 
@@ -248,7 +336,11 @@ pub fn apply_markdown_walk_options<P: AsRef<Path>>(
         .add_custom_ignore_filename(".markdownlintignore");
 
     if options.skip_vendor_dirs {
-        builder.filter_entry(|entry| {
+        let roots: Vec<PathBuf> = roots.iter().map(|root| root.as_ref().to_path_buf()).collect();
+        builder.filter_entry(move |entry| {
+            if roots.iter().any(|root| root == entry.path()) {
+                return true;
+            }
             let name = entry.file_name().to_str().unwrap_or("");
             name != ".git" && name != "node_modules" && name != "target"
         });
@@ -260,6 +352,141 @@ pub fn markdown_walk_builder(root: &Path, options: &MarkdownWalkOptions) -> igno
     let mut builder = ignore::WalkBuilder::new(root);
     apply_markdown_walk_options(&mut builder, &[root], options);
     builder
+}
+
+/// A complete, configured Markdown workspace scan.
+///
+/// This owns the selection policy shared by full scans and incremental file
+/// events: standard Markdown extensions, explicit nonstandard file includes,
+/// include filtering, excludes, ignore files, and optional vendor-directory
+/// pruning. Adapters choose the options; they do not reconstruct the policy.
+pub struct MarkdownWorkspaceScan<'a> {
+    options: &'a MarkdownWalkOptions,
+    includes: &'a [String],
+    excludes: &'a ExcludeMatchers,
+}
+
+impl<'a> MarkdownWorkspaceScan<'a> {
+    pub fn new(options: &'a MarkdownWalkOptions, includes: &'a [String], excludes: &'a ExcludeMatchers) -> Self {
+        Self {
+            options,
+            includes,
+            excludes,
+        }
+    }
+
+    /// Collect all selected files under `roots`.
+    pub fn collect(&self, roots: &[PathBuf]) -> Vec<PathBuf> {
+        let mut files = Vec::new();
+        for root in roots {
+            let selection = RootSelection::new(root, self.includes);
+            let mut builder = markdown_walk_builder(root, self.options);
+            selection.configure_walk(&mut builder);
+
+            for result in builder.build() {
+                match result {
+                    Ok(entry)
+                        if entry.file_type().is_some_and(|file_type| file_type.is_file())
+                            && selection.is_lintable(entry.path())
+                            && !self.excluded(root, entry.path()) =>
+                    {
+                        files.push(entry.into_path());
+                    }
+                    Ok(_) => {}
+                    Err(error) => log::warn!("Error scanning {}: {error}", root.display()),
+                }
+            }
+        }
+        files.sort();
+        files.dedup();
+        files
+    }
+
+    /// Whether an incremental file event would be absent from a full scan.
+    pub fn path_is_ignored(&self, roots: &[PathBuf], path: &Path) -> bool {
+        let Some(root) = roots
+            .iter()
+            .filter(|root| path.starts_with(root))
+            .max_by_key(|root| root.components().count())
+        else {
+            return false;
+        };
+
+        let selection = RootSelection::new(root, self.includes);
+        if !selection.selects(path) || self.excluded(root, path) {
+            return true;
+        }
+
+        if self.options.skip_vendor_dirs
+            && let Ok(relative) = path.strip_prefix(root)
+            && relative.components().any(|component| {
+                matches!(component, std::path::Component::Normal(name) if name == ".git" || name == "node_modules" || name == "target")
+            })
+        {
+            return true;
+        }
+
+        let target = path.to_path_buf();
+        let mut builder = markdown_walk_builder(root, self.options);
+        selection.configure_walk(&mut builder);
+        // `filter_entry` replaces the vendor filter, which was checked above.
+        builder.filter_entry(move |entry| target.starts_with(entry.path()));
+        !builder.build().flatten().any(|entry| entry.path() == path)
+    }
+
+    fn excluded(&self, root: &Path, path: &Path) -> bool {
+        self.excludes
+            .excludes_file(path_relative_to(path, root).as_deref(), path)
+    }
+}
+
+struct RootSelection {
+    lintable: LintablePathSelector,
+    overrides: Option<ignore::overrides::Override>,
+}
+
+impl RootSelection {
+    fn new(root: &Path, includes: &[String]) -> Self {
+        let normalized: Vec<String> = includes
+            .iter()
+            .map(|pattern| normalize_pattern_for_base(pattern, Some(root)))
+            .collect();
+        let overrides = if normalized.is_empty() {
+            None
+        } else {
+            let mut builder = ignore::overrides::OverrideBuilder::new(root);
+            for pattern in &normalized {
+                if let Err(error) = builder.add(pattern) {
+                    log::warn!("Invalid include pattern '{pattern}': {error}");
+                }
+            }
+            builder.build().ok()
+        };
+        Self {
+            lintable: LintablePathSelector::new(Some(root), &normalized, LintableFileMode::Markdown),
+            overrides,
+        }
+    }
+
+    fn configure_walk(&self, builder: &mut ignore::WalkBuilder) {
+        if let Err(error) = self.lintable.configure_types(builder) {
+            log::warn!("Failed to configure workspace source types: {error}");
+        }
+        if let Some(overrides) = &self.overrides {
+            builder.overrides(overrides.clone());
+        }
+    }
+
+    fn selects(&self, path: &Path) -> bool {
+        self.overrides
+            .as_ref()
+            .is_none_or(|overrides| overrides.matched(path, false).is_whitelist())
+            && self.is_lintable(path)
+    }
+
+    fn is_lintable(&self, path: &Path) -> bool {
+        self.lintable.keeps(path)
+    }
 }
 
 /// Drop Windows' verbatim `\\?\` prefix from a canonicalized path string.
@@ -622,6 +849,120 @@ mod tests {
         assert!(has_markdown_extension(Path::new("notebook.Rmd")));
         assert!(!has_markdown_extension(Path::new("no_extension")));
         assert!(!has_markdown_extension(Path::new("lib.rs")));
+    }
+
+    #[test]
+    fn lintable_selector_makes_adapter_capabilities_explicit() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+        fs::create_dir_all(root.join("docs")).unwrap();
+        fs::create_dir_all(root.join("templates")).unwrap();
+        fs::create_dir_all(root.join("src")).unwrap();
+        for relative in [
+            "docs/guide.md",
+            "docs/notes.txt",
+            "templates/page.md.jinja",
+            "src/lib.rs",
+            "src/upper.RS",
+        ] {
+            fs::write(root.join(relative), "content\n").unwrap();
+        }
+        let includes = vec![
+            "docs/**".to_string(),
+            "templates/**/*.md.jinja".to_string(),
+            "src/**/*.rs".to_string(),
+        ];
+
+        let markdown = LintablePathSelector::new(Some(root), &includes, LintableFileMode::Markdown);
+        assert!(markdown.keeps(&root.join("docs/guide.md")));
+        assert!(markdown.keeps(&root.join("templates/page.md.jinja")));
+        assert!(!markdown.keeps(&root.join("docs/notes.txt")));
+        assert!(
+            !markdown.keeps(&root.join("src/lib.rs")),
+            "an LSP must not parse a complete Rust source file as Markdown"
+        );
+
+        let rustdoc = LintablePathSelector::new(Some(root), &includes, LintableFileMode::MarkdownAndRust);
+        assert!(rustdoc.keeps(&root.join("src/lib.rs")));
+        assert!(!rustdoc.keeps(&root.join("src/upper.RS")));
+        assert!(!rustdoc.keeps(&root.join("docs/notes.txt")));
+
+        let unrestricted = LintablePathSelector::new(Some(root), &includes, LintableFileMode::Any);
+        assert!(unrestricted.keeps(&root.join("docs/notes.txt")));
+    }
+
+    #[test]
+    fn workspace_scan_rejects_explicit_rust_includes() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().to_path_buf();
+        fs::create_dir(root.join("src")).unwrap();
+        fs::write(root.join("src/lib.rs"), "/// # Not a document\n").unwrap();
+        fs::write(root.join("README.md"), "# Readme\n").unwrap();
+
+        let options = MarkdownWalkOptions {
+            respect_gitignore: false,
+            skip_vendor_dirs: true,
+        };
+        let includes = vec!["src/**/*.rs".to_string()];
+        let excludes = ExcludeMatchers::new(&[]);
+        let scan = MarkdownWorkspaceScan::new(&options, &includes, &excludes);
+
+        assert!(scan.collect(std::slice::from_ref(&root)).is_empty());
+        assert!(scan.path_is_ignored(std::slice::from_ref(&root), &root.join("src/lib.rs")));
+    }
+
+    #[test]
+    fn workspace_scan_applies_includes_to_standard_and_explicit_files() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().to_path_buf();
+        fs::create_dir(root.join("docs")).unwrap();
+        fs::create_dir(root.join("templates")).unwrap();
+        fs::write(root.join("README.md"), "# Root\n").unwrap();
+        fs::write(root.join("docs/guide.md"), "# Guide\n").unwrap();
+        fs::write(root.join("templates/page.md.jinja"), "# Template\n").unwrap();
+        fs::write(root.join("templates/page.txt"), "not markdown\n").unwrap();
+
+        let options = MarkdownWalkOptions {
+            respect_gitignore: false,
+            skip_vendor_dirs: true,
+        };
+        let includes = vec!["docs/**".to_string(), "templates/**/*.md.jinja".to_string()];
+        let excludes = ExcludeMatchers::new(&[]);
+        let scan = MarkdownWorkspaceScan::new(&options, &includes, &excludes);
+
+        // The test creates these names itself, so normalizing separators
+        // unconditionally is safe and keeps one expected value for every platform.
+        let names: Vec<String> = scan
+            .collect(std::slice::from_ref(&root))
+            .iter()
+            .map(|path| path.strip_prefix(&root).unwrap().to_string_lossy().replace('\\', "/"))
+            .collect();
+        assert_eq!(names, vec!["docs/guide.md", "templates/page.md.jinja"]);
+
+        assert!(!scan.path_is_ignored(std::slice::from_ref(&root), &root.join("templates/page.md.jinja")));
+        assert!(scan.path_is_ignored(std::slice::from_ref(&root), &root.join("README.md")));
+        assert!(scan.path_is_ignored(std::slice::from_ref(&root), &root.join("templates/page.txt")));
+    }
+
+    #[test]
+    fn workspace_scan_does_not_prune_a_vendor_named_root() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().join("target");
+        fs::create_dir(&root).unwrap();
+        fs::write(root.join("README.md"), "# Root\n").unwrap();
+        fs::create_dir(root.join("target")).unwrap();
+        fs::write(root.join("target/generated.md"), "# Generated\n").unwrap();
+
+        let options = MarkdownWalkOptions {
+            respect_gitignore: false,
+            skip_vendor_dirs: true,
+        };
+        let excludes = ExcludeMatchers::new(&[]);
+        let scan = MarkdownWorkspaceScan::new(&options, &[], &excludes);
+
+        assert_eq!(scan.collect(std::slice::from_ref(&root)), vec![root.join("README.md")]);
+        assert!(!scan.path_is_ignored(std::slice::from_ref(&root), &root.join("README.md")));
+        assert!(scan.path_is_ignored(std::slice::from_ref(&root), &root.join("target/generated.md")));
     }
 
     #[test]

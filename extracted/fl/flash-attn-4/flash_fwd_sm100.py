@@ -746,6 +746,8 @@ class FlashAttentionForwardSm100:
             cute.cosize(sQ_layout) if const_expr(not self.overlap_sO_sQ) else
             cutlass.max(cute.cosize(sQ_layout), cute.cosize(sO_layout) * self.o_dtype.width // self.q_dtype.width)
         )
+        # K and V alias the same physical buffer and may have different extents.
+        sKV_size = cutlass.max(cute.cosize(sK_layout), cute.cosize(sV_layout))
 
         sched_response_size = self.sched_stages * 4 if self.dynamic_persistent else 0
         sched_mbar_size = self.sched_stages * 2 if self.dynamic_persistent else 0
@@ -786,8 +788,7 @@ class FlashAttentionForwardSm100:
                 cute.struct.MemRange[self.q_dtype, sQ_size], self.buffer_align_bytes
             ]
             sK: cute.struct.Align[
-                # cute.cosize(sK_layout) is correct even in the case of self.uneven_kv_smem
-                cute.struct.MemRange[self.k_dtype, cute.cosize(sK_layout)],
+                cute.struct.MemRange[self.k_dtype, sKV_size],
                 self.buffer_align_bytes,
             ]
 
@@ -1650,6 +1651,12 @@ class FlashAttentionForwardSm100:
                             kv_producer_state.advance()
 
             else:
+                # Match the dense path (get_n_block_min_max): the scheduler packs the
+                # per-batch dynamic num_splits into the top 16 bits of split_idx.
+                num_splits_dyn = num_splits
+                if const_expr(self.is_split_kv and block_info.pack_split_idx):
+                    num_splits_dyn = split_idx >> 16
+                    split_idx = split_idx & 0xFFFF
                 kv_producer_state, q_producer_phase = produce_block_sparse_loads_sm100(
                     blocksparse_tensors,
                     batch_idx,
@@ -1657,7 +1664,7 @@ class FlashAttentionForwardSm100:
                     m_block,
                     seqlen,
                     split_idx,
-                    num_splits,
+                    num_splits_dyn,
                     kv_producer_state,
                     load_Q,
                     load_K,
@@ -1804,13 +1811,18 @@ class FlashAttentionForwardSm100:
             process_tile = False
 
             if const_expr(self.use_block_sparsity):
+                # See the load warp: unpack dynamic num_splits packed by the scheduler.
+                num_splits_dyn = num_splits
+                if const_expr(self.is_split_kv and block_info.pack_split_idx):
+                    num_splits_dyn = split_idx >> 16
+                    split_idx = split_idx & 0xFFFF
                 block_iter_count = get_total_block_count(
                     blocksparse_tensors,
                     batch_idx,
                     head_idx,
                     m_block,
                     split_idx,
-                    num_splits,
+                    num_splits_dyn,
                     self.qhead_per_kvhead if const_expr(self.pack_gqa) else 1,
                     self.q_subtile_factor,
                     seqlen_info=seqlen,
@@ -2106,7 +2118,10 @@ class FlashAttentionForwardSm100:
             n_block_min, n_block_max = block_info.get_n_block_min_max(
                 seqlen, m_block, split_idx=split_idx, num_splits=num_splits,
             )
+            # Keep the dynamic num_splits for the block-sparse helpers below.
+            num_splits_dyn = num_splits
             if const_expr(self.is_split_kv and block_info.pack_split_idx):
+                num_splits_dyn = split_idx >> 16
                 split_idx = split_idx & 0xFFFF
 
             mask = AttentionMaskCls(seqlen)
@@ -2193,7 +2208,7 @@ class FlashAttentionForwardSm100:
                     head_idx,
                     m_block,
                     split_idx,
-                    num_splits,
+                    num_splits_dyn,
                     self.qhead_per_kvhead if const_expr(self.pack_gqa) else 1,
                     self.q_subtile_factor,
                     seqlen_info=seqlen,
@@ -2255,7 +2270,7 @@ class FlashAttentionForwardSm100:
                     m_block,
                     seqlen,
                     split_idx,
-                    num_splits,
+                    num_splits_dyn,
                     softmax_step,
                     mask_fn,
                     mask_fn_none,
@@ -2610,7 +2625,10 @@ class FlashAttentionForwardSm100:
             n_block_min, n_block_max = block_info.get_n_block_min_max(
                 seqlen, m_block, split_idx=split_idx, num_splits=num_splits,
             )
+            # Keep the dynamic num_splits for the block-sparse helper below.
+            num_splits_dyn = num_splits
             if const_expr(self.is_split_kv and block_info.pack_split_idx):
+                num_splits_dyn = split_idx >> 16
                 split_idx = split_idx & 0xFFFF
 
             if const_expr(self.is_split_kv):
@@ -2636,7 +2654,7 @@ class FlashAttentionForwardSm100:
                     head_idx,
                     m_block,
                     split_idx,
-                    num_splits,
+                    num_splits_dyn,
                     self.qhead_per_kvhead if const_expr(self.pack_gqa) else 1,
                     self.q_subtile_factor,
                     seqlen_info=seqlen,

@@ -36,6 +36,21 @@ letter of the derivation and destroy its purpose. So a stranded family produces
 a typed ``structure_unsupported`` refusal, the pod adopts nothing and mints the
 ordinary way, and the reason names the class — which is the signal that says
 which family's structure-only build to build next.
+
+The weight-free premise is FENCED, not assumed (pgw#1173)
+---------------------------------------------------------
+Every VRAM conclusion in the compile loop follows from "compilation is
+weight-free", so this child proves it about the pipeline it is about to trace
+rather than inferring it from the absence of a complaint. Two guards used to
+stand here and neither could see the case they were named for: a
+``place=False`` load puts real weights on the HOST, where
+:func:`off_host_tensors` cannot see them, and
+``structure_only.structure_only_components`` is satisfied by ANY one virtual
+component, so a family declaring two targets passed with one of them stranded
+on real weights. :func:`gen_worker.models.structure_only.assert_weight_free`
+is the ALL-of check over the declared targets, device-blind, typed
+``StructureNotHonored`` — the type that already means exactly this and that
+this path is required to treat as fatal.
 """
 
 from __future__ import annotations
@@ -190,12 +205,22 @@ def run(job: TraceJob) -> int:
             f"holds no card, so this composition would be competing for VRAM "
             f"with the serving parent that spawned it")
 
+    # The weight-free PREMISE, fenced (pgw#1173). Every declared target this
+    # pipeline carries must hold zero real parameters — an ALL-of check, and
+    # one that does not care which device the weights are on. The two guards
+    # that stood here before could both read clean on a composition that traces
+    # real weights: `off_host_tensors` sees nothing because `place=False` puts
+    # them on the HOST, and `structure_only_components` is satisfied by ANY one
+    # virtual component, so a two-target family with one target stranded passed
+    # both. This is the seam every downstream VRAM conclusion rests on, so it
+    # fails closed and names the component, the class and the bytes.
+    try:
+        structure_only.assert_weight_free(
+            pipeline, cfg.targets, what=f"the boot trace of {job.function!r}")
+    except structure_only.StructureNotHonored as exc:
+        return _fail(report_path, "structure_not_honored", str(exc))
     virtual = structure_only.structure_only_components(pipeline)
     if not virtual:
-        # `_assert_structure_honored` normally catches a composition that
-        # swallowed the injected modules; this is the belt to its braces at the
-        # one seam where a real-weight load is a CORRECTNESS failure and not
-        # merely a cost.
         return _fail(
             report_path, "structure_not_honored",
             f"{type(pipeline).__name__} composed no structure-only component "
@@ -275,8 +300,39 @@ def run(job: TraceJob) -> int:
         code_digest=CODE_DIGEST,
         prop_probe_ms=prop_ms,
         export_probe_ms=export_ms,
+        device_peak_bytes=_device_peak_bytes(),
     ))
     return EXIT_OK
+
+
+def _device_peak_bytes() -> int:
+    """This child's own device high-water, including its CUDA context.
+
+    pgw#1165: the number the parent's concurrency budget is derived from, and
+    it has to be the WHOLE process footprint rather than the allocator's view.
+    `max_memory_allocated` reports tensors only; the dominant term here is the
+    CUDA context plus the cuBLAS/cuDNN kernel images the export loads, which is
+    ~1.3 GiB and belongs to the process, not to any tensor. Measured as
+    `total - free` on THIS process's device after the work, minus nothing:
+    the parent needs to know what one child costs the card, and every byte of
+    it costs the card.
+
+    A trace that never touched CUDA reports 0, which the parent reads as
+    "unmeasured" rather than "free" — an absent measurement must never widen a
+    pool.
+    """
+    try:
+        import torch
+    except Exception:  # noqa: BLE001 — telemetry never fails a trace
+        return 0
+    try:
+        if not torch.cuda.is_available() or not torch.cuda.is_initialized():
+            return 0
+        free, total = torch.cuda.mem_get_info()
+        used = int(total) - int(free)
+        return max(0, used)
+    except Exception:  # noqa: BLE001
+        return 0
 
 
 def main(argv: List[str]) -> int:

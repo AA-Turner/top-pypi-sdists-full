@@ -32,225 +32,225 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConnectionStatus(
         {
+            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+            "remote_vol_const_msid": 2150359767,
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/connection-status/sti42-vsim-ucs511b/vs0/2150359768/a9161fea-73a0-11f0-85c5-005056a7bcdb/2150359767"
                 }
             },
             "local_fg_msid": 2150359768,
-            "remote_vol_const_msid": 2150359767,
             "node": "sti42-vsim-ucs511b",
-            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
             "svm": "vs0",
         }
     ),
     ConnectionStatus(
         {
+            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+            "remote_vol_const_msid": 2150359767,
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/connection-status/sti42-vsim-ucs511d/vs0/2150359768/a9161fea-73a0-11f0-85c5-005056a7bcdb/2150359767"
                 }
             },
             "local_fg_msid": 2150359768,
-            "remote_vol_const_msid": 2150359767,
             "node": "sti42-vsim-ucs511d",
-            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
             "svm": "vs0",
         }
     ),
     ConnectionStatus(
         {
+            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+            "remote_vol_const_msid": 2150359769,
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/connection-status/sti42-vsim-ucs511c/vs0/2150359767/a9161fea-73a0-11f0-85c5-005056a7bcdb/2150359769"
                 }
             },
             "local_fg_msid": 2150359767,
-            "remote_vol_const_msid": 2150359769,
             "node": "sti42-vsim-ucs511c",
-            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
             "svm": "vs0",
         }
     ),
     ConnectionStatus(
         {
+            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+            "remote_vol_const_msid": 2150359770,
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/connection-status/sti42-vsim-ucs511c/vs0/2150359767/a9161fea-73a0-11f0-85c5-005056a7bcdb/2150359770"
                 }
             },
             "local_fg_msid": 2150359767,
-            "remote_vol_const_msid": 2150359770,
             "node": "sti42-vsim-ucs511c",
-            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
             "svm": "vs0",
         }
     ),
     ConnectionStatus(
         {
+            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+            "remote_vol_const_msid": 2150359771,
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/connection-status/sti42-vsim-ucs511c/vs0/2150359767/a9161fea-73a0-11f0-85c5-005056a7bcdb/2150359771"
                 }
             },
             "local_fg_msid": 2150359767,
-            "remote_vol_const_msid": 2150359771,
             "node": "sti42-vsim-ucs511c",
-            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
             "svm": "vs0",
         }
     ),
     ConnectionStatus(
         {
+            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+            "remote_vol_const_msid": 2150359772,
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/connection-status/sti42-vsim-ucs511c/vs0/2150359767/a9161fea-73a0-11f0-85c5-005056a7bcdb/2150359772"
                 }
             },
             "local_fg_msid": 2150359767,
-            "remote_vol_const_msid": 2150359772,
             "node": "sti42-vsim-ucs511c",
-            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
             "svm": "vs0",
         }
     ),
     ConnectionStatus(
         {
+            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+            "remote_vol_const_msid": 2150359773,
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/connection-status/sti42-vsim-ucs511c/vs0/2150359767/a9161fea-73a0-11f0-85c5-005056a7bcdb/2150359773"
                 }
             },
             "local_fg_msid": 2150359767,
-            "remote_vol_const_msid": 2150359773,
             "node": "sti42-vsim-ucs511c",
-            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
             "svm": "vs0",
         }
     ),
     ConnectionStatus(
         {
+            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+            "remote_vol_const_msid": 2150359774,
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/connection-status/sti42-vsim-ucs511c/vs0/2150359767/a9161fea-73a0-11f0-85c5-005056a7bcdb/2150359774"
                 }
             },
             "local_fg_msid": 2150359767,
-            "remote_vol_const_msid": 2150359774,
             "node": "sti42-vsim-ucs511c",
-            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
             "svm": "vs0",
         }
     ),
     ConnectionStatus(
         {
+            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+            "remote_vol_const_msid": 2150359775,
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/connection-status/sti42-vsim-ucs511c/vs0/2150359767/a9161fea-73a0-11f0-85c5-005056a7bcdb/2150359775"
                 }
             },
             "local_fg_msid": 2150359767,
-            "remote_vol_const_msid": 2150359775,
             "node": "sti42-vsim-ucs511c",
-            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
             "svm": "vs0",
         }
     ),
     ConnectionStatus(
         {
+            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+            "remote_vol_const_msid": 2150359776,
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/connection-status/sti42-vsim-ucs511c/vs0/2150359767/a9161fea-73a0-11f0-85c5-005056a7bcdb/2150359776"
                 }
             },
             "local_fg_msid": 2150359767,
-            "remote_vol_const_msid": 2150359776,
             "node": "sti42-vsim-ucs511c",
-            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
             "svm": "vs0",
         }
     ),
     ConnectionStatus(
         {
+            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+            "remote_vol_const_msid": 2150359777,
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/connection-status/sti42-vsim-ucs511c/vs0/2150359767/a9161fea-73a0-11f0-85c5-005056a7bcdb/2150359777"
                 }
             },
             "local_fg_msid": 2150359767,
-            "remote_vol_const_msid": 2150359777,
             "node": "sti42-vsim-ucs511c",
-            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
             "svm": "vs0",
         }
     ),
     ConnectionStatus(
         {
+            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+            "remote_vol_const_msid": 2150359778,
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/connection-status/sti42-vsim-ucs511c/vs0/2150359767/a9161fea-73a0-11f0-85c5-005056a7bcdb/2150359778"
                 }
             },
             "local_fg_msid": 2150359767,
-            "remote_vol_const_msid": 2150359778,
             "node": "sti42-vsim-ucs511c",
-            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
             "svm": "vs0",
         }
     ),
     ConnectionStatus(
         {
+            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+            "remote_vol_const_msid": 2150359779,
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/connection-status/sti42-vsim-ucs511c/vs0/2150359767/a9161fea-73a0-11f0-85c5-005056a7bcdb/2150359779"
                 }
             },
             "local_fg_msid": 2150359767,
-            "remote_vol_const_msid": 2150359779,
             "node": "sti42-vsim-ucs511c",
-            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
             "svm": "vs0",
         }
     ),
     ConnectionStatus(
         {
+            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+            "remote_vol_const_msid": 2150359780,
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/connection-status/sti42-vsim-ucs511c/vs0/2150359767/a9161fea-73a0-11f0-85c5-005056a7bcdb/2150359780"
                 }
             },
             "local_fg_msid": 2150359767,
-            "remote_vol_const_msid": 2150359780,
             "node": "sti42-vsim-ucs511c",
-            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
             "svm": "vs0",
         }
     ),
     ConnectionStatus(
         {
+            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+            "remote_vol_const_msid": 2150359767,
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/connection-status/sti42-vsim-ucs511c/vs0/2150359768/a9161fea-73a0-11f0-85c5-005056a7bcdb/2150359767"
                 }
             },
             "local_fg_msid": 2150359768,
-            "remote_vol_const_msid": 2150359767,
             "node": "sti42-vsim-ucs511c",
-            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
             "svm": "vs0",
         }
     ),
     ConnectionStatus(
         {
+            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+            "remote_vol_const_msid": 2150359767,
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/connection-status/sti42-vsim-ucs511a/vs0/2150359768/a9161fea-73a0-11f0-85c5-005056a7bcdb/2150359767"
                 }
             },
             "local_fg_msid": 2150359768,
-            "remote_vol_const_msid": 2150359767,
             "node": "sti42-vsim-ucs511a",
-            "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
             "svm": "vs0",
         }
     ),
@@ -285,24 +285,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConnectionStatus(
     {
+        "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+        "volume": "fc0",
+        "remote_cluster": "C1_sti42-vsim-ucs511a_1754576895",
+        "remote_vol_const_msid": 2150359767,
         "_links": {
             "self": {
                 "href": "/api/storage/flexcache/connection-status/sti42-vsim-ucs511c/vs0/2150359768/a9161fea-73a0-11f0-85c5-005056a7bcdb/2150359767"
             }
         },
-        "local_fg_msid": 2150359768,
-        "remote_svm": "vs0",
-        "volume": "fc0",
-        "remote_cluster": "C1_sti42-vsim-ucs511a_1754576895",
-        "conn_state": "connected",
-        "remote_vol_const_msid": 2150359767,
-        "remote_volume": "vol0",
-        "svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
-        "node": "sti42-vsim-ucs511c",
         "remote_endpoint": "origin",
-        "last_update_time": "2025-08-07T11:39:31-04:00",
-        "remote_svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+        "remote_volume": "vol0",
+        "local_fg_msid": 2150359768,
+        "node": "sti42-vsim-ucs511c",
         "svm": "vs0",
+        "conn_state": "connected",
+        "svm_uuid": "a9161fea-73a0-11f0-85c5-005056a7bcdb",
+        "remote_svm": "vs0",
+        "last_update_time": "2025-08-07T11:39:31-04:00",
     }
 )
 

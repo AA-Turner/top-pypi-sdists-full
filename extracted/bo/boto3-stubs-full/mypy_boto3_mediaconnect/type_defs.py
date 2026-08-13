@@ -34,6 +34,7 @@ from .literals import (
     EncodingNameType,
     EncodingProfileType,
     EntitlementStatusType,
+    FabricLatencyModeType,
     FailoverInputSourcePriorityModeType,
     FailoverModeType,
     FlowSizeType,
@@ -179,6 +180,7 @@ __all__ = (
     "EncodingParametersTypeDef",
     "EncryptionTypeDef",
     "EntitlementTypeDef",
+    "FabricConfigurationTypeDef",
     "FailoverConfigTypeDef",
     "FailoverRouterInputConfigurationOutputTypeDef",
     "FailoverRouterInputConfigurationTypeDef",
@@ -635,6 +637,10 @@ class EncodingConfigTypeDef(TypedDict):
 class GatewayNetworkTypeDef(TypedDict):
     CidrBlock: str
     Name: str
+
+
+class FabricConfigurationTypeDef(TypedDict):
+    RecoveryLatencyMode: FabricLatencyModeType
 
 
 class DeleteBridgeRequestTypeDef(TypedDict):
@@ -2868,6 +2874,7 @@ RouterOutputTypeDef = TypedDict(
         "StreamDetails": RouterOutputStreamDetailsTypeDef,
         "MaintenanceType": MaintenanceTypeType,
         "MaintenanceConfiguration": MaintenanceConfigurationOutputTypeDef,
+        "FabricConfiguration": FabricConfigurationTypeDef,
         "IpAddress": NotRequired[str],
         "RoutedInputArn": NotRequired[str],
         "MaintenanceScheduleType": NotRequired[Literal["WINDOW"]],
@@ -2975,6 +2982,7 @@ CreateRouterOutputRequestTypeDef = TypedDict(
         "AvailabilityZone": NotRequired[str],
         "MaintenanceConfiguration": NotRequired[MaintenanceConfigurationUnionTypeDef],
         "Tags": NotRequired[Mapping[str, str]],
+        "FabricConfiguration": NotRequired[FabricConfigurationTypeDef],
         "ClientToken": NotRequired[str],
     },
 )
@@ -2988,3 +2996,4 @@ class UpdateRouterOutputRequestTypeDef(TypedDict):
     RoutingScope: NotRequired[RoutingScopeType]
     Tier: NotRequired[RouterOutputTierType]
     MaintenanceConfiguration: NotRequired[MaintenanceConfigurationUnionTypeDef]
+    FabricConfiguration: NotRequired[FabricConfigurationTypeDef]

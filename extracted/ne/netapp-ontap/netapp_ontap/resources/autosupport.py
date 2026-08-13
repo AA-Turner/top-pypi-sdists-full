@@ -70,16 +70,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Autosupport(
     {
-        "contact_support": True,
         "ondemand_enabled": True,
-        "smtp_encryption": "none",
-        "transport": "smtp",
-        "proxy_url": "",
-        "to": ["abc@netapp.com", "xyz@netapp.com"],
         "is_minimal": False,
+        "smtp_encryption": "none",
+        "to": ["abc@netapp.com", "xyz@netapp.com"],
         "from": "Postmaster",
         "mail_hosts": ["mailhost"],
+        "transport": "smtp",
         "enabled": True,
+        "contact_support": True,
+        "proxy_url": "",
     }
 )
 
@@ -110,44 +110,44 @@ Autosupport(
     {
         "issues": [
             {
-                "destination": "mailhost",
-                "issue": {
-                    "message": "SMTP connectivity check failed for destination: mailhost. Error: Could not resolve host - 'mailhost'",
-                    "code": "53149746",
-                },
-                "component": "mail_server",
-                "node": {
-                    "name": "node3",
-                    "_links": {
-                        "self": {
-                            "href": "/api/cluster/nodes/0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc"
-                        }
-                    },
-                    "uuid": "0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc",
-                },
                 "corrective_action": {
                     "message": "Check the hostname of the SMTP server",
                     "code": "53149746",
                 },
-            },
-            {
-                "destination": "https://support.netapp.com/aods/asupmessage",
-                "issue": {
-                    "message": 'AutoSupport OnDemand is disabled when "-transport" is not set to "https".',
-                    "code": "53149740",
-                },
-                "component": "ondemand_server",
+                "component": "mail_server",
+                "destination": "mailhost",
                 "node": {
-                    "name": "node3",
+                    "uuid": "0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc"
                         }
                     },
-                    "uuid": "0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc",
+                    "name": "node3",
                 },
+                "issue": {
+                    "message": "SMTP connectivity check failed for destination: mailhost. Error: Could not resolve host - 'mailhost'",
+                    "code": "53149746",
+                },
+            },
+            {
                 "corrective_action": {
                     "message": 'Run "system node autosupport modify -transport https -node <node name>" to set "-transport" to "https".',
+                    "code": "53149740",
+                },
+                "component": "ondemand_server",
+                "destination": "https://support.netapp.com/aods/asupmessage",
+                "node": {
+                    "uuid": "0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc",
+                    "_links": {
+                        "self": {
+                            "href": "/api/cluster/nodes/0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc"
+                        }
+                    },
+                    "name": "node3",
+                },
+                "issue": {
+                    "message": 'AutoSupport OnDemand is disabled when "-transport" is not set to "https".',
                     "code": "53149740",
                 },
             },
@@ -179,60 +179,60 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Autosupport(
     {
-        "contact_support": True,
         "ondemand_enabled": True,
+        "is_minimal": False,
         "issues": [
             {
-                "destination": "mailhost",
-                "issue": {
-                    "message": "SMTP connectivity check failed for destination: mailhost. Error: Could not resolve host - 'mailhost'",
-                    "code": "53149746",
-                },
-                "component": "mail_server",
-                "node": {
-                    "name": "node3",
-                    "_links": {
-                        "self": {
-                            "href": "/api/cluster/nodes/0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc"
-                        }
-                    },
-                    "uuid": "0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc",
-                },
                 "corrective_action": {
                     "message": "Check the hostname of the SMTP server",
                     "code": "53149746",
                 },
-            },
-            {
-                "destination": "https://support.netapp.com/aods/asupmessage",
-                "issue": {
-                    "message": 'AutoSupport OnDemand is disabled when "-transport" is not set to "https".',
-                    "code": "53149740",
-                },
-                "component": "ondemand_server",
+                "component": "mail_server",
+                "destination": "mailhost",
                 "node": {
-                    "name": "node3",
+                    "uuid": "0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc"
                         }
                     },
-                    "uuid": "0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc",
+                    "name": "node3",
                 },
+                "issue": {
+                    "message": "SMTP connectivity check failed for destination: mailhost. Error: Could not resolve host - 'mailhost'",
+                    "code": "53149746",
+                },
+            },
+            {
                 "corrective_action": {
                     "message": 'Run "system node autosupport modify -transport https -node <node name>" to set "-transport" to "https".',
+                    "code": "53149740",
+                },
+                "component": "ondemand_server",
+                "destination": "https://support.netapp.com/aods/asupmessage",
+                "node": {
+                    "uuid": "0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc",
+                    "_links": {
+                        "self": {
+                            "href": "/api/cluster/nodes/0ecfd0a6-f1b3-11e8-9d9f-005056bbaadc"
+                        }
+                    },
+                    "name": "node3",
+                },
+                "issue": {
+                    "message": 'AutoSupport OnDemand is disabled when "-transport" is not set to "https".',
                     "code": "53149740",
                 },
             },
         ],
         "smtp_encryption": "none",
-        "transport": "smtp",
-        "proxy_url": "",
         "to": ["abc@netapp.com", "xyz@netapp.com"],
-        "is_minimal": False,
         "from": "Postmaster",
         "mail_hosts": ["mailhost"],
+        "transport": "smtp",
         "enabled": True,
+        "contact_support": True,
+        "proxy_url": "",
     }
 )
 

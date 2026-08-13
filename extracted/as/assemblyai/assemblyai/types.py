@@ -17,7 +17,7 @@ from urllib.parse import parse_qs, urlparse
 from warnings import warn
 
 if TYPE_CHECKING:
-    from .transcriber import Transcript
+    from .prerecorded.v2.transcript import Transcript
 
 try:
     # pydantic v2 import
@@ -2686,9 +2686,11 @@ class LemurSource:
         self._source = source
         self._type = None
 
-        from . import Transcript
+        from . import AsyncTranscript, Transcript
 
-        if isinstance(source, Transcript):
+        # LeMUR is sync-only for now, but only a source's id travels to the
+        # API, so an `AsyncTranscript` works just as well.
+        if isinstance(source, (Transcript, AsyncTranscript)):
             self._type = LemurSourceType.transcript
         else:
             raise ValueError(f"Invalid source: {source}")

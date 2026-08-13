@@ -49,20 +49,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     EmsEvent(
         {
-            "message": {"severity": "emergency", "name": "app.log.emerg"},
+            "message": {"name": "app.log.emerg", "severity": "emergency"},
+            "time": "2021-09-17T09:36:28-04:00",
             "_links": {"self": {"href": "/api/support/ems/events/node1/7865"}},
             "index": 7865,
-            "log_message": "app.log.emerg: iMac: iPad ipad3: (10001) handheld: TestLine1",
-            "time": "2021-09-17T09:36:28-04:00",
             "node": {
-                "name": "node1",
+                "uuid": "d96d5d8d-118a-11ec-aad8-005056bb974c",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/d96d5d8d-118a-11ec-aad8-005056bb974c"
                     }
                 },
-                "uuid": "d96d5d8d-118a-11ec-aad8-005056bb974c",
+                "name": "node1",
             },
+            "log_message": "app.log.emerg: iMac: iPad ipad3: (10001) handheld: TestLine1",
         }
     )
 ]

@@ -8,15 +8,15 @@ import nox
 
 def test_impl(
     session: nox.Session,
-    use_mypyc: bool = False,
-):
+    use_cython: bool = False,
+) -> None:
     # Install deps and the package itself.
     session.install("-r", "dev-requirements.txt", "--require-hashes", silent=False)
 
     session.install(
         ".",
         silent=False,
-        env={"CHARSET_NORMALIZER_USE_MYPYC": "1" if use_mypyc else "0"},
+        env={"CHARSET_NORMALIZER_USE_CYTHON": "1" if use_cython else "0"},
     )
 
     # Show the pip version.
@@ -52,16 +52,27 @@ def test_impl(
 
 
 @nox.session(
-    python=["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "pypy"]
+    python=["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.15", "pypy"]
 )
 def test(session: nox.Session) -> None:
     test_impl(session)
 
 
 @nox.session(
-    python=["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]
+    python=[
+        "3.8",
+        "3.9",
+        "3.10",
+        "3.11",
+        "3.12",
+        "3.13",
+        "3.14",
+        "3.15",
+        "3.14t",
+        "3.15t",
+    ]
 )
-def test_mypyc(session: nox.Session) -> None:
+def test_cython(session: nox.Session) -> None:
     test_impl(session, True)
 
 
@@ -106,6 +117,7 @@ def coverage(session: nox.Session) -> None:
 
     # Install deps and the package itself.
     session.install("-r", "dev-requirements.txt", "--require-hashes", silent=False)
+    session.install("chardet==7.5.1")
 
     session.install(".", silent=False)
 
@@ -134,8 +146,11 @@ def performance(session: nox.Session) -> None:
     # Install deps and the package itself.
     session.install("-r", "dev-requirements.txt", "--require-hashes", silent=False)
 
-    session.install("chardet")
-    session.install(".", silent=False, env={"CHARSET_NORMALIZER_USE_MYPYC": "1"})
+    session.install(
+        "chardet==7.5.1",
+    )
+
+    session.install(".", silent=False, env={"CHARSET_NORMALIZER_USE_CYTHON": "1"})
 
     session.run(
         "python",

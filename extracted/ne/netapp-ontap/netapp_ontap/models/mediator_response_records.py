@@ -19,14 +19,25 @@ __pdoc__ = {
 class MediatorResponseRecordsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the MediatorResponseRecords object"""
 
+    account_token = marshmallow_fields.Str(data_key="account_token", allow_none=True)
+    r""" NetApp Console account token. This field is only applicable to the ONTAP cloud mediator. """
+
     bluexp_account_token = marshmallow_fields.Str(data_key="bluexp_account_token", allow_none=True)
-    r""" BlueXP account token. This field is only applicable to the ONTAP cloud mediator. """
+    r""" BlueXP account token. This field is only applicable to the ONTAP cloud mediator. This has been replaced by account_token. Support for this field will be removed in a future release. """
 
     bluexp_org_id = marshmallow_fields.Str(data_key="bluexp_org_id", allow_none=True)
-    r""" BlueXP organization ID. This field is only applicable to the ONTAP cloud mediator. """
+    r""" BlueXP organization ID. This field is only applicable to the ONTAP cloud mediator. This has been replaced by org_id. Support for this field will be removed in a future release. """
 
     ca_certificate = marshmallow_fields.Str(data_key="ca_certificate", allow_none=True)
     r""" CA certificate for ONTAP Mediator. This is optional if the certificate is already installed. """
+
+    connection_type = marshmallow_fields.Str(data_key="connection_type", allow_none=True)
+    r""" Connection type from ONTAP MetroCluster to mediator. Applicable only to on-prem mediator used in ONTAP MetroCluster configurations.
+
+Valid choices:
+
+* iscsi_mediator
+* https_mediator """
 
     dr_group = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.resources.metrocluster_dr_group", "MetroclusterDrGroupSchema"),
@@ -45,6 +56,9 @@ Example: 10.10.10.7 """
     r""" Indicates the mediator connectivity status of the local cluster. Possible values are connected, unreachable, unusable and down-high-latency. This field is only applicable to the mediators in SnapMirror active sync configuration.
 
 Example: connected """
+
+    org_id = marshmallow_fields.Str(data_key="org_id", allow_none=True)
+    r""" NetApp Console organization ID. This field is only applicable to the ONTAP cloud mediator. """
 
     password = marshmallow_fields.Str(data_key="password", allow_none=True)
     r""" The password used to connect to the REST server on the mediator.
@@ -75,10 +89,10 @@ Example: 31784 """
 Example: true """
 
     service_account_client_id = marshmallow_fields.Str(data_key="service_account_client_id", allow_none=True)
-    r""" Client ID of the BlueXP service account. This field is only applicable to the ONTAP cloud mediator. """
+    r""" Client ID of the NetApp Console service account. This field is only applicable to the ONTAP cloud mediator. """
 
     service_account_client_secret = marshmallow_fields.Str(data_key="service_account_client_secret", allow_none=True)
-    r""" Client secret token of the BlueXP service account. This field is only applicable to the ONTAP cloud mediator. """
+    r""" Client secret token of the NetApp Console service account. This field is only applicable to the ONTAP cloud mediator. """
 
     strict_cert_validation = marshmallow_fields.Boolean(data_key="strict_cert_validation", allow_none=True)
     r""" Indicates if strict validation of certificates is performed while making REST API calls to the mediator. This field is only applicable to the ONTAP Cloud Mediator.
@@ -116,6 +130,7 @@ Example: myusername """
         return MediatorResponseRecords
 
     gettable_fields = [
+        "connection_type",
         "ip_address",
         "local_mediator_connectivity",
         "peer_cluster.links",
@@ -129,7 +144,7 @@ Example: myusername """
         "use_http_proxy_local",
         "uuid",
     ]
-    """ip_address,local_mediator_connectivity,peer_cluster.links,peer_cluster.name,peer_cluster.uuid,peer_mediator_connectivity,port,reachable,strict_cert_validation,type,use_http_proxy_local,uuid,"""
+    """connection_type,ip_address,local_mediator_connectivity,peer_cluster.links,peer_cluster.name,peer_cluster.uuid,peer_mediator_connectivity,port,reachable,strict_cert_validation,type,use_http_proxy_local,uuid,"""
 
     patchable_fields = [
         "strict_cert_validation",
@@ -139,10 +154,13 @@ Example: myusername """
     """strict_cert_validation,use_http_proxy_local,use_http_proxy_remote,"""
 
     postable_fields = [
+        "account_token",
         "bluexp_account_token",
         "bluexp_org_id",
         "ca_certificate",
+        "connection_type",
         "ip_address",
+        "org_id",
         "password",
         "peer_cluster.name",
         "peer_cluster.uuid",
@@ -155,7 +173,7 @@ Example: myusername """
         "use_http_proxy_remote",
         "user",
     ]
-    """bluexp_account_token,bluexp_org_id,ca_certificate,ip_address,password,peer_cluster.name,peer_cluster.uuid,port,service_account_client_id,service_account_client_secret,strict_cert_validation,type,use_http_proxy_local,use_http_proxy_remote,user,"""
+    """account_token,bluexp_account_token,bluexp_org_id,ca_certificate,connection_type,ip_address,org_id,password,peer_cluster.name,peer_cluster.uuid,port,service_account_client_id,service_account_client_secret,strict_cert_validation,type,use_http_proxy_local,use_http_proxy_remote,user,"""
 
 
 class MediatorResponseRecords(Resource):

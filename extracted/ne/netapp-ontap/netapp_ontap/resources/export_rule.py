@@ -44,6 +44,12 @@ class ExportRuleSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Specifies whether or not device creation is allowed."""
 
+    allow_nfs_tls_only = marshmallow_fields.Boolean(
+        data_key="allow_nfs_tls_only",
+        allow_none=True,
+    )
+    r""" Specifies whether to allow NFS access only over TLS connections."""
+
     allow_suid = marshmallow_fields.Boolean(
         data_key="allow_suid",
         allow_none=True,
@@ -132,6 +138,7 @@ Valid choices:
     gettable_fields = [
         "links",
         "allow_device_creation",
+        "allow_nfs_tls_only",
         "allow_suid",
         "anonymous_user",
         "chown_mode",
@@ -147,10 +154,11 @@ Valid choices:
         "svm.name",
         "svm.uuid",
     ]
-    """links,allow_device_creation,allow_suid,anonymous_user,chown_mode,clients,index,ntfs_unix_security,policy,protocols,ro_rule,rw_rule,superuser,svm.links,svm.name,svm.uuid,"""
+    """links,allow_device_creation,allow_nfs_tls_only,allow_suid,anonymous_user,chown_mode,clients,index,ntfs_unix_security,policy,protocols,ro_rule,rw_rule,superuser,svm.links,svm.name,svm.uuid,"""
 
     patchable_fields = [
         "allow_device_creation",
+        "allow_nfs_tls_only",
         "allow_suid",
         "anonymous_user",
         "chown_mode",
@@ -162,10 +170,11 @@ Valid choices:
         "rw_rule",
         "superuser",
     ]
-    """allow_device_creation,allow_suid,anonymous_user,chown_mode,clients,index,ntfs_unix_security,protocols,ro_rule,rw_rule,superuser,"""
+    """allow_device_creation,allow_nfs_tls_only,allow_suid,anonymous_user,chown_mode,clients,index,ntfs_unix_security,protocols,ro_rule,rw_rule,superuser,"""
 
     postable_fields = [
         "allow_device_creation",
+        "allow_nfs_tls_only",
         "allow_suid",
         "anonymous_user",
         "chown_mode",
@@ -178,7 +187,7 @@ Valid choices:
         "rw_rule",
         "superuser",
     ]
-    """allow_device_creation,allow_suid,anonymous_user,chown_mode,clients,index,ntfs_unix_security,policy,protocols,ro_rule,rw_rule,superuser,"""
+    """allow_device_creation,allow_nfs_tls_only,allow_suid,anonymous_user,chown_mode,clients,index,ntfs_unix_security,policy,protocols,ro_rule,rw_rule,superuser,"""
 
 class ExportRule(Resource):
     """Allows interaction with ExportRule objects on the host"""
@@ -288,6 +297,7 @@ If not specified in POST, the following default property values are assigned:
 * `ntfs_unix_security` - _fail_
 * `chown_mode` - _restricted_
 * `allow_suid` - _true_
+* `allow_nfs_tls_only` - _false_
 ### Related ONTAP commands
 * `vserver export-policy rule create`
 ### Learn more
@@ -373,6 +383,7 @@ If not specified in POST, the following default property values are assigned:
 * `ntfs_unix_security` - _fail_
 * `chown_mode` - _restricted_
 * `allow_suid` - _true_
+* `allow_nfs_tls_only` - _false_
 ### Related ONTAP commands
 * `vserver export-policy rule create`
 ### Learn more

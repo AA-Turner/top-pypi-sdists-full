@@ -5,7 +5,7 @@ See: https://github.com/frohoff/jdeserialize
 
 :authors: Thomas Calmant
 :license: Apache License 2.0
-:version: 0.5.0
+:version: 0.6.1
 :status: Alpha
 
 ..
@@ -70,7 +70,7 @@ from .transformers import DefaultObjectTransformer
 # ------------------------------------------------------------------------------
 
 # Module version
-__version_info__ = (0, 4, 4)
+__version_info__ = (0, 6, 1)
 __version__ = ".".join(str(x) for x in __version_info__)
 
 # Documentation strings format
@@ -123,10 +123,10 @@ class JavaStreamParser(api.IJavaStreamParser):
             TerminalCode.TC_EXCEPTION: self._do_exception,
             TerminalCode.TC_BLOCKDATA: self._do_block_data,
             TerminalCode.TC_BLOCKDATALONG: self._do_block_data,
-        }  # type: Dict[int, Callable[[int], ParsedJavaContent]]
+        }  # type: Dict[int, Callable[[int], Optional[ParsedJavaContent]]]
 
     def run(self):
-        # type: () -> List[ParsedJavaContent]
+        # type: () -> List[Optional[ParsedJavaContent]]
         """
         Parses the input stream
         """
@@ -144,7 +144,7 @@ class JavaStreamParser(api.IJavaStreamParser):
         self._reset()
 
         # Read content
-        contents = []  # type: List[ParsedJavaContent]
+        contents = []  # type: List[Optional[ParsedJavaContent]]
         while True:
             self._log.debug("Reading next content")
             start = self.__fd.tell()
@@ -287,9 +287,11 @@ class JavaStreamParser(api.IJavaStreamParser):
         return None
 
     def _read_content(self, type_code, block_data, class_desc=None):
-        # type: (int, bool, Optional[JavaClassDesc]) -> ParsedJavaContent
+        # type: (int, bool, Optional[JavaClassDesc]) -> Optional[ParsedJavaContent]
         """
         Parses the next content
+
+        :return: The parsed content, None if the stream holds TC_NULL
         """
         if not block_data and type_code in (
             TerminalCode.TC_BLOCKDATA,
@@ -355,17 +357,21 @@ class JavaStreamParser(api.IJavaStreamParser):
         return java_str
 
     def _read_classdesc(self):
-        # type: () -> JavaClassDesc
+        # type: () -> Optional[JavaClassDesc]
         """
         Reads a class description with its type code
+
+        :return: The class description, None if the stream holds TC_NULL
         """
         type_code = self.__reader.read_byte()
         return self._do_classdesc(type_code)
 
     def _do_classdesc(self, type_code):
-        # type: (int) -> JavaClassDesc
+        # type: (int) -> Optional[JavaClassDesc]
         """
         Parses a class description
+
+        :return: The class description, None if the stream holds TC_NULL
         """
         if type_code == TerminalCode.TC_CLASSDESC:
             # Do the real job
@@ -404,14 +410,18 @@ class JavaStreamParser(api.IJavaStreamParser):
             class_desc.handle = handle
             class_desc.desc_flags = desc_flags
             class_desc.fields = fields
+
+            # Store the reference to the parsed bean before reading the
+            # annotations and the super class: their content can refer to
+            # this class description
+            self._set_handle(handle, class_desc)
+
             class_desc.annotations = self._read_class_annotations(class_desc)
             class_desc.super_class = self._read_classdesc()
 
             if class_desc.super_class:
                 class_desc.super_class.is_super_class = True
 
-            # Store the reference to the parsed bean
-            self._set_handle(handle, class_desc)
             return class_desc
         elif type_code == TerminalCode.TC_NULL:
             # Null reference
@@ -467,11 +477,11 @@ class JavaStreamParser(api.IJavaStreamParser):
         raise ValueError("Custom readObject can not be processed")
 
     def _read_class_annotations(self, class_desc=None):
-        # type: (Optional[JavaClassDesc]) -> List[ParsedJavaContent]
+        # type: (Optional[JavaClassDesc]) -> List[Optional[ParsedJavaContent]]
         """
         Reads the annotations associated to a class
         """
-        contents = []  # type: List[ParsedJavaContent]
+        contents = []  # type: List[Optional[ParsedJavaContent]]
         while True:
             type_code = self.__reader.read_byte()
             if type_code == TerminalCode.TC_ENDBLOCKDATA:
@@ -523,6 +533,9 @@ class JavaStreamParser(api.IJavaStreamParser):
             "Reading new object: handle %x, classdesc %s", handle, class_desc
         )
 
+        if class_desc is None:
+            raise ValueError("Object without class description")
+
         # Prepare the instance object
         instance = self._create_instance(class_desc)
         instance.classdesc = class_desc
@@ -561,7 +574,9 @@ class JavaStreamParser(api.IJavaStreamParser):
         instance.classdesc.get_hierarchy(classes)
 
         all_data = {}  # type: Dict[JavaClassDesc, Dict[JavaField, Any]]
-        annotations = {}  # type: Dict[JavaClassDesc, List[ParsedJavaContent]]
+        annotations = (
+            {}
+        )  # type: Dict[JavaClassDesc, List[Optional[ParsedJavaContent]]]
 
         for cd in classes:
             values = {}  # type: Dict[JavaField, Any]
@@ -628,7 +643,9 @@ class JavaStreamParser(api.IJavaStreamParser):
                     # Seems required, according to issue #46
                     return None
                 if sub_type_code == TerminalCode.TC_REFERENCE:
-                    return self._do_classdesc(sub_type_code)
+                    # Reference to an array which has already been read,
+                    # not to a class description
+                    return self._do_reference(sub_type_code)
                 if sub_type_code != TerminalCode.TC_ARRAY:
                     raise ValueError(
                         "Array type listed, but type code != TC_ARRAY"
@@ -680,6 +697,9 @@ class JavaStreamParser(api.IJavaStreamParser):
         Parses a class
         """
         cd = self._read_classdesc()
+        if cd is None:
+            raise ValueError("Class without class description")
+
         handle = self._new_handle()
         class_obj = JavaClass(handle, cd)
 
@@ -693,6 +713,9 @@ class JavaStreamParser(api.IJavaStreamParser):
         Parses an array
         """
         cd = self._read_classdesc()
+        if cd is None:
+            raise ValueError("Array without class description")
+
         handle = self._new_handle()
         if not cd.name or len(cd.name) < 2:
             raise ValueError("Invalid name in array class description")
@@ -716,7 +739,11 @@ class JavaStreamParser(api.IJavaStreamParser):
         else:
             content = [self._read_field_value(field_type) for _ in range(size)]
 
-        return JavaArray(handle, cd, field_type, content)
+        array = JavaArray(handle, cd, field_type, content)
+
+        # Store the array, so that it can be found back by a reference
+        self._set_handle(handle, array)
+        return array
 
     def _do_exception(self, type_code):
         # type: (int) -> ParsedJavaContent

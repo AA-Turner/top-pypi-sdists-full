@@ -28,82 +28,82 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Coredump(
         {
+            "type": "kernel",
+            "name": "core.4136886422.2021-07-21.20_20_53.nz",
             "_links": {
                 "self": {
                     "href": "/api/support/coredump/coredumps/227683c1-e9c7-11eb-b995-005056bbbfb3/core.4136886422.2021-07-21.20_20_53.nz"
                 }
             },
-            "name": "core.4136886422.2021-07-21.20_20_53.nz",
             "node": {
-                "name": "node2",
+                "uuid": "227683c1-e9c7-11eb-b995-005056bbbfb3",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/227683c1-e9c7-11eb-b995-005056bbbfb3"
                     }
                 },
-                "uuid": "227683c1-e9c7-11eb-b995-005056bbbfb3",
+                "name": "node2",
             },
-            "type": "kernel",
         }
     ),
     Coredump(
         {
+            "type": "application",
+            "name": "mlogd.968.4136886422.2021-07-22.01_10_01.ucore.bz2",
             "_links": {
                 "self": {
                     "href": "/api/support/coredump/coredumps/227683c1-e9c7-11eb-b995-005056bbbfb3/mlogd.968.4136886422.2021-07-22.01_10_01.ucore.bz2"
                 }
             },
-            "name": "mlogd.968.4136886422.2021-07-22.01_10_01.ucore.bz2",
             "node": {
-                "name": "node2",
+                "uuid": "227683c1-e9c7-11eb-b995-005056bbbfb3",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/227683c1-e9c7-11eb-b995-005056bbbfb3"
                     }
                 },
-                "uuid": "227683c1-e9c7-11eb-b995-005056bbbfb3",
+                "name": "node2",
             },
-            "type": "application",
         }
     ),
     Coredump(
         {
+            "type": "kernel",
+            "name": "core.4136886421.2021-07-21.17_57_02.nz",
             "_links": {
                 "self": {
                     "href": "/api/support/coredump/coredumps/d583d44e-e9c6-11eb-a270-005056bb47f9/core.4136886421.2021-07-21.17_57_02.nz"
                 }
             },
-            "name": "core.4136886421.2021-07-21.17_57_02.nz",
             "node": {
-                "name": "node1",
+                "uuid": "d583d44e-e9c6-11eb-a270-005056bb47f9",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/d583d44e-e9c6-11eb-a270-005056bb47f9"
                     }
                 },
-                "uuid": "d583d44e-e9c6-11eb-a270-005056bb47f9",
+                "name": "node1",
             },
-            "type": "kernel",
         }
     ),
     Coredump(
         {
+            "type": "application",
+            "name": "mlogd.979.4136886421.2021-07-22.01_11_37.ucore.bz2",
             "_links": {
                 "self": {
                     "href": "/api/support/coredump/coredumps/d583d44e-e9c6-11eb-a270-005056bb47f9/mlogd.979.4136886421.2021-07-22.01_11_37.ucore.bz2"
                 }
             },
-            "name": "mlogd.979.4136886421.2021-07-22.01_11_37.ucore.bz2",
             "node": {
-                "name": "node1",
+                "uuid": "d583d44e-e9c6-11eb-a270-005056bb47f9",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/d583d44e-e9c6-11eb-a270-005056bb47f9"
                     }
                 },
-                "uuid": "d583d44e-e9c6-11eb-a270-005056bb47f9",
+                "name": "node1",
             },
-            "type": "application",
         }
     ),
 ]
@@ -136,25 +136,25 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Coredump(
     {
-        "panic_time": "2021-07-21T13:57:02-04:00",
+        "type": "kernel",
+        "size": 945111148,
+        "name": "core.4136886421.2021-07-21.17_57_02.nz",
         "_links": {
             "self": {
                 "href": "/api/support/coredump/coredumps/d583d44e-e9c6-11eb-a270-005056bb47f9/core.4136886421.2021-07-21.17_57_02.nz"
             }
         },
-        "is_saved": True,
-        "name": "core.4136886421.2021-07-21.17_57_02.nz",
-        "size": 945111148,
         "node": {
-            "name": "node1",
+            "uuid": "d583d44e-e9c6-11eb-a270-005056bb47f9",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/d583d44e-e9c6-11eb-a270-005056bb47f9"
                 }
             },
-            "uuid": "d583d44e-e9c6-11eb-a270-005056bb47f9",
+            "name": "node1",
         },
-        "type": "kernel",
+        "is_saved": True,
+        "panic_time": "2021-07-21T13:57:02-04:00",
     }
 )
 

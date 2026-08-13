@@ -4,4 +4,3 @@ var e=`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http:/
 <path d="M5 5H5.0001" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
 </svg>
 `;export{e as default};
-//# sourceMappingURL=image-ai-edit-DXaydH50.js.map

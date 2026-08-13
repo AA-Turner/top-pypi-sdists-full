@@ -3008,6 +3008,73 @@ function applyBillingHintToFlow(billingSummary) {
   });
 }
 
+// ── Subscription-coverage helpers ─────────────────────────────────────
+// Goal: on the Cost tab, when a user's Claude Max / ChatGPT Plus / Cursor
+// Pro subscription already covers the shown API-equivalent cost, paint a
+// green "$0 extra — covered by <plan>" banner instead of an alarming
+// bill number they don't actually owe. Detection comes from
+// dashboard.py._get_billing_coverage (same code path the fleet heartbeat
+// uses on-device, so device and dashboard agree on the plan label).
+
+function _planLabel(cov) {
+  if (!cov) return '';
+  var acc = cov.account_plan;
+  if (acc && acc.label) return String(acc.label);
+  var subs = cov.subscription_labels;
+  if (subs && subs.length) return subs.join(' + ');
+  return '';
+}
+
+function renderBillingCoverageBanner(cov, usageData) {
+  var host = document.getElementById('usage-coverage-banner');
+  if (!host) return;
+  if (!cov || !cov.detected || !cov.any_subscription) {
+    host.style.display = 'none';
+    host.innerHTML = '';
+    return;
+  }
+  function fmtCost(c) { return c >= 0.01 ? '$' + c.toFixed(2) : c > 0 ? '<$0.01' : '$0.00'; }
+  var plan = _planLabel(cov) || 'your subscription';
+  var monthCost  = Number((usageData && usageData.monthCost) || 0);
+  var monthCovered = Number((cov.month && cov.month.covered_usd) || 0);
+  var monthOOP     = Number((cov.month && cov.month.out_of_pocket_usd) || 0);
+  var color, icon, title, body;
+  if (cov.all_covered) {
+    color = { bg: 'rgba(34,197,94,0.10)', bd: 'rgba(34,197,94,0.45)', fg: '#16a34a' };
+    icon = '✅';
+    title = "You're covered by " + plan;
+    body = 'The costs below are the <strong>API-equivalent</strong> — what these tokens would cost against a raw API key. '
+         + 'Your actual out-of-pocket spend is <strong>$0</strong>: ' + plan + ' already covers this usage. '
+         + 'This month: ' + fmtCost(monthCost) + ' shown, <strong>$0</strong> billed to you.';
+  } else if (cov.any_subscription && cov.any_metered) {
+    color = { bg: 'rgba(59,130,246,0.10)', bd: 'rgba(59,130,246,0.45)', fg: '#2563eb' };
+    icon = '🧾';
+    title = 'Partly covered — ' + plan;
+    body = plan + ' covers the OAuth/included models below (~<strong>' + fmtCost(monthCovered) + '</strong> this month, billed as $0 to you). '
+         + 'API-keyed models are billed per-token: about <strong>' + fmtCost(monthOOP) + '</strong> this month. '
+         + 'The card numbers are API-equivalent so both parts compare on the same axis.';
+    if (cov.metered_labels && cov.metered_labels.length) {
+      body += ' <span style="opacity:0.7;">Metered: ' + cov.metered_labels.map(escHtml).join(', ') + '.</span>';
+    }
+  } else {
+    // Subscription detected but every model looks API-keyed — the plan
+    // won't help; fall through to no banner rather than misleading UX.
+    host.style.display = 'none';
+    host.innerHTML = '';
+    return;
+  }
+  host.style.cssText = 'display:block;padding:12px 14px;border-radius:8px;'
+    + 'background:' + color.bg + ';border:1px solid ' + color.bd + ';'
+    + 'font-size:13px;line-height:1.5;color:var(--text-primary,#0f172a);';
+  host.innerHTML =
+      '<div style="display:flex;gap:10px;align-items:flex-start;">'
+    + '<div style="font-size:18px;line-height:1.2;">' + icon + '</div>'
+    + '<div style="flex:1;min-width:0;">'
+    +   '<div style="font-weight:600;color:' + color.fg + ';margin-bottom:3px;">' + escHtml(title) + '</div>'
+    +   '<div style="color:var(--text-secondary,#475569);">' + body + '</div>'
+    + '</div></div>';
+}
+
 function setFlowTextAll(idSuffix, text, maxLen) {
   var fitted = fitFlowLabel(text, maxLen);
   document.querySelectorAll('[id$="' + idSuffix + '"]').forEach(function(el) {
@@ -5137,9 +5204,50 @@ function _brainRangeHuman(sinceIso, untilIso) {
 }
 
 function _brainSetRangeActiveBtn(key) {
+  // Legacy no-op-safe shim: the crude button strip was replaced by the
+  // Grafana-style picker (static/js/time-range-picker.js), which owns its
+  // own "active" state. If any legacy button strip is still present (e.g.
+  // an older embed), keep it in sync as a courtesy.
   document.querySelectorAll('#brain-range-bar .brain-range-btn').forEach(function(b) {
     b.classList.toggle('active', b.getAttribute('data-range') === String(key));
   });
+}
+
+// Mount the reusable Grafana-style time range picker on the Brain tab.
+// Idempotent: safe to call every time we render the tab; only initializes
+// once per DOM insertion. Wires the picker's onChange to the existing
+// setBrainTimeRange / applyBrainAbsoluteRange helpers so the rest of the
+// page (SSE, density chart, banner) reacts unchanged.
+function _brainMountRangePicker() {
+  var host = document.getElementById('brain-range-picker');
+  if (!host || host._cmTimeRange) return;
+  if (!window.cmTimeRangePicker) return;
+  var initial = _brainRange
+    ? { since: _brainRange.since, until: _brainRange.until }
+    : 'live';
+  window.cmTimeRangePicker.mount(host, {
+    name: 'brain',
+    showLive: true,
+    initial: initial,
+    onChange: function(r) {
+      if (r.mode === 'live') { setBrainTimeRange('live'); return; }
+      if (r.mode === 'quick') { setBrainTimeRange(r.seconds); return; }
+      if (r.mode === 'absolute') { applyBrainAbsoluteRange(r.since, r.until); return; }
+    }
+  });
+}
+
+// Explicit ISO from/until entry point used by the picker's absolute mode.
+// applyBrainCustomRange() still works and reads from the (now removed)
+// <input> fields — kept as a no-op-if-fields-missing shim for compat.
+function applyBrainAbsoluteRange(sinceIso, untilIso) {
+  var s = new Date(sinceIso), u = new Date(untilIso);
+  if (isNaN(s.getTime()) || isNaN(u.getTime())) return;
+  if (s.getTime() > u.getTime()) { var tmp = s; s = u; u = tmp; }
+  _brainRange = {since: _brainRangeIso(s), until: _brainRangeIso(u)};
+  _brainRangeRetries = 0;
+  _brainSetRangeActiveBtn('custom');
+  _enterBrainHistoryMode();
 }
 
 function _brainUpdateRangeUI() {
@@ -7820,6 +7928,10 @@ window.selfevolveRun = async function () {
 };
 
 async function loadBrainPage(silent) {
+  // Mount the Grafana-style date/time-range picker on first paint (and
+  // re-mount if the tab was rebuilt). Idempotent by design — the helper
+  // no-ops when the container already has a picker attached.
+  try { _brainMountRangePicker(); } catch (e) {}
   // Cloud iframe doesn't proxy /api/brain-history (live event stream is
   // local-only). Without this branch, `loadBrainPage` returned silently and
   // left the inline `Loading...` placeholder in `#brain-stream` forever
@@ -12463,7 +12575,9 @@ function _traceCost(s) { return (s.rolled_cost != null ? s.rolled_cost : s.cost)
 function _traceTokens(s) { return (s.rolled_tokens != null ? s.rolled_tokens : s.tokens) || 0; }
 function _traceFmtDur(ms) {
   ms = ms || 0;
-  if (ms < 1000) return ms + 'ms';
+  // Round: span durations are floats (end_ts - start_ts), and an unrounded
+  // one rendered as '900.0000953674316ms' in the trace list.
+  if (ms < 1000) return Math.round(ms) + 'ms';
   if (ms < 60000) return (ms / 1000).toFixed(1) + 's';
   if (ms < 3600000) return (ms / 60000).toFixed(1) + 'm';
   if (ms < 86400000) return (ms / 3600000).toFixed(1) + 'h';
@@ -12509,7 +12623,11 @@ async function loadTurnAnatomy() {
   el.innerHTML = '<div style="padding:18px;color:var(--text-muted);">' + t("app.loading_sessions_hellip", null, "Loading sessions&hellip;") + '</div>';
   var data;
   try {
-    data = await fetch('/api/traces?limit=200').then(function(r){ return r.json(); });
+    // Scope server-side by the active runtime (#4782). A foreign OTLP app
+    // has no session-id prefix, so client-side filtering would empty the
+    // list; the server filters spans by agent_type and events by prefix.
+    data = await fetch('/api/traces?limit=200&runtime='
+      + encodeURIComponent(_cmRuntimeFilter())).then(function(r){ return r.json(); });
   } catch (e) {
     el.innerHTML = '<div style="padding:18px;color:var(--text-muted);">' + t("app.could_not_load_sessions", null, "Could not load sessions.") + '</div>';
     return;
@@ -12677,7 +12795,11 @@ async function loadTracing() {
   el.innerHTML = '<div style="padding:18px;color:var(--text-muted);">' + t("app.loading_traces_hellip", null, "Loading traces&hellip;") + '</div>';
   var data;
   try {
-    data = await fetch('/api/traces?limit=200').then(function(r){ return r.json(); });
+    // Scope server-side by the active runtime (#4782). A foreign OTLP app
+    // has no session-id prefix, so client-side filtering would empty the
+    // list; the server filters spans by agent_type and events by prefix.
+    data = await fetch('/api/traces?limit=200&runtime='
+      + encodeURIComponent(_cmRuntimeFilter())).then(function(r){ return r.json(); });
   } catch (e) {
     el.innerHTML = '<div style="padding:18px;color:var(--text-muted);">' + t("app.could_not_load_traces", null, "Could not load traces.") + '</div>';
     return;
@@ -12726,13 +12848,12 @@ function _renderTraceRows() {
   var box = document.getElementById('trace-rows');
   if (!box) return;
   var traces = (window._allTraces || []).slice();
-  // Global runtime switcher (header): scope traces to one runtime. Each
-  // event-derived trace's `trace_id` IS its session_id, whose prefix is the
-  // runtime discriminator (OTLP traces with hex ids fall through to OpenClaw).
-  var _trRt = (typeof _cmRuntimeFilter === 'function') ? _cmClientFilterRt(_cmRuntimeFilter()) : 'all';
-  if (_trRt && _trRt !== 'all') {
-    traces = traces.filter(function(t) { return _cmRuntimeOf({ id: t.trace_id }) === _trRt; });
-  }
+  // Runtime scoping is SERVER-side now (#4782): /api/traces?runtime= filters
+  // spans by agent_type and events by session prefix. The old client-side pass
+  // keyed off `trace_id` alone, so a span-derived trace (whose id is a hex OTel
+  // trace id, not a session id) always resolved to 'openclaw' and was filtered
+  // out of its own app's view -- the list rendered empty for the very runtime
+  // you had selected. Re-filtering here would just reintroduce that.
   var f = window._traceListFilter, q = window._traceListSearch;
   if (q) traces = traces.filter(function(t) {
     return (((t.trace_id || '') + ' ' + (t.model || '')).toLowerCase().indexOf(q) !== -1);
@@ -12758,8 +12879,11 @@ function _renderTraceRows() {
       + 'onmouseover="this.style.background=\'var(--bg-tertiary,#1e293b)\'" onmouseout="this.style.background=\'\'">'
       + '<span style="flex:1;min-width:0;">'
         + '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + statusDot + ';margin-right:8px;"></span>'
-        + '<span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:var(--text-primary);">' + escHtml((t.name || t.trace_id).slice(0, 26)) + '</span>'
+        + '<span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:var(--text-primary);">' + escHtml((t.title || t.name || t.trace_id).slice(0, 34)) + '</span>'
         + (t.has_subagents ? '<span style="margin-left:8px;background:rgba(245,158,11,0.15);color:#f59e0b;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:600;">sub-agents</span>' : '')
+        // Provenance chip: this trace came from OTel spans, not a session
+        // transcript. Makes it obvious which of your own apps sent it.
+        + (t.source === 'spans' ? '<span style="margin-left:8px;background:rgba(56,189,248,0.15);color:#38bdf8;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:600;">OTel</span>' : '')
         + '<span style="margin-left:8px;color:var(--text-muted);font-size:11px;">' + escHtml(when) + '</span>'
       + '</span>'
       + '<span style="width:64px;text-align:right;color:var(--text-secondary);font-size:12px;">' + (t.span_count || 0) + '</span>'
@@ -14849,19 +14973,43 @@ async function loadUsage() {
     }
     function fmtTokens(n) { return n >= 1000000 ? (n/1000000).toFixed(1) + 'M' : n >= 1000 ? (n/1000).toFixed(0) + 'K' : String(n); }
     function fmtCost(c) { return c >= 0.01 ? '$' + c.toFixed(2) : c > 0 ? '<$0.01' : '$0.00'; }
+    // Subscription-coverage snapshot from /api/usage (dashboard.py
+    // _get_billing_coverage). When the user is on a subscription (e.g.
+    // Claude Max 20x), the headline API-equivalent cost is misleading —
+    // their incremental spend is $0. We paint a green banner + per-card
+    // "$0 out-of-pocket" sub-line so nobody panics over covered spend.
+    var _cov = data.billingCoverage || {};
     // QW3: dollars are the headline (card-value), tokens the sub-line; the
     // estimation marker is the word "about", never the ≈ glyph.
-    function setUsageCard(valId, cost, tokens) {
+    function setUsageCard(valId, cost, tokens, periodKey) {
       var v = document.getElementById(valId);
       var s = document.getElementById(valId + '-cost');
       var costStr = fmtCost(cost || 0);
       var tokStr = fmtTokens(tokens || 0);
       if (v) v.textContent = t('usage.cost_about', { cost: costStr }, 'about ' + costStr);
-      if (s) s.textContent = t('usage.tokens_sub', { tokens: tokStr }, tokStr + ' tokens');
+      if (!s) return;
+      var subText = t('usage.tokens_sub', { tokens: tokStr }, tokStr + ' tokens');
+      var coverExtra = '';
+      var period = periodKey && _cov[periodKey];
+      if (_cov.all_covered && (cost || 0) > 0) {
+        coverExtra = ' · $0 out-of-pocket';
+      } else if (period && _cov.any_subscription && (period.covered_usd || 0) > 0.005) {
+        coverExtra = ' · ~' + fmtCost(period.covered_usd) + ' covered';
+      }
+      s.textContent = subText + coverExtra;
+      if (coverExtra) {
+        s.style.color = 'var(--success, #16a34a)';
+        s.title = 'Covered by ' + (_planLabel(_cov) || 'your subscription') +
+                  ' — this portion of the shown API-equivalent cost is $0 to you.';
+      } else {
+        s.style.color = '';
+        s.title = '';
+      }
     }
-    setUsageCard('usage-today', data.todayCost, data.today);
-    setUsageCard('usage-week', data.weekCost, data.week);
-    setUsageCard('usage-month', data.monthCost, data.month);
+    setUsageCard('usage-today', data.todayCost, data.today, 'today');
+    setUsageCard('usage-week', data.weekCost, data.week, 'week');
+    setUsageCard('usage-month', data.monthCost, data.month, 'month');
+    try { renderBillingCoverageBanner(_cov, data); } catch (_eBC) { console.error('renderBillingCoverageBanner failed', _eBC); }
     // Runtime-scoped empty state: when a specific runtime is selected but has
     // no cost data in any window, surface a clear note rather than showing all zeros.
     var _uEmptyEl = document.getElementById('usage-runtime-empty-note');
@@ -14912,9 +15060,14 @@ async function loadUsage() {
       // ('likely_api_key'), so an "unknown / billing unconfirmed" account no
       // longer reads as if it owes the displayed dollars (#web-accuracy).
       var bs = data.billingSummary;
+      var _plan = _planLabel(_cov);
       if (bs && bs !== 'likely_api_key') {
         usageInfoIcon.style.display = '';
-        if (bs === 'likely_oauth_or_included' || bs === 'mixed') {
+        if (_plan && _cov.all_covered) {
+          usageInfoIcon.title = 'API-equivalent (tokens × API rates). Your ' + _plan + ' subscription covers this — actual out-of-pocket cost is $0.';
+        } else if (_plan) {
+          usageInfoIcon.title = 'API-equivalent (tokens × API rates). ' + _plan + ' covers the OAuth/included portion; API-keyed models bill separately.';
+        } else if (bs === 'likely_oauth_or_included' || bs === 'mixed') {
           usageInfoIcon.title = 'API-equivalent (tokens × API rates). OAuth/included models are typically billed $0 at the provider — your subscription covers them.';
         } else {
           usageInfoIcon.title = 'API-equivalent (tokens × API rates). Billing basis unconfirmed — if your account is on a subscription plan (e.g. Claude Max via the Claude CLI), the actual incremental cost is $0.';
@@ -15948,9 +16101,49 @@ window.toggleTranscriptPlumbing = function() {
 var _transcriptRange = null;
 
 function _txSetRangeActiveBtn(key) {
+  // Legacy no-op-safe shim: the crude button strip was replaced by the
+  // Grafana-style picker (static/js/time-range-picker.js), which owns its
+  // own "active" state. Keep any legacy button strip in sync as a courtesy.
   document.querySelectorAll('#tx-range-bar .brain-range-btn').forEach(function(b) {
     b.classList.toggle('active', b.getAttribute('data-range') === String(key));
   });
+}
+
+// Mount the reusable Grafana-style time range picker on the Sessions tab.
+// Wires the picker's onChange to setTranscriptTimeRange (Live/quick) and
+// applyTranscriptAbsoluteRange (absolute From/To) so the existing filter
+// logic + "Viewing history" banner keep working unchanged.
+function _transcriptsMountRangePicker() {
+  var host = document.getElementById('transcripts-range-picker');
+  if (!host || host._cmTimeRange) return;
+  if (!window.cmTimeRangePicker) return;
+  var initial = _transcriptRange
+    ? { since: new Date(_transcriptRange.sinceMs).toISOString(),
+        until: new Date(_transcriptRange.untilMs).toISOString() }
+    : 'live';
+  window.cmTimeRangePicker.mount(host, {
+    name: 'transcripts',
+    showLive: true,
+    initial: initial,
+    onChange: function(r) {
+      if (r.mode === 'live') { setTranscriptTimeRange('live'); return; }
+      if (r.mode === 'quick') { setTranscriptTimeRange(r.seconds); return; }
+      if (r.mode === 'absolute') { applyTranscriptAbsoluteRange(r.since, r.until); return; }
+    }
+  });
+}
+
+// Explicit ISO from/until entry point used by the picker's absolute mode.
+// applyTranscriptCustomRange() still works and reads from the (now removed)
+// <input> fields — kept as a no-op-if-fields-missing shim for compat.
+function applyTranscriptAbsoluteRange(sinceIso, untilIso) {
+  var s = new Date(sinceIso), u = new Date(untilIso);
+  if (isNaN(s.getTime()) || isNaN(u.getTime())) return;
+  if (s.getTime() > u.getTime()) { var tmp = s; s = u; u = tmp; }
+  _transcriptRange = {sinceMs: s.getTime(), untilMs: u.getTime()};
+  _txSetRangeActiveBtn('custom');
+  _txUpdateRangeUI();
+  loadTranscripts();
 }
 
 function _txUpdateRangeUI() {
@@ -16017,6 +16210,13 @@ function applyTranscriptCustomRange() {
 }
 
 async function loadTranscripts() {
+  // Mount the Grafana-style date/time-range picker on first paint.
+  // Idempotent — the helper no-ops when already attached.
+  try { _transcriptsMountRangePicker(); } catch (e) {}
+  // Surface a small counter next to the picker: how many rows survived the
+  // window filter this load. Cleared when no window is active.
+  var _rangeCountEl = document.getElementById('transcripts-range-count');
+  if (_rangeCountEl) _rangeCountEl.textContent = '';
   try {
     // In cloud mode we can't score live (no key, no session DuckDB) but the
     // snapshot carries recent scores at /api/evals/recent. Refetch each
@@ -16066,6 +16266,7 @@ async function loadTranscripts() {
     // i.e. strict last-activity-in-window.
     var _txWin = _transcriptRange;
     var _txWinEmpty = false;
+    var _txWinHidden = 0;
     if (_txWin) {
       var _preWin = data.transcripts.length;
       data.transcripts = data.transcripts.filter(function(t) {
@@ -16073,7 +16274,19 @@ async function loadTranscripts() {
         var start = t.started || mod;
         return start <= _txWin.untilMs && mod >= _txWin.sinceMs;
       });
+      _txWinHidden = _preWin - data.transcripts.length;
       _txWinEmpty = (_preWin > 0 && data.transcripts.length === 0);
+    }
+    // Post the "X sessions in this window · Y hidden" counter next to the picker.
+    var _rcEl = document.getElementById('transcripts-range-count');
+    if (_rcEl) {
+      if (_txWin) {
+        var _shown = data.transcripts.length;
+        _rcEl.textContent = _shown + ' session' + (_shown === 1 ? '' : 's') +
+          ' in this window' + (_txWinHidden ? ' · ' + _txWinHidden + ' hidden' : '');
+      } else {
+        _rcEl.textContent = '';
+      }
     }
     var plumbingTotal = 0;
     // NOTE: the callback param must NOT be named `t` — that shadows the global

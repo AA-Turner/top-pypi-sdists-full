@@ -1,16 +1,13 @@
-# -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-from __future__ import division, print_function, unicode_literals
 
 import math
-
 from collections import Counter
 from pprint import pformat
-from .._compat import to_unicode, unicode, string_types, Sequence
+
+from .._compat import Sequence, string_types, to_unicode, unicode
 
 
-class TfDocumentModel(object):
+class TfDocumentModel:
     """Term-Frequency document model (term = word)."""
     def __init__(self, words, tokenizer=None):
         if isinstance(words, string_types) and tokenizer is None:
@@ -85,4 +82,4 @@ class TfDocumentModel(object):
         return smooth + (1.0 - smooth)*frequency
 
     def __repr__(self):
-        return "<TfDocumentModel %s>" % pformat(self._terms)
+        return f"<TfDocumentModel {pformat(self._terms)}>"

@@ -29,94 +29,74 @@ class CodeBundleExecution(BaseModel):
 
     Parameters
     __________
-    execution_id : str, optional
-        Query id of the code bundle execution.
+    bundle_name : str, optional
+        Fully qualified name of the code bundle. May be empty for anonymous (unnamed) executions.
+    database_name : str, optional
+        Database supplied when the code bundle was created or executed.
+    schema_name : str, optional
+        Schema supplied when the code bundle was created or executed.
     status : str, optional
-        Execution status of the code bundle execution (for example, RUNNING, SUCCESS, or FAILED_WITH_ERROR).
-    error_code : str, optional
-        Error code returned if the execution failed.
-    error_message : str, optional
-        Error message returned if the execution failed.
+        Execution job status (for example, Queued, In progress, Succeeded, or Failed).
+    bundle_type : str, optional
+        Type of the code bundle (for example, custompython, mljava, or spark).
+    compute_type : str, optional
+        Compute on which the execution ran (for example, warehouse, compute_pool, or serverless).
+    language_type : str, optional
+        Language of the code bundle (for example, python or java).
+    runtime_name : str, optional
+        Name of the runtime backing the execution (warehouse name or SPCS service name).
+    execution_name : str, optional
+        Optional caller-supplied name for the execution (used primarily for anonymous executions).
     start_time : str, optional
         Time when the execution started.
     end_time : str, optional
-        Time when the execution ended.
-    execution_time : str, optional
-        Total execution time, in milliseconds.
-    query_text : str, optional
-        Text of the statement that executed the code bundle.
-    database_name : str, optional
-        Database in which the code bundle execution ran.
-    schema_name : str, optional
-        Schema in which the code bundle execution ran.
-    session_id : str, optional
-        Identifier of the session in which the code bundle execution ran.
-    user : str, optional
-        User who ran the code bundle execution.
-    user_type : str, optional
-        Type of the user who ran the code bundle execution.
-    role : str, optional
-        Role used to run the code bundle execution.
-    warehouse : str, optional
-        Warehouse used by the code bundle execution.
-    query_tag : str, optional
-        Query tag associated with the code bundle execution.
-    transaction_id : str, optional
-        Identifier of the transaction in which the code bundle execution ran.
+        Time when the execution completed.
+    entrypoint : str, optional
+        File path entrypoint of the execution.
+    query_id : str, optional
+        Query id of the statement that executed the code bundle.
     """
 
-    execution_id: Optional[StrictStr] = None
-
-    status: Optional[StrictStr] = None
-
-    error_code: Optional[StrictStr] = None
-
-    error_message: Optional[StrictStr] = None
-
-    start_time: Optional[StrictStr] = None
-
-    end_time: Optional[StrictStr] = None
-
-    execution_time: Optional[StrictStr] = None
-
-    query_text: Optional[StrictStr] = None
+    bundle_name: Optional[StrictStr] = None
 
     database_name: Optional[Annotated[str, Field(strict=True)]] = None
 
     schema_name: Optional[Annotated[str, Field(strict=True)]] = None
 
-    session_id: Optional[StrictStr] = None
+    status: Optional[StrictStr] = None
 
-    user: Optional[StrictStr] = None
+    bundle_type: Optional[StrictStr] = None
 
-    user_type: Optional[StrictStr] = None
+    compute_type: Optional[StrictStr] = None
 
-    role: Optional[StrictStr] = None
+    language_type: Optional[StrictStr] = None
 
-    warehouse: Optional[StrictStr] = None
+    runtime_name: Optional[StrictStr] = None
 
-    query_tag: Optional[StrictStr] = None
+    execution_name: Optional[StrictStr] = None
 
-    transaction_id: Optional[StrictStr] = None
+    start_time: Optional[StrictStr] = None
+
+    end_time: Optional[StrictStr] = None
+
+    entrypoint: Optional[StrictStr] = None
+
+    query_id: Optional[StrictStr] = None
 
     __properties = [
-        "execution_id",
-        "status",
-        "error_code",
-        "error_message",
-        "start_time",
-        "end_time",
-        "execution_time",
-        "query_text",
+        "bundle_name",
         "database_name",
         "schema_name",
-        "session_id",
-        "user",
-        "user_type",
-        "role",
-        "warehouse",
-        "query_tag",
-        "transaction_id",
+        "status",
+        "bundle_type",
+        "compute_type",
+        "language_type",
+        "runtime_name",
+        "execution_name",
+        "start_time",
+        "end_time",
+        "entrypoint",
+        "query_id",
     ]
 
     @field_validator("database_name")
@@ -184,23 +164,19 @@ class CodeBundleExecution(BaseModel):
 
         _obj = CodeBundleExecution.model_validate(
             {
-                "execution_id": obj.get("execution_id"),
-                "status": obj.get("status"),
-                "error_code": obj.get("error_code"),
-                "error_message": obj.get("error_message"),
-                "start_time": obj.get("start_time"),
-                "end_time": obj.get("end_time"),
-                "execution_time": obj.get("execution_time"),
-                "query_text": obj.get("query_text"),
+                "bundle_name": obj.get("bundle_name"),
                 "database_name": obj.get("database_name"),
                 "schema_name": obj.get("schema_name"),
-                "session_id": obj.get("session_id"),
-                "user": obj.get("user"),
-                "user_type": obj.get("user_type"),
-                "role": obj.get("role"),
-                "warehouse": obj.get("warehouse"),
-                "query_tag": obj.get("query_tag"),
-                "transaction_id": obj.get("transaction_id"),
+                "status": obj.get("status"),
+                "bundle_type": obj.get("bundle_type"),
+                "compute_type": obj.get("compute_type"),
+                "language_type": obj.get("language_type"),
+                "runtime_name": obj.get("runtime_name"),
+                "execution_name": obj.get("execution_name"),
+                "start_time": obj.get("start_time"),
+                "end_time": obj.get("end_time"),
+                "entrypoint": obj.get("entrypoint"),
+                "query_id": obj.get("query_id"),
             }
         )
 
@@ -210,23 +186,19 @@ class CodeBundleExecution(BaseModel):
 class CodeBundleExecutionModel:
     def __init__(
         self,  # optional properties
-        execution_id: Optional[str] = None,
-        status: Optional[str] = None,
-        error_code: Optional[str] = None,
-        error_message: Optional[str] = None,
-        start_time: Optional[str] = None,
-        end_time: Optional[str] = None,
-        execution_time: Optional[str] = None,
-        query_text: Optional[str] = None,
+        bundle_name: Optional[str] = None,
         database_name: Optional[str] = None,
         schema_name: Optional[str] = None,
-        session_id: Optional[str] = None,
-        user: Optional[str] = None,
-        user_type: Optional[str] = None,
-        role: Optional[str] = None,
-        warehouse: Optional[str] = None,
-        query_tag: Optional[str] = None,
-        transaction_id: Optional[str] = None,
+        status: Optional[str] = None,
+        bundle_type: Optional[str] = None,
+        compute_type: Optional[str] = None,
+        language_type: Optional[str] = None,
+        runtime_name: Optional[str] = None,
+        execution_name: Optional[str] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        entrypoint: Optional[str] = None,
+        query_id: Optional[str] = None,
     ):
         """A model object representing the CodeBundleExecution resource.
 
@@ -234,77 +206,61 @@ class CodeBundleExecutionModel:
 
         Parameters
         __________
-        execution_id : str, optional
-            Query id of the code bundle execution.
+        bundle_name : str, optional
+            Fully qualified name of the code bundle. May be empty for anonymous (unnamed) executions.
+        database_name : str, optional
+            Database supplied when the code bundle was created or executed.
+        schema_name : str, optional
+            Schema supplied when the code bundle was created or executed.
         status : str, optional
-            Execution status of the code bundle execution (for example, RUNNING, SUCCESS, or FAILED_WITH_ERROR).
-        error_code : str, optional
-            Error code returned if the execution failed.
-        error_message : str, optional
-            Error message returned if the execution failed.
+            Execution job status (for example, Queued, In progress, Succeeded, or Failed).
+        bundle_type : str, optional
+            Type of the code bundle (for example, custompython, mljava, or spark).
+        compute_type : str, optional
+            Compute on which the execution ran (for example, warehouse, compute_pool, or serverless).
+        language_type : str, optional
+            Language of the code bundle (for example, python or java).
+        runtime_name : str, optional
+            Name of the runtime backing the execution (warehouse name or SPCS service name).
+        execution_name : str, optional
+            Optional caller-supplied name for the execution (used primarily for anonymous executions).
         start_time : str, optional
             Time when the execution started.
         end_time : str, optional
-            Time when the execution ended.
-        execution_time : str, optional
-            Total execution time, in milliseconds.
-        query_text : str, optional
-            Text of the statement that executed the code bundle.
-        database_name : str, optional
-            Database in which the code bundle execution ran.
-        schema_name : str, optional
-            Schema in which the code bundle execution ran.
-        session_id : str, optional
-            Identifier of the session in which the code bundle execution ran.
-        user : str, optional
-            User who ran the code bundle execution.
-        user_type : str, optional
-            Type of the user who ran the code bundle execution.
-        role : str, optional
-            Role used to run the code bundle execution.
-        warehouse : str, optional
-            Warehouse used by the code bundle execution.
-        query_tag : str, optional
-            Query tag associated with the code bundle execution.
-        transaction_id : str, optional
-            Identifier of the transaction in which the code bundle execution ran.
+            Time when the execution completed.
+        entrypoint : str, optional
+            File path entrypoint of the execution.
+        query_id : str, optional
+            Query id of the statement that executed the code bundle.
         """
-        self.execution_id = execution_id
-        self.status = status
-        self.error_code = error_code
-        self.error_message = error_message
-        self.start_time = start_time
-        self.end_time = end_time
-        self.execution_time = execution_time
-        self.query_text = query_text
+        self.bundle_name = bundle_name
         self.database_name = database_name
         self.schema_name = schema_name
-        self.session_id = session_id
-        self.user = user
-        self.user_type = user_type
-        self.role = role
-        self.warehouse = warehouse
-        self.query_tag = query_tag
-        self.transaction_id = transaction_id
+        self.status = status
+        self.bundle_type = bundle_type
+        self.compute_type = compute_type
+        self.language_type = language_type
+        self.runtime_name = runtime_name
+        self.execution_name = execution_name
+        self.start_time = start_time
+        self.end_time = end_time
+        self.entrypoint = entrypoint
+        self.query_id = query_id
 
     __properties = [
-        "execution_id",
-        "status",
-        "error_code",
-        "error_message",
-        "start_time",
-        "end_time",
-        "execution_time",
-        "query_text",
+        "bundle_name",
         "database_name",
         "schema_name",
-        "session_id",
-        "user",
-        "user_type",
-        "role",
-        "warehouse",
-        "query_tag",
-        "transaction_id",
+        "status",
+        "bundle_type",
+        "compute_type",
+        "language_type",
+        "runtime_name",
+        "execution_name",
+        "start_time",
+        "end_time",
+        "entrypoint",
+        "query_id",
     ]
 
     def __repr__(self) -> str:
@@ -312,45 +268,37 @@ class CodeBundleExecutionModel:
 
     def _to_model(self):
         return CodeBundleExecution(
-            execution_id=self.execution_id,
-            status=self.status,
-            error_code=self.error_code,
-            error_message=self.error_message,
-            start_time=self.start_time,
-            end_time=self.end_time,
-            execution_time=self.execution_time,
-            query_text=self.query_text,
+            bundle_name=self.bundle_name,
             database_name=self.database_name,
             schema_name=self.schema_name,
-            session_id=self.session_id,
-            user=self.user,
-            user_type=self.user_type,
-            role=self.role,
-            warehouse=self.warehouse,
-            query_tag=self.query_tag,
-            transaction_id=self.transaction_id,
+            status=self.status,
+            bundle_type=self.bundle_type,
+            compute_type=self.compute_type,
+            language_type=self.language_type,
+            runtime_name=self.runtime_name,
+            execution_name=self.execution_name,
+            start_time=self.start_time,
+            end_time=self.end_time,
+            entrypoint=self.entrypoint,
+            query_id=self.query_id,
         )
 
     @classmethod
     def _from_model(cls, model) -> CodeBundleExecutionModel:
         return CodeBundleExecutionModel(
-            execution_id=model.execution_id,
-            status=model.status,
-            error_code=model.error_code,
-            error_message=model.error_message,
-            start_time=model.start_time,
-            end_time=model.end_time,
-            execution_time=model.execution_time,
-            query_text=model.query_text,
+            bundle_name=model.bundle_name,
             database_name=model.database_name,
             schema_name=model.schema_name,
-            session_id=model.session_id,
-            user=model.user,
-            user_type=model.user_type,
-            role=model.role,
-            warehouse=model.warehouse,
-            query_tag=model.query_tag,
-            transaction_id=model.transaction_id,
+            status=model.status,
+            bundle_type=model.bundle_type,
+            compute_type=model.compute_type,
+            language_type=model.language_type,
+            runtime_name=model.runtime_name,
+            execution_name=model.execution_name,
+            start_time=model.start_time,
+            end_time=model.end_time,
+            entrypoint=model.entrypoint,
+            query_id=model.query_id,
         )
 
     def to_dict(self):

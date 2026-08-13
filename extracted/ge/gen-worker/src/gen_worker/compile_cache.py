@@ -1,12 +1,25 @@
 """Per-SKU torch.compile cache artifacts (#384).
 
 torch.compile wins 15-34% warm latency on flux-class models but costs 20-46s
-of compile per (model, resolution) and needs a C toolchain the prod worker
-images don't ship. The split: a platform compile job (training-endpoints
-``produce-inductor-cache``) compiles once per GPU SKU and publishes the
-inductor+triton cache dirs as a repo flavor; workers that opt in via
+of compile per (model, resolution). The artifact is the inductor+triton cache
+dirs, published as a repo flavor; workers that opt in via
 ``@endpoint(compile=Compile(...))`` seed those dirs before load and hit the
 cache with no compiler and no stall.
+
+**Who produces one, as of 2026-08-11 (th#1800).** The worker itself, and
+nobody else. The out-of-process producer this module was designed around —
+training-endpoints ``produce-inductor-cache`` — was DELETED by te#179 (it
+minted ``kind="torch-inductor-cache"``, and th#1788 made ``aot-inductor`` the
+only class the hub adopts, so its publishes were refused before entering the
+store), and DESIGN-RULINGS §4.28/§4.30 make that permanent: there is no
+central compile service, no mint request and no compile fleet, and compilation
+runs on the machine that will USE the cell. A family too large to self-mint beside its own server is a
+PLACEMENT question — boot its serving pod on a card that fits, per §4.28's
+"pre-warming a release/SKU = boot an ordinary serving pod there". pgw#1175
+deleted the ``card_bytes`` figure that used to answer it: it was
+``resident + need`` where ``need`` already re-charged ``resident``, and the
+49-113 GiB card classes it produced are retracted (§4.33). A mint costs ~8 GiB;
+what a family needs is measured by attempting it.
 
 Policy: cache miss / key mismatch / no artifact leaves ordinary lanes eager,
 never causing a boot stall or a runtime compile attempt in prod. A declared
@@ -18,7 +31,8 @@ Artifacts are FAMILY-keyed (settled 2026-07-06): torch.compile caches key on
 the traced graph + shapes, not the weights, so one artifact serves every
 fine-tune of a model family. They live in a system-owned repo per family
 (``root/family-<family>``), one flavor per (SKU, torch) cell — and they
-are CODE: only the platform's first-party compile job publishes shared ones.
+are CODE: only a TRUSTED-hardware worker publishes shared ones (§4.28;
+untrusted hardware mints for itself and never uploads).
 
 Artifact = deterministic ``.tar.gz``::
 
@@ -37,6 +51,12 @@ by a different gen-worker, or traced under different low-VRAM flags, can
 pass every other key yet miss inductor's FX-graph cache at trace time,
 serving eager while reporting adopted). ``source_ref`` records which family member the producer
 compiled from — informational, never part of the match.
+
+This paragraph is about the LOCAL/JIT recipe above, which is a PRE-TRACE facts
+comparison and must not UNDER-split: it cannot see a graph, so ``diffusers``
+stands in for one and stays. The exported lane's ck1 key is the opposite side
+of that asymmetry — it HAS the traced graph, so the model libraries are not in
+its ``toolchain`` axis (pgw#1050, :func:`toolchain_digest`).
 """
 
 from __future__ import annotations
@@ -44,41 +64,33 @@ from __future__ import annotations
 import ast
 import contextlib
 import contextvars
-import filecmp
 import functools
 import importlib.util
-import gzip
 import hashlib
-import io
 import json
 import logging
 import os
 import re
 import shutil
 import tarfile
-import tempfile
 import threading
-import time
 import weakref
 from dataclasses import dataclass
 from pathlib import Path
-from pathlib import PurePosixPath
 from typing import (
-    Any, Callable, Dict, Iterable, Iterator, List, Mapping, Optional, Tuple,
+    Any, Callable, Dict, Iterator, List, Mapping, Optional, Tuple,
 )
 
-import inspect
-import pickle
 import sys
 
 from . import (
     cell_key, dist_records, env_seal, guard_closure, hot_swap,
     serve_posture, settings_authority,
 )
-from .api.errors import RetryableError
+from .api.errors import FatalError, RetryableError
 from .models import w8a8_lora
 from .models.loading import pipeline_weight_lane
-from .models.memory import low_vram_mode, reconcile_resident_mode
+from .models.memory import low_vram_mode
 from .models.refs import parse_model_ref
 from .models.w8a8_lora import RANK_BUCKETS
 from .models import execution_lanes as lanespec
@@ -86,19 +98,12 @@ from .models import loading as _loading
 
 logger = logging.getLogger(__name__)
 
-METADATA_NAME = "metadata.json"
 # 2 (gw#391): key gained the producer gen-worker version. ie#496 extends its
 # metadata with the canonical module graph, shape/target table and weight-lane
 # schema without gratuitously invalidating proven non-W8A8 cells. New W8A8
 # consumers require those fields; checkpoint bytes remain deliberately absent.
 ARTIFACT_FORMAT = 2
 _MARKER_ATTR = "_cozy_compile"
-_JUNK_SUFFIXES = (".lock", ".tmp", ".pid")
-# Cache directories and torch's in-process cache latches are process-global.
-# Serialize the complete seed+arm transaction so another setup can never arm
-# against a half-merged artifact. RLock keeps seed_artifact -> capture_env
-# composable without another configuration layer.
-_SEED_ARM_LOCK = threading.RLock()
 _LOCK_TYPE = type(threading.Lock())
 
 # ---------------------------------------------------------------------------
@@ -938,8 +943,10 @@ def _static_imports(path: Path, module_name: str) -> set[str]:
 def static_code_closure() -> Tuple[Tuple[str, str], ...]:
     """The recipe's code identity: sorted (module path, content digest) of
     every source file statically reachable from the compile entrypoints.
-    Restricted to the gen_worker package; torch/diffusers/transformers content
-    rides the ``toolchain`` axis at package granularity instead. Deterministic:
+    Restricted to the gen_worker package; torch/triton content rides the
+    ``toolchain`` axis at package granularity, and the model libraries ride
+    the ``graph`` axis (pgw#1050 — their code IS the traced computation, and
+    nothing else about them reaches a cell). Deterministic:
     module-derived relative paths, sorted, content digests — never absolute
     paths, never bytecode.
 
@@ -979,6 +986,20 @@ def toolchain_digest() -> Tuple[Tuple[str, str], ...]:
     """pgw#710/pgw#1059: CONTENT identity of "the compiler stack AS WE
     CONFIGURE IT", per component — the ``toolchain`` key axis's whole input.
 
+    THE COMPILER, and not the model libraries (pgw#1050): ``diffusers`` /
+    ``transformers`` / ``peft`` rode this axis until 2026-08-11 and were
+    evicted because their whole effect on a cell arrives through the traced
+    graph, which the ``graph`` axis hashes node-for-node since pgw#1031 —
+    see ``cell_key``'s module docstring for the channel-by-channel argument
+    and for the two fences (B1 code-only + the pgw#1097 folding fence;
+    ``env_seal.assert_seal_unchanged``) that close the routes around it.
+    Folded here, every model-library patch release re-keyed every cell in
+    the fleet for a graph that had not moved. ``cell_key.toolchain_facts``
+    is the READER of the same membership, and the pair is what keeps one
+    axis one derivation. Their versions stay RECORDED for forensics
+    (:func:`_lib_versions`, ``artifact_metadata``'s ``libs`` block) — an
+    observability fact, exactly like ``sku``.
+
     The binary half (pgw#710) is the equivalence precondition that lets
     ``image_digest`` be relaxed (pgw#700) without degrading the compile
     stack's identity to version strings (the ccache ``compiler_check=mtime``
@@ -1016,7 +1037,7 @@ def toolchain_digest() -> Tuple[Tuple[str, str], ...]:
     # per-FILE digests and this axis's per-PACKAGE digests are two readings of
     # the same manifests, and reading them twice is how two surfaces start
     # disagreeing about what is installed.
-    wanted = ("torch", "triton", "diffusers", "transformers", "peft")
+    wanted = ("torch", "triton")
     for name, record in dist_records.record_texts().items():
         if name in wanted or name.startswith("nvidia-"):
             out[name] = hashlib.sha256(record.encode()).hexdigest()[:16]
@@ -1059,195 +1080,6 @@ def content_keys() -> Tuple[Tuple[str, str], ...]:
     return tuple(sorted(out.items()))
 
 
-def artifact_metadata(
-    *,
-    family: str,
-    source_ref: str = "",
-    source_digest: str = "",
-    shapes: Iterable[Tuple[int, ...]] = (),
-    targets: Iterable[str] = (),
-    guidance_scales: Iterable[float] = (),
-    low_vram_mode: str = "",
-    storage_dtype: str = "",
-    compile_mode: str = "whole",
-    weight_lane: str = "",
-    lora_bucket: int = 0,
-    graph_signature: str = "",
-    weight_contract: Optional[Dict[str, Any]] = None,
-    declared_compile_contract: Optional[Dict[str, Any]] = None,
-    composition: Iterable[Tuple[str, str]] = (),
-) -> Dict[str, Any]:
-    """Producer-side metadata for :func:`pack` (no timestamps: artifacts of
-    identical content must be byte-identical). ``source_ref``/``source_digest``
-    record the family member compiled from — informational only.
-    ``low_vram_mode`` is the prep mode the producer pipeline was traced under
-    (gw#391): its flags are traced into the graphs, so a consumer prepped in a
-    different mode must reject the cell. ``storage_dtype`` records the weight
-    storage the binding REQUESTED — informational only. ``weight_lane`` is the
-    lane the built pipeline ACTUALLY traced under (gw#534:
-    ``loading.pipeline_weight_lane`` — "" plain-resident, "fp8-hooks"
-    fp8-resident weights with a per-layer upcast, traced INTO the graphs
-    (ie#381; pgw#727 made that structure instead of hooks) and is
-    parity-checked at :func:`enable` like ``low_vram_mode``. Shape rows are
-    (w, h) or (w, h, frames); ``guidance_scales`` records the image CFG /
-    no-CFG graph classes captured for every 2-D row — see ``Compile``."""
-    meta: Dict[str, Any] = {
-        "format": ARTIFACT_FORMAT,
-        "kind": "torch-inductor-cache",
-        **runtime_key(),
-        "gen_worker": gen_worker_version(),
-        "family": str(family or ""),
-        "source_ref": str(source_ref or ""),
-        "source_digest": str(source_digest or ""),
-        "shapes": [[int(v) for v in s] for s in shapes],
-        "targets": list(targets),
-        "guidance_scales": [float(v) for v in guidance_scales],
-        "low_vram_mode": str(low_vram_mode or ""),
-        "storage_dtype": str(storage_dtype or ""),
-        "compile_mode": str(compile_mode or "whole"),
-        "weight_lane": str(weight_lane or ""),
-        "lora_bucket": int(lora_bucket or 0),
-        "graph_signature": str(graph_signature or ""),
-        "weight_contract": dict(weight_contract or {}),
-        "declared_compile_contract": dict(declared_compile_contract or {}),
-        # pgw#697: per-module fingerprint rows so an adoption refusal can
-        # name the exact drifted module, not just a digest mismatch.
-        "composition": [[str(p), str(d)] for p, d in composition],
-        # pgw#696: the execution-environment seal rides verbatim — the
-        # env_seal axis is recomputed FROM it, never trusted as a stamp.
-        env_seal.SEAL_KEY: env_seal.effective_seal(),
-        # recipe facts: toolchain + static code closure feed the key
-        # axes (recomputed from these blocks, never trusted as stamps);
-        # content_keys stay observability (review §6.5). Endpoint closure
-        # roots ride in when the executor passes them (train-lane wiring).
-        "content_keys": dict(content_keys()),
-        "toolchain": dict(toolchain_digest()),
-        "code_closure": dict(static_code_closure()),
-        # pgw#719: the per-library list behind the seal's combined
-        # loaded_libs digest — a mismatch names the library.
-        "loaded_libs": dict(env_seal.frozen_library_digests()),
-        "libs": _lib_versions(),
-    }
-    # pgw#1059: NO cell_key stamp. A torch-inductor-cache artifact has no
-    # cell-key identity any more — the ck1 key names exported cells only,
-    # and the local/seeded verdict compares these recorded facts directly
-    # (local_cell_mismatch), which is strictly more nameable than a fused
-    # digest comparison ever was.
-    return meta
-
-
-def verify(meta: Dict[str, Any], *, family: str = "") -> str:
-    """'' when the artifact matches this runtime, else the mismatch reason.
-
-    STRICT on every axis (cache-design review §6.9): a cell that is SILENT
-    on an axis is refused, named — never accepted. The old
-    ``if want and want != have`` conditionals were the exact shape of JAX
-    PR #27814's one documented wrong-cache-hit (a version axis "only
-    sometimes incorporated"). Pre-launch, no external consumers, so the
-    legacy silent-axis compatibility path is retired outright.
-
-    Family is the graph-identity half of the key: fine-tunes of one family
-    share caches by design."""
-    if int(meta.get("format") or 0) != ARTIFACT_FORMAT:
-        return f"format {meta.get('format')!r} != {ARTIFACT_FORMAT}"
-    here = runtime_key()
-    # sku is NOT here (pgw#691/ck3): it left the identity axes — sm + cuda +
-    # torch + triton pin every hardware fact the compiled artifacts carry,
-    # and a same-sm cell minted on a different SKU must arm, not refuse.
-    # It stays recorded in metadata for observability and selection only.
-    # There is no cuda_driver axis at all (gw#577 excluded it, pgw#1034 stopped
-    # probing it): triton's disk cache keys on the wheel's ptxas + SM arch, and
-    # the host libcuda build never enters any compiled-artifact key.
-    for field in IDENTITY_AXES:
-        want, have = str(meta.get(field) or ""), here[field]
-        if want != have:
-            return f"{field} {want!r} != runtime {have!r}"
-    want_gw, have_gw = str(meta.get("gen_worker") or ""), gen_worker_version()
-    if want_gw != have_gw:
-        # gw#391: the producer's gen-worker shapes the traced graph; a version
-        # drift means the FX-graph cache keys may no longer match.
-        return f"gen_worker {want_gw!r} != runtime {have_gw!r}"
-    libs = meta.get("libs") or {}
-    here_libs = _lib_versions()
-    for lib in sorted(set(libs) | set(here_libs)):
-        want, have = str(libs.get(lib) or ""), str(here_libs.get(lib) or "")
-        if want != have:
-            return f"{lib} {want!r} != runtime {have!r}"
-    want_fam = str(meta.get("family") or "")
-    if family and want_fam != family:
-        return f"family {want_fam!r} != {family!r}"
-    return ""
-
-
-def local_cell_mismatch(
-    meta: Dict[str, Any], *, family: str, weight_lane: str, cfg: Any,
-    lora_bucket_override: Optional[int] = None,
-) -> str:
-    """'' when a torch-inductor-cache artifact states exactly this runtime +
-    declaration, else the FIRST mismatch, named.
-
-    pgw#1059: the replacement for the retired ``kind="inductor"`` cell key
-    (``cell_key.compute`` / ``mismatch``). The cozy-local store and the
-    seeded-arm self-cell check need a PRE-TRACE verdict, which a key whose
-    ``graph`` axis is the traced-graph digest cannot give by construction —
-    so the verdict compares the recorded facts directly, each with the same
-    derivation the producer used, and names the fact instead of a digest:
-
-    * every :func:`verify` axis (format, torch/triton/sm/cuda/image,
-      gen_worker, libs, family) — strict, silent axes refused;
-    * the execution lane label (ONE derivation: :func:`execution_lane_label`);
-    * the declared compile contract (ONE derivation:
-      :func:`declared_compile_facts`) — STRICT: a cell recording no block is
-      refused, closing the fixture-shaped gap :func:`contract_drift`
-      deliberately left open;
-    * the settings declaration + loaded libs + binary toolchain, via the
-      recorded ``env_seal`` / ``toolchain`` blocks (the same facts the
-      exported key's ``toolchain`` axis folds).
-
-    The local store is a cache; every refusal here costs one re-mint.
-    """
-    reason = verify(meta, family=family)
-    if reason:
-        return reason
-    want_lane = execution_lane_label(
-        str(weight_lane or ""),
-        int(lora_bucket_override
-            if lora_bucket_override is not None
-            else int(getattr(cfg, "lora_bucket", 0) or 0)))
-    have_lane = execution_lane_label(
-        str(meta.get("weight_lane") or ""),
-        int(meta.get("lora_bucket") or 0))
-    if have_lane != want_lane:
-        return f"execution lane {have_lane!r} != runtime {want_lane!r}"
-    cell_contract = meta.get("declared_compile_contract")
-    if not isinstance(cell_contract, dict) or not cell_contract:
-        return (
-            "artifact records no declared_compile_contract block "
-            "(pre-pgw#1059 cell); refused — a cell that cannot state its "
-            "declaration cannot be shown to match this one")
-    here_contract = declared_compile_facts(
-        cfg, lora_bucket_override=lora_bucket_override)
-    if cell_contract != here_contract:
-        return (
-            "declared compile contract mismatch: "
-            + _first_contract_difference(cell_contract, here_contract))
-    seal = meta.get(env_seal.SEAL_KEY)
-    if not isinstance(seal, dict) or not seal:
-        return "artifact records no env_seal block; refused"
-    want_seal = env_seal.seal_digest(env_seal.effective_seal())
-    have_seal = env_seal.seal_digest(seal)
-    if have_seal != want_seal:
-        return f"env_seal {have_seal!r} != runtime {want_seal!r}"
-    toolchain = meta.get("toolchain")
-    if not isinstance(toolchain, dict) or not toolchain:
-        return "artifact records no toolchain block; refused"
-    want_tc = cell_key.facts_digest(dict(toolchain_digest()))
-    have_tc = cell_key.facts_digest(toolchain)
-    if have_tc != want_tc:
-        return f"toolchain {have_tc!r} != runtime {want_tc!r}"
-    return ""
-
-
 # ---------------------------------------------------------------------------
 # Pack / unpack
 # ---------------------------------------------------------------------------
@@ -1259,222 +1091,6 @@ def _clean_tarinfo(ti: tarfile.TarInfo, executable: bool = False) -> tarfile.Tar
     ti.mtime = 0
     ti.mode = 0o755 if executable else 0o644
     return ti
-
-
-_ELF_MAGIC = b"\x7fELF"
-
-
-class _UnreadableCubin(ValueError):
-    """A packed cubin whose architecture cannot be determined (pgw#939)."""
-
-
-def _cubin_arch(path: Path) -> int:
-    """The SM arch a cubin was compiled for (nvidia ELF ``e_flags`` low
-    byte). Raises :class:`_UnreadableCubin` when the file cannot be read or
-    is not an ELF — pgw#939: it used to return ``0`` for that, which the
-    caller's ``if cubin is not None and want_arch:`` then read as "no arch to
-    compare", so an unreadable kernel SKIPPED the gate that exists to catch
-    it. Absence of evidence is the finding here, not the absence of a
-    finding."""
-    try:
-        with open(path, "rb") as f:
-            header = f.read(0x34)
-    except OSError as exc:
-        raise _UnreadableCubin(f"unreadable ({type(exc).__name__})") from exc
-    if len(header) < 0x34 or not header.startswith(_ELF_MAGIC):
-        raise _UnreadableCubin("not an ELF object")
-    # EI_CLASS: 2 = ELF64 (e_flags at 0x30), 1 = ELF32 (e_flags at 0x24).
-    offset = 0x30 if header[4] == 2 else 0x24
-    flags = int.from_bytes(header[offset:offset + 4], "little")
-    return flags & 0xFF
-
-
-def _ptx_jit_gaps(
-    files: Iterable[Path], cache_root: Path, sm: str,
-) -> list[str]:
-    """PTX-JIT exposure per kernel (pgw#698). A kernel whose only compiled
-    form is PTX makes the HOST DRIVER's JIT compile it at load time — the
-    one path where the deliberately-unkeyed driver version (gw#577) can
-    re-enter compiled-kernel behavior. Every ``.ptx`` must ship a sibling
-    ``.cubin``, and the cubin arch must match the artifact's sm exactly.
-
-    pgw#939: both halves of that comparison used to VANISH on an unreadable
-    input. A malformed ``metadata["sm"]`` set ``want_arch = 0`` and an
-    unreadable cubin returned ``0``, and either one made
-    ``if cubin is not None and want_arch:`` skip — so pgw#698's gate
-    disappeared per kernel exactly when the evidence for it was missing.
-    An `sm` this function cannot parse is now a gap in its own right."""
-    want_arch = 0
-    if sm.startswith("sm_"):
-        try:
-            want_arch = int(sm[3:])
-        except ValueError:
-            want_arch = 0
-    kernels: Dict[Tuple[Path, str], Dict[str, Path]] = {}
-    for p in files:
-        if p.suffix in (".ptx", ".cubin"):
-            kernels.setdefault((p.parent, p.stem), {})[p.suffix] = p
-    # Scope, stated because pgw#939 narrowed it deliberately: this gate is
-    # about PTX JIT, so it rules on kernels that HAVE a `.ptx`. A `.cubin`
-    # with no PTX sibling cannot be JIT-compiled by the driver — there is
-    # nothing to compile — and whether it is the right architecture is the
-    # cell IDENTITY gate's question (`sm` is a strict `IDENTITY_AXES` field),
-    # not this one's.
-    exposed = {k: v for k, v in kernels.items() if ".ptx" in v}
-    if not exposed:
-        return []
-    gaps: list[str] = []
-    if not want_arch:
-        # pgw#939: this used to set `want_arch = 0` and silently skip every
-        # comparison below, so a malformed `sm` deleted the gate wholesale.
-        gaps.append(
-            f"artifact declares sm={sm!r}, which names no comparable "
-            f"architecture while carrying {len(exposed)} PTX-exposed "
-            "kernel(s) — the arch gate cannot run, so the pack is refused "
-            "rather than packed unchecked (pgw#698/pgw#939)")
-    for (_parent, _stem), forms in sorted(
-        exposed.items(), key=lambda kv: str(kv[0][0] / kv[0][1]),
-    ):
-        ptx, cubin = forms[".ptx"], forms.get(".cubin")
-        if cubin is None:
-            gaps.append(
-                f"{ptx.relative_to(cache_root)}: PTX only — no cubin, the "
-                "driver JIT would compile it")
-            continue
-        if not want_arch:
-            continue  # already refused above; do not repeat it per kernel
-        try:
-            arch = _cubin_arch(cubin)
-        except _UnreadableCubin as exc:
-            # pgw#939: `_cubin_arch` returned 0 here and `and want_arch`
-            # then skipped the comparison, so the gate disappeared for
-            # exactly the kernel whose evidence could not be read.
-            gaps.append(
-                f"{cubin.relative_to(cache_root)}: {exc} — its "
-                "architecture cannot be compared to the artifact's")
-            continue
-        if arch != want_arch:
-            gaps.append(
-                f"{cubin.relative_to(cache_root)}: cubin arch sm_{arch} "
-                f"!= artifact sm_{want_arch}")
-    return gaps
-
-
-def _inductor_cache_config() -> Dict[str, Any]:
-    """The inductor cache flags that decide whether a compile could have
-    written a reusable entry AT ALL. Read live, never assumed: on 2.13
-    ``bundle_triton_into_fx_graph_cache`` defaults True, which moves triton
-    artifacts INSIDE the fx entry and therefore changes what lands on disk."""
-    facts: Dict[str, Any] = {}
-    # Never trigger a FRESH heavy import from a diagnostic: importing
-    # torch._inductor runs cache_dir(), which mkdirs TORCHINDUCTOR_CACHE_DIR
-    # and raises on an unwritable one — leaving a half-initialized module that
-    # poisons every later import (measured: the mega-cache artifact factory
-    # double-registers). By pack time inductor is always imported anyway; if it
-    # is not, its config was never consulted and has nothing to explain.
-    if "torch._inductor.config" not in sys.modules:
-        return facts
-    try:
-        from torch._inductor import config as inductor_config
-
-        for name in ("fx_graph_cache", "force_disable_caches",
-                     "bundle_triton_into_fx_graph_cache", "freezing"):
-            facts[name] = getattr(inductor_config, name, "?")
-    except Exception:  # noqa: BLE001 — a diagnostic must never raise
-        logger.debug("compile-cache: inductor config unreadable", exc_info=True)
-    return facts
-
-
-def pack(cache_root: Path, out_path: Path, metadata: Dict[str, Any]) -> Path:
-    """Deterministic artifact from a capture root holding ``inductor/`` and
-    ``triton/``: sorted entries, zeroed times/owners, gzip mtime 0 — identical
-    content always packs to identical bytes. Refuses (pgw#698) when any
-    kernel would rely on driver PTX JIT, naming the kernels."""
-    cache_root = Path(cache_root)
-    out_path = Path(out_path)
-    files: list[Path] = []
-    for sub in ("inductor", "triton"):
-        base = cache_root / sub
-        if base.is_dir():
-            files.extend(
-                p for p in base.rglob("*")
-                if p.is_file() and not p.name.endswith(_JUNK_SUFFIXES)
-            )
-    files.sort(key=lambda p: str(p.relative_to(cache_root)))
-    gaps = _ptx_jit_gaps(files, cache_root, str(metadata.get("sm") or ""))
-    if gaps:
-        shown = "; ".join(gaps[:10])
-        more = f" (+{len(gaps) - 10} more)" if len(gaps) > 10 else ""
-        # The gate's own census rides the refusal: a real PTX exposure and a
-        # false gap (e.g. cubins bundled into the fx entry rather than written
-        # beside the ptx) look identical without these counts.
-        ptx = sum(1 for p in files if p.suffix == ".ptx")
-        cubin = sum(1 for p in files if p.suffix == ".cubin")
-        config_facts = _inductor_cache_config()
-        raise RuntimeError(
-            f"cubin-completeness gate (pgw#698): {len(gaps)} kernel(s) "
-            f"would rely on driver PTX JIT — {shown}{more} "
-            f"[census: {ptx} ptx, {cubin} cubin, {len(files)} files, "
-            f"sm={metadata.get('sm') or '-'}, bundle_triton="
-            f"{config_facts.get('bundle_triton_into_fx_graph_cache', '?')}]")
-
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "wb") as raw:
-        with gzip.GzipFile(filename="", fileobj=raw, mode="wb", mtime=0) as gz:
-            with tarfile.open(fileobj=gz, mode="w") as tar:
-                meta_bytes = json.dumps(metadata, sort_keys=True, indent=1).encode()
-                ti = _clean_tarinfo(tarfile.TarInfo(METADATA_NAME))
-                ti.size = len(meta_bytes)
-                tar.addfile(ti, io.BytesIO(meta_bytes))
-                for p in files:
-                    rel = str(p.relative_to(cache_root))
-                    ti = _clean_tarinfo(
-                        tarfile.TarInfo(rel), executable=os.access(p, os.X_OK)
-                    )
-                    ti.size = p.stat().st_size
-                    with open(p, "rb") as f:
-                        tar.addfile(ti, f)
-    return out_path
-
-
-def unpack(artifact: Path, dest_root: Path) -> Dict[str, Any]:
-    """Extract an artifact's ``inductor/``+``triton/`` trees into ``dest_root``
-    (merging with whatever is already seeded) and return its metadata."""
-    dest_root = Path(dest_root)
-    dest_root.mkdir(parents=True, exist_ok=True)
-    meta: Dict[str, Any] = {}
-    with tarfile.open(artifact, mode="r:*") as tar:
-        for member in tar:
-            name = member.name
-            if name == METADATA_NAME:
-                if not member.isfile():
-                    raise ValueError(
-                        f"unsafe {METADATA_NAME} member in compile-cache artifact"
-                    )
-                f = tar.extractfile(member)
-                meta = json.loads(f.read().decode()) if f else {}
-                continue
-            posix = PurePosixPath(name)
-            parts = posix.parts
-            if (
-                not member.isfile()
-                or not parts
-                or parts[0] not in ("inductor", "triton")
-                or any(part in ("", ".", "..") for part in parts)
-                or posix.is_absolute()
-            ):
-                raise ValueError(f"unsafe or unknown member in compile-cache artifact: {member.name!r}")
-            target = dest_root.joinpath(*parts)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            src = tar.extractfile(member)
-            assert src is not None
-            with open(target, "wb") as out:
-                shutil.copyfileobj(src, out)
-            if member.mode & 0o100:
-                target.chmod(0o755)
-    if not meta:
-        raise ValueError(f"compile-cache artifact {artifact} has no {METADATA_NAME}")
-    return meta
 
 
 # ---------------------------------------------------------------------------
@@ -1565,24 +1181,6 @@ def _set_semantic_cache_tag(pipeline: Any, cfg: Any) -> None:
     settings_authority.set_compiler_cache_tag(_semantic_cache_tag(pipeline, cfg))
 
 
-def capture_env(root: Path) -> Path:
-    """Point inductor+triton at the dirs under ``root`` (producer capture and
-    consumer seeding share this contract). Safe mid-process: latched inductor
-    path caches are cleared so a hot adoption's re-seed actually takes effect
-    (gw#391 — the worker has been serving eager long before seeding)."""
-    root = Path(root)
-    for sub, env in (("inductor", "TORCHINDUCTOR_CACHE_DIR"), ("triton", "TRITON_CACHE_DIR")):
-        d = root / sub
-        d.mkdir(parents=True, exist_ok=True)
-        os.environ[env] = str(d)
-    # gw#608: portability needs the (portable) FxGraphCache as the lookup
-    # surface — the authority owns the write (settings_authority docstring
-    # carries the full ASLR/thread-local history).
-    settings_authority.disable_autograd_cache()
-    _reset_inductor_latch()
-    return root
-
-
 def _reset_inductor_latch() -> None:
     """Clear inductor's in-memory caches that may have latched the previous
     cache-dir paths (torch's own ``temporary_cache_dir`` does the same)."""
@@ -1596,9 +1194,6 @@ def _reset_inductor_latch() -> None:
     except Exception:
         logger.debug("compile-cache: inductor latch reset unavailable", exc_info=True)
 
-
-# seeding reuses the same env contract
-seed_env = capture_env
 
 def inductor_counters() -> Dict[str, int]:
     """This process's compiled-artifact cache counters (monotonic). The delta
@@ -1802,26 +1397,7 @@ def cxx_toolchain_present() -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _fx_entry_lines(data: bytes) -> Tuple[str, list]:
-    """(key, hash-details lines) from one pickled FxGraphCache entry."""
-
-    obj = pickle.loads(data)
-    key = str(getattr(obj, "_fx_graph_cache_key", "") or "")
-    lines = list(getattr(obj, "_fx_graph_cache_debug_lines", None) or [])
-    return key, lines
-
-
 _FX_COMPONENT_RE = re.compile(r"\A\[(\S+)\]\s+([^:]+):\s?(.*)\Z", re.DOTALL)
-
-
-def _fx_components(lines: list) -> Dict[str, Tuple[str, str]]:
-    """component name -> (hash, value text) from one entry's debug lines."""
-    out: Dict[str, Tuple[str, str]] = {}
-    for line in lines:
-        m = _FX_COMPONENT_RE.match(str(line))
-        if m:
-            out[m.group(2).strip()] = (m.group(1), m.group(3).strip())
-    return out
 
 
 def _clip(value: str, limit: int = 120) -> str:
@@ -1829,124 +1405,56 @@ def _clip(value: str, limit: int = 120) -> str:
     return flat if len(flat) <= limit else flat[:limit] + "…"
 
 
-def fx_cache_failure_report(artifact: Optional[Path] = None) -> str:
-    """Exhaustive FX-cache state for a failed store-served warmup proof
-    (gw#608). ALWAYS returns a non-empty report — counts alone discriminate
-    the failure classes with zero pod-log access:
+def fx_cache_failure_report() -> str:
+    """This boot's FX-cache state, for a dynamo warmup proof that failed
+    (gw#608). ALWAYS returns a non-empty report and never raises — it runs on
+    a failure path, so it may never add a second failure to the one being
+    diagnosed.
 
-    - fresh_keys>0            => the boot computed DIFFERENT keys (B1); the
-                                 per-component divergence is appended.
-    - fresh_keys=0 with
-      samekey_resave rows     => the boot computed the SAME keys and torch
-                                 re-saved next to the seeded entries — the
-                                 miss is in the candidate LOAD path (B2:
-                                 unpickle / extern-libs guard), which only
-                                 ever executes on consumers (a mint has
-                                 nothing to iterate); the sibling diff and
-                                 probes below name the failing step.
-    - cell_keys=0             => the artifact itself was unreadable here.
+    **pgw#1200 deleted the CELL side, and with it the three-way
+    classification.** The report used to name B1 (*"the boot computed
+    different keys"*), B2 (*"the keys matched and the miss is in torch's
+    candidate-load path"*) or *"unreadable artifact"* — every one of them a
+    difference measured against FX entries read out of a
+    `torch-inductor-cache` tarball's `inductor/fxgraph/` tree. pgw#1178
+    deleted that format's last writer and pgw#1181 deleted the format, so the
+    tar walk could only ever yield nothing, and the arithmetic did not degrade
+    gracefully — it INVERTED. `fresh = live_keys - seeded` became EVERY live
+    key, so **B1 was named on every boot with any FX entry at all**, while B2
+    was structurally unreportable and `cell_keys=0` (*"unreadable"*) was the
+    normal case. Measured on the real function: handed an exported cell — what
+    the caller passes today — the output was byte-identical to passing
+    ``None``, which is the shortest proof the argument carried no information.
 
-    Every sub-probe degrades to an err token; this never raises."""
+    A diagnostic that always names one class is worse than none, because it is
+    read as evidence. What survives is what the dynamo lane can actually
+    observe about itself, and it is reported as a census rather than a verdict.
+    """
 
     out: list = []
-    seeded_lines: Dict[str, list] = {}
-    seeded_names: Dict[str, set] = {}
-    cell_extern = None
-    cell_guards = "<none>"
-    if artifact is not None:
-        try:
-            with tarfile.open(Path(artifact), mode="r:*") as tar:
-                for member in tar:
-                    parts = PurePosixPath(member.name).parts
-                    if (
-                        len(parts) < 5
-                        or parts[:2] != ("inductor", "fxgraph")
-                        or not member.isfile()
-                    ):
-                        continue
-                    key, entry_name = parts[3], parts[4]
-                    seeded_names.setdefault(key, set()).add(entry_name)
-                    f = tar.extractfile(member)
-                    if f is None:
-                        continue
-                    try:
-                        obj = pickle.loads(f.read())
-                    except Exception as exc:  # noqa: BLE001
-                        out.append(
-                            f"cell_unpickle=EXC:{type(exc).__name__}:"
-                            f"{_clip(str(exc), 80)}")
-                        continue
-                    if cell_extern is None:
-                        cell_extern = str(
-                            getattr(obj, "extern_libs_key", None))
-                        cell_guards = repr(
-                            getattr(obj, "guards_expr", None))
-                    lines = list(getattr(
-                        obj, "_fx_graph_cache_debug_lines", None) or [])
-                    if lines:
-                        seeded_lines.setdefault(key, lines)
-        except Exception as exc:  # noqa: BLE001
-            out.append(f"cell_read=EXC:{type(exc).__name__}")
-    out.insert(0, f"cell_keys={len(seeded_names)}")
-    out.append(f"cell_guards={cell_guards}")
-    out.append(f"cell_extern={_clip(str(cell_extern), 90)}")
-
     base = Path(os.environ.get("TORCHINDUCTOR_CACHE_DIR", "") or "")
     fx_root = base / "fxgraph"
-    live_files: Dict[str, list] = {}
+    live_keys = 0
     if str(base) and fx_root.is_dir():
         for keydir in sorted(fx_root.glob("*/*")):
-            if keydir.is_dir():
-                files = sorted(
+            if not keydir.is_dir():
+                continue
+            try:
+                entries = [
                     p for p in keydir.iterdir()
-                    if p.is_file() and not p.name.startswith("."))
-                if files:
-                    live_files[keydir.name] = files
+                    if p.is_file() and not p.name.startswith(".")
+                ]
+            except OSError:
+                continue
+            if entries:
+                live_keys += 1
     else:
         out.append(f"live_dir_missing={str(fx_root) or '<unset>'}")
-    fresh = sorted(k for k in live_files if k not in seeded_names)
-    out.append(f"live_keys={len(live_files)}")
-    out.append(f"fresh_keys={len(fresh)}")
+    out.append(f"live_keys={live_keys}")
 
-    # Same-key re-save: seeded entry FILENAMES are their content sha, so any
-    # other file inside a seeded key dir is THIS boot's save of the same key.
-    resaves = 0
-    for key, files in sorted(live_files.items()):
-        names = seeded_names.get(key)
-        if not names:
-            continue
-        fresh_sibs = [p for p in files if p.name not in names]
-        seed_sibs = [p for p in files if p.name in names]
-        if not fresh_sibs or not seed_sibs:
-            continue
-        resaves += 1
-        if resaves == 1:
-            try:
-                a = pickle.loads(seed_sibs[0].read_bytes())
-                b = pickle.loads(fresh_sibs[0].read_bytes())
-                out.append(
-                    f"samekey_resave[{key[:12]}]: guards "
-                    f"cell={getattr(a, 'guards_expr', None)!r} "
-                    f"boot={getattr(b, 'guards_expr', None)!r}; extern "
-                    f"cell={_clip(str(getattr(a, 'extern_libs_key', None)), 90)} "
-                    f"boot={_clip(str(getattr(b, 'extern_libs_key', None)), 90)}")
-            except Exception as exc:  # noqa: BLE001
-                out.append(
-                    f"samekey_probe=EXC:{type(exc).__name__}:"
-                    f"{_clip(str(exc), 80)}")
-    out.append(f"samekey_resaves={resaves}")
-
-    # Emulate torch's candidate-load preconditions on one seeded live entry.
-    probe = next(
-        ((k, v) for k, v in live_files.items() if k in seeded_names), None)
-    if probe is not None:
-        try:
-            pickle.loads(probe[1][0].read_bytes())
-            out.append("live_cell_entry_unpickle=ok")
-        except Exception as exc:  # noqa: BLE001
-            out.append(
-                f"live_cell_entry_unpickle=EXC:{type(exc).__name__}:"
-                f"{_clip(str(exc), 80)}")
+    # The extern-libs key is a real input to torch's FX cache key and a real
+    # reason a boot misses, so it stays: it is a fact about THIS process,
+    # needing no cell to compare against.
     try:
         import torch.utils._triton as _tu
 
@@ -1955,62 +1463,7 @@ def fx_cache_failure_report(artifact: Optional[Path] = None) -> str:
     except Exception as exc:  # noqa: BLE001
         out.append(
             f"extern_current=EXC:{type(exc).__name__}:{_clip(str(exc), 80)}")
-
-    if fresh:
-        try:
-            observed = {
-                k: _fx_entry_lines(live_files[k][0].read_bytes())[1]
-                for k in fresh[:2]
-            }
-            divergence = fx_key_forensics(seeded_lines, observed)
-            if divergence:
-                out.append("divergence: " + divergence)
-        except Exception as exc:  # noqa: BLE001
-            out.append(f"divergence=EXC:{type(exc).__name__}")
     return "; ".join(str(v) for v in out)
-
-
-def fx_key_forensics(
-    seeded: Dict[str, list],
-    observed: Dict[str, list],
-    *,
-    max_fresh: int = 2,
-    max_components: int = 4,
-) -> str:
-    """Name the FxGraphHashDetails components on which this boot's freshly
-    compiled FX entries diverge from the seeded cell's (gw#608). Each fresh
-    key (present live, absent from the cell) is matched to the seeded key
-    with the fewest differing component hashes — the graphs are counterparts,
-    so the minimal diff IS the key defect. '' when there is nothing to say."""
-    fresh = {k: v for k, v in observed.items() if k not in seeded}
-    if not seeded or not fresh:
-        return ""
-    seeded_components = {k: _fx_components(v) for k, v in seeded.items()}
-    reports = []
-    for key, lines in sorted(fresh.items())[:max_fresh]:
-        fresh_c = _fx_components(lines)
-        best_key = ""
-        best_diff: Optional[list] = None
-        for skey, sc in seeded_components.items():
-            diffs = [
-                name for name in sorted(set(fresh_c) | set(sc))
-                if fresh_c.get(name, ("", ""))[0] != sc.get(name, ("", ""))[0]
-            ]
-            if best_diff is None or len(diffs) < len(best_diff):
-                best_key, best_diff = skey, diffs
-        if best_diff is None:
-            continue
-        sc = seeded_components[best_key]
-        named = "; ".join(
-            f"{name}: cell={_clip(sc.get(name, ('', '<absent>'))[1])} != "
-            f"boot={_clip(fresh_c.get(name, ('', '<absent>'))[1])}"
-            for name in best_diff[:max_components]
-        )
-        reports.append(
-            f"fresh key {key} vs nearest cell key {best_key}: "
-            f"{len(best_diff)} differing component(s): {named or 'none'}"
-        )
-    return " | ".join(reports)
 
 
 class AdoptError(RuntimeError):
@@ -2037,153 +1490,40 @@ class CellSelectionBugError(RuntimeError):
 
 
 class CompiledExecutionLaneUnavailableError(RetryableError):
-    """A precision lane whose production contract requires a cell is unsafe."""
+    """A precision lane whose production contract requires a cell is unsafe.
 
-
-def _merge_staged_cache(staged: Path, live: Path) -> None:
-    """Safely add one already-verified staging tree to ``live``.
-
-    Inductor/Triton paths are cache-KEY-addressed, not content-addressed
-    across machines (pgw#699/#711 respec, pgw#751): same-key members are
-    byte-divergent between producers (embedded paths, codegen
-    nondeterminism), so an existing path with different bytes is the SAME
-    cache entry, not a conflict — the LOCAL copy wins (it may already be
-    mmapped/served by this process, and torch's own consumption is keyed,
-    so serving semantics are identical) and the merge stays additive. The
-    live 7-of-13 ``adopt_failed:cache_collision`` epidemic was exactly
-    this: any pod that had compiled anything before delivery could never
-    install a cell. A structural conflict (a directory where a file is
-    expected) still refuses typed.
-
-    New files become visible one at a time via ``os.replace`` (there is no
-    portable whole-directory union swap), but the process lock prevents
-    normal arming consumers from observing that interval. An in-process
-    failure removes every newly added file. A process crash can leave only
-    complete, verified new files; replay treats those as identical and
-    finishes the additive merge.
+    RETRYABLE, and correctly so: a cell that is merely ABSENT here can exist
+    elsewhere or later — another pod may already hold it, and a requeue is how
+    the request reaches that pod. Everything whose cause can change (no CUDA
+    on this pod, an arm that failed, an identity computation that raised) exits
+    through this class.
     """
-    files = sorted(
-        path
-        for sub in ("inductor", "triton")
-        for path in (staged / sub).rglob("*")
-        if path.is_file()
-    )
-    additions: list[tuple[Path, Path]] = []
-    local_wins: list[str] = []
-    for source in files:
-        target = live / source.relative_to(staged)
-        if target.exists():
-            if not target.is_file():
-                raise AdoptError(
-                    "cache_collision",
-                    f"verified cache path {source.relative_to(staged)!s} "
-                    "exists locally as a non-file — structural conflict",
-                )
-            if not filecmp.cmp(source, target, shallow=False):
-                local_wins.append(str(source.relative_to(staged)))
-            continue
-        additions.append((source, target))
-    if local_wins:
-        logger.info(
-            "cell merge: %d same-key byte-divergent member(s) kept LOCAL "
-            "(pgw#751 — bytes are not the identity; first: %s)",
-            len(local_wins), ", ".join(local_wins[:3]))
-
-    live.mkdir(parents=True, exist_ok=True)
-    added: list[Path] = []
-    try:
-        for source, target in additions:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            os.replace(source, target)
-            added.append(target)
-    except BaseException:
-        for target in reversed(added):
-            target.unlink(missing_ok=True)
-        raise
 
 
-@dataclass
-class _StagedArtifact:
-    metadata: Dict[str, Any]
-    staged_root: Path
-    live_root: Path
-    temporary: tempfile.TemporaryDirectory[str]
-    activated: bool = False
+class CompiledExecutionLaneImpossibleError(FatalError):
+    """The same refusal, for a cause that CANNOT change (pgw#888/pgw#1010).
 
-    def close(self) -> None:
-        self.temporary.cleanup()
+    A mandatory w8a8/w4a4 lane on a family that declares no export: the lane
+    serves only from a cell, the only cell is an AOT cell, and no export means
+    no cell can be minted for it on any pod, ever. Retrying spends the
+    orchestrator's whole attempt budget re-deriving one answer — pgw#888
+    measured 11 real requests each exhausting five retries — and the user waits
+    five times as long for the identical refusal.
 
+    NOT a subclass of :class:`CompiledExecutionLaneUnavailableError`: it is
+    exactly the retryability that differs, so inheriting it would put this back
+    on the retry path through any ``except`` clause that names the parent.
 
-def stage_artifact(
-    artifact: Path, family: str, cache_dir: Optional[Path] = None,
-) -> _StagedArtifact:
-    """Extract and validate an artifact without touching process-global state."""
-    root = (Path(cache_dir) if cache_dir else Path.home() / ".cache" / "gen-worker")
-    root = root / "compile-cache"
-    root.parent.mkdir(parents=True, exist_ok=True)
-    temporary = tempfile.TemporaryDirectory(
-        prefix="compile-cache-stage-", dir=root.parent,
-    )
-    staged = Path(temporary.name) / "cache"
-    try:
-        meta = unpack(Path(artifact), staged)
-        reason = verify(meta, family=family)
-        if reason:
-            raise AdoptError("key_mismatch", reason)
-        return _StagedArtifact(meta, staged, root, temporary)
-    except AdoptError:
-        temporary.cleanup()
-        raise
-    except Exception as exc:
-        temporary.cleanup()
-        raise AdoptError("artifact_invalid", str(exc)) from exc
-
-
-def _activate_staged(staged: _StagedArtifact) -> Dict[str, Any]:
-    """Publish a verified staging tree while holding ``_SEED_ARM_LOCK``."""
-    if not staged.activated:
-        _merge_staged_cache(staged.staged_root, staged.live_root)
-        staged.activated = True
-    seed_env(staged.live_root)
-    return staged.metadata
-
-
-def seed_artifact(
-    artifact: Path, family: str, cache_dir: Optional[Path] = None
-) -> Dict[str, Any]:
-    """Verify in isolation, then seed one artifact under the process lock.
-
-    A malformed, unsafe, corrupt, or runtime-mismatched tar never writes into
-    the live Inductor/Triton cache. Returns metadata or raises
-    :class:`AdoptError` without changing the live tree.
+    Why not serve eager instead (DESIGN-RULINGS §4.31)? §4.31's in-request
+    eager fallback governs the case where eager is a VALID POSTURE for the
+    endpoint. Here the author declared a mandatory quantized lane, so eager is
+    not a posture they sanctioned — falling back to it would serve numerics
+    nobody approved rather than refuse. §4.31 and pgw#1010 therefore do not
+    conflict once "cell-attributable failure => serve eager" is read as
+    "=> serve eager WHERE EAGER IS PERMITTED". Recorded here because it is an
+    assumption, not a quotation: if it is ever reversed, this class is the
+    single place the reversal lands.
     """
-    staged = stage_artifact(artifact, family, cache_dir=cache_dir)
-    try:
-        try:
-            with _SEED_ARM_LOCK:
-                return _activate_staged(staged)
-        except AdoptError:
-            raise
-        except Exception as exc:
-            raise AdoptError("activation_failed", str(exc)) from exc
-    finally:
-        staged.close()
-
-
-def mode_drift(meta: Dict[str, Any], pipeline: Any) -> str:
-    """'' when the producer's low-VRAM prep mode matches this pipeline's, else
-    the mismatch (gw#391). The prep flags (VAE tiling/slicing, attention
-    slicing, offload hooks) are traced into the FX graphs, so a mode drift is
-    a guaranteed cache miss. Enforced only when the producer recorded one —
-    the check is per-pipeline, so it lives outside :func:`verify`."""
-    want = str(meta.get("low_vram_mode") or "")
-    if not want:
-        return ""
-
-    have = low_vram_mode(pipeline)
-    if want != have:
-        return f"low_vram_mode {want!r} != pipeline {have!r}"
-    return ""
 
 
 def apply_lora_execution_lane(pipeline: Any, bucket: int) -> bool:
@@ -2221,20 +1561,6 @@ def drop_lora_execution_lane(pipeline: Any) -> None:
         return
     w8a8_lora.disable_branch_execution_lanes(pipeline)
     w8a8_lora.stamp_execution_lane(pipeline, targets)
-
-
-def execution_lane_drift(meta: Dict[str, Any], pipeline: Any) -> str:
-    """'' when the cell's traced weight lane matches this pipeline's, else the
-    mismatch (gw#534). Enforced SYMMETRICALLY (unlike ``mode_drift``): a
-    bf16-resident pipeline must never adopt hook-cast-traced graphs and vice
-    versa — both directions are guaranteed FX-graph misses that would serve
-    eager while reporting adopted (the gw#391 bug class)."""
-    want = str(meta.get("weight_lane") or "")
-
-    have = pipeline_weight_lane(pipeline)
-    if want != have:
-        return f"weight_lane {want!r} != pipeline {have!r}"
-    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -2419,50 +1745,6 @@ def _module_entry(path: str, module: Any) -> Dict[str, Any]:
     if hooks:
         entry["hooks"] = hooks
     return entry
-
-
-def composition_fingerprint(pipeline: Any, cfg: Any) -> list[Tuple[str, str]]:
-    """``(path, digest)`` per resolved-target module — the pgw#697 adoption
-    fence. Digests the same per-module facts the graph signature hashes, so
-    a signature mismatch resolves to the exact drifted module (the pgw#683
-    class: one submodule left in Half inside a bf16 tree died as a raw
-    matmul RuntimeError — this names ``path: cell x != consumer y``
-    instead). Fine-tunes stay shared: no tensor VALUES enter any row."""
-    rows: list[Tuple[str, str]] = []
-    for target in tuple(getattr(cfg, "targets", ()) or ()):
-        resolved = _resolve_target(pipeline, str(target))
-        if resolved is None:
-            continue
-        owner, _attr, _fn = resolved
-        named = getattr(owner, "named_modules", None)
-        module_rows = list(named()) if callable(named) else [("", owner)]
-        for name, module in module_rows:
-            path = f"{target}:{name}" if name else str(target)
-            encoded = json.dumps(
-                _module_entry(path, module), sort_keys=True,
-                separators=(",", ":"),
-            ).encode()
-            rows.append((path, hashlib.sha256(encoded).hexdigest()[:16]))
-    return sorted(rows)
-
-
-def _first_composition_difference(
-    cell_rows: Iterable[Iterable[str]], here_rows: Iterable[Tuple[str, str]],
-) -> str:
-    """Name the first module whose composition digest differs (or that only
-    one side has)."""
-    cell = {str(p): str(d) for p, d in cell_rows}
-    here = {str(p): str(d) for p, d in here_rows}
-    for path in sorted(set(cell) | set(here)):
-        want, have = cell.get(path), here.get(path)
-        if want == have:
-            continue
-        if want is None:
-            return f"module {path!r} exists only in the consumer pipeline"
-        if have is None:
-            return f"module {path!r} exists only in the cell"
-        return f"{path}: cell composition {want} != consumer {have}"
-    return ""
 
 
 def execution_contract(pipeline: Any, cfg: Any) -> Tuple[str, Dict[str, Any]]:
@@ -2665,6 +1947,24 @@ def _with_declared_marks(fn: Callable[..., Any], dynamic_dims: tuple) -> Callabl
     extent outside the declared range is a typed :class:`DeclaredRangeExceeded`
     — the declaration is wrong and the endpoint must fix it — never a
     dynamo-internal error nobody can attribute.
+
+    pgw#1151: the declared range is enforced HERE and is not forwarded into
+    ``mark_dynamic``. Passing ``min=``/``max=`` makes dynamo build a
+    ``StrictMinMaxConstraint`` (``_dynamo/variables/builder.py``), and a
+    strict constraint turns any range NARROWING the compiler performs into a
+    ``ConstraintViolationError`` — a permanent eager degrade — even when the
+    narrowing carries no correctness content. Inductor's index-dtype choice is
+    exactly such a narrowing: ``can_use_32bit_indexing`` elects int32 from the
+    FIRST call's size hint and then installs ``check_leq(numel, INT32_MAX)``
+    (``_inductor/codegen/simd.py``), so on minimax-h3 the 5 s cold call
+    (38,015 rows x a 28,672 inner dim) pinned int32 and its guard,
+    ``sequence <= 74,898``, contradicted the declared max. Every width above
+    that took a hard refusal, which is why 11-15 s served 100% eager.
+    Marking without bounds yields a ``RelaxedUnspecConstraint`` instead: the
+    axis still may not specialize to a constant (the pgw#1082 failure this
+    function exists to prevent), but the compiler may split the range, so the
+    wide call simply RECOMPILES with int64 indexing. Two graphs, each
+    optimally indexed, no degrade.
     """
 
     import torch
@@ -2703,8 +2003,9 @@ def _with_declared_marks(fn: Callable[..., Any], dynamic_dims: tuple) -> Callabl
                 for dim in range(t.dim()):
                     if int(t.shape[dim]) != extent:
                         continue
-                    torch._dynamo.mark_dynamic(
-                        t, dim, min=int(d.min), max=int(d.max))
+                    # No min=/max=: see the docstring. The range is a CONTRACT
+                    # checked above, never a strict dynamo constraint.
+                    torch._dynamo.mark_dynamic(t, dim)
 
     @functools.wraps(fn)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -2761,119 +2062,6 @@ def execution_contract_digest(pipeline: Any, cfg: Any) -> str:
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()
-
-
-def _first_contract_difference(cell: Dict[str, Any], here: Dict[str, Any]) -> str:
-    """Name the first differing weight-contract key with compact values, so a
-    refusal is diagnosable from the reason alone (gw#577)."""
-    for key in sorted(set(cell) | set(here)):
-        want, have = cell.get(key), here.get(key)
-        if want == have:
-            continue
-        if isinstance(want, list) and isinstance(have, list):
-            return (
-                f"{key}: cell has {len(want)} row(s), consumer {len(have)}; "
-                f"first cell-only rows {[r for r in want if r not in have][:2]!r} "
-                f"vs consumer-only {[r for r in have if r not in want][:2]!r}"
-            )
-        return f"{key}: cell {want!r} != consumer {have!r}"
-    return "identical keys, differing encoding"
-
-
-def contract_drift(meta: Dict[str, Any], pipeline: Any, cfg: Any) -> str:
-    """Mismatch between the cell's declared graph and the loaded consumer."""
-    shapes = sorted(
-        [int(v) for v in row] for row in getattr(cfg, "shapes", ()))
-    cell_shapes = sorted(
-        [int(v) for v in row] for row in (meta.get("shapes") or ()))
-    if cell_shapes != shapes:
-        return f"shapes {cell_shapes!r} != declared {shapes!r}"
-    targets = [str(v) for v in getattr(cfg, "targets", ())]
-    if meta.get("targets") != targets:
-        return f"targets {meta.get('targets')!r} != declared {targets!r}"
-    guidance_scales = [float(v) for v in getattr(cfg, "guidance_scales", ())]
-    cell_guidance_scales = [float(v) for v in (meta.get("guidance_scales") or ())]
-    if cell_guidance_scales != guidance_scales:
-        return (
-            f"guidance_scales {cell_guidance_scales!r} != declared "
-            f"{guidance_scales!r}"
-        )
-    # SDK v2: the recorded declared compile contract must be the declared
-    # one — a worker on a newer contract must never serve an older cell
-    # (pgw#647).
-    #
-    # NOT CUT by pgw#950, deliberately: a cell recording NO block is skipped
-    # here, which is the same silent-axis shape as the arm below, but ~9 test
-    # fixtures build metadata without one (every PRODUCTION mint passes
-    # ``declared_compile_contract=declared_compile_facts(cfg)``, so the gap is
-    # fixtures, not producers). The STRICT verdict lives in
-    # :func:`local_cell_mismatch` (pgw#1059), which refuses the absent block.
-    cell_contract = meta.get("declared_compile_contract") or {}
-    if cell_contract:
-        here_contract = declared_compile_facts(cfg)
-        if cell_contract != here_contract:
-            return (
-                "shape contract mismatch: "
-                + _first_contract_difference(cell_contract, here_contract)
-            )
-    signature, weight_contract = execution_contract(pipeline, cfg)
-    meta_signature = str(meta.get("graph_signature") or "")
-    meta_weights = meta.get("weight_contract") or {}
-    if not meta_signature:
-        # pgw#950: this used to ``return ""`` — COMPATIBLE — for a cell silent
-        # on both graph_signature and weight_contract on a non-quantized lane
-        # ("legacy format-2"). Every production mint passes a signature (
-        # ``execution_contract`` always digests a structure, never ""), so the
-        # arm only ever admitted pre-format-3 cells, and admitting one is a
-        # wrong cache hit on the module graph itself.
-        return "cell records no graph_signature (pre-format-3 cell)"
-    if meta_signature != signature:
-        # pgw#697: when the cell carries per-module fingerprint rows, name
-        # the exact drifted module instead of two digest prefixes.
-        cell_rows = meta.get("composition") or []
-        if cell_rows:
-            named = _first_composition_difference(
-                cell_rows, composition_fingerprint(pipeline, cfg))
-            if named:
-                return f"module composition: {named}"
-        return (
-            f"module graph signature: cell {meta_signature[:12]!r} != "
-            f"consumer {signature[:12]!r}"
-        )
-    if meta_weights != weight_contract:
-        return (
-            "weight-lane artifact schema/exclusion manifest mismatch: "
-            + _first_contract_difference(meta_weights, weight_contract)
-        )
-    cell_execution_lane_base = str(weight_contract.get("lane") or "")
-    if cell_execution_lane_base.startswith(("w8a8", "w4a4")):
-        activations = weight_contract.get("activation_scaling") or []
-        if cell_execution_lane_base.startswith("w8a8"):
-            # DYNAMIC only, one homogeneous granularity per graph (gw#564:
-            # per-row = rowwise sm_90+, per-tensor = the sm_89 epilogue lane).
-            if activations not in (["dynamic-per-row"], ["dynamic-per-tensor"]):
-                return (f"W8A8 activation scaling must be dynamic "
-                        f"(per-row or per-tensor), got {activations!r}")
-        else:
-            # gw#540: one homogeneous second-level activation scale mode per
-            # graph (static = calibrated input_scale, the production mode).
-            if activations not in (["static"], ["dynamic-per-tensor"]):
-                return (f"W4A4 activation scaling must be homogeneous "
-                        f"static or dynamic-per-tensor, got {activations!r}")
-        if not weight_contract.get("quantized"):
-            return (f"{cell_execution_lane_base[:4].upper()} graph contains no "
-                    "torch._scaled_mm modules")
-        here_digest = runtime_key()["image_digest"]
-        for field in ("sm", "cuda", "image_digest"):
-            if not str(meta.get(field) or ""):
-                if field == "image_digest" and not here_digest:
-                    # Bare-metal local runtime (gw#555 self-mint): no image
-                    # identity axis exists on either side. Production images
-                    # always carry WORKER_IMAGE_DIGEST, so fleet cells stay
-                    # fully pinned.
-                    continue
-                return f"quantized-lane cell missing {field} identity"
-    return ""
 
 
 def _guarded(
@@ -3276,22 +2464,17 @@ def eager_tier_available(pipeline: Any) -> bool:
     than being routed eager behind the tenant's back).
 
     False only when an armed non-eager backend has REPLACED the callable —
-    an AOTI export or a TRT engine — because there the eager forward is gone
-    until the artifact is unwrapped.
+    an AOTI export — because there the eager forward is gone until the
+    artifact is unwrapped.
     """
-    # CYCLE: aot_serve and trt_engine both import AdoptError from this module;
-    # hoisting makes compile_cache import itself through them at boot.
-    from . import aot_serve, trt_engine
+    # CYCLE: aot_serve imports AdoptError from this module; hoisting makes
+    # compile_cache import itself through it at boot.
+    from . import aot_serve
 
     try:
         if aot_serve.is_armed(pipeline):
             return False
     except Exception:  # noqa: BLE001 — an unanswerable arm is not a swap
-        pass
-    try:
-        if trt_engine.is_armed(pipeline):
-            return False
-    except Exception:  # noqa: BLE001
         pass
     return True
 
@@ -3671,180 +2854,35 @@ def unwrap(pipeline: Any) -> bool:
     return True
 
 
-def _reconcile_resident_mode(meta: Optional[Dict[str, Any]], pipeline: Any) -> None:
-    """gw#588: 'off' and 'vae_only' are both fully-resident preps differing
-    only in flag groups — converge the pipeline to the cell's traced mode so
-    an honest :func:`mode_drift` passes. Offload drift keeps refusing."""
-    if not meta:
-        return
-    want = str(meta.get("low_vram_mode") or "")
+def enable(pipeline: Any, cfg: Any) -> bool:
+    """The one consumer entry point (executor + local CLI) for the JIT lane:
+    arm compile under the safety policy.
 
-    resident = ("off", "vae_only")
-    have = low_vram_mode(pipeline)
-    if want != have and want in resident and have in resident:
-        reconcile_resident_mode(pipeline, want)
+    It used to also SEED a delivered ``torch-inductor-cache`` artifact —
+    stage it, verify its recorded axes against this runtime, and merge its
+    inductor tree into the live cache — and pgw#1181 deleted that whole half
+    with the format. Nothing has produced such an artifact since pgw#1178
+    removed `mint_artifact`, its last writer, so every parameter of that
+    branch (`cache_dir`, `artifact`) named a file that could not exist.
+    Delivered cells arrive as AOT ``.pt2`` entries or TRT engines, and
+    `models.provision.arm_compiled` dispatches those on `metadata.json`'s
+    `kind` BEFORE this call; what reaches here is the no-artifact lane, which
+    is JIT intake (§4.34 keeps that) and cold compile.
 
-
-def artifact_drift(meta: Dict[str, Any], pipeline: Any, cfg: Any) -> str:
-    """The complete pipeline/config compatibility verdict for one cell."""
-    drift = (
-        mode_drift(meta, pipeline)
-        or execution_lane_drift(meta, pipeline)
-        or contract_drift(meta, pipeline, cfg)
-    )
-    if drift:
-        return drift
-    want = "regional" if getattr(cfg, "regional", False) else "whole"
-    have = str(meta.get("compile_mode") or "whole")
-    if have != want:
-        return f"cell compile_mode {have!r} != declared {want!r}"
-    # pgw#695: the cell's sealed mint posture must be the posture THIS
-    # process presents at arm time — a drift here would otherwise surface
-    # later as an undiagnosable ambient guard miss.
-    manifest = meta.get(guard_closure.MANIFEST_KEY)
-    if isinstance(manifest, dict) and manifest:
-        sealed = manifest.get(guard_closure.POSTURE_KEY)
-        if not isinstance(sealed, dict) or not sealed:
-            return "cell guard manifest carries no posture seal (pre-pgw#695 mint)"
-        try:
-            guard_closure.assert_posture(sealed, label="arm")
-        except guard_closure.PostureError as exc:
-            return str(exc)
-    # pgw#719 (config half): the cell's recorded env seal must be the LIVE
-    # effective environment at arm time — posture is named above; every
-    # other seal fact (config flags, inductor digest, epoch, loaded libs)
-    # is named here. In practice the ck key already pins this (env_seal is
-    # an axis); the named drift makes a hand-delivered/foreign cell
-    # diagnosable instead of a silent inner-key miss.
-    sealed_env = meta.get(env_seal.SEAL_KEY)
-    if isinstance(sealed_env, dict) and sealed_env:
-        live_env = env_seal.effective_seal()
-        for fact in sorted(set(sealed_env) | set(live_env)):
-            if fact == "posture":
-                continue  # named by the manifest posture check above
-            cell_v, live_v = sealed_env.get(fact), live_env.get(fact)
-            if isinstance(cell_v, dict) and isinstance(live_v, dict):
-                for sub in sorted(set(cell_v) | set(live_v)):
-                    if cell_v.get(sub) != live_v.get(sub):
-                        return (
-                            f"env seal drift at arm: {fact}/{sub}: cell "
-                            f"{cell_v.get(sub)!r} != process {live_v.get(sub)!r}")
-            elif cell_v != live_v:
-                return (
-                    f"env seal drift at arm: {fact}: cell {cell_v!r} != "
-                    f"process {live_v!r}")
-    return ""
-
-
-def enable(
-    pipeline: Any,
-    cfg: Any,
-    cache_dir: Optional[Path] = None,
-    artifact: Optional[Path] = None,
-) -> bool:
-    """The one consumer entry point (executor + local CLI): seed an explicitly
-    attached verified artifact, then arm compile under the safety policy.
-
-    A W8A8 refusal names its exact cause — the mismatched key axis with the
-    cell-vs-runtime values, the drift verdict, or the missing delivery
-    (gw#577): the raise IS the wire-visible job error, and serve pods expose
-    no logs, so a generic message makes a refused cell undiagnosable."""
-    staged: Optional[_StagedArtifact] = None
-    refusal = "no cell artifact delivered"
-    if artifact is not None:
-        try:
-            staged = stage_artifact(
-                Path(artifact), getattr(cfg, "family", "") or "",
-                cache_dir=cache_dir,
-            )
-        except Exception as exc:
-            refusal = f"cell rejected: {exc}"
-            logger.warning("compile-cache: artifact unusable (%s); staying eager", exc)
-    try:
-        with _SEED_ARM_LOCK:
-            meta: Optional[Dict[str, Any]] = None
-            self_key = ""
-            if staged is not None:
-                meta = staged.metadata
-                # th#883/gw#581/pgw#1059: is this MY cell — the artifact
-                # whose RECORDED FACTS state exactly this runtime + this
-                # declaration, judged by the one shared verdict
-                # (local_cell_mismatch)? If so, a refusal below is by
-                # construction a selection/parity bug, never compatibility.
-                try:
-                    from .models.loading import (
-                        pipeline_weight_lane as _pwl,
-                    )
-
-                    # gw#632: the EFFECTIVE bucket — a slot object with no
-                    # resolvable compile target (sdxl's bare vae) never rides
-                    # the branch lane (provision downgrades apply_lora_execution_lane
-                    # the same way, 0.52.1), so its self-verdict must not
-                    # claim the family's lora<bucket> cell and then explode
-                    # on lane drift (live: `weight_lane 'lora64' !=
-                    # pipeline ''` -> CellSelectionBugError -> gw#608
-                    # seeded-cell refusal -> all_declared_functions_disabled
-                    # pod retire).
-                    eff_bucket = int(getattr(cfg, "lora_bucket", 0) or 0)
-                    if eff_bucket and not has_compile_target(pipeline, cfg):
-                        eff_bucket = 0
-                    _fam = str(getattr(cfg, "family", "") or "")
-                    if not local_cell_mismatch(
-                        dict(meta),
-                        family=_fam,
-                        weight_lane=_pwl(pipeline),
-                        cfg=cfg,
-                        lora_bucket_override=eff_bucket,
-                    ):
-                        self_key = (
-                            f"{_fam}/"
-                            f"{execution_lane_label(_pwl(pipeline), eff_bucket) or 'plain'}")
-                except Exception:
-                    self_key = ""
-                _reconcile_resident_mode(meta, pipeline)
-                drift = artifact_drift(meta, pipeline, cfg)
-                if drift:
-                    # low_vram prep mode is DYNAMIC (free-VRAM placement at
-                    # load) and outside the key: its drift is a legitimate
-                    # miss even on a self-requested cell, never the bug class.
-                    if self_key and not drift.startswith("low_vram_mode"):
-                        raise CellSelectionBugError(
-                            f"self-requested cell {self_key} refused to "
-                            f"arm: {drift}"
-                        )
-                    refusal = f"cell rejected: {drift}"
-                    logger.warning("compile-cache: %s; staying eager", drift)
-                    meta = None
-                else:
-                    try:
-                        _activate_staged(staged)
-                    except Exception as exc:
-                        refusal = f"cell activation failed: {exc}"
-                        logger.warning(
-                            "compile-cache: cache activation failed (%s); "
-                            "staying eager", exc)
-                        meta = None
-            armed = apply(pipeline, cfg, cache_ready=meta is not None)
-            if meta is not None and not armed and self_key:
-                raise CellSelectionBugError(
-                    f"self-requested cell {self_key} activated but armed "
-                    "no compile target"
-                )
-
-            quant_execution_lane = pipeline_weight_lane(pipeline)
-            if quant_execution_lane.startswith(("w8a8", "w4a4")) and not armed:
-                if meta is not None:
-                    refusal = "verified cell armed no compile target"
-                execution_lane_name = quant_execution_lane[:4].upper()
-                raise CompiledExecutionLaneUnavailableError(
-                    f"{execution_lane_name} requires an exact compatible Forge cell "
-                    f"({refusal}); eager/dequantized execution is not a "
-                    f"{execution_lane_name} production lane"
-                )
-            return armed
-    finally:
-        if staged is not None:
-            staged.close()
+    A W8A8 refusal names its exact cause (gw#577): the raise IS the
+    wire-visible job error, and serve pods expose no logs, so a generic
+    message makes a refused lane undiagnosable.
+    """
+    armed = apply(pipeline, cfg, cache_ready=False)
+    quant_execution_lane = pipeline_weight_lane(pipeline)
+    if quant_execution_lane.startswith(("w8a8", "w4a4")) and not armed:
+        execution_lane_name = quant_execution_lane[:4].upper()
+        raise CompiledExecutionLaneUnavailableError(
+            f"{execution_lane_name} requires an exact compatible compile cell "
+            f"(no cell artifact delivered); eager/dequantized execution is "
+            f"not a {execution_lane_name} production lane"
+        )
+    return armed
 
 
 # ---------------------------------------------------------------------------
@@ -3873,100 +2911,6 @@ def resolve_pipeline_class(name: str) -> Any:
             "would trace the wrong call path (gw#586), so the mint refuses"
         )
     return cls
-
-
-def _warm_text_lens(cfg: Any) -> tuple:
-    """The text pins a warm loop must trace (pgw#654 gap #6): the class
-    UNION when present (dual-lane classes trace one graph per pin), else
-    the single declared pin, else (None,) — one unpinned pass."""
-    pins = tuple(getattr(cfg, "text_lens", ()) or ())
-    if not pins:
-        tl = getattr(cfg, "text_len", None)
-        pins = (int(tl),) if tl is not None else ()
-    pins = tuple(sorted({int(v) for v in pins if int(v) > 0}))
-    return pins if pins else (None,)
-
-
-def _warm_call(
-    pipe: Any,
-    shape: Tuple[int, ...],
-    *,
-    steps: int,
-    prompt: str,
-    decode: bool,
-    guidance_scales: Iterable[float] = (),
-    text_len: Optional[int] = None,
-) -> None:
-    """One warm-up call for ``shape``. (w, h) is the classic image call;
-    (w, h, frames) is a video call (ie#381): the DiT graph keys on the token
-    count only, so a plain single-pipeline call traces the same graph the
-    serving path (including a two-stage refine, whose latents arrive from an
-    upsampler of identical shape) will look up. Video calls force the
-    batch-1 no-CFG serving class (CFG is a graph shape — ``Compile``) and
-    skip decode unless a vae target is declared. Image calls run once per
-    explicitly declared guidance scale, capturing CFG and no-CFG graphs in
-    one family cell.
-
-    Guidance-kwarg convention (gw#595, the gw#586 class one axis over): on
-    classes exposing ``true_cfg_scale`` (qwen-style), ``guidance_scale`` is
-    the distilled-guidance embed no-op and classic CFG rides
-    ``true_cfg_scale`` + a non-None ``negative_prompt`` — warming through
-    ``guidance_scale`` there traces the SAME unconditioned graph for every
-    declared scale and the serving CFG lookup can never hit."""
-
-    import torch
-
-    kwargs: Dict[str, Any] = dict(
-        prompt=prompt,
-        num_inference_steps=int(steps),
-        width=int(shape[0]),
-        height=int(shape[1]),
-        generator=torch.Generator(device="cuda").manual_seed(0),
-    )
-    # SDK v2 text pin (ie#544): warm through the SAME pinned token length
-    # the serving path uses, when the pipeline exposes the knob — the
-    # traced sequence dim must match serving or every request misses.
-    if text_len and text_len > 0:
-        if "max_sequence_length" in inspect.signature(type(pipe).__call__).parameters:
-            kwargs["max_sequence_length"] = int(text_len)
-    if len(shape) == 3:
-        params = inspect.signature(type(pipe).__call__).parameters
-        kwargs["num_frames"] = int(shape[2])
-        kwargs["output_type"] = "np" if decode else "latent"
-        if "frame_rate" in params:
-            kwargs["frame_rate"] = 24.0
-        if "guidance_scale" in params:
-            kwargs["guidance_scale"] = 1.0
-        if "audio_guidance_scale" in params:
-            kwargs["audio_guidance_scale"] = 1.0
-        pipe(**kwargs)
-        return
-
-    scales = tuple(float(v) for v in guidance_scales)
-    if not scales:
-        pipe(**kwargs)
-        return
-    params = inspect.signature(type(pipe).__call__).parameters
-    if "true_cfg_scale" in params:
-        # Serving parity with the endpoint call: true_cfg_scale always
-        # passed; negative_prompt only when CFG is on (scale > 1), matching
-        # the CFG-off batch-1 graph exactly (no uncond pass).
-        for scale in scales:
-            call = dict(kwargs, true_cfg_scale=scale)
-            if scale > 1.0:
-                call["negative_prompt"] = " "
-            pipe(**call)
-        return
-    accepts_guidance = "guidance_scale" in params or any(
-        p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()
-    )
-    if not accepts_guidance:
-        raise RuntimeError(
-            f"{type(pipe).__name__} cannot warm declared guidance_scales; "
-            "its call signature has no guidance_scale"
-        )
-    for scale in scales:
-        pipe(**kwargs, guidance_scale=scale)
 
 
 def emit_jit_compile_event(
@@ -4036,122 +2980,6 @@ def emit_jit_compile_event(
                      exc_info=True)
 
 
-def _compile_and_warm(pipe: Any, cfg: Any, *, steps: int = 2, say: Any = None) -> None:
-    """Cold-compile ``pipe`` over the declared shape table (the only part of
-    a mint that needs CUDA + a toolchain). ``guard=False``: a failing warm
-    call must fail the mint — a silently-eager capture must never be saved."""
-    _say = say if callable(say) else (lambda msg: logger.info("%s", msg))
-    if not apply(pipe, cfg, cache_ready=False, guard=False, allow_cold=True):
-        # pgw#985: name the fact that actually declined — "no compile targets"
-        # was this line's answer to every one of them, including "no CUDA".
-        raise CompileArmRefused(
-            f"cannot arm {type(pipe).__name__} for a cold compile: "
-            + (arming_block(pipe, cfg, cache_ready=False, allow_cold=True)
-               or f"no compile target resolves for targets="
-                  f"{[str(t) for t in (getattr(cfg, 'targets', ()) or ())]}"))
-    import torch
-
-    decode = any(t.startswith("vae") for t in cfg.targets)
-    timings: Dict[str, float] = {}
-    audit_before = graph_audit()
-    for shape in cfg.shapes:
-        torch.cuda.synchronize()
-        t0 = time.monotonic()
-        for pin in _warm_text_lens(cfg):
-            _warm_call(
-                pipe, shape, steps=steps,
-                prompt="cache warm-up: a lighthouse on a cliff at dawn, detailed",
-                decode=decode,
-                guidance_scales=getattr(cfg, "guidance_scales", ()),
-                text_len=pin,
-            )
-        torch.cuda.synchronize()
-        shape_key = "x".join(str(v) for v in shape)
-        timings[shape_key] = round(time.monotonic() - t0, 2)
-        _say(f"  compiled {shape_key} in {timings[shape_key]:.0f}s")
-    # th#1322: this line WAS the only record of JIT compile duration anywhere
-    # (compile_cache.py:3803, "compiled %s in %.0fs") — a log-only important
-    # metric, which is a defect class, not a style choice. Now it is a number in
-    # a column too.
-    audit = graph_audit_delta(audit_before)
-    _say(f"  {audit.summary()}")
-    emit_jit_compile_event(
-        timings, family=getattr(cfg, "family", "") or "",
-        execution_lane=pipeline_weight_lane(pipe), route="compile_and_warm",
-        audit=audit)
-
-
-def mint_artifact(
-    pipe: Any,
-    cfg: Any,
-    family: str,
-    target: Path,
-    capture: Path,
-    *,
-    steps: int = 2,
-    say: Any = None,
-) -> Dict[str, Any]:
-    """Self-mint (gw#555/gw#587): compile THIS pipeline over its declared
-    shape table, capture the inductor/triton output, and pack the production
-    artifact atomically at ``target``. Returns the stamped metadata (incl.
-    the cell key its axes describe).
-
-    The capture uses the production artifact recipe end to end
-    (``capture_env`` -> warm the shape table -> ``artifact_metadata`` ->
-    deterministic ``pack``), so the saved cell is byte-compatible with a
-    delivered one and adopts through the identical code path. Shared by the
-    cozy-local store mint and the fleet self-mint
-    (fleet_cells) — ONE mint brain, different publish sinks.
-
-    ``guard=False`` on the warm calls: a failing warm call must fail the
-    mint — a silently-eager capture must never be saved.
-    """
-    _say = say if callable(say) else (lambda msg: logger.info("%s", msg))
-    capture_env(capture)
-    _compile_and_warm(pipe, cfg, steps=steps, say=_say)
-
-    captured = [p for p in (capture / "inductor").rglob("*") if p.is_file()]
-    if not captured:
-        raise RuntimeError(
-            "compile warm-up captured nothing under TORCHINDUCTOR_CACHE_DIR"
-        )
-
-    # pgw#681/#756: the guard-closure audit is ADVISORY — a suspected leak
-    # is named and emitted as a `guard_leak` event, and the manifest rides
-    # the cell as its dependency dump; the mint is not refused.
-    # pgw#719: the environment this capture traced under must still be the
-    # BOOT environment — drift (endpoint code mutating config/env behind
-    # our back) fails the mint red, naming the fact.
-    env_seal.assert_seal_unchanged("mint")
-    guard_manifest = guard_closure.closure_manifest(pipe, cfg, label=family)
-
-    # gw#564: record the execution contract exactly like the production
-    # build — w8a8 cells are contract_drift-gated on the graph signature and
-    # weight-lane manifest, so a mint without them can never re-adopt.
-    graph_signature, weight_contract = execution_contract(pipe, cfg)
-    meta = artifact_metadata(
-        family=family,
-        source_ref="self-mint",
-        shapes=cfg.shapes,
-        targets=cfg.targets,
-        guidance_scales=getattr(cfg, "guidance_scales", ()),
-        low_vram_mode=low_vram_mode(pipe),
-        compile_mode="regional" if getattr(cfg, "regional", False) else "whole",
-        weight_lane=pipeline_weight_lane(pipe),
-        lora_bucket=int(getattr(cfg, "lora_bucket", 0) or 0),
-        graph_signature=graph_signature,
-        weight_contract=weight_contract,
-        declared_compile_contract=declared_compile_facts(cfg),
-        composition=composition_fingerprint(pipe, cfg),
-    )
-    meta[guard_closure.MANIFEST_KEY] = guard_manifest
-    tmp = target.with_suffix(".part")
-    target.parent.mkdir(parents=True, exist_ok=True)
-    pack(capture, tmp, meta)
-    os.replace(tmp, target)
-    return meta
-
-
 def arm_jit_intake(pipe: Any, cfg: Any) -> None:
     """Arm ``pipe`` for JIT INTAKE serving (pgw#1010).
 
@@ -4211,27 +3039,21 @@ __all__ = [
     "apply_lora_execution_lane",
     "arming_block",
     "resolve_targets",
-    "artifact_metadata",
     "arm_jit_intake",
-    "capture_env",
     "cell_base_execution_lane",
     "declared_compile_facts",
     "drop_lora_execution_lane",
-    "contract_drift",
-    "local_cell_mismatch",
     "counters_delta",
     "cache_hit_count",
     "cache_miss_count",
     "enable",
     "execution_count",
-    "composition_fingerprint",
     "execution_contract",
     "execution_contract_digest",
     "family_from_ref",
     "parse_cell_ref",
     "flavor_label",
     "fx_cache_failure_report",
-    "fx_key_forensics",
     "gen_worker_version",
     "GuardMiss",
     "guard_miss_reason_class",
@@ -4242,10 +3064,6 @@ __all__ = [
     "is_compile_armed",
     "execution_lane_bucket",
     "execution_lane_token",
-    "execution_lane_drift",
-    "mint_artifact",
-    "mode_drift",
-    "pack",
     "resolve_pipeline_class",
     "runtime_key",
     "record_cell_proven",
@@ -4253,15 +3071,11 @@ __all__ = [
     "cell_proven_in_process",
     "cell_quarantined_in_process",
     "reset_target_code",
-    "seed_artifact",
-    "seed_env",
     "set_guard_failure_callback",
     "sku_slug",
     "system_repo",
     "cxx_compiler",
     "cxx_toolchain_present",
     "toolchain_present",
-    "unpack",
     "unwrap",
-    "verify",
 ]

@@ -173,15 +173,55 @@ from hashlib import md5, sha256
 from urllib.error import HTTPError, URLError
 from xml.etree import ElementTree
 
-from defusedxml.ElementTree import parse as safe_parse
-
 import nltk
 from nltk.data import _check_decompression_bomb
 from nltk.pathsec import ZipFile
 from nltk.pathsec import open as pathsec_open
 from nltk.pathsec import urlopen, validate_path
+from nltk.xmlsec import parse as safe_parse
 
 # urllib2 = nltk.internals.import_from_stdlib('urllib2')
+
+
+def _authorize_data_dir(directory):
+    """Register a caller-chosen NLTK data / download directory on
+    ``nltk.data.path`` so that the downloader's own reads and writes under it
+    pass the ``nltk.pathsec`` sandbox.
+
+    A ``download_dir`` is an explicit, trusted destination for NLTK's own data,
+    so the specific directory is authorized -- as opposed to blanket-allowing a
+    shared location such as the system temp dir, which would widen the sandbox
+    for every caller (GHSA-p4rw follow-up, CWE-73/CWE-378).
+    """
+    if not directory:
+        return
+    try:
+        resolved = os.path.realpath(str(directory))
+    except (OSError, ValueError):
+        return
+
+    # Refuse to trust a shared, world/group-writable location (e.g. a bare /tmp
+    # download_dir): another local user could plant files there that NLTK would
+    # then read as trusted data (CWE-377/CWE-378). The dir may not exist yet, so
+    # check the nearest existing ancestor.
+    from nltk import pathsec
+
+    probe = resolved
+    while not os.path.exists(probe) and os.path.dirname(probe) != probe:
+        probe = os.path.dirname(probe)
+    if not pathsec.is_private_dir(probe):
+        warnings.warn(
+            f"NLTK will not authorize the non-private download directory "
+            f"{resolved!r}: it (or an ancestor) is world- or group-writable, so "
+            f"another local user could plant files there. Choose a private "
+            f"location such as ~/nltk_data.",
+            stacklevel=3,
+        )
+        return
+
+    existing = {os.path.realpath(str(p)) for p in nltk.data.path if isinstance(p, str)}
+    if resolved not in existing:
+        nltk.data.path.append(resolved)
 
 
 ######################################################################
@@ -282,7 +322,7 @@ class Package:
     @staticmethod
     def fromxml(xml):
         if isinstance(xml, str):
-            xml = ElementTree.parse(xml)
+            xml = safe_parse(xml)
         for key in xml.attrib:
             xml.attrib[key] = str(xml.attrib[key])
         return Package(**xml.attrib)
@@ -322,7 +362,7 @@ class Collection:
     @staticmethod
     def fromxml(xml):
         if isinstance(xml, str):
-            xml = ElementTree.parse(xml)
+            xml = safe_parse(xml)
         for key in xml.attrib:
             xml.attrib[key] = str(xml.attrib[key])
         children = [child.get("ref") for child in xml.findall("item")]
@@ -623,6 +663,11 @@ class Downloader:
         if download_dir is None:
             download_dir = self._download_dir
             yield SelectDownloadDirMessage(download_dir)
+
+        # The download directory is the caller's chosen (trusted) destination
+        # for NLTK data; authorize that specific directory so the reads/writes
+        # below pass the pathsec sandbox (CWE-73, GHSA-p4rw follow-up).
+        _authorize_data_dir(download_dir)
 
         # If they gave us a list of ids, then download each one.
         if isinstance(info_or_id, (list, tuple)):
@@ -2763,6 +2808,11 @@ def build_index(root, base_url):
 
     All identifiers (for both packages and collections) must be unique.
     """
+    # ``root`` is the caller-supplied package tree this index is built from;
+    # authorize that specific directory so its zip/xml reads pass the pathsec
+    # sandbox (CWE-73, GHSA-p4rw follow-up).
+    _authorize_data_dir(root)
+
     # Find all packages.
     packages = []
     for pkg_xml, zf, subdir in _find_packages(os.path.join(root, "packages")):
@@ -2870,7 +2920,7 @@ def _find_collections(root):
         for filename in files:
             if filename.endswith(".xml"):
                 xmlfile = os.path.join(dirname, filename)
-                yield ElementTree.parse(xmlfile).getroot()
+                yield safe_parse(xmlfile).getroot()
 
 
 def _find_packages(root):
@@ -2898,7 +2948,7 @@ def _find_packages(root):
                 except Exception as e:
                     raise ValueError(f"Error reading file {zipfilename!r}!\n{e}") from e
                 try:
-                    pkg_xml = ElementTree.parse(xmlfilename).getroot()
+                    pkg_xml = safe_parse(xmlfilename).getroot()
                 except Exception as e:
                     raise ValueError(f"Error reading file {xmlfilename!r}!\n{e}") from e
 

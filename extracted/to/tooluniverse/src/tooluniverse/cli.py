@@ -635,6 +635,19 @@ def _render_status(d: dict) -> str:
         lines.append("\ntop categories:")
         for cat, cnt in top.items():
             lines.append(f"  {cat:<20} {cnt}")
+    # "tools loaded" counts registered configs, not runnable tools. Flag any
+    # optional dependency group that is missing so a partial install is visible.
+    gaps = d.get("missing_extras") or {}
+    if gaps:
+        lines.append(
+            f"\noptional deps:   {len(gaps)} group(s) not installed "
+            "(tools needing them will fail at runtime)"
+        )
+        for extra, packages in gaps.items():
+            lines.append(
+                f"  [{extra}]{'':<{max(0, 14 - len(extra))}} missing: {', '.join(packages)}"
+            )
+        lines.append("  run `tooluniverse-doctor` for details")
     return "\n".join(lines)
 
 
@@ -1233,6 +1246,22 @@ def cmd_run(args: argparse.Namespace) -> None:
                 ),
             }
         )
+    # Fix-R3-02: `tu info <typo>` already offers "Did you mean: ...", but the
+    # far more common `tu run <typo>` did not -- _render_run_error knows how to
+    # display suggestions, yet nothing on the run path ever populated them, so
+    # a one-character tool-name typo produced only generic spelling tips.
+    # Populate them here exactly as cmd_info does. Skip API-key-gated tools:
+    # their name is already correct, so near-miss alternatives are noise.
+    if isinstance(result, dict) and result.get("status") == "error":
+        details = result.get("error_details") or {}
+        is_api_key_error = "requires api key" in str(result.get("error", "")).lower()
+        if details.get("type") == "ToolUnavailableError" and not is_api_key_error:
+            # Same cutoff as cmd_info (Feature-23B-04) to avoid coincidental matches.
+            suggestions = difflib.get_close_matches(
+                args.tool_name, list(tu.all_tool_dict.keys()), n=3, cutoff=0.62
+            )
+            if suggestions:
+                result["suggestions"] = suggestions
     # Feature-23B-02: use _render_run so human mode gets a concise error summary;
     # --json / --raw still get the full JSON blob.
     _print_result(result, args, render_fn=_render_run)
@@ -1289,6 +1318,9 @@ def cmd_status(args: argparse.Namespace) -> None:
             cat = _get_tool_category(tool, tool_name, tu)
             category_counts[cat] = category_counts.get(cat, 0) + 1
         gated_count = _count_gated_tools(tu)
+        from tooluniverse.extras import runtime_readiness
+
+        readiness = runtime_readiness(tu.all_tools)
     status = {
         "total_tools": len(tu.all_tools),
         "categories": len(category_counts),
@@ -1299,8 +1331,34 @@ def cmd_status(args: argparse.Namespace) -> None:
         ),
         "version": _TU_VERSION,
         "gated_tools_count": gated_count,
+        "missing_extras": readiness["missing_extras"],
     }
     _print_result(status, args, _render_status)
+
+
+def _tool_error_message(result: Any) -> str | None:
+    """The error text when ``run()`` returned an error payload, else ``None``.
+
+    Tools signal upstream failure in two shapes: the usual ``{"status":
+    "error", "error": ...}`` dict, and a list-shaped sentinel ``[{"error":
+    ...}]``. A row carrying ``"term"`` alongside ``"error"`` is an openFDA
+    count row rather than a sentinel — same rule as
+    ``openfda_adv_tool._is_error_payload``, restated here so the CLI need not
+    import a tool module.
+    """
+    if isinstance(result, dict):
+        if "error" in result and result.get("status") != "success":
+            return str(result.get("error", ""))
+        return None
+    if (
+        isinstance(result, list)
+        and result
+        and isinstance(result[0], dict)
+        and "error" in result[0]
+        and "term" not in result[0]
+    ):
+        return str(result[0].get("error", ""))
+    return None
 
 
 def cmd_test(args: argparse.Namespace) -> None:
@@ -1468,6 +1526,9 @@ def cmd_test(args: argparse.Namespace) -> None:
 
         elapsed = time.time() - t0
         failures = []
+        is_success_envelope = (
+            isinstance(result, dict) and result.get("status") == "success"
+        )
 
         if t["expect_status"] and isinstance(result, dict):
             got = result.get("status")
@@ -1476,14 +1537,10 @@ def cmd_test(args: argparse.Namespace) -> None:
                 failures.append(
                     f"status: expected '{t['expect_status']}', got {got_display}"
                 )
-        elif (
-            isinstance(result, dict)
-            and "error" in result
-            and result.get("status") != "success"
-        ):
-            # Implicit failure: tool returned an error without explicit expect_status check
-            err_msg = result.get("error", "")
-            failures.append(f"tool returned error: {str(err_msg)[:200]}")
+        elif (err_msg := _tool_error_message(result)) is not None:
+            # Implicit failure: tool returned an error without explicit expect_status
+            # check. Covers both the dict and the list-shaped error payload.
+            failures.append(f"tool returned error: {err_msg[:200]}")
 
         for key in t["expect_keys"]:
             if isinstance(result, dict) and key not in result:
@@ -1491,23 +1548,26 @@ def cmd_test(args: argparse.Namespace) -> None:
 
         if result is None:
             failures.append("result is None")
-        elif isinstance(result, dict) and not result:
-            failures.append("result is an empty dict")
+        elif isinstance(result, (dict, list)) and not result:
+            failures.append(f"result is an empty {type(result).__name__}")
 
-        # return_schema validation (auto, from tool definition)
-        if (
-            not failures
-            and isinstance(result, dict)
-            and result.get("status") == "success"
-        ):
+        # return_schema validation (auto, from tool definition).
+        # For the {"status", "data"} envelope the schema describes the inner
+        # `data` payload, not the envelope (issue #246). Tools returning a bare
+        # list from run() have no envelope and their configs declare the list
+        # itself (top-level {"type": "array"}, e.g. CORE_search_papers), so the
+        # whole result is the payload there. Reaching here with a list also
+        # means it is non-empty and not an error payload.
+        if not failures and (is_success_envelope or isinstance(result, list)):
             return_schema = (
                 tool_def.get("return_schema") if isinstance(tool_def, dict) else None
             )
             if return_schema:
+                payload = result.get("data") if is_success_envelope else result
                 try:
                     import jsonschema
 
-                    jsonschema.validate(result.get("data"), return_schema)
+                    jsonschema.validate(payload, return_schema)
                 except ImportError:
                     pass  # jsonschema not installed — skip silently
                 except jsonschema.ValidationError as exc:
@@ -1517,11 +1577,7 @@ def cmd_test(args: argparse.Namespace) -> None:
 
         # Feature-25B-01: warn when data is empty on success — test example may be stale
         warnings = []
-        if (
-            not failures
-            and isinstance(result, dict)
-            and result.get("status") == "success"
-        ):
+        if not failures and is_success_envelope:
             data_val = result.get("data")
             if (
                 data_val is not None

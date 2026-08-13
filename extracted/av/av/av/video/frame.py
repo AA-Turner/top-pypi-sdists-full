@@ -16,17 +16,67 @@ from cython.cimports.cpython.pycapsule import (
     PyCapsule_SetName,
 )
 from cython.cimports.cpython.ref import Py_DECREF, Py_INCREF
-from cython.cimports.libc.stdint import int64_t, uint8_t
+from cython.cimports.hwcontext_cuda import AVCUDADeviceContext, CUstream
+from cython.cimports.libc.stdint import int64_t, uint8_t, uintptr_t
+
+
+@cython.cfunc
+@cython.nogil
+@cython.exceptval(check=False)
+def _cuda_device_ctx_free(
+    device_ctx: cython.pointer[lib.AVHWDeviceContext],
+) -> cython.void:
+    owner_ref: cython.pointer[lib.AVBufferRef] = cython.cast(
+        cython.pointer[lib.AVBufferRef], device_ctx.user_opaque
+    )
+    lib.av_buffer_unref(cython.address(owner_ref))
+    device_ctx.user_opaque = cython.NULL
 
 
 @cython.final
 @cython.cclass
 class CudaContext:
-    def __cinit__(self, device_id: cython.int = 0, primary_ctx: cython.bint = True):
+    """A reusable FFmpeg CUDA context for frames imported with DLPack.
+
+    :param int device_id: CUDA device ordinal.
+    :param bool primary_ctx: Retain the device's primary CUDA context.
+    :param bool current_ctx: Wrap the CUDA context current on the calling thread
+        when this object is first used. This is mutually exclusive with
+        ``primary_ctx``.
+    :param int cuda_stream: Optional raw ``CUstream`` pointer for FFmpeg CUDA
+        operations, including NVENC input and output. The caller owns the
+        stream and must keep it alive as long as this context can be used.
+        Nonzero stream pointers are currently supported only for logical CUDA
+        device 0. To use another physical GPU, expose it as logical device 0
+        via ``CUDA_VISIBLE_DEVICES``.
+    """
+
+    def __cinit__(
+        self,
+        device_id: cython.int = 0,
+        primary_ctx: cython.bint = True,
+        current_ctx: cython.bint = False,
+        cuda_stream: object = None,
+    ):
         self.device_id = device_id
         self.primary_ctx = primary_ctx
+        self.current_ctx = current_ctx
+        self.cuda_stream = 0
         self._device_ref = cython.NULL
         self._frames_cache = {}
+        if primary_ctx and current_ctx:
+            raise ValueError("primary_ctx and current_ctx are mutually exclusive")
+        if cuda_stream is not None:
+            if not isinstance(cuda_stream, int):
+                raise TypeError("cuda_stream must be an integer or None")
+            if cuda_stream < 0:
+                raise ValueError("cuda_stream must be non-negative")
+            self.cuda_stream = cython.cast(uintptr_t, cuda_stream)
+        if self.cuda_stream and self.device_id != 0:
+            raise ValueError(
+                "cuda_stream currently requires device_id 0; expose the desired "
+                "physical GPU as logical device 0 via CUDA_VISIBLE_DEVICES"
+            )
 
     def __dealloc__(self):
         ref: cython.pointer[lib.AVBufferRef]
@@ -47,24 +97,59 @@ class CudaContext:
     @cython.cfunc
     def _get_device_ref(self) -> cython.pointer[lib.AVBufferRef]:
         device_ref: cython.pointer[lib.AVBufferRef] = self._device_ref
+        owner_ref: cython.pointer[lib.AVBufferRef]
         if device_ref != cython.NULL:
             return device_ref
 
-        device_ref = cython.NULL
+        owner_ref = cython.NULL
         device_bytes = f"{self.device_id}".encode()
         c_device: cython.p_char = device_bytes
-        options: Dictionary = Dictionary(
-            {"primary_ctx": "1" if self.primary_ctx else "0"}
-        )
+        options_dict = {"primary_ctx": "1" if self.primary_ctx else "0"}
+        if self.current_ctx:
+            options_dict["current_ctx"] = "1"
+        options: Dictionary = Dictionary(options_dict)
         err_check(
             lib.av_hwdevice_ctx_create(
-                cython.address(device_ref),
+                cython.address(owner_ref),
                 lib.AV_HWDEVICE_TYPE_CUDA,
                 c_device,
                 options.ptr,
                 0,
             )
         )
+        if not self.cuda_stream:
+            self._device_ref = owner_ref
+            return owner_ref
+
+        device_ref = lib.av_hwdevice_ctx_alloc(lib.AV_HWDEVICE_TYPE_CUDA)
+        if device_ref == cython.NULL:
+            lib.av_buffer_unref(cython.address(owner_ref))
+            raise MemoryError("av_hwdevice_ctx_alloc() failed")
+
+        try:
+            owner_device_ctx: cython.pointer[lib.AVHWDeviceContext] = cython.cast(
+                cython.pointer[lib.AVHWDeviceContext], owner_ref.data
+            )
+            owner_cuda_ctx: cython.pointer[AVCUDADeviceContext] = cython.cast(
+                cython.pointer[AVCUDADeviceContext], owner_device_ctx.hwctx
+            )
+            device_ctx: cython.pointer[lib.AVHWDeviceContext] = cython.cast(
+                cython.pointer[lib.AVHWDeviceContext], device_ref.data
+            )
+            cuda_ctx: cython.pointer[AVCUDADeviceContext] = cython.cast(
+                cython.pointer[AVCUDADeviceContext], device_ctx.hwctx
+            )
+            cuda_ctx.cuda_ctx = owner_cuda_ctx.cuda_ctx
+            cuda_ctx.stream = cython.cast(CUstream, self.cuda_stream)
+            device_ctx.free = _cuda_device_ctx_free
+            device_ctx.user_opaque = cython.cast(cython.p_void, owner_ref)
+            owner_ref = cython.NULL
+            err_check(lib.av_hwdevice_ctx_init(device_ref))
+        except Exception:
+            lib.av_buffer_unref(cython.address(device_ref))
+            lib.av_buffer_unref(cython.address(owner_ref))
+            raise
+
         self._device_ref = device_ref
         return device_ref
 
@@ -688,17 +773,21 @@ class VideoFrame(Frame):
         """
         return self.reformat(format="rgb24", **kwargs)
 
-    @cython.ccall
-    def save(self, filepath: object):
+    def save(self, filepath: object, **options):
         """Save a VideoFrame as a JPG or PNG.
 
         :param filepath: str | Path
+        :param \\**options: Encoder options, e.g. ``pred="none"`` or
+            ``compression_level=1`` for PNG, ``qscale=2`` for JPG. Values are
+            coerced to ``str``. The PNG defaults favor file size over speed;
+            ``pred="none"`` is roughly 3x faster and 2x larger.
         """
         is_jpg: cython.bint
+        name: str = str(filepath)
 
-        if filepath.endswith(".png"):
+        if name.endswith(".png"):
             is_jpg = False
-        elif filepath.endswith(".jpg") or filepath.endswith(".jpeg"):
+        elif name.endswith(".jpg") or name.endswith(".jpeg"):
             is_jpg = True
         else:
             raise ValueError("filepath must end with png or jpg.")
@@ -709,7 +798,11 @@ class VideoFrame(Frame):
         from av.container.core import open
 
         with open(filepath, "w", options={"update": "1"}) as output:
-            output_stream = output.add_stream(encoder, pix_fmt=pix_fmt)
+            output_stream = output.add_stream(
+                encoder,
+                pix_fmt=pix_fmt,
+                options={k: str(v) for k, v in options.items()},
+            )
             output_stream.width = self.width
             output_stream.height = self.height
 
@@ -1469,8 +1562,9 @@ class VideoFrame(Frame):
         height: int = 0,
         stream=None,
         device_id: int | None = None,
-        primary_ctx: bool = True,
+        primary_ctx: bool | None = None,
         cuda_context=None,
+        current_ctx: bool | None = None,
     ):
         if not isinstance(planes, (tuple, list)):
             planes = (planes,)
@@ -1612,7 +1706,13 @@ class VideoFrame(Frame):
                 ctx: CudaContext
                 frames_ref: cython.pointer[lib.AVBufferRef]
                 if cuda_context is None:
-                    ctx = CudaContext(device_id=device_id, primary_ctx=primary_ctx)
+                    ctx = CudaContext(
+                        device_id=device_id,
+                        primary_ctx=(
+                            not current_ctx if primary_ctx is None else primary_ctx
+                        ),
+                        current_ctx=bool(current_ctx),
+                    )
                 else:
                     if not isinstance(cuda_context, CudaContext):
                         raise TypeError("cuda_context must be a CudaContext")
@@ -1620,9 +1720,17 @@ class VideoFrame(Frame):
                         raise ValueError(
                             "cuda_context.device_id does not match the DLPack tensor device_id"
                         )
-                    if bool(cuda_context.primary_ctx) != bool(primary_ctx):
+                    if primary_ctx is not None and bool(
+                        cuda_context.primary_ctx
+                    ) != bool(primary_ctx):
                         raise ValueError(
                             "cuda_context.primary_ctx does not match primary_ctx"
+                        )
+                    if current_ctx is not None and bool(
+                        cuda_context.current_ctx
+                    ) != bool(current_ctx):
+                        raise ValueError(
+                            "cuda_context.current_ctx does not match current_ctx"
                         )
                     ctx = cython.cast(CudaContext, cuda_context)
 

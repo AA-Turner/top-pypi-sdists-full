@@ -9446,6 +9446,2249 @@ class SmartInsiderTransaction(QuantConnect.DataSource.SmartInsiderEvent):
         ...
 
 
+class EurostatIndustrialProduction(QuantConnect.Data.BaseData):
+    """
+    Industrial production for a single European economy, as index levels. The monthly
+    read on real activity, and the one that arrives long before quarterly GDP confirms the same
+    turn.
+    
+    The breakdown by end-use is what carries the signal: capital goods track business investment
+    and lead the cycle, intermediate goods track the supply chain, and consumer goods track
+    household demand.
+    
+    One file per economy, one row per month. Subscribe with a geo code, e.g.
+    AddData<EurostatIndustrialProduction>(Eurostat.Economies.EuroArea) for the euro area
+    or (Eurostat.Economies.Germany) for Germany.
+    """
+
+    @property
+    def total_industry(self) -> typing.Optional[float]:
+        """
+        Total industry (mining, manufacturing, energy) index.
+        This is also the data point's Value.
+        """
+        ...
+
+    @total_industry.setter
+    def total_industry(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def manufacturing(self) -> typing.Optional[float]:
+        """
+        Manufacturing index. Total industry without mining and
+        utilities, so it is less exposed to energy output swings.
+        """
+        ...
+
+    @manufacturing.setter
+    def manufacturing(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def intermediate_goods(self) -> typing.Optional[float]:
+        """
+        Intermediate goods index. Inputs consumed by other
+        producers, so it turns with the supply chain rather than with final demand.
+        """
+        ...
+
+    @intermediate_goods.setter
+    def intermediate_goods(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def capital_goods(self) -> typing.Optional[float]:
+        """
+        Capital goods index. Machinery and equipment, which
+        tracks business investment and leads the cycle.
+        """
+        ...
+
+    @capital_goods.setter
+    def capital_goods(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def consumer_goods(self) -> typing.Optional[float]:
+        """
+        Consumer goods index. The production side of household
+        demand.
+        """
+        ...
+
+    @consumer_goods.setter
+    def consumer_goods(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The date Eurostat released this reading, which is when LEAN makes the data point
+        available.
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new default instance."""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Creates a new instance from a CSV line produced by the data processor.
+        
+        :param line: Line of the source CSV: month, release date, then one column per grouping
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the instance.
+        
+        :returns: A clone of the instance.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Gets the time zone the data is published in.
+        
+        :returns: The data time zone.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """
+        Gets the default resolution for this data.
+        
+        :returns: Daily resolution.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load it from.
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source pointing at this economy's file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse. One file per economy means LEAN will look for
+        files that legitimately do not exist for economies outside the survey.
+        
+        :returns: True.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses one line of the source file into a data point.
+        
+        :param config: Subscription configuration
+        :param line: Line of the source CSV
+        :param date: Date the request was made for
+        :param is_live_mode: Is live mode
+        :returns: Instance of the class with the parsed data.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source requires mapping. These readings describe economies,
+        not securities.
+        
+        :returns: False.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """
+        Gets the resolutions this data supports.
+        
+        :returns: Daily resolution only.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats the instance as a string for logging and debugging.
+        
+        :returns: String describing the data point.
+        """
+        ...
+
+
+class EurostatConsumerPrices(QuantConnect.Data.BaseData):
+    """
+    Harmonised Index of Consumer Prices (HICP) for a single European economy, as index levels.
+    This is the inflation measure the European Central Bank targets, so the headline and core
+    readings are the ones its rate decisions are judged against.
+    
+    The breakdown separates the volatile components from the underlying trend: energy and food
+    swing with commodities, while the core reading strips them out and is what policy actually
+    responds to.
+    
+    One file per economy, one row per month. Subscribe with a geo code, e.g.
+    AddData<EurostatConsumerPrices>(Eurostat.Economies.EuroArea) for the euro area
+    or (Eurostat.Economies.Germany) for Germany.
+    """
+
+    @property
+    def all_items(self) -> typing.Optional[float]:
+        """
+        All-items price index. The headline number markets react to.
+        This is also the data point's Value.
+        """
+        ...
+
+    @all_items.setter
+    def all_items(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def core(self) -> typing.Optional[float]:
+        """
+        Index excluding energy, food, alcohol and tobacco, 2025=100. The core reading:
+        it strips the components that swing with commodity prices, so it tracks the underlying
+        trend the ECB steers by.
+        """
+        ...
+
+    @core.setter
+    def core(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def food(self) -> typing.Optional[float]:
+        """Index for food including alcohol and tobacco, 2025=100."""
+        ...
+
+    @food.setter
+    def food(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def energy(self) -> typing.Optional[float]:
+        """
+        Index for energy, 2025=100. The most volatile component, and the one that
+        carries oil and gas shocks into the headline reading.
+        """
+        ...
+
+    @energy.setter
+    def energy(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def services(self) -> typing.Optional[float]:
+        """
+        Index for services, 2025=100. The stickiest component, closely watched as a
+        read on domestically generated inflation.
+        """
+        ...
+
+    @services.setter
+    def services(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def non_energy_industrial_goods(self) -> typing.Optional[float]:
+        """Index for non-energy industrial goods, 2025=100."""
+        ...
+
+    @non_energy_industrial_goods.setter
+    def non_energy_industrial_goods(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The date Eurostat released this reading, which is when LEAN makes the data point
+        available.
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new default instance."""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Creates a new instance from a CSV line produced by the data processor.
+        
+        :param line: Line of the source CSV: month, release date, then one column per component
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the instance.
+        
+        :returns: A clone of the instance.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Gets the time zone the data is published in.
+        
+        :returns: The data time zone.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """
+        Gets the default resolution for this data.
+        
+        :returns: Daily resolution.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load it from.
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source pointing at this economy's file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse. One file per economy means LEAN will look for
+        files that legitimately do not exist for economies outside the index.
+        
+        :returns: True.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses one line of the source file into a data point.
+        
+        :param config: Subscription configuration
+        :param line: Line of the source CSV
+        :param date: Date the request was made for
+        :param is_live_mode: Is live mode
+        :returns: Instance of the class with the parsed data.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source requires mapping. These readings describe economies,
+        not securities.
+        
+        :returns: False.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """
+        Gets the resolutions this data supports.
+        
+        :returns: Daily resolution only.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats the instance as a string for logging and debugging.
+        
+        :returns: String describing the data point.
+        """
+        ...
+
+
+class EurostatIndustrySurvey(QuantConnect.Data.BaseData):
+    """
+    The European Commission's monthly industry survey for a single European economy: what
+    manufacturers report about their order books, their stocks, and what they expect to produce,
+    charge and employ over the coming months.
+    
+    These are expectations, not measurements, which is why they arrive before the month they
+    describe has finished, months ahead of the hard industrial production figures they
+    anticipate.
+    
+    Every reading is a balance: the share of firms answering positively minus the share
+    answering negatively, so it runs from -100 to +100 and zero means the two camps are the same
+    size.
+    
+    One file per economy, one row per month. Subscribe with a geo code, e.g.
+    AddData<EurostatIndustrySurvey>(Eurostat.Economies.EuroArea) for the euro area
+    or (Eurostat.Economies.Germany) for Germany.
+    """
+
+    @property
+    def industrial_confidence(self) -> typing.Optional[float]:
+        """
+        Industrial confidence indicator: the composite of order books, stocks of finished
+        products and production expectations. This is the headline of the survey and also the
+        data point's Value.
+        """
+        ...
+
+    @industrial_confidence.setter
+    def industrial_confidence(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def order_books(self) -> typing.Optional[float]:
+        """
+        How manufacturers assess the current level of their order books, the survey's read on
+        demand already on the books rather than expected.
+        """
+        ...
+
+    @order_books.setter
+    def order_books(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def export_order_books(self) -> typing.Optional[float]:
+        """
+        How manufacturers assess the current level of their export order books. Against domestic
+        order books it separates external demand from internal, which is what makes an
+        export-driven economy sensitive to the global cycle.
+        """
+        ...
+
+    @export_order_books.setter
+    def export_order_books(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def stocks_of_finished_products(self) -> typing.Optional[float]:
+        """
+        How manufacturers assess their current stocks of finished products. It reads inverted:
+        stocks piling up mean demand is falling short of output, so a rising balance is the
+        weaker signal.
+        """
+        ...
+
+    @stocks_of_finished_products.setter
+    def stocks_of_finished_products(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def production_expectation(self) -> typing.Optional[float]:
+        """
+        What manufacturers expect production to do over the next three months, the most direct
+        lead on the industrial production index.
+        """
+        ...
+
+    @production_expectation.setter
+    def production_expectation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def selling_price_expectation(self) -> typing.Optional[float]:
+        """
+        What manufacturers expect their own selling prices to do over the next three months.
+        This is pipeline inflation at its source, ahead of both producer and consumer prices.
+        """
+        ...
+
+    @selling_price_expectation.setter
+    def selling_price_expectation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def employment_expectation(self) -> typing.Optional[float]:
+        """What manufacturers expect employment to do over the next three months."""
+        ...
+
+    @employment_expectation.setter
+    def employment_expectation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The date the survey round was published, which is when LEAN makes the data point
+        available.
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new default instance."""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Creates a new instance from a CSV line produced by the data processor.
+        
+        :param line: Line of the source CSV: month, publication date, then one column per question
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the instance.
+        
+        :returns: A clone of the instance.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Gets the time zone the data is published in.
+        
+        :returns: The data time zone.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """
+        Gets the default resolution for this data.
+        
+        :returns: Daily resolution.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load it from.
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source pointing at this economy's file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse. One file per economy means LEAN will look for
+        files that legitimately do not exist for economies outside the survey.
+        
+        :returns: True.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses one line of the source file into a data point.
+        
+        :param config: Subscription configuration
+        :param line: Line of the source CSV
+        :param date: Date the request was made for
+        :param is_live_mode: Is live mode
+        :returns: Instance of the class with the parsed data.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source requires mapping. These readings describe economies,
+        not securities.
+        
+        :returns: False.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """
+        Gets the resolutions this data supports.
+        
+        :returns: Daily resolution only.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats the instance as a string for logging and debugging.
+        
+        :returns: String describing the data point.
+        """
+        ...
+
+
+class EurostatConstructionSurvey(QuantConnect.Data.BaseData):
+    """
+    The European Commission's monthly construction survey for a single European economy: what
+    builders report about their order books and recent activity, and what they expect to charge
+    and employ over the coming months.
+    
+    These are expectations, not measurements, which is why they arrive before the month they
+    describe has finished. Construction is the most rate-sensitive sector in the survey family,
+    so it turns early when financing conditions change.
+    
+    Every reading is a balance: the share of firms answering positively minus the share
+    answering negatively, so it runs from -100 to +100 and zero means the two camps are the same
+    size.
+    
+    One file per economy, one row per month. Subscribe with a geo code, e.g.
+    AddData<EurostatConstructionSurvey>(Eurostat.Economies.EuroArea) for the euro area
+    or (Eurostat.Economies.Germany) for Germany.
+    """
+
+    @property
+    def construction_confidence(self) -> typing.Optional[float]:
+        """
+        Construction confidence indicator: the composite of order books and employment
+        expectations. This is the headline of the survey and also the data point's Value.
+        
+        It is a weighted average of sub-questions rather than a bounded balance, so it can
+        exceed -100 in a severe downturn.
+        """
+        ...
+
+    @construction_confidence.setter
+    def construction_confidence(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def activity_development(self) -> typing.Optional[float]:
+        """How building activity developed over the past three months."""
+        ...
+
+    @activity_development.setter
+    def activity_development(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def order_books(self) -> typing.Optional[float]:
+        """
+        How builders assess the evolution of their overall order books, the sector's read on
+        work already contracted rather than expected.
+        """
+        ...
+
+    @order_books.setter
+    def order_books(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def price_expectation(self) -> typing.Optional[float]:
+        """
+        What builders expect their prices to do over the next three months, an early read on
+        construction cost pressure.
+        """
+        ...
+
+    @price_expectation.setter
+    def price_expectation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def employment_expectation(self) -> typing.Optional[float]:
+        """What builders expect employment to do over the next three months."""
+        ...
+
+    @employment_expectation.setter
+    def employment_expectation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The date the survey round was published, which is when LEAN makes the data point
+        available.
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new default instance."""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Creates a new instance from a CSV line produced by the data processor.
+        
+        :param line: Line of the source CSV: month, publication date, then one column per question
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the instance.
+        
+        :returns: A clone of the instance.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Gets the time zone the data is published in.
+        
+        :returns: The data time zone.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """
+        Gets the default resolution for this data.
+        
+        :returns: Daily resolution.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load it from.
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source pointing at this economy's file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse. One file per economy means LEAN will look for
+        files that legitimately do not exist for economies outside the survey.
+        
+        :returns: True.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses one line of the source file into a data point.
+        
+        :param config: Subscription configuration
+        :param line: Line of the source CSV
+        :param date: Date the request was made for
+        :param is_live_mode: Is live mode
+        :returns: Instance of the class with the parsed data.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source requires mapping. These readings describe economies,
+        not securities.
+        
+        :returns: False.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """
+        Gets the resolutions this data supports.
+        
+        :returns: Daily resolution only.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats the instance as a string for logging and debugging.
+        
+        :returns: String describing the data point.
+        """
+        ...
+
+
+class EurostatGrossDomesticProduct(QuantConnect.Data.BaseData):
+    """
+    Gross domestic product and its expenditure components for a single European economy, as
+    index levels of chain linked volumes. The definitive measure of activity, and the one the
+    monthly indicators in this dataset are all trying to anticipate.
+    
+    Quarterly, so rows arrive four times a year rather than twelve. Volumes are deflated,
+    which is what makes the growth real rather than nominal.
+    
+    One file per economy, one row per quarter. Subscribe with a geo code, e.g.
+    AddData<EurostatGrossDomesticProduct>(Eurostat.Economies.EuroArea) for the euro area
+    or (Eurostat.Economies.Germany) for Germany.
+    """
+
+    @property
+    def gross_domestic_product(self) -> typing.Optional[float]:
+        """
+        Gross domestic product at market prices, index of deflated volumes.
+        This is also the data point's Value.
+        """
+        ...
+
+    @gross_domestic_product.setter
+    def gross_domestic_product(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def final_consumption(self) -> typing.Optional[float]:
+        """
+        Final consumption expenditure index. Households and
+        government together, and the largest share of euro area output.
+        """
+        ...
+
+    @final_consumption.setter
+    def final_consumption(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def gross_capital_formation(self) -> typing.Optional[float]:
+        """
+        Gross capital formation index. Investment, the most
+        cyclical component and the one that swings hardest around turning points.
+        """
+        ...
+
+    @gross_capital_formation.setter
+    def gross_capital_formation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def exports(self) -> typing.Optional[float]:
+        """Exports of goods and services index."""
+        ...
+
+    @exports.setter
+    def exports(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def imports(self) -> typing.Optional[float]:
+        """
+        Imports of goods and services index. Against exports it
+        gives the trade contribution, which is what makes the euro area sensitive to global
+        demand.
+        """
+        ...
+
+    @imports.setter
+    def imports(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The date Eurostat released this reading, which is when LEAN makes the data point
+        available.
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new default instance."""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Creates a new instance from a CSV line produced by the data processor.
+        
+        :param line: Line of the source CSV: quarter, release date, then one column per component
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the instance.
+        
+        :returns: A clone of the instance.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Gets the time zone the data is published in.
+        
+        :returns: The data time zone.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """
+        Gets the default resolution for this data.
+        
+        :returns: Daily resolution.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load it from.
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source pointing at this economy's file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse. Quarterly rows in a daily subscription, plus one
+        file per economy, so LEAN will look for data that legitimately is not there.
+        
+        :returns: True.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses one line of the source file into a data point.
+        
+        :param config: Subscription configuration
+        :param line: Line of the source CSV
+        :param date: Date the request was made for
+        :param is_live_mode: Is live mode
+        :returns: Instance of the class with the parsed data.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source requires mapping. These readings describe economies,
+        not securities.
+        
+        :returns: False.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """
+        Gets the resolutions this data supports.
+        
+        :returns: Daily resolution only.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats the instance as a string for logging and debugging.
+        
+        :returns: String describing the data point.
+        """
+        ...
+
+
+class EurostatLabourMarket(QuantConnect.Data.BaseData):
+    """
+    Unemployment rates for a single European economy, as a percentage of the active population.
+    The other half of the ECB's mandate alongside inflation, and the slack measure that decides
+    how much room policy has to move.
+    
+    The youth rate is broken out because it turns earlier and harder than the total: it is the
+    first to rise going into a downturn and the first to fall coming out.
+    
+    One file per economy, one row per month. Subscribe with a geo code, e.g.
+    AddData<EurostatLabourMarket>(Eurostat.Economies.EuroArea) for the euro area
+    or (Eurostat.Economies.Spain) for Spain.
+    """
+
+    @property
+    def unemployment_rate(self) -> typing.Optional[float]:
+        """
+        Total unemployment rate, percent of the active population. This is also the data
+        point's Value.
+        """
+        ...
+
+    @unemployment_rate.setter
+    def unemployment_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def youth_unemployment_rate(self) -> typing.Optional[float]:
+        """
+        Unemployment rate for those under 25, in percent. Moves earlier and with more
+        amplitude than the total rate, which makes it the more sensitive cycle read.
+        """
+        ...
+
+    @youth_unemployment_rate.setter
+    def youth_unemployment_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def male_unemployment_rate(self) -> typing.Optional[float]:
+        """Male unemployment rate, in percent."""
+        ...
+
+    @male_unemployment_rate.setter
+    def male_unemployment_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def female_unemployment_rate(self) -> typing.Optional[float]:
+        """Female unemployment rate, in percent."""
+        ...
+
+    @female_unemployment_rate.setter
+    def female_unemployment_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The date Eurostat released this reading, which is when LEAN makes the data point
+        available.
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new default instance."""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Creates a new instance from a CSV line produced by the data processor.
+        
+        :param line: Line of the source CSV: month, release date, then one column per rate
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the instance.
+        
+        :returns: A clone of the instance.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Gets the time zone the data is published in.
+        
+        :returns: The data time zone.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """
+        Gets the default resolution for this data.
+        
+        :returns: Daily resolution.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load it from.
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source pointing at this economy's file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse. One file per economy means LEAN will look for
+        files that legitimately do not exist for economies outside the survey.
+        
+        :returns: True.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses one line of the source file into a data point.
+        
+        :param config: Subscription configuration
+        :param line: Line of the source CSV
+        :param date: Date the request was made for
+        :param is_live_mode: Is live mode
+        :returns: Instance of the class with the parsed data.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source requires mapping. These rates describe economies,
+        not securities.
+        
+        :returns: False.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """
+        Gets the resolutions this data supports.
+        
+        :returns: Daily resolution only.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats the instance as a string for logging and debugging.
+        
+        :returns: String describing the data point.
+        """
+        ...
+
+
+class Eurostat(System.Object):
+    """Eurostat helper definitions."""
+
+    class Economies(System.Object):
+        """
+        The economies Eurostat reports on, as the geo codes used to subscribe to any indicator
+        in this dataset, e.g. AddData<EurostatConsumerSurvey>(Eurostat.Economies.Germany).
+        
+        Coverage varies by indicator: every country is not in every survey, and three
+        indicators are published per country only, with no euro area or European Union
+        aggregate.
+        
+        The aggregates come in two forms. A fixed one, such as EuroArea, covers a set number of
+        members and restates its whole history on that basis. A chained one, such as
+        EuroAreaChained, follows the membership of the day, so its history mixes compositions.
+        Prefer the fixed aggregates unless you specifically want the chained series.
+        """
+
+        ALBANIA: str = "AL"
+        """Albania"""
+
+        AUSTRIA: str = "AT"
+        """Austria"""
+
+        BELGIUM: str = "BE"
+        """Belgium"""
+
+        BOSNIA_AND_HERZEGOVINA: str = "BA"
+        """Bosnia and Herzegovina"""
+
+        BULGARIA: str = "BG"
+        """Bulgaria"""
+
+        CROATIA: str = "HR"
+        """Croatia"""
+
+        CYPRUS: str = "CY"
+        """Cyprus"""
+
+        CZECHIA: str = "CZ"
+        """Czechia"""
+
+        DENMARK: str = "DK"
+        """Denmark"""
+
+        ESTONIA: str = "EE"
+        """Estonia"""
+
+        EURO_AREA: str = "EA21"
+        """Euro area 21 countries (from 2026)"""
+
+        EURO_AREA_12: str = "EA12"
+        """Euro area - 12 countries (2001-2006)"""
+
+        EURO_AREA_19: str = "EA19"
+        """Euro area - 19 countries (2015-2022)"""
+
+        EURO_AREA_20: str = "EA20"
+        """Euro area 20 countries (2023-2025)"""
+
+        EURO_AREA_CHAINED: str = "EA"
+        """Euro area (EA11-1999, EA12-2001, EA13-2007, EA15-2008, EA16-2009, EA17-2011, EA18-2014, EA19-2015, EA20-2023, EA21-2026)"""
+
+        EUROPEAN_ECONOMIC_AREA: str = "EEA"
+        """European Economic Area (EEA18-1995, EEA28-2004, EEA30-2007, EEA31-2013, EEA30-2020)"""
+
+        EUROPEAN_UNION: str = "EU27_2020"
+        """European Union - 27 countries (from 2020)"""
+
+        EUROPEAN_UNION_CHAINED: str = "EU"
+        """European Union (EU6-1958, EU9-1973, EU10-1981, EU12-1986, EU15-1995, EU25-2004, EU27-2007, EU28-2013, EU27-2020)"""
+
+        FINLAND: str = "FI"
+        """Finland"""
+
+        FRANCE: str = "FR"
+        """France"""
+
+        GEORGIA: str = "GE"
+        """Georgia"""
+
+        GERMANY: str = "DE"
+        """Germany"""
+
+        GREECE: str = "EL"
+        """Greece"""
+
+        HUNGARY: str = "HU"
+        """Hungary"""
+
+        ICELAND: str = "IS"
+        """Iceland"""
+
+        IRELAND: str = "IE"
+        """Ireland"""
+
+        ITALY: str = "IT"
+        """Italy"""
+
+        JAPAN: str = "JP"
+        """Japan"""
+
+        KOSOVO: str = "XK"
+        """Kosovo*"""
+
+        LATVIA: str = "LV"
+        """Latvia"""
+
+        LITHUANIA: str = "LT"
+        """Lithuania"""
+
+        LUXEMBOURG: str = "LU"
+        """Luxembourg"""
+
+        MALTA: str = "MT"
+        """Malta"""
+
+        MOLDOVA: str = "MD"
+        """Moldova"""
+
+        MONTENEGRO: str = "ME"
+        """Montenegro"""
+
+        NETHERLANDS: str = "NL"
+        """Netherlands"""
+
+        NORTH_MACEDONIA: str = "MK"
+        """North Macedonia"""
+
+        NORWAY: str = "NO"
+        """Norway"""
+
+        POLAND: str = "PL"
+        """Poland"""
+
+        PORTUGAL: str = "PT"
+        """Portugal"""
+
+        ROMANIA: str = "RO"
+        """Romania"""
+
+        SERBIA: str = "RS"
+        """Serbia"""
+
+        SLOVAKIA: str = "SK"
+        """Slovakia"""
+
+        SLOVENIA: str = "SI"
+        """Slovenia"""
+
+        SPAIN: str = "ES"
+        """Spain"""
+
+        SWEDEN: str = "SE"
+        """Sweden"""
+
+        SWITZERLAND: str = "CH"
+        """Switzerland"""
+
+        TURKIYE: str = "TR"
+        """Turkiye"""
+
+        UKRAINE: str = "UA"
+        """Ukraine"""
+
+        UNITED_KINGDOM: str = "UK"
+        """United Kingdom"""
+
+        UNITED_STATES: str = "US"
+        """United States"""
+
+
+class EurostatProducerPrices(QuantConnect.Data.BaseData):
+    """
+    Producer prices on the domestic market for a single European economy, as index levels.
+    Prices at the factory gate, which is where cost pressure shows up before it reaches the
+    consumer index.
+    
+    The energy component is broken out because it is what makes this series swing: producer
+    prices move with commodities far more violently than consumer prices do, and the pass
+    through to households is partial and delayed.
+    
+    One file per economy, one row per month. Subscribe with a geo code, e.g.
+    AddData<EurostatProducerPrices>(Eurostat.Economies.EuroArea) for the euro area
+    or (Eurostat.Economies.Italy) for Italy.
+    """
+
+    @property
+    def total_industry(self) -> typing.Optional[float]:
+        """Total industry index. This is also the data point's Value."""
+        ...
+
+    @total_industry.setter
+    def total_industry(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def energy(self) -> typing.Optional[float]:
+        """
+        Energy index. The component that drives most of the
+        variance in the headline reading.
+        """
+        ...
+
+    @energy.setter
+    def energy(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def intermediate_goods(self) -> typing.Optional[float]:
+        """
+        Intermediate goods index. Input costs for other producers,
+        so it leads the pressure that reaches finished goods.
+        """
+        ...
+
+    @intermediate_goods.setter
+    def intermediate_goods(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def capital_goods(self) -> typing.Optional[float]:
+        """Capital goods index."""
+        ...
+
+    @capital_goods.setter
+    def capital_goods(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def consumer_goods(self) -> typing.Optional[float]:
+        """
+        Consumer goods index. The closest producer-side analogue
+        to consumer inflation, and the channel through which the pass through happens.
+        """
+        ...
+
+    @consumer_goods.setter
+    def consumer_goods(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The date Eurostat released this reading, which is when LEAN makes the data point
+        available.
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new default instance."""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Creates a new instance from a CSV line produced by the data processor.
+        
+        :param line: Line of the source CSV: month, release date, then one column per grouping
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the instance.
+        
+        :returns: A clone of the instance.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Gets the time zone the data is published in.
+        
+        :returns: The data time zone.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """
+        Gets the default resolution for this data.
+        
+        :returns: Daily resolution.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load it from.
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source pointing at this economy's file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse. One file per economy means LEAN will look for
+        files that legitimately do not exist for economies outside the survey.
+        
+        :returns: True.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses one line of the source file into a data point.
+        
+        :param config: Subscription configuration
+        :param line: Line of the source CSV
+        :param date: Date the request was made for
+        :param is_live_mode: Is live mode
+        :returns: Instance of the class with the parsed data.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source requires mapping. These readings describe economies,
+        not securities.
+        
+        :returns: False.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """
+        Gets the resolutions this data supports.
+        
+        :returns: Daily resolution only.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats the instance as a string for logging and debugging.
+        
+        :returns: String describing the data point.
+        """
+        ...
+
+
+class EurostatRetailTrade(QuantConnect.Data.BaseData):
+    """
+    Retail trade volumes for a single European economy, as index levels. Household
+    consumption is the largest component of euro area GDP, and this is the monthly read on it.
+    
+    Volumes rather than turnover: the series is deflated, so a rise means more goods sold and
+    not just higher prices. During an inflation shock the two tell opposite stories, which is
+    exactly when the distinction matters.
+    
+    One file per economy, one row per month. Subscribe with a geo code, e.g.
+    AddData<EurostatRetailTrade>(Eurostat.Economies.EuroArea) for the euro area
+    or (Eurostat.Economies.France) for France.
+    """
+
+    @property
+    def retail_trade(self) -> typing.Optional[float]:
+        """
+        Retail trade excluding motor vehicles, index of deflated volumes.
+        This is also the data point's Value.
+        """
+        ...
+
+    @retail_trade.setter
+    def retail_trade(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def food(self) -> typing.Optional[float]:
+        """
+        Food, beverages and tobacco index. The staples half of
+        the basket, which holds up through downturns.
+        """
+        ...
+
+    @food.setter
+    def food(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def non_food(self) -> typing.Optional[float]:
+        """
+        Non-food products excluding fuel, index of deflated volumes. The discretionary half of
+        the basket, and the one that gives way first when households retrench.
+        
+        Fuel sits out because it has its own column, so food, non-food and fuel cover the whole
+        of retail without overlapping. They are index levels, so they partition the trade rather
+        than sum to the total, which is weighted.
+        """
+        ...
+
+    @non_food.setter
+    def non_food(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def automotive_fuel(self) -> typing.Optional[float]:
+        """Automotive fuel index."""
+        ...
+
+    @automotive_fuel.setter
+    def automotive_fuel(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The date Eurostat released this reading, which is when LEAN makes the data point
+        available.
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new default instance."""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Creates a new instance from a CSV line produced by the data processor.
+        
+        :param line: Line of the source CSV: month, release date, then one column per grouping
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the instance.
+        
+        :returns: A clone of the instance.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Gets the time zone the data is published in.
+        
+        :returns: The data time zone.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """
+        Gets the default resolution for this data.
+        
+        :returns: Daily resolution.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load it from.
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source pointing at this economy's file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse. One file per economy means LEAN will look for
+        files that legitimately do not exist for economies outside the survey.
+        
+        :returns: True.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses one line of the source file into a data point.
+        
+        :param config: Subscription configuration
+        :param line: Line of the source CSV
+        :param date: Date the request was made for
+        :param is_live_mode: Is live mode
+        :returns: Instance of the class with the parsed data.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source requires mapping. These readings describe economies,
+        not securities.
+        
+        :returns: False.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """
+        Gets the resolutions this data supports.
+        
+        :returns: Daily resolution only.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats the instance as a string for logging and debugging.
+        
+        :returns: String describing the data point.
+        """
+        ...
+
+
+class EurostatRetailSurvey(QuantConnect.Data.BaseData):
+    """
+    The European Commission's monthly retail trade survey for a single European economy: what
+    retailers report about recent sales and their stocks, and what they expect of activity,
+    orders, prices and employment over the coming months.
+    
+    These are expectations, not measurements, which is why they arrive before the month they
+    describe has finished, ahead of the hard retail trade figures they anticipate.
+    
+    Every reading is a balance: the share of firms answering positively minus the share
+    answering negatively, so it runs from -100 to +100 and zero means the two camps are the same
+    size.
+    
+    One file per economy, one row per month. Subscribe with a geo code, e.g.
+    AddData<EurostatRetailSurvey>(Eurostat.Economies.EuroArea) for the euro area
+    or (Eurostat.Economies.Germany) for Germany.
+    """
+
+    @property
+    def retail_confidence(self) -> typing.Optional[float]:
+        """
+        Retail confidence indicator: the composite of recent business activity, stocks and
+        expected activity. This is the headline of the survey and also the data point's Value.
+        """
+        ...
+
+    @retail_confidence.setter
+    def retail_confidence(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def business_activity(self) -> typing.Optional[float]:
+        """How sales developed over the past three months."""
+        ...
+
+    @business_activity.setter
+    def business_activity(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def stocks(self) -> typing.Optional[float]:
+        """
+        The volume of stocks retailers currently hold. It reads inverted: stocks building up
+        mean sales are falling short of expectations, so a rising balance is the weaker signal.
+        """
+        ...
+
+    @stocks.setter
+    def stocks(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def orders_placed_expectation(self) -> typing.Optional[float]:
+        """
+        How many orders retailers expect to place with their suppliers over the next three
+        months, which is where retail demand starts to feed back up the supply chain.
+        """
+        ...
+
+    @orders_placed_expectation.setter
+    def orders_placed_expectation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def business_activity_expectation(self) -> typing.Optional[float]:
+        """
+        What retailers expect sales to do over the next three months, the most direct lead on
+        the retail trade index.
+        """
+        ...
+
+    @business_activity_expectation.setter
+    def business_activity_expectation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def price_expectation(self) -> typing.Optional[float]:
+        """
+        What retailers expect their prices to do over the next three months, the last step of
+        pipeline inflation before it reaches the consumer price index.
+        """
+        ...
+
+    @price_expectation.setter
+    def price_expectation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def employment_expectation(self) -> typing.Optional[float]:
+        """What retailers expect employment to do over the next three months."""
+        ...
+
+    @employment_expectation.setter
+    def employment_expectation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The date the survey round was published, which is when LEAN makes the data point
+        available.
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new default instance."""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Creates a new instance from a CSV line produced by the data processor.
+        
+        :param line: Line of the source CSV: month, publication date, then one column per question
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the instance.
+        
+        :returns: A clone of the instance.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Gets the time zone the data is published in.
+        
+        :returns: The data time zone.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """
+        Gets the default resolution for this data.
+        
+        :returns: Daily resolution.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load it from.
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source pointing at this economy's file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse. One file per economy means LEAN will look for
+        files that legitimately do not exist for economies outside the survey.
+        
+        :returns: True.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses one line of the source file into a data point.
+        
+        :param config: Subscription configuration
+        :param line: Line of the source CSV
+        :param date: Date the request was made for
+        :param is_live_mode: Is live mode
+        :returns: Instance of the class with the parsed data.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source requires mapping. These readings describe economies,
+        not securities.
+        
+        :returns: False.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """
+        Gets the resolutions this data supports.
+        
+        :returns: Daily resolution only.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats the instance as a string for logging and debugging.
+        
+        :returns: String describing the data point.
+        """
+        ...
+
+
+class EurostatConsumerSurvey(QuantConnect.Data.BaseData):
+    """
+    The European Commission's monthly consumer survey for a single European economy: how
+    households see their own finances, the wider economy, prices, jobs, spending and saving over
+    the year ahead.
+    
+    These are expectations, not measurements, which is why they arrive before the month they
+    describe has finished: the Commission releases them on the second-to-last working day. That
+    makes this survey and its four sector counterparts the earliest read on the euro area
+    economy available anywhere in this dataset.
+    
+    Every reading is a balance: the share of households answering positively minus the share
+    answering negatively, so it runs from -100 to +100 and zero means the two camps are the same
+    size. A balance says which way opinion is moving, not by how much.
+    
+    One file per economy, one row per month. Subscribe with a geo code, e.g.
+    AddData<EurostatConsumerSurvey>(Eurostat.Economies.EuroArea) for the euro area
+    or (Eurostat.Economies.Germany) for Germany.
+    """
+
+    @property
+    def consumer_confidence(self) -> typing.Optional[float]:
+        """
+        Consumer confidence indicator: the composite of the four forward-looking questions on
+        household finances, the general economy, unemployment and major purchases. This is the
+        headline of the survey and also the data point's Value.
+        """
+        ...
+
+    @consumer_confidence.setter
+    def consumer_confidence(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def financial_situation_expectation(self) -> typing.Optional[float]:
+        """
+        How households expect their own financial situation to develop over the next twelve
+        months.
+        """
+        ...
+
+    @financial_situation_expectation.setter
+    def financial_situation_expectation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def economic_situation_expectation(self) -> typing.Optional[float]:
+        """
+        How households expect the general economic situation of the country to develop over the
+        next twelve months.
+        """
+        ...
+
+    @economic_situation_expectation.setter
+    def economic_situation_expectation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def price_expectation(self) -> typing.Optional[float]:
+        """
+        How households expect consumer prices to develop over the next twelve months, which is
+        household inflation expectations and the survey's earliest read on price pressure.
+        """
+        ...
+
+    @price_expectation.setter
+    def price_expectation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def unemployment_expectation(self) -> typing.Optional[float]:
+        """
+        How households expect unemployment to develop over the next twelve months. It moves
+        against confidence: a rising balance means more households expect joblessness to grow.
+        """
+        ...
+
+    @unemployment_expectation.setter
+    def unemployment_expectation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def major_purchase_expectation(self) -> typing.Optional[float]:
+        """
+        Whether households intend to make major purchases over the next twelve months, which is
+        the survey's most direct link to durable goods consumption.
+        """
+        ...
+
+    @major_purchase_expectation.setter
+    def major_purchase_expectation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def savings_expectation(self) -> typing.Optional[float]:
+        """
+        Whether households expect to save over the next twelve months. Read against major
+        purchases it separates precautionary saving from confident spending.
+        """
+        ...
+
+    @savings_expectation.setter
+    def savings_expectation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The date the survey round was published, which is when LEAN makes the data point
+        available.
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new default instance."""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Creates a new instance from a CSV line produced by the data processor.
+        
+        :param line: Line of the source CSV: month, publication date, then one column per question
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the instance.
+        
+        :returns: A clone of the instance.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Gets the time zone the data is published in.
+        
+        :returns: The data time zone.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """
+        Gets the default resolution for this data.
+        
+        :returns: Daily resolution.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load it from.
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source pointing at this economy's file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse. One file per economy means LEAN will look for
+        files that legitimately do not exist for economies outside the survey.
+        
+        :returns: True.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses one line of the source file into a data point.
+        
+        :param config: Subscription configuration
+        :param line: Line of the source CSV
+        :param date: Date the request was made for
+        :param is_live_mode: Is live mode
+        :returns: Instance of the class with the parsed data.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source requires mapping. These readings describe economies,
+        not securities.
+        
+        :returns: False.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """
+        Gets the resolutions this data supports.
+        
+        :returns: Daily resolution only.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats the instance as a string for logging and debugging.
+        
+        :returns: String describing the data point.
+        """
+        ...
+
+
+class EurostatServicesSurvey(QuantConnect.Data.BaseData):
+    """
+    The European Commission's monthly services survey for a single European economy: what
+    service firms report about their business situation and demand, and what they expect of
+    demand, employment and prices over the coming months.
+    
+    These are expectations, not measurements, which is why they arrive before the month they
+    describe has finished. Services are the largest share of euro area output, and services
+    inflation is the component the European Central Bank watches most closely because it is the
+    slowest to come down.
+    
+    Every reading is a balance: the share of firms answering positively minus the share
+    answering negatively, so it runs from -100 to +100 and zero means the two camps are the same
+    size.
+    
+    One file per economy, one row per month. Subscribe with a geo code, e.g.
+    AddData<EurostatServicesSurvey>(Eurostat.Economies.EuroArea) for the euro area
+    or (Eurostat.Economies.Germany) for Germany.
+    """
+
+    @property
+    def services_confidence(self) -> typing.Optional[float]:
+        """
+        Services confidence indicator: the composite of the business situation, recent demand
+        and expected demand. This is the headline of the survey and also the data point's Value.
+        """
+        ...
+
+    @services_confidence.setter
+    def services_confidence(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def business_situation(self) -> typing.Optional[float]:
+        """How the business situation developed over the past three months."""
+        ...
+
+    @business_situation.setter
+    def business_situation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def demand_development(self) -> typing.Optional[float]:
+        """How demand developed over the past three months."""
+        ...
+
+    @demand_development.setter
+    def demand_development(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def demand_expectation(self) -> typing.Optional[float]:
+        """
+        What service firms expect demand to do over the next three months. Against recent demand
+        it shows whether the sector expects the current pace to hold.
+        """
+        ...
+
+    @demand_expectation.setter
+    def demand_expectation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def employment_expectation(self) -> typing.Optional[float]:
+        """
+        What service firms expect employment to do over the next three months. Services carry
+        most euro area employment, so this is the survey family's broadest labour signal.
+        """
+        ...
+
+    @employment_expectation.setter
+    def employment_expectation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def price_expectation(self) -> typing.Optional[float]:
+        """
+        What service firms expect their prices to do over the next three months, an early read
+        on the services inflation the European Central Bank follows most closely.
+        """
+        ...
+
+    @price_expectation.setter
+    def price_expectation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The date the survey round was published, which is when LEAN makes the data point
+        available.
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new default instance."""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Creates a new instance from a CSV line produced by the data processor.
+        
+        :param line: Line of the source CSV: month, publication date, then one column per question
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the instance.
+        
+        :returns: A clone of the instance.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Gets the time zone the data is published in.
+        
+        :returns: The data time zone.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """
+        Gets the default resolution for this data.
+        
+        :returns: Daily resolution.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load it from.
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source pointing at this economy's file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse. One file per economy means LEAN will look for
+        files that legitimately do not exist for economies outside the survey.
+        
+        :returns: True.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses one line of the source file into a data point.
+        
+        :param config: Subscription configuration
+        :param line: Line of the source CSV
+        :param date: Date the request was made for
+        :param is_live_mode: Is live mode
+        :returns: Instance of the class with the parsed data.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source requires mapping. These readings describe economies,
+        not securities.
+        
+        :returns: False.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """
+        Gets the resolutions this data supports.
+        
+        :returns: Daily resolution only.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats the instance as a string for logging and debugging.
+        
+        :returns: String describing the data point.
+        """
+        ...
+
+
 class SpectralTickFlowSignal(QuantConnect.Data.BaseData):
     """
     Spectral Tick-Flow Signal: per-ticker daily signals derived from a proprietary

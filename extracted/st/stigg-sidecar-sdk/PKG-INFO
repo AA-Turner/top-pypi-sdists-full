@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: stigg-sidecar-sdk
-Version: 7.170.0
+Version: 8.0.0
 Summary: 
 Author: Stigg
 Author-email: support@stigg.io
@@ -34,24 +34,16 @@ Initialize the client:
 ```python
 
 import os
-from stigg_sidecar_sdk import Stigg, ApiConfig, LocalSidecarConfig, RedisOptions
+from stigg_sidecar_sdk import Stigg, ApiConfig
 
 api_key = os.environ.get("STIGG_SERVER_API_KEY")
 
+# Run the sidecar separately, then point the SDK at it:
+#   docker run -it -p 80:80 -e SERVER_API_KEY="<SERVER_API_KEY>" public.ecr.aws/stigg/sidecar:latest
 stigg = Stigg(
     ApiConfig(
         api_key=api_key,
     ),
-    # for development purposes, configure local sidecar (spawned as a subprocess): 
-    local_sidecar_config=LocalSidecarConfig(
-        redis=RedisOptions(
-            environment_prefix="development",
-            host="localhost",
-            port=6379,
-            db=0
-        )
-    ),
-    # for production use, set remote sidecar host and port:
     remote_sidecar_host='localhost',
     remote_sidecar_port=80
 )
@@ -66,7 +58,7 @@ from stigg_sidecar_sdk import Stigg, ApiConfig, GetMeteredEntitlementRequest, Me
 
 
 async def get_entitlement():
-    stigg = Stigg(ApiConfig(api_key='api_key'))
+    stigg = Stigg(ApiConfig(api_key='api_key'), remote_sidecar_host='localhost')
     resp = await stigg.get_metered_entitlement(
         GetMeteredEntitlementRequest(customer_id='customer-demo-01',
                                      feature_id='feature-01-templates',
@@ -83,7 +75,7 @@ from stigg_sidecar_sdk import Stigg, ApiConfig
 from stigg.generated import ProvisionCustomerInput
 
 async def get_entitlement():
-    stigg = Stigg(ApiConfig(api_key='api_key'))
+    stigg = Stigg(ApiConfig(api_key='api_key'), remote_sidecar_host='localhost')
     
     resp = await stigg.api.provision_customer(
         ProvisionCustomerInput(

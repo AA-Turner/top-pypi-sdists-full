@@ -1,14 +1,11 @@
-# -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-from __future__ import division, print_function, unicode_literals
 
 from ._summarizer import AbstractSummarizer
 
 
 class EdmundsonCueMethod(AbstractSummarizer):
     def __init__(self, stemmer, bonus_words, stigma_words):
-        super(EdmundsonCueMethod, self).__init__(stemmer)
+        super().__init__(stemmer)
         self._bonus_words = bonus_words
         self._stigma_words = stigma_words
 

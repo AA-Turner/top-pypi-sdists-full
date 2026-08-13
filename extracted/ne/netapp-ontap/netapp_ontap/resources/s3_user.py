@@ -30,36 +30,51 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3User(
         {
-            "key_expiry_time": "2023-11-13T23:28:03+05:30",
-            "access_key": "<AWS-ACCESS-KEY-ID>",
-            "name": "user-1",
-            "key_time_to_live": "PT3H5M",
             "comment": "S3 user",
+            "key_time_to_live": "PT3H5M",
+            "access_key": "<AWS-ACCESS-KEY-ID>",
+            "key_expiry_time": "2023-11-13T23:28:03+05:30",
+            "name": "user-1",
             "svm": {
-                "name": "vs1",
+                "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/db2ec036-8375-11e9-99e1-0050568e3ed9"
                     }
                 },
-                "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9",
+                "name": "vs1",
             },
+            "keys": [
+                {
+                    "id": 1,
+                    "time_to_live": "PT3H5M",
+                    "access_key": "<AWS-ACCESS-KEY-ID>",
+                    "expiry_time": "2023-11-13T23:28:03+05:30",
+                },
+                {
+                    "id": 2,
+                    "time_to_live": "PT6H3M2S",
+                    "access_key": "<AWS-ACCESS-KEY-ID>",
+                    "expiry_time": "2023-11-13T23:24:41+05:30",
+                },
+            ],
         }
     ),
     S3User(
         {
+            "comment": "s3-user",
             "access_key": "<AWS-ACCESS-KEY-ID>",
             "name": "user-2",
-            "comment": "s3-user",
             "svm": {
-                "name": "vs1",
+                "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/db2ec036-8375-11e9-99e1-0050568e3ed9"
                     }
                 },
-                "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9",
+                "name": "vs1",
             },
+            "keys": [{"id": 1, "access_key": "<AWS-ACCESS-KEY-ID>"}],
         }
     ),
 ]
@@ -86,18 +101,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3User(
     {
-        "key_expiry_time": "2023-02-20T10:04:31+00:00",
-        "access_key": "<AWS-ACCESS-KEY-ID>",
-        "name": "user-1",
-        "key_time_to_live": "P6DT1H5M",
         "comment": "s3-user",
+        "key_time_to_live": "P6DT1H5M",
+        "access_key": "<AWS-ACCESS-KEY-ID>",
+        "key_expiry_time": "2023-02-20T10:04:31+00:00",
+        "name": "user-1",
         "svm": {
-            "name": "vs1",
+            "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9",
             "_links": {
                 "self": {"href": "/api/svm/svms/db2ec036-8375-11e9-99e1-0050568e3ed9"}
             },
-            "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9",
+            "name": "vs1",
         },
+        "keys": [
+            {
+                "id": 1,
+                "time_to_live": "PT3H5M",
+                "access_key": "<AWS-ACCESS-KEY-ID>",
+                "expiry_time": "2023-11-13T23:28:03+05:30",
+            },
+            {
+                "id": 2,
+                "time_to_live": "PT6H3M2S",
+                "access_key": "<AWS-ACCESS-KEY-ID>",
+                "expiry_time": "2023-11-13T23:24:41+05:30",
+            },
+        ],
     }
 )
 
@@ -124,9 +153,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3User(
     {
+        "secret_key": "<AWS-SECRET-ACCESS-KEY>",
         "access_key": "<AWS-ACCESS-KEY-ID>",
         "name": "user-1",
-        "secret_key": "<AWS-SECRET-ACCESS-KEY>",
     }
 )
 
@@ -155,10 +184,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3User(
     {
-        "key_expiry_time": "2023-06-16T12:08:38+00:00",
-        "access_key": "<AWS-ACCESS-KEY-ID>",
-        "name": "user-3",
         "secret_key": "<AWS-SECRET-ACCESS-KEY>",
+        "access_key": "<AWS-ACCESS-KEY-ID>",
+        "key_expiry_time": "2023-06-16T12:08:38+00:00",
+        "name": "user-3",
     }
 )
 
@@ -189,10 +218,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3User(
     {
-        "key_expiry_time": "2024-02-12T22:36:29+05:30",
-        "access_key": "<AWS-ACCESS-KEY-ID>",
-        "name": "user-test",
         "secret_key": "<AWS-SECRET-ACCESS-KEY>",
+        "access_key": "<AWS-ACCESS-KEY-ID>",
+        "key_expiry_time": "2024-02-12T22:36:29+05:30",
+        "name": "user-test",
     }
 )
 
@@ -221,10 +250,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3User(
     {
-        "key_expiry_time": "2023-06-16T12:08:38+00:00",
-        "access_key": "<AWS-ACCESS-KEY-ID>",
-        "name": "user-3@domain1.com",
         "secret_key": "<AWS-SECRET-ACCESS-KEY>",
+        "access_key": "<AWS-ACCESS-KEY-ID>",
+        "key_expiry_time": "2023-06-16T12:08:38+00:00",
+        "name": "user-3@domain1.com",
     }
 )
 
@@ -233,7 +262,7 @@ S3User(
 </div>
 
 ### Regenerating first key for a specific S3 user for the specified SVM
-
+### Note that if key_id is not specified, key with key_id=1 will be regenerated.
 ```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import S3User
@@ -244,6 +273,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 
+### Regenerating second key for a specific S3 user for the specified SVM
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import S3User
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = S3User("db2ec036-8375-11e9-99e1-0050568e3ed9", name="user-2")
+    resource.key_id = "2"
+    resource.patch(hydrate=True, regenerate_keys=True)
+
+```
 
 ### Regenerating keys and setting new expiry configuration for a specific S3 user for the specified SVM
 ```python
@@ -272,9 +312,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 
+### Creating another key for a specific S3 user for the specified SVM using key_id '2'
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import S3User
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = S3User("db2ec036-8375-11e9-99e1-0050568e3ed9", name="user-2")
+    resource.key_time_to_live = "PT6H3M"
+    resource.key_id = "2"
+    resource.patch(hydrate=True, regenerate_keys=True)
+
+```
 
 ### Deleting first key for a specific S3 user for a specified SVM
-
+### Note that if key_id is not specified, key with key_id=1 will be deleted.
 ```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import S3User
@@ -285,6 +337,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 
+### Deleting second key for a specific S3 user for a specified SVM
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import S3User
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = S3User("db2ec036-8375-11e9-99e1-0050568e3ed9", name="user-2")
+    resource.key_id = "2"
+    resource.patch(hydrate=True, delete_keys=True)
+
+```
 
 ### Deleting the specified S3 user configuration for a specified SVM
 ```python
@@ -347,6 +410,15 @@ Example: S3 user"""
 
 Example: 2024-01-01T00:00:00.000+0000"""
 
+    key_id = Size(
+        data_key="key_id",
+        validate=integer_validation(minimum=1, maximum=2),
+        allow_none=True,
+    )
+    r""" Specifies the identifier of an S3 user key that needs to be generated or deleted. The key_id can either be '1' or '2'.
+
+Example: 1"""
+
     key_time_to_live = marshmallow_fields.Str(
         data_key="key_time_to_live",
         allow_none=True,
@@ -360,6 +432,17 @@ Example: 2024-01-01T00:00:00.000+0000"""
 
 
 Example: PT6H3M"""
+
+    keys = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.s3_user_key", "S3UserKeySchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="keys",
+                allow_none=True
+            )
+    r""" Specifies the keys associated with an S3 User."""
 
     name = marshmallow_fields.Str(
         data_key="name",
@@ -395,20 +478,22 @@ Example: <AWS-SECRET-ACCESS-KEY>"""
         "comment",
         "key_expiry_time",
         "key_time_to_live",
+        "keys",
         "name",
         "svm.links",
         "svm.name",
         "svm.uuid",
     ]
-    """access_key,comment,key_expiry_time,key_time_to_live,name,svm.links,svm.name,svm.uuid,"""
+    """access_key,comment,key_expiry_time,key_time_to_live,keys,name,svm.links,svm.name,svm.uuid,"""
 
     patchable_fields = [
         "access_key",
         "comment",
+        "key_id",
         "key_time_to_live",
         "secret_key",
     ]
-    """access_key,comment,key_time_to_live,secret_key,"""
+    """access_key,comment,key_id,key_time_to_live,secret_key,"""
 
     postable_fields = [
         "access_key",

@@ -1,4 +1,5 @@
 import datetime
+import modal._workspace
 import modal.client
 import modal.object
 import modal.types
@@ -219,6 +220,25 @@ class WorkspaceBillingManager:
     def __init__(self, workspace: Workspace):
         """mdmd:hidden"""
         ...
+
+    class __rates_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> modal._workspace._WorkspaceBillingRates:
+            """Return current pricing rates for the given workspace.
+
+            Returns:
+                A single mapping containing cost values. All values are reported as `decimal.Decimal`s.
+            """
+            ...
+
+        async def aio(self, /) -> modal._workspace._WorkspaceBillingRates:
+            """Return current pricing rates for the given workspace.
+
+            Returns:
+                A single mapping containing cost values. All values are reported as `decimal.Decimal`s.
+            """
+            ...
+
+    rates: __rates_spec
 
     class __report_spec(typing_extensions.Protocol):
         def __call__(

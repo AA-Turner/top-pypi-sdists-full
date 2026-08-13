@@ -29,6 +29,8 @@ class AttackMethodResult(BaseModel):
 
 class APIRTTurn(TurnApi):
     turn_level_attack: Optional[str] = Field(None, alias="turnLevelAttack")
+    stopping_reason: Optional[str] = Field(None, alias="stoppingReason")
+    stopping_category: Optional[str] = Field(None, alias="stoppingCategory")
 
 
 class APIRTTestCase(BaseModel):
@@ -61,6 +63,7 @@ class APIRiskAssessment(BaseModel):
     run_duration: float = Field(alias="runDuration")
     identifier: Optional[str] = Field(alias="identifier")
     assessment_cost: Optional[float] = Field(alias="assessmentCost")
+    rt_framework_id: Optional[str] = Field(None, alias="rtFrameworkId")
     test_cases: List[APIRTTestCase] = Field(alias="testCases")
 
 
@@ -70,10 +73,12 @@ def map_turn_to_api(turn: RTTurn, order: int) -> APIRTTurn:
         role=turn.role,
         content=turn.content,
         order=order,
-        user_id=turn.user_id,
-        retrieval_context=turn.retrieval_context,
-        tools_called=turn.tools_called,
-        turn_level_attack=turn.turn_level_attack,
+        userId=turn.user_id,
+        retrievalContext=turn.retrieval_context,
+        toolsCalled=turn.tools_called,
+        turnLevelAttack=turn.turn_level_attack,
+        stoppingReason=turn.stopping_reason,
+        stoppingCategory=turn.stopping_category,
     )
 
 
@@ -140,6 +145,7 @@ def map_risk_assessment_to_api(
     risk_assessment: RiskAssessment,
     assessment_cost: Optional[float] = None,
     identifier: Optional[str] = None,
+    rt_framework_id: Optional[str] = None,
 ) -> APIRiskAssessment:
     """
     Map RiskAssessment to APIRiskAssessment.
@@ -148,6 +154,8 @@ def map_risk_assessment_to_api(
         risk_assessment: The internal RiskAssessment object
         identifier: Optional[str] = None,
         assessment_cost: Optional[float] = None,
+        rt_framework_id: id of the Confident AI framework this assessment ran,
+            set only when the framework was pulled from Confident AI.
 
     Returns:
         APIRiskAssessment: The API-compatible risk assessment object
@@ -173,5 +181,6 @@ def map_risk_assessment_to_api(
         runDuration=risk_assessment.overview.run_duration,
         identifier=identifier,
         assessmentCost=assessment_cost,
+        rtFrameworkId=rt_framework_id,
         testCases=test_cases,
     )

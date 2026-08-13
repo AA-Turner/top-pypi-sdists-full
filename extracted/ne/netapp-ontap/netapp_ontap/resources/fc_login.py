@@ -25,86 +25,86 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FcLogin(
         {
-            "initiator": {"wwpn": "8b:21:2f:07:00:00:00:00"},
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/logins/01056403-1383-bc4b-786a-93e8ea35969d/8b%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
-                }
-            },
             "interface": {
+                "uuid": "01056403-1383-bc4b-786a-93e8ea35969d",
+                "name": "lif1",
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/interfaces/01056403-1383-bc4b-786a-93e8ea35969d"
                     }
                 },
-                "name": "lif1",
-                "uuid": "01056403-1383-bc4b-786a-93e8ea35969d",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/logins/01056403-1383-bc4b-786a-93e8ea35969d/8b%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
+                }
             },
             "svm": {
-                "name": "svm1",
+                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/056403da-83a7-4b13-bc78-6a93e8ea3596"
                     }
                 },
-                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
+                "name": "svm1",
             },
+            "initiator": {"wwpn": "8b:21:2f:07:00:00:00:00"},
         }
     ),
     FcLogin(
         {
-            "initiator": {"wwpn": "8c:21:2f:07:00:00:00:00"},
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/logins/02056403-1383-bc4b-786a-93e8ea35969d/8c%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
-                }
-            },
             "interface": {
+                "uuid": "02056403-1383-bc4b-786a-93e8ea35969d",
+                "name": "lif2",
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/interfaces/02056403-1383-bc4b-786a-93e8ea35969d"
                     }
                 },
-                "name": "lif2",
-                "uuid": "02056403-1383-bc4b-786a-93e8ea35969d",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/logins/02056403-1383-bc4b-786a-93e8ea35969d/8c%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
+                }
             },
             "svm": {
-                "name": "svm1",
+                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/056403da-83a7-4b13-bc78-6a93e8ea3596"
                     }
                 },
-                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
+                "name": "svm1",
             },
+            "initiator": {"wwpn": "8c:21:2f:07:00:00:00:00"},
         }
     ),
     FcLogin(
         {
-            "initiator": {"wwpn": "8a:21:2f:07:00:00:00:00"},
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/logins/00056403-1383-bc4b-786a-93e8ea35969d/8a%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
-                }
-            },
             "interface": {
+                "uuid": "03056403-1383-bc4b-786a-93e8ea35969d",
+                "name": "lif3",
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/interfaces/00056403-1383-bc4b-786a-93e8ea35969d"
                     }
                 },
-                "name": "lif3",
-                "uuid": "03056403-1383-bc4b-786a-93e8ea35969d",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/logins/00056403-1383-bc4b-786a-93e8ea35969d/8a%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
+                }
             },
             "svm": {
-                "name": "svm2",
+                "uuid": "156403da-83a7-4b13-bc78-6a93e8ea3596",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/156403da-83a7-4b13-bc78-6a93e8ea3596"
                     }
                 },
-                "uuid": "156403da-83a7-4b13-bc78-6a93e8ea3596",
+                "name": "svm2",
             },
+            "initiator": {"wwpn": "8a:21:2f:07:00:00:00:00"},
         }
     ),
 ]
@@ -133,60 +133,60 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FcLogin(
         {
-            "initiator": {"wwpn": "8b:21:2f:07:00:00:00:00"},
             "protocol": "fcp",
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/logins/01056403-1383-bc4b-786a-93e8ea35969d/8b%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
-                }
-            },
             "interface": {
+                "uuid": "01056403-1383-bc4b-786a-93e8ea35969d",
+                "name": "lif2",
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/interfaces/01056403-1383-bc4b-786a-93e8ea35969d"
                     }
                 },
-                "name": "lif2",
-                "uuid": "01056403-1383-bc4b-786a-93e8ea35969d",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/logins/01056403-1383-bc4b-786a-93e8ea35969d/8b%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
+                }
             },
             "svm": {
-                "name": "svm1",
+                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/056403da-83a7-4b13-bc78-6a93e8ea3596"
                     }
                 },
-                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
+                "name": "svm1",
             },
+            "initiator": {"wwpn": "8b:21:2f:07:00:00:00:00"},
         }
     ),
     FcLogin(
         {
-            "initiator": {"wwpn": "8c:21:2f:07:00:00:00:00"},
             "protocol": "fcp",
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/logins/02056403-1383-bc4b-786a-93e8ea35969d/8c%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
-                }
-            },
             "interface": {
+                "uuid": "02056403-1383-bc4b-786a-93e8ea35969d",
+                "name": "lif3",
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/interfaces/02056403-1383-bc4b-786a-93e8ea35969d"
                     }
                 },
-                "name": "lif3",
-                "uuid": "02056403-1383-bc4b-786a-93e8ea35969d",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/logins/02056403-1383-bc4b-786a-93e8ea35969d/8c%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
+                }
             },
             "svm": {
-                "name": "svm1",
+                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/056403da-83a7-4b13-bc78-6a93e8ea3596"
                     }
                 },
-                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
+                "name": "svm1",
             },
+            "initiator": {"wwpn": "8c:21:2f:07:00:00:00:00"},
         }
     ),
 ]
@@ -215,46 +215,46 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FcLogin(
         {
-            "initiator": {
-                "wwpn": "8b:21:2f:07:00:00:00:00",
-                "comment": "Example information about this initiator",
-                "wwnn": "95:21:2f:07:00:00:00:00",
-            },
-            "protocol": "fcp",
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/logins/01056403-1383-bc4b-786a-93e8ea35969d/8b%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
-                }
-            },
-            "interface": {
-                "_links": {
-                    "self": {
-                        "href": "/api/network/fc/interfaces/01056403-1383-bc4b-786a-93e8ea35969d"
-                    }
-                },
-                "wwpn": "8b:21:2f:07:00:00:00:00",
-                "name": "lif2",
-                "uuid": "01056403-1383-bc4b-786a-93e8ea35969d",
-            },
             "igroups": [
                 {
+                    "uuid": "243bbb8a-46e9-4b2d-a508-a62dc93df9d1",
+                    "name": "igroup1",
                     "_links": {
                         "self": {
                             "href": "/api/protocols/san/igroups/243bbb8a-46e9-4b2d-a508-a62dc93df9d1"
                         }
                     },
-                    "name": "igroup1",
-                    "uuid": "243bbb8a-46e9-4b2d-a508-a62dc93df9d1",
                 }
             ],
+            "protocol": "fcp",
+            "interface": {
+                "uuid": "01056403-1383-bc4b-786a-93e8ea35969d",
+                "wwpn": "8b:21:2f:07:00:00:00:00",
+                "name": "lif2",
+                "_links": {
+                    "self": {
+                        "href": "/api/network/fc/interfaces/01056403-1383-bc4b-786a-93e8ea35969d"
+                    }
+                },
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/logins/01056403-1383-bc4b-786a-93e8ea35969d/8b%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
+                }
+            },
             "svm": {
-                "name": "svm1",
+                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/056403da-83a7-4b13-bc78-6a93e8ea3596"
                     }
                 },
-                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
+                "name": "svm1",
+            },
+            "initiator": {
+                "comment": "Example information about this initiator",
+                "wwpn": "8b:21:2f:07:00:00:00:00",
+                "wwnn": "95:21:2f:07:00:00:00:00",
             },
         }
     )

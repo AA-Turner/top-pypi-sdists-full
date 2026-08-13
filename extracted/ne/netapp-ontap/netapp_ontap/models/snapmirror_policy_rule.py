@@ -19,7 +19,7 @@ __pdoc__ = {
 class SnapmirrorPolicyRuleSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SnapmirrorPolicyRule object"""
 
-    count = Size(data_key="count", allow_none=True)
+    count = marshmallow_fields.Str(data_key="count", allow_none=True)
     r""" Number of snapshots to be kept for retention. Maximum value will differ based on type of relationship and scaling factor.
 
 Example: 7 """

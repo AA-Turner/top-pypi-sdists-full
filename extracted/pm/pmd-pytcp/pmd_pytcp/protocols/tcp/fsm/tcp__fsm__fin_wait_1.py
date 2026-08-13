@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING
 
 from pmd_pytcp.lib.logger import log
 from pmd_pytcp.protocols.tcp import tcp__constants
-from pmd_pytcp.protocols.tcp.tcp__enums import FsmState, SysCall
+from pmd_pytcp.protocols.tcp.tcp__enums import ConnError, FsmState, SysCall
 from pmd_pytcp.protocols.tcp.tcp__seq import ge32, gt32, in_range32
 
 if TYPE_CHECKING:
@@ -117,6 +117,19 @@ def fsm__fin_wait_1__packet(session: TcpSession, packet_rx_md: TcpMetadata) -> N
             if ge32(packet_rx_md.tcp__ack, session._snd_seq.fin):
                 # Change state to FIN_WAIT_2.
                 session._change_state(FsmState.FIN_WAIT_2)
+                # Linux 'tcp_fin_timeout' parity: an ORPHANED
+                # connection (socket fully closed by the
+                # application — nobody can ever read) must not
+                # await the peer's FIN forever, or a peer that
+                # vanishes here pins the TCB and its local port
+                # indefinitely. A 'shutdown(SHUT_WR)' half-close
+                # (socket still open, application still reading)
+                # is NOT orphaned — no reaper.
+                if session._socket._closed:
+                    session._arm_timer(
+                        "fin_wait_2",
+                        tcp__constants.TCP__FIN_WAIT_2__TIMEOUT_MS,
+                    )
             return
         # RFC 9293 §3.10.7.4 step 5: an ACK acknowledging
         # data we have never sent (ack > SND.MAX) MUST elicit
@@ -155,7 +168,11 @@ def fsm__fin_wait_1__packet(session: TcpSession, packet_rx_md: TcpMetadata) -> N
         return
 
     # Got RST (bare or RST+ACK) -> Process per RFC 9293 §3.10.7.4
-    # three-way classification via the shared helper.
+    # three-way classification via the shared helper. Mark the
+    # connection reset so a blocked / subsequent 'recv()' on the
+    # still-readable half-closed socket raises instead of
+    # misreading the destroyed stream as a clean EOF.
     if packet_rx_md.tcp__flag_rst and not any({packet_rx_md.tcp__flag_fin, packet_rx_md.tcp__flag_syn}):
         if session._check_rst_acceptability(packet_rx_md):
+            session._connection_error = ConnError.RESET
             session._change_state(FsmState.CLOSED)

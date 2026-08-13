@@ -24,105 +24,131 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Vscan(
         {
-            "scanner_pools": [
-                {
-                    "role": "primary",
-                    "privileged_users": ["cifs\\u1", "cifs\\u2"],
-                    "name": "scanner-1",
-                    "cluster": {
-                        "name": "Cluster1",
-                        "uuid": "0228714d-f268-11e8-8851-0050568e5298",
-                    },
-                    "servers": ["1.1.1.1", "10.72.204.27"],
-                },
-                {
-                    "role": "primary",
-                    "privileged_users": ["cifs\\u1", "cifs\\u2"],
-                    "name": "scanner-2",
-                    "cluster": {
-                        "name": "Cluster1",
-                        "uuid": "0228714d-f268-11e8-8851-0050568e5298",
-                    },
-                    "servers": ["1.1.1.1", "10.72.204.27"],
-                },
-            ],
-            "svm": {"name": "vs1", "uuid": "03ce5c36-f269-11e8-8852-0050568e5298"},
-            "on_demand_policies": [
-                {
-                    "log_path": "/vol1",
-                    "name": "task-1",
-                    "scan_paths": ["/vol1"],
-                    "scope": {
-                        "scan_without_extension": True,
-                        "max_file_size": 10000,
-                        "include_extensions": ["vmdk", "mp*"],
-                        "exclude_paths": ["/vol1"],
-                        "exclude_extensions": ["mp3", "mp4"],
-                    },
-                },
-                {
-                    "log_path": "/vol2",
-                    "name": "task-2",
-                    "scan_paths": ["/vol1"],
-                    "scope": {
-                        "scan_without_extension": True,
-                        "max_file_size": 10000,
-                        "include_extensions": ["vmdk", "mp*"],
-                        "exclude_paths": ["/vol2"],
-                        "exclude_extensions": ["mp3", "mp4"],
-                    },
-                },
-            ],
             "on_access_policies": [
                 {
                     "protocol": "CIFS",
                     "name": "default_CIFS",
+                    "enabled": True,
                     "mandatory": True,
                     "scope": {
-                        "scan_readonly_volumes": False,
+                        "include_extensions": ["*"],
                         "scan_without_extension": True,
                         "only_execute_access": False,
                         "max_file_size": 2147483648,
-                        "include_extensions": ["*"],
+                        "scan_readonly_volumes": False,
                     },
-                    "enabled": True,
                 },
                 {
                     "protocol": "CIFS",
                     "name": "on-access-test1",
+                    "enabled": False,
                     "mandatory": True,
                     "scope": {
-                        "scan_readonly_volumes": False,
+                        "include_extensions": ["mp*", "txt"],
                         "scan_without_extension": True,
                         "only_execute_access": False,
-                        "max_file_size": 10000,
-                        "include_extensions": ["mp*", "txt"],
-                        "exclude_paths": ["\\dir"],
                         "exclude_extensions": ["mp*", "txt"],
+                        "max_file_size": 10000,
+                        "exclude_paths": ["\\dir"],
+                        "scan_readonly_volumes": False,
                     },
-                    "enabled": False,
                 },
                 {
                     "protocol": "CIFS",
                     "name": "on-access-test2",
+                    "enabled": False,
                     "mandatory": True,
                     "scope": {
-                        "scan_readonly_volumes": False,
+                        "include_extensions": ["mp*", "txt"],
                         "scan_without_extension": True,
                         "only_execute_access": False,
-                        "max_file_size": 10000,
-                        "include_extensions": ["mp*", "txt"],
-                        "exclude_paths": ["\\dir"],
                         "exclude_extensions": ["mp*", "txt"],
+                        "max_file_size": 10000,
+                        "exclude_paths": ["\\dir"],
+                        "scan_readonly_volumes": False,
                     },
-                    "enabled": False,
                 },
             ],
+            "scanner_pools": [
+                {
+                    "role": "primary",
+                    "cluster": {
+                        "uuid": "0228714d-f268-11e8-8851-0050568e5298",
+                        "name": "Cluster1",
+                    },
+                    "privileged_users": ["cifs\\u1", "cifs\\u2"],
+                    "name": "scanner-1",
+                    "servers": ["1.1.1.1", "10.72.204.27"],
+                },
+                {
+                    "role": "primary",
+                    "cluster": {
+                        "uuid": "0228714d-f268-11e8-8851-0050568e5298",
+                        "name": "Cluster1",
+                    },
+                    "privileged_users": ["cifs\\u1", "cifs\\u2"],
+                    "name": "scanner-2",
+                    "servers": ["1.1.1.1", "10.72.204.27"],
+                },
+            ],
+            "svm": {"uuid": "03ce5c36-f269-11e8-8852-0050568e5298", "name": "vs1"},
             "enabled": True,
+            "on_demand_policies": [
+                {
+                    "log_path": "/vol1",
+                    "scan_paths": ["/vol1"],
+                    "name": "task-1",
+                    "scope": {
+                        "include_extensions": ["vmdk", "mp*"],
+                        "scan_without_extension": True,
+                        "exclude_extensions": ["mp3", "mp4"],
+                        "max_file_size": 10000,
+                        "exclude_paths": ["/vol1"],
+                    },
+                },
+                {
+                    "log_path": "/vol2",
+                    "scan_paths": ["/vol1"],
+                    "name": "task-2",
+                    "scope": {
+                        "include_extensions": ["vmdk", "mp*"],
+                        "scan_without_extension": True,
+                        "exclude_extensions": ["mp3", "mp4"],
+                        "max_file_size": 10000,
+                        "exclude_paths": ["/vol2"],
+                    },
+                },
+            ],
         }
     ),
     Vscan(
         {
+            "on_access_policies": [
+                {
+                    "name": "default_CIFS",
+                    "enabled": True,
+                    "mandatory": True,
+                    "scope": {
+                        "include_extensions": ["*"],
+                        "scan_without_extension": True,
+                        "only_execute_access": False,
+                        "max_file_size": 2147483648,
+                        "scan_readonly_volumes": False,
+                    },
+                },
+                {
+                    "name": "ap1",
+                    "enabled": False,
+                    "mandatory": True,
+                    "scope": {
+                        "include_extensions": ["*"],
+                        "scan_without_extension": True,
+                        "only_execute_access": False,
+                        "max_file_size": 2147483648,
+                        "scan_readonly_volumes": False,
+                    },
+                },
+            ],
             "scanner_pools": [
                 {
                     "role": "idle",
@@ -131,46 +157,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "servers": ["1.1.1.1"],
                 }
             ],
-            "svm": {"name": "vs2", "uuid": "24c2567a-f269-11e8-8852-0050568e5298"},
+            "svm": {"uuid": "24c2567a-f269-11e8-8852-0050568e5298", "name": "vs2"},
+            "enabled": False,
             "on_demand_policies": [
                 {
                     "log_path": "/vol1",
-                    "name": "t1",
                     "scan_paths": ["/vol1"],
+                    "name": "t1",
                     "scope": {
+                        "include_extensions": ["*"],
                         "scan_without_extension": True,
                         "max_file_size": 10737418240,
-                        "include_extensions": ["*"],
                     },
                 }
             ],
-            "on_access_policies": [
-                {
-                    "name": "default_CIFS",
-                    "mandatory": True,
-                    "scope": {
-                        "scan_readonly_volumes": False,
-                        "scan_without_extension": True,
-                        "only_execute_access": False,
-                        "max_file_size": 2147483648,
-                        "include_extensions": ["*"],
-                    },
-                    "enabled": True,
-                },
-                {
-                    "name": "ap1",
-                    "mandatory": True,
-                    "scope": {
-                        "scan_readonly_volumes": False,
-                        "scan_without_extension": True,
-                        "only_execute_access": False,
-                        "max_file_size": 2147483648,
-                        "include_extensions": ["*"],
-                    },
-                    "enabled": False,
-                },
-            ],
-            "enabled": False,
         }
     ),
 ]
@@ -197,6 +197,34 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Vscan(
     {
+        "on_access_policies": [
+            {
+                "protocol": "CIFS",
+                "name": "default_CIFS",
+                "enabled": True,
+                "mandatory": True,
+                "scope": {
+                    "include_extensions": ["*"],
+                    "scan_without_extension": True,
+                    "only_execute_access": False,
+                    "max_file_size": 2147483648,
+                    "scan_readonly_volumes": False,
+                },
+            },
+            {
+                "protocol": "CIFS",
+                "name": "ap1",
+                "enabled": False,
+                "mandatory": True,
+                "scope": {
+                    "include_extensions": ["*"],
+                    "scan_without_extension": True,
+                    "only_execute_access": False,
+                    "max_file_size": 2147483648,
+                    "scan_readonly_volumes": False,
+                },
+            },
+        ],
         "scanner_pools": [
             {
                 "role": "idle",
@@ -205,48 +233,20 @@ Vscan(
                 "servers": ["1.1.1.1"],
             }
         ],
-        "svm": {"name": "vs2", "uuid": "24c2567a-f269-11e8-8852-0050568e5298"},
+        "svm": {"uuid": "24c2567a-f269-11e8-8852-0050568e5298", "name": "vs2"},
+        "enabled": False,
         "on_demand_policies": [
             {
                 "log_path": "/vol1",
-                "name": "t1",
                 "scan_paths": ["/vol1"],
+                "name": "t1",
                 "scope": {
+                    "include_extensions": ["*"],
                     "scan_without_extension": True,
                     "max_file_size": 10737418240,
-                    "include_extensions": ["*"],
                 },
             }
         ],
-        "on_access_policies": [
-            {
-                "protocol": "CIFS",
-                "name": "default_CIFS",
-                "mandatory": True,
-                "scope": {
-                    "scan_readonly_volumes": False,
-                    "scan_without_extension": True,
-                    "only_execute_access": False,
-                    "max_file_size": 2147483648,
-                    "include_extensions": ["*"],
-                },
-                "enabled": True,
-            },
-            {
-                "protocol": "CIFS",
-                "name": "ap1",
-                "mandatory": True,
-                "scope": {
-                    "scan_readonly_volumes": False,
-                    "scan_without_extension": True,
-                    "only_execute_access": False,
-                    "max_file_size": 2147483648,
-                    "include_extensions": ["*"],
-                },
-                "enabled": False,
-            },
-        ],
-        "enabled": False,
     }
 )
 
@@ -320,54 +320,54 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Vscan(
     {
-        "scanner_pools": [
-            {
-                "role": "primary",
-                "privileged_users": ["cifs\\u1", "cifs\\u2"],
-                "name": "scanner-1",
-                "cluster": {
-                    "name": "Cluster1",
-                    "uuid": "ab746d77-17b7-11e9-b450-0050568ecd85",
-                },
-                "servers": ["1.1.1.1", "10.72.204.27"],
-            }
-        ],
-        "svm": {"name": "vs1", "uuid": "b103be27-17b8-11e9-b451-0050568ecd85"},
-        "on_demand_policies": [
-            {
-                "log_path": "/vol",
-                "name": "task-1",
-                "scan_paths": ["/vol"],
-                "schedule": {
-                    "name": "daily",
-                    "uuid": "d4984822-17b7-11e9-b450-0050568ecd85",
-                },
-                "scope": {
-                    "scan_without_extension": True,
-                    "max_file_size": 10737,
-                    "include_extensions": ["vmdk", "mp*"],
-                    "exclude_paths": ["//"],
-                    "exclude_extensions": ["mp3", "mp4"],
-                },
-            }
-        ],
         "on_access_policies": [
             {
                 "name": "on-access-test",
+                "enabled": True,
                 "mandatory": True,
                 "scope": {
-                    "scan_readonly_volumes": False,
+                    "include_extensions": ["mp*", "txt"],
                     "scan_without_extension": True,
                     "only_execute_access": False,
-                    "max_file_size": 21474,
-                    "include_extensions": ["mp*", "txt"],
-                    "exclude_paths": ["\\vol"],
                     "exclude_extensions": ["mp*", "txt"],
+                    "max_file_size": 21474,
+                    "exclude_paths": ["\\vol"],
+                    "scan_readonly_volumes": False,
                 },
-                "enabled": True,
             }
         ],
+        "scanner_pools": [
+            {
+                "role": "primary",
+                "cluster": {
+                    "uuid": "ab746d77-17b7-11e9-b450-0050568ecd85",
+                    "name": "Cluster1",
+                },
+                "privileged_users": ["cifs\\u1", "cifs\\u2"],
+                "name": "scanner-1",
+                "servers": ["1.1.1.1", "10.72.204.27"],
+            }
+        ],
+        "svm": {"uuid": "b103be27-17b8-11e9-b451-0050568ecd85", "name": "vs1"},
         "enabled": True,
+        "on_demand_policies": [
+            {
+                "log_path": "/vol",
+                "scan_paths": ["/vol"],
+                "name": "task-1",
+                "schedule": {
+                    "uuid": "d4984822-17b7-11e9-b450-0050568ecd85",
+                    "name": "daily",
+                },
+                "scope": {
+                    "include_extensions": ["vmdk", "mp*"],
+                    "scan_without_extension": True,
+                    "exclude_extensions": ["mp3", "mp4"],
+                    "max_file_size": 10737,
+                    "exclude_paths": ["//"],
+                },
+            }
+        ],
     }
 )
 
@@ -419,26 +419,26 @@ Vscan(
         "scanner_pools": [
             {
                 "role": "primary",
+                "cluster": {
+                    "uuid": "ab746d77-17b7-11e9-b450-0050568ecd85",
+                    "name": "Cluster1",
+                },
                 "privileged_users": ["cifs\\u1", "cifs\\u2"],
                 "name": "scanner-1",
-                "cluster": {
-                    "name": "Cluster1",
-                    "uuid": "ab746d77-17b7-11e9-b450-0050568ecd85",
-                },
                 "servers": ["1.1.1.1", "10.72.204.27"],
             },
             {
                 "role": "primary",
+                "cluster": {
+                    "uuid": "ab746d77-17b7-11e9-b450-0050568ecd85",
+                    "name": "Cluster1",
+                },
                 "privileged_users": ["cifs\\u3", "cifs\\u4"],
                 "name": "scanner-2",
-                "cluster": {
-                    "name": "Cluster1",
-                    "uuid": "ab746d77-17b7-11e9-b450-0050568ecd85",
-                },
                 "servers": ["1.1.1.5", "10.72.3.27"],
             },
         ],
-        "svm": {"name": "vs1", "uuid": "b103be27-17b8-11e9-b451-0050568ecd85"},
+        "svm": {"uuid": "b103be27-17b8-11e9-b451-0050568ecd85", "name": "vs1"},
     }
 )
 
@@ -495,37 +495,37 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Vscan(
     {
-        "svm": {"name": "vs1", "uuid": "b103be27-17b8-11e9-b451-0050568ecd85"},
         "on_access_policies": [
             {
                 "name": "on-access-test11",
+                "enabled": False,
                 "mandatory": True,
                 "scope": {
-                    "scan_readonly_volumes": False,
+                    "include_extensions": ["mp*", "txt"],
                     "scan_without_extension": True,
                     "only_execute_access": False,
-                    "max_file_size": 214748,
-                    "include_extensions": ["mp*", "txt"],
-                    "exclude_paths": ["\\vol"],
                     "exclude_extensions": ["mp*", "txt"],
+                    "max_file_size": 214748,
+                    "exclude_paths": ["\\vol"],
+                    "scan_readonly_volumes": False,
                 },
-                "enabled": False,
             },
             {
                 "name": "on-access-test10",
+                "enabled": False,
                 "mandatory": True,
                 "scope": {
-                    "scan_readonly_volumes": False,
+                    "include_extensions": ["mp*", "txt"],
                     "scan_without_extension": True,
                     "only_execute_access": False,
-                    "max_file_size": 21474,
-                    "include_extensions": ["mp*", "txt"],
-                    "exclude_paths": ["\\vol"],
                     "exclude_extensions": ["mp*", "txt"],
+                    "max_file_size": 21474,
+                    "exclude_paths": ["\\vol"],
+                    "scan_readonly_volumes": False,
                 },
-                "enabled": False,
             },
         ],
+        "svm": {"uuid": "b103be27-17b8-11e9-b451-0050568ecd85", "name": "vs1"},
     }
 )
 
@@ -582,34 +582,34 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Vscan(
     {
-        "svm": {"name": "vs1", "uuid": "b103be27-17b8-11e9-b451-0050568ecd85"},
+        "svm": {"uuid": "b103be27-17b8-11e9-b451-0050568ecd85", "name": "vs1"},
         "on_demand_policies": [
             {
                 "log_path": "/vol",
-                "name": "task-1",
                 "scan_paths": ["/vol"],
+                "name": "task-1",
                 "schedule": {
-                    "name": "daily",
                     "uuid": "d4984822-17b7-11e9-b450-0050568ecd85",
+                    "name": "daily",
                 },
                 "scope": {
-                    "scan_without_extension": True,
-                    "max_file_size": 107374,
                     "include_extensions": ["vmdk", "mp*"],
-                    "exclude_paths": ["/vol1"],
+                    "scan_without_extension": True,
                     "exclude_extensions": ["mp3", "mp4"],
+                    "max_file_size": 107374,
+                    "exclude_paths": ["/vol1"],
                 },
             },
             {
                 "log_path": "/vol",
-                "name": "task-2",
                 "scan_paths": ["/vol"],
+                "name": "task-2",
                 "scope": {
-                    "scan_without_extension": True,
-                    "max_file_size": 107374,
                     "include_extensions": ["vmdk", "mp*"],
-                    "exclude_paths": ["/vol1"],
+                    "scan_without_extension": True,
                     "exclude_extensions": ["mp3", "mp4"],
+                    "max_file_size": 107374,
+                    "exclude_paths": ["/vol1"],
                 },
             },
         ],

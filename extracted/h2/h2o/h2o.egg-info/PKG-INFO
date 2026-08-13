@@ -1,0 +1,35 @@
+Metadata-Version: 2.1
+Name: h2o
+Version: 3.46.0.12
+Summary: H2O, Fast Scalable Machine Learning, for python 
+Home-page: https://github.com/h2oai/h2o-3.git
+Author: H2O.ai
+Author-email: support@h2o.ai
+License: Apache v2
+Keywords: machine learning,data mining,statistical analysis,modeling,big data,distributed,parallel
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Customer Service
+Classifier: Intended Audience :: Financial and Insurance Industry
+Classifier: Intended Audience :: Healthcare Industry
+Classifier: Intended Audience :: Telecommunications Industry
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.7
+Provides-Extra: kerberos
+
+H2O
+====
+
+H2O scales statistics, machine learning and math over BigData. H2O is extensible and users can build blocks using simple math legos in the core. H2O keeps familiar interfaces like python, R, Excel & JSON so that BigData enthusiasts & experts can explore, munge, model and score datasets using a range of simple to advanced algorithms. Data collection is easy. Decision making is hard. H2O makes it fast and easy to derive insights from your data through faster and better predictive modeling. H2O has a vision of online scoring and modeling in a single platform.
+
+Note: H2O-3 can send anonymous usage telemetry — never your code or data. It is opt-in and off by default; enable it with ``h2o.set_telemetry(True)``. See the `Telemetry documentation <https://docs.h2o.ai/h2o/latest-stable/h2o-docs/telemetry.html>`_ for what is sent.
+

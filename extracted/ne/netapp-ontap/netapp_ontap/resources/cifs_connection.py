@@ -32,34 +32,34 @@ with HostConnection(
 [
     CifsConnection(
         {
-            "server_ip": "10.140.70.197",
-            "identifier": 91842,
-            "svm": {"name": "vs1", "uuid": "fc824aa8-4e60-11ea-afb1-0050568ec4e4"},
-            "network_context_id": 3,
             "sessions": [{"identifier": 625718873227788312}],
-            "node": {
-                "name": "example_node_name",
-                "uuid": "85d46998-4e5d-11ea-afb1-0050568ec4e4",
-            },
+            "identifier": 91842,
             "client_port": 12345,
+            "network_context_id": 3,
+            "server_ip": "10.140.70.197",
+            "svm": {"uuid": "fc824aa8-4e60-11ea-afb1-0050568ec4e4", "name": "vs1"},
+            "node": {
+                "uuid": "85d46998-4e5d-11ea-afb1-0050568ec4e4",
+                "name": "example_node_name",
+            },
             "client_ip": "10.74.7.182",
         }
     ),
     CifsConnection(
         {
-            "server_ip": "10.140.70.197",
-            "identifier": 92080,
-            "svm": {"name": "vs1", "uuid": "fc824aa8-4e60-11ea-afb1-0050568ec4e4"},
-            "network_context_id": 5,
             "sessions": [
                 {"identifier": 625718873227788579},
                 {"identifier": 625718873227788577},
             ],
-            "node": {
-                "name": "example_node_name",
-                "uuid": "85d46998-4e5d-11ea-afb1-0050568ec4e4",
-            },
+            "identifier": 92080,
             "client_port": 23413,
+            "network_context_id": 5,
+            "server_ip": "10.140.70.197",
+            "svm": {"uuid": "fc824aa8-4e60-11ea-afb1-0050568ec4e4", "name": "vs1"},
+            "node": {
+                "uuid": "85d46998-4e5d-11ea-afb1-0050568ec4e4",
+                "name": "example_node_name",
+            },
             "client_ip": "10.140.133.97",
         }
     ),

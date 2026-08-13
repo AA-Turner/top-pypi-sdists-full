@@ -51,6 +51,7 @@ class SQLExecution(BaseSerDeModel):
     dbt_node_state: t.Optional[shared_models.DbtNodeState] = None
     default_schema: t.Optional[str] = None
     from_speculative_submit: bool = False
+    table_namespace: t.Optional[str] = None
 
     @classmethod
     def from_submit_sql_request(
@@ -68,6 +69,7 @@ class SQLExecution(BaseSerDeModel):
             labels=req.labels,
             dbt_node_state=req.dbt_node_state,
             default_schema=req.default_schema,
+            table_namespace=req.table_namespace,
         )
 
 
@@ -80,6 +82,7 @@ class ValuesExecution(BaseSerDeModel):
     semantic_extras: t.Dict[str, str] = field(default_factory=dict)
     labels: t.Dict[str, str] = field(default_factory=dict)
     dbt_node_state: t.Optional[shared_models.DbtNodeState] = None
+    table_namespace: t.Optional[str] = None
 
     @classmethod
     def from_submit_values_request(
@@ -93,6 +96,7 @@ class ValuesExecution(BaseSerDeModel):
             semantic_extras=req.semantic_extras,
             labels=req.labels,
             dbt_node_state=req.dbt_node_state,
+            table_namespace=req.table_namespace,
         )
 
 

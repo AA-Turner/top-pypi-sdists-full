@@ -2391,19 +2391,15 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
         # as DagModel.dag_id and DagModel.next_dagrun
         # This list is used to verify if the DagRun already exist so that we don't attempt to create
         # duplicate DagRuns
-        existing_dagrun_objects = (
-            session.scalars(
-                select(DagRun)
-                .where(
-                    tuple_(DagRun.dag_id, DagRun.logical_date).in_(
-                        (dm.dag_id, dm.next_dagrun) for dm in dag_models
-                    )
+        existing_dagrun_objects = session.scalars(
+            select(DagRun)
+            .where(
+                tuple_(DagRun.dag_id, DagRun.logical_date).in_(
+                    (dm.dag_id, dm.next_dagrun) for dm in dag_models
                 )
-                .options(load_only(DagRun.dag_id, DagRun.logical_date))
             )
-            .unique()
-            .all()
-        )
+            .options(load_only(DagRun.dag_id, DagRun.logical_date))
+        ).all()
         existing_dagruns = {(x.dag_id, x.logical_date): x for x in existing_dagrun_objects}
 
         # backfill runs are not created by scheduler and their concurrency is separate
@@ -2581,6 +2577,18 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
                 .cte()
             )
 
+            # A first asset-triggered run has no previous run to floor the event window. With
+            # catchup off, floor it at when the Dag started scheduling on its assets so the
+            # backlog is skipped; with catchup on, only date.min applies and the backlog replays.
+            event_window_floor: list[Any] = [cte.c.previous_dag_run_run_after]
+            if not dag.catchup:
+                event_window_floor.append(
+                    select(func.min(DagScheduleAssetReference.created_at))
+                    .where(DagScheduleAssetReference.dag_id == dag.dag_id)
+                    .scalar_subquery()
+                )
+            event_window_floor.append(date.min)
+
             asset_events = list(
                 session.scalars(
                     select(AssetEvent)
@@ -2598,7 +2606,7 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
                             ),
                         ),
                         AssetEvent.timestamp <= triggered_date,
-                        AssetEvent.timestamp > func.coalesce(cte.c.previous_dag_run_run_after, date.min),
+                        AssetEvent.timestamp > func.coalesce(*event_window_floor),
                     )
                     .order_by(AssetEvent.timestamp.asc(), AssetEvent.id.asc())
                 )
@@ -2868,7 +2876,7 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
                     duration,
                     tags=prune_dict(
                         {
-                            "dag_id": dag_run.dag_id,
+                            **dag_run.stats_tags,
                             "team_name": self._get_team_names_for_dag_ids([dag_run.dag_id], session).get(
                                 dag_run.dag_id
                             )
@@ -3406,8 +3414,10 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
 
                 num_resolved = 0
                 num_failed = 0
+                num_unresumable = 0
                 for ti in timed_out_tis:
                     hitl_detail = ti.hitl_detail
+                    resuming = True
                     if hitl_detail is not None and hitl_detail.responded_at is not None:
                         # A response landed just before the deadline; resume with it.
                         handle_event_submit(
@@ -3415,7 +3425,6 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
                             task_instance=ti,
                             session=session,
                         )
-                        num_resolved += 1
                     elif hitl_detail is not None and hitl_detail.defaults is not None:
                         # Apply the configured defaults as the response, then resume to success.
                         hitl_detail.chosen_options = list(hitl_detail.defaults)
@@ -3431,7 +3440,6 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
                             task_instance=ti,
                             session=session,
                         )
-                        num_resolved += 1
                     else:
                         # No defaults and no response: resume into execute_complete with a timeout
                         # failure event so the operator raises HITLTimeoutError (matching the old
@@ -3447,16 +3455,29 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
                             task_instance=ti,
                             session=session,
                         )
+                        resuming = False
+
+                    # ``handle_event_submit`` routes a task instance it could not process to
+                    # ``__fail__`` instead of resuming it. That is neither of the outcomes the
+                    # branches above intended, so it is counted on its own rather than being
+                    # reported as resolved.
+                    if ti.next_method == TRIGGER_FAIL_REPR:
+                        num_unresumable += 1
+                    elif resuming:
+                        num_resolved += 1
+                    else:
                         num_failed += 1
 
                 # Flush within the retry block so both branches persist consistently (the defaults
                 # branch already flushes via handle_event_submit; the fail branch relies on this).
                 session.flush()
-                if num_resolved or num_failed:
+                if num_resolved or num_failed or num_unresumable:
                     self.log.info(
-                        "AWAITING_INPUT timeout sweep: %i resolved (response/defaults), %i failed",
+                        "AWAITING_INPUT timeout sweep: %i resolved (response/defaults), %i failed, "
+                        "%i could not be resumed",
                         num_resolved,
                         num_failed,
+                        num_unresumable,
                     )
 
     # [START find_and_purge_task_instances_without_heartbeats]
@@ -3536,12 +3557,21 @@ class SchedulerJobRunner(BaseJobRunner, LoggingMixin):
             # Backfill dag_version_id for legacy tasks (Pydantic requires uuid.UUID).
             if not _ensure_ti_has_dag_version_id(ti, session, self.log):
                 continue
+            # ti.task isn't loaded in this purge path, so is_eligible_to_retry() uses its
+            # no-task fallback (``try_number <= max_tries``), which skips the retries-configured
+            # check its task-loaded branch applies; guard with ``max_tries > 0`` so a task
+            # declared with retries=0 isn't treated as retry-eligible here.
+            if ti.max_tries > 0 and ti.is_eligible_to_retry():
+                task_callback_type = TaskInstanceState.UP_FOR_RETRY
+            else:
+                task_callback_type = TaskInstanceState.FAILED
             request = TaskCallbackRequest(
                 filepath=ti.dag_model.relative_fileloc or "",
                 bundle_name=_hb_bundle_name,
                 bundle_version=_hb_bundle_version,
                 ti=ti,
                 msg=str(task_instance_heartbeat_timeout_message_details),
+                task_callback_type=task_callback_type,
                 context_from_server=TIRunContext(
                     dag_run=DRDataModel.model_validate(ti.dag_run, from_attributes=True),
                     max_tries=ti.max_tries,

@@ -1,12 +1,14 @@
 use crate::core::BitCollection;
+use crate::dtype::{Dtype, extract_dtype};
 use crate::enums::{BitOrder, ByteOrder};
 use crate::helpers::{
-    BS, BV, bv_from_bin, bv_from_bytes_slice, bv_from_f64, bv_from_hex, bv_from_i128, bv_from_oct,
-    bv_from_u128, bytes_like_to_vec,
+    BS, BV, bv_from_bin, bv_from_bytes_slice, bv_from_f64, bv_from_hex, bv_from_int, bv_from_oct,
+    bv_from_uint, bytes_like_to_vec, format_bit_collection, try_extract_index, validate_slice,
+    with_locked, with_locked_mut, with_locked2,
 };
 use crate::mutibs::Mutibs;
-use crate::tibs_::Tibs;
-use pyo3::exceptions::{PyTypeError, PyValueError};
+use crate::tibs_::{Tibs, bv_from_value, py_from_value};
+use pyo3::exceptions::{PyOverflowError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyType};
 
@@ -19,19 +21,29 @@ fn byte_order_for_field_len(byte_order: ByteOrder, field_len: usize) -> ByteOrde
 }
 
 fn view_bits_from_physical_bits(
-    source: &BS,
+    source: &Tibs,
     byte_order: ByteOrder,
     bit_order: BitOrder,
-) -> PyResult<BV> {
+) -> PyResult<Tibs> {
     let len = source.len();
     let byte_order = byte_order_for_field_len(byte_order, len);
-    let mut selected = BV::with_capacity(len);
-    for index in field_source_indices(bit_order, byte_order, 0, len) {
-        selected.push(source[index]);
-    }
+    // MSB0 reads the bits in the order they are stored, so the gather below is
+    // the identity and only the byte order is left to apply. Both callers
+    // already return early when the layout keeps physical order, so this is
+    // reached for `le` views, where the swap did the real work all along.
+    let selected = if bit_order == BitOrder::Msb0 {
+        source.clone()
+    } else {
+        let bits = source.as_bitslice();
+        let mut selected = BV::with_capacity(len);
+        for index in field_source_indices(bit_order, byte_order, 0, len) {
+            selected.push(bits[index]);
+        }
+        Tibs::from_bv(selected)
+    };
 
     if byte_order == ByteOrder::Little {
-        BitCollection::byte_swap_copy(&Tibs::from_bv(selected), None).map(|tibs| tibs.to_bitvec())
+        BitCollection::byte_swap_copy(&selected, None)
     } else {
         Ok(selected)
     }
@@ -44,12 +56,20 @@ fn physical_bits_from_view_bits(
 ) -> PyResult<BV> {
     let len = viewed.len();
     let byte_order = byte_order_for_field_len(byte_order, len);
+    if bit_order == BitOrder::Msb0 && byte_order != ByteOrder::Little {
+        return Ok(viewed);
+    }
     let selected = if byte_order == ByteOrder::Little {
         BitCollection::byte_swap_copy(&Tibs::from_bv(viewed), None)?.to_bitvec()
     } else {
         viewed
     };
 
+    // As in `view_bits_from_physical_bits`, MSB0 makes the scatter below the
+    // identity, so only the swap already applied above is needed.
+    if bit_order == BitOrder::Msb0 {
+        return Ok(selected);
+    }
     let mut physical = BV::repeat(false, len);
     for (bit_index, source_index) in field_source_indices(bit_order, byte_order, 0, len)
         .into_iter()
@@ -60,11 +80,54 @@ fn physical_bits_from_view_bits(
     Ok(physical)
 }
 
+/// Refuse a dtype that names a byte order when the view already names one.
+///
+/// A view built with `le`, `be` or `lsb0` states the byte order for everything
+/// read or written through it. The view's layout is applied first, so a `_le`
+/// or `_be` dtype on top of it would be a *second* byte order rather than the
+/// only one: `t.le.to_value("u16_le")` would swap twice and land back on the
+/// big-endian reading. Byte order is stated in exactly one place, so the pair
+/// is refused rather than silently composed.
+///
+/// The plain `view()` is not caught, because it makes no claim about layout and
+/// is a pass-through to the same reading `Tibs.to_value` would give. This is the
+/// same "is byte-oriented" test that [`View::validate_layout`] uses.
+fn validate_dtype_byte_order(
+    dtype: &Dtype,
+    byte_order: ByteOrder,
+    bit_order: BitOrder,
+) -> PyResult<()> {
+    let view_states_byte_order =
+        byte_order != ByteOrder::Unspecified || bit_order != BitOrder::Msb0;
+    if view_states_byte_order && dtype.has_explicit_byte_order() {
+        return Err(PyValueError::new_err(format!(
+            "Cannot use the dtype '{}' through a view that specifies its own byte order or bit order. The view's layout is applied first, so a '_le' or '_be' dtype would add a second byte order rather than replace the view's. Remove the byte order from the dtype, or use the source Tibs or Mutibs instead of a view.",
+            dtype.spec()
+        )));
+    }
+    Ok(())
+}
+
 fn physical_index_for_label(bit_order: BitOrder, label: usize) -> usize {
     match bit_order {
         BitOrder::Msb0 => label,
         BitOrder::Lsb0 => (label / 8) * 8 + (7 - (label % 8)),
     }
+}
+
+/// The error for a bad `View` source, with the `Mutibs` case called out.
+///
+/// A `Mutibs` is refused rather than snapshotted: the copy would be silent and
+/// O(n), and a view that stops tracking its source is not what `View` means
+/// elsewhere in Python (a read-only `memoryview` of a `bytearray` still sees
+/// writes). `MutableView` already refuses a `Tibs` for the mirror-image reason.
+fn mutibs_source_error(source: &Bound<'_, PyAny>, view_name: &str) -> PyErr {
+    if source.extract::<PyRef<'_, Mutibs>>().is_ok() {
+        return PyTypeError::new_err(format!(
+            "{view_name} source must be a Tibs, but a Mutibs was given. Use 'Mutibs.view()' for a live MutableView, or 'Mutibs.to_tibs()' for an immutable copy to view."
+        ));
+    }
+    PyTypeError::new_err(format!("{view_name} source must be a Tibs instance."))
 }
 
 fn validate_field_labels(len: usize, a: i64, b: i64) -> PyResult<(usize, usize)> {
@@ -126,19 +189,91 @@ fn field_source_indices(
     indices
 }
 
-fn extract_source_indices(source_indices: &Bound<'_, PyAny>) -> PyResult<Vec<usize>> {
+/// The ascending contiguous run `indices` describes, if it is one.
+fn run_of(indices: &[usize]) -> Option<(usize, usize)> {
+    let &first = indices.first()?;
+    let len = indices.len();
+    indices
+        .iter()
+        .copied()
+        .eq(first..first + len)
+        .then_some((first, len))
+}
+
+/// Where a field's bits sit in the source.
+///
+/// Nearly every field is a contiguous run: an MSB0 one always is, and an LSB0
+/// one is whenever it lines up with the bytes it spans. Saying so in two
+/// integers rather than listing the positions is the difference between a
+/// description that costs eight bytes per *bit* - sixty-four times the data it
+/// describes - and one that costs nothing, and it lets the bits be copied over
+/// bytes instead of gathered one at a time.
+enum FieldMapping {
+    Run { start: usize, len: usize },
+    Indices(Vec<usize>),
+}
+
+fn field_source_mapping(
+    bit_order: BitOrder,
+    byte_order: ByteOrder,
+    low: usize,
+    field_len: usize,
+) -> FieldMapping {
+    // MSB0 labels run with physical order, so the field is its own run and
+    // there is nothing to build.
+    if bit_order == BitOrder::Msb0 {
+        return FieldMapping::Run {
+            start: low,
+            len: field_len,
+        };
+    }
+    // LSB0 reverses labels within each byte, which still lands on a run
+    // whenever the field lines up with them - a whole byte, or any field
+    // inside one. Rather than work out which alignments those are, build the
+    // positions and ask.
+    let indices = field_source_indices(bit_order, byte_order, low, field_len);
+    match run_of(&indices) {
+        Some((start, len)) => FieldMapping::Run { start, len },
+        None => FieldMapping::Indices(indices),
+    }
+}
+
+fn source_index_error(index: &Bound<'_, PyAny>, source_len: usize, view_name: &str) -> PyErr {
+    let index = index
+        .str()
+        .map_or_else(|_| "<unprintable>".to_string(), |value| value.to_string());
+    PyValueError::new_err(format!(
+        "{view_name} source index {index} is out of range for source length {source_len}."
+    ))
+}
+
+fn extract_source_indices(
+    source_indices: &Bound<'_, PyAny>,
+    source_len: usize,
+    view_name: &str,
+) -> PyResult<Vec<usize>> {
     let capacity = source_indices.len().ok().unwrap_or(16);
     let mut indices = Vec::with_capacity(capacity);
     for item in source_indices.try_iter()? {
-        indices.push(item?.extract::<usize>()?);
+        let item = item?;
+        let index = match try_extract_index(&item) {
+            Ok(Some(index)) if index >= 0 => index as usize,
+            Ok(Some(_)) => return Err(source_index_error(&item, source_len, view_name)),
+            Err(error) if error.is_instance_of::<PyOverflowError>(item.py()) => {
+                return Err(source_index_error(&item, source_len, view_name));
+            }
+            Err(error) => return Err(error),
+            Ok(None) => return Err(PyTypeError::new_err("Source indices must be integers.")),
+        };
+        indices.push(index);
     }
     Ok(indices)
 }
 
 fn validate_source_indices(indices: &[usize], source_len: usize, view_name: &str) -> PyResult<()> {
-    if indices.iter().any(|&index| index >= source_len) {
+    if let Some(&index) = indices.iter().find(|&&index| index >= source_len) {
         return Err(PyValueError::new_err(format!(
-            "{view_name} source is too short for this field."
+            "{view_name} source is too short for index {index}; source length is {source_len}."
         )));
     }
 
@@ -172,9 +307,11 @@ fn selected_source_bits(source: &BS, indices: &[usize], view_name: &str) -> PyRe
 ///     :attr:`~Tibs.le`, :attr:`~Tibs.be`, :attr:`~Tibs.lsb0`, :attr:`~Tibs.msb0`
 ///     or :meth:`~Tibs.view` helpers.
 ///
-///     Passing a :class:`Mutibs` to the direct ``View`` constructor stores a
-///     :class:`Tibs` snapshot. Later changes to the original :class:`Mutibs` are
-///     not reflected in the view. Use :class:`MutableView` for a live mutable view.
+///     The source must be a :class:`Tibs`, which a view borrows without copying.
+///     A :class:`Mutibs` is not accepted, because its bits can change underneath
+///     a view that cannot see the change: use :meth:`Mutibs.view` for a live
+///     :class:`MutableView`, or :meth:`Mutibs.to_tibs` for an immutable copy to
+///     view instead.
 ///
 ///     .. code-block:: pycon
 ///
@@ -243,29 +380,49 @@ impl View {
             return Ok(self.source.clone());
         }
 
-        Ok(Tibs::from_bv(view_bits_from_physical_bits(
-            self.source.to_bitslice(),
-            self.byte_order,
-            self.bit_order,
-        )?))
+        view_bits_from_physical_bits(&self.source, self.byte_order, self.bit_order)
     }
 }
 
 #[derive(Clone)]
 enum MutableSelection {
     Whole,
-    Field { indices: Vec<usize> },
+    /// A contiguous ascending run of source positions. See [`FieldMapping`] for
+    /// why this is worth a variant of its own.
+    Run {
+        start: usize,
+        len: usize,
+    },
+    Field {
+        indices: Vec<usize>,
+    },
 }
 
 impl MutableSelection {
     fn from_indices(indices: Vec<usize>, source_len: usize) -> PyResult<Self> {
         validate_source_indices(&indices, source_len, "MutableView")?;
-        Ok(MutableSelection::Field { indices })
+        // `from_indices(range(a, b))` describes a run as surely as `field`
+        // does, and there is no reason for it to be the slower of the two.
+        Ok(match run_of(&indices) {
+            Some((start, len)) => MutableSelection::Run { start, len },
+            None => MutableSelection::Field { indices },
+        })
     }
 
     fn validate(&self, source_len: usize) -> PyResult<()> {
-        if let MutableSelection::Field { indices } = self {
-            validate_source_indices(indices, source_len, "MutableView")?;
+        match self {
+            MutableSelection::Whole => {}
+            MutableSelection::Run { start, len } => {
+                if start.saturating_add(*len) > source_len {
+                    return Err(PyValueError::new_err(format!(
+                        "MutableView source is too short for index {}; source length is {source_len}.",
+                        start + len - 1
+                    )));
+                }
+            }
+            MutableSelection::Field { indices } => {
+                validate_source_indices(indices, source_len, "MutableView")?;
+            }
         }
 
         Ok(())
@@ -274,6 +431,10 @@ impl MutableSelection {
     fn len(&self, source_len: usize) -> PyResult<usize> {
         match self {
             MutableSelection::Whole => Ok(source_len),
+            MutableSelection::Run { len, .. } => {
+                self.validate(source_len)?;
+                Ok(*len)
+            }
             MutableSelection::Field { indices } => {
                 self.validate(source_len)?;
                 Ok(indices.len())
@@ -281,20 +442,65 @@ impl MutableSelection {
         }
     }
 
-    fn source_indices(&self, source_len: usize) -> PyResult<Vec<usize>> {
+    /// The contiguous source range this selection covers, when it has one.
+    ///
+    /// A run of source bits can be read and written over bytes, which is what
+    /// separates the fast paths below from the gather they fall back to.
+    fn as_run(&self, source_len: usize) -> Option<(usize, usize)> {
         match self {
-            MutableSelection::Whole => Ok((0..source_len).collect()),
-            MutableSelection::Field { indices } => {
-                self.len(source_len)?;
-                Ok(indices.clone())
-            }
+            MutableSelection::Whole => Some((0, source_len)),
+            MutableSelection::Run { start, len } => Some((*start, *len)),
+            MutableSelection::Field { .. } => None,
         }
     }
 
-    fn comparable_source_indices(&self, source_len: usize) -> Vec<usize> {
+    /// Where viewed bit `index` sits in the source.
+    ///
+    /// `Whole` is the identity, so a caller wanting a handful of positions
+    /// asks for those. Handing back the whole mapping as a `Vec<usize>`
+    /// instead would cost eight bytes per source bit - a field taken from a
+    /// megabit view allocated a megabyte to look up a few labels.
+    ///
+    /// `index` must be less than `len(source_len)`, which the caller has
+    /// already established by validating the layout.
+    fn source_index(&self, index: usize) -> usize {
         match self {
-            MutableSelection::Whole => (0..source_len).collect(),
-            MutableSelection::Field { indices } => indices.clone(),
+            MutableSelection::Whole => index,
+            MutableSelection::Run { start, .. } => start + index,
+            MutableSelection::Field { indices } => indices[index],
+        }
+    }
+
+    /// Whether two selections pick the same source positions in the same
+    /// order, for `MutableView.__eq__`.
+    ///
+    /// A `Field` that happens to list every position in order selects what
+    /// `Whole` selects, so this normalises rather than matching on the
+    /// variant. Comparing two materialised index vectors, which is how this
+    /// read before, cost eight bytes per source bit on each side.
+    /// Comparing the variants pairwise would need a case for every combination
+    /// of the three, most of them saying the same thing twice. Reducing each
+    /// side to the run it covers, or the positions it lists, leaves three.
+    fn selects_same_as(&self, source_len: usize, other: &Self, other_len: usize) -> bool {
+        match (self.as_run(source_len), other.as_run(other_len)) {
+            (Some(left), Some(right)) => left == right,
+            (Some((start, len)), None) | (None, Some((start, len))) => {
+                let listed = match (self, other) {
+                    (MutableSelection::Field { indices }, _) => indices,
+                    (_, MutableSelection::Field { indices }) => indices,
+                    _ => unreachable!("only a Field has no run"),
+                };
+                listed.len() == len && listed.iter().copied().eq(start..start + len)
+            }
+            (None, None) => match (self, other) {
+                (
+                    MutableSelection::Field { indices },
+                    MutableSelection::Field {
+                        indices: other_indices,
+                    },
+                ) => indices == other_indices,
+                _ => unreachable!("only a Field has no run"),
+            },
         }
     }
 }
@@ -334,7 +540,13 @@ fn format_source_indices(indices: &[usize]) -> String {
 ///     Assigning through ``u``, ``i`` or ``f`` mutates the source ``Mutibs`` without
 ///     changing its length.
 ///
-#[pyclass(module = "tibs")]
+// `frozen` even though the view is the mutating half of the pair: what it
+// mutates is the source `Mutibs`, never itself. Every field here is fixed at
+// construction, so the view needs no borrow flag, and on a free-threaded build
+// that is the difference between reading a field from several threads and
+// having all but one of those reads refused with `RuntimeError: Already
+// borrowed`. The source keeps its own flag; only its contention remains.
+#[pyclass(module = "tibs", frozen)]
 pub struct MutableView {
     pub(crate) source: Py<Mutibs>,
     pub(crate) byte_order: ByteOrder,
@@ -370,14 +582,35 @@ impl MutableView {
         }
     }
 
+    /// Read the source under its critical section.
+    ///
+    /// `MutableView` is frozen, so it has no borrow flag of its own; what needs
+    /// serialising is the `Mutibs` it points at. Every source access below goes
+    /// through one of these two, or a writer elsewhere refuses the read.
+    fn with_source<R>(
+        &self,
+        py: Python<'_>,
+        f: impl FnOnce(&Mutibs) -> PyResult<R>,
+    ) -> PyResult<R> {
+        with_locked(self.source.bind(py), f)
+    }
+
+    /// Write to the source under its critical section.
+    fn with_source_mut<R>(
+        &self,
+        py: Python<'_>,
+        f: impl FnOnce(&mut Mutibs) -> PyResult<R>,
+    ) -> PyResult<R> {
+        with_locked_mut(self.source.bind(py), f)
+    }
+
     fn with_layout(
         &self,
         py: Python<'_>,
         byte_order: ByteOrder,
         bit_order: BitOrder,
     ) -> PyResult<Self> {
-        let source = self.source.borrow(py);
-        let len = self.selection.len(source.len())?;
+        let len = self.with_source(py, |source| self.selection.len(source.len()))?;
         View::validate_layout(len, byte_order, bit_order)?;
         Ok(Self::from_parts(
             self.source.clone_ref(py),
@@ -398,64 +631,118 @@ impl MutableView {
     }
 
     fn selected_source_bits(&self, source: &Mutibs) -> PyResult<BV> {
-        match &self.selection {
-            MutableSelection::Whole => Ok(source.to_bitvec()),
-            MutableSelection::Field { indices } => {
-                self.selection.len(source.len())?;
-                let source_bits = source.as_bitslice();
-                let mut selected = BV::with_capacity(indices.len());
-                for &index in indices {
-                    selected.push(source_bits[index]);
-                }
-                Ok(selected)
-            }
+        // A run is a window of the source, so it copies over bytes. Only a
+        // genuinely scattered selection has to be gathered a bit at a time.
+        if let Some((start, len)) = self.selection.as_run(source.len()) {
+            self.selection.validate(source.len())?;
+            return Ok(source.copied_range(start, len));
         }
+        let MutableSelection::Field { indices } = &self.selection else {
+            unreachable!("only a Field has no run")
+        };
+        self.selection.len(source.len())?;
+        let source_bits = source.as_bitslice();
+        let mut selected = BV::with_capacity(indices.len());
+        for &index in indices {
+            selected.push(source_bits[index]);
+        }
+        Ok(selected)
+    }
+
+    /// The bits this view presents, gathered from its source, or `None` when
+    /// the selection no longer fits a source that has since shrunk.
+    ///
+    /// Equality is the one caller that wants the `None` rather than the error:
+    /// a selection that no longer fits presents no bits, so it can hardly
+    /// present the *same* bits as something else, and answering False keeps
+    /// `__eq__` total. The loud error still belongs on the accessors.
+    fn selected_bits_or_stale(&self, py: Python<'_>) -> PyResult<Option<BV>> {
+        self.with_source(py, |source| Ok(self.selected_source_bits(source).ok()))
     }
 
     fn to_tibs_view(&self, py: Python<'_>) -> PyResult<Tibs> {
-        let source = self.source.borrow(py);
-        self.validate_current_layout(source.len())?;
-        let source_bits = self.selected_source_bits(&source)?;
-        if self.bit_order == BitOrder::Msb0 && self.byte_order != ByteOrder::Little {
+        let source_bits = self.with_source(py, |source| {
+            self.validate_current_layout(source.len())?;
+            self.selected_source_bits(source)
+        })?;
+        if self.keeps_physical_order() {
             return Ok(Tibs::from_bv(source_bits));
         }
 
-        Ok(Tibs::from_bv(view_bits_from_physical_bits(
-            source_bits.as_bitslice(),
-            self.byte_order,
-            self.bit_order,
-        )?))
+        view_bits_from_physical_bits(&Tibs::from_bv(source_bits), self.byte_order, self.bit_order)
+    }
+
+    /// Whether the layout hands the selected bits back in the order they are
+    /// stored, which is the branch `to_tibs_view` returns unchanged.
+    fn keeps_physical_order(&self) -> bool {
+        self.bit_order == BitOrder::Msb0 && self.byte_order != ByteOrder::Little
+    }
+
+    /// The `start..end` bits of the view, as a `Tibs`.
+    ///
+    /// A plain view of the whole source reads the window straight out of the
+    /// source, so the read costs the window rather than a copy of the
+    /// container. Going through `to_tibs_view` for this, which is what this
+    /// did before, materialises every bit on every call and makes a loop of
+    /// windowed reads over a large `Mutibs` quadratic - the same shape that
+    /// `Mutibs.to_value` had.
+    ///
+    /// The other layouts have to take the long way. `le` and `lsb0` reorder
+    /// across the whole selection, so a slice of the reordered bits is not
+    /// the reordering of a slice, and a `Field` selection has no contiguous
+    /// run in the source to take a window of.
+    fn windowed_view(
+        &self,
+        py: Python<'_>,
+        start: Option<isize>,
+        end: Option<isize>,
+    ) -> PyResult<Tibs> {
+        if self.keeps_physical_order() {
+            let run = self.with_source(py, |source| Ok(self.selection.as_run(source.len())))?;
+            if let Some((run_start, _)) = run {
+                return self.with_source(py, |source| {
+                    let len = self.validate_current_layout(source.len())?;
+                    let (start, end) = validate_slice(len, start, end)?;
+                    Ok(source.window(run_start + start, end - start))
+                });
+            }
+        }
+        let viewed = self.to_tibs_view(py)?;
+        let (start, end) = validate_slice(viewed.len(), start, end)?;
+        Ok(viewed.get_slice_unchecked(start, end - start))
     }
 
     fn assign_from_view_bits(&self, py: Python<'_>, viewed: BV) -> PyResult<()> {
-        let mut source = self.source.borrow_mut(py);
-        let len = self.validate_current_layout(source.len())?;
-        let physical = physical_bits_from_view_bits(viewed, self.byte_order, self.bit_order)?;
-        debug_assert_eq!(len, physical.len());
+        self.with_source_mut(py, |source| {
+            let len = self.validate_current_layout(source.len())?;
+            let physical = physical_bits_from_view_bits(viewed, self.byte_order, self.bit_order)?;
+            debug_assert_eq!(len, physical.len());
 
-        match &self.selection {
-            MutableSelection::Whole => {
-                source
-                    .as_mut_bitvec_ref()
-                    .copy_from_bitslice(physical.as_bitslice());
-            }
-            MutableSelection::Field { indices } => {
-                debug_assert_eq!(indices.len(), physical.len());
-                for (bit_index, &source_index) in indices.iter().enumerate() {
-                    source
-                        .as_mut_bitvec_ref()
-                        .set(source_index, physical[bit_index]);
+            match &self.selection {
+                MutableSelection::Whole => {
+                    *source.as_mut_bitvec_ref() = physical;
+                }
+                // A run is written over bytes, the same way an equal-length
+                // slice assignment to the source itself would be.
+                MutableSelection::Run { start, len } => {
+                    debug_assert_eq!(*len, physical.len());
+                    source.set_slice(*start, start + len, &Tibs::from_bv(physical));
+                }
+                MutableSelection::Field { indices } => {
+                    debug_assert_eq!(indices.len(), physical.len());
+                    for (bit_index, &source_index) in indices.iter().enumerate() {
+                        source
+                            .as_mut_bitvec_ref()
+                            .set(source_index, physical[bit_index]);
+                    }
                 }
             }
-        }
-        Ok(())
+            Ok(())
+        })
     }
 
     fn assign_fixed_width_view_bits(&self, py: Python<'_>, viewed: BV) -> PyResult<()> {
-        let source = self.source.borrow(py);
-        let len = self.validate_current_layout(source.len())?;
-        drop(source);
-
+        let len = self.with_source(py, |source| self.validate_current_layout(source.len()))?;
         if viewed.len() != len {
             return Err(PyValueError::new_err(format!(
                 "Cannot change the length of a MutableView. The current length is {len} bits, but the assigned value has {} bits. Use the source Mutibs or slice assignment when changing shape.",
@@ -466,29 +753,20 @@ impl MutableView {
         self.assign_from_view_bits(py, viewed)
     }
 
-    fn assign_u(&self, py: Python<'_>, u: u128) -> PyResult<()> {
-        let source = self.source.borrow(py);
-        let len = self.validate_current_layout(source.len())?;
-        drop(source);
-
-        let viewed = bv_from_u128(u, len, false)?;
+    fn assign_u(&self, py: Python<'_>, u: &Bound<'_, PyAny>) -> PyResult<()> {
+        let len = self.with_source(py, |source| self.validate_current_layout(source.len()))?;
+        let viewed = bv_from_uint(u, len, false)?;
         self.assign_from_view_bits(py, viewed)
     }
 
-    fn assign_i(&self, py: Python<'_>, i: i128) -> PyResult<()> {
-        let source = self.source.borrow(py);
-        let len = self.validate_current_layout(source.len())?;
-        drop(source);
-
-        let viewed = bv_from_i128(i, len, false)?;
+    fn assign_i(&self, py: Python<'_>, i: &Bound<'_, PyAny>) -> PyResult<()> {
+        let len = self.with_source(py, |source| self.validate_current_layout(source.len()))?;
+        let viewed = bv_from_int(i, len, false)?;
         self.assign_from_view_bits(py, viewed)
     }
 
     fn assign_f(&self, py: Python<'_>, f: f64) -> PyResult<()> {
-        let source = self.source.borrow(py);
-        let len = self.validate_current_layout(source.len())?;
-        drop(source);
-
+        let len = self.with_source(py, |source| self.validate_current_layout(source.len()))?;
         let viewed = bv_from_f64(f, len, false)?;
         self.assign_from_view_bits(py, viewed)
     }
@@ -505,7 +783,7 @@ impl MutableView {
     /// little-endian or big-endian byte order, or when using ``BitOrder.Lsb0``.
     ///
     #[new]
-    #[pyo3(signature = (source, byte_order = ByteOrder::Unspecified, bit_order = BitOrder::Msb0), text_signature = "(source, byte_order=None, bit_order=None)")]
+    #[pyo3(signature = (source, /, byte_order = ByteOrder::Unspecified, bit_order = BitOrder::Msb0), text_signature = "(source, /, byte_order=None, bit_order=None)")]
     pub fn py_new(
         source: PyRef<'_, Mutibs>,
         byte_order: Option<ByteOrder>,
@@ -540,7 +818,7 @@ impl MutableView {
     ///     '10101010'
     ///
     #[classmethod]
-    #[pyo3(signature = (source, indices, byte_order = ByteOrder::Unspecified, bit_order = BitOrder::Msb0), text_signature = "(cls, source, indices, byte_order=None, bit_order=None)")]
+    #[pyo3(signature = (source, indices, /, byte_order = ByteOrder::Unspecified, bit_order = BitOrder::Msb0), text_signature = "(cls, source, indices, /, byte_order=None, bit_order=None)")]
     pub fn from_indices(
         _cls: &Bound<'_, PyType>,
         source: PyRef<'_, Mutibs>,
@@ -550,7 +828,7 @@ impl MutableView {
     ) -> PyResult<Self> {
         let byte_order = byte_order.unwrap_or(ByteOrder::Unspecified);
         let bit_order = bit_order.unwrap_or(BitOrder::Msb0);
-        let indices = extract_source_indices(indices)?;
+        let indices = extract_source_indices(indices, source.len(), "MutableView")?;
         let selection = MutableSelection::from_indices(indices, source.len())?;
         View::validate_layout(selection.len(source.len())?, byte_order, bit_order)?;
         Ok(Self::from_parts(
@@ -617,20 +895,19 @@ impl MutableView {
 
     /// Return the current number of source bits in the view.
     pub fn __len__(&self, py: Python<'_>) -> PyResult<usize> {
-        let source = self.source.borrow(py);
-        self.current_len(source.len())
+        self.with_source(py, |source| self.current_len(source.len()))
     }
 
     /// Interpret the viewed bits as an unsigned integer.
-    pub fn to_u(&self, py: Python<'_>) -> PyResult<u128> {
+    pub fn to_u<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let tibs = self.to_tibs_view(py)?;
-        BitCollection::to_u128(&tibs, false)
+        BitCollection::to_uint(&tibs, py, false)
     }
 
     /// Interpret the viewed bits as a signed integer.
-    pub fn to_i(&self, py: Python<'_>) -> PyResult<i128> {
+    pub fn to_i<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let tibs = self.to_tibs_view(py)?;
-        BitCollection::to_i128(&tibs, false)
+        BitCollection::to_int(&tibs, py, false)
     }
 
     /// Interpret the viewed bits as an IEEE floating point value.
@@ -641,13 +918,13 @@ impl MutableView {
 
     /// Write the viewed bits from an unsigned integer without changing the source length.
     #[pyo3(signature = (u, /), text_signature = "($self, u, /)")]
-    pub fn write_u(&self, py: Python<'_>, u: u128) -> PyResult<()> {
+    pub fn write_u(&self, py: Python<'_>, u: &Bound<'_, PyAny>) -> PyResult<()> {
         self.assign_u(py, u)
     }
 
     /// Write the viewed bits from a signed integer without changing the source length.
     #[pyo3(signature = (i, /), text_signature = "($self, i, /)")]
-    pub fn write_i(&self, py: Python<'_>, i: i128) -> PyResult<()> {
+    pub fn write_i(&self, py: Python<'_>, i: &Bound<'_, PyAny>) -> PyResult<()> {
         self.assign_i(py, i)
     }
 
@@ -710,6 +987,73 @@ impl MutableView {
         self.assign_fixed_width_view_bits(py, viewed)
     }
 
+    /// Return one value decoded from the viewed bits with a dtype.
+    ///
+    /// The byte order and bit order of the view are applied first, so the dtype
+    /// decodes the value denoted by the view rather than the source bits in
+    /// storage. An ``le``, ``be`` or ``lsb0`` view already states the byte
+    /// order, so a dtype that names its own is refused. See
+    /// :meth:`View.to_value`.
+    ///
+    /// :param Dtype | str dtype: The value encoding to use.
+    /// :param int | None start: Start bit position within the view. Defaults to 0.
+    /// :param int | None end: End bit position within the view. Defaults to len(self).
+    /// :return: The decoded Python value.
+    /// :raises ValueError: if the selected range is not exactly the dtype length, or if the dtype names a byte order and the view does too.
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> Mutibs('0x0000803f').le.to_value("f32")
+    ///     1.0
+    ///
+    #[pyo3(signature = (dtype, /, start = None, end = None), text_signature = "($self, dtype, /, start=None, end=None)")]
+    pub fn to_value(
+        &self,
+        py: Python<'_>,
+        dtype: &Bound<'_, PyAny>,
+        start: Option<isize>,
+        end: Option<isize>,
+    ) -> PyResult<Py<PyAny>> {
+        let dtype = extract_dtype(dtype)?;
+        validate_dtype_byte_order(&dtype, self.byte_order, self.bit_order)?;
+        let value = self.windowed_view(py, start, end)?;
+        py_from_value(py, &dtype, &value)
+    }
+
+    /// Write the viewed bits from one value encoded with a dtype.
+    ///
+    /// The value is encoded first and the result is then written through the
+    /// view, so the byte order and bit order of the view are applied to the
+    /// encoded bits. This is the write direction of :meth:`~to_value`, and it
+    /// refuses a dtype that names its own byte order for the same reason.
+    ///
+    /// The dtype length must match the view length, as a ``MutableView`` never
+    /// changes the length of its source.
+    ///
+    /// :param Dtype | str dtype: The value encoding to use.
+    /// :param object value: The value to encode.
+    /// :raises ValueError: if the dtype length is not the view length, or if the dtype names a byte order and the view does too.
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> m = Mutibs.from_zeros(32)
+    ///     >>> m.le.write_value("f32", 1.0)
+    ///     >>> m.hex
+    ///     '0000803f'
+    ///
+    #[pyo3(signature = (dtype, value, /), text_signature = "($self, dtype, value, /)")]
+    pub fn write_value(
+        &self,
+        py: Python<'_>,
+        dtype: &Bound<'_, PyAny>,
+        value: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        let dtype = extract_dtype(dtype)?;
+        validate_dtype_byte_order(&dtype, self.byte_order, self.bit_order)?;
+        let viewed = bv_from_value(&dtype, value)?;
+        self.assign_fixed_width_view_bits(py, viewed)
+    }
+
     /// Materialize the current view as a new :class:`Tibs`.
     pub fn to_tibs(&self, py: Python<'_>) -> PyResult<Tibs> {
         self.to_tibs_view(py)
@@ -725,48 +1069,70 @@ impl MutableView {
     /// ``a`` and ``b`` must be zero or positive bit labels. The two endpoints
     /// are inclusive and may be provided in either order. The returned
     /// ``MutableView`` is a live view onto the selected source bits.
+    #[pyo3(signature = (a, b, /), text_signature = "($self, a, b, /)")]
     pub fn field(&self, py: Python<'_>, a: i64, b: i64) -> PyResult<Self> {
-        let source = self.source.borrow(py);
-        let current_len = self.validate_current_layout(source.len())?;
+        let current_len =
+            self.with_source(py, |source| self.validate_current_layout(source.len()))?;
         let (low, field_len) = validate_field_labels(current_len, a, b)?;
         let byte_order = if field_len.is_multiple_of(8) {
             self.byte_order
         } else {
             ByteOrder::Unspecified
         };
-        let source_indices = self.selection.source_indices(source.len())?;
-        let indices = field_source_indices(self.bit_order, byte_order, low, field_len)
-            .into_iter()
-            .map(|index| source_indices[index])
-            .collect();
+        // `validate_current_layout` above has already checked the selection
+        // against the source, so these lookups are in range.
+        // A run of a run is a run: taking a field of one only moves where it
+        // starts. Only a scattered selection underneath, or a field that is
+        // itself scattered, has to be composed position by position - and that
+        // consumes the positions it was given, so the mapping it walks is
+        // rewritten in place rather than copied into a second allocation.
+        let selection = match field_source_mapping(self.bit_order, byte_order, low, field_len) {
+            FieldMapping::Run { start, len } => match self.selection.as_run(current_len) {
+                Some((outer_start, _)) => MutableSelection::Run {
+                    start: outer_start + start,
+                    len,
+                },
+                None => MutableSelection::Field {
+                    indices: (start..start + len)
+                        .map(|index| self.selection.source_index(index))
+                        .collect(),
+                },
+            },
+            FieldMapping::Indices(indices) => MutableSelection::Field {
+                indices: indices
+                    .into_iter()
+                    .map(|index| self.selection.source_index(index))
+                    .collect(),
+            },
+        };
 
         Ok(Self::from_parts(
             self.source.clone_ref(py),
             byte_order,
             BitOrder::Msb0,
-            MutableSelection::Field { indices },
+            selection,
         ))
     }
 
     /// Interpret the viewed bits as an unsigned integer.
     #[getter]
-    fn u(&self, py: Python<'_>) -> PyResult<u128> {
+    fn u<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         self.to_u(py)
     }
 
     #[setter(u)]
-    fn write_u_property(&self, py: Python<'_>, u: u128) -> PyResult<()> {
+    fn write_u_property(&self, py: Python<'_>, u: &Bound<'_, PyAny>) -> PyResult<()> {
         self.assign_u(py, u)
     }
 
     /// Interpret the viewed bits as a signed integer.
     #[getter]
-    fn i(&self, py: Python<'_>) -> PyResult<i128> {
+    fn i<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         self.to_i(py)
     }
 
     #[setter(i)]
-    fn write_i_property(&self, py: Python<'_>, i: i128) -> PyResult<()> {
+    fn write_i_property(&self, py: Python<'_>, i: &Bound<'_, PyAny>) -> PyResult<()> {
         self.assign_i(py, i)
     }
 
@@ -825,51 +1191,137 @@ impl MutableView {
         self.write_bytes(py, data)
     }
 
-    pub fn __repr__(&self, py: Python<'_>) -> String {
-        let source = self.source.borrow(py);
-        let mut parts = match &self.selection {
-            MutableSelection::Whole => vec![source.__repr__()],
-            MutableSelection::Field { indices } => {
-                vec![source.__repr__(), format_source_indices(indices)]
-            }
-        };
+    pub fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
+        let mut parts = self.with_source(py, |source| {
+            Ok(match &self.selection {
+                MutableSelection::Whole => vec![source.repr_string()],
+                // The same `range(start, stop)` a listed run would print, so
+                // storing a run rather than its positions does not show here.
+                MutableSelection::Run { start, len } => {
+                    vec![
+                        source.repr_string(),
+                        format!("range({start}, {})", start + len),
+                    ]
+                }
+                MutableSelection::Field { indices } => {
+                    vec![source.repr_string(), format_source_indices(indices)]
+                }
+            })
+        })?;
         parts.push(self.byte_order.repr_name().to_string());
         parts.push(self.bit_order.repr_name().to_string());
-        match &self.selection {
+        Ok(match &self.selection {
             MutableSelection::Whole => format!("MutableView({})", parts.join(", ")),
-            MutableSelection::Field { .. } => {
+            MutableSelection::Run { .. } | MutableSelection::Field { .. } => {
                 format!("MutableView.from_indices({})", parts.join(", "))
             }
-        }
+        })
     }
 
-    /// Return True if two MutableViews have the same source value and layout.
-    pub fn __eq__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let Ok(other) = other.extract::<PyRef<'_, MutableView>>() else {
-            return Ok(false);
-        };
-
-        if self.byte_order != other.byte_order || self.bit_order != other.bit_order {
-            return Ok(false);
+    /// Return a string formatted according to the Python format mini-language.
+    ///
+    /// The viewed bits are formatted, so the byte order and bit order of the view are
+    /// applied first. See :meth:`Tibs.__format__` for the accepted format specs.
+    ///
+    /// An empty format spec gives the ``repr``, as :func:`str` of a view does.
+    ///
+    /// :param str format_spec: The format specification.
+    /// :return: The formatted string.
+    ///
+    /// :raises ValueError: if the spec cannot be parsed, if a type code is used that needs a length that is a different multiple, or if a sign or comma grouping is used with a bit representation type code.
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> f"{Mutibs('0x0100').le:#x}"
+    ///     '0x0001'
+    ///
+    #[pyo3(signature = (format_spec, /), text_signature = "($self, format_spec, /)")]
+    pub fn __format__(&self, py: Python<'_>, format_spec: &str) -> PyResult<String> {
+        if format_spec.is_empty() {
+            return self.__repr__(py);
         }
+        format_bit_collection(py, &self.to_tibs_view(py)?, format_spec, "MutableView")
+    }
 
-        let source = self.source.borrow(py);
-        let other_source = other.source.borrow(py);
-        Ok(source.as_bitvec_ref() == other_source.as_bitvec_ref()
-            && self.selection.comparable_source_indices(source.len())
-                == other
-                    .selection
-                    .comparable_source_indices(other_source.len()))
+    /// Return True if two views present the same bits under the same layout.
+    ///
+    /// Only the selected bits count: what a view leaves out of its source plays
+    /// no part, so two views over different sources are equal whenever they
+    /// show the same values. A :class:`View` and a ``MutableView`` compare
+    /// equal to one another on those same terms, just as a :class:`Tibs` and a
+    /// :class:`Mutibs` do.
+    pub fn __eq__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<bool> {
+        // `cast` rather than `extract::<PyRef<_>>`, which folds a failed borrow
+        // into the same `Err` as a type mismatch. That would quietly answer
+        // False when another thread merely happens to hold the other view.
+        if let Ok(other) = other.cast::<MutableView>() {
+            // `MutableView` is frozen, so reaching it needs no borrow of its own.
+            let other = other.get();
+
+            if self.byte_order != other.byte_order || self.bit_order != other.bit_order {
+                return Ok(false);
+            }
+
+            // Both sources at once: locking them in turn would suspend the first.
+            return with_locked2(
+                self.source.bind(py),
+                other.source.bind(py),
+                |source, other_source| {
+                    // The same whole source under the same selection has to
+                    // mean the same selected bits, so the common case - two
+                    // views onto one object - settles without gathering
+                    // either side. It also answers a view compared with
+                    // itself after its source shrank, which the gathering
+                    // path below could not.
+                    //
+                    // `bits_equal`, not `BitVec`'s own `PartialEq`: the latter
+                    // is the bit-domain `sp_eq` walk that every other
+                    // comparison in the crate already avoids, and it ran this
+                    // forty times slower than `Mutibs == Mutibs` over the same
+                    // bits.
+                    if source.bits_equal(other_source)
+                        && self.selection.selects_same_as(
+                            source.len(),
+                            &other.selection,
+                            other_source.len(),
+                        )
+                    {
+                        return Ok(true);
+                    }
+                    let (Ok(selected), Ok(other_selected)) = (
+                        self.selected_source_bits(source),
+                        other.selected_source_bits(other_source),
+                    ) else {
+                        return Ok(false);
+                    };
+                    Ok(Tibs::from_bv(selected).bits_equal(&Tibs::from_bv(other_selected)))
+                },
+            );
+        }
+        if let Ok(other) = other.cast::<View>() {
+            let other = other.get();
+            if self.byte_order != other.byte_order || self.bit_order != other.bit_order {
+                return Ok(false);
+            }
+            // A `View` holds its selection already sliced out, so only this
+            // side has to be gathered before the two can be compared.
+            let Some(bits) = self.selected_bits_or_stale(py)? else {
+                return Ok(false);
+            };
+            return Ok(Tibs::from_bv(bits).bits_equal(&other.source));
+        }
+        Ok(false)
     }
 }
 
 #[pymethods]
 impl View {
-    /// Create a new view from a :class:`Tibs` or :class:`Mutibs`.
+    /// Create a new view of a :class:`Tibs`.
     ///
-    /// The ``source`` must be a :class:`Tibs` or :class:`Mutibs` instance. A
-    /// :class:`Tibs` source is cloned cheaply, while a :class:`Mutibs` source is
-    /// copied into an immutable snapshot.
+    /// The ``source`` must be a :class:`Tibs`, which is borrowed without copying
+    /// its bits. A :class:`Mutibs` is not accepted - use :meth:`Mutibs.view` for
+    /// a live :class:`MutableView`, or :meth:`Mutibs.to_tibs` for an immutable
+    /// copy to view instead.
     ///
     /// ``byte_order`` controls byte-wise interpretation for whole-byte values.
     /// ``bit_order`` controls how bit labels are interpreted within each byte.
@@ -877,9 +1329,10 @@ impl View {
     /// Byte-oriented views must have a whole-byte length. This applies when using
     /// little-endian or big-endian byte order, or when using ``BitOrder.Lsb0``.
     ///
-    /// :param source: The :class:`Tibs` or :class:`Mutibs` to view.
+    /// :param Tibs source: The :class:`Tibs` to view.
     /// :param ByteOrder byte_order: The byte order used when interpreting whole-byte values. Defaults to ``ByteOrder.Unspecified``.
     /// :param BitOrder bit_order: The bit numbering order used for field labels. Defaults to ``BitOrder.Msb0``.
+    /// :raises TypeError: if ``source`` is not a :class:`Tibs`.
     ///
     /// .. code-block:: pycon
     ///
@@ -887,7 +1340,7 @@ impl View {
     ///     '3412'
     ///
     #[new]
-    #[pyo3(signature = (source, byte_order = ByteOrder::Unspecified, bit_order = BitOrder::Msb0), text_signature = "(source, byte_order=None, bit_order=None)")]
+    #[pyo3(signature = (source, /, byte_order = ByteOrder::Unspecified, bit_order = BitOrder::Msb0), text_signature = "(source, /, byte_order=None, bit_order=None)")]
     pub fn py_new(
         source: &Bound<'_, PyAny>,
         byte_order: Option<ByteOrder>,
@@ -901,24 +1354,19 @@ impl View {
             return Ok(View::from_tibs(tibs.clone(), byte_order, bit_order));
         }
 
-        if let Ok(mutibs) = source.extract::<PyRef<'_, Mutibs>>() {
-            Self::validate_layout(mutibs.len(), byte_order, bit_order)?;
-            return Ok(View::from_tibs(mutibs.to_tibs(), byte_order, bit_order));
-        }
-
-        Err(PyTypeError::new_err(
-            "View source must be a Tibs or Mutibs instance.",
-        ))
+        Err(mutibs_source_error(source, "View"))
     }
 
     /// Create a view by materializing selected source bit positions.
     ///
     /// ``indices`` may be a ``range`` or any iterable of integers. It maps
-    /// each viewed bit to a physical bit position in the source. Passing a
-    /// :class:`Mutibs` source stores an immutable snapshot.
+    /// each viewed bit to a physical bit position in the source, which must be
+    /// a :class:`Tibs`.
     ///
     /// This is a low-level reconstruction API. Use :meth:`~field` for normal
     /// specification-labelled fields.
+    ///
+    /// :raises TypeError: if ``source`` is not a :class:`Tibs`.
     ///
     /// .. code-block:: pycon
     ///
@@ -928,7 +1376,7 @@ impl View {
     ///     '0000'
     ///
     #[classmethod]
-    #[pyo3(signature = (source, indices, byte_order = ByteOrder::Unspecified, bit_order = BitOrder::Msb0), text_signature = "(cls, source, indices, byte_order=None, bit_order=None)")]
+    #[pyo3(signature = (source, indices, /, byte_order = ByteOrder::Unspecified, bit_order = BitOrder::Msb0), text_signature = "(cls, source, indices, /, byte_order=None, bit_order=None)")]
     pub fn from_indices(
         _cls: &Bound<'_, PyType>,
         source: &Bound<'_, PyAny>,
@@ -940,18 +1388,11 @@ impl View {
         let bit_order = bit_order.unwrap_or(BitOrder::Msb0);
 
         if let Ok(tibs) = source.extract::<PyRef<'_, Tibs>>() {
-            let indices = extract_source_indices(indices)?;
-            return View::from_indices_bits(tibs.to_bitslice(), indices, byte_order, bit_order);
+            let indices = extract_source_indices(indices, tibs.len(), "View")?;
+            return View::from_indices_bits(tibs.as_bitslice(), indices, byte_order, bit_order);
         }
 
-        if let Ok(mutibs) = source.extract::<PyRef<'_, Mutibs>>() {
-            let indices = extract_source_indices(indices)?;
-            return View::from_indices_bits(mutibs.as_bitslice(), indices, byte_order, bit_order);
-        }
-
-        Err(PyTypeError::new_err(
-            "View source must be a Tibs or Mutibs instance.",
-        ))
+        Err(mutibs_source_error(source, "View.from_indices"))
     }
 
     /// Return a view with updated interpretation settings.
@@ -1055,18 +1496,18 @@ impl View {
     ///     >>> Tibs('0x0100').le.to_u()
     ///     1
     ///
-    pub fn to_u(&self) -> PyResult<u128> {
+    pub fn to_u<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let tibs = self.to_tibs_view()?;
-        BitCollection::to_u128(&tibs, false)
+        BitCollection::to_uint(&tibs, py, false)
     }
 
     /// Interpret the viewed bits as a signed integer.
     ///
     /// :return: The signed integer value.
     ///
-    pub fn to_i(&self) -> PyResult<i128> {
+    pub fn to_i<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let tibs = self.to_tibs_view()?;
-        BitCollection::to_i128(&tibs, false)
+        BitCollection::to_int(&tibs, py, false)
     }
 
     /// Interpret the viewed bits as an IEEE floating point value.
@@ -1124,6 +1565,49 @@ impl View {
         self.to_bytes(py)
     }
 
+    /// Return one value decoded from the viewed bits with a dtype.
+    ///
+    /// The byte order and bit order of the view are applied first, so the dtype
+    /// decodes the value denoted by the view rather than the source bits in
+    /// storage. This is the same rule the other conversions follow, which makes
+    /// this equivalent to ``view.to_tibs().to_value(dtype, start, end)``.
+    /// ``start`` and ``end`` are therefore positions within the viewed bits.
+    ///
+    /// Byte order is stated in one place. An ``le``, ``be`` or ``lsb0`` view
+    /// already states it, so a dtype that names its own byte order, such as
+    /// ``"u16_le"``, is refused there rather than applied on top. Give the byte
+    /// order to the view or to the dtype, not to both.
+    ///
+    /// The selected range must have exactly the dtype length.
+    ///
+    /// :param Dtype | str dtype: The value encoding to use.
+    /// :param int | None start: Start bit position within the view. Defaults to 0.
+    /// :param int | None end: End bit position within the view. Defaults to len(self).
+    /// :return: The decoded Python value.
+    /// :raises ValueError: if the selected range is not exactly the dtype length, or if the dtype names a byte order and the view does too.
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> Tibs('0x0000803f').le.to_value("f32")
+    ///     1.0
+    ///     >>> Tibs('0x23a11234').lsb0.le.field(31, 16).to_value("u16")
+    ///     13330
+    ///
+    #[pyo3(signature = (dtype, /, start = None, end = None), text_signature = "($self, dtype, /, start=None, end=None)")]
+    pub fn to_value(
+        &self,
+        py: Python<'_>,
+        dtype: &Bound<'_, PyAny>,
+        start: Option<isize>,
+        end: Option<isize>,
+    ) -> PyResult<Py<PyAny>> {
+        let dtype = extract_dtype(dtype)?;
+        validate_dtype_byte_order(&dtype, self.byte_order, self.bit_order)?;
+        let viewed = self.to_tibs_view()?;
+        let (start, end) = validate_slice(viewed.len(), start, end)?;
+        py_from_value(py, &dtype, &viewed.get_slice_unchecked(start, end - start))
+    }
+
     /// Materialize the view as a new :class:`Tibs`.
     ///
     /// :return: A :class:`Tibs` containing the viewed bits.
@@ -1145,8 +1629,8 @@ impl View {
     /// Equivalent to using :meth:`~to_u`.
     ///
     #[getter]
-    fn u(&self) -> PyResult<u128> {
-        self.to_u()
+    fn u<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        self.to_u(py)
     }
 
     /// Interpret the viewed bits as a signed integer.
@@ -1154,8 +1638,8 @@ impl View {
     /// Equivalent to using :meth:`~to_i`.
     ///
     #[getter]
-    fn i(&self) -> PyResult<i128> {
-        self.to_i()
+    fn i<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        self.to_i(py)
     }
 
     /// Interpret the viewed bits as an IEEE floating point value.
@@ -1229,6 +1713,7 @@ impl View {
     ///     >>> t.lsb0.field(31, 26).u
     ///     4
     ///
+    #[pyo3(signature = (a, b, /), text_signature = "($self, a, b, /)")]
     pub fn field(&self, a: i64, b: i64) -> PyResult<Self> {
         let len = self.source.len();
         let (low, field_len) = validate_field_labels(len, a, b)?;
@@ -1238,17 +1723,22 @@ impl View {
             ByteOrder::Unspecified
         };
 
-        let source = self.source.to_bitslice();
-        let mut field = BV::with_capacity(field_len);
-        for index in field_source_indices(self.bit_order, byte_order, low, field_len) {
-            field.push(source[index]);
-        }
+        // A run is a window of the source, and a `Tibs` window shares storage,
+        // so the common field costs nothing at all rather than a bit-by-bit
+        // copy of everything it selects.
+        let field = match field_source_mapping(self.bit_order, byte_order, low, field_len) {
+            FieldMapping::Run { start, len } => self.source.get_slice_unchecked(start, len),
+            FieldMapping::Indices(indices) => {
+                let source = self.source.as_bitslice();
+                let mut field = BV::with_capacity(field_len);
+                for index in indices {
+                    field.push(source[index]);
+                }
+                Tibs::from_bv(field)
+            }
+        };
 
-        Ok(View::from_tibs(
-            Tibs::from_bv(field),
-            byte_order,
-            BitOrder::Msb0,
-        ))
+        Ok(View::from_tibs(field, byte_order, BitOrder::Msb0))
     }
 
     pub fn __repr__(&self) -> String {
@@ -1258,14 +1748,58 @@ impl View {
         format!("View({})", parts.join(", "))
     }
 
-    /// Return True if two Views have the same source value and layout.
-    pub fn __eq__(&self, other: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let Ok(other) = other.extract::<PyRef<'_, View>>() else {
-            return Ok(false);
-        };
+    /// Return a string formatted according to the Python format mini-language.
+    ///
+    /// The viewed bits are formatted, so the byte order and bit order of the view are
+    /// applied first. See :meth:`Tibs.__format__` for the accepted format specs.
+    ///
+    /// An empty format spec gives the ``repr``, as :func:`str` of a view does.
+    ///
+    /// :param str format_spec: The format specification.
+    /// :return: The formatted string.
+    ///
+    /// :raises ValueError: if the spec cannot be parsed, if a type code is used that needs a length that is a different multiple, or if a sign or comma grouping is used with a bit representation type code.
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> f"{Tibs('0x0100').le:#x}"
+    ///     '0x0001'
+    ///
+    #[pyo3(signature = (format_spec, /), text_signature = "($self, format_spec, /)")]
+    pub fn __format__(&self, py: Python<'_>, format_spec: &str) -> PyResult<String> {
+        if format_spec.is_empty() {
+            return Ok(self.__repr__());
+        }
+        format_bit_collection(py, &self.to_tibs_view()?, format_spec, "View")
+    }
 
-        Ok(self.source == other.source
-            && self.byte_order == other.byte_order
-            && self.bit_order == other.bit_order)
+    /// Return True if two views present the same bits under the same layout.
+    ///
+    /// A ``View`` and a :class:`MutableView` compare equal to one another on
+    /// those same terms, just as a :class:`Tibs` and a :class:`Mutibs` do.
+    pub fn __eq__(&self, other: &Bound<'_, PyAny>) -> PyResult<bool> {
+        // `cast` rather than `extract::<PyRef<_>>`, which folds a failed borrow
+        // into the same `Err` as a type mismatch. That would quietly answer
+        // False when another thread merely happens to hold the other view.
+        if let Ok(other) = other.cast::<View>() {
+            // `View` is frozen, so reaching it needs no borrow of its own.
+            let other = other.get();
+            return Ok(self.source == other.source
+                && self.byte_order == other.byte_order
+                && self.bit_order == other.bit_order);
+        }
+        if let Ok(other_view) = other.cast::<MutableView>() {
+            let mutable = other_view.get();
+            if self.byte_order != mutable.byte_order || self.bit_order != mutable.bit_order {
+                return Ok(false);
+            }
+            // A `View` holds its selection already sliced out, so only the
+            // mutable side has to be gathered before the two can be compared.
+            let Some(bits) = mutable.selected_bits_or_stale(other.py())? else {
+                return Ok(false);
+            };
+            return Ok(self.source.bits_equal(&Tibs::from_bv(bits)));
+        }
+        Ok(false)
     }
 }

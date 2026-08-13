@@ -136,7 +136,7 @@ def test_fetch_status(fake_root, execution):
     from snowflake.core.code_bundle_execution._generated.models import CodeBundleExecution
 
     # The API returns a list; fetch_status returns the first (single) record.
-    model = CodeBundleExecution(execution_id="my_execution_id", status="SUCCESS")
+    model = CodeBundleExecution(query_id="my_execution_id", status="SUCCESS")
     list_body = f"[{model.to_json()}]"
     args = (fake_root, "GET", BASE_URL + "/code-bundle-executions/my_execution_id")
     kwargs = extra_params()
@@ -145,7 +145,7 @@ def test_fetch_status(fake_root, execution):
         mocked_request.return_value = mock_http_response(list_body)
         status = execution.fetch_status()
         assert isinstance(status, CodeBundleExecution)
-        assert status.execution_id == "my_execution_id"
+        assert status.query_id == "my_execution_id"
         assert status.status == "SUCCESS"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
@@ -155,15 +155,15 @@ def test_fetch_status(fake_root, execution):
         assert isinstance(op, PollingOperation)
         status = op.result()
         assert isinstance(status, CodeBundleExecution)
-        assert status.execution_id == "my_execution_id"
+        assert status.query_id == "my_execution_id"
     mocked_request.assert_called_once_with(*args, **kwargs)
 
 
 def test_fetch_status_returns_first_when_multiple(fake_root, execution):
     from snowflake.core.code_bundle_execution._generated.models import CodeBundleExecution
 
-    first = CodeBundleExecution(execution_id="my_execution_id", status="RUNNING")
-    second = CodeBundleExecution(execution_id="my_execution_id", status="SUCCESS")
+    first = CodeBundleExecution(query_id="my_execution_id", status="RUNNING")
+    second = CodeBundleExecution(query_id="my_execution_id", status="SUCCESS")
     list_body = f"[{first.to_json()},{second.to_json()}]"
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:

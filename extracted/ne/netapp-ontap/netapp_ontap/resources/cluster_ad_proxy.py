@@ -52,11 +52,11 @@ ClusterAdProxy(
     {
         "_links": {"self": {"href": "/api/security/authentication/cluster/ad-proxy"}},
         "svm": {
-            "name": "vs2",
+            "uuid": "512eab7a-6bf9-11e9-a896-005056bb9ce1",
             "_links": {
                 "self": {"href": "/api/svm/svms/512eab7a-6bf9-11e9-a896-005056bb9ce1"}
             },
-            "uuid": "512eab7a-6bf9-11e9-a896-005056bb9ce1",
+            "name": "vs2",
         },
     }
 )

@@ -5,11 +5,67 @@ All rights reserved.
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 ## Overview
-You can use the security cluster-network API endpoints to modify the cluster network security configuration.
+You can use the security cluster-network API endpoints to retrieve and modify the cluster network security configuration.
 The following operations are supported:
 
 * GET to retrieve the cluster network security status: GET security/cluster-network
-* PATCH to update the cluster network security configuration: PATCH security/cluster-network"""
+* PATCH to update the cluster network security configuration: PATCH security/cluster-network
+## Examples
+### Retrieving the cluster network security configuration
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import SecurityClusterNetwork
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = SecurityClusterNetwork()
+    resource.get()
+    print(resource)
+
+```
+<div class="try_it_out">
+<input id="example0_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example0_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example0_result" class="try_it_out_content">
+```
+SecurityClusterNetwork(
+    {
+        "ipsec_status": "READY",
+        "mode": "tls",
+        "_links": {"self": {"href": "/api/security/cluster-network"}},
+        "enabled": True,
+        "status": "READY",
+    }
+)
+
+```
+</div>
+</div>
+
+### Enabling cluster network security with TLS and IPsec mode
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import SecurityClusterNetwork
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = SecurityClusterNetwork()
+    resource.enabled = True
+    resource.mode = "tls_ipsec"
+    resource.patch()
+
+```
+
+### Disabling cluster network security
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import SecurityClusterNetwork
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = SecurityClusterNetwork()
+    resource.enabled = False
+    resource.patch()
+
+```
+"""
 
 import asyncio
 from datetime import datetime
@@ -49,22 +105,33 @@ class SecurityClusterNetworkSchema(ResourceSchema, metaclass=ResourceSchemaMeta)
     )
     r""" Indicates whether cluster network security is enabled."""
 
+    ipsec_status = marshmallow_fields.Str(
+        data_key="ipsec_status",
+        allow_none=True,
+    )
+    r""" The IPsec status of the cluster network security configuration.
+
+Example: ENABLING | DISABLING | READY"""
+
     mode = marshmallow_fields.Str(
         data_key="mode",
-        validate=enum_validation(['tls']),
+        validate=enum_validation(['tls', 'tls_ipsec']),
         allow_none=True,
     )
     r""" The cluster network security mode.
+- tls: Protect cluster traffic using TLS.
+- tls_ipsec: CSM traffic uses TLS, all other cluster network traffic uses IPsec.
 
 Valid choices:
 
-* tls"""
+* tls
+* tls_ipsec"""
 
     status = marshmallow_fields.Str(
         data_key="status",
         allow_none=True,
     )
-    r""" The status of the cluster network security configuration.
+    r""" The certificate and TLS status of the cluster network security configuration.
 
 Example: ENABLING | DISABLING | READY"""
 
@@ -75,10 +142,11 @@ Example: ENABLING | DISABLING | READY"""
     gettable_fields = [
         "links",
         "enabled",
+        "ipsec_status",
         "mode",
         "status",
     ]
-    """links,enabled,mode,status,"""
+    """links,enabled,ipsec_status,mode,status,"""
 
     patchable_fields = [
         "enabled",
@@ -87,10 +155,8 @@ Example: ENABLING | DISABLING | READY"""
     """enabled,mode,"""
 
     postable_fields = [
-        "enabled",
-        "mode",
     ]
-    """enabled,mode,"""
+    """"""
 
 class SecurityClusterNetwork(Resource):
     r""" Manages the cluster network security configuration. """

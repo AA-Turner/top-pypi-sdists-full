@@ -26,18 +26,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 EmsFilterRule(
     {
-        "parameter_criteria": [{"name_pattern": "*", "value_pattern": "*"}],
-        "message_criteria": {
-            "snmp_trap_types": "*",
-            "_links": {},
-            "name_pattern": "*",
-            "severities": "emergency,alert,error,notice",
-        },
+        "type": "include",
         "_links": {
             "self": {"href": "/api/support/ems/filters/no-info-debug-events/rules/1"}
         },
         "index": 1,
-        "type": "include",
+        "parameter_criteria": [{"value_pattern": "*", "name_pattern": "*"}],
+        "message_criteria": {
+            "_links": {},
+            "name_pattern": "*",
+            "snmp_trap_types": "*",
+            "severities": "emergency,alert,error,notice",
+        },
     }
 )
 

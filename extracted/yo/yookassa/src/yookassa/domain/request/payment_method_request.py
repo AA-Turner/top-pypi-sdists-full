@@ -120,6 +120,27 @@ class SavePaymentMethodDataRequest(RequestObject):
         else:
             raise TypeError('Invalid confirmation data type in PaymentMethodRequest.confirmation')
 
+    @property
+    def metadata(self):
+        """
+        Возвращает metadata модели SavePaymentMethodDataRequest.
+
+        :return: metadata модели SavePaymentMethodDataRequest.
+        :rtype: dict[str, str]
+        """
+        return self.__metadata
+
+    @metadata.setter
+    def metadata(self, value):
+        """
+        Устанавливает metadata модели SavePaymentMethodDataRequest.
+
+        :param value: metadata модели SavePaymentMethodDataRequest.
+        :type value: dict[str, str]
+        """
+        if type(value) is dict:
+            self.__metadata = value
+
     def validate(self):
         """
         Валидация данных модели PaymentMethodRequest.

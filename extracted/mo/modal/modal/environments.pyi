@@ -18,7 +18,13 @@ class EnvironmentManager:
 
     class __create_spec(typing_extensions.Protocol):
         def __call__(
-            self, /, name: str, *, restricted: bool = False, client: typing.Optional[modal.client.Client] = None
+            self,
+            /,
+            name: str,
+            *,
+            restricted: bool = False,
+            experimental_options: typing.Optional[dict[str, typing.Any]] = None,
+            client: typing.Optional[modal.client.Client] = None,
         ) -> None:
             """Create a new Environment.
 
@@ -31,7 +37,13 @@ class EnvironmentManager:
             ...
 
         async def aio(
-            self, /, name: str, *, restricted: bool = False, client: typing.Optional[modal.client.Client] = None
+            self,
+            /,
+            name: str,
+            *,
+            restricted: bool = False,
+            experimental_options: typing.Optional[dict[str, typing.Any]] = None,
+            client: typing.Optional[modal.client.Client] = None,
         ) -> None:
             """Create a new Environment.
 

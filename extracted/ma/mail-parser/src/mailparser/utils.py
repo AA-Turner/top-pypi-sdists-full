@@ -45,6 +45,7 @@ from mailparser.const import (
     _DATE_RE,
     _ENVELOPE_FROM_RE,
     _SENDGRID_DATE_RE,
+    _WS_RUN_RE,
     ADDRESSES_HEADERS,
     JUNK_PATTERN,
     OTHERS_PARTS,
@@ -52,6 +53,10 @@ from mailparser.const import (
 from mailparser.exceptions import MailParserOSError, MailParserReceivedParsingError
 
 log = logging.getLogger(__name__)
+
+# Upper bound (seconds) for the external ``msgconvert`` conversion.  Without it
+# a hung or malicious helper would block the calling worker indefinitely.
+_MSGCONVERT_TIMEOUT = 60
 
 
 # The ``strict`` keyword was added to ``email.utils.getaddresses`` in Python
@@ -100,11 +105,80 @@ def _getaddresses(fieldvalues: list[str]) -> list[tuple[str, str]]:
 # purpose of the tool — analysts *need* to see those values.  We therefore
 # bypass strict compliance with a regex fallback whenever strict parsing yields
 # an empty address, always surfacing the value that is actually in the header.
-_ADDR_FALLBACK_RE = re.compile(
-    r'"([^"]*?)"\s*<([^>]+)>'  # "Quoted Name" <email@addr>
-    r"|([^<,]*?)\s*<([^>]+)>"  # Any Name <email@addr>  (incl. email-as-name)
-    r"|([^\s,<>]+@[^\s,<>]+)"  # bare email@addr
-)
+# Linear-time building blocks for the fallback below.  The previous
+# implementation used a single combined pattern whose ``[^<,]*?`` sub-pattern
+# overlapped an adjacent ``\s*`` quantifier (a space matched both).  Driven by
+# ``finditer`` over a padded header this backtracked quadratically ('<'
+# padding) to cubically (whitespace padding), turning an ordinary parse into a
+# denial of service (CWE-1333).  Each pattern here has a single, non-nested
+# quantifier over a negated character class, so every character is examined a
+# bounded number of times and matching stays linear in the header length.
+_ANGLE_ADDR_RE = re.compile(r"<([^<>\s]+)>")  # <email@addr>
+_BARE_ADDR_RE = re.compile(r"[^\s,<>]+@[^\s,<>]+")  # bare email@addr
+
+
+def _split_address_list(raw: str) -> list[str]:
+    """
+    Split a raw address header into its comma-separated items in linear time,
+    ignoring commas inside a double-quoted display name.
+
+    RFC 5322 address lists are comma-separated, but a quoted display name may
+    itself contain a comma (``"Last, First" <a@b.com>``).  A single pass tracks
+    quote state so those commas do not split the item.
+
+    Args:
+        raw (str): raw address-header value.
+
+    Returns:
+        list[str]: individual address items, in header order.
+    """
+    items: list[str] = []
+    buf: list[str] = []
+    in_quotes = False
+    for ch in raw:
+        if ch == '"':
+            in_quotes = not in_quotes
+            buf.append(ch)
+        elif ch == "," and not in_quotes:
+            items.append("".join(buf))
+            buf = []
+        else:
+            buf.append(ch)
+    items.append("".join(buf))
+    return items
+
+
+def _fallback_addresses(raw: str) -> list[tuple[str, str]]:
+    """
+    Recover ``(display_name, email_addr)`` pairs from an address header that
+    the strict RFC 5322 parser rejected, using a linear-time scan.
+
+    For each comma-separated item the display name is derived in Python from
+    the text preceding the angle-bracket address; items without angle brackets
+    fall back to a bare-email match.  This replaces the previous single
+    backtracking regex — vulnerable to polynomial ReDoS on padded headers
+    (CWE-1333) — while preserving its output on the RFC-non-compliant but
+    real-world-common shapes mail-parser must surface (e.g. an e-mail address
+    used as the display name).
+
+    Args:
+        raw (str): raw address-header value (already decoded to ``str``).
+
+    Returns:
+        list[tuple[str, str]]: recovered ``(display_name, email_addr)`` pairs;
+            ``display_name`` is an empty string when absent.
+    """
+    results: list[tuple[str, str]] = []
+    for item in _split_address_list(raw):
+        angle = _ANGLE_ADDR_RE.search(item)
+        if angle:
+            name = item[: angle.start()].strip().strip('"').strip()
+            results.append((name, angle.group(1)))
+        else:
+            bare = _BARE_ADDR_RE.search(item)
+            if bare:
+                results.append(("", bare.group(0)))
+    return results
 
 
 def get_addresses(
@@ -170,14 +244,7 @@ def get_addresses(
     # raw header is non-empty — fall back to regex extraction so that the
     # actual address values are not silently lost.
     if raw_header.strip() and all(not addr for _, addr in parsed):
-        results = []
-        for m in _ADDR_FALLBACK_RE.finditer(raw_header):
-            if m.group(2):  # "Quoted Name" <email>
-                results.append((m.group(1).strip(), m.group(2).strip()))
-            elif m.group(4):  # Any Name <email>  (incl. email-as-display-name)
-                results.append((m.group(3).strip(), m.group(4).strip()))
-            elif m.group(5):  # bare email  # pragma: no branch
-                results.append(("", m.group(5).strip()))
+        results = _fallback_addresses(raw_header)
         if results:
             log.debug(
                 "Strict address parsing yielded empty results for %r; "
@@ -348,6 +415,23 @@ def fingerprints(data):
     return hashes(md5, sha1, sha256, sha512)
 
 
+def _safe_remove(path):
+    """
+    Remove a file, ignoring the error if it is already gone.
+
+    Used to clean up a temporary conversion file on failure paths so a
+    malformed or unconvertible Outlook message cannot slowly fill the
+    filesystem with orphaned temp files.
+
+    Args:
+        path (str): filesystem path to remove
+    """
+    try:
+        os.remove(path)
+    except OSError:
+        log.debug("Could not remove temp file %r", path)
+
+
 def _new_outlook_tempfile():
     """
     Create an empty temporary file to hold a converted Outlook email.
@@ -436,6 +520,7 @@ def msgconvert(email):
         )
 
     except OSError as e:
+        _safe_remove(temp)
         message = (
             "Cannot convert Outlook .msg: no conversion backend "
             "available. Install pure-Python support with "
@@ -447,8 +532,117 @@ def msgconvert(email):
         raise MailParserOSError(message)
 
     else:
-        stdoutdata, _ = out.communicate()
-        return temp, stdoutdata.decode("utf-8").strip()
+        try:
+            stdoutdata, _ = out.communicate(timeout=_MSGCONVERT_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            out.kill()
+            out.communicate()
+            _safe_remove(temp)
+            message = (
+                f"msgconvert did not finish within {_MSGCONVERT_TIMEOUT}s; "
+                "aborting Outlook conversion"
+            )
+            log.error(message)
+            raise MailParserOSError(message)
+        return temp, stdoutdata.decode("utf-8", errors="replace").strip()
+
+
+def get_from_clause(received):
+    """
+    Return the value of the ``from`` clause of a Received header.
+
+    The sender address lives in the ``from`` clause; the ``by`` clause
+    names the *receiving* server and must never be mistaken for it.
+    Clause boundaries are located with the anchored RFC 5321 tokenizer
+    ``_CLAUSE_SPLITTER`` rather than a substring search, because a plain
+    ``received.find("by")`` also matches inside a hostname — ``derby``,
+    ``nearby`` — and the hostname comes from the sender's HELO. A false
+    match truncates the clause, extraction fails on the genuine hop, and
+    the caller falls through to older attacker-forged Received headers
+    (CWE-345). A word-boundary ``\\bby\\b`` is not enough either: ``.``
+    is a non-word character, so it still matches in ``host.by.example``.
+
+    Args:
+        received (string): raw Received header value
+
+    Returns:
+        string with the ``from`` clause value, or an empty string when the
+        header has no ``from`` clause
+    """
+    # Collapse whitespace runs before splitting, so the splitter stays
+    # linear — see the note on _WS_RUN_RE in const.py.
+    header = _WS_RUN_RE.sub(" ", received)
+
+    # split() yields [preamble, keyword, value, keyword, value, ...]
+    parts = _CLAUSE_SPLITTER.split(header)
+    keywords = [(i, parts[i].lower()) for i in range(1, len(parts) - 1, 2)]
+
+    start = next((i for i, kw in keywords if kw == "from"), None)
+    if start is None:
+        # No ``from`` clause: attribution fails closed.  Returning the whole
+        # header instead would surface an IP taken from the ``by``, ``for``,
+        # ``with`` or ``id`` clause as the sender's — and the ``for`` clause
+        # holds the envelope recipient, which the sender picks at RCPT TO
+        # (``victim+8.8.8.8@example.com``).
+        return str()
+
+    # The clause ends at the next keyword, full stop.  Extending it to a
+    # later ``by`` to survive a multi-word HELO drags the ``by``, ``for``
+    # and ``envelope-from`` values into the result, and the last two are
+    # sender-chosen: a quoted local part supplies the whitespace, so
+    # ``MAIL FROM:<"x 8.8.8.8 by q"@evil.example>`` puts an attacker IP
+    # into the sender-attribution scan (CWE-345).  A multi-word HELO does
+    # truncate this clause, but that only costs the candidates — the caller
+    # then fails closed rather than reporting an attacker-chosen address.
+    return parts[start + 1].strip()
+
+
+def group_spans(text):
+    """
+    Return the spans of ``text`` enclosed in a ``(`` or ``[`` group.
+
+    A single left-to-right pass, so the caller can classify many positions
+    without re-scanning the prefix for each one. Nesting is tracked with a
+    depth counter and an unclosed group runs to the end of the string.
+
+    Args:
+        text (string): text to scan
+
+    Returns:
+        list of (start, end) tuples, in order, excluding the delimiters
+    """
+    spans = []
+    depth = 0
+    start = 0
+
+    for i, char in enumerate(text):
+        if char in "([":
+            if depth == 0:
+                start = i + 1
+            depth += 1
+        elif char in ")]" and depth:
+            depth -= 1
+            if depth == 0:
+                spans.append((start, i))
+
+    if depth:
+        spans.append((start, len(text)))
+
+    return spans
+
+
+def in_spans(position, spans):
+    """
+    Return True when ``position`` falls inside one of ``spans``.
+
+    Args:
+        position (int): offset to test
+        spans (list): (start, end) tuples
+
+    Returns:
+        bool
+    """
+    return any(start <= position < end for start, end in spans)
 
 
 def parse_received(received):
@@ -488,6 +682,12 @@ def parse_received(received):
             header_body = received
 
     # --- Step 2: Tokenize on clause keywords ---
+    # Collapse whitespace runs first so ``_CLAUSE_SPLITTER`` stays linear: a
+    # header padded with a long run of spaces that is not followed by a clause
+    # keyword otherwise backtracks quadratically — a denial of service on
+    # attacker-supplied Received headers (CWE-1333).  The date has already been
+    # extracted from the raw header above, so collapsing here does not affect it.
+    header_body = _WS_RUN_RE.sub(" ", header_body)
     # _CLAUSE_SPLITTER.split gives: [preamble, kw1, val1, kw2, val2, ...]
     parts = _CLAUSE_SPLITTER.split(header_body)
 
@@ -701,6 +901,30 @@ def get_to_domains(to=[], reply_to=[]):
     return list(domains)
 
 
+def decode_headers(headers):
+    """
+    Decode the raw values of a single header name with the correct charset.
+
+    Args:
+        headers (list): raw values of one header name, or None if absent
+
+    Returns:
+        str if there is one value
+        list if there are more than one
+        empty str if the header is absent
+    """
+
+    if not headers:
+        return str()
+
+    decoded = [decode_header_part(i) for i in headers]
+    if len(decoded) == 1:
+        # in this case return a string
+        return decoded[0].strip()
+    # in this case return a list
+    return decoded
+
+
 def get_header(message, name):
     """
     Gets an email.message.Message and a header name and returns
@@ -717,14 +941,7 @@ def get_header(message, name):
 
     headers = message.get_all(name)
     log.debug(f"Getting header {name!r}: {headers!r}")
-    if headers:
-        headers = [decode_header_part(i) for i in headers]
-        if len(headers) == 1:
-            # in this case return a string
-            return headers[0].strip()
-        # in this case return a list
-        return headers
-    return str()
+    return decode_headers(headers)
 
 
 def get_mail_keys(message, complete=True):

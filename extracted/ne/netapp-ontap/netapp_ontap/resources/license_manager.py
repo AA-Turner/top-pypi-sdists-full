@@ -29,8 +29,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     LicenseManager(
         {
             "default": True,
-            "uri": {"host": "10.1.1.1"},
             "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
+            "uri": {"host": "10.1.1.1"},
         }
     )
 ]

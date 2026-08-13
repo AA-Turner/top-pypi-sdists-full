@@ -31,22 +31,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SecurityOidc(
     {
-        "_links": {"self": {"href": "/api/security/authentication/cluster/oidc"}},
-        "remote_user_claim": "unique_name",
-        "authorization_endpoint": "https://example.com/adfs/oauth2/authorize/",
-        "access_token_issuer": "https://example.com/adfs/services/trust",
-        "redirect_ipaddress": "10.10.10.10",
         "client_secret_hash": "<HASHED-CLIENT-SECRET>",
-        "issuer": "https://example.com/adfs",
-        "client_id": "client-id-value",
-        "jwks_refresh_interval": "PT1H",
-        "provider": "adfs",
         "outgoing_proxy": "https://johndoe:secretpass@proxy.example.com:8080",
-        "token_endpoint": "https://example.com/adfs/oauth2/token/",
-        "provider_jwks_uri": "https://example.com/adfs/discovery/keys",
+        "provider": "adfs",
+        "access_token_issuer": "https://example.com/adfs/services/trust",
+        "jwks_refresh_interval": "PT1H",
         "skip_uri_validation": False,
+        "authorization_endpoint": "https://example.com/adfs/oauth2/authorize/",
+        "provider_jwks_uri": "https://example.com/adfs/discovery/keys",
         "end_session_endpoint": "https://example.com/adfs/oauth2/logout",
+        "remote_user_claim": "unique_name",
+        "redirect_ipaddress": "10.10.10.10",
+        "issuer": "https://example.com/adfs",
+        "_links": {"self": {"href": "/api/security/authentication/cluster/oidc"}},
         "enabled": False,
+        "token_endpoint": "https://example.com/adfs/oauth2/token/",
+        "client_id": "client-id-value",
     }
 )
 
@@ -90,20 +90,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SecurityOidc(
     {
-        "remote_user_claim": "unique_name",
-        "authorization_endpoint": "https://example.com/adfs/oauth2/authorize/",
-        "access_token_issuer": "https://example.com/adfs/services/trust",
-        "redirect_ipaddress": "10.10.10.10",
-        "issuer": "https://example.com/adfs",
-        "client_id": "client-id-value",
-        "jwks_refresh_interval": "PT1H",
+        "outgoing_proxy": "https://johndoe:secretpass@proxy.example.com:8080",
         "client_secret": "<CLIENT-SECRET>",
         "provider": "adfs",
-        "outgoing_proxy": "https://johndoe:secretpass@proxy.example.com:8080",
-        "token_endpoint": "https://example.com/adfs/oauth2/token/",
-        "provider_jwks_uri": "https://example.com/adfs/discovery/keys",
+        "access_token_issuer": "https://example.com/adfs/services/trust",
+        "jwks_refresh_interval": "PT1H",
         "skip_uri_validation": False,
+        "authorization_endpoint": "https://example.com/adfs/oauth2/authorize/",
+        "provider_jwks_uri": "https://example.com/adfs/discovery/keys",
         "end_session_endpoint": "https://example.com/adfs/oauth2/logout",
+        "remote_user_claim": "unique_name",
+        "redirect_ipaddress": "10.10.10.10",
+        "issuer": "https://example.com/adfs",
+        "token_endpoint": "https://example.com/adfs/oauth2/token/",
+        "client_id": "client-id-value",
     }
 )
 

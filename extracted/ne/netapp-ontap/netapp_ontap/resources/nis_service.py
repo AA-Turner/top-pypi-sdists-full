@@ -28,42 +28,42 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NisService(
         {
-            "servers": ["10.10.10.10", "example.com"],
             "_links": {
                 "self": {
                     "href": "/api/name-services/nis/179d3c85-7053-11e8-b9b8-005056b41bd1"
                 }
             },
             "svm": {
-                "name": "vs1",
+                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"
                     }
                 },
-                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
+                "name": "vs1",
             },
             "domain": "domainA.example.com",
+            "servers": ["10.10.10.10", "example.com"],
         }
     ),
     NisService(
         {
-            "servers": ["2.2.2.2", "3.3.3.3", "4.4.4.4"],
             "_links": {
                 "self": {
                     "href": "/api/name-services/nis/6a52023b-7066-11e8-b9b8-005056b41bd1"
                 }
             },
             "svm": {
-                "name": "vs2",
+                "uuid": "6a52023b-7066-11e8-b9b8-005056b41bd1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/6a52023b-7066-11e8-b9b8-005056b41bd1"
                     }
                 },
-                "uuid": "6a52023b-7066-11e8-b9b8-005056b41bd1",
+                "name": "vs2",
             },
             "domain": "domainB.example.com",
+            "servers": ["2.2.2.2", "3.3.3.3", "4.4.4.4"],
         }
     ),
 ]
@@ -97,13 +97,13 @@ with HostConnection("<mgmt-ip", username="admin", password="password", verify=Fa
                 }
             },
             "svm": {
-                "name": "vs1",
+                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"
                     }
                 },
-                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
+                "name": "vs1",
             },
         }
     )
@@ -133,10 +133,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NisService(
     {
-        "servers": ["10.10.10.10", "example.com"],
-        "svm": {"name": "vs1", "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1"},
         "bound_servers": ["10.10.10.10"],
+        "svm": {"uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1", "name": "vs1"},
         "domain": "domainA.example.com",
+        "servers": ["10.10.10.10", "example.com"],
     }
 )
 

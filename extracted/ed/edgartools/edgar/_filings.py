@@ -51,11 +51,12 @@ from edgar.core import (
     parallel_thread_map,
     quarters_in_year,
 )
-from edgar.dates import InvalidDateException
+from edgar.dates import InvalidDateError
 from edgar.display.formatting import accession_number_text, display_size
 from edgar.display.styles import print_info, print_warning
 from edgar.documents import HTMLParser, ParserConfig
 from edgar.documents.exceptions import ParsingError
+from edgar.exceptions import TransportError, http_status
 from edgar.files._deprecation import PAGE_BREAK_DEPRECATION as _PAGE_BREAK_DEPRECATION
 from edgar.files.html_documents import get_clean_html
 from edgar.files.htmltools import html_sections
@@ -64,7 +65,7 @@ from edgar.filesystem import EdgarPath
 from edgar.filtering import filter_by_accession_number, filter_by_cik, filter_by_date, filter_by_exchange, \
     filter_by_form, filter_by_ticker
 from edgar.headers import FilingDirectory, IndexHeaders
-from edgar.httprequests import download_file, download_text, download_text_between_tags
+from edgar.httprequests import UNREACHABLE_ERRORS, download_file, download_text, download_text_between_tags, is_unreachable
 from edgar.reference import describe_form
 from edgar.reference.tickers import Exchange, find_ticker, find_ticker_safe
 from edgar.richtools import Docs, print_rich, repr_rich
@@ -456,8 +457,10 @@ def fetch_filing_index(year_and_quarter: YearAndQuarter,
     try:
         index_table = fetch_filing_index_at_url(url, index)
         return (year, quarter), index_table
-    except httpx.HTTPStatusError as e:
-        if is_start_of_quarter() and e.response.status_code == 403:
+    except (httpx.HTTPStatusError, TransportError) as e:
+        # Dual-era: httpx raises the status error today, TransportError under the
+        # strict wrap and in 6.0. http_status() reads either.
+        if is_start_of_quarter() and http_status(e) == 403:
             # Return an empty filing index
             return (year, quarter), _empty_filing_index()
         else:
@@ -720,7 +723,7 @@ class Filings:
                     latest_date = self.date_range[1]
                     if latest_date is not None and _get_data_staleness_days(latest_date) >= 1:
                         _warn_use_current_filings("", latest_date)
-            except InvalidDateException as e:
+            except InvalidDateError as e:
                 log.error(e)
                 return Filings(_empty_filing_index())
 
@@ -1573,9 +1576,10 @@ class Filing:
             # Skip when local storage is enabled to avoid unexpected network access
             try:
                 period = self.homepage.period_of_report
-            except (httpx.TimeoutException, httpx.ConnectError, httpx.ReadTimeout,
-                    httpcore.TimeoutException, httpcore.ConnectError, httpcore.NetworkError):
-                pass  # Offline or network unavailable — return None
+            except (*UNREACHABLE_ERRORS, TransportError) as e:
+                if not is_unreachable(e):
+                    raise  # SEC answered, or SSL/identity — not something to fall back from
+                # Offline or network unavailable — leave it as None
         return period
 
     @cached_property
@@ -1652,9 +1656,10 @@ class Filing:
                 document = self.homepage.primary_xml_document
                 if document and not document.is_binary() and not document.empty:
                     return document.content
-            except (httpx.TimeoutException, httpx.ConnectError, httpx.ReadTimeout,
-                    httpcore.TimeoutException, httpcore.ConnectError, httpcore.NetworkError):
-                pass  # Offline or network unavailable — return None
+            except (*UNREACHABLE_ERRORS, TransportError) as e:
+                if not is_unreachable(e):
+                    raise  # SEC answered, or SSL/identity — not something to fall back from
+                # Offline or network unavailable — leave it as None
         return xml_content
 
     @lru_cache(maxsize=4)
@@ -1860,10 +1865,9 @@ class Filing:
             return XBRL.from_filing(self)
         except XBRLFilingWithNoXbrlData:
             return None
-        except (httpx.TimeoutException, httpx.ConnectError, httpx.ReadTimeout,
-                httpcore.TimeoutException, httpcore.ConnectError, httpcore.NetworkError) as e:
+        except (*UNREACHABLE_ERRORS, TransportError) as e:
             # Provide helpful message when local storage is enabled but filing content is missing
-            if is_using_local_storage():
+            if is_unreachable(e) and is_using_local_storage():
                 log.error(
                     f"Network error accessing filing content for {self.accession_no}. "
                     f"You have local storage enabled, but filing documents are not downloaded.\n\n"
@@ -1994,10 +1998,11 @@ class Filing:
             try:
                 self._sgml = FilingSGML.from_filing(self)
             except (ValueError, Exception) as e:
-                from edgar.sgml.sgml_parser import SECIdentityError, SECFilingNotFoundError, SECHTMLResponseError
-                from edgar.httprequests import IdentityNotSetException
+                from edgar.sgml.sgml_parser import SECHTMLResponseError, SECIdentityError
+                from edgar.exceptions import FilingNotFoundError, IdentityNotSetError
+                from edgar.httprequests import IdentityNotSetError
                 # Don't fall back on permanent errors — propagate them
-                if isinstance(e, (SECIdentityError, SECFilingNotFoundError, IdentityNotSetException)):
+                if isinstance(e, (SECIdentityError, FilingNotFoundError, IdentityNotSetError)):
                     raise
                 # Don't fall back on network errors — propagate them so callers
                 # (e.g. xbrl()) can show local-storage-aware error messages

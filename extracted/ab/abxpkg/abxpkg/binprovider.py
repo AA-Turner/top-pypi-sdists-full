@@ -49,6 +49,7 @@ from pydantic import (
     InstanceOf,
     PrivateAttr,
     computed_field,
+    field_validator,
     model_validator,
 )
 
@@ -531,6 +532,11 @@ class BinProvider(BaseModel):
         repr=False,
     )
 
+    @field_validator("install_root", "bin_dir")
+    @classmethod
+    def normalize_managed_path(cls, value: Path | None) -> Path | None:
+        return value.expanduser().resolve(strict=False) if value is not None else None
+
     @computed_field(repr=False)
     @property
     def ENV(self) -> dict[str, str]:
@@ -790,6 +796,8 @@ class BinProvider(BaseModel):
             include=provider_fields,
             warnings=False,
         )
+        if self.bin_dir is not None:
+            provider_config["PATH"] = str(self.bin_dir)
         provider_config["provider_class"] = (
             f"{type(self).__module__}.{type(self).__qualname__}"
         )
@@ -1333,33 +1341,6 @@ class BinProvider(BaseModel):
                     resolved_provider._exec_bin_abspath(Path(resolved_abspath)),
                 ),
             )
-        managed_root = install_root.parent.resolve(strict=False)
-        for provider in resolved_runtime_providers:
-            for raw_path in provider.execution_PATH().split(os.pathsep):
-                path = Path(raw_path).expanduser().resolve(strict=False)
-                if (
-                    not raw_path
-                    or not path.is_relative_to(managed_root)
-                    or not (path.exists() or path.is_symlink())
-                ):
-                    continue
-                fingerprint_paths.append(path)
-                if path.is_dir():
-                    try:
-                        fingerprint_paths.extend(
-                            child for child in path.iterdir() if child.is_file()
-                        )
-                    except OSError:
-                        return
-        unique_paths = list(
-            dict.fromkeys(
-                path.expanduser().resolve(strict=False) for path in fingerprint_paths
-            ),
-        )
-        fingerprints = self._fingerprint_paths(unique_paths)
-        if fingerprints is None:
-            return
-
         import shutil
 
         resolutions = []
@@ -1381,6 +1362,14 @@ class BinProvider(BaseModel):
                 selected_path = resolved_base_env.get("PATH", "")
             else:
                 selected_path = final_env.get("PATH", "")
+            selected_abspath = shutil.which(
+                resolved_name,
+                path=selected_path,
+            )
+            if selected_abspath is not None:
+                fingerprint_paths.append(Path(selected_abspath))
+            else:
+                selected_path = ""
             ambient_abspath = shutil.which(
                 resolved_name,
                 path=resolved_base_env.get("PATH", ""),
@@ -1388,7 +1377,7 @@ class BinProvider(BaseModel):
             resolutions.append(
                 {
                     "name": resolved_name,
-                    "abspath": str(resolved_exec_abspath),
+                    "abspath": str(selected_abspath or resolved_exec_abspath),
                     "selected_path": selected_path,
                     "ambient_abspath": (
                         str(Path(ambient_abspath).resolve(strict=False))
@@ -1397,6 +1386,15 @@ class BinProvider(BaseModel):
                     ),
                 },
             )
+
+        unique_paths = list(
+            dict.fromkeys(
+                path.expanduser().resolve(strict=False) for path in fingerprint_paths
+            ),
+        )
+        fingerprints = self._fingerprint_paths(unique_paths)
+        if fingerprints is None:
+            return
 
         exec_plan = {
             "version": 3,
@@ -3842,9 +3840,13 @@ class EnvProvider(BinProvider):
                 continue
             try:
                 if path.is_symlink():
-                    os.lchown(path, uid, gid)
+                    path_stat = path.lstat()
+                    if path_stat.st_uid != uid or path_stat.st_gid != gid:
+                        os.lchown(path, uid, gid)
                 else:
-                    os.chown(path, uid, gid)
+                    path_stat = path.stat()
+                    if path_stat.st_uid != uid or path_stat.st_gid != gid:
+                        os.chown(path, uid, gid)
             except (NotImplementedError, PermissionError, OSError):
                 pass
 
@@ -4445,7 +4447,11 @@ class EnvProvider(BinProvider):
 
         for provider in self._projection_providers:
             try:
-                loaded = provider.load(bin_name_str, no_cache=no_cache)
+                loaded = (
+                    provider.load(bin_name_str, no_cache=True)
+                    if no_cache
+                    else provider.load_cached_binary_by_name(bin_name_str)
+                )
             except Exception:
                 continue
             if loaded is None or loaded.loaded_abspath is None:

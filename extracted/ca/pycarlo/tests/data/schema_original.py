@@ -197,58 +197,6 @@ class ActorType(sgqlc.types.Enum):
     __choices__ = ("AI", "HUMAN", "assistant", "system", "user")
 
 
-class AdfJobRunModelStatus(sgqlc.types.Enum):
-    """Enumeration Choices:
-
-    * `CANCELLED`: Cancelled
-    * `CANCELLING`: Cancelling
-    * `FAILED`: Failed
-    * `INACTIVE`: Inactive
-    * `INPROGRESS`: InProgress
-    * `QUEUED`: Queued
-    * `SKIPPED`: Skipped
-    * `SUCCEEDED`: Succeeded
-    """
-
-    __schema__ = schema
-    __choices__ = (
-        "CANCELLED",
-        "CANCELLING",
-        "FAILED",
-        "INACTIVE",
-        "INPROGRESS",
-        "QUEUED",
-        "SKIPPED",
-        "SUCCEEDED",
-    )
-
-
-class AdfTaskRunModelStatus(sgqlc.types.Enum):
-    """Enumeration Choices:
-
-    * `CANCELLED`: Cancelled
-    * `CANCELLING`: Cancelling
-    * `FAILED`: Failed
-    * `INACTIVE`: Inactive
-    * `INPROGRESS`: InProgress
-    * `QUEUED`: Queued
-    * `SKIPPED`: Skipped
-    * `SUCCEEDED`: Succeeded
-    """
-
-    __schema__ = schema
-    __choices__ = (
-        "CANCELLED",
-        "CANCELLING",
-        "FAILED",
-        "INACTIVE",
-        "INPROGRESS",
-        "QUEUED",
-        "SKIPPED",
-        "SUCCEEDED",
-    )
-
-
 class AgentEvaluationRunSamplesStatus(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -7624,6 +7572,25 @@ class ReusableCapability(sgqlc.types.Enum):
     __choices__ = ("LINEAGE", "METADATA", "QUERY_LOGS")
 
 
+class RoutableTriagePriority(sgqlc.types.Enum):
+    """A triage priority an audience can be conditioned on. PENDING is
+    absent: it means triage is still running, so an audience
+    conditioned on it could only fire during a window the author
+    cannot observe — an unconditional audience is how you say 'notify
+    now'.
+
+    Enumeration Choices:
+
+    * `HIGH`None
+    * `LOW`None
+    * `MEDIUM`None
+    * `NOT_TRIAGED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("HIGH", "LOW", "MEDIUM", "NOT_TRIAGED")
+
+
 class SamplingEnabledMetricTypes(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -9614,69 +9581,6 @@ class AddConversationToGoldenSetInput(sgqlc.types.Input):
     """Whether to also capture the target turn's original response."""
 
 
-class AgentCapabilitiesInput(sgqlc.types.Input):
-    """Atomic patch over the agent-assistance capabilities.  Capabilities
-    omitted from the input are left untouched.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("monitoring", "triage", "monitor_tuning")
-    monitoring = sgqlc.types.Field("AgentCapabilityInput", graphql_name="monitoring")
-    """Monitoring-capability patch. Omit to leave monitoring unchanged."""
-
-    triage = sgqlc.types.Field("AgentCapabilityInput", graphql_name="triage")
-    """Deprecated, rejected with a validation error. Configure per-domain
-    triage with `updateTriageAutomationConfig`.
-    """
-
-    monitor_tuning = sgqlc.types.Field("AgentCapabilityInput", graphql_name="monitorTuning")
-    """Monitor-tuning-capability patch. Omit to leave monitor tuning
-    unchanged.
-    """
-
-
-class AgentCapabilityInput(sgqlc.types.Input):
-    """Patch shape for a single capability passed to
-    ``configureAgentAssistance``.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("enabled", "rate_seconds", "credit_budget")
-    enabled = sgqlc.types.Field(Boolean, graphql_name="enabled")
-    """Pause (false) or resume (true) the capability. Omit to leave
-    unchanged.
-    """
-
-    rate_seconds = sgqlc.types.Field(Int, graphql_name="rateSeconds")
-    """New cadence in seconds. Must be positive when provided. Omit to
-    leave unchanged.
-    """
-
-    credit_budget = sgqlc.types.Field("AgentCreditBudgetInput", graphql_name="creditBudget")
-    """Set the per-day credit cap for this capability. Omit to leave the
-    existing budget untouched. Only the monitoring capability supports
-    a credit budget in v1.1.1.
-    """
-
-
-class AgentCreditBudgetInput(sgqlc.types.Input):
-    """Credit-budget patch nested under an ``AgentCapabilityInput``.
-    Used to set or update the credit budget on a capability. Absence
-    of this field on the parent ``AgentCapabilityInput`` leaves the
-    existing budget untouched. Clearing a configured budget is not
-    exposed in v1.1.1 — once a budget is set, callers can only update
-    it to another positive value.  Only the monitoring capability has
-    credit-budget semantics in v1.1.1; passing this field on
-    ``triage`` or ``monitorTuning`` is rejected with a validation
-    error.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("credits",)
-    credits = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="credits")
-    """Per-day credit cap for the capability's agent. Must be positive."""
-
-
 class AgentEvalInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = (
@@ -10945,6 +10849,23 @@ class AthenaUpdateConnectionDetails(sgqlc.types.Input):
 
     aws_region = sgqlc.types.Field(String, graphql_name="awsRegion")
     """AWS region"""
+
+
+class AudienceConditionInput(sgqlc.types.Input):
+    """Narrows one of a monitor's audiences to the triage priorities that
+    reach it.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("audience", "triage_priority")
+    audience = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="audience")
+    """Name of the audience this condition narrows."""
+
+    triage_priority = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(RoutableTriagePriority))),
+        graphql_name="triagePriority",
+    )
+    """Triage priorities that notify this audience. Never empty."""
 
 
 class AudienceNotificationSettingInput(sgqlc.types.Input):
@@ -18370,9 +18291,11 @@ class TriageAlertsInput(sgqlc.types.Input):
     """The surface this triage was dispatched from, recorded on the per-
     incident triage claim (usage accounting / analytics). Programmatic
     callers should declare themselves (MCP for the MCP triage tool,
-    SLACK for the chat agent in the Slack bot). When omitted, defaults
-    to SLACK if postToSlack is false (today's only such caller is the
-    Slack-bot chat agent) and MANUAL_UI otherwise (the web app).
+    SLACK for the chat agent in the Slack bot). When omitted,
+    resolution is: the surface the client names in its x-mcd-source
+    request header (dashboard resolves to MANUAL_UI, mcp to MCP);
+    otherwise SLACK if postToSlack is false (today's only such caller
+    is the Slack-bot chat agent); otherwise MANUAL_UI.
     """
 
 
@@ -21628,134 +21551,6 @@ class AdditionalData(sgqlc.types.Type):
     """JSON object containing all data returned from validation."""
 
 
-class AdfJobConnection(sgqlc.types.relay.Connection):
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("AdfJobEdge")), graphql_name="edges"
-    )
-    """Contains the nodes in this connection."""
-
-
-class AdfJobEdge(sgqlc.types.Type):
-    """A Relay edge containing a `AdfJob` and its cursor."""
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("AdfJob", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
-
-
-class AdfJobRunConnection(sgqlc.types.relay.Connection):
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("AdfJobRunEdge")), graphql_name="edges"
-    )
-    """Contains the nodes in this connection."""
-
-
-class AdfJobRunEdge(sgqlc.types.Type):
-    """A Relay edge containing a `AdfJobRun` and its cursor."""
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("AdfJobRun", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
-
-
-class AdfJobRunsConnection(sgqlc.types.relay.Connection):
-    """ADF job executions response"""
-
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges", "edge_count", "total_count")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("AdfJobRunsEdge")), graphql_name="edges"
-    )
-    """Contains the nodes in this connection."""
-
-    edge_count = sgqlc.types.Field(Int, graphql_name="edgeCount")
-    """Total number of edges returned (page count)"""
-
-    total_count = sgqlc.types.Field(Int, graphql_name="totalCount")
-    """Total number of edges matching filter (total count)"""
-
-
-class AdfJobRunsEdge(sgqlc.types.Type):
-    """A Relay edge containing a `AdfJobRuns` and its cursor."""
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("AdfJobRun", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
-
-
-class AdfTaskConnection(sgqlc.types.relay.Connection):
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("AdfTaskEdge")), graphql_name="edges"
-    )
-    """Contains the nodes in this connection."""
-
-
-class AdfTaskEdge(sgqlc.types.Type):
-    """A Relay edge containing a `AdfTask` and its cursor."""
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("AdfTask", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
-
-
-class AdfTaskRunConnection(sgqlc.types.relay.Connection):
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("AdfTaskRunEdge")), graphql_name="edges"
-    )
-    """Contains the nodes in this connection."""
-
-
-class AdfTaskRunEdge(sgqlc.types.Type):
-    """A Relay edge containing a `AdfTaskRun` and its cursor."""
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("AdfTaskRun", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
-
-
 class Agent(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -21870,129 +21665,6 @@ class AgentAlertSummary(sgqlc.types.Type):
     observed value, expected range, and bucket time. Null if the
     headline could not be generated from the event data.
     """
-
-
-class AgentAssistant(sgqlc.types.Type):
-    """Agent assistance attached to a domain. A domain is agent-assisted
-    iff this object resolves non-null.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("agent_user", "capabilities")
-    agent_user = sgqlc.types.Field(sgqlc.types.non_null("User"), graphql_name="agentUser")
-    """The user representing the agent. Use ``displayName`` to render the
-    agent identity (defaults to ``Agent on <domain>``); ``creatorId``
-    on monitors created by the agent matches this user.
-    """
-
-    capabilities = sgqlc.types.Field(
-        sgqlc.types.non_null("AgentCapabilities"), graphql_name="capabilities"
-    )
-    """Per-capability enabled-flag and cadence."""
-
-
-class AgentCapabilities(sgqlc.types.Type):
-    """Per-capability state for the agent attached to a domain. Each
-    field reports the current enabled-flag, cadence, credit budget,
-    and live consumption.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("monitoring", "triage", "monitor_tuning")
-    monitoring = sgqlc.types.Field(
-        sgqlc.types.non_null("AgentCapability"), graphql_name="monitoring"
-    )
-    """Monitoring runs (proactive monitor proposals)."""
-
-    triage = sgqlc.types.Field(sgqlc.types.non_null("AgentCapability"), graphql_name="triage")
-    """Deprecated, always reports `enabled: false`. Per-domain triage is
-    read from `Domain.effectiveTriageEnabled` and configured with
-    `updateTriageAutomationConfig`; no TRIAGE pipeline is seeded for
-    an agent-assisted domain, so this resolves to a disabled stub.
-    """
-
-    monitor_tuning = sgqlc.types.Field(
-        sgqlc.types.non_null("AgentCapability"), graphql_name="monitorTuning"
-    )
-    """Monitor-tuning runs (threshold sensitivity adjustments)."""
-
-
-class AgentCapability(sgqlc.types.Type):
-    """Resolved enabled-flag, cadence, credit budget, and live
-    consumption for one agent-assistance capability (monitoring,
-    monitor tuning).
-    """
-
-    __schema__ = schema
-    __field_names__ = ("enabled", "rate_seconds", "credit_budget", "consumption")
-    enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="enabled")
-    """True when the capability is currently active for the domain."""
-
-    rate_seconds = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="rateSeconds")
-    """How often the capability runs, in seconds. The service seeds this
-    from a per-capability default when assistance is first enabled and
-    preserves customer overrides on subsequent re-enables.
-    """
-
-    credit_budget = sgqlc.types.Field("AgentCapabilityCreditBudget", graphql_name="creditBudget")
-    """The configured per-day credit budget for this capability, or null
-    when no budget is configured. Only the monitoring capability
-    supports a credit budget in v1.1.1. Always null on accounts that
-    are not on the per-monitor credit consumption pricing model.
-    """
-
-    consumption = sgqlc.types.Field("AgentCapabilityCreditConsumption", graphql_name="consumption")
-    """Today's running credit consumption for this capability, or null
-    when the capability has no spend-bearing items to attribute. Only
-    the monitoring capability surfaces a consumption snapshot in
-    v1.1.1 — it aggregates spend across the agent-authored monitors
-    assigned to this domain (customer-authored monitors live in the
-    general billing pool and are excluded). Resolution is lazy — the
-    per-item rollup runs only when the client selects this field.
-    Always null on accounts that are not on the per-monitor credit
-    consumption pricing model.
-    """
-
-
-class AgentCapabilityCreditBudget(sgqlc.types.Type):
-    """Per-day credit cap configured for one agent-capability pipeline.
-    Customer-authored monitors in the same domain are not gated by
-    this value.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("credits",)
-    credits = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="credits")
-    """The configured per-day credit cap for this capability's agent."""
-
-
-class AgentCapabilityCreditConsumption(sgqlc.types.Type):
-    """Today's running credit consumption attributable to one agent-
-    assistance capability. ``creditsConsumed`` is zero when the
-    capability has spent nothing today, distinguishing 'capability
-    active but no spend yet' from 'capability not surfaced' (where the
-    field on the parent ``AgentCapability`` is null — see
-    ``AgentCapability.consumption``).
-    """
-
-    __schema__ = schema
-    __field_names__ = ("credits_consumed", "day", "as_of")
-    credits_consumed = sgqlc.types.Field(
-        sgqlc.types.non_null(Float), graphql_name="creditsConsumed"
-    )
-    """Credits consumed today by this capability. Aggregated live from
-    today's per-item usage, not from the historical daily rollup
-    (which lags by a day).
-    """
-
-    day = sgqlc.types.Field(sgqlc.types.non_null(Date), graphql_name="day")
-    """The calendar day this snapshot represents, in UTC. Spend is
-    attributed to the day in which the consuming item was evaluated;
-    credits per item are amortized as a per-day rate.
-    """
-
-    as_of = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="asOf")
-    """The moment the snapshot was computed."""
 
 
 class AgentClassificationOutput(sgqlc.types.Type):
@@ -22222,6 +21894,7 @@ class AgentEvalOutput(sgqlc.types.Type):
         "is_draft",
         "transforms",
         "sampling_config",
+        "audience_conditions",
     )
     uuid = sgqlc.types.Field(String, graphql_name="uuid")
 
@@ -22322,6 +21995,16 @@ class AgentEvalOutput(sgqlc.types.Type):
     )
 
     sampling_config = sgqlc.types.Field("MonitorSamplingConfig", graphql_name="samplingConfig")
+
+    audience_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("AudienceCondition"))),
+        graphql_name="audienceConditions",
+    )
+    """Per-audience triage conditions for this monitor, keyed by audience
+    name so they join to `audiences`. Sparse: an audience absent from
+    this list is notified unconditionally. Empty when the monitor has
+    no conditions at all.
+    """
 
 
 class AgentEvaluationRunSampleRow(sgqlc.types.Type):
@@ -23263,6 +22946,7 @@ class AgentMetricOutput(sgqlc.types.Type):
         "is_agent_trace_aggregation",
         "is_agent_conversation_aggregation",
         "is_draft",
+        "audience_conditions",
     )
     uuid = sgqlc.types.Field(String, graphql_name="uuid")
 
@@ -23357,6 +23041,16 @@ class AgentMetricOutput(sgqlc.types.Type):
     )
 
     is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
+
+    audience_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("AudienceCondition"))),
+        graphql_name="audienceConditions",
+    )
+    """Per-audience triage conditions for this monitor, keyed by audience
+    name so they join to `audiences`. Sparse: an audience absent from
+    this list is notified unconditionally. Empty when the monitor has
+    no conditions at all.
+    """
 
 
 class AgentObservabilityBillingAgent(sgqlc.types.Type):
@@ -23611,6 +23305,7 @@ class AgentTrajectoryOutput(sgqlc.types.Type):
         "time_filter",
         "filters",
         "agent_span_filters",
+        "audience_conditions",
     )
     uuid = sgqlc.types.Field(String, graphql_name="uuid")
 
@@ -23693,6 +23388,16 @@ class AgentTrajectoryOutput(sgqlc.types.Type):
         graphql_name="agentSpanFilters",
     )
 
+    audience_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("AudienceCondition"))),
+        graphql_name="audienceConditions",
+    )
+    """Per-audience triage conditions for this monitor, keyed by audience
+    name so they join to `audiences`. Sparse: an audience absent from
+    this list is notified unconditionally. Empty when the monitor has
+    no conditions at all.
+    """
+
 
 class AgentValidationOutput(sgqlc.types.Type):
     __schema__ = schema
@@ -23727,6 +23432,7 @@ class AgentValidationOutput(sgqlc.types.Type):
         "agent_span_filters",
         "exception_primary_key_column",
         "is_agent_trace_aggregation",
+        "audience_conditions",
     )
     uuid = sgqlc.types.Field(String, graphql_name="uuid")
 
@@ -23812,6 +23518,16 @@ class AgentValidationOutput(sgqlc.types.Type):
     )
 
     is_agent_trace_aggregation = sgqlc.types.Field(Boolean, graphql_name="isAgentTraceAggregation")
+
+    audience_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("AudienceCondition"))),
+        graphql_name="audienceConditions",
+    )
+    """Per-audience triage conditions for this monitor, keyed by audience
+    name so they join to `audiences`. Sparse: an audience absent from
+    this list is notified unconditionally. Empty when the monitor has
+    no conditions at all.
+    """
 
 
 class AgenticDomainOutput(sgqlc.types.Type):
@@ -25392,6 +25108,23 @@ class AssignmentWithProperties(sgqlc.types.Type):
 
     object_type = sgqlc.types.Field(String, graphql_name="objectType")
     """Type of object assigned to a domain"""
+
+
+class AudienceCondition(sgqlc.types.Type):
+    """Narrows one of a monitor's audiences to the triage priorities that
+    reach it.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("audience", "triage_priority")
+    audience = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="audience")
+    """Name of the audience this condition narrows."""
+
+    triage_priority = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(RoutableTriagePriority))),
+        graphql_name="triagePriority",
+    )
+    """Triage priorities that notify this audience. Never empty."""
 
 
 class AudienceMonitorConnection(sgqlc.types.relay.Connection):
@@ -28221,6 +27954,7 @@ class ComparisonMonitorOutput(sgqlc.types.Type):
         "data_quality_dimension",
         "domains",
         "is_draft",
+        "audience_conditions",
     )
     uuid = sgqlc.types.Field(String, graphql_name="uuid")
 
@@ -28276,6 +28010,16 @@ class ComparisonMonitorOutput(sgqlc.types.Type):
 
     is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
 
+    audience_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceCondition))),
+        graphql_name="audienceConditions",
+    )
+    """Per-audience triage conditions for this monitor, keyed by audience
+    name so they join to `audiences`. Sparse: an audience absent from
+    this list is notified unconditionally. Empty when the monitor has
+    no conditions at all.
+    """
+
 
 class ComparisonMonitorResponseConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
@@ -28312,23 +28056,6 @@ class ConditionMatches(sgqlc.types.Type):
     rows = sgqlc.types.Field(sgqlc.types.non_null(sgqlc.types.list_of(Int)), graphql_name="rows")
 
     sql = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sql")
-
-
-class ConfigureAgentAssistance(sgqlc.types.Type):
-    """Atomic patch over the agent-assistance capabilities and the agent
-    budget.  Capabilities omitted from the input are left unchanged.
-    Within each capability, ``enabled``, ``rateSeconds``, and
-    ``creditBudget`` are independently optional — pass only the fields
-    you want to update. Rejected when assistance is not enabled for
-    the domain (call ``enableAgentAssistance`` first). The capability
-    and budget writes apply atomically — if either fails, neither is
-    persisted.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("domain",)
-    domain = sgqlc.types.Field(sgqlc.types.non_null("DomainOutput"), graphql_name="domain")
-    """The domain after the configuration patch has been applied."""
 
 
 class ConfigureAgenticPlatform(sgqlc.types.Type):
@@ -29684,7 +29411,7 @@ class ConversationsResult(sgqlc.types.Type):
     """Result of the getConversations query."""
 
     __schema__ = schema
-    __field_names__ = ("conversations", "page_info")
+    __field_names__ = ("conversations", "page_info", "total_count")
     conversations = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(Conversation))),
         graphql_name="conversations",
@@ -29693,6 +29420,15 @@ class ConversationsResult(sgqlc.types.Type):
 
     page_info = sgqlc.types.Field(sgqlc.types.non_null("TracePageInfo"), graphql_name="pageInfo")
     """Pagination metadata"""
+
+    total_count = sgqlc.types.Field(Int, graphql_name="totalCount")
+    """Total number of conversations matching the request's filters (and
+    clusteringSpaceUuid when provided), independent of pagination. Use
+    to display a row count such as 'Viewing X of Y conversations'.
+    Null when the client did not request this field or on cursor pages
+    (page 2+); clients should preserve the first-page value across
+    pages.
+    """
 
 
 class ConvertConfigTemplateToUiMonitors(sgqlc.types.Type):
@@ -30267,15 +30003,10 @@ class CreateOrUpdateAuthProvisioning(sgqlc.types.Type):
 
 
 class CreateOrUpdateAuthorizationGroup(sgqlc.types.Type):
-    """Create or update an authorization group. Customer-managed groups
-    support full editing. Agent-managed groups (provisioned
-    automatically by Monte Carlo for agent-assisted domains) accept a
-    limited update surface: ``connectionRestrictionIds`` and the
-    cosmetic fields ``label``/``description``/``version``. ``roles``
-    and ``domainRestrictionIds`` on agent-managed groups must be
-    passed with their current values; ``memberUserIds`` and
-    ``ssoGroup`` cannot be set. Creating a new agent-managed group via
-    this mutation is not supported.
+    """Create or update a customer-managed authorization group. Names
+    under the reserved ``mcd-internal/`` prefix belong to Monte
+    Carlo's own provisioning and are rejected, whether creating or
+    updating.
     """
 
     __schema__ = schema
@@ -31061,8 +30792,23 @@ class CreatePagerDutyServiceIntegration(sgqlc.types.Type):
 
 class CreatePiiMonitor(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("bulk_monitor", "yaml", "warnings")
+    __field_names__ = (
+        "bulk_monitor",
+        "bulk_monitors",
+        "yaml",
+        "warnings",
+        "requires_split",
+        "matched_table_count",
+        "table_limit",
+        "split_monitor_count",
+        "split_parts",
+    )
     bulk_monitor = sgqlc.types.Field("BulkMonitor", graphql_name="bulkMonitor")
+
+    bulk_monitors = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("BulkMonitor"))),
+        graphql_name="bulkMonitors",
+    )
 
     yaml = sgqlc.types.Field(String, graphql_name="yaml")
     """MaC YAML representation (dry_run only)"""
@@ -31072,6 +30818,19 @@ class CreatePiiMonitor(sgqlc.types.Type):
         graphql_name="warnings",
     )
     """Advisory messages about the monitor configuration"""
+
+    requires_split = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="requiresSplit")
+
+    matched_table_count = sgqlc.types.Field(Int, graphql_name="matchedTableCount")
+
+    table_limit = sgqlc.types.Field(Int, graphql_name="tableLimit")
+
+    split_monitor_count = sgqlc.types.Field(Int, graphql_name="splitMonitorCount")
+
+    split_parts = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("PiiMonitorSplitPart"))),
+        graphql_name="splitParts",
+    )
 
 
 class CreateScheduledReportMutation(sgqlc.types.Type):
@@ -35140,23 +34899,6 @@ class DirectedGraph(sgqlc.types.Type):
     edges = sgqlc.types.Field(String, graphql_name="edges")
 
 
-class DisableAgentAssistance(sgqlc.types.Type):
-    """Pause agent-created monitors and disable agent pipelines for the
-    domain.  Retry-safe — calling on a never-enabled or non-metadata
-    domain is a no-op. The internal agent user row is kept (preserving
-    ``creator_id`` history on its monitors) but its pipelines are
-    flipped to ``disabled=True``.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("domain",)
-    domain = sgqlc.types.Field(sgqlc.types.non_null("DomainOutput"), graphql_name="domain")
-    """The domain after disable. ``agentAssistant`` may still be non-null
-    with all capabilities reporting ``enabled: false`` — the agent
-    user and internal group remain so re-enabling later is cheap.
-    """
-
-
 class DisableFreshnessTableMonitor(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("uuid",)
@@ -35290,7 +35032,6 @@ class DomainOutput(sgqlc.types.Type):
         "description",
         "created_by_email",
         "domain_tag",
-        "agent_assistant",
         "assignments",
         "excluded_assignments",
         "tags",
@@ -35322,17 +35063,6 @@ class DomainOutput(sgqlc.types.Type):
 
     domain_tag = sgqlc.types.Field(String, graphql_name="domainTag")
     """The domain's tag representation"""
-
-    agent_assistant = sgqlc.types.Field(AgentAssistant, graphql_name="agentAssistant")
-    """Agent assistance attached to this domain. Non-null for any
-    metadata domain that has had ``enableAgentAssistance`` called at
-    least once — the agent user is retained across
-    ``disableAgentAssistance`` to preserve ``creator_id`` history on
-    its monitors. A non-null value with all capabilities reporting
-    ``enabled: false`` indicates assistance is currently disabled. Use
-    the per-capability ``enabled`` flags to determine current
-    activity, not the nullness of this field.
-    """
 
     assignments = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="assignments")
     """Objects assigned to domain (as MCONs)"""
@@ -35741,20 +35471,6 @@ class EmptyDataCollector(sgqlc.types.Type):
     customer_aws_region = sgqlc.types.Field(String, graphql_name="customerAwsRegion")
 
 
-class EnableAgentAssistance(sgqlc.types.Type):
-    """Provision the per-domain agent user + internal group + default
-    pipelines.  Idempotent — re-calling on an already-enabled domain
-    returns the existing agent without creating duplicates. Defaults
-    for the capabilities live in the service module; pass
-    ``configureAgentAssistance`` afterwards to flip them on.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("domain",)
-    domain = sgqlc.types.Field(sgqlc.types.non_null(DomainOutput), graphql_name="domain")
-    """The domain after the agent has been provisioned."""
-
-
 class EnableAutomatedFreshnessTableMonitor(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("uuid",)
@@ -35953,10 +35669,6 @@ class EtlContainer(sgqlc.types.Type):
         "databrickstaskmodel_set",
         "databricksjobrunmodel_set",
         "databrickstaskrunmodel_set",
-        "adfjobmodel_set",
-        "adftaskmodel_set",
-        "adfjobrunmodel_set",
-        "adftaskrunmodel_set",
         "job_count",
         "webhook_status",
         "push_events",
@@ -36214,102 +35926,6 @@ class EtlContainer(sgqlc.types.Type):
     databrickstaskrunmodel_set = sgqlc.types.Field(
         sgqlc.types.non_null(DatabricksTaskRunConnection),
         graphql_name="databrickstaskrunmodelSet",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """ETL container associated with the event
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    adfjobmodel_set = sgqlc.types.Field(
-        sgqlc.types.non_null(AdfJobConnection),
-        graphql_name="adfjobmodelSet",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """ETL container associated with the pipeline
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    adftaskmodel_set = sgqlc.types.Field(
-        sgqlc.types.non_null(AdfTaskConnection),
-        graphql_name="adftaskmodelSet",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """ETL container associated with the pipeline
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    adfjobrunmodel_set = sgqlc.types.Field(
-        sgqlc.types.non_null(AdfJobRunConnection),
-        graphql_name="adfjobrunmodelSet",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """ETL container associated with the event
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    adftaskrunmodel_set = sgqlc.types.Field(
-        sgqlc.types.non_null(AdfTaskRunConnection),
-        graphql_name="adftaskrunmodelSet",
         args=sgqlc.types.ArgDict(
             (
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -38789,6 +38405,7 @@ class FreshnessSLOOutput(sgqlc.types.Type):
         "freshness_threshold",
         "threshold_sensitivity",
         "is_paused",
+        "audience_conditions",
     )
     uuid = sgqlc.types.Field(String, graphql_name="uuid")
 
@@ -38863,6 +38480,16 @@ class FreshnessSLOOutput(sgqlc.types.Type):
     threshold_sensitivity = sgqlc.types.Field(String, graphql_name="thresholdSensitivity")
 
     is_paused = sgqlc.types.Field(Boolean, graphql_name="isPaused")
+
+    audience_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceCondition))),
+        graphql_name="audienceConditions",
+    )
+    """Per-audience triage conditions for this monitor, keyed by audience
+    name so they join to `audiences`. Sparse: an audience absent from
+    this list is notified unconditionally. Empty when the monitor has
+    no conditions at all.
+    """
 
 
 class FreshnessTableMonitorConfigOutput(sgqlc.types.Type):
@@ -43618,6 +43245,7 @@ class MetricOutput(sgqlc.types.Type):
         "sampling_config",
         "alert_grouping",
         "disable_look_back_bootstrap",
+        "audience_conditions",
     )
     uuid = sgqlc.types.Field(String, graphql_name="uuid")
 
@@ -43725,6 +43353,16 @@ class MetricOutput(sgqlc.types.Type):
     disable_look_back_bootstrap = sgqlc.types.Field(
         Boolean, graphql_name="disableLookBackBootstrap"
     )
+
+    audience_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceCondition))),
+        graphql_name="audienceConditions",
+    )
+    """Per-audience triage conditions for this monitor, keyed by audience
+    name so they join to `audiences`. Sparse: an audience absent from
+    this list is notified unconditionally. Empty when the monitor has
+    no conditions at all.
+    """
 
 
 class MetricSampling(sgqlc.types.Type):
@@ -45807,9 +45445,6 @@ class Mutation(sgqlc.types.Type):
         "delete_finding",
         "apply_monitor_findings",
         "apply_monitoring_plan",
-        "enable_agent_assistance",
-        "disable_agent_assistance",
-        "configure_agent_assistance",
         "set_event_detector_feedback",
         "set_event_detector_feedback_by_alert",
         "set_incident_feedback",
@@ -48108,6 +47743,14 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
+                ),
+                (
                     "audiences",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(String)),
@@ -48192,6 +47835,14 @@ class Mutation(sgqlc.types.Type):
       field on an update clears any existing configuration (same as
       samplingConfig).
     * `asset_selection` (`AssetSelectionInput!`)None
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in `audiences`, which stays
+      the monitor's full audience set — a condition narrows when one
+      of them is notified, it does not add one.
     * `audiences` (`[String!]`): The monitor notification audiences
     * `data_quality_dimension` (`String`): Data quality dimension of
       the monitor.
@@ -58831,6 +58482,14 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
                 ),
                 (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
+                ),
+                (
                     "audiences",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(String)),
@@ -58948,6 +58607,14 @@ class Mutation(sgqlc.types.Type):
       The createOrUpdate* mutations are full-state: omitting this
       field on an update clears any existing configuration (same as
       samplingConfig).
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in `audiences`, which stays
+      the monitor's full audience set — a condition narrows when one
+      of them is notified, it does not add one.
     * `audiences` (`[String!]`): The monitor audiences
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
       engine) to use
@@ -60896,6 +60563,14 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
                 ),
                 (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
+                ),
+                (
                     "audiences",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(String)),
@@ -60990,6 +60665,14 @@ class Mutation(sgqlc.types.Type):
       The createOrUpdate* mutations are full-state: omitting this
       field on an update clears any existing configuration (same as
       samplingConfig).
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in `audiences`, which stays
+      the monitor's full audience set — a condition narrows when one
+      of them is notified, it does not add one.
     * `audiences` (`[String!]`): The monitor notification audiences
     * `data_quality_dimension` (`String`): Data quality dimension.
     * `description` (`String!`): Description of monitor
@@ -61048,6 +60731,14 @@ class Mutation(sgqlc.types.Type):
                 (
                     "alert_grouping",
                     sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
                 ),
                 (
                     "audiences",
@@ -61195,6 +60886,14 @@ class Mutation(sgqlc.types.Type):
       The createOrUpdate* mutations are full-state: omitting this
       field on an update clears any existing configuration (same as
       samplingConfig).
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in `audiences`, which stays
+      the monitor's full audience set — a condition narrows when one
+      of them is notified, it does not add one.
     * `audiences` (`[String!]`): The monitor notification audiences
     * `collection_lag_hours` (`Int`): Collection lag in hours (for the
       provided timestamp) (default: `0`)
@@ -61383,6 +61082,14 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
                 ),
                 (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
+                ),
+                (
                     "audiences",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(String)),
@@ -61511,6 +61218,14 @@ class Mutation(sgqlc.types.Type):
       The createOrUpdate* mutations are full-state: omitting this
       field on an update clears any existing configuration (same as
       samplingConfig).
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in `audiences`, which stays
+      the monitor's full audience set — a condition narrows when one
+      of them is notified, it does not add one.
     * `audiences` (`[String!]`): The monitor notification audiences
     * `collection_lag_hours` (`Int`): Collection lag in hours (for the
       provided timestamp). When 0 or omitted, the account-level
@@ -61603,6 +61318,14 @@ class Mutation(sgqlc.types.Type):
                 (
                     "alert_grouping",
                     sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
                 ),
                 (
                     "audiences",
@@ -61743,6 +61466,14 @@ class Mutation(sgqlc.types.Type):
       The createOrUpdate* mutations are full-state: omitting this
       field on an update clears any existing configuration (same as
       samplingConfig).
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in `audiences`, which stays
+      the monitor's full audience set — a condition narrows when one
+      of them is notified, it does not add one.
     * `audiences` (`[String!]`): The monitor notification audiences
     * `collection_lag_hours` (`Int`): Collection lag in hours (for the
       provided timestamp). When 0 or omitted, the account-level
@@ -61808,6 +61539,14 @@ class Mutation(sgqlc.types.Type):
         graphql_name="createOrUpdateJsonSchemaMonitor",
         args=sgqlc.types.ArgDict(
             (
+                (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
+                ),
                 (
                     "audiences",
                     sgqlc.types.Arg(
@@ -61898,6 +61637,14 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in `audiences`, which stays
+      the monitor's full audience set — a condition narrows when one
+      of them is notified, it does not add one.
     * `audiences` (`[String!]`): The monitor notification audiences
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
       engine) to use
@@ -62133,10 +61880,9 @@ class Mutation(sgqlc.types.Type):
         ),
     )
     """(experimental) Runs a one-off, suggest-mode monitoring pass for a
-    metadata domain without the persistent side effects of
-    enableAgentAssistance — no agent user is provisioned, no schedule
-    is enabled, and the domain's agentAssistant stays null for a cold
-    domain. Poll the run via getMonitoringRunForDomain.
+    metadata domain without persistent side effects — no agent user is
+    provisioned and no schedule is enabled for a cold domain. Poll the
+    run via getMonitoringRunForDomain.
 
     Arguments:
 
@@ -62490,93 +62236,6 @@ class Mutation(sgqlc.types.Type):
       the whole request, so nothing is half-applied.
     * `mode` (`MonitorApplyMode!`)None
     * `plan_uuid` (`UUID!`): planUuid of the monitoring plan to apply.
-    """
-
-    enable_agent_assistance = sgqlc.types.Field(
-        EnableAgentAssistance,
-        graphql_name="enableAgentAssistance",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "domain_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Provision a per-domain agent user with default
-    capability cadences. Returns the parent domain — chain
-    ``agentAssistant`` to read the resulting agent state. Idempotent
-    on repeat calls.
-
-    Arguments:
-
-    * `domain_uuid` (`UUID!`): UUID of the metadata domain to enable
-      agent assistance for.
-    """
-
-    disable_agent_assistance = sgqlc.types.Field(
-        DisableAgentAssistance,
-        graphql_name="disableAgentAssistance",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "domain_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Disable agent assistance on a domain — pauses
-    agent-created monitors and disables the agent's pipelines. The
-    agent user row is preserved so creator history on its monitors
-    stays intact. No-op if assistance was never enabled for the
-    domain.
-
-    Arguments:
-
-    * `domain_uuid` (`UUID!`): UUID of the domain to disable agent
-      assistance for.
-    """
-
-    configure_agent_assistance = sgqlc.types.Field(
-        ConfigureAgentAssistance,
-        graphql_name="configureAgentAssistance",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "capabilities",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(AgentCapabilitiesInput),
-                        graphql_name="capabilities",
-                        default=None,
-                    ),
-                ),
-                (
-                    "domain_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Update per-capability enabled-flag, cadence, and
-    credit budget for an agent-assisted domain. Fields omitted from
-    the input are left unchanged. Rejected when assistance has not
-    been enabled.
-
-    Arguments:
-
-    * `capabilities` (`AgentCapabilitiesInput!`): Per-capability patch
-      including optional per-capability credit budget. Fields omitted
-      are left untouched.
-    * `domain_uuid` (`UUID!`): UUID of the agent-assisted metadata
-      domain to configure.
     """
 
     set_event_detector_feedback = sgqlc.types.Field(
@@ -63297,15 +62956,10 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """Create or update an authorization group. Customer-managed groups
-    support full editing. Agent-managed groups (provisioned
-    automatically by Monte Carlo for agent-assisted domains) accept a
-    limited update surface: ``connectionRestrictionIds`` and the
-    cosmetic fields ``label``/``description``/``version``. ``roles``
-    and ``domainRestrictionIds`` on agent-managed groups must be
-    passed with their current values; ``memberUserIds`` and
-    ``ssoGroup`` cannot be set. Creating a new agent-managed group via
-    this mutation is not supported.
+    """Create or update a customer-managed authorization group. Names
+    under the reserved ``mcd-internal/`` prefix belong to Monte
+    Carlo's own provisioning and are rejected, whether creating or
+    updating.
 
     Arguments:
 
@@ -68493,6 +68147,10 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "split_large_selection",
+                    sgqlc.types.Arg(Boolean, graphql_name="splitLargeSelection", default=False),
+                ),
+                (
                     "warehouse_uuid",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
@@ -68553,6 +68211,9 @@ class Mutation(sgqlc.types.Type):
     * `skip_user_defined_warehouse_tags` (`Boolean`): Exclude columns
       with Snowflake user-defined warehouse tags. Defaults to false.
       (default: `false`)
+    * `split_large_selection` (`Boolean`): When true, create multiple
+      PII monitors if the selected scope is larger than the per-
+      monitor table limit. (default: `false`)
     * `warehouse_uuid` (`UUID!`): Warehouse UUID
     """
 
@@ -71694,6 +71355,16 @@ class PiiFilteringPreferencesOutput(sgqlc.types.Type):
     """
 
 
+class PiiMonitorSplitPart(sgqlc.types.Type):
+    """One monitor-sized part of a large PII monitor scope"""
+
+    __schema__ = schema
+    __field_names__ = ("description", "table_count")
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+
+    table_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="tableCount")
+
+
 class PiiScanColumnSummary(sgqlc.types.Type):
     """Server-side aggregate summary for one table column with PII
     findings
@@ -73284,8 +72955,6 @@ class Query(sgqlc.types.Type):
         "get_etl_group_v3",
         "get_etl_groups_v3",
         "get_etl_task_performance_v3",
-        "get_adf_job_runs",
-        "get_adf_task_runs",
         "get_databricks_job_runs",
         "get_databricks_task_runs",
         "get_etl_job",
@@ -78030,68 +77699,6 @@ class Query(sgqlc.types.Type):
     * `paging` (`EtlTaskPerformanceV3PagingInput`): Relay-style cursor
       pagination plus task-summary sort field and direction. Defaults
       to the first 20 by LAST_RUN_START_TIME.
-    """
-
-    get_adf_job_runs = sgqlc.types.Field(
-        AdfJobRunsConnection,
-        graphql_name="getAdfJobRuns",
-        args=sgqlc.types.ArgDict(
-            (
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("job_mcon", sgqlc.types.Arg(String, graphql_name="jobMcon", default=None)),
-                ("table_mcon", sgqlc.types.Arg(String, graphql_name="tableMcon", default=None)),
-                ("from_date", sgqlc.types.Arg(DateTime, graphql_name="fromDate", default=None)),
-                ("to_date", sgqlc.types.Arg(DateTime, graphql_name="toDate", default=None)),
-            )
-        ),
-    )
-    """(experimental) List of runs for a given job
-
-    Arguments:
-
-    * `first` (`Int`): When paging forward: the number of items to
-      return (page size)
-    * `after` (`String`): When paging forward: the cursor of the last
-      item on the previous page of results
-    * `last` (`Int`): When paging backward: the number of items to
-      return (page size)
-    * `before` (`String`): When paging backward: the cursor of the
-      first item on the next page of results
-    * `job_mcon` (`String`): Job MCON to filter by
-    * `table_mcon` (`String`): Table MCON to filter by
-    * `from_date` (`DateTime`): Filter date range start
-    * `to_date` (`DateTime`): Filter date range end
-    """
-
-    get_adf_task_runs = sgqlc.types.Field(
-        sgqlc.types.list_of("AdfTaskRun"),
-        graphql_name="getAdfTaskRuns",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "job_mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="jobMcon", default=None
-                    ),
-                ),
-                (
-                    "job_run_id",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="jobRunId", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) List of runs for a given job
-
-    Arguments:
-
-    * `job_mcon` (`String!`): Job MCON to filter by
-    * `job_run_id` (`String!`): Job Run Id to filter by
     """
 
     get_databricks_job_runs = sgqlc.types.Field(
@@ -99400,10 +99007,9 @@ class RunMonitor(sgqlc.types.Type):
 class RunMonitoringForDomain(sgqlc.types.Type):
     """Run a one-off, suggest-mode monitoring pass for a metadata domain.
     Dispatches the coverage (monitoring) agent for ``domainUuid``
-    without the persistent side effects of ``enableAgentAssistance``:
-    no per-domain agent user or internal group is provisioned, no
-    scheduled pipeline is enabled, and the domain's ``agentAssistant``
-    stays null for a cold (never-assisted) domain. The run always uses
+    without persistent side effects: no per-domain agent user or
+    internal group is provisioned, and no scheduled pipeline is
+    enabled for a cold (never-assisted) domain. The run always uses
     SUGGEST mode — it emits the staged finding tree for the user to
     review and apply, and never deploys monitors live. There is no
     create-mode option; deploying the suggested monitors is a
@@ -99613,6 +99219,7 @@ class SQLRuleOutput(sgqlc.types.Type):
         "query_result_type",
         "sampling_sql",
         "exception_primary_key_column",
+        "audience_conditions",
     )
     uuid = sgqlc.types.Field(String, graphql_name="uuid")
 
@@ -99694,6 +99301,16 @@ class SQLRuleOutput(sgqlc.types.Type):
     exception_primary_key_column = sgqlc.types.Field(
         String, graphql_name="exceptionPrimaryKeyColumn"
     )
+
+    audience_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceCondition))),
+        graphql_name="audienceConditions",
+    )
+    """Per-audience triage conditions for this monitor, keyed by audience
+    name so they join to `audiences`. Sparse: an audience absent from
+    this list is notified unconditionally. Empty when the monitor has
+    no conditions at all.
+    """
 
 
 class SamlIdentityProvider(sgqlc.types.Type):
@@ -103326,6 +102943,7 @@ class TableMonitorOutput(sgqlc.types.Type):
         "enable_row_count_collection",
         "enable_row_count_collection_limit",
         "sensitivity",
+        "audience_conditions",
     )
     uuid = sgqlc.types.Field(String, graphql_name="uuid")
 
@@ -103384,6 +103002,16 @@ class TableMonitorOutput(sgqlc.types.Type):
     )
 
     sensitivity = sgqlc.types.Field(String, graphql_name="sensitivity")
+
+    audience_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceCondition))),
+        graphql_name="audienceConditions",
+    )
+    """Per-audience triage conditions for this monitor, keyed by audience
+    name so they join to `audiences`. Sparse: an audience absent from
+    this list is notified unconditionally. Empty when the monitor has
+    no conditions at all.
+    """
 
 
 class TableMonitorStatus(sgqlc.types.Type):
@@ -106081,6 +105709,7 @@ class TriageAutomationConfigOutput(sgqlc.types.Type):
         "tsa_automation_threshold",
         "max_automated_triage_runs_per_day",
         "max_automated_triage_runs_per_month",
+        "triage_notification_deadline_minutes",
         "domain_configs",
     )
     triage_enabled_default = sgqlc.types.Field(
@@ -106118,6 +105747,16 @@ class TriageAutomationConfigOutput(sgqlc.types.Type):
     monthly limit. When set, triage pauses for the rest of the UTC
     month once the limit is reached; resets at the start of the UTC
     month. The primary customer-facing volume control.
+    """
+
+    triage_notification_deadline_minutes = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="triageNotificationDeadlineMinutes"
+    )
+    """How many minutes an alert's triage-conditional audiences wait on a
+    triage score before being evaluated against NOT_TRIAGED. Bounds
+    notification latency: past this window the alert notifies whoever
+    the current priority routes to. The value in force for the
+    account, whether configured or the built-in default.
     """
 
     domain_configs = sgqlc.types.Field(
@@ -108505,6 +108144,7 @@ class ValidationOutput(sgqlc.types.Type):
         "time_filter",
         "filters",
         "time_filter_sql_expression",
+        "audience_conditions",
     )
     uuid = sgqlc.types.Field(String, graphql_name="uuid")
 
@@ -108587,6 +108227,16 @@ class ValidationOutput(sgqlc.types.Type):
     filters = sgqlc.types.Field("FilterGroup", graphql_name="filters")
 
     time_filter_sql_expression = sgqlc.types.Field(String, graphql_name="timeFilterSqlExpression")
+
+    audience_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceCondition))),
+        graphql_name="audienceConditions",
+    )
+    """Per-audience triage conditions for this monitor, keyed by audience
+    name so they join to `audiences`. Sparse: an audience absent from
+    this list is notified unconditionally. Empty when the monitor has
+    no conditions at all.
+    """
 
 
 class VariableDefinition(sgqlc.types.Type):
@@ -108827,6 +108477,7 @@ class VolumeSLOOutput(sgqlc.types.Type):
         "alert_conditions",
         "volume_metric",
         "override",
+        "audience_conditions",
     )
     uuid = sgqlc.types.Field(String, graphql_name="uuid")
 
@@ -108904,6 +108555,16 @@ class VolumeSLOOutput(sgqlc.types.Type):
     volume_metric = sgqlc.types.Field(String, graphql_name="volumeMetric")
 
     override = sgqlc.types.Field(Boolean, graphql_name="override")
+
+    audience_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceCondition))),
+        graphql_name="audienceConditions",
+    )
+    """Per-audience triage conditions for this monitor, keyed by audience
+    name so they join to `audiences`. Sparse: an audience absent from
+    this list is notified unconditionally. Empty when the monitor has
+    no conditions at all.
+    """
 
 
 class Warehouse(sgqlc.types.Type):
@@ -109697,319 +109358,6 @@ class WildcardTemplates(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("templates",)
     templates = sgqlc.types.Field(sgqlc.types.list_of(WildcardTemplate), graphql_name="templates")
-
-
-class AdfJob(sgqlc.types.Type, Node):
-    __schema__ = schema
-    __field_names__ = (
-        "account",
-        "generates_incidents",
-        "created_time",
-        "updated_time",
-        "uuid",
-        "resource",
-        "mcon",
-        "job_id",
-        "job_name",
-        "job_description",
-        "job_folder",
-        "last_run_date",
-        "last_webhook_received",
-        "runs",
-        "etl_type",
-        "source_tables",
-        "dest_tables",
-        "recent_run_count",
-        "generates_alerts",
-        "tasks",
-        "job_url",
-        "webhook_status",
-    )
-    account = sgqlc.types.Field(sgqlc.types.non_null(Account), graphql_name="account")
-
-    generates_incidents = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="generatesIncidents"
-    )
-
-    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
-
-    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
-
-    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
-    """UUID of Run"""
-
-    resource = sgqlc.types.Field(sgqlc.types.non_null(EtlContainer), graphql_name="resource")
-    """ETL container associated with the pipeline"""
-
-    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
-
-    job_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobId")
-    """Job ID"""
-
-    job_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobName")
-    """Job Name"""
-
-    job_description = sgqlc.types.Field(String, graphql_name="jobDescription")
-    """Job Description"""
-
-    job_folder = sgqlc.types.Field(String, graphql_name="jobFolder")
-    """Job Folder"""
-
-    last_run_date = sgqlc.types.Field(DateTime, graphql_name="lastRunDate")
-    """The date of the last run"""
-
-    last_webhook_received = sgqlc.types.Field(DateTime, graphql_name="lastWebhookReceived")
-    """Timestamp of the last webhook event received for this job"""
-
-    runs = sgqlc.types.Field(
-        sgqlc.types.non_null(AdfJobRunConnection),
-        graphql_name="runs",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """Job associated with the run
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-    etl_type = sgqlc.types.Field(sgqlc.types.non_null(EtlType), graphql_name="etlType")
-    """Etl type of the job"""
-
-    source_tables = sgqlc.types.Field(
-        sgqlc.types.list_of("WarehouseTable"), graphql_name="sourceTables"
-    )
-    """Tables read from in this job"""
-
-    dest_tables = sgqlc.types.Field(
-        sgqlc.types.list_of("WarehouseTable"), graphql_name="destTables"
-    )
-    """Tables modified in this job"""
-
-    recent_run_count = sgqlc.types.Field(Int, graphql_name="recentRunCount")
-    """Number of runs of this job within the last 30 days"""
-
-    generates_alerts = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="generatesAlerts"
-    )
-    """Whether this job generates alerts when it fails"""
-
-    tasks = sgqlc.types.Field(sgqlc.types.list_of("AdfTask"), graphql_name="tasks")
-    """Tasks in this job"""
-
-    job_url = sgqlc.types.Field(String, graphql_name="jobUrl")
-    """Url of the job page in the original ADF environment"""
-
-    webhook_status = sgqlc.types.Field(WebhookStatus, graphql_name="webhookStatus")
-    """Webhook status info for this job"""
-
-
-class AdfJobRun(sgqlc.types.Type, Node):
-    __schema__ = schema
-    __field_names__ = (
-        "created_time",
-        "updated_time",
-        "uuid",
-        "resource",
-        "success",
-        "job_id",
-        "run_id",
-        "started_at",
-        "finished_at",
-        "message",
-        "duration",
-        "status",
-        "associated_job",
-        "run_url",
-    )
-    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
-
-    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
-
-    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
-    """UUID of Run"""
-
-    resource = sgqlc.types.Field(sgqlc.types.non_null(EtlContainer), graphql_name="resource")
-    """ETL container associated with the event"""
-
-    success = sgqlc.types.Field(Boolean, graphql_name="success")
-    """run was successful or not"""
-
-    job_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobId")
-    """Job ID"""
-
-    run_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="runId")
-    """Run ID"""
-
-    started_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startedAt")
-    """Time the run started"""
-
-    finished_at = sgqlc.types.Field(DateTime, graphql_name="finishedAt")
-    """Time the run ended"""
-
-    message = sgqlc.types.Field(String, graphql_name="message")
-    """Error message for the run"""
-
-    duration = sgqlc.types.Field(Float, graphql_name="duration")
-    """Duration of the run in seconds"""
-
-    status = sgqlc.types.Field(sgqlc.types.non_null(AdfJobRunModelStatus), graphql_name="status")
-    """Status of the run"""
-
-    associated_job = sgqlc.types.Field(AdfJob, graphql_name="associatedJob")
-    """Job associated with the run"""
-
-    run_url = sgqlc.types.Field(String, graphql_name="runUrl")
-    """Url of the run page in the original ADF environment"""
-
-
-class AdfTask(sgqlc.types.Type, Node):
-    __schema__ = schema
-    __field_names__ = (
-        "account",
-        "created_time",
-        "updated_time",
-        "uuid",
-        "resource",
-        "mcon",
-        "adf_job_id",
-        "task_id",
-        "task_name",
-        "task_type",
-        "runs",
-    )
-    account = sgqlc.types.Field(sgqlc.types.non_null(Account), graphql_name="account")
-
-    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
-
-    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
-
-    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
-    """UUID of Run"""
-
-    resource = sgqlc.types.Field(sgqlc.types.non_null(EtlContainer), graphql_name="resource")
-    """ETL container associated with the pipeline"""
-
-    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
-
-    adf_job_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="adfJobId")
-    """Job ID"""
-
-    task_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="taskId")
-    """Task ID"""
-
-    task_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="taskName")
-    """Task Name"""
-
-    task_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="taskType")
-    """Task Type"""
-
-    runs = sgqlc.types.Field(
-        sgqlc.types.non_null(AdfTaskRunConnection),
-        graphql_name="runs",
-        args=sgqlc.types.ArgDict(
-            (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """Task associated with the run
-
-    Arguments:
-
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-
-class AdfTaskRun(sgqlc.types.Type, Node):
-    __schema__ = schema
-    __field_names__ = (
-        "created_time",
-        "updated_time",
-        "uuid",
-        "resource",
-        "success",
-        "job_id",
-        "run_id",
-        "started_at",
-        "finished_at",
-        "message",
-        "duration",
-        "status",
-        "job_run_id",
-        "task_id",
-        "associated_task",
-        "task_mcon",
-        "job_mcon",
-    )
-    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
-
-    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
-
-    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
-    """UUID of Run"""
-
-    resource = sgqlc.types.Field(sgqlc.types.non_null(EtlContainer), graphql_name="resource")
-    """ETL container associated with the event"""
-
-    success = sgqlc.types.Field(Boolean, graphql_name="success")
-    """run was successful or not"""
-
-    job_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobId")
-    """Job ID"""
-
-    run_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="runId")
-    """Run ID"""
-
-    started_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startedAt")
-    """Time the run started"""
-
-    finished_at = sgqlc.types.Field(DateTime, graphql_name="finishedAt")
-    """Time the run ended"""
-
-    message = sgqlc.types.Field(String, graphql_name="message")
-    """Error message for the run"""
-
-    duration = sgqlc.types.Field(Float, graphql_name="duration")
-    """Duration of the run in seconds"""
-
-    status = sgqlc.types.Field(sgqlc.types.non_null(AdfTaskRunModelStatus), graphql_name="status")
-    """Status of the run"""
-
-    job_run_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="jobRunId")
-    """Job Run ID"""
-
-    task_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="taskId")
-    """Task ID"""
-
-    associated_task = sgqlc.types.Field(AdfTask, graphql_name="associatedTask")
-    """Task associated with the run"""
-
-    task_mcon = sgqlc.types.Field(String, graphql_name="taskMcon")
-    """MCON of Task for provided task_id"""
-
-    job_mcon = sgqlc.types.Field(String, graphql_name="jobMcon")
-    """MCON of Job for provided job_id"""
 
 
 class AgentTraceTable(sgqlc.types.Type, Node):
@@ -113173,6 +112521,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "notification_settings",
         "is_snoozed",
         "migrated_to_uuid",
+        "audience_conditions",
         "field_metric",
         "field_query_parameters",
         "query_template_id",
@@ -113469,6 +112818,16 @@ class CustomRule(sgqlc.types.Type, Node):
 
     migrated_to_uuid = sgqlc.types.Field(UUID, graphql_name="migratedToUuid")
     """UUID of the rule this was migrated to, if applicable"""
+
+    audience_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceCondition))),
+        graphql_name="audienceConditions",
+    )
+    """Per-audience triage conditions for this monitor, keyed by audience
+    name so they join to `audiences`. Sparse: an audience absent from
+    this list is notified unconditionally. Empty when the monitor has
+    no conditions at all.
+    """
 
     field_metric = sgqlc.types.Field(FieldMetricOutput, graphql_name="fieldMetric")
     """Field quality rule parameters (if query generated by
@@ -115627,7 +114986,6 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
         "excluded_tags",
         "assignments_with_properties",
         "excluded_assignments_with_properties",
-        "agent_assistant",
         "effective_triage_enabled",
         "triage_enabled_override",
         "tsa_threshold_override",
@@ -115689,17 +115047,6 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
         graphql_name="excludedAssignmentsWithProperties",
     )
     """Objects excluded from domains and their properties"""
-
-    agent_assistant = sgqlc.types.Field(AgentAssistant, graphql_name="agentAssistant")
-    """Agent assistance attached to this domain. Non-null for any
-    metadata domain that has had ``enableAgentAssistance`` called at
-    least once — the agent user is retained across
-    ``disableAgentAssistance`` to preserve ``creator_id`` history on
-    its monitors. A non-null value with all capabilities reporting
-    ``enabled: false`` indicates assistance is currently disabled. Use
-    the per-capability ``enabled`` flags to determine current
-    activity, not the nullness of this field.
-    """
 
     effective_triage_enabled = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="effectiveTriageEnabled"
@@ -115811,9 +115158,14 @@ class DomainRestriction(sgqlc.types.Type, Node):
     include_all_assets = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="includeAllAssets"
     )
-    """When true, this domain logically includes every asset in the
-    account without enumerating assignments or tags. Used by agentic
-    domains.
+    """When true, the domain covers every asset in the account without
+    enumerating assignments or tags, and domain filters short-circuit
+    to no restriction at all — an authorization fast path. Monitor and
+    alert joins are the exception: membership there needs an explicit
+    assignment row, so covering every asset does not imply covering
+    every monitor. Written by createAgenticDomain when no source
+    domain is given. Deprecated for new use; prefer explicit
+    assignments.
     """
 
     description = sgqlc.types.Field(String, graphql_name="description")
@@ -117664,6 +117016,7 @@ class Monitor(
     __schema__ = schema
     __field_names__ = (
         "alert_grouping",
+        "audience_conditions",
         "supports_sensitivity_update",
         "supports_monitors_as_code",
         "is_tunable",
@@ -117676,6 +117029,16 @@ class Monitor(
     alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
     """Per-monitor alert grouping configuration (null = legacy per-type
     grouping).
+    """
+
+    audience_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceCondition))),
+        graphql_name="audienceConditions",
+    )
+    """Per-audience triage conditions for this monitor, keyed by audience
+    name so they join to `audiences`. Sparse: an audience absent from
+    this list is notified unconditionally. Empty when the monitor has
+    no conditions at all.
     """
 
     supports_sensitivity_update = sgqlc.types.Field(
@@ -118535,6 +117898,7 @@ class TableMonitor(sgqlc.types.Type, Node):
         "sensitivity",
         "asset_selection",
         "audiences",
+        "audience_conditions",
         "failure_audiences",
         "alert_conditions",
         "tags",
@@ -118625,6 +117989,16 @@ class TableMonitor(sgqlc.types.Type, Node):
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
     )
     """Monitor audiences"""
+
+    audience_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceCondition))),
+        graphql_name="audienceConditions",
+    )
+    """Per-audience triage conditions for this monitor, keyed by audience
+    name so they join to `audiences`. Sparse: an audience absent from
+    this list is notified unconditionally. Empty when the monitor has
+    no conditions at all.
+    """
 
     failure_audiences = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
@@ -121812,12 +121186,12 @@ class WidgetOptionsText(sgqlc.types.Type, WidgetOptionsInterface):
 ########################################################################
 class ETLJobUnionType(sgqlc.types.Union):
     __schema__ = schema
-    __types__ = (AirflowDag, DatabricksJob, AdfJob, DbtJob)
+    __types__ = (AirflowDag, DatabricksJob, DbtJob)
 
 
 class ETLTaskUnionType(sgqlc.types.Union):
     __schema__ = schema
-    __types__ = (AirflowTask, DatabricksTask, AdfTask)
+    __types__ = (AirflowTask, DatabricksTask)
 
 
 class ExceptionMetadataRowValue(sgqlc.types.Union):

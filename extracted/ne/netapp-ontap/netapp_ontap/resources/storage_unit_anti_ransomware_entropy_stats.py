@@ -32,38 +32,38 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     StorageUnitAntiRansomwareEntropyStats(
         {
+            "entropy_stats_type": "sub_hourly",
+            "data_written_in_bytes": 13249687,
+            "storage_unit": {
+                "uuid": "61edb8bb-b7d1-11ef-932d-005056bbaeff",
+                "name": "lun1",
+            },
+            "timestamp": "2024-12-13T03:36:24-05:00",
+            "duration": "PT10M21S",
             "_links": {
                 "self": {
                     "href": "/api/security/anti-ransomware/storage-unit/entropy-stats/61edb8bb-b7d1-11ef-932d-005056bbaeff/sub_hourly/2024-12-13T03%3A36%3A24-05%3A00"
                 }
             },
-            "entropy_stats_type": "sub_hourly",
-            "data_written_in_bytes": 13249687,
             "encryption_percentage": 51,
-            "timestamp": "2024-12-13T03:36:24-05:00",
-            "storage_unit": {
-                "name": "lun1",
-                "uuid": "61edb8bb-b7d1-11ef-932d-005056bbaeff",
-            },
-            "duration": "PT10M21S",
         }
     ),
     StorageUnitAntiRansomwareEntropyStats(
         {
+            "entropy_stats_type": "hourly",
+            "data_written_in_bytes": 13249687,
+            "storage_unit": {
+                "uuid": "61edb8bb-b7d1-11ef-932d-005056bbaeff",
+                "name": "lun2",
+            },
+            "timestamp": "2024-12-13T04:16:06-05:00",
+            "duration": "PT10M21S",
             "_links": {
                 "self": {
                     "href": "/api/security/anti-ransomware/storage-unit/entropy-stats/61edb8bb-b7d1-11ef-932d-005056bbaeff/hourly/2024-12-13T04%3A16%3A06-05%3A00"
                 }
             },
-            "entropy_stats_type": "hourly",
-            "data_written_in_bytes": 13249687,
             "encryption_percentage": 51,
-            "timestamp": "2024-12-13T04:16:06-05:00",
-            "storage_unit": {
-                "name": "lun2",
-                "uuid": "61edb8bb-b7d1-11ef-932d-005056bbaeff",
-            },
-            "duration": "PT10M21S",
         }
     ),
 ]

@@ -26,36 +26,36 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SecurityCertificate(
         {
+            "uuid": "dad2363b-8ac0-11e8-9058-005056b482fc",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/dad2363b-8ac0-11e8-9058-005056b482fc"
                 }
             },
             "common_name": "vs0",
-            "uuid": "dad2363b-8ac0-11e8-9058-005056b482fc",
             "svm": {"name": "vs0"},
         }
     ),
     SecurityCertificate(
         {
+            "uuid": "1941e048-8ac1-11e8-9058-005056b482fc",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/1941e048-8ac1-11e8-9058-005056b482fc"
                 }
             },
             "common_name": "ROOT",
-            "uuid": "1941e048-8ac1-11e8-9058-005056b482fc",
         }
     ),
     SecurityCertificate(
         {
+            "uuid": "5a3a77a8-892d-11e8-b7da-005056b482fc",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/5a3a77a8-892d-11e8-b7da-005056b482fc"
                 }
             },
             "common_name": "cert_name",
-            "uuid": "5a3a77a8-892d-11e8-b7da-005056b482fc",
         }
     ),
 ]
@@ -85,26 +85,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SecurityCertificate(
         {
+            "uuid": "1941e048-8ac1-11e8-9058-005056b482fc",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/1941e048-8ac1-11e8-9058-005056b482fc"
                 }
             },
-            "common_name": "ROOT",
-            "uuid": "1941e048-8ac1-11e8-9058-005056b482fc",
             "scope": "cluster",
+            "common_name": "ROOT",
         }
     ),
     SecurityCertificate(
         {
+            "uuid": "5a3a77a8-892d-11e8-b7da-005056b482fc",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/5a3a77a8-892d-11e8-b7da-005056b482fc"
                 }
             },
-            "common_name": "cert_name",
-            "uuid": "5a3a77a8-892d-11e8-b7da-005056b482fc",
             "scope": "cluster",
+            "common_name": "cert_name",
         }
     ),
 ]
@@ -138,13 +138,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SecurityCertificate(
         {
+            "uuid": "dad2363b-8ac0-11e8-9058-005056b482fc",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/dad2363b-8ac0-11e8-9058-005056b482fc"
                 }
             },
             "common_name": "vs0",
-            "uuid": "dad2363b-8ac0-11e8-9058-005056b482fc",
             "svm": {"name": "vs0"},
         }
     )
@@ -175,21 +175,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 SecurityCertificate(
     {
         "serial_number": "15428D45CF81CF56",
+        "uuid": "dad2363b-8ac0-11e8-9058-005056b482fc",
         "key_size": 2048,
+        "hash_function": "sha256",
         "_links": {
             "self": {
                 "href": "/api/security/certificates/dad2363b-8ac0-11e8-9058-005056b482fc"
             }
         },
-        "expiry_time": "2019-07-18T15:29:14-04:00",
-        "common_name": "vs0",
-        "hash_function": "sha256",
-        "uuid": "dad2363b-8ac0-11e8-9058-005056b482fc",
-        "type": "server",
-        "ca": "vs0",
         "public_certificate": "<CERTIFICATE-CONTENT>",
         "scope": "svm",
-        "svm": {"name": "vs0", "uuid": "d817293c-8ac0-11e8-9058-005056b482fc"},
+        "type": "server",
+        "common_name": "vs0",
+        "expiry_time": "2019-07-18T15:29:14-04:00",
+        "ca": "vs0",
+        "svm": {"uuid": "d817293c-8ac0-11e8-9058-005056b482fc", "name": "vs0"},
     }
 )
 
@@ -372,7 +372,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example12_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example12_result" class="try_it_out_content">
 ```
-SecurityCertificate({"common_name": "TEST-ROOT-CA", "type": "root_ca"})
+SecurityCertificate({"type": "root_ca", "common_name": "TEST-ROOT-CA"})
 
 ```
 </div>

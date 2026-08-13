@@ -17,12 +17,11 @@ from ..functions import Function
 from ..image import Image
 from ..mount import _Mount
 from ..runner import interactive_shell
-from ..sandbox import _MAIN_CONTAINER_NAME, Sandbox, _is_v2_sandbox_id
+from ..sandbox import _MAIN_CONTAINER_NAME, Sandbox, SandboxVersion, _container_exec, _get_sandbox_version
 from ..secret import Secret
 from ..stream_type import StreamType
 from ..volume import Volume
 from ._help import ModalCommand
-from .container import _exec_impl
 from .import_refs import (
     MethodReference,
     import_and_filter,
@@ -115,7 +114,7 @@ def _start_shell_in_sidecar_container(sandbox_id: str, container_name: str, cmd:
         if pty:
             # PTY output is raw terminal bytes, not text; strict UTF-8 decode
             # crashes on the first non-UTF-8 byte (e.g. vim drawing a Latin-1
-            # file under LC_CTYPE=C). See the matching call in `_exec_impl`.
+            # file under LC_CTYPE=C). See the matching call in `_container_exec`.
             process = sandbox_container.exec(*shlex.split(cmd), pty=True, text=False)
             process.attach()
         else:
@@ -135,7 +134,7 @@ def _start_shell_in_running_container(ref: str, cmd: str, pty: bool) -> None:
     if container_name is not None and container_name != _MAIN_CONTAINER_NAME:
         return _start_shell_in_sidecar_container(sandbox_id, container_name, cmd, pty)
 
-    object_id_for_v2: str | None = None
+    sandbox_id_v2: str | None = None
 
     if _is_valid_modal_id(sandbox_id, "sb-"):
         try:
@@ -145,12 +144,12 @@ def _start_shell_in_running_container(ref: str, cmd: str, pty: bool) -> None:
             raise ClickException(f"Sandbox '{sandbox_id}' not found (is it still running?)")
         except Exception as e:
             raise ClickException(f"Error connecting to Sandbox '{sandbox_id}': {str(e)}")
-        if _is_v2_sandbox_id(sandbox_id):
-            object_id_for_v2 = sandbox_id
+        if _get_sandbox_version(sandbox_id) == SandboxVersion.V2:
+            sandbox_id_v2 = sandbox_id
 
     assert _is_valid_modal_id(ref, "ta-")
     try:
-        _ = _exec_impl(container_id=ref, command=tuple(shlex.split(cmd)), pty=pty, object_id_for_v2=object_id_for_v2)
+        _container_exec(pty, container_id=ref, command=tuple(shlex.split(cmd)), sandbox_id_v2=sandbox_id_v2)
     except NotFoundError:
         raise ClickException(f"Container '{ref}' not found (is it still running?)")
     except Exception as e:

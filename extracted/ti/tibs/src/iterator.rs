@@ -1,7 +1,8 @@
 use crate::core::BitCollection;
-use crate::enums::{ByteOrder, DtypeKind};
+use crate::dtype::Dtype;
 use crate::helpers;
-use crate::tibs_::{Tibs, py_from_value_parts};
+use crate::helpers::MaskedMatcher;
+use crate::tibs_::{Tibs, prepare_mask, py_from_value};
 use memchr::memmem;
 use pyo3::prelude::*;
 
@@ -37,7 +38,6 @@ impl BoolIterator {
 #[pyclass]
 pub struct FindAllIterator {
     pub haystack: Py<Tibs>, // Py<T> keeps the Python object alive
-    pub haystack_len: usize,
     pub search_needle: Tibs,
     pub start: usize,
     pub end: usize,
@@ -50,6 +50,9 @@ pub struct FindAllIterator {
     pub byte_needle: Option<Vec<u8>>,
     pub byte_base: usize,
     pub byte_current: usize,
+    /// Prepared once when searching with a mask, in place of the lps and the
+    /// byte search, neither of which can cope with don't-care bits.
+    pub(crate) matcher: Option<MaskedMatcher>,
 }
 
 impl FindAllIterator {
@@ -59,6 +62,7 @@ impl FindAllIterator {
         start: Option<isize>,
         end: Option<isize>,
         byte_aligned: bool,
+        mask: Option<Tibs>,
         is_reverse: bool,
     ) -> PyResult<Py<Self>> {
         if needle.is_empty() {
@@ -66,11 +70,34 @@ impl FindAllIterator {
                 "No bits were provided to find.",
             ));
         }
+        let mask = prepare_mask(mask, needle.len())?;
 
         let (start, end) = helpers::validate_slice(slf.len(), start, end)?;
-        let haystack_len = slf.len();
         let step = if byte_aligned { 8 } else { 1 };
         let alignment_mod8 = if byte_aligned { Some(0) } else { None };
+        let py = slf.py();
+
+        if let Some(mask) = mask {
+            let matcher = MaskedMatcher::new(needle.as_bitslice(), mask.as_bitslice(), is_reverse);
+            let iter_obj = Self {
+                haystack: slf.into(),
+                search_needle: needle,
+                lps: Vec::new(),
+                start,
+                end,
+                byte_aligned,
+                step,
+                current_pos: if is_reverse { end } else { start },
+                is_reverse,
+                byte_haystack: None,
+                byte_needle: None,
+                byte_base: 0,
+                byte_current: 0,
+                matcher: Some(matcher),
+            };
+            return Py::new(py, iter_obj);
+        }
+
         let (byte_haystack, byte_needle, byte_base) = helpers::byte_search_prep(
             slf.as_bitslice(),
             needle.as_bitslice(),
@@ -82,7 +109,6 @@ impl FindAllIterator {
             (Some(haystack.into_owned()), Some(needle.into_owned()), base)
         });
 
-        let py = slf.py();
         let using_byte_search = byte_haystack.is_some();
         let using_small_search = needle.len() <= 64;
         let (search_needle, lps) = if using_byte_search {
@@ -96,16 +122,13 @@ impl FindAllIterator {
                 helpers::compute_lps(py, reversed_needle.as_bitslice())?
             };
             (reversed_needle, lps)
-        } else if using_small_search {
-            (needle, Vec::new())
         } else {
-            let lps = helpers::compute_lps(py, needle.as_bitslice())?;
-            (needle, lps)
+            // Only the reverse path falls back to KMP, so only it needs a table.
+            (needle, Vec::new())
         };
 
         let iter_obj = Self {
             haystack: slf.into(),
-            haystack_len,
             search_needle,
             lps,
             start,
@@ -118,6 +141,7 @@ impl FindAllIterator {
             byte_needle,
             byte_base,
             byte_current: if is_reverse { end / 8 - byte_base } else { 0 },
+            matcher: None,
         };
         Py::new(py, iter_obj)
     }
@@ -134,7 +158,6 @@ impl FindAllIterator {
         if needle_len == 0 {
             return Ok(None);
         }
-        let haystack_len = slf.haystack_len;
         if let (Some(byte_haystack), Some(byte_needle)) = (&slf.byte_haystack, &slf.byte_needle) {
             let found = if slf.is_reverse {
                 if slf.byte_current == 0 {
@@ -173,11 +196,37 @@ impl FindAllIterator {
         // The immutable borrows of slf (to access slf.haystack and slf.search_needle)
         // will end when this block finishes.
         let find_result = {
+            // Infallible: the haystack is a frozen Tibs. See the note in
+            // `Reader::source_len` for the cases that do need `try_borrow`.
             let haystack_rs = slf.haystack.borrow(py);
             let lps = &slf.lps;
             let alignment_mod8 = if byte_aligned { Some(0) } else { None };
 
-            if slf.is_reverse {
+            if let Some(matcher) = &slf.matcher {
+                if slf.is_reverse {
+                    if current_pos <= slf.start || current_pos > slf.end {
+                        return Ok(None);
+                    }
+                    matcher.find(
+                        py,
+                        haystack_rs.as_bitslice(),
+                        slf.start,
+                        current_pos,
+                        alignment_mod8,
+                    )?
+                } else {
+                    if slf.end.saturating_sub(current_pos) < needle_len {
+                        return Ok(None);
+                    }
+                    matcher.find(
+                        py,
+                        haystack_rs.as_bitslice(),
+                        current_pos,
+                        slf.end,
+                        alignment_mod8,
+                    )?
+                }
+            } else if slf.is_reverse {
                 if current_pos <= slf.start || current_pos > slf.end {
                     return Ok(None);
                 }
@@ -191,16 +240,15 @@ impl FindAllIterator {
                     alignment_mod8,
                 )?
             } else {
-                if current_pos >= haystack_len
-                    || haystack_len.saturating_sub(current_pos) < needle_len
-                {
+                // A byte-aligned step can push current_pos past `end`, so the
+                // bound must be checked against `end`, not the haystack length.
+                if slf.end.saturating_sub(current_pos) < needle_len {
                     return Ok(None); // No space left for the needle or already past the end
                 }
-                helpers::find_bitvec_with_lps_aligned(
+                helpers::find_bitvec_aligned(
                     py,
                     haystack_rs.as_bitslice(),
                     slf.search_needle.as_bitslice(),
-                    lps,
                     current_pos,
                     slf.end,
                     alignment_mod8,
@@ -240,17 +288,17 @@ impl ChunksIterator {
         slf
     }
 
-    fn __next__(mut slf: PyRefMut<'_, Self>) -> PyResult<Option<Tibs>> {
+    fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<Tibs> {
         if slf.chunks_generated >= slf.max_chunks {
-            return Ok(None);
+            return None;
         }
 
         if slf.is_reverse {
             if slf.current_pos == 0 {
-                return Ok(None);
+                return None;
             }
         } else if slf.current_pos >= slf.bits_len {
-            return Ok(None);
+            return None;
         }
 
         let take = if slf.is_reverse {
@@ -266,6 +314,7 @@ impl ChunksIterator {
 
         // Create a cheap slice without copying the underlying data.
         let chunk_bits = {
+            // Infallible: a frozen Tibs has no borrow flag to contend for.
             let bits = slf.bits_object.borrow(slf.py());
             bits.get_slice_unchecked(start, take)
         };
@@ -276,19 +325,46 @@ impl ChunksIterator {
         }
         slf.chunks_generated += 1;
 
-        Ok(Some(chunk_bits))
+        Some(chunk_bits)
     }
 }
 
 #[pyclass]
 pub struct ValuesIterator {
     pub(crate) bits_object: Py<Tibs>,
-    pub(crate) dtype_kind: DtypeKind,
-    pub(crate) dtype_length: usize,
-    pub(crate) byte_order: ByteOrder,
+    pub(crate) dtype: Dtype,
     pub(crate) chunk_size: usize,
     pub(crate) current_pos: usize,
     pub(crate) end_pos: usize,
+}
+
+impl ValuesIterator {
+    pub(crate) fn new(
+        py: Python<'_>,
+        bits_object: Py<Tibs>,
+        dtype: Dtype,
+        start: usize,
+        end: usize,
+    ) -> PyResult<Py<Self>> {
+        let selected_len = end - start;
+        let chunk_size = dtype.length;
+        if !selected_len.is_multiple_of(chunk_size) {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Cannot create values iterator - selected length of {selected_len} bits is not a multiple of dtype length {} bits.",
+                dtype.length
+            )));
+        }
+        Py::new(
+            py,
+            Self {
+                bits_object,
+                dtype,
+                chunk_size,
+                current_pos: start,
+                end_pos: end,
+            },
+        )
+    }
 }
 
 #[pymethods]
@@ -303,11 +379,12 @@ impl ValuesIterator {
         }
 
         let value = {
+            // Infallible: a frozen Tibs has no borrow flag to contend for.
             let bits = slf.bits_object.borrow(py);
             bits.get_slice_unchecked(slf.current_pos, slf.chunk_size)
         };
         slf.current_pos += slf.chunk_size;
 
-        py_from_value_parts(py, slf.dtype_kind, slf.dtype_length, slf.byte_order, &value).map(Some)
+        py_from_value(py, &slf.dtype, &value).map(Some)
     }
 }

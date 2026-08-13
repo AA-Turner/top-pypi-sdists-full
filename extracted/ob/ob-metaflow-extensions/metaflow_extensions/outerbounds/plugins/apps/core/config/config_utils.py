@@ -272,8 +272,10 @@ class ConfigField:
         CLIOption instance defining CLI option generation parameters.
     field_type : type, optional
         Expected type of the field value (used for validation and nesting).
-    required : bool, optional
-        Whether the field must have a non-None value after configuration.
+    required : bool or Callable[[Any], bool], optional
+        Whether the field must have a non-None value after configuration. Can be a
+        callable that receives the config instance holding the field, for fields whose
+        requirement depends on the rest of the config.
     help : str, optional
         Help text describing the field's purpose.
     behavior : str, optional
@@ -636,8 +638,14 @@ class MergingNotAllowedFieldsException(ConfigValidationFailedException):
 
 def validate_required_fields(config_instance):
     for field_name, field_info in config_instance._fields.items():
-        if field_info.required:
-            current_value = getattr(config_instance, field_name, None)
+        current_value = getattr(config_instance, field_name, None)
+        required = field_info.required
+        # `required` can be a callable when whether a field is required depends on
+        # the rest of the config. It is called with the config instance the field
+        # belongs to.
+        if callable(required):
+            required = required(config_instance)
+        if required:
             if current_value is None:
                 raise RequiredFieldMissingException(
                     field_name, field_info, current_value

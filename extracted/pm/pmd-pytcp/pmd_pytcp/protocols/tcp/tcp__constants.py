@@ -72,10 +72,46 @@ TCP__RETRANSMIT__MAX_COUNT = 6
 # conservative 30 s MSL.
 TCP__TIME_WAIT__DELAY_MS = 30000
 
+# Linux 'net.ipv4.tcp_fin_timeout' parity: how long an ORPHANED
+# connection — one whose socket the application has fully closed, so
+# nobody can ever read the peer's remaining data — may sit in
+# FIN_WAIT_2 awaiting the peer's FIN before the stack reaps it.
+# RFC 9293 prescribes holding FIN_WAIT_2 indefinitely, but an
+# unbounded hold lets a peer that vanishes after ACKing our FIN pin
+# the TCB (and its local port) forever; every mainstream stack bounds
+# the orphan case. A connection merely half-closed via
+# 'shutdown(SHUT_WR)' — the application still reading — is NOT
+# orphaned and is never reaped. Linux's default matches (60 s).
+TCP__FIN_WAIT_2__TIMEOUT_MS = 60000
+
 # RFC 1122 §4.2.3.2 / RFC 9293 §3.8.6.3 delayed-ACK delay. The
 # receiver SHOULD coalesce ACKs to amortize the wire cost; the
 # coalescing window MUST NOT exceed 500 ms.
 TCP__DELAYED_ACK__DELAY_MS = 100
+
+# Cap on concurrent embryonic (SYN_RCVD) children per listening
+# port — Linux 'tcp_max_syn_backlog' parity. The accept-queue gate
+# ('listen(backlog)') counts only ESTABLISHED-but-unaccepted
+# children; without this second bound every inbound SYN forked and
+# registered a child socket + session, so a SYN flood of
+# never-completing handshakes created unbounded concurrent sessions
+# (bounded only in time by each child's own R2 abort). An over-cap
+# SYN is dropped silently: the peer retransmits, and a slot frees
+# once a handshake completes or an embryo times out.
+TCP__SYN_BACKLOG__MAX_COUNT = 128
+
+# Cap on the per-session out-of-order reassembly queue (entry count,
+# not bytes). Each entry pins its full inbound packet buffer, and the
+# receive window alone does not bound the entry COUNT — a peer
+# streaming disjoint 1-byte out-of-order segments could pin one
+# buffer per in-window byte (~64k buffers per session at the default
+# window). Segments arriving with the queue full are dropped after
+# the mandatory RFC 5681 §4.2 immediate dup-ACK; the peer simply
+# retransmits them once the gap fills (Linux bounds its out-of-order queue the
+# same way, via rcvbuf pruning in 'tcp_prune_ofo_queue'). 64 entries
+# comfortably covers genuine network reordering, which shuffles a
+# handful of segments, not tens of thousands.
+TCP__OOO_QUEUE__MAX_LEN = 64
 
 # RFC 5961 §3 / §4 challenge-ACK rate limit. The receiver SHOULD NOT
 # emit more than one challenge ACK per sliding 1-second window, so a
@@ -306,6 +342,14 @@ register(
     default=TCP__TIME_WAIT__DELAY_MS,
     validator=is_positive_int("tcp.time_wait.delay_ms"),
     description="RFC 9293 §3.10.1 TIME-WAIT delay (2*MSL) in milliseconds.",
+)
+register(
+    key="tcp.fin_wait_2.timeout_ms",
+    module_name=__name__,
+    attr="TCP__FIN_WAIT_2__TIMEOUT_MS",
+    default=TCP__FIN_WAIT_2__TIMEOUT_MS,
+    validator=is_positive_int("tcp.fin_wait_2.timeout_ms"),
+    description="Linux 'tcp_fin_timeout' parity — orphaned FIN_WAIT_2 reap timeout in milliseconds.",
 )
 register(
     key="tcp.delayed_ack.delay_ms",

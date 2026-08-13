@@ -35,12 +35,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NameMapping(
     {
-        "index": 1,
-        "replacement": "unix_user1",
-        "direction": "win_unix",
         "client_match": "10.254.101.111/28",
         "pattern": "ENGCIFS_AD_USER",
-        "svm": {"name": "vs1", "uuid": "f71d3640-0226-11e9-8526-000c290a8c4b"},
+        "replacement": "unix_user1",
+        "direction": "win_unix",
+        "index": 1,
+        "svm": {"uuid": "f71d3640-0226-11e9-8526-000c290a8c4b", "name": "vs1"},
     }
 )
 
@@ -74,12 +74,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NameMapping(
     {
-        "index": 2,
-        "replacement": "unix_user1",
-        "direction": "win_unix",
         "client_match": "google.com",
         "pattern": "ENGCIFS_AD_USER",
-        "svm": {"name": "vs1", "uuid": "f71d3640-0226-11e9-8526-000c290a8c4b"},
+        "replacement": "unix_user1",
+        "direction": "win_unix",
+        "index": 2,
+        "svm": {"uuid": "f71d3640-0226-11e9-8526-000c290a8c4b", "name": "vs1"},
     }
 )
 
@@ -104,22 +104,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NameMapping(
         {
-            "index": 1,
-            "replacement": "unix_user1",
-            "direction": "win_unix",
             "client_match": "10.254.101.111/28",
             "pattern": "ENGCIFS_AD_USER",
-            "svm": {"name": "vs1", "uuid": "f71d3640-0226-11e9-8526-000c290a8c4b"},
+            "replacement": "unix_user1",
+            "direction": "win_unix",
+            "index": 1,
+            "svm": {"uuid": "f71d3640-0226-11e9-8526-000c290a8c4b", "name": "vs1"},
         }
     ),
     NameMapping(
         {
-            "index": 2,
-            "replacement": "unix_user1",
-            "direction": "win_unix",
             "client_match": "google.com",
             "pattern": "ENGCIFS_AD_USER",
-            "svm": {"name": "vs1", "uuid": "f71d3640-0226-11e9-8526-000c290a8c4b"},
+            "replacement": "unix_user1",
+            "direction": "win_unix",
+            "index": 2,
+            "svm": {"uuid": "f71d3640-0226-11e9-8526-000c290a8c4b", "name": "vs1"},
         }
     ),
 ]
@@ -151,12 +151,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NameMapping(
     {
-        "index": 1,
-        "replacement": "unix_user1",
-        "direction": "win_unix",
         "client_match": "10.254.101.111/28",
         "pattern": "ENGCIFS_AD_USER",
-        "svm": {"name": "vs1", "uuid": "f71d3640-0226-11e9-8526-000c290a8c4b"},
+        "replacement": "unix_user1",
+        "direction": "win_unix",
+        "index": 1,
+        "svm": {"uuid": "f71d3640-0226-11e9-8526-000c290a8c4b", "name": "vs1"},
     }
 )
 

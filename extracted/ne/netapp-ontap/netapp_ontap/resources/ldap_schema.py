@@ -37,77 +37,77 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LdapSchema(
         {
+            "owner": {
+                "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/eda950c6-0a0c-11ec-bfcf-0050568e9150"
+                    }
+                },
+                "name": "athiraacluster-1",
+            },
+            "name": "AD-IDMU",
             "_links": {
                 "self": {
                     "href": "/api/name-services/ldap-schemas/eda950c6-0a0c-11ec-bfcf-0050568e9150/AD-IDMU"
                 }
             },
-            "name": "AD-IDMU",
+        }
+    ),
+    LdapSchema(
+        {
             "owner": {
-                "name": "athiraacluster-1",
+                "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/eda950c6-0a0c-11ec-bfcf-0050568e9150"
                     }
                 },
-                "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
+                "name": "athiraacluster-1",
             },
-        }
-    ),
-    LdapSchema(
-        {
+            "name": "AD-SFU",
             "_links": {
                 "self": {
                     "href": "/api/name-services/ldap-schemas/eda950c6-0a0c-11ec-bfcf-0050568e9150/AD-SFU"
                 }
             },
-            "name": "AD-SFU",
+        }
+    ),
+    LdapSchema(
+        {
             "owner": {
-                "name": "athiraacluster-1",
+                "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/eda950c6-0a0c-11ec-bfcf-0050568e9150"
                     }
                 },
-                "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
+                "name": "athiraacluster-1",
             },
-        }
-    ),
-    LdapSchema(
-        {
+            "name": "MS-AD-BIS",
             "_links": {
                 "self": {
                     "href": "/api/name-services/ldap-schemas/eda950c6-0a0c-11ec-bfcf-0050568e9150/MS-AD-BIS"
                 }
             },
-            "name": "MS-AD-BIS",
-            "owner": {
-                "name": "athiraacluster-1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/eda950c6-0a0c-11ec-bfcf-0050568e9150"
-                    }
-                },
-                "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
-            },
         }
     ),
     LdapSchema(
         {
-            "_links": {
-                "self": {
-                    "href": "/api/name-services/ldap-schemas/eda950c6-0a0c-11ec-bfcf-0050568e9150/RFC-2307"
-                }
-            },
-            "name": "RFC-2307",
             "owner": {
-                "name": "athiraacluster-1",
+                "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/eda950c6-0a0c-11ec-bfcf-0050568e9150"
                     }
                 },
-                "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
+                "name": "athiraacluster-1",
+            },
+            "name": "RFC-2307",
+            "_links": {
+                "self": {
+                    "href": "/api/name-services/ldap-schemas/eda950c6-0a0c-11ec-bfcf-0050568e9150/RFC-2307"
+                }
             },
         }
     ),
@@ -139,55 +139,55 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LdapSchema(
     {
+        "comment": "Schema based on RFC 2307 (read-only)",
+        "owner": {
+            "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
+            "_links": {
+                "self": {"href": "/api/svm/svms/eda950c6-0a0c-11ec-bfcf-0050568e9150"}
+            },
+            "name": "svm1",
+        },
+        "rfc2307": {
+            "attribute": {
+                "uid_number": "uidNumber",
+                "gid_number": "gidNumber",
+                "uid": "uid",
+                "home_directory": "homeDirectory",
+                "login_shell": "loginShell",
+                "gecos": "gecos",
+                "user_password": "userPassword",
+            },
+            "cn": {"group": "cn", "netgroup": "cn"},
+            "member": {"nis_netgroup": "memberNisNetgroup", "uid": "memberUid"},
+            "nis": {
+                "netgroup": "nisNetgroup",
+                "mapentry": "nisMapEntry",
+                "mapname": "nisMapName",
+                "netgroup_triple": "nisNetgroupTriple",
+                "object": "nisObject",
+            },
+            "posix": {"account": "posixAccount", "group": "posixGroup"},
+        },
+        "name_mapping": {
+            "account": {"unix": "unixAccount", "windows": "windowsAccount"},
+            "windows_to_unix": {
+                "object_class": "posixAccount",
+                "attribute": "windowsAccount",
+                "no_domain_prefix": False,
+            },
+        },
+        "name": "RFC-2307",
+        "global_schema": True,
         "_links": {
             "self": {
                 "href": "/api/name-services/ldap-schemas/eda950c6-0a0c-11ec-bfcf-0050568e9150/RFC-2307"
             }
         },
         "rfc2307bis": {
-            "maximum_groups": 256,
             "group_of_unique_names": "groupOfUniqueNames",
             "unique_member": "uniqueMember",
+            "maximum_groups": 256,
             "enabled": False,
-        },
-        "name": "RFC-2307",
-        "global_schema": True,
-        "comment": "Schema based on RFC 2307 (read-only)",
-        "name_mapping": {
-            "account": {"windows": "windowsAccount", "unix": "unixAccount"},
-            "windows_to_unix": {
-                "object_class": "posixAccount",
-                "no_domain_prefix": False,
-                "attribute": "windowsAccount",
-            },
-        },
-        "owner": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/eda950c6-0a0c-11ec-bfcf-0050568e9150"}
-            },
-            "uuid": "eda950c6-0a0c-11ec-bfcf-0050568e9150",
-        },
-        "rfc2307": {
-            "posix": {"account": "posixAccount", "group": "posixGroup"},
-            "member": {"uid": "memberUid", "nis_netgroup": "memberNisNetgroup"},
-            "cn": {"netgroup": "cn", "group": "cn"},
-            "attribute": {
-                "login_shell": "loginShell",
-                "gecos": "gecos",
-                "home_directory": "homeDirectory",
-                "gid_number": "gidNumber",
-                "user_password": "userPassword",
-                "uid_number": "uidNumber",
-                "uid": "uid",
-            },
-            "nis": {
-                "netgroup": "nisNetgroup",
-                "mapentry": "nisMapEntry",
-                "object": "nisObject",
-                "mapname": "nisMapName",
-                "netgroup_triple": "nisNetgroupTriple",
-            },
         },
         "scope": "cluster",
     }

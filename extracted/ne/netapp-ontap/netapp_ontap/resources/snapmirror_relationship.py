@@ -93,17 +93,18 @@ Valid choices:
 
     group_type = marshmallow_fields.Str(
         data_key="group_type",
-        validate=enum_validation(['none', 'svm_dr', 'consistency_group', 'flexgroup']),
+        validate=enum_validation(['none', 'svm_dr', 'consistency_group', 'flexgroup', 'coordination_group']),
         allow_none=True,
     )
-    r""" Specifies the group type of the top level SnapMirror relationship. The volume relationships are shown as _none_, the SVMDR relationships are shown as _svm_dr_, the Consistency Group relationships are shown as _consistency_group_, and the FlexGroup volume relationships are shown as _flexgroup_.
+    r""" Specifies the group type of the top level SnapMirror relationship. The volume relationships are shown as _none_, the SVMDR relationships are shown as _svm_dr_, the Consistency Group relationships are shown as _consistency_group_, FlexGroup volume relationships are shown as _flexgroup_ and in Snapmirror Active Sync NAS relationships the group type is _coordination_group_.
 
 Valid choices:
 
 * none
 * svm_dr
 * consistency_group
-* flexgroup"""
+* flexgroup
+* coordination_group"""
 
     healthy = marshmallow_fields.Boolean(
         data_key="healthy",
@@ -215,6 +216,17 @@ Example: C1_sti85-vsim-ucs209a_cluster"""
         allow_none=True,
     )
     r""" Specifies the snapshot to restore to on the destination during the break operation. This property is applicable only for SnapMirror relationships with FlexVol volume endpoints and when the PATCH state is being changed to "broken_off"."""
+
+    selective_volumes = marshmallow_fields.List(
+                marshmallow_fields.Nested(
+                    lambda: lazy_import_schema("netapp_ontap.models.snapmirror_relationship_selective_volumes", "SnapmirrorRelationshipSelectiveVolumesSchema"),
+                    unknown=EXCLUDE,
+                    allow_none=True
+                ),
+                data_key="selective_volumes",
+                allow_none=True
+            )
+    r""" This field specifies the list of volumes to be protected under a vserver."""
 
     source = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.models.snapmirror_source_endpoint", "SnapmirrorSourceEndpointSchema"),
@@ -334,6 +346,7 @@ Example: 4ea7a442-86d1-11e0-ae1c-123478563412"""
         "policy",
         "preferred_site",
         "restore",
+        "selective_volumes",
         "source",
         "state",
         "svmdr_volumes",
@@ -347,7 +360,7 @@ Example: 4ea7a442-86d1-11e0-ae1c-123478563412"""
         "unhealthy_reason",
         "uuid",
     ]
-    """links,backoff_level,consistency_group_failover,destination,exported_snapshot,group_type,healthy,identity_preservation,io_serving_copy,lag_time,last_transfer_network_compression_ratio,last_transfer_type,master_bias_activated_site,policy,preferred_site,restore,source,state,svmdr_volumes,throttle,total_transfer_bytes,total_transfer_duration,transfer,transfer_schedule.links,transfer_schedule.name,transfer_schedule.uuid,unhealthy_reason,uuid,"""
+    """links,backoff_level,consistency_group_failover,destination,exported_snapshot,group_type,healthy,identity_preservation,io_serving_copy,lag_time,last_transfer_network_compression_ratio,last_transfer_type,master_bias_activated_site,policy,preferred_site,restore,selective_volumes,source,state,svmdr_volumes,throttle,total_transfer_bytes,total_transfer_duration,transfer,transfer_schedule.links,transfer_schedule.name,transfer_schedule.uuid,unhealthy_reason,uuid,"""
 
     patchable_fields = [
         "backoff_level",
@@ -361,13 +374,14 @@ Example: 4ea7a442-86d1-11e0-ae1c-123478563412"""
         "quick_resync",
         "recover_after_break",
         "restore_to_snapshot",
+        "selective_volumes",
         "source",
         "state",
         "throttle",
         "transfer_schedule.name",
         "transfer_schedule.uuid",
     ]
-    """backoff_level,destination,identity_preservation,io_serving_copy,master_bias_activated_site,policy,preferred_site,preserve,quick_resync,recover_after_break,restore_to_snapshot,source,state,throttle,transfer_schedule.name,transfer_schedule.uuid,"""
+    """backoff_level,destination,identity_preservation,io_serving_copy,master_bias_activated_site,policy,preferred_site,preserve,quick_resync,recover_after_break,restore_to_snapshot,selective_volumes,source,state,throttle,transfer_schedule.name,transfer_schedule.uuid,"""
 
     postable_fields = [
         "backoff_level",
@@ -379,6 +393,7 @@ Example: 4ea7a442-86d1-11e0-ae1c-123478563412"""
         "policy",
         "preferred_site",
         "restore",
+        "selective_volumes",
         "source",
         "state",
         "svmdr_volumes",
@@ -386,7 +401,7 @@ Example: 4ea7a442-86d1-11e0-ae1c-123478563412"""
         "transfer_schedule.name",
         "transfer_schedule.uuid",
     ]
-    """backoff_level,create_destination,destination,identity_preservation,io_serving_copy,master_bias_activated_site,policy,preferred_site,restore,source,state,svmdr_volumes,throttle,transfer_schedule.name,transfer_schedule.uuid,"""
+    """backoff_level,create_destination,destination,identity_preservation,io_serving_copy,master_bias_activated_site,policy,preferred_site,restore,selective_volumes,source,state,svmdr_volumes,throttle,transfer_schedule.name,transfer_schedule.uuid,"""
 
 class SnapmirrorRelationship(Resource):
     r""" SnapMirror relationship information. The SnapMirror relationship can be either "async" or "sync" based on the type of SnapMirror policy associated with the relationship. The source and destination endpoints of a SnapMirror relationship must be of the same type, for example, if the source endpoint is a FlexVol volume then the destination endpoint must be a FlexVol volume.<br>The SnapMirror policy type "async" can be used when the SnapMirror relationship has FlexVol volume or FlexGroup volume or SVM as the endpoint. The SnapMirror policy type "sync" can be used when the SnapMirror relationship has FlexVol volume as the endpoint. The SnapMirror policy type "sync" with "sync_type" as "automated_failover" can be used when the SnapMirror relationship has Consistency Group as the endpoint. """
@@ -523,6 +538,7 @@ The following examples show how to retrieve the list of SnapMirror relationships
 * The properties "transfer_schedule" and "throttle" are not supported when the direction of the relationship is being reversed.
 * To remove a transfer_schedule on a SnapMirror relationship set the "transfer_schedule" to null (no-quotes) during SnapMirror relationship PATCH.
 * The property "identity_preservation" value can be changed from a higher "identity_preservation" threshold value to a lower "identity_preservation" threshold value but not vice-versa. For example, the threshold value of the "identity_preservation" property can be changed from "full" to "exclude_network_config", but cannot be increased from "exclude_network_and_protocol_config" to "exclude_network_config" to "full". The threshold value of the "identity_preservation" cannot be changed to "exclude_network_and_protocol_config" for IDP SVMDR.
+* Policies with the property "retention.creation_schedule" are supported only on the final SnapMirror destination volume in the cascade.
 
 * The property "backoff_level" is only applicable for FlexVol SnapMirror relationships.
 ### Examples
@@ -676,8 +692,8 @@ The following examples show how to perform the SnapMirror "resync", "initialize"
         connection: HostConnection = None,
         **kwargs
     ) -> Union[List["SnapmirrorRelationship"], NetAppResponse]:
-        r"""Creates a SnapMirror relationship. This API can optionally provision the destination endpoint when it does not exist. This API must be executed on the cluster containing the destination endpoint unless the destination endpoint is being provisioned. When the destination endpoint is being provisioned, this API can also be executed from the cluster containing the source endpoint. Provisioning of the destination endpoint from the source cluster is supported for the FlexVol volume, FlexGroup volume and Application Consistency Group endpoints.<br/>
-For SVM endpoints, provisioning the destination SVM endpoint is not supported from the source cluster. When the destination endpoint exists, the source SVM and the destination SVM must be in an SVM peer relationship. When provisioning the destination endpoint, the SVM peer relationship between the source SVM and the destination SVM is established as part of the destination provision, provided that the source SVM has SVM peering permissions for the destination cluster.
+        r"""Creates a SnapMirror relationship. This API can optionally provision the destination endpoint when it does not exist. This API must be executed on the cluster containing the destination endpoint unless the destination endpoint is being provisioned. When the destination endpoint is being provisioned, this API can also be executed from the cluster containing the source endpoint. Provisioning of the destination endpoint from the source cluster is supported for the FlexVol volume, FlexGroup volume, Application Consistency Group  endpoints.<br/>
+For SVM endpoints, when the destination endpoint exists, the source SVM and the destination SVM must be in an SVM peer relationship. When provisioning the destination endpoint, the SVM peer relationship between the source SVM and the destination SVM is established as part of the destination provision, provided that the source SVM has SVM peering permissions for the destination cluster.
 
 ### Required properties
 * `source.path` - Path to the source endpoint of the SnapMirror relationship.
@@ -747,6 +763,7 @@ The following examples show how to create FlexVol volumes, FlexGroup volumes, SV
    ```
    POST "/api/snapmirror/relationships/" '{"source": { "path": "src_svm:"}, "destination": { "path": "dst_svm:"}}'
    ```
+   
    <br/>
    Creating a SnapMirror relationship in order to restore from a destination.
    <br/>
@@ -881,7 +898,7 @@ The following examples show how to delete the relationship from both the source 
    DELETE "/api/snapmirror/relationships/93e828ba-02bc-11e9-acc7-005056a7697f/?source_only=true"
    ```
    <br/>
-   Deleting the source information only. This API must be run on the cluster containing the source endpoint. This does not delete the common snapshots between the source and destination.
+   Deleting the source information only. This API can be run on the both the clusters containing the source or destination endpoint. This does not delete the common snapshots between the source and destination.
    <br/>
    ```
    DELETE "/api/snapmirror/relationships/caf545a2-fc60-11e8-aa13-005056a707ff/?source_info_only=true"
@@ -991,8 +1008,8 @@ GET "/api/snapmirror/relationships/caf545a2-fc60-11e8-aa13-005056a707ff/"
         poll_timeout: Optional[int] = None,
         **kwargs
     ) -> NetAppResponse:
-        r"""Creates a SnapMirror relationship. This API can optionally provision the destination endpoint when it does not exist. This API must be executed on the cluster containing the destination endpoint unless the destination endpoint is being provisioned. When the destination endpoint is being provisioned, this API can also be executed from the cluster containing the source endpoint. Provisioning of the destination endpoint from the source cluster is supported for the FlexVol volume, FlexGroup volume and Application Consistency Group endpoints.<br/>
-For SVM endpoints, provisioning the destination SVM endpoint is not supported from the source cluster. When the destination endpoint exists, the source SVM and the destination SVM must be in an SVM peer relationship. When provisioning the destination endpoint, the SVM peer relationship between the source SVM and the destination SVM is established as part of the destination provision, provided that the source SVM has SVM peering permissions for the destination cluster.
+        r"""Creates a SnapMirror relationship. This API can optionally provision the destination endpoint when it does not exist. This API must be executed on the cluster containing the destination endpoint unless the destination endpoint is being provisioned. When the destination endpoint is being provisioned, this API can also be executed from the cluster containing the source endpoint. Provisioning of the destination endpoint from the source cluster is supported for the FlexVol volume, FlexGroup volume, Application Consistency Group  endpoints.<br/>
+For SVM endpoints, when the destination endpoint exists, the source SVM and the destination SVM must be in an SVM peer relationship. When provisioning the destination endpoint, the SVM peer relationship between the source SVM and the destination SVM is established as part of the destination provision, provided that the source SVM has SVM peering permissions for the destination cluster.
 
 ### Required properties
 * `source.path` - Path to the source endpoint of the SnapMirror relationship.
@@ -1062,6 +1079,7 @@ The following examples show how to create FlexVol volumes, FlexGroup volumes, SV
    ```
    POST "/api/snapmirror/relationships/" '{"source": { "path": "src_svm:"}, "destination": { "path": "dst_svm:"}}'
    ```
+   
    <br/>
    Creating a SnapMirror relationship in order to restore from a destination.
    <br/>
@@ -1189,6 +1207,7 @@ Provision the destination Application Consistency Group endpoint with storage se
 * The properties "transfer_schedule" and "throttle" are not supported when the direction of the relationship is being reversed.
 * To remove a transfer_schedule on a SnapMirror relationship set the "transfer_schedule" to null (no-quotes) during SnapMirror relationship PATCH.
 * The property "identity_preservation" value can be changed from a higher "identity_preservation" threshold value to a lower "identity_preservation" threshold value but not vice-versa. For example, the threshold value of the "identity_preservation" property can be changed from "full" to "exclude_network_config", but cannot be increased from "exclude_network_and_protocol_config" to "exclude_network_config" to "full". The threshold value of the "identity_preservation" cannot be changed to "exclude_network_and_protocol_config" for IDP SVMDR.
+* Policies with the property "retention.creation_schedule" are supported only on the final SnapMirror destination volume in the cascade.
 
 * The property "backoff_level" is only applicable for FlexVol SnapMirror relationships.
 ### Examples
@@ -1371,7 +1390,7 @@ The following examples show how to delete the relationship from both the source 
    DELETE "/api/snapmirror/relationships/93e828ba-02bc-11e9-acc7-005056a7697f/?source_only=true"
    ```
    <br/>
-   Deleting the source information only. This API must be run on the cluster containing the source endpoint. This does not delete the common snapshots between the source and destination.
+   Deleting the source information only. This API can be run on the both the clusters containing the source or destination endpoint. This does not delete the common snapshots between the source and destination.
    <br/>
    ```
    DELETE "/api/snapmirror/relationships/caf545a2-fc60-11e8-aa13-005056a707ff/?source_info_only=true"

@@ -36,7 +36,7 @@ from ._load_context import LoadContext
 from ._object import _get_environment_name, _Object
 from ._resolver import Resolver
 from ._resources import convert_fn_config_to_resources_config
-from ._utils.async_utils import TaskContext, synchronize_api
+from ._utils.async_utils import TaskContext, synchronize_api, synchronizer
 from ._utils.deprecation import deprecation_warning
 from ._utils.mount_utils import (
     validate_network_file_systems,
@@ -45,7 +45,7 @@ from ._utils.mount_utils import (
     validate_volumes_by_object_id,
 )
 from ._utils.name_utils import check_object_name
-from ._utils.task_command_router_client import TaskCommandRouterClient
+from ._utils.task_command_router_client import TaskCommandRouterClient, _is_v2_task_id
 from .client import _Client
 from .container_process import _ContainerProcess
 from .exception import (
@@ -80,7 +80,6 @@ from .stream_type import StreamType
 from .types import FileWatchEvent, FileWatchEventType, SandboxConnectCredentials
 
 _default_image: _Image = _Image.debian_slim()
-_EXIT_SNAPSHOT_POLL_INTERVAL_SECONDS = 1.0
 _EXIT_SNAPSHOT_NOT_FOUND_ERROR_CODES = frozenset((api_pb2.SandboxGetExitSnapshotResponse.ERROR_CODE_TIMEOUT,))
 
 
@@ -155,7 +154,6 @@ def _ttl_to_wire_ttl(ttl: int | None) -> int:
 
 
 _V1_SANDBOX_ID_ALPHABET = frozenset("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
-_ULID_ALPHABET = frozenset("0123456789ABCDEFGHJKMNPQRSTVWXYZ")
 _CUSTOMER_SUPPLIED_ENCRYPTION_KEY_MIN_LENGTH = 16
 _CUSTOMER_SUPPLIED_ENCRYPTION_KEY_MAX_LENGTH = 512
 
@@ -197,23 +195,13 @@ def _is_v1_sandbox_id(sandbox_id: str) -> bool:
     )
 
 
-def _is_v2_sandbox_id(sandbox_id: str) -> bool:
-    prefix, separator, suffix = sandbox_id.partition("-")
-    return (
-        prefix == "sb"
-        and separator == "-"
-        and len(suffix) == 26
-        and suffix[0] in "01234567"
-        and all(ch in _ULID_ALPHABET for ch in suffix)
-    )
-
-
 def _get_sandbox_version(sandbox_id: str) -> SandboxVersion:
-    if _is_v2_sandbox_id(sandbox_id):
-        return SandboxVersion.V2
+    # IDs that don't match the V1 shape are assumed to be V2, so that Sandbox
+    # IDs minted in newer formats route to the newer backend instead of
+    # failing client-side.
     if _is_v1_sandbox_id(sandbox_id):
         return SandboxVersion.V1
-    raise InvalidError(f"Invalid Sandbox ID: {sandbox_id!r}")
+    return SandboxVersion.V2
 
 
 def _result_returncode(result: api_pb2.GenericResult | None) -> int | None:
@@ -236,6 +224,31 @@ def _validate_exec_args(args: Sequence[str]) -> None:
         raise InvalidError(
             f"Total length of CMD arguments cannot exceed {ARG_MAX_BYTES} bytes (ARG_MAX). Got {total_arg_len} bytes."
         )
+
+
+def _build_outbound_network_access(
+    block_network: bool,
+    outbound_cidr_allowlist: Sequence[str] | None,
+    outbound_domain_allowlist: Sequence[str] | None,
+) -> api_pb2.NetworkAccess:
+    """Build the outbound `NetworkAccess` for the given params.
+
+    Shared by `Sandbox.create` and the sidecar create path. When nothing is
+    specified, defaults to open network access.
+    """
+    if block_network:
+        if outbound_cidr_allowlist is not None:
+            raise InvalidError("`outbound_cidr_allowlist` cannot be used when `block_network` is enabled")
+        if outbound_domain_allowlist is not None:
+            raise InvalidError("`outbound_domain_allowlist` cannot be used when `block_network` is enabled")
+        return api_pb2.NetworkAccess(network_access_type=api_pb2.NetworkAccess.NetworkAccessType.BLOCKED)
+    if outbound_cidr_allowlist is None and outbound_domain_allowlist is None:
+        return api_pb2.NetworkAccess(network_access_type=api_pb2.NetworkAccess.NetworkAccessType.OPEN)
+    return api_pb2.NetworkAccess(
+        network_access_type=api_pb2.NetworkAccess.NetworkAccessType.ALLOWLIST,
+        allowed_cidrs=list(outbound_cidr_allowlist or []),
+        allowed_domains=list(outbound_domain_allowlist or []),
+    )
 
 
 class DefaultSandboxNameOverride(str):
@@ -319,6 +332,39 @@ class Probe:
         raise InvalidError("Probe must be created with Probe.with_tcp(...) or Probe.with_exec(...)")
 
 
+def _resolve_app_id_and_client(
+    app: "modal.app._App | None",
+    client: "_Client | None",
+) -> "tuple[str | None, _Client | None]":
+    """Resolve the App id and client for Sandbox creation, validating that an App is available."""
+    from .app import _App
+
+    if app is not None:
+        if app.app_id is None:
+            raise ValueError(
+                "App has not been initialized yet. To create an App lazily, use `App.lookup`: \n"
+                "app = modal.App.lookup('my-app', create_if_missing=True)\n"
+                "modal.Sandbox.create('echo', 'hi', app=app)\n"
+                "In order to initialize an existing `App` object, refer to our docs: https://modal.com/docs/guide/apps"
+            )
+        app_id = app.app_id
+        app_client = app._client
+    elif (container_app := _App._get_container_app()) is not None:
+        app_id = container_app.app_id
+        app_client = container_app._client
+    else:
+        raise InvalidError(
+            "Sandboxes require an App when created outside of a Modal container.\n\n"
+            "Run an ephemeral App (`with app.run(): ...`), or reference a deployed App using `App.lookup`:\n\n"
+            "```\n"
+            'app = modal.App.lookup("sandbox-app", create_if_missing=True)\n'
+            "sb = modal.Sandbox.create(..., app=app)\n"
+            "```",
+        )
+
+    return app_id, client or app_client
+
+
 class _Sandbox(_Object, type_prefix="sb"):
     """A `Sandbox` object lets you interact with a running sandbox. This API is similar to Python's
     [asyncio.subprocess.Process](https://docs.python.org/3/library/asyncio-subprocess.html#asyncio.subprocess.Process).
@@ -334,6 +380,7 @@ class _Sandbox(_Object, type_prefix="sb"):
     _tunnels: dict[int, Tunnel] | None
     _enable_snapshot: bool
     _command_router_client: TaskCommandRouterClient | None
+    _init_command_router_access: api_pb2.CommandRouterAccess | None
     _attached: bool
     _filesystem: _SandboxFilesystem | None
     _is_v2: bool = False
@@ -439,27 +486,11 @@ class _Sandbox(_Object, type_prefix="sb"):
                 ]
             )
 
-            if block_network:
-                if outbound_cidr_allowlist is not None:
-                    raise InvalidError("`outbound_cidr_allowlist` cannot be used when `block_network` is enabled")
-                if outbound_domain_allowlist is not None:
-                    raise InvalidError("`outbound_domain_allowlist` cannot be used when `block_network` is enabled")
-                if inbound_cidr_allowlist is not None:
-                    raise InvalidError("`inbound_cidr_allowlist` cannot be used when `block_network` is enabled")
-                network_access = api_pb2.NetworkAccess(
-                    network_access_type=api_pb2.NetworkAccess.NetworkAccessType.BLOCKED,
-                )
-            else:
-                if outbound_domain_allowlist is None and outbound_cidr_allowlist is None:
-                    network_access = api_pb2.NetworkAccess(
-                        network_access_type=api_pb2.NetworkAccess.NetworkAccessType.OPEN,
-                    )
-                else:
-                    network_access = api_pb2.NetworkAccess(
-                        network_access_type=api_pb2.NetworkAccess.NetworkAccessType.ALLOWLIST,
-                        allowed_cidrs=list(outbound_cidr_allowlist or []),
-                        allowed_domains=list(outbound_domain_allowlist or []),
-                    )
+            if block_network and inbound_cidr_allowlist is not None:
+                raise InvalidError("`inbound_cidr_allowlist` cannot be used when `block_network` is enabled")
+            network_access = _build_outbound_network_access(
+                block_network, outbound_cidr_allowlist, outbound_domain_allowlist
+            )
 
             ephemeral_disk = None  # Ephemeral disk requests not supported on Sandboxes.
             definition = api_pb2.Sandbox(
@@ -647,6 +678,44 @@ class _Sandbox(_Object, type_prefix="sb"):
             )
             outbound_cidr_allowlist = cidr_allowlist
 
+        # Opt-in to the V2 backend. GPUs and network file systems are not supported on V2, so
+        # those calls stay on V1 even when the flag is set.
+        if config.get("sandbox_v2") is True and gpu is None and not network_file_systems and pty_info is None:
+            _, client = _resolve_app_id_and_client(app, client)
+            return await _Sandbox._experimental_create(
+                *args,
+                app=app,
+                name=name,
+                tags=tags,
+                image=image,
+                env=env,
+                secrets=secrets,
+                timeout=timeout,
+                idle_timeout=idle_timeout,
+                workdir=workdir,
+                cpu=cpu,
+                memory=memory,
+                cloud=cloud,
+                region=region,
+                block_network=block_network,
+                outbound_cidr_allowlist=outbound_cidr_allowlist,
+                outbound_domain_allowlist=outbound_domain_allowlist,
+                inbound_cidr_allowlist=inbound_cidr_allowlist,
+                volumes=volumes,
+                pty=pty,
+                encrypted_ports=encrypted_ports,
+                h2_ports=h2_ports,
+                unencrypted_ports=unencrypted_ports,
+                proxy=proxy,
+                readiness_probe=readiness_probe,
+                experimental_options=experimental_options,
+                include_oidc_identity_token=include_oidc_identity_token,
+                verbose=verbose,
+                custom_domain=custom_domain,
+                client=client,
+                _experimental_enable_snapshot=_experimental_enable_snapshot,
+            )
+
         secrets = secrets or []
         if env:
             secrets = [*secrets, _Secret.from_dict(env)]
@@ -731,8 +800,6 @@ class _Sandbox(_Object, type_prefix="sb"):
         `mounts` is currently only used by modal shell (cli) to provide a function's mounts to the
         sandbox that runs the shell session.
         """
-        from .app import _App
-
         _validate_exec_args(args)
         if name is not None:
             check_object_name(name, "Sandbox")
@@ -781,35 +848,7 @@ class _Sandbox(_Object, type_prefix="sb"):
         )
         obj._enable_snapshot = _experimental_enable_snapshot
 
-        app_id: str | None = None
-        app_client: _Client | None = None
-
-        if app is not None:
-            if app.app_id is None:
-                raise ValueError(
-                    "App has not been initialized yet. To create an App lazily, use `App.lookup`: \n"
-                    "app = modal.App.lookup('my-app', create_if_missing=True)\n"
-                    "modal.Sandbox.create('echo', 'hi', app=app)\n"
-                    "In order to initialize an existing `App` object, refer to our docs: https://modal.com/docs/guide/apps"
-                )
-
-            app_id = app.app_id
-            app_client = app._client
-        elif (container_app := _App._get_container_app()) is not None:
-            # implicit app/client provided by running in a modal Function
-            app_id = container_app.app_id
-            app_client = container_app._client
-        else:
-            raise InvalidError(
-                "Sandboxes require an App when created outside of a Modal container.\n\n"
-                "Run an ephemeral App (`with app.run(): ...`), or reference a deployed App using `App.lookup`:\n\n"
-                "```\n"
-                'app = modal.App.lookup("sandbox-app", create_if_missing=True)\n'
-                "sb = modal.Sandbox.create(..., app=app)\n"
-                "```",
-            )
-
-        client = client or app_client
+        app_id, client = _resolve_app_id_and_client(app, client)
 
         resolver = Resolver()
         async with TaskContext() as tc:
@@ -882,8 +921,6 @@ class _Sandbox(_Object, type_prefix="sb"):
         `sandbox.object_id` and use `Sandbox.from_id(sandbox.object_id)` to
         reattach.
         """
-        from .app import _App
-
         _validate_exec_args(args)
         if name is not None:
             check_object_name(name, "Sandbox")
@@ -1035,6 +1072,10 @@ class _Sandbox(_Object, type_prefix="sb"):
             self._hydrate(sandbox_id, load_context.client, create_resp.metadata)
             self._is_v2 = True
             self._task_id = create_resp.task_id
+            # An unset proto message reads as an empty one rather than None, so the
+            # presence check is what distinguishes "no access" from "empty access".
+            if create_resp.HasField("command_router_access"):
+                self._init_command_router_access = create_resp.command_router_access
             self._hydrate_metadata_v2()
             # Unencrypted tunnel endpoints are not known at create time. Only
             # cache a complete set so tunnels() fetches the rest otherwise.
@@ -1051,33 +1092,7 @@ class _Sandbox(_Object, type_prefix="sb"):
 
         obj = _Sandbox._from_loader(_load, "Sandbox()", load_context_overrides=LoadContext.empty())
 
-        app_id: str | None = None
-        app_client: _Client | None = None
-
-        if app is not None:
-            if app.app_id is None:
-                raise ValueError(
-                    "App has not been initialized yet. To create an App lazily, use `App.lookup`: \n"
-                    "app = modal.App.lookup('my-app', create_if_missing=True)\n"
-                    "modal.Sandbox._experimental_create('echo', 'hi', app=app)\n"
-                    "In order to initialize an existing `App` object, refer to our docs: https://modal.com/docs/guide/apps"
-                )
-            app_id = app.app_id
-            app_client = app._client
-        elif (container_app := _App._get_container_app()) is not None:
-            app_id = container_app.app_id
-            app_client = container_app._client
-        else:
-            raise InvalidError(
-                "Sandboxes require an App when created outside of a Modal container.\n\n"
-                "Run an ephemeral App (`with app.run(): ...`), or reference a deployed App using `App.lookup`:\n\n"
-                "```\n"
-                'app = modal.App.lookup("sandbox-app", create_if_missing=True)\n'
-                "sb = modal.Sandbox._experimental_create(..., app=app)\n"
-                "```",
-            )
-
-        client = client or app_client
+        app_id, client = _resolve_app_id_and_client(app, client)
 
         resolver = Resolver()
         async with TaskContext() as tc:
@@ -1122,8 +1137,9 @@ class _Sandbox(_Object, type_prefix="sb"):
         self._tunnels = None
         self._enable_snapshot = False
         self._command_router_client = None
+        self._init_command_router_access = None
         self._filesystem = None
-        self._is_v2 = _is_v2_sandbox_id(self.object_id)
+        self._is_v2 = _get_sandbox_version(self.object_id) == SandboxVersion.V2
         if self._is_v2:
             self._hydrate_metadata_v2()
 
@@ -1229,6 +1245,15 @@ class _Sandbox(_Object, type_prefix="sb"):
         """
         if client is None:
             client = await _Client.from_env()
+
+        if config.get("sandbox_v2") is True:
+            try:
+                return await _Sandbox._experimental_from_name(
+                    app_name, name, environment_name=environment_name, client=client
+                )
+            except NotFoundError:
+                pass
+
         env_name = _get_environment_name(environment_name)
 
         req = api_pb2.SandboxGetFromNameRequest(sandbox_name=name, app_name=app_name, environment_name=env_name)
@@ -1268,10 +1293,7 @@ class _Sandbox(_Object, type_prefix="sb"):
         auth_token = await client._auth_token_manager.get_token()
         resp = await client.stub.SandboxGetFromNameV2(req, metadata=[("x-modal-auth-token", auth_token)])
 
-        obj = _Sandbox._new_hydrated(resp.sandbox_id, client, resp.metadata)
-        obj._is_v2 = True
-        obj._hydrate_metadata_v2()
-        return obj
+        return _Sandbox._new_hydrated(resp.sandbox_id, client, resp.metadata)
 
     @staticmethod
     async def from_id(sandbox_id: str, client: _Client | None = None) -> "_Sandbox":
@@ -1415,13 +1437,12 @@ class _Sandbox(_Object, type_prefix="sb"):
         req = sr_pb2.TaskSetNetworkAccessRequest(task_id=task_id, network_access=network_access)
         await command_router_client.set_network_access(req)
 
-    async def _experimental_get_exit_snapshot(self, timeout: float | None = 60) -> _Image:
+    async def _experimental_get_exit_snapshot(self, timeout: float | None = None) -> _Image:
         """Get the exit filesystem snapshot image.
 
         Args:
-            timeout: Client-side deadline in seconds (default 60). Use `None` to
-                poll until the snapshot reaches a terminal state. Use `0` to
-                perform an immediate check.
+            timeout: Deadline in seconds. `None` polls until the snapshot reaches
+                a terminal state. `0` performs an immediate check.
 
         Returns:
             The exit snapshot Image.
@@ -1443,17 +1464,20 @@ class _Sandbox(_Object, type_prefix="sb"):
 
         deadline = None if timeout is None else time.monotonic() + timeout
         timeout_message = f"timed out waiting for exit snapshot for Sandbox {self.object_id}"
+        # Use the private __client so the lookup works with a detached sandbox
+        client = self.__client
 
         while True:
-            resp: api_pb2.SandboxGetExitSnapshotResponse = await self._client.stub.SandboxGetExitSnapshot(
-                api_pb2.SandboxGetExitSnapshotRequest(sandbox_id=self.object_id)
+            request_timeout = 10.0 if deadline is None else min(10.0, max(0.0, deadline - time.monotonic()))
+            resp: api_pb2.SandboxGetExitSnapshotResponse = await client.stub.SandboxGetExitSnapshot(
+                api_pb2.SandboxGetExitSnapshotRequest(sandbox_id=self.object_id, timeout=request_timeout)
             )
             outcome = resp.WhichOneof("outcome")
 
             if outcome == "success":
                 if not resp.success.image_id:
                     raise InternalError("Exit snapshot result is missing image ID")
-                return _Image._new_hydrated(resp.success.image_id, self._client, None)
+                return _Image._new_hydrated(resp.success.image_id, client, None)
 
             if outcome == "error":
                 if resp.error.error_code in _EXIT_SNAPSHOT_NOT_FOUND_ERROR_CODES:
@@ -1464,15 +1488,6 @@ class _Sandbox(_Object, type_prefix="sb"):
 
             if outcome != "pending":
                 raise InternalError("Exit snapshot response is missing an outcome")
-
-            sleep_for = _EXIT_SNAPSHOT_POLL_INTERVAL_SECONDS
-            if deadline is not None:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    raise TimeoutError(timeout_message)
-                sleep_for = min(sleep_for, remaining)
-
-            await asyncio.sleep(sleep_for)
 
             if deadline is not None and time.monotonic() >= deadline:
                 raise TimeoutError(timeout_message)
@@ -1793,7 +1808,6 @@ class _Sandbox(_Object, type_prefix="sb"):
         Returns:
             URL and token credentials for connecting to the sandbox over HTTP.
         """
-        self._ensure_v1("create_connect_token")
         if user_metadata is not None and isinstance(user_metadata, dict):
             try:
                 user_metadata = json.dumps(user_metadata)
@@ -1806,7 +1820,14 @@ class _Sandbox(_Object, type_prefix="sb"):
         req = api_pb2.SandboxCreateConnectTokenRequest(
             sandbox_id=self.object_id, user_metadata=user_metadata, port=port
         )
-        resp = await self._client.stub.SandboxCreateConnectToken(req)
+        if self._is_v2:
+            assert self._client._auth_token_manager
+            auth_token = await self._client._auth_token_manager.get_token()
+            resp = await self._client.stub.SandboxCreateConnectTokenV2(
+                req, metadata=[("x-modal-auth-token", auth_token)]
+            )
+        else:
+            resp = await self._client.stub.SandboxCreateConnectToken(req)
         return SandboxConnectCredentials(resp.url, resp.token)
 
     async def reload_volumes(self, *, timeout: int = 55) -> None:
@@ -1814,18 +1835,21 @@ class _Sandbox(_Object, type_prefix="sb"):
 
         Added in v1.1.0.
 
-        Blocks until the Volumes have been reloaded, bounded by `timeout` (55 seconds by default). If the reload
-        does not complete within that window, `modal.exception.TimeoutError` is raised; note that the reload may
-        still complete in the background.
+        Blocks until the reload completes, or raises `modal.exception.TimeoutError` on timeout (the reload
+        may still complete in the background).
 
         Args:
-            timeout: Maximum time in seconds to wait for the reload. Must be positive.
+            timeout: Defaults to 55 seconds.
         """
+        await self._reload_volumes(timeout=timeout)
+
+    async def _reload_volumes(self, *, timeout: int, container_id: str = "") -> None:
+        # Reload one container's Volumes; empty `container_id` targets the main container.
         if timeout <= 0:
-            raise InvalidError("The `timeout` argument to `Sandbox.reload_volumes` must be positive.")
+            raise InvalidError("The `timeout` argument to `reload_volumes` must be positive.")
         task_id = await self._get_task_id()
         command_router_client = await self._get_command_router_client(task_id)
-        await command_router_client.reload_volumes(task_id, timeout=float(timeout))
+        await command_router_client.reload_volumes(task_id, timeout=float(timeout), container_id=container_id)
 
     @overload
     async def terminate(
@@ -1911,8 +1935,12 @@ class _Sandbox(_Object, type_prefix="sb"):
         if self._command_router_client is None:
             try:
                 if self._is_v2:
-                    self._command_router_client = await TaskCommandRouterClient.init_v2(
-                        self._client, self.object_id, task_id
+                    # Consume the seeded access, so if connecting with it fails the
+                    # retry falls back to the authoritative RPC instead of
+                    # re-trying the same credentials forever.
+                    access, self._init_command_router_access = self._init_command_router_access, None
+                    self._command_router_client = await TaskCommandRouterClient.init_v2_by_sandbox_id(
+                        self._client, self.object_id, task_id, access
                     )
                 else:
                     self._command_router_client = await TaskCommandRouterClient.init(self._client, task_id)
@@ -2277,6 +2305,9 @@ class _Sandbox(_Object, type_prefix="sb"):
 
         sandbox = await _Sandbox.from_id(restore_resp.sandbox_id, client)
         sandbox._task_id = restore_resp.task_id
+        # Seeded after from_id, whose hydration resets the field.
+        if restore_resp.HasField("command_router_access"):
+            sandbox._init_command_router_access = restore_resp.command_router_access
         return sandbox
 
     @property
@@ -2477,6 +2508,11 @@ class _Sandbox(_Object, type_prefix="sb"):
         Returns:
             An async generator yielding `Sandbox` objects.
         """
+        if config.get("sandbox_v2") is True:
+            async for sandbox in _Sandbox._experimental_list(app_id=app_id, tags=tags, client=client):
+                yield sandbox
+            return
+
         before_timestamp = None
         environment_name = _get_environment_name()
         if client is None:
@@ -2512,24 +2548,29 @@ class _Sandbox(_Object, type_prefix="sb"):
     async def _experimental_list(
         *, app_id: str | None = None, tags: dict[str, str] | None = None, client: _Client | None = None
     ) -> AsyncGenerator["_Sandbox", None]:
-        """List v2 Sandboxes in an App.
+        """List all sandboxes (both v1 and v2).
 
-        This function lists v2 sandboxes, ie sandboxes created via modal.Sandbox._experimental_create.
+        Pass `app_id` to scope to an App; without it, Sandboxes across the current
+        Environment are listed (deprecated — prefer scoping by `app_id`).
 
         Args:
-            app_id: The App to list Sandboxes under.
+            app_id: If set, restrict results to Sandboxes under this App.
             tags: If set, only sandboxes containing at least these tags are returned.
             client: Optional client to use for the session.
 
         Yields:
-            `Sandbox` objects that are currently running in the App.
+            `Sandbox` objects that are currently running.
         """
+        environment_name = ""
         if not app_id:
-            raise InvalidError(
-                "Sandbox._experimental_list requires an `app_id`:\n\n"
+            deprecation_warning(
+                (2026, 8, 10),
+                "Listing Sandboxes without an `app_id` scans the entire Environment, which is deprecated. "
+                "Pass an `app_id` to scope the query:\n\n"
                 'app = modal.App.lookup("my-app")\n'
-                "Sandbox._experimental_list(app_id=app.app_id)"
+                "modal.Sandbox.list(app_id=app.app_id)",
             )
+            environment_name = _get_environment_name()
 
         before_timestamp = None
         if client is None:
@@ -2540,8 +2581,9 @@ class _Sandbox(_Object, type_prefix="sb"):
         assert client._auth_token_manager
         while True:
             req = api_pb2.SandboxListRequest(
-                app_id=app_id,
+                app_id=app_id or "",
                 before_timestamp=before_timestamp,
+                environment_name=environment_name,
                 include_finished=False,
                 tags=tags_list,
             )
@@ -2557,10 +2599,6 @@ class _Sandbox(_Object, type_prefix="sb"):
             for sandbox_info in resp.sandboxes:
                 sandbox_info: api_pb2.SandboxInfo
                 obj = _Sandbox._new_hydrated(sandbox_info.id, client, sandbox_info.metadata)
-                # SandboxListV2 only returns V2 sandboxes; mark them as such so
-                # operations like wait/terminate/exec use the V2 RPCs and stdio.
-                obj._is_v2 = True
-                obj._hydrate_metadata_v2()
                 obj._result = sandbox_info.task_info.result
                 yield obj
 
@@ -2744,6 +2782,19 @@ class _SidecarContainer:
             await self.wait(raise_on_termination=False)
             return _result_returncode(self._result)
 
+    async def reload_volumes(self, *, timeout: int = 55) -> None:
+        """Reload all Volumes mounted in this sidecar container.
+
+        EXPERIMENTAL: the API is subject to change.
+
+        Blocks until the reload completes, or raises `modal.exception.TimeoutError` on timeout (the reload
+        may still complete in the background).
+
+        Args:
+            timeout: Defaults to 55 seconds.
+        """
+        await self._sandbox._reload_volumes(timeout=timeout, container_id=self._container_id)
+
 
 _MAIN_CONTAINER_NAME: str = "main"
 
@@ -2769,12 +2820,20 @@ class _SidecarManager:
         secrets: Collection[_Secret] | None = None,
         workdir: str | None = None,
         volumes: dict[str | os.PathLike, _Volume] | None = None,
+        outbound_cidr_allowlist: Sequence[str] | None = None,
+        outbound_domain_allowlist: Sequence[str] | None = None,
     ) -> _SidecarContainer:
         """Create a sidecar container running alongside the Sandbox's main container.
 
         Sidecar containers share the Sandbox's lifecycle but run their own Image and command. They
         can be used to run auxiliary processes, such as a database or a service the main container
         depends on.
+
+        The sidecar's outbound network policy is independent of the main container's and defaults to
+        open network access. To restrict it, pass `outbound_cidr_allowlist` and/or
+        `outbound_domain_allowlist`. To block all external egress while keeping connectivity to the
+        main container, pass an empty allowlist (`outbound_cidr_allowlist=[]`); a fully network-blocked
+        sidecar is not supported because it would have no IP and could not reach the main container.
 
         Args:
             *args: Command and arguments to run inside the sidecar container.
@@ -2784,6 +2843,11 @@ class _SidecarManager:
             secrets: Secrets to inject as environment variables in the sidecar container.
             workdir: Working directory for the command; must be absolute if set.
             volumes: Mapping of mount paths to `Volume` objects to mount in the sidecar container.
+            outbound_cidr_allowlist: If set, restrict the sidecar's outbound traffic to these CIDR
+                blocks. An empty list blocks all external egress while preserving connectivity to the
+                main container.
+            outbound_domain_allowlist: If set, restrict the sidecar's outbound TLS connections (port
+                443) to these SNI domains. Supports wildcards like ``*.example.com``.
 
         Returns:
             A `SidecarContainer` handle for the running container.
@@ -2838,6 +2902,7 @@ class _SidecarManager:
             workdir=workdir or "",
             secret_ids=[secret.object_id for secret in secrets],
             volume_mounts=volume_mounts,
+            network_access=_build_outbound_network_access(False, outbound_cidr_allowlist, outbound_domain_allowlist),
         )
         create_resp = await command_router_client.container_create(create_req)
         container_id = create_resp.container_id
@@ -2870,6 +2935,66 @@ class _SidecarManager:
             for container in resp.containers
             if container.container_name != _MAIN_CONTAINER_NAME
         ]
+
+
+@synchronizer.create_blocking
+async def _container_exec(
+    pty: bool,
+    container_id: str = "",
+    command: tuple[str, ...] = (),
+    sandbox_id_v2: str | None = None,
+):
+    """Execute a command in a container.
+
+    For tasks belonging to V2 sandboxes, `sandbox_id_v2` may be set to the
+    sandbox ID; otherwise the V2 backend is used whenever the task ID itself
+    marks a V2 sandbox task.
+    """
+    client = await _Client.from_env()
+
+    if sandbox_id_v2 is not None:
+        command_router_client = await TaskCommandRouterClient.init_v2_by_sandbox_id(client, sandbox_id_v2, container_id)
+    elif _is_v2_task_id(container_id):
+        command_router_client = await TaskCommandRouterClient.init_v2_by_task_id(client, container_id)
+    else:
+        command_router_client = await TaskCommandRouterClient.init(client, container_id)
+
+    process_id = str(uuid.uuid4())
+
+    start_req = sr_pb2.TaskExecStartRequest(
+        task_id=container_id,
+        exec_id=process_id,
+        command_args=command,
+        stdout_config=sr_pb2.TaskExecStdoutConfig.TASK_EXEC_STDOUT_CONFIG_PIPE,
+        stderr_config=sr_pb2.TaskExecStderrConfig.TASK_EXEC_STDERR_CONFIG_PIPE,
+        pty_info=get_pty_info(shell=True) if pty else None,
+        runtime_debug=config.get("function_runtime_debug"),
+    )
+    await command_router_client.exec_start(start_req)
+
+    if pty:
+        # PTY output is raw terminal bytes (control sequences, mouse events,
+        # glyphs in non-UTF-8 locales, etc.) — not text. Strict UTF-8 decode on
+        # this stream crashes the shell as soon as anything emits a byte that
+        # isn't valid UTF-8, e.g. vim drawing a Latin-1 file under LC_CTYPE=C.
+        # Pass bytes through unmodified; `attach()` writes them straight to the
+        # local fd.
+        await _ContainerProcess(
+            process_id,
+            container_id,
+            client,
+            command_router_client=command_router_client,
+            text=False,
+        ).attach()
+    else:
+        await _ContainerProcess(
+            process_id,
+            container_id,
+            client,
+            command_router_client=command_router_client,
+            stdout=StreamType.STDOUT,
+            stderr=StreamType.STDOUT,
+        ).wait()
 
 
 SidecarContainer = synchronize_api(_SidecarContainer)

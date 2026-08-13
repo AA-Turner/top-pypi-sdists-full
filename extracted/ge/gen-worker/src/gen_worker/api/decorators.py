@@ -128,6 +128,35 @@ class Resources(msgspec.Struct, frozen=True, omit_defaults=True):
     exist. It is never a gate, never a runtime ceiling, and never a
     per-load reservation. Declaring it implies ``gpu=True``.
 
+    ``min_vram_gb`` (pgw#660) is the HARD VRAM floor, and it is the exact
+    twin of ``compute_capability`` above: the v2 cut deleted ``vram_gb`` on
+    the reasoning that th#683 would MEASURE the real requirement, and that
+    reasoning is right about how much VRAM a function wants and wrong about
+    the card it cannot run on at all. The two are not the same question, and
+    only one of them has an answer before the first build exists.
+
+    It is deliberately NOT ``vram_gb_hint`` promoted. The hint's contract —
+    "never a gate" — is what pgw#647 froze, and teaching the scheduler to
+    gate on a value declared as advisory would silently turn every existing
+    hint into a hard refusal. A floor is a different statement, so it gets a
+    different field, named ``min_`` for what it is: a floor the hub may
+    exceed, never a cap (the same reading as ``min_disk_gb``). Declare it
+    ONLY for a genuine incapability — a function that merely runs BETTER
+    with more VRAM declares nothing and lets the fit ladder choose.
+
+    Declaring it implies ``gpu=True``. Where both are present the floor must
+    not exceed the hint: a hint BELOW the floor is a contradiction (the
+    first-build placement would land under the value the function says it
+    cannot run below), and it is refused here rather than shipped.
+
+    It is a PLACEMENT gate and nothing else. It deliberately does not reach
+    the worker-side fit ladder (``models/serve_fit.py``), which by contract
+    "never refuses on the recommended-VRAM hint alone" and whose sole author
+    opt-out is ``strict_vram``. A floor that also became a runtime refusal
+    would turn a scheduling statement into a serving one and could refuse
+    requests a pod can answer — a separate decision, not a consequence of
+    this one.
+
     ``ram_gb_hint`` (pgw#670) is its HOST-side twin, restored after the v2
     cut deleted ``ram_gb`` on the reasoning that host RAM is an
     opportunistic latency tier. For ltx-video-2.3 it was neither
@@ -168,6 +197,21 @@ class Resources(msgspec.Struct, frozen=True, omit_defaults=True):
     rungs (offload / cpu) outright instead of serving slowly. The on-GPU
     rungs (fp8 storage, emergency 4-bit) remain available.
 
+    ``min_disk_gb`` (pgw#732) is the CONTAINER-DISK floor, and it is named
+    for what it is: a floor the hub may exceed, never a cap, so ``min_`` reads
+    truer than a ``_hint`` suffix. th#1233 already sizes a conversion pod's
+    disk from the bytes the job will materialize, so the common case needs no
+    declaration at all. The residue is jobs whose need is NOT derivable from
+    the source — multi-source marries, large intermediate scratch, and the
+    live example, ``mirror_svdq``, which fetches a 13.08 GB nunchaku
+    checkpoint straight from HuggingFace. No catalog read will ever see those
+    bytes; only the author knows they exist. The hub half is already wired and
+    waiting: ``mergeRequestDiskIntoSupply`` honours a per-function
+    ``min_disk_gb`` as an additional floor, exactly like ``min_vram_gb``, and
+    until this axis existed nothing emitted it. Like ``ram_gb_hint`` it is an
+    ALLOCATION-time ask and does not imply ``gpu=True`` — a CPU-only
+    conversion is the case that needed it first.
+
     ``vcpus`` (gw#490) declares the host-side vCPU ask (CPU-heavy encode);
     it does not imply ``gpu=True``. ``gpu_count`` (>1 later feeds
     ``DeviceRequest`` — pgw#648) declares how many devices one instance
@@ -206,7 +250,9 @@ class Resources(msgspec.Struct, frozen=True, omit_defaults=True):
     strict_vram: bool = False
     vcpus: int | None = None
     vram_gb_hint: float | None = None
+    min_vram_gb: float | None = None
     ram_gb_hint: float | None = None
+    min_disk_gb: float | None = None
     compute_capability: float | str | None = None
     max_gpu_count: int | None = None
     max_gpus_per_execution_group: int | None = None
@@ -221,6 +267,21 @@ class Resources(msgspec.Struct, frozen=True, omit_defaults=True):
         read-back-and-reject), so ``ram_gb_hint`` is projected under that
         name. One mapping, in one place, rather than a second spelling for
         endpoint authors to get wrong.
+
+        ``min_disk_gb`` (pgw#732) needs no remap either — it is already the
+        key the hub reads as an additional disk floor
+        (``mergeRequestDiskIntoSupply``), the same spelling on both sides.
+
+        ``min_vram_gb`` (pgw#660) needs no remap either, and that is the whole
+        reason the floor is spelled this way: it is already the key
+        ``function_requirements.go`` folds into ``requirement_payload_json``
+        (``for _, key := range []string{"min_vram_gb", "vram_multiplier"}``),
+        from which it reaches ``req.VRAMGB`` → ``MinVRAMGB`` → the GPU
+        candidate filter. The hub reads it as the floor ALREADY — v2 simply
+        stopped emitting anything that landed there, so the gate vanished with
+        no error and no build failure. Note the builder's own fallback,
+        ``vram_gb`` → ``min_vram_gb`` *when the explicit key is absent*: the
+        explicit key wins, so this field can never be shadowed by a v1 remap.
 
         ``compute_capability`` needs no remap: it is already the key
         ``internal/builder/function_requirements.go`` parses (scalar or
@@ -251,10 +312,24 @@ class Resources(msgspec.Struct, frozen=True, omit_defaults=True):
             if v <= 0:
                 raise ValueError(f"vram_gb_hint must be positive, got {v}")
             force(self, "vram_gb_hint", v)
+        if self.min_vram_gb is not None:
+            f = float(self.min_vram_gb)
+            if f <= 0:
+                raise ValueError(f"min_vram_gb must be positive, got {f}")
+            force(self, "min_vram_gb", f)
+            # A hint below the floor would place the first build under the
+            # value the function says it cannot run below — the declaration
+            # contradicts itself, so it costs a ValueError, not a build.
+            if self.vram_gb_hint is not None and self.vram_gb_hint < f:
+                raise ValueError(
+                    f"vram_gb_hint {self.vram_gb_hint} is below min_vram_gb {f}: "
+                    "the hint places the first build, and placing it under the "
+                    "hard floor cannot be what was meant")
         if self.compute_capability is not None:
             force(self, "compute_capability",
                   _normalize_compute_capability(self.compute_capability))
         if (n_gpu > 1 or self.vram_gb_hint is not None
+                or self.min_vram_gb is not None
                 or self.compute_capability is not None):
             force(self, "gpu", True)
         if self.ram_gb_hint is not None:
@@ -262,6 +337,11 @@ class Resources(msgspec.Struct, frozen=True, omit_defaults=True):
             if r <= 0:
                 raise ValueError(f"ram_gb_hint must be positive, got {r}")
             force(self, "ram_gb_hint", r)
+        if self.min_disk_gb is not None:
+            d = float(self.min_disk_gb)
+            if d <= 0:
+                raise ValueError(f"min_disk_gb must be positive, got {d}")
+            force(self, "min_disk_gb", d)
         if self.vcpus is not None:
             c = int(self.vcpus)
             if c <= 0:
@@ -973,9 +1053,33 @@ class Compile(msgspec.Struct, frozen=True):
     # Deliberately NOT a contract axis (`contract_axes()`): resolving a blocker
     # must not re-key a cell.
     blockers: tuple[MintBlocker, ...] = ()
+    #: pgw#1167: the latent divisor the CLASS ROWS were derived at, carried so
+    #: the mint can reconcile it against the pipeline's real `vae_scale_factor`
+    #: before it spends an export. CELL-LEVEL because that is what it is — one
+    #: divisor per declaration, not a fact about any single row.
+    #:
+    #: NEVER AUTHORED. It is transferred off `derive.cfg_image_classes`'s
+    #: return value in `__post_init__`; an author who writes it by hand is
+    #: declaring the same number twice, which is the duplicate-map defect
+    #: (pgw#1150/#1152) in the surface pgw#1158 fenced. `None` means the class
+    #: rows did not come from a deriver that knows the divisor, and the mint
+    #: reports UNRECONCILED — never a pass.
+    #:
+    #: DELIBERATELY ABSENT FROM :meth:`contract_axes`, and fenced by
+    #: `test_latent_basis_pgw1167`: it is a provenance fact about how the rows
+    #: were COMPUTED, not a shape-contract axis (the latent extents it produced
+    #: are already digested, via `classes`). Adding it there would re-key every
+    #: cell in the fleet.
+    latent_basis: Optional[int] = None
 
     def __post_init__(self) -> None:
         force = msgspec.structs.force_setattr
+        # BEFORE the row coercion below, which rebuilds `classes` as a PLAIN
+        # tuple and drops any subclass attribute with it. The deriver's return
+        # value is the transport; this field is the home.
+        carried = getattr(self.classes, "latent_basis", None)
+        if carried is not None and self.latent_basis is None:
+            force(self, "latent_basis", int(carried))
         shapes = tuple(tuple(int(v) for v in s) for s in self.shapes)
         if (
             (not shapes and not self.classes)

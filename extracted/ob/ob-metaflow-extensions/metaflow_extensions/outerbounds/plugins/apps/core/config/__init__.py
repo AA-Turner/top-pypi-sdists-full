@@ -3,6 +3,8 @@ from .unified_config import (
     PackagedCode,
     BakedImage,
     AuthType,
+    CapsuleType,
+    ProxyConfig,
     UNASSIGNED_PROJECT_BRANCH,
 )
 from .cli_generator import auto_cli_options

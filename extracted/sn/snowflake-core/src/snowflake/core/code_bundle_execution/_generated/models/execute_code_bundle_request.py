@@ -16,9 +16,14 @@ import json
 import pprint
 import re  # noqa: F401
 
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict, StrictStr
+
+from snowflake.core.code_bundle_execution._generated.models.code_bundle_specification import (
+    CodeBundleSpecification,
+    CodeBundleSpecificationModel,
+)
 
 
 class ExecuteCodeBundleRequest(BaseModel):
@@ -34,8 +39,8 @@ class ExecuteCodeBundleRequest(BaseModel):
         Name or path of the file (or class) to run as the entry point of the code bundle.
     arguments : list[str], optional
         Command-line arguments passed to the code bundle at execution time.
-    specification : object, optional
-        Inline code bundle specification supplied as a JSON object (the full bundle spec, with its top-level `bundle` key); for example {"bundle": {"type": "custom", "compute_type": "warehouse", "language": "python"}}.
+    specification : CodeBundleSpecification, optional
+
     execution_name : str, optional
         Optional caller-supplied name recorded in run history for the code bundle execution.
     """
@@ -46,7 +51,7 @@ class ExecuteCodeBundleRequest(BaseModel):
 
     arguments: Optional[List[StrictStr]] = None
 
-    specification: Optional[Dict[str, Any]] = None
+    specification: Optional[CodeBundleSpecification] = None
 
     execution_name: Optional[StrictStr] = None
 
@@ -82,6 +87,10 @@ class ExecuteCodeBundleRequest(BaseModel):
 
         _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
+        # override the default output from pydantic by calling `to_dict()` of specification
+        if self.specification:
+            _dict["specification"] = self.specification.to_dict()
+
         return _dict
 
     def to_dict_without_readonly_properties(self) -> dict[str, Any]:
@@ -102,7 +111,9 @@ class ExecuteCodeBundleRequest(BaseModel):
                 "from_location": obj.get("from_location"),
                 "entrypoint": obj.get("entrypoint"),
                 "arguments": obj.get("arguments"),
-                "specification": obj.get("specification"),
+                "specification": CodeBundleSpecification.from_dict(obj.get("specification"))
+                if obj.get("specification") is not None
+                else None,
                 "execution_name": obj.get("execution_name"),
             }
         )
@@ -117,7 +128,7 @@ class ExecuteCodeBundleRequestModel:
         entrypoint: str,
         # optional properties
         arguments: Optional[list[str]] = None,
-        specification: Optional[object] = None,
+        specification: Optional[CodeBundleSpecification] = None,
         execution_name: Optional[str] = None,
     ):
         """A model object representing the ExecuteCodeBundleRequest resource.
@@ -132,8 +143,8 @@ class ExecuteCodeBundleRequestModel:
             Name or path of the file (or class) to run as the entry point of the code bundle.
         arguments : list[str], optional
             Command-line arguments passed to the code bundle at execution time.
-        specification : object, optional
-            Inline code bundle specification supplied as a JSON object (the full bundle spec, with its top-level `bundle` key); for example {"bundle": {"type": "custom", "compute_type": "warehouse", "language": "python"}}.
+        specification : CodeBundleSpecification, optional
+
         execution_name : str, optional
             Optional caller-supplied name recorded in run history for the code bundle execution.
         """
@@ -153,7 +164,7 @@ class ExecuteCodeBundleRequestModel:
             from_location=self.from_location,
             entrypoint=self.entrypoint,
             arguments=self.arguments,
-            specification=self.specification,
+            specification=self.specification._to_model() if self.specification is not None else None,
             execution_name=self.execution_name,
         )
 
@@ -163,7 +174,9 @@ class ExecuteCodeBundleRequestModel:
             from_location=model.from_location,
             entrypoint=model.entrypoint,
             arguments=model.arguments,
-            specification=model.specification,
+            specification=CodeBundleSpecificationModel._from_model(model.specification)
+            if model.specification
+            else None,
             execution_name=model.execution_name,
         )
 

@@ -106,7 +106,7 @@ impl MD037NoSpaceInEmphasis {
     /// Check if a byte position is within a link (inline links, reference links, or reference definitions)
     fn is_in_link(&self, ctx: &crate::lint_context::LintContext, byte_pos: usize) -> bool {
         // Check inline and reference links
-        for link in &ctx.links {
+        for link in ctx.links() {
             if link.byte_offset <= byte_pos && byte_pos < link.byte_end {
                 if link.is_reference && link.url.is_empty() {
                     continue;
@@ -116,7 +116,7 @@ impl MD037NoSpaceInEmphasis {
         }
 
         // Check images (which use similar syntax)
-        for image in &ctx.images {
+        for image in ctx.images() {
             if image.byte_offset <= byte_pos && byte_pos < image.byte_end {
                 return true;
             }
@@ -179,8 +179,7 @@ impl Rule for MD037NoSpaceInEmphasis {
             return Ok(vec![]);
         }
 
-        // Create LineIndex for correct byte position calculations across all line ending types
-        let line_index = &ctx.line_index;
+        // Source-location queries preserve correct offsets across all line ending types.
 
         let mut warnings = Vec::new();
         let table_lines = table_line_flags(ctx);
@@ -239,7 +238,7 @@ impl Rule for MD037NoSpaceInEmphasis {
 
         for (line_idx, line) in lines.iter().enumerate() {
             let line_num = line_idx + 1;
-            let line_start_pos = line_index.get_line_start_byte(line_num).unwrap_or(0);
+            let line_start_pos = ctx.line_start_byte(line_num).unwrap_or(0);
 
             // Find warnings for this line
             for warning in &warnings {

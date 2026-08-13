@@ -59,9 +59,72 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Disk(
     {
-        "serial_number": "EC47PC5021SW",
         "effective_type": "sas",
-        "name": "1.24.3",
+        "serial_number": "EC47PC5021SW",
+        "bytes_per_sector": 512,
+        "shelf": {"uid": "10318311901725526608"},
+        "firmware_version": "NA02",
+        "container_type": "aggregate",
+        "local": True,
+        "outage": {
+            "persistently_failed": True,
+            "reason": {
+                "message": 'Failed disk. Reason: "admin failed".',
+                "code": "721081",
+            },
+        },
+        "sector_count": 1172123568,
+        "uid": "50000394:0808AA88:00000000:00000000:00000000:00000000:00000000:00000000:00000000:00000000",
+        "paths": [
+            {
+                "wwpn": "5000cca02f0e676a",
+                "wwnn": "5000cca02f0e6768",
+                "port_name": "B",
+                "port_type": "sas",
+                "initiator": "3a",
+            },
+            {
+                "wwpn": "5000cca02f0e6769",
+                "wwnn": "5000cca02f0e6768",
+                "port_name": "A",
+                "port_type": "sas",
+                "initiator": "3d",
+            },
+            {
+                "wwpn": "5000cca02f0e6769",
+                "wwnn": "5000cca02f0e6768",
+                "port_name": "A",
+                "port_type": "sas",
+                "initiator": "3d",
+            },
+            {
+                "wwpn": "5000cca02f0e676a",
+                "wwnn": "5000cca02f0e6768",
+                "port_name": "B",
+                "port_type": "sas",
+                "initiator": "3a",
+            },
+        ],
+        "node": {
+            "uuid": "3a89ed49-8c6d-11e8-93bc-00a0985a64b6",
+            "_links": {
+                "self": {
+                    "href": "/api/cluster/nodes/3a89ed49-8c6d-11e8-93bc-00a0985a64b6"
+                }
+            },
+            "name": "node-2",
+        },
+        "home_node": {
+            "uuid": "3a89ed49-8c6d-11e8-93bc-00a0985a64b6",
+            "_links": {
+                "self": {
+                    "href": "/api/cluster/nodes/3a89ed49-8c6d-11e8-93bc-00a0985a64b6"
+                }
+            },
+            "name": "node-2",
+        },
+        "type": "sas",
+        "bay": 3,
         "aggregates": [
             {
                 "_links": {
@@ -69,99 +132,36 @@ Disk(
                         "href": "/api/storage/aggregates/3fd9c345-ba91-4949-a7b1-6e2b898d74e3"
                     }
                 },
-                "name": "node_2_SAS_1",
                 "uuid": "3fd9c345-ba91-4949-a7b1-6e2b898d74e3",
+                "name": "node_2_SAS_1",
             }
         ],
-        "paths": [
-            {
-                "initiator": "3a",
-                "port_name": "B",
-                "wwpn": "5000cca02f0e676a",
-                "port_type": "sas",
-                "wwnn": "5000cca02f0e6768",
-            },
-            {
-                "initiator": "3d",
-                "port_name": "A",
-                "wwpn": "5000cca02f0e6769",
-                "port_type": "sas",
-                "wwnn": "5000cca02f0e6768",
-            },
-            {
-                "initiator": "3d",
-                "port_name": "A",
-                "wwpn": "5000cca02f0e6769",
-                "port_type": "sas",
-                "wwnn": "5000cca02f0e6768",
-            },
-            {
-                "initiator": "3a",
-                "port_name": "B",
-                "wwpn": "5000cca02f0e676a",
-                "port_type": "sas",
-                "wwnn": "5000cca02f0e6768",
-            },
-        ],
-        "node": {
-            "name": "node-2",
-            "_links": {
-                "self": {
-                    "href": "/api/cluster/nodes/3a89ed49-8c6d-11e8-93bc-00a0985a64b6"
-                }
-            },
-            "uuid": "3a89ed49-8c6d-11e8-93bc-00a0985a64b6",
-        },
+        "class": "performance",
         "error": [
             {
+                "type": "notallflashdisk",
                 "reason": {
                     "message": '"The node is configured with All-Flash Optimized personality and this disk is not an SSD. The disk needs to be removed from the system."',
                     "code": "721082",
                 },
-                "type": "notallflashdisk",
             }
         ],
-        "vendor": "NETAPP",
-        "container_type": "aggregate",
         "usable_size": 438304768000,
-        "right_size_sector_count": 5579776,
-        "pool": "pool0",
-        "home_node": {
-            "name": "node-2",
-            "_links": {
-                "self": {
-                    "href": "/api/cluster/nodes/3a89ed49-8c6d-11e8-93bc-00a0985a64b6"
-                }
-            },
-            "uuid": "3a89ed49-8c6d-11e8-93bc-00a0985a64b6",
-        },
-        "bay": 3,
         "state": "present",
-        "shelf": {"uid": "10318311901725526608"},
         "physical_size": 438804988000,
-        "outage": {
-            "reason": {
-                "message": 'Failed disk. Reason: "admin failed".',
-                "code": "721081",
-            },
-            "persistently_failed": True,
-        },
-        "model": "X421_FAL12450A10",
-        "bytes_per_sector": 512,
-        "uid": "50000394:0808AA88:00000000:00000000:00000000:00000000:00000000:00000000:00000000:00000000",
-        "local": True,
-        "type": "sas",
+        "rpm": 10000,
+        "pool": "pool0",
+        "vendor": "NETAPP",
+        "right_size_sector_count": 5579776,
+        "name": "1.24.3",
         "stats": {
-            "average_latency": 6,
-            "power_on_hours": 11797,
-            "throughput": 1957888,
             "path_error_count": 0,
             "iops_total": 12854,
+            "power_on_hours": 11797,
+            "throughput": 1957888,
+            "average_latency": 6,
         },
-        "rpm": 10000,
-        "firmware_version": "NA02",
-        "sector_count": 1172123568,
-        "class": "performance",
+        "model": "X421_FAL12450A10",
     }
 )
 
@@ -191,69 +191,69 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Disk(
     {
         "serial_number": "3234363765386464",
-        "name": "NET-3.2",
+        "bytes_per_sector": 512,
+        "firmware_version": "0001",
+        "container_type": "mediator",
+        "local": True,
+        "fips_certified": False,
+        "outage": {
+            "persistently_failed": False,
+            "reason": {"message": 'Failed disk. Reason: "".', "code": "721081"},
+        },
+        "sector_count": 204808,
+        "uid": "32343637:65386464:00000000:00000000:00000000:00000000:00000000:00000000:00000000:00000000",
         "paths": [
             {
-                "initiator": "0f",
-                "port_name": "A",
                 "wwpn": "53059d50444f5476",
+                "wwnn": "53059d50444f5476",
+                "port_name": "A",
                 "vmdisk_hypervisor_file_name": "LUN 4.0",
                 "port_type": "sas",
-                "wwnn": "53059d50444f5476",
+                "initiator": "0f",
             },
             {
-                "initiator": "0f",
-                "port_name": "A",
                 "wwpn": "53059d50444f5476",
+                "wwnn": "53059d50444f5476",
+                "port_name": "A",
                 "vmdisk_hypervisor_file_name": "LUN 2.0",
                 "port_type": "sas",
-                "wwnn": "53059d50444f5476",
+                "initiator": "0f",
             },
         ],
         "node": {
-            "name": "example_node_name",
+            "uuid": "f4cb78ba-5841-11ec-80c4-916f62b4cd44",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/f4cb78ba-5841-11ec-80c4-916f62b4cd44"
                 }
             },
-            "uuid": "f4cb78ba-5841-11ec-80c4-916f62b4cd44",
+            "name": "example_node_name",
         },
-        "vendor": "NETAPP",
-        "container_type": "mediator",
-        "fips_certified": False,
-        "right_size_sector_count": 5579776,
-        "pool": "pool0",
         "home_node": {
-            "name": "example_node_name",
+            "uuid": "f4cb78ba-5841-11ec-80c4-916f62b4cd44",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/f4cb78ba-5841-11ec-80c4-916f62b4cd44"
                 }
             },
-            "uuid": "f4cb78ba-5841-11ec-80c4-916f62b4cd44",
+            "name": "example_node_name",
         },
-        "self_encrypting": False,
-        "physical_size": 204808,
-        "outage": {
-            "reason": {"message": 'Failed disk. Reason: "".', "code": "721081"},
-            "persistently_failed": False,
-        },
-        "model": "PHA-DISK",
-        "bytes_per_sector": 512,
-        "uid": "32343637:65386464:00000000:00000000:00000000:00000000:00000000:00000000:00000000:00000000",
-        "local": True,
         "type": "vmdisk",
+        "class": "virtual",
+        "physical_size": 204808,
+        "pool": "pool0",
+        "vendor": "NETAPP",
+        "right_size_sector_count": 5579776,
+        "name": "NET-3.2",
         "stats": {
-            "average_latency": 2157188883,
-            "power_on_hours": 0,
-            "throughput": 4096,
             "path_error_count": 0,
             "iops_total": 1,
+            "power_on_hours": 0,
+            "throughput": 4096,
+            "average_latency": 2157188883,
         },
-        "firmware_version": "0001",
-        "sector_count": 204808,
-        "class": "virtual",
+        "self_encrypting": False,
+        "model": "PHA-DISK",
     }
 )
 
@@ -263,9 +263,11 @@ Disk(
 
 ---
 ## Modifying storage disk
-The storage disk PATCH API modifies disk ownership, unfails a disk, updates encrypting drive authentication keys (AKs), sanitizes encrypting drives, or sanitizes non-encrypting spare drives in the cluster.
+<personalities supports=asar2>Disk ownership cannot be updated on the ASA r2 platform.</personalities>
+The storage disk PATCH API <personalities supports=unified,aiml>modifies disk ownership, </personalities>unfails a disk, updates encrypting drive authentication keys (AKs), sanitizes encrypting drives, or sanitizes non-encrypting spare drives in the cluster.
 The storage disk API currently supports patching one attribute at a time.
-### Updating the disk ownership for a specified disk. Disk ownership cannot be updated on the ASA r2 platform.
+<personalities supports=unified,aiml>
+### Updating the disk ownership for a specified disk.
 ### 1. When the disk is not assigned
 When the disk is a spare (or unowned) disk and node name is specified, the PATCH operation assigns the disk to the specified node.
 Optionally, pool name can also be specified along with node name. Accepted pool names are: pool0, pool1.
@@ -274,10 +276,12 @@ When the disk is already assigned (already has a owner), and a new node is speci
 Optionally, pool name can also be specified along with node name. Accepted pool names are: pool0, pool1.
 ### Removing the disk ownership for a specified disk
 When the disk is already assigned, and node name is specified as null (no-quotes), the PATCH operation removes the owner.
+</personalities>
 <br/>
 ---
 ## Examples
-### 1. Update the disk ownership for an unowned disk
+<personalities supports=unified,aiml>
+### Update the disk ownership for an unowned disk
 ---
 ```python
 from netapp_ontap import HostConnection
@@ -291,7 +295,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 
 ---
-### 2. Update the disk ownership for an already owned disk
+### Update the disk ownership for an already owned disk
 ---
 ```python
 from netapp_ontap import HostConnection
@@ -305,7 +309,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 
 ---
-### 3. Update the disk pool for a disk (can be either owned or unowned).
+</personalities>
+### Update the disk pool for a disk (can be either owned or unowned)
 ---
 ```python
 from netapp_ontap import HostConnection
@@ -320,7 +325,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 
 ---
-### 4. Rekey the data authentication key (AK) of all encrypting drives to an authentication key (AK) selected automatically by the system
+### Rekey the data authentication key (AK) of all encrypting drives to an authentication key (AK) selected automatically by the system
 ---
 ```python
 from netapp_ontap import HostConnection
@@ -333,7 +338,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 
 ---
-### 5. Cryptographically sanitize a spare or broken disk
+### Cryptographically sanitize a spare or broken disk
 ---
 ```python
 from netapp_ontap import HostConnection
@@ -362,8 +367,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 
 ---
-### 7. Unfailing a disk and attempting to reassimilate filesystem labels.
-### If unable or unnecessary to reassimilate filesystem labels, the disk will be set as spare.
+### Unfailing a disk and attempting to reassimilate filesystem labels
+#### If unable or unnecessary to reassimilate filesystem labels, the disk will be set as spare.
 ---
 ```python
 from netapp_ontap import HostConnection
@@ -377,7 +382,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 
 ---
-### 8. Sanitize spare disks (non-cryptographically)
+### Sanitize spare disks (non-cryptographically)
 ---
 ```python
 from netapp_ontap import HostConnection

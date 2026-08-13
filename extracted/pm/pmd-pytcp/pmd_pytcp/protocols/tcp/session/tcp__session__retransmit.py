@@ -167,14 +167,29 @@ class TcpRetransmitter:
                 FsmState.ESTABLISHED,
                 FsmState.FIN_WAIT_1,
                 FsmState.FIN_WAIT_2,
+                FsmState.CLOSING,
                 FsmState.CLOSE_WAIT,
             }:
                 session._connection_error = ConnError.TIMEOUT
                 session._event__rx_buffer.set()
-            # If in SYN_SENT state inform CONNECT syscall that the
-            # connection related event happened.
-            if session._state is FsmState.SYN_SENT:
-                session._connection_error = ConnError.TIMEOUT
+            # If a CONNECT syscall may be awaiting the handshake,
+            # inform it that the connection collapsed. SYN_RCVD
+            # belongs here too: a crossed-SYN simultaneous open
+            # (RFC 9293 §3.5 Figure 8) moves the active opener
+            # SYN_SENT -> SYN_RCVD while its application is still
+            # parked in connect() — releasing only SYN_SENT left
+            # that caller hanging forever. A soft ICMP unreachable
+            # recorded during the handshake (hint-not-proof, RFC
+            # 5927 §6 — never aborts on its own) is reported now in
+            # preference to a bare timeout, Linux 'sk_err_soft'
+            # parity: the operator learns WHY the SYNs went
+            # unanswered.
+            if session._state in {FsmState.SYN_SENT, FsmState.SYN_RCVD}:
+                if session._connection_error not in {
+                    ConnError.HOST_UNREACHABLE,
+                    ConnError.NET_UNREACHABLE,
+                }:
+                    session._connection_error = ConnError.TIMEOUT
                 session._event__connect.release()
             # Change state to CLOSED
             session._change_state(FsmState.CLOSED)
@@ -613,6 +628,15 @@ class TcpRetransmitter:
         """
 
         session = self._session
+        if not session._timer_expired("tlp"):
+            return
+        # Consume the expiry up front: every path below either
+        # fires the probe (which re-arms the RTO fallback) or
+        # declines it — leaving the expired deadline armed would
+        # spin the coalesced service at its 1 ms floor until the
+        # next full cum-ACK drain happened to cancel it. A fresh
+        # send re-arms the PTO through '_transmit_packet'.
+        session._cancel_timer("tlp")
         # tlp_armed gates the firing path: only when the
         # arming logic in '_transmit_packet' actually armed
         # the TLP timer should this tick treat a
@@ -622,8 +646,6 @@ class TcpRetransmitter:
         # downstream expiry check and _tlp_pto_tick would
         # spuriously fire a retransmit on every FSM tick.
         if not session._rack_tlp.tlp_armed:
-            return
-        if not session._timer_expired("tlp"):
             return
         if session._snd_seq.una == session._snd_seq.max:
             # Nothing in flight - no tail to probe.
@@ -698,6 +720,12 @@ class TcpRetransmitter:
         session = self._session
         if not session._timer_expired("rack"):
             return
+        # Consume the expiry up front: every exit below either
+        # re-arms for the remaining candidates or has nothing left
+        # to do — leaving the expired deadline armed would spin
+        # the coalesced service at its 1 ms floor until an
+        # unrelated event happened to cancel it.
+        session._cancel_timer("rack")
         if session._rack_tlp.rack_xmit_ts == 0:
             return
         reo_wnd_ms = rack_compute_reo_wnd(

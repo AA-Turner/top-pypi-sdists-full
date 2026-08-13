@@ -11,7 +11,7 @@ from ._state_machine import (
 )
 from .app_config import AppConfig, AppConfigError
 from .code_package import CodePackager
-from .config import PackagedCode, BakedImage
+from .config import PackagedCode, BakedImage, CapsuleType
 from .app_config import CODE_PACKAGE_PREFIX, AuthType
 from .capsule import (
     CapsuleDeployer,
@@ -482,6 +482,29 @@ class AppDeployer(TypedCoreConfig):
     deployed = deployer.deploy()
     ```
 
+    Fronting a workload that is already running in the cluster (a proxy app). The app
+    runs no container of its own, so it takes no image, commands or code package:
+
+    ```python
+    # Point at a service that already exists. Its port is part of the URL.
+    deployer = AppDeployer(
+        name="my-proxy",
+        capsule_type="Proxy",
+        proxy={"service_url": "my-svc.my-ns.svc.cluster.local:8080"},
+        auth={"type": "API"},
+    )
+    deployed = deployer.deploy()
+
+    # Or point at pods, and let the platform put a service in front of them.
+    deployer = AppDeployer(
+        name="my-pod-proxy",
+        port=8080,
+        capsule_type="Proxy",
+        proxy={"namespace": "jobs-default", "selector_labels": {"app": "my-app"}},
+    )
+    deployed = deployer.deploy()
+    ```
+
     Interacting with a deployed app:
 
     ```python
@@ -739,8 +762,39 @@ class AppDeployer(TypedCoreConfig):
         skip_code_package = self._deploy_config._core_config.skip_code_package
         commands = self._deploy_config._core_config.commands
 
+        code_package = self._deploy_config._core_config.code_package
+
+        # A Proxy app runs nothing of its own; it only forwards traffic to a workload
+        # that is already running. So there is no command to run and no code to package.
+        is_proxy = self._deploy_config._core_config.capsule_type == CapsuleType.PROXY
+        if is_proxy:
+            _unusable = [
+                name
+                for name, value in (
+                    ("commands", commands),
+                    ("code_package", code_package),
+                )
+                if value
+            ]
+            if _unusable:
+                raise AppConfigError(
+                    "%s cannot be used when capsule_type='%s', since a proxy app runs no "
+                    "container of its own.\n\n"
+                    "Example proxy deployment:\n"
+                    "    deployer = AppDeployer(\n"
+                    "        name='my-proxy',\n"
+                    "        capsule_type='%s',\n"
+                    "        proxy={'service_url': 'my-svc.my-ns.svc.cluster.local:8080'},\n"
+                    "    )\n"
+                    % (
+                        " and ".join(_unusable),
+                        CapsuleType.PROXY,
+                        CapsuleType.PROXY,
+                    )
+                )
+
         # Validate commands: required unless use_base_image_command is True
-        if not use_base_image_command and not commands:
+        if not is_proxy and not use_base_image_command and not commands:
             raise AppConfigError(
                 "commands is required for deployment. Either provide commands or set "
                 "use_base_image_command=True to rely on the container's entrypoint.\n\n"
@@ -754,9 +808,6 @@ class AppDeployer(TypedCoreConfig):
         if use_base_image_command:
             self._deploy_config.set_state("use_base_image_command", True)
 
-        # Handle code_package if provided - extract url and key to state
-        code_package = self._deploy_config._core_config.code_package
-
         # Validate skip_code_package conflicts with code_package
         if skip_code_package and code_package is not None:
             raise CodePackagingException(
@@ -769,6 +820,7 @@ class AppDeployer(TypedCoreConfig):
                 "    deployer = AppDeployer(..., code_package=pkg, skip_code_package=False)\n"
             )
 
+        # Handle code_package if provided - extract url and key to state.
         # if skip_code_package is set the code_package is not passed. So if it is passed
         # then we should validate it correctly and set it to state.
         if code_package is not None:
@@ -792,9 +844,13 @@ class AppDeployer(TypedCoreConfig):
             self._deploy_config.set_state("skip_code_package", True)
 
         # Verify code_package is present unless skip_code_package is True
-        if not skip_code_package and (
-            self._state.get("code_package_url") is None
-            and self._deploy_config.get_state("code_package_url") is None
+        if (
+            not is_proxy
+            and not skip_code_package
+            and (
+                self._state.get("code_package_url") is None
+                and self._deploy_config.get_state("code_package_url") is None
+            )
         ):
             raise CodePackagingException(
                 "code_package is required for deployment. "

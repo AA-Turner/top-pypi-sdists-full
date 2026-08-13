@@ -1,1 +1,0 @@
-import{r as e}from"./splatFileLoader--KnTu2bg.js";export{e as gaussianSplattingVertexShader};

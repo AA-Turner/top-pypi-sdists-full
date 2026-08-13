@@ -14,10 +14,10 @@ use tower_lsp::Client;
 use tower_lsp::lsp_types::*;
 
 use crate::config::{Config, MarkdownFlavor};
-use crate::discovery::{ExcludeMatchers, MarkdownWalkOptions, is_markdown_extension, path_relative_to};
-use crate::lsp::server::DocumentEntry;
+use crate::discovery::{ExcludeMatchers, MarkdownWalkOptions, MarkdownWorkspaceScan};
+use crate::lsp::server::{ConfigResolver, DocumentEntry};
 use crate::lsp::types::{IndexState, IndexUpdate, RelintRequest};
-use crate::rule::{CrossFileScope, Rule};
+use crate::rule::Rule;
 use crate::workspace_index::{FileIndex, WorkspaceIndex};
 
 /// Walk options for workspace indexing, derived from the resolved config.
@@ -40,11 +40,37 @@ pub(super) fn index_walk_options(config: &Config) -> MarkdownWalkOptions {
 /// Deliberately not filtered by the enabled-rule set: the index is what
 /// navigation, completion and rename read, so disabling a rule's diagnostics is
 /// not a request to lose heading anchors in the editor.
+///
+/// The membership is `CrossFileScope::Workspace`, but the scope is a method on
+/// a constructed rule, so deriving it means building all of them and discarding
+/// all but these two. The index resolves its rules once per directory, and once
+/// per file under `.editorconfig`, which made that discard the dominant cost of
+/// a scan. `cross_file_rules_match_the_workspace_scope` pins the list against
+/// the scope every rule declares, so a third one cannot join unnoticed.
 pub(super) fn cross_file_rules(config: &Config) -> Vec<Box<dyn Rule>> {
-    crate::rules::all_rules(config)
-        .into_iter()
-        .filter(|rule| rule.cross_file_scope() == CrossFileScope::Workspace)
-        .collect()
+    vec![
+        crate::rules::MD051LinkFragments::from_config(config),
+        crate::rules::MD057ExistingRelativeLinks::from_config(config),
+    ]
+}
+
+/// The configuration-derived objects needed to interpret one indexed file.
+/// Kept together so cached rules cannot accidentally be paired with a flavor
+/// from another configuration scope.
+struct IndexConfiguration {
+    config: Config,
+    rules: Vec<Box<dyn Rule>>,
+}
+
+impl IndexConfiguration {
+    fn new(config: Config) -> Self {
+        let rules = cross_file_rules(&config);
+        Self { config, rules }
+    }
+
+    fn build_file_index(&self, content: &str, path: &Path) -> FileIndex {
+        IndexWorker::build_file_index(content, &self.rules, self.config.get_flavor_for_file(path), Some(path))
+    }
 }
 
 /// A file update waiting out its debounce window.
@@ -76,9 +102,8 @@ pub struct IndexWorker {
     debounce_duration: Duration,
     /// Sender to request re-linting of files (back to server)
     relint_tx: mpsc::Sender<RelintRequest>,
-    /// Resolved rumdl configuration; drives walk options and excludes for
-    /// workspace scans so the index covers the same files the CLI lints.
-    rumdl_config: Arc<RwLock<Config>>,
+    /// Shared per-file configuration policy used by diagnostics.
+    config_resolver: ConfigResolver,
     /// The server's document store, so a scan of the workspace indexes what an
     /// editor is showing rather than what was last written to disk.
     documents: Arc<RwLock<HashMap<Url, DocumentEntry>>>,
@@ -92,7 +117,7 @@ pub(crate) struct SharedIndexState {
     pub(crate) workspace_index: Arc<RwLock<WorkspaceIndex>>,
     pub(crate) index_state: Arc<RwLock<IndexState>>,
     pub(crate) workspace_roots: Arc<RwLock<Vec<PathBuf>>>,
-    pub(crate) rumdl_config: Arc<RwLock<Config>>,
+    pub(crate) config_resolver: ConfigResolver,
     pub(crate) documents: Arc<RwLock<HashMap<Url, DocumentEntry>>>,
 }
 
@@ -108,7 +133,7 @@ impl IndexWorker {
             workspace_index,
             index_state,
             workspace_roots,
-            rumdl_config,
+            config_resolver,
             documents,
         } = shared;
         Self {
@@ -120,7 +145,7 @@ impl IndexWorker {
             pending: HashMap::new(),
             debounce_duration: Duration::from_millis(100),
             relint_tx,
-            rumdl_config,
+            config_resolver,
             documents,
         }
     }
@@ -181,27 +206,27 @@ impl IndexWorker {
             return;
         }
 
-        // Built once for the batch, and per batch rather than once for the
-        // worker's lifetime, so a config change reaching the shared config takes
-        // effect on the next update without waiting for a rescan.
-        let rules = {
-            let config = self.rumdl_config.read().await;
-            cross_file_rules(&config)
-        };
-
+        let mut directory_configs: HashMap<PathBuf, IndexConfiguration> = HashMap::new();
         for path in ready {
             if let Some(pending) = self.pending.remove(&path) {
-                self.update_single_file(&path, &pending.content, &rules).await;
+                let directory = path.parent().unwrap_or(&path);
+                if let Some(index_config) = directory_configs.get(directory) {
+                    self.update_single_file(&path, &pending.content, index_config).await;
+                    continue;
+                }
+
+                let config = self.config_resolver.resolve_effective_config_for_file(&path).await;
+                let index_config = IndexConfiguration::new(config);
+                self.update_single_file(&path, &pending.content, &index_config).await;
+                directory_configs.insert(directory.to_path_buf(), index_config);
             }
         }
     }
 
     /// Update a single file in the index
-    async fn update_single_file(&self, path: &Path, content: &str, rules: &[Box<dyn Rule>]) {
-        // Build FileIndex using the indexing rules, parsed with the file's flavor.
-        let flavor = self.rumdl_config.read().await.get_flavor_for_file(path);
+    async fn update_single_file(&self, path: &Path, content: &str, index_config: &IndexConfiguration) {
         let Ok(file_index) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            Self::build_file_index(content, rules, flavor, Some(path))
+            index_config.build_file_index(content, path)
         })) else {
             log::error!("Panic while indexing {}: skipping", path.display());
             return;
@@ -340,22 +365,17 @@ impl IndexWorker {
         // here, because a document is stored before its update is queued.
         self.pending.clear();
 
-        // Find all markdown files in workspace roots
+        // File selection remains a workspace-level decision. Once selected,
+        // each document is interpreted with its own effective configuration.
         let roots = self.workspace_roots.read().await.clone();
-        // Built once for the whole scan: the rules resolve their flavor-dependent
-        // behavior per file at index time, so one set serves every flavor.
-        let (options, excludes, rules) = {
-            let config = self.rumdl_config.read().await;
-            (
-                index_walk_options(&config),
-                ExcludeMatchers::new(&config.global.exclude),
-                cross_file_rules(&config),
-            )
-        };
+        let config = self.config_resolver.workspace_config().await;
+        let options = index_walk_options(&config);
+        let includes = config.global.include.clone();
+        let excludes = ExcludeMatchers::new(&config.global.exclude);
         for (pattern, error) in &excludes.invalid {
             log::warn!("Invalid exclude pattern '{pattern}': {error}");
         }
-        let mut files = scan_markdown_files(&roots, options, excludes).await;
+        let mut files = scan_markdown_files(&roots, options, includes, excludes).await;
 
         // A document an editor holds belongs in the index whatever discovery says
         // about it, because opening one indexes it: a scan that dropped it would
@@ -403,6 +423,13 @@ impl IndexWorker {
         // Report progress start
         self.report_progress_begin(total).await;
 
+        // Files in one directory share every setting that can affect the
+        // workspace index. `.editorconfig` can vary lint-only settings between
+        // neighbors, but it cannot change Markdown flavor or either
+        // workspace-scoped rule, an invariant pinned by an integration test.
+        // Cache by directory so a large scan constructs those rules once.
+        let mut directory_configs: HashMap<PathBuf, IndexConfiguration> = HashMap::new();
+
         // Index each file, an open document from the buffer read above.
         for (i, path) in files.iter().enumerate() {
             let content = match open_buffers.get(path) {
@@ -410,8 +437,16 @@ impl IndexWorker {
                 None => tokio::fs::read_to_string(path).await.ok(),
             };
             if let Some(content) = content {
-                let flavor = self.rumdl_config.read().await.get_flavor_for_file(path);
-                let file_index = Self::build_file_index(&content, &rules, flavor, Some(path));
+                let directory = path.parent().unwrap_or(path);
+                let file_index = if let Some(index_config) = directory_configs.get(directory) {
+                    index_config.build_file_index(&content, path)
+                } else {
+                    let config = self.config_resolver.resolve_effective_config_for_file(path).await;
+                    let index_config = IndexConfiguration::new(config);
+                    let file_index = index_config.build_file_index(&content, path);
+                    directory_configs.insert(directory.to_path_buf(), index_config);
+                    file_index
+                };
 
                 let mut index = self.workspace_index.write().await;
                 index.update_file(path, file_index);
@@ -507,15 +542,16 @@ impl IndexWorker {
 ///
 /// Applies the shared discovery semantics (gitignore handling per config,
 /// `.markdownlintignore`, hidden files included, vendor dirs skipped) plus
-/// the config `exclude` patterns. Runs the (synchronous) filesystem walk on
-/// a blocking thread.
+/// config `include` and `exclude` patterns. Runs the (synchronous) filesystem
+/// walk on a blocking thread.
 async fn scan_markdown_files(
     roots: &[PathBuf],
     options: MarkdownWalkOptions,
+    includes: Vec<String>,
     excludes: ExcludeMatchers,
 ) -> Vec<PathBuf> {
     let roots = roots.to_vec();
-    tokio::task::spawn_blocking(move || collect_markdown_files(&roots, &options, &excludes))
+    tokio::task::spawn_blocking(move || collect_markdown_files(&roots, &options, &includes, &excludes))
         .await
         .unwrap_or_else(|e| {
             log::warn!("Workspace scan task failed: {e}");
@@ -523,49 +559,18 @@ async fn scan_markdown_files(
         })
 }
 
-/// Collect markdown files from the given roots, respecting ignore files and
-/// config `exclude` patterns (matched relative to each root, like the CLI
-/// matches them relative to the project root).
+/// Collect the files selected by the production workspace-index configuration.
 fn collect_markdown_files(
     roots: &[PathBuf],
     options: &MarkdownWalkOptions,
+    includes: &[String],
     excludes: &ExcludeMatchers,
 ) -> Vec<PathBuf> {
-    let mut files = Vec::new();
-
-    for root in roots {
-        for result in crate::discovery::markdown_walk_builder(root, options).build() {
-            match result {
-                Ok(entry) => {
-                    let path = entry.path();
-                    if entry.file_type().is_some_and(|t| t.is_file())
-                        && let Some(ext) = path.extension()
-                        && is_markdown_extension(ext)
-                        && !excluded_relative_to_root(excludes, path, root)
-                    {
-                        files.push(path.to_path_buf());
-                    }
-                }
-                Err(e) => log::warn!("Error scanning {}: {}", root.display(), e),
-            }
-        }
-    }
-
-    files
+    MarkdownWorkspaceScan::new(options, includes, excludes).collect(roots)
 }
 
-/// Whether `path` matches the config `exclude` patterns, matched against its
-/// root-relative form and, for absolute patterns, its absolute path. A path
-/// that cannot be relativized is excluded only by an absolute pattern.
-fn excluded_relative_to_root(excludes: &ExcludeMatchers, path: &Path, root: &Path) -> bool {
-    if excludes.is_empty() {
-        return false;
-    }
-    excludes.excludes_file(path_relative_to(path, root).as_deref(), path)
-}
-
-/// Whether `path` should be excluded from the workspace index based on the same
-/// ignore rules used by the full scan ([`collect_markdown_files`]).
+/// Whether `path` should be excluded from the workspace index based on the
+/// production full-scan configuration.
 ///
 /// Used to keep filesystem-watch events (`did_change_watched_files`) from
 /// reintroducing generated/ignored files that the full scan skips. Files the
@@ -586,60 +591,42 @@ pub(super) fn path_is_ignored_for_index(
     roots: &[PathBuf],
     path: &Path,
     options: &MarkdownWalkOptions,
+    includes: &[String],
     excludes: &ExcludeMatchers,
 ) -> bool {
-    // Use the deepest workspace root that contains the file so nested roots
-    // resolve their own ignore files. Paths outside every root aren't filtered.
-    let Some(root) = roots
-        .iter()
-        .filter(|r| path.starts_with(r))
-        .max_by_key(|r| r.components().count())
-    else {
-        return false;
-    };
-
-    // Check vendor directories only below the workspace root, so a workspace
-    // located under a directory of that name is not wholly excluded. Checked
-    // directly (not via the walk) so the predicate also works for paths that
-    // do not exist on disk.
-    if options.skip_vendor_dirs
-        && let Ok(rel) = path.strip_prefix(root)
-        && rel.components().any(
-            |c| matches!(c, std::path::Component::Normal(name) if name == ".git" || name == "node_modules" || name == "target"),
-        )
-    {
-        return true;
-    }
-
-    // Config exclude patterns, matched root-relative like the full scan.
-    if excluded_relative_to_root(excludes, path, root) {
-        return true;
-    }
-
-    let target = path.to_path_buf();
-    let mut builder = crate::discovery::markdown_walk_builder(root, options);
-    // Only descend into directories that lead to `target`; everything else is
-    // pruned. `target.starts_with(entry)` holds for `target` and its ancestors.
-    // Note: this replaces the vendor-dir filter set by the walk options
-    // (`WalkBuilder::filter_entry` overwrites the previous predicate); the
-    // direct component check above covers vendor dirs for this walk.
-    builder.filter_entry(move |entry| target.starts_with(entry.path()));
-    for entry in builder.build().flatten() {
-        if entry.path() == path {
-            return false;
-        }
-    }
-    true
+    MarkdownWorkspaceScan::new(options, includes, excludes).path_is_ignored(roots, path)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rule::CrossFileScope;
 
     /// Index `content` the way the worker does, with the default configuration.
     fn build_index(content: &str, flavor: MarkdownFlavor) -> FileIndex {
         let rules = cross_file_rules(&Config::default());
         IndexWorker::build_file_index(content, &rules, flavor, None)
+    }
+
+    /// `cross_file_rules` names its members rather than deriving them, so this
+    /// is what keeps the list honest: a rule that starts declaring
+    /// `CrossFileScope::Workspace` fails here until the index builds it too,
+    /// and one that stops declaring it fails until the index drops it.
+    #[test]
+    fn cross_file_rules_match_the_workspace_scope() {
+        let config = Config::default();
+        let names = |rules: &[Box<dyn Rule>]| rules.iter().map(|rule| rule.name().to_string()).collect::<Vec<_>>();
+
+        let declared = crate::rules::all_rules(&config)
+            .into_iter()
+            .filter(|rule| rule.cross_file_scope() == CrossFileScope::Workspace)
+            .collect::<Vec<_>>();
+
+        assert!(
+            !declared.is_empty(),
+            "control: the scope must be reachable, or this test says nothing"
+        );
+        assert_eq!(names(&declared), names(&cross_file_rules(&config)));
     }
 
     #[test]
@@ -751,6 +738,7 @@ More text with [link](./other.md#section).
         let mut files = collect_markdown_files(
             &[root.to_path_buf()],
             &index_walk_options(&Config::default()),
+            &[],
             &ExcludeMatchers::new(&[]),
         );
         files.sort();
@@ -780,6 +768,7 @@ More text with [link](./other.md#section).
         let names: Vec<String> = collect_markdown_files(
             &[root.to_path_buf()],
             &index_walk_options(&Config::default()),
+            &[],
             &excludes,
         )
         .iter()
@@ -809,6 +798,7 @@ More text with [link](./other.md#section).
         let names: Vec<String> = collect_markdown_files(
             std::slice::from_ref(&root),
             &index_walk_options(&Config::default()),
+            &[],
             &ExcludeMatchers::new(&[pattern]),
         )
         .iter()
@@ -833,6 +823,7 @@ More text with [link](./other.md#section).
         let names: Vec<String> = collect_markdown_files(
             &[root.to_path_buf()],
             &index_walk_options(&config),
+            &[],
             &ExcludeMatchers::new(&[]),
         )
         .iter()
@@ -856,6 +847,7 @@ More text with [link](./other.md#section).
         let mut names: Vec<String> = collect_markdown_files(
             &[root.to_path_buf()],
             &index_walk_options(&Config::default()),
+            &[],
             &ExcludeMatchers::new(&[]),
         )
         .iter()
@@ -885,6 +877,7 @@ More text with [link](./other.md#section).
         let mut names: Vec<String> = collect_markdown_files(
             &[root.to_path_buf()],
             &index_walk_options(&Config::default()),
+            &[],
             &ExcludeMatchers::new(&[]),
         )
         .iter()
@@ -893,6 +886,47 @@ More text with [link](./other.md#section).
         names.sort();
 
         assert_eq!(names, vec!["guide.markdown".to_string(), "top.md".to_string()]);
+    }
+
+    #[test]
+    fn test_workspace_index_applies_includes_to_scan_and_watch_events() {
+        use std::fs;
+
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_path_buf();
+        fs::create_dir(root.join("docs")).unwrap();
+        fs::create_dir(root.join("templates")).unwrap();
+        fs::write(root.join("README.md"), "# Readme\n").unwrap();
+        fs::write(root.join("docs/guide.md"), "# Guide\n").unwrap();
+        fs::write(root.join("templates/page.md.jinja"), "# Template\n").unwrap();
+
+        let roots = vec![root.clone()];
+        let options = index_walk_options(&Config::default());
+        let includes = vec!["docs/**".to_string(), "templates/**/*.md.jinja".to_string()];
+        let excludes = ExcludeMatchers::new(&[]);
+
+        // The test creates these names itself, so normalizing separators
+        // unconditionally is safe and keeps one expected value for every platform.
+        let names: Vec<String> = collect_markdown_files(&roots, &options, &includes, &excludes)
+            .iter()
+            .map(|path| path.strip_prefix(&root).unwrap().to_string_lossy().replace('\\', "/"))
+            .collect();
+        assert_eq!(names, vec!["docs/guide.md", "templates/page.md.jinja"]);
+
+        assert!(path_is_ignored_for_index(
+            &roots,
+            &root.join("README.md"),
+            &options,
+            &includes,
+            &excludes
+        ));
+        assert!(!path_is_ignored_for_index(
+            &roots,
+            &root.join("templates/page.md.jinja"),
+            &options,
+            &includes,
+            &excludes
+        ));
     }
 
     #[test]
@@ -922,12 +956,14 @@ More text with [link](./other.md#section).
             &roots,
             &root.join("README.md"),
             &options,
+            &[],
             &no_excludes
         ));
         assert!(!path_is_ignored_for_index(
             &roots,
             &root.join("docs/guide.md"),
             &options,
+            &[],
             &no_excludes
         ));
 
@@ -936,12 +972,14 @@ More text with [link](./other.md#section).
             &roots,
             &root.join("draft.md"),
             &options,
+            &[],
             &no_excludes
         ));
         assert!(path_is_ignored_for_index(
             &roots,
             &root.join("build/out.md"),
             &options,
+            &[],
             &no_excludes
         ));
 
@@ -950,6 +988,7 @@ More text with [link](./other.md#section).
             &roots,
             &root.join(".hidden.md"),
             &options,
+            &[],
             &no_excludes
         ));
 
@@ -959,12 +998,14 @@ More text with [link](./other.md#section).
             &roots,
             &root.join("node_modules/dep.md"),
             &options,
+            &[],
             &no_excludes
         ));
         assert!(path_is_ignored_for_index(
             &roots,
             &root.join("target/doc.md"),
             &options,
+            &[],
             &no_excludes
         ));
 
@@ -974,18 +1015,26 @@ More text with [link](./other.md#section).
             &roots,
             &root.join("docs/guide.md"),
             &options,
+            &[],
             &excludes
         ));
         assert!(!path_is_ignored_for_index(
             &roots,
             &root.join("README.md"),
             &options,
+            &[],
             &excludes
         ));
 
         // Paths outside every workspace root are not filtered.
         let outside = dir.path().parent().unwrap().join("elsewhere.md");
-        assert!(!path_is_ignored_for_index(&roots, &outside, &options, &no_excludes));
+        assert!(!path_is_ignored_for_index(
+            &roots,
+            &outside,
+            &options,
+            &[],
+            &no_excludes
+        ));
     }
 
     #[test]
@@ -1007,12 +1056,14 @@ More text with [link](./other.md#section).
             &roots,
             &root.join("docs/generated.md"),
             &options,
+            &[],
             &no_excludes
         ));
         assert!(!path_is_ignored_for_index(
             &roots,
             &root.join("docs/manual.md"),
             &options,
+            &[],
             &no_excludes
         ));
     }
@@ -1040,6 +1091,7 @@ More text with [link](./other.md#section).
             &roots,
             &root.join("README.md"),
             &options,
+            &[],
             &no_excludes
         ));
         // A `target` directory *inside* the workspace is still excluded.
@@ -1047,6 +1099,7 @@ More text with [link](./other.md#section).
             &roots,
             &root.join("target/out.md"),
             &options,
+            &[],
             &no_excludes
         ));
     }

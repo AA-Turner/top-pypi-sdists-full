@@ -57,19 +57,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Qtree(
     {
-        "unix_permissions": 744,
-        "_links": {"self": {"href": "/api/storage/qtrees/?volume.name=fv&name=qt1"}},
+        "group": {"name": "unix_group1"},
         "export_policy": {"name": "default"},
-        "svm": {"name": "svm1"},
+        "volume": {"name": "fv"},
         "name": "qt1",
         "security_style": "unix",
+        "unix_permissions": 744,
         "user": {"name": "unix_user1"},
-        "volume": {"name": "fv"},
+        "_links": {"self": {"href": "/api/storage/qtrees/?volume.name=fv&name=qt1"}},
+        "svm": {"name": "svm1"},
         "qos_policy": {
-            "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
             "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
+            "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
         },
-        "group": {"name": "unix_group1"},
     }
 )
 
@@ -99,87 +99,87 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Qtree(
         {
+            "volume": {
+                "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/volumes/cb20da45-4f6b-11e9-9a71-005056a7f717"
+                    }
+                },
+                "name": "fv",
+            },
+            "name": "",
             "_links": {
                 "self": {
                     "href": "/api/storage/qtrees/cb20da45-4f6b-11e9-9a71-005056a7f717/0"
                 }
             },
             "svm": {
-                "name": "svm1",
+                "uuid": "b68f961b-4cee-11e9-930a-005056a7f717",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/b68f961b-4cee-11e9-930a-005056a7f717"
                     }
                 },
-                "uuid": "b68f961b-4cee-11e9-930a-005056a7f717",
-            },
-            "name": "",
-            "volume": {
-                "name": "fv",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/volumes/cb20da45-4f6b-11e9-9a71-005056a7f717"
-                    }
-                },
-                "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
+                "name": "svm1",
             },
             "id": 0,
         }
     ),
     Qtree(
         {
+            "volume": {
+                "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/volumes/cb20da45-4f6b-11e9-9a71-005056a7f717"
+                    }
+                },
+                "name": "fv",
+            },
+            "name": "qt1",
             "_links": {
                 "self": {
                     "href": "/api/storage/qtrees/cb20da45-4f6b-11e9-9a71-005056a7f717/1"
                 }
             },
             "svm": {
-                "name": "svm1",
+                "uuid": "b68f961b-4cee-11e9-930a-005056a7f717",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/b68f961b-4cee-11e9-930a-005056a7f717"
                     }
                 },
-                "uuid": "b68f961b-4cee-11e9-930a-005056a7f717",
-            },
-            "name": "qt1",
-            "volume": {
-                "name": "fv",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/volumes/cb20da45-4f6b-11e9-9a71-005056a7f717"
-                    }
-                },
-                "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
+                "name": "svm1",
             },
             "id": 1,
         }
     ),
     Qtree(
         {
+            "volume": {
+                "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/volumes/cb20da45-4f6b-11e9-9a71-005056a7f717"
+                    }
+                },
+                "name": "fv",
+            },
+            "name": "qt2",
             "_links": {
                 "self": {
                     "href": "/api/storage/qtrees/cb20da45-4f6b-11e9-9a71-005056a7f717/2"
                 }
             },
             "svm": {
-                "name": "svm1",
+                "uuid": "b68f961b-4cee-11e9-930a-005056a7f717",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/b68f961b-4cee-11e9-930a-005056a7f717"
                     }
                 },
-                "uuid": "b68f961b-4cee-11e9-930a-005056a7f717",
-            },
-            "name": "qt2",
-            "volume": {
-                "name": "fv",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/volumes/cb20da45-4f6b-11e9-9a71-005056a7f717"
-                    }
-                },
-                "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
+                "name": "svm1",
             },
             "id": 2,
         }

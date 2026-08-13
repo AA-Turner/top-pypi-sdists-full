@@ -8,7 +8,7 @@ name = "mergify_cli"
 # (`2026.4.23.1`); `mergify --version` from the Rust binary will
 # report the placeholder until versioning becomes Rust-native end-
 # to-end.
-version = "2026.8.7.1"
+version = "2026.8.11.1"
 description = "Mergify CLI is a tool that automates the creation and management of stacked pull requests on GitHub and handles CI results upload"
 authors = [{ name = "Mergify Team", email = "hello@mergify.com" }]
 # No runtime Python dependencies — the wheel ships a single Rust

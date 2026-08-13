@@ -30,9 +30,11 @@ from modal_proto import api_pb2
 
 from ._environments import _get_environment_cached
 from ._load_context import LoadContext
+from ._logs_manager import _ImageLogsManager
 from ._object import _Object, live_method_gen
 from ._resolver import Resolver
 from ._serialization import get_preferred_payload_format, serialize
+from ._supports_logs import _ImageLogQueryData
 from ._utils.async_utils import TaskContext, deprecate_aio_usage, synchronizer
 from ._utils.blob_utils import MAX_OBJECT_SIZE_BYTES
 from ._utils.docker_utils import (
@@ -47,10 +49,10 @@ from .cloud_bucket_mount import _CloudBucketMount
 from .config import config, logger, user_config_path
 from .exception import (
     ExecutionError,
+    ImageBuildError,
     InternalError,
     InvalidError,
     NotFoundError,
-    RemoteError,
     ServiceError,
     VersionError,
 )
@@ -117,34 +119,51 @@ def _validate_image_tag(tag: str) -> None:
     check_object_name(tag, "Image tag")
 
 
-def _parse_named_image_ref(name: str) -> tuple[str, str]:
-    """Parse an image reference, returning (namespace_prefix, name_tag).
-
-    If the name contains a '/', the part before the last '/' is extracted as
-    a namespace prefix (intended for environment/name or workspace/env/name
-    syntax). The actual image name (after the last '/') is validated as a
-    standard object name.
-
-    Returns a tuple of (prefix, "full_name:tag") where prefix is empty string
-    if no '/' is present.
-    """
-    image_name, sep, tag = name.partition(":")
+def _parse_image_name(partial_name: str) -> tuple[str | None, str]:
+    partial_name_no_env, sep, tag = partial_name.partition(":")
     if not sep:
         tag = "latest"
 
-    prefix = ""
-    if "/" in image_name:
-        prefix, image_name = image_name.rsplit("/", 1)
-        if not prefix:
-            raise InvalidError("Invalid Image name: '/' prefix must be non-empty.")
+    if "/" in partial_name_no_env:
+        environment, image_name = partial_name_no_env.rsplit("/", 1)
+        if not environment:
+            raise InvalidError("Invalid Image name: environment prefix before '/' must be non-empty.")
         if not image_name:
-            raise InvalidError("Invalid Image name: name after '/' must be non-empty.")
+            raise InvalidError("Invalid Image name: name after last '/' must be non-empty.")
+    else:
+        environment = None
+        image_name = partial_name_no_env
 
     _validate_image_name(image_name)
     _validate_image_tag(tag)
 
-    full_name = f"{prefix}/{image_name}" if prefix else image_name
-    return prefix, f"{full_name}:{tag}"
+    return environment, f"{image_name}:{tag}"
+
+
+def _upgrade_image_name(
+    partial_name: str,
+    *,
+    explicit_environment_name: str | None = None,
+    fallback_environment_name: str | None = None,
+) -> str:
+    """Ensures an Image name has a tag and an environment name when possible
+
+    * If no tag is present, add :latest
+    * If an explicit environment name is passed, add it as a prefix and error
+      if there is already a prefix
+    * If a fallback environment name is passed, add it only when there is no prefix
+
+    """
+    prefix_environment, name_tag = _parse_image_name(partial_name)
+    if prefix_environment:
+        if explicit_environment_name is not None:
+            raise InvalidError("environment_name cannot be used when an Image name includes an environment prefix.")
+        return f"{prefix_environment}/{name_tag}"
+
+    environment_name = explicit_environment_name if explicit_environment_name is not None else fallback_environment_name
+    if environment_name:
+        return f"{environment_name}/{name_tag}"
+    return name_tag  # no explicit environment - use just the unprefixed name:tag
 
 
 def _validate_python_version(
@@ -460,6 +479,12 @@ def _requires_image_instance(method):
     return wrapper
 
 
+@dataclass(frozen=True)
+class _FailedBuildAttempt:
+    image_id: str
+    client: _Client
+
+
 class _Image(_Object, type_prefix="im"):
     """Base class for container images to run functions in.
 
@@ -476,6 +501,9 @@ class _Image(_Object, type_prefix="im"):
     _added_python_source_set: frozenset[str]  # used to warn about missing mounts during auto-mount deprecation
     _metadata: api_pb2.ImageMetadata | None = None  # set on hydration, private for now
     _is_empty: bool
+    _build_steps: list[api_pb2.ImageBuildStep] | None = None
+    # A failed image ID is only queryable through the client that performed the build.
+    _failed_build_attempt: _FailedBuildAttempt | None = None
 
     def _initialize_from_empty(self):
         self.inside_exceptions = []
@@ -507,6 +535,9 @@ class _Image(_Object, type_prefix="im"):
         if metadata:
             assert isinstance(metadata, api_pb2.ImageMetadata)
             self._metadata = metadata
+        # Successful hydration supersedes diagnostic state retained from a failed build.
+        self._failed_build_attempt = None
+        self._build_steps = None
 
     def _add_mount_layer_or_copy(self, mount: _Mount, copy: bool = False):
         if copy:
@@ -735,12 +766,12 @@ class _Image(_Object, type_prefix="im"):
 
             if result.status == api_pb2.GenericResult.GENERIC_STATUS_FAILURE:
                 if result.exception:
-                    raise RemoteError(f"Image build for {image_id} failed with the exception:\n{result.exception}")
+                    raise ImageBuildError(
+                        f"Image build for {image_id} failed with the exception:\n{result.exception}", image_id
+                    )
                 else:
-                    msg = f"Image build for {image_id} failed. See build logs for more details."
-                    if not OutputManager.get().is_enabled:
-                        msg += " (Hint: Use `modal.enable_output()` to see logs from the process building the Image.)"
-                    raise RemoteError(msg)
+                    msg = f"Image build for {image_id} failed.\nView the build logs:\n  modal image logs {image_id}"
+                    raise ImageBuildError(msg, image_id)
             elif result.status == api_pb2.GenericResult.GENERIC_STATUS_TERMINATED:
                 msg = f"Image build for {image_id} terminated due to external shut-down. Please try again."
                 if result.exception:
@@ -748,15 +779,16 @@ class _Image(_Object, type_prefix="im"):
                         f"Image build for {image_id} terminated due to external shut-down with the exception:\n"
                         f"{result.exception}"
                     )
-                raise RemoteError(msg)
+                raise ImageBuildError(msg, image_id)
             elif result.status == api_pb2.GenericResult.GENERIC_STATUS_TIMEOUT:
-                raise RemoteError(
-                    f"Image build for {image_id} timed out. Please try again with a larger `timeout` parameter."
+                raise ImageBuildError(
+                    f"Image build for {image_id} timed out. Please try again with a larger `timeout` parameter.",
+                    image_id,
                 )
             elif result.status == api_pb2.GenericResult.GENERIC_STATUS_SUCCESS:
                 pass
             else:
-                raise RemoteError("Unknown status %s!" % result.status)
+                raise ImageBuildError("Unknown status %s!" % result.status, image_id)
 
             self._hydrate(image_id, load_context.client, metadata)
             local_mounts: set[_Mount] = set()
@@ -1047,8 +1079,18 @@ class _Image(_Object, type_prefix="im"):
 
         resolver = Resolver()
         async with TaskContext() as tc:
+            self._build_steps = None
+            self._failed_build_attempt = None
             load_context = LoadContext(task_context=tc).merged_with(app._root_load_context)
-            await resolver.load(self, load_context)
+            try:
+                await resolver.load(self, load_context)
+            except ImageBuildError as e:
+                self._failed_build_attempt = _FailedBuildAttempt(
+                    image_id=e.image_id,
+                    client=load_context.client,
+                )
+
+                raise
         return self
 
     @_requires_image_instance
@@ -2932,8 +2974,8 @@ class _Image(_Object, type_prefix="im"):
     ) -> "_Image":
         """Reference a named Image that was previously published with `.publish()`.
 
-        Names can contain an optional `:tag` part - if no tag part is included `":latest"` is used,
-        matching Docker conventions.
+        Names can contain an optional `:tag` part. If no tag part is included, `":latest"` is used, matching
+        Docker conventions.
 
         ```python notest
         image = modal.Image.from_name("my-image")     # references my-image:latest
@@ -2944,20 +2986,16 @@ class _Image(_Object, type_prefix="im"):
             ...
         ```
         """
-        namespace_prefix, tag = _parse_named_image_ref(name)
-
-        if namespace_prefix and environment_name:
-            raise InvalidError("Cannot specify 'environment_name' when the image name contains a '/'.")
+        _upgrade_image_name(name, explicit_environment_name=environment_name)  # validate
 
         async def _load(self: _Image, resolver: Resolver, load_context: LoadContext, existing_object_id: str | None):
             req = api_pb2.ImageGetByTagRequest(
-                tag=tag,
-                environment_name="" if namespace_prefix else load_context.environment_name,
+                tag=_upgrade_image_name(name, fallback_environment_name=load_context.environment_name),
             )
             response = await load_context.client.stub.ImageGetByTag(req)
             self._hydrate(response.image_id, load_context.client, None)
 
-        rep = _Image._repr(tag, environment_name)
+        rep = _Image._repr(name, environment_name)
         return _Image._from_loader(
             _load,
             rep,
@@ -2971,13 +3009,14 @@ class _Image(_Object, type_prefix="im"):
         name: str,
         *,
         environment_name: str | None = None,
+        experimental_options: dict[str, Any] | None = None,
         client: _Client | None = None,
     ) -> None:
         """Publish this image under the given name
 
         The Image must already be created (typically by calling `image.build()` or `sandbox.snapshot_filesystem()`).
 
-        Image names can contain an explicit tag designation (using the `name:tag`). If no tag is included in the name,
+        Image names can contain an explicit tag designation using `name:tag`. If no tag is included in the name,
         `":latest"` is used, matching Docker conventions. To publish multiple tags, call `.publish()` once per tag.
 
         ```python notest
@@ -2987,25 +3026,20 @@ class _Image(_Object, type_prefix="im"):
         image.publish("my-image-with-numpy:v1")
         ```
         """
-        namespace_prefix, tag = _parse_named_image_ref(name)
-
-        if namespace_prefix:
-            if environment_name:
-                raise InvalidError("Cannot specify 'environment_name' when the image name contains a '/'.")
-            resolved_env = ""
-        else:
-            resolved_env = environment_name or config.get("environment") or ""
-
         if self._object_id is None:
             raise InvalidError("Cannot publish an image that has not been created yet. Call `.build()` first.")
 
         _client = client or await _Client.from_env()
+        tag = _upgrade_image_name(
+            name,
+            explicit_environment_name=environment_name,
+            fallback_environment_name=config.get("environment"),
+        )
 
         await _client.stub.ImagePublish(
             api_pb2.ImagePublishRequest(
                 image_id=self._object_id,
-                environment_name=resolved_env,
-                allow_public=False,
+                allow_public=bool((experimental_options or {}).get("is_public", False)),
                 tag=tag,
             )
         )
@@ -3019,3 +3053,38 @@ class _Image(_Object, type_prefix="im"):
                 "Images cannot currently be hydrated on demand; you can build an Image by running an App that uses it."
             )
         return self
+
+    async def _resolve_image_id_client_for_logs(self) -> tuple[str, _Client]:
+        if self._failed_build_attempt is not None:
+            return self._failed_build_attempt.image_id, self._failed_build_attempt.client
+        if self._object_id is None:
+            raise InvalidError("Cannot fetch logs for an image that has not been built yet.")
+        if self._is_hydrated:
+            return self._object_id, self.client
+        # Use self._load_context_overrides to handle case of explicitly passed
+        # client in from_id
+        client = (await self._load_context_overrides.apply_defaults()).client
+        return self._object_id, client
+
+    async def _get_log_query_data(self) -> _ImageLogQueryData:
+        image_id, client = await self._resolve_image_id_client_for_logs()
+
+        if self._build_steps is None:
+            request = api_pb2.ImageBuildChainGetRequest(image_id=image_id)
+            response = await client.stub.ImageBuildChainGet(request)
+            self._build_steps = list(response.build_steps)
+        return _ImageLogQueryData(client, self._build_steps or [], image_id)
+
+    @property
+    def logs(self) -> _ImageLogsManager:
+        """Access logs for an `Image`.
+
+        Use [`fetch()`](#logsfetch)
+        to read logs for individual build layers and [`tail()`](#logstail)
+        to read the most recent logs.
+
+        See also:
+            - [`modal app logs`](https://modal.com/docs/cli/latest/app#modal-app-logs):
+              CLI access to logs for an App.
+        """
+        return _ImageLogsManager(self)

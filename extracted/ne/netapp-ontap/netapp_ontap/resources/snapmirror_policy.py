@@ -438,6 +438,7 @@ It takes the following values:
 - The property "retention.count" specifies the maximum number of snapshots that are retained on the SnapMirror destination volume.
 - When the property "retention.label" is specified, the snapshots that have a SnapMirror label matching this property is transferred to the SnapMirror destination.
 - When the property "retention.creation_schedule" is specified, snapshots are directly created on the SnapMirror destination. The snapshots created have the same content as the latest snapshot already present on the SnapMirror destination.
+- Policies with the property "retention.creation_schedule" are supported only on the final SnapMirror destination volume in the cascade.
 - The property "transfer_schedule" cannot be set to null (no-quotes) during SnapMirror policy POST.
 - The properties "retention.label" and "retention.count" must be specified for "async" policies with "create_snapshot_on_source" set to "false".
 - The property "retention.warn" is not supported for a policy when the "retention.preserve" property is false.
@@ -620,6 +621,7 @@ It takes the following values:
 - The property "retention.count" specifies the maximum number of snapshots that are retained on the SnapMirror destination volume.
 - When the property "retention.label" is specified, the snapshots that have a SnapMirror label matching this property is transferred to the SnapMirror destination.
 - When the property "retention.creation_schedule" is specified, snapshots are directly created on the SnapMirror destination. The snapshots created have the same content as the latest snapshot already present on the SnapMirror destination.
+- Policies with the property "retention.creation_schedule" are supported only on the final SnapMirror destination volume in the cascade.
 - The property "transfer_schedule" cannot be set to null (no-quotes) during SnapMirror policy POST.
 - The properties "retention.label" and "retention.count" must be specified for "async" policies with "create_snapshot_on_source" set to "false".
 - The property "retention.warn" is not supported for a policy when the "retention.preserve" property is false.

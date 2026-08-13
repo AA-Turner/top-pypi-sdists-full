@@ -39,8 +39,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Barbican(
     {
-        "configuration": {"name": "myConfiguration"},
         "application_cred_secret": "secret1",
+        "configuration": {"name": "myConfiguration"},
         "keystone_url": "https://sample.keystone.com:5000/v3/auth/tokens",
         "application_cred_id": "app1",
         "key_id": "https://sample.keyid.com:9311/v1/secrets/5c610a4f-ea97-44b5-8682-f4daeafa9647/",
@@ -71,16 +71,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Barbican(
         {
-            "configuration": {
-                "name": "myConfiguration",
-                "uuid": "5a134975-fa58-11ef-8c9f-005056bbeee5",
-            },
+            "uuid": "5a134975-fa58-11ef-8c9f-005056bbeee5",
             "_links": {
                 "self": {
                     "href": "/api/security/barbican-kms/5a134975-fa58-11ef-8c9f-005056bbeee5"
                 }
             },
-            "uuid": "5a134975-fa58-11ef-8c9f-005056bbeee5",
+            "configuration": {
+                "uuid": "5a134975-fa58-11ef-8c9f-005056bbeee5",
+                "name": "myConfiguration",
+            },
         }
     )
 ]
@@ -109,29 +109,29 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Barbican(
     {
-        "configuration": {
-            "name": "myConfiguration",
-            "uuid": "5a134975-fa58-11ef-8c9f-005056bbeee5",
-        },
-        "timeout": 10,
-        "verify_host": True,
-        "proxy_host": "",
-        "keystone_url": "https://sample.keystone.com:5000/v3/auth/tokens",
-        "verify": True,
+        "uuid": "5a134975-fa58-11ef-8c9f-005056bbeee5",
         "enabled": False,
-        "proxy_username": "",
+        "proxy_port": 0,
         "_links": {
             "self": {
                 "href": "/api/security/barbican-kms/5a134975-fa58-11ef-8c9f-005056bbeee5"
             }
         },
+        "configuration": {
+            "uuid": "5a134975-fa58-11ef-8c9f-005056bbeee5",
+            "name": "myConfiguration",
+        },
+        "verify": True,
+        "scope": "svm",
+        "timeout": 10,
+        "proxy_host": "",
+        "keystone_url": "https://sample.keystone.com:5000/v3/auth/tokens",
         "application_cred_id": "app1",
+        "proxy_username": "",
         "key_id": "https://sample.keyid.com:9311/v1/secrets/5c610a4f-ea97-44b5-8682-f4daeafa9647/",
         "proxy_type": "https",
-        "uuid": "5a134975-fa58-11ef-8c9f-005056bbeee5",
-        "proxy_port": 0,
-        "scope": "svm",
-        "svm": {"name": "barbican_svm", "uuid": "ec8e0954-fa10-11ef-8c9f-005056bbeee5"},
+        "svm": {"uuid": "ec8e0954-fa10-11ef-8c9f-005056bbeee5", "name": "barbican_svm"},
+        "verify_host": True,
     }
 )
 
@@ -159,16 +159,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Barbican(
     {
-        "configuration": {
-            "name": "myConfiguration",
-            "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-        },
+        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
         "_links": {
             "self": {
                 "href": "/api/security/barbican-kms/f72098a2-e908-11ea-bd56-005056bb4222"
             }
         },
-        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
+        "configuration": {
+            "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
+            "name": "myConfiguration",
+        },
         "barbican_reachability": {"message": "", "code": "0", "reachable": True},
     }
 )

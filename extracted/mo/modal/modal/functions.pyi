@@ -117,7 +117,7 @@ class Function(
         scaleup_window: typing.Optional[int] = None,
         scaledown_window: typing.Optional[int] = None,
         max_concurrent_inputs: typing.Optional[int] = None,
-        target_concurrent_inputs: typing.Optional[int] = None,
+        target_concurrent_inputs: typing.Optional[float] = None,
         batch_max_size: typing.Optional[int] = None,
         batch_wait_ms: typing.Optional[int] = None,
         cloud: typing.Optional[str] = None,
@@ -155,10 +155,32 @@ class Function(
             min_containers: typing.Optional[int] = None,
             max_containers: typing.Optional[int] = None,
             buffer_containers: typing.Optional[int] = None,
+            scaledown_window: typing.Optional[int] = None,
+        ) -> modal.types.FunctionAutoscalerSettings: ...
+        async def aio(
+            self,
+            /,
+            *,
+            min_containers: typing.Optional[int] = None,
+            max_containers: typing.Optional[int] = None,
+            buffer_containers: typing.Optional[int] = None,
+            scaledown_window: typing.Optional[int] = None,
+        ) -> modal.types.FunctionAutoscalerSettings: ...
+
+    _update_autoscaler: ___update_autoscaler_spec
+
+    class ___update_autoscaler_server_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *,
+            min_containers: typing.Optional[int] = None,
+            max_containers: typing.Optional[int] = None,
+            buffer_containers: typing.Optional[int] = None,
             scaleup_window: typing.Optional[int] = None,
             scaledown_window: typing.Optional[int] = None,
-            target_concurrency: typing.Optional[int] = None,
-        ) -> None: ...
+            target_concurrency: typing.Optional[float] = None,
+        ) -> modal.types.ServerAutoscalerSettings: ...
         async def aio(
             self,
             /,
@@ -168,10 +190,10 @@ class Function(
             buffer_containers: typing.Optional[int] = None,
             scaleup_window: typing.Optional[int] = None,
             scaledown_window: typing.Optional[int] = None,
-            target_concurrency: typing.Optional[int] = None,
-        ) -> None: ...
+            target_concurrency: typing.Optional[float] = None,
+        ) -> modal.types.ServerAutoscalerSettings: ...
 
-    _update_autoscaler: ___update_autoscaler_spec
+    _update_autoscaler_server: ___update_autoscaler_server_spec
 
     class __update_autoscaler_spec(typing_extensions.Protocol):
         def __call__(
@@ -182,7 +204,7 @@ class Function(
             max_containers: typing.Optional[int] = None,
             buffer_containers: typing.Optional[int] = None,
             scaledown_window: typing.Optional[int] = None,
-        ) -> None:
+        ) -> modal.types.FunctionAutoscalerSettings:
             """Override the current autoscaler behavior for this Function.
 
             Unspecified parameters will retain their current value, i.e. either the static value
@@ -196,6 +218,10 @@ class Function(
                 max_containers: Maximum concurrent containers.
                 buffer_containers: Extra containers to keep warm beyond current demand.
                 scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
+
+            Returns:
+                A `FunctionAutoscalerSettings` dataclass which contains the current autoscaler settings
+                of this Function after the call.
 
             Examples:
                 ```python notest
@@ -221,7 +247,7 @@ class Function(
             max_containers: typing.Optional[int] = None,
             buffer_containers: typing.Optional[int] = None,
             scaledown_window: typing.Optional[int] = None,
-        ) -> None:
+        ) -> modal.types.FunctionAutoscalerSettings:
             """Override the current autoscaler behavior for this Function.
 
             Unspecified parameters will retain their current value, i.e. either the static value
@@ -235,6 +261,10 @@ class Function(
                 max_containers: Maximum concurrent containers.
                 buffer_containers: Extra containers to keep warm beyond current demand.
                 scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
+
+            Returns:
+                A `FunctionAutoscalerSettings` dataclass which contains the current autoscaler settings
+                of this Function after the call.
 
             Examples:
                 ```python notest
@@ -516,7 +546,7 @@ class Function(
 
     _call_generator: ___call_generator_spec
 
-    class __remote_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER]):
+    class __remote_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> ReturnType_INNER:
             """Calls the function remotely, executing it with the given arguments and returning the execution's result.
 
@@ -541,7 +571,7 @@ class Function(
             """
             ...
 
-    remote: __remote_spec[modal._functions.P, modal._functions.ReturnType]
+    remote: __remote_spec[modal._functions.ReturnType, modal._functions.P]
 
     class __remote_gen_spec(typing_extensions.Protocol):
         def __call__(self, /, *args, **kwargs) -> typing.Generator[typing.Any, None, None]:
@@ -591,7 +621,7 @@ class Function(
         """
         ...
 
-    class ___experimental_spawn_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER]):
+    class ___experimental_spawn_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> FunctionCall[ReturnType_INNER]:
             """[Experimental] Calls the function with the given arguments, without waiting for the results.
 
@@ -624,7 +654,7 @@ class Function(
             """
             ...
 
-    _experimental_spawn: ___experimental_spawn_spec[modal._functions.P, modal._functions.ReturnType]
+    _experimental_spawn: ___experimental_spawn_spec[modal._functions.ReturnType, modal._functions.P]
 
     class ___spawn_map_inner_spec(typing_extensions.Protocol[P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> None: ...
@@ -632,7 +662,7 @@ class Function(
 
     _spawn_map_inner: ___spawn_map_inner_spec[modal._functions.P]
 
-    class __spawn_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER]):
+    class __spawn_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> FunctionCall[ReturnType_INNER]:
             """Calls the function with the given arguments, without waiting for the results.
 
@@ -665,7 +695,7 @@ class Function(
             """
             ...
 
-    spawn: __spawn_spec[modal._functions.P, modal._functions.ReturnType]
+    spawn: __spawn_spec[modal._functions.ReturnType, modal._functions.P]
 
     def get_raw_f(self) -> collections.abc.Callable[..., typing.Any]:
         """Return the inner Python object wrapped by this Modal Function.
@@ -868,8 +898,9 @@ class Function(
             ...
 
         async def aio(self, /, *input_iterators, kwargs={}) -> None:
-            """This runs in an event loop on the main thread. It consumes inputs from the input iterators and creates async
-            function calls for each.
+            """This runs in an event loop on the main thread.
+
+            It consumes inputs from the input iterators and creates async function calls for each.
             """
             ...
 

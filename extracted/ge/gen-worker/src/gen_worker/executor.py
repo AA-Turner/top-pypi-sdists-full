@@ -38,6 +38,7 @@ from . import boot_adopt
 from . import boot_phases as boot_mod
 from . import cell_adopt
 from . import dispatch
+from . import handler_proof
 from .procsplit import broker as procsplit_broker
 from .plan import (
     InputAssetRef,
@@ -50,14 +51,13 @@ from .plan import (
 from .transport import FatalTransportError
 from . import cpu_budget
 from . import kernel_path
-from . import mint_budget
+from . import mint_workers
 from . import settings_authority
 from . import progress as progress_mod
 from . import serve_posture
 from . import serving_mode as serving_mode_mod
 from . import warmup
 from . import worker_credential
-from . import mint_goal as mint_goal_mod
 from . import worker_goals
 from .api.binding import (
     ModelRef,
@@ -128,7 +128,7 @@ from .models.cache_paths import tensorhub_cas_dir, tensorhub_fill_source_dir
 from .models.download import ensure_local, lookup_provider_for_ref
 from .models.envelope import ArtifactEnvelopeExceeded
 from .models.errors import MissingSnapshotError, UrlExpiredError
-from .models.execution_lanes import ExecutionLaneUnavailableError, mandatory_traced_lane_of
+from .models.execution_lanes import ExecutionLaneUnavailableError
 from .models.residency import Residency
 from .topology import (
     ExecutionTopology,
@@ -200,7 +200,7 @@ from .runtimes.server import ServerHandle
 from .models.execution_lane_gate import ExecutionLaneGate, arm_execution_lane_gate
 from .models.memory import rearm_offload
 from . import fleet_cells
-from . import aot_serve, numerics_ladder, shape_growth, trt_engine
+from . import aot_serve, numerics_ladder, shape_growth
 from . import fleet_cells as fleet_cells_mod
 from . import hot_swap
 from . import mint_delegate
@@ -450,7 +450,7 @@ def _hub_binding_for_wire_ref(ref: str) -> ModelRef:
     """A tensorhub-source binding for a hub-named wire ref (pgw#532).
 
     ``RunJob.models`` / desired-instance refs name hub-CAS repos in the canonical
-    ``owner/repo[:tag][#flavor]`` grammar; this mints the binding the
+    ``owner/repo[:tag][@digest]`` grammar; this mints the binding the
     executor materializes them through (``ensure_local`` then follows the
     tensorhub lane: orchestrator snapshots or the th#763 missing_snapshot
     re-mint — never an upstream self-fetch). Raises ``ValueError`` when
@@ -465,7 +465,6 @@ def _hub_binding_for_wire_ref(ref: str) -> ModelRef:
         source="tensorhub",
         path=f"{th.owner}/{th.repo}",
         tag=th.tag or DEFAULT_REF_TAG,
-        flavor=th.flavor or "",
     )
 
 
@@ -737,8 +736,10 @@ def _snapshot_to_resolved(snap: pb.Snapshot) -> "WorkerResolvedRepo":
     )
 
 
-#: Traced weight lanes a stored flavor MANDATES (fail-closed serving):
-#: `#fp8-w8a8` -> "w8a8" (gw#534), `#nvfp4-w4a4` -> "w4a4" (gw#540).
+#: Traced weight lanes that are MANDATORY once evidence names them
+#: (fail-closed serving): "w8a8" (gw#534), "w4a4" (gw#540). pgw#1148: the
+#: evidence is the hub-RESOLVED execution lane, never a `#flavor` token —
+#: §1.32(d) deleted the token, and an assertion in a ref was never evidence.
 _MANDATORY_EXECUTION_LANES = ("w8a8", "w4a4")
 
 # pgw#671 eager-first boot: background-mint driver pacing. The abandon grace
@@ -776,28 +777,6 @@ _BG_COMPILE_QUIESCENCE_S = 5.0
 #: warm queue; the persistent blocked-since clock keeps steals honest.
 _BG_THREAD_ADMIT_WAIT_S = 0.5
 
-
-def _ref_mandatory_execution_lane(ref: str) -> str:
-    """The traced weight lane one canonical Tensorhub model ref MANDATES:
-    "w8a8" for `#fp8-w8a8` flavors, "w4a4" for `#nvfp4-w4a4`, "" otherwise.
-    The token parse itself lives in execution_lanes (one spelling, th#1361)."""
-
-    try:
-        parsed = parse_model_ref(ref).tensorhub
-    except ValueError:
-        return ""
-    if parsed is None or parsed.owner == "root":
-        return ""
-    return mandatory_traced_lane_of(parsed.flavor or "")
-
-
-def _mandatory_execution_lane_of(refs: typing.Iterable[str]) -> str:
-    """The single mandatory lane a binding set selects ("" when none)."""
-    for ref in refs:
-        execution_lane = _ref_mandatory_execution_lane(ref)
-        if execution_lane:
-            return execution_lane
-    return ""
 
 
 def _model_failure_vocab(exc: BaseException) -> str:
@@ -2652,6 +2631,40 @@ class _ArmOrder:
     publisher_org: str = ""
     adopt: Optional["boot_adopt.BootAdoptOutcome"] = None
 
+    @classmethod
+    def for_artifact(
+        cls,
+        *,
+        path: Path,
+        ref: str,
+        snapshot_digest: str,
+        expected: Optional["aot_identity.ExpectedIdentity"],
+        publisher_org: str,
+        adopt: Optional["boot_adopt.BootAdoptOutcome"] = None,
+    ) -> "_ArmOrder":
+        """THE artifact -> arming-order map, in one place (pgw#1152).
+
+        TWO routes build this object and they are field-for-field identical
+        except for ``adopt``: ``_setup_locked_inner``'s §4.27 BOOT-ADOPT order,
+        and ``_materialize_arm``'s hub PLAN order. That is the same duplicated
+        mapping pgw#1150 found between ``compile_cell()`` and ``cli.run`` — a
+        field ADDED here that one site sets and the other forgets silently
+        diverges the two arm routes, which is this repo's most expensive defect
+        shape: pgw#1108, pgw#1122, pgw#1141 and pgw#1141b were all "a rule the
+        self-mint/plan path keeps and the adopt path does not".
+
+        The selection is built here too, because the two sites also built THAT
+        independently from the same three fields.
+        """
+        return cls(
+            backend="aot_cell",
+            selection=_CompileArtifactSelection(
+                path=path, ref=ref, snapshot_digest=snapshot_digest),
+            expected=expected,
+            publisher_org=publisher_org,
+            adopt=adopt,
+        )
+
 
 @dataclass(frozen=True)
 class _JobOrder:
@@ -2764,12 +2777,6 @@ class _WarmupEvidence:
 
     count: int = 0
     functions_by_object: Dict[int, set[str]] = dc_field(default_factory=dict)
-    #: pgw#844: per object, the aliases that proved SOME but not all of their
-    #: declared graph classes on the EXPORTED lane -> the classes that stayed
-    #: eager. Non-empty means "compiled for these shapes, eager for those",
-    #: which is a serving posture, not a boot failure.
-    partial_by_object: Dict[int, Dict[str, Tuple[str, ...]]] = dc_field(
-        default_factory=dict)
     #: pgw#677 reopen: non-empty when the warm plan was CUT SHORT (OOM
     #: backoff) — names the truncation. A truncated plan must never publish
     #: its partial capture as the family cell.
@@ -2916,21 +2923,6 @@ class _MintAbandoned(Exception):
     """The background mint was asked to stop (adoption/vacate/shutdown)."""
 
 
-class _MintDeclined(Exception):
-    """pgw#737: the mint refused itself — it cannot capture on this card
-    without taking the tenant down with it. NOT a failure: serving is eager,
-    the cell stays absent, and a roomier config mints it later."""
-
-    def __init__(
-        self, reason: str, budget: "mint_budget.MintBudget",
-        detail: str = "",
-    ) -> None:
-        self.reason = reason
-        self.budget = budget
-        line = budget.line("mint_skipped", reason)
-        super().__init__(f"{line}; {detail}" if detail else line)
-
-
 class _SeedPreempted(Exception):
     """pgw#677: a tenant arrival cooperatively cancelled the in-flight mint
     seed forward; the driver re-queues the unit and yields the turn."""
@@ -3073,7 +3065,6 @@ class _InjectionResult:
     # Installed only after the setup warmup completes.
     active_compile_artifacts: Dict[int, _CompileArtifactSelection] = dc_field(
         default_factory=dict)
-    trt_execution_before: Dict[int, int] = dc_field(default_factory=dict)
     # gw#587 CORRECT FIX: id(pipeline) -> fleet_cells.PendingSelfMint for
     # objects armed from a fresh self-mint capture, not yet proven or
     # packed. The warmup-proof loop finalizes (packs + publishes) exactly
@@ -3209,12 +3200,25 @@ class _PermitLedger:
     outside this ledger or a hold whose owning task already finished.
     """
 
-    __slots__ = ("depth", "_holds", "_next_token", "transitions")
+    __slots__ = (
+        "depth", "_holds", "_next_token", "transitions", "_idle_since",
+        "_idle_span",
+    )
 
     def __init__(self, depth: int) -> None:
         self.depth = max(1, int(depth))
         self._holds: Dict[int, Dict[int, _PermitHold]] = {}
         self._next_token = 0
+        # pgw#1154, THE ZERO-BUBBLE METER. id(sem) -> the monotonic instant
+        # this group's permits went wholly unheld, and the span that ended
+        # when the next holder took one. A permit is the group's card, so an
+        # unheld permit is a card nobody is scheduled on — the inter-request
+        # bubble Paul's bar is stated against, measured on every request
+        # instead of inferred from a one-off harness. Seeded only by the
+        # FIRST release, so request 1 reports no span at all: "unmeasured"
+        # and "zero" must not render alike.
+        self._idle_since: Dict[int, float] = {}
+        self._idle_span: Dict[int, float] = {}
         # Bumped on every take/drop. Two probes spanning no transition saw a
         # settled ledger, which is what makes the predicate safe to act on: a
         # permit handed to another waiter between them would otherwise read as
@@ -3240,13 +3244,29 @@ class _PermitLedger:
                 task = asyncio.current_task()
             except RuntimeError:
                 task = None
-        self._holds.setdefault(id(sem), {})[token] = _PermitHold(label, task)
+        holds = self._holds.setdefault(id(sem), {})
+        if not holds:
+            # First holder after an unheld window: close the bubble.
+            since = self._idle_since.pop(id(sem), None)
+            if since is not None:
+                self._idle_span[id(sem)] = max(0.0, time.monotonic() - since)
+        holds[token] = _PermitHold(label, task)
         self.transitions += 1
         return token
 
     def drop(self, sem: asyncio.Semaphore, token: int) -> None:
-        if self._holds.get(id(sem), {}).pop(token, None) is not None:
+        holds = self._holds.get(id(sem), {})
+        if holds.pop(token, None) is not None:
             self.transitions += 1
+            if not holds:
+                # Nobody is scheduled on this group's card as of now.
+                self._idle_since[id(sem)] = time.monotonic()
+
+    def consume_idle(self, sem: asyncio.Semaphore) -> Optional[float]:
+        """Seconds this group's card sat with no permit holder immediately
+        before the current holder took it, or ``None`` when no such window
+        has been observed yet (the worker's first job). Read-once."""
+        return self._idle_span.pop(id(sem), None)
 
     def unreachable(self, sem: asyncio.Semaphore) -> Optional[str]:
         """Reason iff some outstanding permit has no live holder, else None."""
@@ -4372,8 +4392,6 @@ class Executor:
         def callback(detail: str) -> None:
             self._compile_guard_failed(rec, target, detail)
 
-        if trt_engine.set_guard_failure_callback(target.pipeline, callback):
-            return True
         # pgw#844: the EXPORTED lane owns its own revocation signal and this
         # was never asked for it — `enable_compiled` returns as soon as
         # `arm_aot` succeeds, so an AOT-armed pipeline never gets the dynamo
@@ -4395,8 +4413,7 @@ class Executor:
         ):
             return False
         # pgw#680: serve-window guard misses confess through the same
-        # target (telemetry only — no state mutation, no revocation). TRT
-        # engines never dynamo-recompile, so only torch guards bind this.
+        # target (telemetry only — no state mutation, no revocation).
         def miss_callback(miss: compile_cache.GuardMiss) -> None:
             self._compile_guard_missed(rec, target, miss)
 
@@ -4905,7 +4922,7 @@ class Executor:
                 # incarnation stays adoptable so a later armed cell can
                 # restore the compiled tier without a reload.
                 logger.error(
-                    "%s compile target for %r has no proven active Forge "
+                    "%s compile target for %r has no proven active compiled "
                     "artifact; registering active-less — its aliases serve "
                     "explicit eager (pgw#672)",
                     target_quant_execution_lane.upper(), spec.name,
@@ -4971,9 +4988,9 @@ class Executor:
         whose key was STAMPED on the artifact at mint) and nothing else. The
         `requested_cell_key`/`requested_cell_axes` fields it used to fill are
         a COMPUTED (`kind="inductor"`) key, a space with no producer since
-        pgw#1010 — so the hub's exact-key delivery and demand machinery on
-        them could never fire. The wire fields retire with the RunJob cut
-        (th#1457/pgw#891); this side simply stops filling them.
+        pgw#1010 — so the hub's exact-key delivery machinery on them could
+        never fire. `requested_cell_axes` is now `reserved 11` on the wire
+        (§4.28, th#1751 W4); `requested_cell_key` survives unfilled.
         """
         out: List[pb.CompileTarget] = []
         for rec in self._classes.values():
@@ -5014,14 +5031,14 @@ class Executor:
         return None
 
     def _resolved_mandatory_execution_lane(self, ref: str) -> str:
-        """th#1059 twin (hub: ``mandatoryTracedLane``): the flavor token names
-        the STORAGE format, not the execution. Mandatory-ness follows the
-        hub-resolved EXECUTION lane whenever one is known for this ref —
-        SDXL's mixed variant is ``#fp8-w8a8`` storage serving the w8a16
-        upcast lane (plain graphs, never scaled_mm), while qwen's
-        ``#fp8-w8a8`` executes real w8a8. Without lane evidence the flavor
-        token remains the fallback; conflicting evidence fails closed to the
-        mandatory reading.
+        """th#1059 twin (hub: ``mandatoryTracedLane``): mandatory-ness follows
+        the hub-resolved EXECUTION lane. Storage never implied execution —
+        SDXL's mixed fp8 variant serves the w8a16 upcast lane (plain graphs,
+        never scaled_mm) while qwen's serves real w8a8 — and pgw#1148 deleted
+        the `#flavor` FALLBACK that guessed at it: §1.32(d) made the token a
+        non-address, and a token in a ref was an assertion, not evidence.
+        With no resolved lane there is no mandate, so the caller is free
+        rather than fail-closed against a guess.
         """
 
         ref = (ref or "").strip()
@@ -5041,9 +5058,7 @@ class Executor:
                 mandatory = "w8a8"
             elif execution_lane.activation == lanespec.ACT_W4A4:
                 mandatory = "w4a4"
-        if known:
-            return mandatory
-        return _ref_mandatory_execution_lane(ref)
+        return mandatory if known else ""
 
     def _mandatory_execution_lane_of_bound(self, refs: typing.Iterable[str]) -> str:
         """Resolution-aware :func:`_mandatory_lane_of` (th#1059)."""
@@ -5668,7 +5683,6 @@ class Executor:
         the hub handed the worker, before any serve-time recipe."""
         return lanespec.most_quantized_body(
             lanespec.execution_lane_body_of_binding(
-                getattr(binding, "flavor", "") or "",
                 getattr(binding, "storage_dtype", "") or "")
             for binding in spec.models.values())
 
@@ -5697,7 +5711,6 @@ class Executor:
                 applied = tuple(rec.applied_lanes)
         bodies = [
             lanespec.execution_lane_body_of_binding(
-                getattr(binding, "flavor", "") or "",
                 getattr(binding, "storage_dtype", "") or "")
             for binding in spec.models.values()
         ]
@@ -6201,15 +6214,6 @@ class Executor:
             "jit_intake" if any(
                 compile_cache.is_compile_armed(t.pipeline)
                 for t in rec.compile_targets.values()) else "")
-        # th#1359: reaching here means this boot's mint disposition is FINAL
-        # on every path (inline setup, adopted cell, eager-without-mint, and
-        # the background mint's own `finally`). The mint-goal driver waits on
-        # exactly that fact rather than inventing a second notion of "boot is
-        # over" that could disagree with the one boot telemetry publishes.
-        try:
-            mint_goal_mod.note_disposition_final()
-        except Exception:  # pragma: no cover - a latch never breaks a boot
-            logger.debug("mint-goal disposition latch failed", exc_info=True)
         if armed or rec.background_mint is not None:
             return
         # pgw#805: a boot that DECLARED a compile target and ends with no
@@ -6335,15 +6339,14 @@ class Executor:
     def _warm_contract_key(self, spec: EndpointSpec) -> Any:
         """The identity under which warm RUNS are shared across checkpoint
         instances (pgw#654 warm-tax fix): the class plus every per-slot fact
-        that selects graphs or kernels — precision lane (flavor /
-        storage_dtype / dtype) and component overrides — and NEVER the
+        that selects graphs or kernels — precision lane (storage_dtype /
+        dtype) and component overrides — and NEVER the
         checkpoint ref itself. Two fine-tunes of one family land on the same
         key by construction; a lane rebind or a component substitution
         derives a different one."""
         rows = tuple(
             (
                 slot,
-                getattr(b, "flavor", "") or "",
                 getattr(b, "storage_dtype", "") or "",
                 getattr(b, "dtype", "") or "",
                 component_overrides(b),
@@ -6427,23 +6430,26 @@ class Executor:
         memory = self._warm_contract_runs.setdefault(
             self._warm_contract_key(spec), set())
         armed_refs = tuple(armed_cell_refs)
-        # Tracing == some artifact is armed or minting on this setup; only
-        # then does the full class x bucket cross-product buy anything (each
-        # graph must trace into the capture / prove against the cell).
+        # Tracing == some object under proof still needs the full class x
+        # bucket cross-product, because its graphs must trace INTO something:
+        # a dynamo lane whose per-class FX cache-hit ledger is its only
+        # detector of a silent recompile, or a fresh self-mint capture every
+        # declared graph must land in.
         #
-        # pgw#1141 DELIBERATELY LEAVES THIS ALONE, and the omission is the
-        # decision. §4.31 deletes the warm plan as a PREREQUISITE TO ARMING —
-        # which is this issue — and notes that the per-class cost then buys
-        # nothing on an exported adopt. Collapsing it to the eager plan is a
-        # real saving (sdxl: 18 full generates per handler -> 2) but it is not
-        # free: this plan is also what produces pgw#844's BOOT-TIME coverage
-        # census (`compiled_shape_coverage`, which names the declared classes a
-        # cell does not carry before any tenant meets one) and what feeds the
-        # dynamo lane's per-class cache-hit ledger, its only detector of a
-        # silent recompile. Both deserve an answer of their own rather than a
-        # rider on a P0 arm fix, so the collapse is filed as its own change
-        # with its own red tests. Nothing about the ARM depends on it.
-        tracing = bool(objects)
+        # pgw#1184 CUTS THE EXPORTED LANE OUT OF IT (th#1834 Phase 4). An
+        # armed `.pt2` is ahead-of-time machine code for this exact
+        # sm x toolchain: it performs no FX lookup, there is no ledger to
+        # move, and §4.31 already ruled that warmup "never made a cell faster,
+        # it only checked it." The 18 runs sdxl was paying per handler bought
+        # exactly one thing the arm did not already have — a BOOT-TIME census
+        # of which declared classes the dispatcher could route to — and that
+        # census is deleted with them (see `_arm_class_coverage`, and the
+        # commit message for why 16 extra full generates is not what that
+        # question is worth). The per-shape truth still arrives, per request,
+        # typed, at the ingress that already refuses a class BY NAME and
+        # charges the request `fallback_reason=ingress_refused`.
+        tracing = bool(cold_proof_ids) or any(
+            not aot_serve.holds_exported_cell(obj) for obj in objects)
         skip_ok = (
             allow_contract_skip
             and not cold_proof_ids
@@ -6460,8 +6466,8 @@ class Executor:
                 "(contract-keyed warm memory holds %d graph keys)",
                 spec.name, warm_mode, len(run_jobs), len(jobs), len(memory))
         evidence = _WarmupEvidence()
-        # pgw#735: three compiled backends, three proofs. Dynamo proves by FX
-        # cache hits, TRT by engine executions, an EXPORTED artifact by its own
+        # pgw#735: two compiled backends, two proofs. Dynamo proves by FX
+        # cache hits, an EXPORTED artifact by its own
         # invocations — an exported cell performs no FX lookup at all, so a
         # cache-hit requirement would score every honest .pt2 adoption as a
         # failure. Never synthesize a hit counter for it: this is the one path
@@ -6469,7 +6475,6 @@ class Executor:
         start_counts = {
             id(obj): (
                 compile_cache.execution_count(obj),
-                trt_engine.execution_count(obj),
                 aot_serve.execution_count(obj),
             )
             for obj in objects
@@ -6483,14 +6488,22 @@ class Executor:
         # a per-shape posture, not a silent recompile — which is what lets the
         # attribution below be per-class for this lane and stay all-or-nothing
         # for dynamo, where an unproven class means an unannounced recompile.
-        exported_proof_ids: set = set()
+        #
+        # pgw#1184: the exported lane no longer runs the full plan, so this set
+        # is seeded from the LANE rather than discovered by executing 18
+        # generates. An armed exported object is on it from the start; what
+        # `_one` still adds is nothing this lane needs, and what the
+        # attribution below still does with it is attribute every alias
+        # (§4.31: the arm has no warm prerequisite).
+        exported_proof_ids: set = {
+            id(obj) for obj in objects if aot_serve.holds_exported_cell(obj)
+        }
 
         async def _one(wj: Any, build: Any, mode: str, *, variant: bool) -> bool:
             """One warmup forward; False = OOM, stop warming."""
             before = {
                 id(obj): (
                     compile_cache.execution_count(obj),
-                    trt_engine.execution_count(obj),
                     aot_serve.execution_count(obj),
                 )
                 for obj in objects
@@ -6573,7 +6586,7 @@ class Executor:
                 # does not run is not a measurement anyone can read.
                 self._warm_iterations += 1
             for obj in objects:
-                calls_before, trt_before, aot_before = before[id(obj)]
+                calls_before, aot_before = before[id(obj)]
                 inductor_proven = (
                     compile_cache.execution_count(obj) > calls_before
                     and (
@@ -6581,14 +6594,13 @@ class Executor:
                         or id(obj) in cold_proof_ids
                     )
                 )
-                trt_proven = trt_engine.execution_count(obj) > trt_before
                 # pgw#735: an exported artifact proves itself by executing —
                 # and by still being armed, so a call that ended in a revoked
                 # (failed) artifact cannot count as proof.
                 aot_proven = aot_serve.proven_since(obj, aot_before)
                 if aot_proven:
                     exported_proof_ids.add(id(obj))
-                if inductor_proven or trt_proven or aot_proven:
+                if inductor_proven or aot_proven:
                     proven_keys.setdefault(id(obj), set()).add(wj.graph_key)
             logger.info(
                 "boot warmup %s (%s): %.1fs",
@@ -6614,8 +6626,7 @@ class Executor:
             return [
                 obj for obj in objects
                 if compile_cache.execution_count(obj) == start_counts[id(obj)][0]
-                and trt_engine.execution_count(obj) == start_counts[id(obj)][1]
-                and aot_serve.execution_count(obj) == start_counts[id(obj)][2]
+                and aot_serve.execution_count(obj) == start_counts[id(obj)][1]
             ]
 
         # gw#614 coverage pass: an input-routed sibling lane the planned
@@ -6665,59 +6676,43 @@ class Executor:
         for wj in jobs:
             for name in (wj.covers or (wj.spec.name,)):
                 keys_by_name.setdefault(name, set()).add(wj.graph_key)
-        for obj_id, proven in proven_keys.items():
-            names = {
-                name for name, keys in keys_by_name.items()
-                if keys and keys <= proven
-            }
-            # pgw#844: …and on the EXPORTED lane an alias that proved SOME of
-            # its graph classes is attributed too, with the rest named.
-            #
-            # The measured shape (attempt twelve, pod o0legpgj5olhic): a
-            # regional sdxl cell armed all 72 entries, dispatched 1024x1024
-            # correctly, and refused the other eight aspect buckets
-            # `entry_ambiguous` because a transformer block sees H_lat*W_lat
-            # and the entries are keyed on H and W separately. Those eight
-            # classes went unproven, the all-or-nothing rule above attributed
-            # NO alias, the target was omitted as `target_applicability_
-            # incomplete`, and the boot ended `boot_ended_uncompiled` — so the
-            # ONE bucket that was armed, correct and unambiguous served eager
-            # too. One undispatchable shape cost the pod every shape.
+        for obj_id in set(proven_keys) | exported_proof_ids:
+            proven = proven_keys.get(obj_id, set())
+            # pgw#844's ORIGINAL FINDING, now answered at the lane instead of
+            # per class (pgw#1184). The measured shape (attempt twelve, pod
+            # o0legpgj5olhic): a regional sdxl cell armed all 72 entries,
+            # dispatched 1024x1024 correctly, and refused the other eight
+            # aspect buckets `entry_ambiguous`. Those eight classes went
+            # unproven, the all-or-nothing rule attributed NO alias, the
+            # target was omitted `target_applicability_incomplete`, and the
+            # boot ended `boot_ended_uncompiled` — so the ONE bucket that was
+            # armed, correct and unambiguous served eager too. One
+            # undispatchable shape cost the pod every shape.
             #
             # `boot_ended_uncompiled` must mean "nothing is dispatchable", not
             # "something wasn't". An exported artifact refuses a shape it
             # cannot serve BY NAME, counts it, emits `aot_ingress_refused`,
             # charges the request `fallback_reason=ingress_refused`, and stays
-            # armed — so the degradation is per shape and fully visible, which
-            # is exactly the fail-soft posture the compiled lane is built on.
-            # Dynamo keeps the strict rule: there an unproven class means an
-            # unannounced recompile at serve time, which is silent.
-            partial: Dict[str, Tuple[str, ...]] = {}
+            # armed — so the degradation is per shape and fully visible.
+            #
+            # pgw#844 bought that with a per-class warm census. §4.31 deleted
+            # the premise underneath it: the arm has NO warm prerequisite, so
+            # an armed exported object is attributed to every alias its plan
+            # covers, and the count of classes it served AT BOOT decides
+            # nothing. That is also what makes the eager plan sound above —
+            # attribution can no longer depend on how many runs happened.
+            #
+            # Dynamo keeps the strict rule verbatim: there an unproven class
+            # means an unannounced recompile at serve time, which is silent.
             if obj_id in exported_proof_ids:
-                for name, keys in keys_by_name.items():
-                    if not keys or name in names or not (keys & proven):
-                        continue
-                    names.add(name)
-                    partial[name] = tuple(sorted(
-                        str(key) for key in (keys - proven)))
+                names = {name for name, keys in keys_by_name.items() if keys}
+            else:
+                names = {
+                    name for name, keys in keys_by_name.items()
+                    if keys and keys <= proven
+                }
             if names:
                 evidence.functions_by_object[obj_id] = names
-            if partial:
-                evidence.partial_by_object[obj_id] = partial
-                for name, missing in sorted(partial.items()):
-                    total = len(keys_by_name[name])
-                    activity_mod.emit_event(
-                        "compiled_shape_coverage",
-                        f"fn={name}: {total - len(missing)}/{total} declared "
-                        f"graph classes served COMPILED at boot; the compiled "
-                        f"lane stays armed and these {len(missing)} class(es) "
-                        f"serve EAGER per request (each one named at ingress, "
-                        f"and every such request reports "
-                        f"fallback_reason="
-                        f"{serving_mode_mod.FALLBACK_INGRESS_REFUSED}): "
-                        f"{list(missing[:8])!r}",
-                        phase="partial_shape_coverage",
-                    )
         return evidence
 
     async def _invoke_warmup(
@@ -6745,6 +6740,14 @@ class Executor:
                             pass
 
                 await _to_thread_complete(_consume)
+            # pgw#1199: THE proof, recorded where it already happens. This call
+            # is the endpoint's own handler, running on the RESIDENT pipeline
+            # with real checkpoint values, and every warm path in this process
+            # goes through it. A delegated mint reads the record instead of
+            # materialising a second copy of the weights in its child to
+            # re-prove the same sentence with random values (§4.33 steps 4-5).
+            handler_proof.record(
+                spec.name, f"boot warm forward {spec.name!r} (real weights)")
         finally:
             postmortem.clear_inflight(inflight_token)
 
@@ -7026,16 +7029,15 @@ class Executor:
             boot_local_key = adopt.local_key
             if adopt.adoption is not None:
                 got = adopt.adoption
-                compile_selection = _CompileArtifactSelection(
-                    path=got.artifact, ref=got.ref,
-                    snapshot_digest=got.snapshot_digest)
                 compile_artifact = got.artifact
-                arm = _ArmOrder(
-                    backend="aot_cell", selection=compile_selection,
+                arm = _ArmOrder.for_artifact(
+                    path=got.artifact, ref=got.ref,
+                    snapshot_digest=got.snapshot_digest,
                     expected=got.expected,
                     publisher_org=got.cell.publisher_org,
                     # pgw#1122: this order is the POD's, not the hub's.
                     adopt=adopt)
+                compile_selection = arm.selection
         elif arm is None and spec.compile is not None:
             # pgw#1116: a compiled family that boots WITHOUT asking is a fact
             # somebody has to be able to read. This is the only branch where
@@ -7241,9 +7243,6 @@ class Executor:
                         inj.pending_self_mints[id(pipe)] = mint
                     elif armed and selection is not None:
                         inj.active_compile_artifacts[id(pipe)] = selection
-                        if trt_engine.is_engine_ref(selection.ref):
-                            inj.trt_execution_before[id(pipe)] = (
-                                trt_engine.execution_count(pipe))
             # pgw#671 eager-first boot (worker half of th#1187): a fresh
             # self-mint on an eager-compatible lane no longer gates READY.
             # Stash the arm-time placeholder selections (their digest is
@@ -7257,27 +7256,15 @@ class Executor:
             # no active artifacts => no exclusive-GPU window, eager warm
             # selection, no proof loop, targets registered active-less
             # (advertising the requested cell key for peer adoption).
+            # §4.33 / pgw#1175: a `mint_budget.probe` gate stood here and
+            # could turn a boot's eager-first capture off on an arithmetic
+            # whose activation term was a quarter of the RESIDENT SET — a
+            # fraction nobody measured, against a card whose free figure
+            # already excluded those weights. Nothing predicts VRAM: the boot
+            # arms, the compile children run weight-free, and a genuine
+            # shortfall comes back as a classified child death.
             eager_first = self._eager_first_eligible(spec, inj)
             delegated_mints = _delegated_pendings(inj.pending_self_mints)
-            if eager_first and delegated_mints:
-                # pgw#784: _mint_budget_ok gates an IN-PROCESS capture that
-                # will never exist here — nothing is armed on these pipes. The
-                # child's own co-residency ask (its weights + one activation
-                # set + inductor workspace + a CUDA context) is budgeted per
-                # attempt by mint_delegate, against the card as it actually is
-                # at spawn time rather than as it was at boot.
-                pass
-            elif eager_first and not self._mint_budget_ok(spec, inj):
-                # pgw#737: THE gate. It sits here and not only in the driver
-                # because arming + enabling the routers is already the first
-                # allocation of the capture — the boot warm's own forwards
-                # enqueue background compiles the instant the routers go
-                # concurrent. A card that cannot hold the capture never gets
-                # one armed: the targets go back to true eager, the cell
-                # stays absent, and the boot follows the plain-eager shape
-                # (never the foreground compile-then-serve mint, which is
-                # strictly worse for the tenant).
-                eager_first = False
             if delegated_mints and not eager_first:
                 # pgw#784: nothing is armed on these pipes, so the foreground
                 # compile-then-serve path below cannot drive them. Discard the
@@ -7342,9 +7329,9 @@ class Executor:
             # artifact SOURCE differs; a self-mint that does not actually
             # serve its own warmup graphs must fail closed below exactly
             # like a delivered cell that doesn't (never silent eager).
-            # pgw#735: TRT engines and EXPORTED artifacts both prove
-            # themselves by executing, not by an FX cache hit — only the
-            # dynamo lane is scored by hits below.
+            # pgw#735: EXPORTED artifacts prove themselves by executing,
+            # not by an FX cache hit — only the dynamo lane is scored by
+            # hits below.
             # pgw#1141b: the lane split is decided per OBJECT (`_exported_arm`),
             # never off the ref string alone. A boot-adopted cell wraps a live
             # pipeline through the ordered arm, which taught `is_aot_ref`
@@ -7355,8 +7342,7 @@ class Executor:
             # keep-the-arm branch below could not fire for the one object it
             # exists for.
             def _proves_by_fx(pipeline: Any, ref: str) -> bool:
-                return not trt_engine.is_engine_ref(ref) and not \
-                    _exported_arm(pipeline, ref)
+                return not _exported_arm(pipeline, ref)
 
             _armed_now = [
                 (candidate.pipeline, sel)
@@ -7509,8 +7495,7 @@ class Executor:
                         for _cand in inj.compile_objects:
                             _sel = inj.active_compile_artifacts.get(
                                 id(_cand.pipeline))
-                            if _sel is not None and not trt_engine.is_engine_ref(
-                                    _sel.ref):
+                            if _sel is not None:
                                 compile_cache.reset_target_code(_cand.pipeline)
                         warmed, function_proofs, warm_aborted = await run_warmup()
                 else:
@@ -7793,25 +7778,22 @@ class Executor:
                         f"cache_hits={hits}, cache_misses={misses}, "
                         f"compile_seconds={compile_seconds:.1f}{per_object})"
                     )
-                    # gw#608 FX-key forensics: this boot's recompiles already
-                    # saved their entries (with embedded FxGraphHashDetails
-                    # lines) into the live cache dir. The report ALWAYS
-                    # carries the cache-state counts — fresh_keys>0 names the
-                    # diverging key component (B1); fresh_keys=0 with
-                    # same-key re-saves proves the keys MATCH and the miss is
-                    # in torch's candidate-load path (B2), with the sibling
-                    # guards/extern-libs diff and load probes naming the
-                    # failing step. Store-served boots only (a minting boot
-                    # has no seeded cell to diverge from).
-                    # pgw#722 finding 2: FX forensics describe the dynamo
-                    # lane only — a pure-exported disproof would report the
-                    # SKIPPED delivered artifact's cache state, pure noise.
-                    if proves_inductor and compile_selection is not None and not (
-                        trt_engine.is_engine_ref(compile_selection.ref)
-                    ):
+                    # gw#608 FX-cache census: this boot's recompiles already
+                    # saved their entries into the live cache dir, so the
+                    # report says how many keys exist and what extern-libs key
+                    # this process presents.
+                    # pgw#1200 removed the CELL side and the B1/B2
+                    # classification with it — every class was a difference
+                    # against FX entries read from a `torch-inductor-cache`
+                    # tarball, and that format has no writer and is deleted, so
+                    # B1 was being named on every boot. The report no longer
+                    # takes the artifact; passing one carried no information.
+                    # pgw#722 finding 2 still scopes the CALL: FX state
+                    # describes the dynamo lane only, which `proves_inductor`
+                    # is what says.
+                    if proves_inductor and compile_selection is not None:
                         try:
-                            forensics = compile_cache.fx_cache_failure_report(
-                                compile_selection.path)
+                            forensics = compile_cache.fx_cache_failure_report()
                         except Exception:
                             forensics = ""
                             logger.debug(
@@ -7943,8 +7925,7 @@ class Executor:
                         # partial-recompile shape too.
                         logger.error(
                             "compile-cache: FX-key forensics: %s",
-                            compile_cache.fx_cache_failure_report(
-                                compile_selection.path))
+                            compile_cache.fx_cache_failure_report())
                     except Exception:
                         logger.debug(
                             "fx-key forensics unavailable", exc_info=True)
@@ -7982,30 +7963,6 @@ class Executor:
             self._assert_mint_termini(
                 spec,
                 [p for p in mint_obligations if id(p) not in owned_by_driver])
-            if compile_selection and trt_engine.is_engine_ref(compile_selection.ref):
-                trt_candidates = [
-                    candidate for candidate in inj.compile_objects
-                    if id(candidate.pipeline) in inj.active_compile_artifacts
-                ]
-                unproven = [
-                    candidate.pipeline for candidate in trt_candidates
-                    if trt_engine.execution_count(candidate.pipeline)
-                    <= inj.trt_execution_before.get(id(candidate.pipeline), 0)
-                ]
-                if callable(warmup):
-                    unproven_ids = {id(pipe) for pipe in unproven}
-                    for candidate in trt_candidates:
-                        if id(candidate.pipeline) not in unproven_ids:
-                            function_proofs[id(candidate.pipeline)] = {spec.name}
-                if unproven:
-                    for pipe in unproven:
-                        function_proofs[id(pipe)] = set()
-                        trt_engine.unwrap(pipe)
-                        inj.active_compile_artifacts.pop(id(pipe), None)
-                    logger.warning(
-                        "attached TRT artifact did not execute during warmup; "
-                        "serving eager"
-                    )
             vram_delta = max(0, self._vram_allocated() - vram_before)
             if rec.server is not None:
                 # Engine subprocess VRAM is invisible to torch's allocator;
@@ -9184,9 +9141,8 @@ class Executor:
                             "require resident placement; retrying without "
                             "content-keyed sharing for this ref")
                     if spec.compile is not None:
-                        # Opt-in acceleration against a pre-built per-SKU artifact:
-                        # a TRT engine (#390, refit with this pipeline's weights)
-                        # or an inductor cache (#384). No verified artifact =>
+                        # Opt-in acceleration against a pre-built per-SKU
+                        # inductor cache (#384). No verified artifact =>
                         # stays eager. ``compile_artifact`` is hub-attached (#569).
 
                         # pgw#677 reopen: stamp the hub-resolved execution
@@ -9276,10 +9232,6 @@ class Executor:
                                 result.pending_self_mints[id(pipe)] = pipe_mint
                             elif armed and selection is not None:
                                 result.active_compile_artifacts[id(pipe)] = selection
-
-                                if trt_engine.is_engine_ref(selection.ref):
-                                    result.trt_execution_before[id(pipe)] = (
-                                        trt_engine.execution_count(pipe))
                     delta = max(0, self._vram_allocated() - before)
                     if slot_share:
                         execution_lane_obj, execution_lane_bytes = self._register_execution_lane(
@@ -9435,7 +9387,7 @@ class Executor:
         """pgw#916: this armed target has NO serve-window shape-growth path.
 
         ``hot_swap.enable`` returns False whenever the pipeline carries no
-        dynamo router, which is every AOT and TRT arm by construction —
+        dynamo router, which is every AOT arm by construction —
         ``provision.enable_compiled`` returns as soon as ``arm_aot`` succeeds,
         so ``compile_cache.enable`` (the only thing that installs the router)
         is never reached.  The consequence is total: a class the cell does not
@@ -9451,8 +9403,6 @@ class Executor:
         arm = shape_growth.ARM_DYNAMO
         if aot_serve.is_armed(pipeline):
             arm = shape_growth.ARM_AOT
-        elif trt_engine.is_armed(pipeline):
-            arm = "trt"
         with target.state_lock:
             cell = target.active_compile_ref
         logger.warning(
@@ -9504,8 +9454,8 @@ class Executor:
         cfg = spec.compile_cell()
         if cfg is None or bool(getattr(cfg, "regional", False)):
             return False
-        # Any armed artifact that is NOT a pending self-mint (delivered
-        # cell, TRT engine) keeps today's foreground proof for the whole
+        # Any armed artifact that is NOT a pending self-mint (a delivered
+        # cell) keeps today's foreground proof for the whole
         # record — mixing tiers inside one proof window is not worth it.
         if set(inj.active_compile_artifacts) - set(inj.pending_self_mints):
             return False
@@ -9581,55 +9531,6 @@ class Executor:
             except Exception:  # noqa: BLE001 — the confession is the point
                 logger.debug("abandoning the unresolved mint failed",
                              exc_info=True)
-
-    def _mint_budget_ok(
-        self, spec: EndpointSpec, inj: "_InjectionResult",
-    ) -> bool:
-        """pgw#737: does this card have room to CAPTURE, on top of serving?
-
-        False = decline: every pending self-mint is discarded, its target
-        unwrapped to true eager and its branch lane dropped, so the boot
-        continues as a plain eager boot with the cell absent. Loud (one
-        structured ``mint_skipped`` line, logged and on the wire) and
-        automatic — a roomier config, or a smaller-resident flavor, mints
-        the same cell later."""
-
-        pipes = [
-            candidate.pipeline for candidate in inj.compile_objects
-            if id(candidate.pipeline) in inj.pending_self_mints
-        ]
-        device = next(
-            (dev for pipe in pipes
-             if (dev := mint_budget.device_of(pipe)) is not None),
-            None,
-        )
-        budget = mint_budget.probe(device)
-        if budget.fits:
-            return True
-        line = budget.line("mint_skipped", "insufficient_vram")
-        logger.warning("self-mint declined at boot for %s: %s", spec.name, line)
-        activity_mod.emit_event(
-            "self_mint_skipped",
-            f"{line}; {spec.name} boots eager with no cell — the capture "
-            "does not fit beside this model's own serving working set",
-            phase="insufficient_vram",
-        )
-        for pipe in pipes:
-            pending = inj.pending_self_mints.pop(id(pipe), None)
-            inj.active_compile_artifacts.pop(id(pipe), None)
-            if pending is not None:
-                try:
-                    fleet_cells_mod.abandon_self_mint(pending)
-                except Exception:
-                    logger.exception("declined mint capture cleanup failed")
-            try:
-                compile_cache.unwrap(pipe)
-                if spec.lora_bucket:
-                    compile_cache.drop_lora_execution_lane(pipe)
-            except Exception:
-                logger.exception("declined mint target unwrap failed")
-        flush_memory()
-        return False
 
     def serving_tiers(self) -> Dict[str, str]:
         """Per-function serving tier for the capability projection (th#1187
@@ -9765,18 +9666,6 @@ class Executor:
             with activity_mod.watchdog(act):
                 await self._background_mint_run(rec, bg, act)
                 await self._await_publish_durable(act)
-        except _MintDeclined as declined:
-            # pgw#737: a declined mint is an OUTCOME, not a failure — the
-            # activity terminates COMPLETED and the tier stays eager, so
-            # nothing downstream classifies this worker as broken or
-            # re-dispatches against it. The cell stays absent: a roomier
-            # config (or a smaller-resident flavor) mints it later.
-            self._abandon_mint_state(rec, bg, free_targets=True)
-            logger.warning(
-                "self-mint declined for %s: %s", bg.spec.name, declined)
-            activity_mod.emit_event(
-                "self_mint_skipped", str(declined), phase=declined.reason)
-            act.completed()
         except (_MintAbandoned, asyncio.CancelledError):
             self._abandon_mint_state(rec, bg)
             logger.info(
@@ -9842,9 +9731,8 @@ class Executor:
         terminates COMPLETED on ARM — but the publish is a background thread
         that outlives the arm, so the window in which the cell EXISTS AND IS
         NOT YET DURABLE had no running activity at all. For a pod nobody is
-        watching (every PRODUCTION forge pod, hub-launched from a publish or
-        demand event) that window is unprotected, and a mint reaped there has
-        paid its entire cost and produced nothing.
+        watching that window is unprotected, and a mint reaped there has paid
+        its entire cost and produced nothing.
 
         THE CONSTRAINT THAT SHAPES ALL OF THIS: the counter advances on
         DURABLE STATE — a new key starting its upload, a key landing — and
@@ -9951,8 +9839,7 @@ class Executor:
         gw#612's sibling-coverage rule, and advertise the identity.
 
         Raises exactly what ``_background_mint_run`` raises, so
-        ``_background_mint``'s outcome handling is untouched: ``_MintDeclined``
-        (an OUTCOME — tier stays eager, cell absent), ``_MintAbandoned``
+        ``_background_mint``'s outcome handling is untouched: ``_MintAbandoned``
         (adopt-on-arm / vacate / shutdown), or a plain ``Exception`` (a failed
         mint). Serving continues in every branch: the worker never dies with
         its mint.
@@ -9983,7 +9870,6 @@ class Executor:
         #: rule (gw#612) is about the OBLIGATION, not about how many pipes
         #: hold it, so it reads this rather than `finalized`.
         discharged: Dict[int, Any] = {}
-        declined: Optional[_MintDeclined] = None
         # pgw#999: every classified refusal this run saw, so the terminal
         # RuntimeError names them instead of restating "no advertisable cell".
         declined_reasons: List[str] = []
@@ -10000,18 +9886,20 @@ class Executor:
                     weight_lane=compile_cache.cell_base_execution_lane(pipe),
                     execution_lane=self._served_execution_lane(spec),
                     configs={spec.name: self._effective_config(spec)},
-                    device=mint_budget.device_of(pipe),
+                    device=mint_workers.device_of(pipe),
+                    # pgw#1199: this boot ran the endpoint's own handler on the
+                    # resident pipeline before any mint was delegated (setup
+                    # completes, THEN `bg.task` is created), so the child gets
+                    # pgw#984's guarantee for free and allocates nothing for
+                    # it. Empty when a custom `warmup()` stood in for the
+                    # synthesized plan and no handler actually ran — the child
+                    # refuses on that, honestly, rather than proving it at the
+                    # cost of a checkpoint.
+                    handler_proof=handler_proof.provenance(spec.name),
                 ),
                 act=act, abandon=bg.abandon)
             if result.status == mint_delegate.ABANDONED:
                 raise _MintAbandoned()
-            if result.declined:
-                # Remembered, not raised yet: another pending may still fit.
-                declined = _MintDeclined(
-                    "insufficient_vram",
-                    result.budget or mint_budget.probe(),
-                    result.detail)
-                continue
             minted = result.minted
             if not result.ok or minted is None:
                 logger.warning(
@@ -10056,8 +9944,6 @@ class Executor:
             compile_cache.record_cell_proven(str(minted.ref))
 
         if not finalized:
-            if declined is not None:
-                raise declined
             raise RuntimeError(
                 "delegated mint produced no advertisable cell; serving stays "
                 "eager"
@@ -10333,28 +10219,11 @@ class Executor:
                 return 0
         return 0
 
-    def background_mint_tasks(self) -> List["asyncio.Task"]:
-        """th#1359: every still-running background mint on this worker.
-
-        A forge pod joins these before it calls itself done — a release may
-        declare more than one compile family, and retiring on the first one to
-        finish would abandon the rest, which is the exact failure (pgw#846
-        attempt sixteen: `self_mint_abort/abandoned_shutdown`) this mode
-        exists to make impossible.
-        """
-        tasks: List["asyncio.Task"] = []
-        for rec in self._classes.values():
-            bg = rec.background_mint
-            task = getattr(bg, "task", None) if bg is not None else None
-            if task is not None and not task.done():
-                tasks.append(task)
-        return tasks
-
     def declares_compile(self) -> bool:
         """Whether ANY discovered spec declares a compile family.
 
-        A forge pod for a release that declares none has nothing to mint, and
-        must say `nothing_owed` and retire rather than sit on a paid card.
+        A release that declares none has nothing to mint, so a boot that ends
+        uncompiled there is not a miss.
         """
         return any(
             s.compile is not None and getattr(s.compile, "family", "")
@@ -11097,13 +10966,10 @@ class Executor:
             cache_dir=self.store._cache_dir,
             what=what,
         )
-        return _ArmOrder(
-            backend="aot_cell",
-            selection=_CompileArtifactSelection(
-                path=path,
-                ref=artifact.cell_ref,
-                snapshot_digest=artifact.content_digest,
-            ),
+        return _ArmOrder.for_artifact(
+            path=path,
+            ref=artifact.cell_ref,
+            snapshot_digest=artifact.content_digest,
             expected=expected,
             publisher_org=artifact.publisher_org,
         )
@@ -11970,6 +11836,21 @@ class Executor:
                     # the handler window, so runtime_ms never saw it.
                     ctx._stages.record_pre(
                         "gpu_permit_wait", time.monotonic() - permit_t0)
+                    # pgw#1154: and the INVERSE wait — the card idle, waiting
+                    # for a request — was in no metric either. Emitted only
+                    # when a previous holder has actually released on this
+                    # worker, so the number always means "gap after the job
+                    # before me" and never "time since boot".
+                    idle_before = self._permits.consume_idle(gpu_permit)
+                    if idle_before is not None:
+                        # `record_pre` drops non-positive values, and a ZERO
+                        # bubble is the target state — the one reading that
+                        # must never be silently indistinguishable from "this
+                        # worker has no meter". Floored so the key is always
+                        # emitted once a gap has actually been observed; it
+                        # renders as 0 ms either way.
+                        ctx._stages.record_pre(
+                            "gpu_idle_before", max(idle_before, 1e-9))
                     self._loop = asyncio.get_running_loop()
                     lease = _GpuSlotLease(
                         gpu_permit, self._loop, self._permits,

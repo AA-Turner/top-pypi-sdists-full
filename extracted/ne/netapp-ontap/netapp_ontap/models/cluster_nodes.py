@@ -213,8 +213,17 @@ Example: 4048820-60-9 """
 * <i>up</i> - Node is up and operational.
 * <i>booting</i> - Node is booting up.
 * <i>down</i> - Node has stopped or is dumping core.
+<personalities supports=unified,asar2>
+
 * <i>taken_over</i> - Node has been taken over by its HA partner and is not yet waiting for giveback.
 * <i>waiting_for_giveback</i> - Node has been taken over by its HA partner and is waiting for the HA partner to giveback disks.
+</personalities>
+<personalities supports=aiml>
+
+* <i>takeover_of_in_progress</i> - Node has been taken over by one of its peer nodes and is not yet waiting for giveback.
+* <i>giveback_of_in_progress</i> - Node has been taken over by one of its peer nodes and is waiting for the peer to giveback disks.
+</personalities>
+
 * <i>degraded</i> - Node has one or more critical services offline.
 * <i>unknown</i> - Node or its HA partner cannot be contacted and there is no information on the node's state.
 

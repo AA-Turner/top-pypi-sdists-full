@@ -59,7 +59,12 @@ class CodeBundleResource(CodeBundleResourceBase):
         Parameters
         __________
         execute_code_bundle_request : ExecuteCodeBundleRequest
-            The execution specification, including the entry point to run. (required)
+            The execution specification, including the entry point to run (``entrypoint``). (required) The
+            bundle configuration captured when the bundle was created is used by default; it can be
+            overridden inline through the request's ``specification`` field, a typed
+            :class:`~snowflake.core.code_bundle.CodeBundleSpecification` wrapping a
+            :class:`~snowflake.core.code_bundle.BundleSpec` (a plain ``dict`` of the same shape is still
+            accepted).
         async_exec : bool, optional
             Whether the code bundle should be executed asynchronously on the server. When ``True``, the
             server accepts the execution and returns a ``SuccessAcceptedResponse`` carrying the job id.
@@ -77,6 +82,18 @@ class CodeBundleResource(CodeBundleResourceBase):
         Executing a code bundle:
 
         >>> code_bundles["my_code_bundle"].execute(ExecuteCodeBundleRequest(entrypoint="main.py"))
+
+        Overriding the bundle configuration with a typed, inline specification:
+
+        >>> from snowflake.core.code_bundle import BundleSpec, CodeBundleSpecification
+        >>> code_bundles["my_code_bundle"].execute(
+        ...     ExecuteCodeBundleRequest(
+        ...         entrypoint="main.py",
+        ...         specification=CodeBundleSpecification(
+        ...             bundle=BundleSpec(type="custom", compute_type="warehouse", language="python")
+        ...         ),
+        ...     )
+        ... )
         """
         return self.collection._api.execute_code_bundle(
             self.database.name,

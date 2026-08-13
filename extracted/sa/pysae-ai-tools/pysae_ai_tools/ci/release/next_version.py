@@ -30,7 +30,7 @@ import typer
 from commitizen.config import BaseConfig
 from commitizen.cz.conventional_commits.conventional_commits import ConventionalCommitsCz
 
-from ...common.glab.runner import resolve_current_project, run_glab
+from ...common.glab.runner import GLAB_MISSING_RC, GLAB_TIMEOUT_RC, GlabResult, resolve_current_project, run_glab
 from ...common.project_config import effective_config
 
 _CZ = ConventionalCommitsCz(BaseConfig())  # type: ignore[no-untyped-call, unused-ignore]
@@ -51,6 +51,8 @@ _PRERELEASE_COUNTER_RE = re.compile(r"^(?P<label>.*?)\.(?P<num>\d+)$")
 # A literal patch digit (``v5.2.3``) is rejected by :func:`parse_support_line` — a fully pinned
 # version is not a support line.
 _SUPPORT_LINE_RE = re.compile(r"^v?(\d+)(?:\.(\d+|x))?(?:\.(\d+|x))?$", re.IGNORECASE)
+# A ``glab`` stderr line that is only a severity header (``ERROR``), carrying no message.
+_STDERR_LEVEL_RE = re.compile(r"^(?:error|erreur|warning|warn|fatal|x|!)[:\s]*$", re.IGNORECASE)
 _BUMP_RANK = {"patch": 1, "minor": 2, "major": 3}
 
 
@@ -241,15 +243,45 @@ def compute_next(latest: Version, bump: str, prerelease: str) -> Version:
     return base
 
 
-def _run_glab(*args: str, timeout: int = 15) -> str | None:
-    """Run a glab command, return stdout or None on failure."""
-    res = run_glab(*args, timeout=timeout)
-    return res.stdout if res.ok else None
-
-
 def _get_project_id() -> str:
     """Get project ID from glab repo view."""
     return resolve_current_project()[0]
+
+
+class TagLookupError(RuntimeError):
+    """The project's tag list could not be read, so no base tag can be *proven*.
+
+    Raised instead of treating an unreadable list as an empty one: a ``glab`` that is
+    absent, unauthenticated or looking at an inaccessible project answers nothing —
+    and a version bumped from a base nobody could read is a wrong number returned as
+    a success, indistinguishable from a real one. A list that *was* read and holds no
+    semver tag is a different thing entirely: a proven first release.
+    """
+
+
+def _glab_error_detail(stderr: str) -> str:
+    """The informative part of a ``glab`` stderr block, on one line.
+
+    ``glab`` frames its errors: blank line, a bare ``ERROR`` header, blank line, then
+    the message padded over several lines. Reading the first line alone therefore
+    yields ``ERROR`` and says nothing — so drop the framing and join what is left.
+    """
+    lines = [
+        " ".join(line.split())
+        for line in stderr.splitlines()
+        if line.strip() and not _STDERR_LEVEL_RE.match(line.strip())
+    ]
+    return " ".join(lines)[:200]
+
+
+def _glab_failure_cause(res: GlabResult) -> str:
+    """Name why a ``glab`` call failed, so the error says which of the causes it was."""
+    if res.returncode == GLAB_MISSING_RC:
+        return "glab n'est pas installé"
+    if res.returncode == GLAB_TIMEOUT_RC:
+        return "glab a dépassé son timeout"
+    detail = _glab_error_detail(res.stderr) or f"code de sortie {res.returncode}"
+    return f"l'appel glab a échoué ({detail})"
 
 
 def _fetch_latest_tag(project_id: str, support_range: SupportRange | None = None) -> str:
@@ -262,17 +294,39 @@ def _fetch_latest_tag(project_id: str, support_range: SupportRange | None = None
     When ``support_range`` is set, only tags inside that range are considered — so a
     ``support/v5.2.x`` release bumps from the highest ``v5.2.*`` tag, never from a
     later ``v6.x`` on the main line.
+
+    Returns the highest matching tag, or ``""`` when the list **was read** and holds
+    no usable base — the caller may then treat it as a first release. Raises
+    :class:`TagLookupError` when the list could not be read at all (``glab`` absent or
+    unauthenticated, project inaccessible, unparsable answer): an empty result must be
+    a proven fact, never the shape a failed call happens to take.
     """
-    raw = _run_glab("api", f"projects/{project_id}/repository/tags?per_page=100&order_by=version")
-    if not raw:
-        return ""
+    hint = (
+        "Authentifie glab (glab auth login) ou vérifie l'accès au projet ; "
+        "sinon passe --version vX.Y.Z / --base-tag vX.Y.Z pour fixer la base explicitement."
+    )
+    res = run_glab("api", f"projects/{project_id}/repository/tags?per_page=100&order_by=version", timeout=15)
+    if not res.ok:
+        raise TagLookupError(
+            f"Impossible de lister les tags du projet {project_id} : {_glab_failure_cause(res)} — "
+            f"impossible de prouver que le projet n'a aucun tag. {hint}"
+        )
     try:
-        tags = json.loads(raw)
+        tags = json.loads(res.stdout)
     except json.JSONDecodeError:
-        return ""
+        raise TagLookupError(
+            f"Réponse inattendue en listant les tags du projet {project_id} (JSON invalide ou vide) — "
+            f"impossible de prouver que le projet n'a aucun tag. {hint}"
+        ) from None
+    if not isinstance(tags, list):
+        raise TagLookupError(
+            f"Réponse inattendue en listant les tags du projet {project_id} (liste attendue, reçu "
+            f"{type(tags).__name__}) — impossible de prouver que le projet n'a aucun tag. {hint}"
+        )
+
     best: tuple[tuple[int, int, int, int, str, int], str] | None = None
     for tag in tags:
-        name: str = tag.get("name", "")
+        name: str = tag.get("name", "") if isinstance(tag, dict) else ""
         try:
             parsed = parse_version(name)
         except ValueError:
@@ -391,13 +445,19 @@ def bump_version(major: int, minor: int, patch: int, bump: str) -> str:
 class NextVersionResult:
     """Typed contract for a successful ``next-version`` computation.
 
-    ``is_prerelease`` / ``is_hotfix`` are real booleans here; :meth:`to_dict`
-    serialises them as ``"true"`` / ``"false"`` strings on the wire because
-    downstream consumers (``/code-get-next-version``, ``/ci-release``) and this
+    ``is_prerelease`` / ``is_hotfix`` / ``first_release`` are real booleans here;
+    :meth:`to_dict` serialises them as ``"true"`` / ``"false"`` strings on the wire
+    because downstream consumers (``/code-get-next-version``, ``/ci-release``) and this
     module's own :func:`main` gate on the string form
     (``result["is_prerelease"] == "true"``). The force-bump trio
     (``version_{patch,minor,major}``) is present only when the latest tag is a
     final release — all three are set together or all left ``None``.
+
+    ``first_release`` states that ``latest_tag`` is **not** a tag the project carries:
+    the tag list was read and holds no semver tag, so the base defaulted to ``v0.0.0``.
+    Consumers that need a real released tag (the hotfix flow) must gate on this field —
+    reading ``latest_tag == "v0.0.0"`` cannot tell that base apart from a project that
+    genuinely tagged ``v0.0.0``.
     """
 
     latest_tag: str
@@ -409,6 +469,7 @@ class NextVersionResult:
     final_version: str
     support_line: str
     clamped_from: str
+    first_release: bool = False
     version_patch: str | None = None
     version_minor: str | None = None
     version_major: str | None = None
@@ -420,6 +481,7 @@ class NextVersionResult:
             "bump": self.bump,
             "is_prerelease": "true" if self.is_prerelease else "false",
             "is_hotfix": "true" if self.is_hotfix else "false",
+            "first_release": "true" if self.first_release else "false",
             "prerelease_label": self.prerelease_label,
             "final_version": self.final_version,
             "support_line": self.support_line,
@@ -440,12 +502,14 @@ def _result(
     base: Version | None = None,
     support_line: str = "",
     clamped_from: str = "",
+    first_release: bool = False,
 ) -> NextVersionResult:
     """Build the typed result. ``base`` (a final version) feeds the force-bump fields.
 
-    ``support_line`` echoes the constraining range (empty on a normal release) and
+    ``support_line`` echoes the constraining range (empty on a normal release),
     ``clamped_from`` carries the bump that was requested before clamping it down to
-    the range (empty when no clamp happened).
+    the range (empty when no clamp happened), and ``first_release`` marks a
+    ``latest_tag`` the project does not actually carry (no semver tag at all).
     """
     version_patch = version_minor = version_major = None
     if base is not None and not base.is_prerelease:
@@ -462,6 +526,7 @@ def _result(
         final_version=new.base_str(),
         support_line=support_line,
         clamped_from=clamped_from,
+        first_release=first_release,
         version_patch=version_patch,
         version_minor=version_minor,
         version_major=version_major,
@@ -479,9 +544,14 @@ def next_version(
 ) -> dict[str, str]:
     """Compute the next version for a project.
 
-    Returns a dict with: latest_tag, new_version, bump, is_prerelease,
-    prerelease_label, final_version, support_line, clamped_from (and
-    version_{patch,minor,major} when the latest tag is a final release).
+    Returns a dict with: latest_tag, new_version, bump, is_prerelease, is_hotfix,
+    first_release, prerelease_label, final_version, support_line, clamped_from (and
+    version_{patch,minor,major} when the latest tag is a final release), or a single
+    ``error`` key. The base tag is read, never guessed: a project whose tag list cannot
+    be read (``glab`` absent or unauthenticated, project inaccessible) yields an
+    ``error`` (exit 1). Only a list that *was* read and holds no semver tag falls back
+    to a ``v0.0.0`` base, flagged ``first_release`` so a caller needing a real released
+    tag can tell it apart from a project that genuinely tagged ``v0.0.0``.
 
     ``base_tag`` overrides the auto-detected latest tag — used for hotfix flows
     where the version is bumped from a specific older tag rather than the most
@@ -511,6 +581,7 @@ def next_version(
             return {"error": f"La version {explicit_version} est hors de la plage support {support_range}."}
         return _result("", parsed, "explicit", support_line=support_line).to_dict()
 
+    first_release = False
     if base_tag:
         try:
             parsed_base = parse_version(base_tag)
@@ -525,11 +596,16 @@ def next_version(
         if not project_id:
             return {"error": "Impossible de detecter le project_id. Utilise --project-id."}
 
-        latest_tag = _fetch_latest_tag(project_id, support_range)
+        try:
+            latest_tag = _fetch_latest_tag(project_id, support_range)
+        except TagLookupError as exc:
+            return {"error": str(exc)}
         if not latest_tag:
             if support_range is not None:
                 return {"error": f"Aucun tag dans la plage support {support_range} — impossible de déterminer la base."}
+            # The tag list was read and holds no semver tag: a genuine first release.
             latest_tag = "v0.0.0"
+            first_release = True
 
     try:
         latest = parse_version(latest_tag)
@@ -572,6 +648,7 @@ def next_version(
         base=latest,
         support_line=support_line,
         clamped_from=clamped_from,
+        first_release=first_release,
     ).to_dict()
 
 

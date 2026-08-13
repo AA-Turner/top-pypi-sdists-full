@@ -146,9 +146,11 @@ def test_backtracking():
 
 
 def test_deeply_nested_input_does_not_leak_recursionerror():
-    """Regression for issue #144: deeply-nested input must not escape as an
-    uncaught RecursionError.  The recursive-descent pure-Python parser converts
-    it to a ParseError (the documented contract); the Rust backend parses it."""
+    """Regression for issues #144 and #170: deeply-nested input must not escape
+    as an uncaught RecursionError, and must not take the process down either.
+    Both backends convert it to ParseError -- the pure-Python one from CPython's
+    recursion limit, the Rust one from its stack budget (which surfaces as
+    RecursionError and is converted by `Rule.parse` on the way out)."""
 
     class DeepGrammar(Rule):
         pass
@@ -165,9 +167,10 @@ def test_deeply_nested_input_does_not_leak_recursionerror():
     # RecursionError is not caught here, so if the fix regresses it propagates
     # and fails the test.
 
-    if __import__("abnf.parser", fromlist=["_BACKEND"])._BACKEND == "python":
-        # nesting well beyond the Python recursion limit must convert cleanly.
-        assert raised_parse_error
+    # Before #170 the Rust backend parsed this successfully on Linux and macOS
+    # and killed the interpreter on Windows.  Neither is right: the depth is
+    # pathological and the answer is the same catchable error everywhere.
+    assert raised_parse_error
 
 
 def test_alternation_first_match():
@@ -199,6 +202,148 @@ def test_repeat_str():
 
 def test_repetition_str():
     assert str(Repetition(Repeat(1, 2), Literal("foo")))
+
+
+# ---------------------------------------------------------------------------
+# X4: `min*max` with max < min is an impossible range.  Unvalidated it
+# silently behaves as `min*` -- `3*2"a"` rejected "aa" but accepted "aaa",
+# "aaaa", ... -- so a typo for `2*3` became unbounded repetition with no
+# diagnostic.  Both backends must reject it identically.
+# ---------------------------------------------------------------------------
+
+
+def test_x4_repeat_max_less_than_min_raises():
+    with pytest.raises(GrammarError):
+        Repeat(3, 2)
+
+
+def test_x4_repeat_max_equal_to_min_is_fine():
+    # The boundary is legal: `2*2` is an exact count, spelled `2` in ABNF.
+    assert str(Repeat(2, 2))
+
+
+def test_x4_impossible_repetition_rejected_at_grammar_load():
+    class BadRepeatRule(Rule):
+        pass
+
+    with pytest.raises(GrammarError):
+        BadRepeatRule.create('s = 3*2"a"')
+
+
+def test_x4_ordinary_repetition_bounds_still_load():
+    class GoodRepeatRule(Rule):
+        pass
+
+    GoodRepeatRule.create('s = 2*3"a"')
+    assert GoodRepeatRule("s").parse_all("aa")
+    assert GoodRepeatRule("s").parse_all("aaa")
+    with pytest.raises(ParseError):
+        GoodRepeatRule("s").parse_all("aaaa")
+
+
+# ---------------------------------------------------------------------------
+# X2: `start` was never validated.  A negative value is a valid Python slice
+# measured from the end of the source, so `parse("abcdef", -4)` matched "cd"
+# and returned negative node offsets, while the Rust backend raised
+# OverflowError -- the backends disagreed on a case where neither was right.
+# ---------------------------------------------------------------------------
+
+
+class StartRule(Rule):
+    pass
+
+
+StartRule.create('mid = "cd"')
+StartRule.create("one = %x61-7A")
+
+
+@pytest.mark.parametrize("start", [-1, -4, -99])
+def test_x2_negative_start_rejected(start: int):
+    with pytest.raises(ValueError, match="start must be in"):
+        StartRule("mid").parse("abcdef", start)
+
+
+@pytest.mark.parametrize("start", [7, 99])
+def test_x2_start_past_end_rejected(start: int):
+    with pytest.raises(ValueError, match="start must be in"):
+        StartRule("mid").parse("abcdef", start)
+
+
+def test_x2_start_at_end_of_source_is_allowed():
+    # len(source) is a legal position -- there is simply nothing to match
+    # there, which is a ParseError rather than a programming error.
+    with pytest.raises(ParseError):
+        StartRule("mid").parse("abcdef", 6)
+
+
+def test_x2_valid_start_still_parses():
+    node, start = StartRule("mid").parse("abcdef", 2)
+    assert node.value == "cd"
+    assert start == 4
+
+
+def test_x2_bool_start_is_normalised_to_int():
+    # bool is an int subclass, so `True` was used as an index but arrived
+    # verbatim in ParseError.start on the Python backend while the Rust
+    # backend reported 1.  operator.index normalises it.
+    with pytest.raises(ParseError) as excinfo:
+        StartRule("mid").parse("abcdef", True)
+    assert excinfo.value.start == 1
+    assert not isinstance(excinfo.value.start, bool)
+
+
+@pytest.mark.parametrize("start", [1.5, None, "2"])
+def test_x2_non_integer_start_rejected(start: object):
+    with pytest.raises(TypeError, match="cannot be interpreted as an integer"):
+        StartRule("mid").parse("abcdef", start)  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# Surrogate code points (issue #173).  Rust `str` is well-formed UTF-8 and so
+# cannot hold one; Python `str` can.  The behaviour gap is not fixed here --
+# these tests pin the *diagnosis*, which used to be a TypeError claiming a
+# string was not a string, and a bare codec traceback that never mentioned
+# abnf.  They also record the parity gap itself, so closing #173 will fail
+# them and prompt an update.
+# ---------------------------------------------------------------------------
+
+_BACKEND_IS_RUST = __import__("abnf.parser", fromlist=["_BACKEND"])._BACKEND == "rust"
+_SURROGATE_SOURCE = b"caf\xe9".decode("utf-8", "surrogateescape")
+
+
+@pytest.mark.skipif(not _BACKEND_IS_RUST, reason="Rust backend only.")
+def test_173_surrogate_grammar_names_the_real_problem():
+    class SurrogateGrammar(Rule):
+        pass
+
+    with pytest.raises(GrammarError) as excinfo:
+        SurrogateGrammar.create("s = %xD800-DBFF")
+    message = str(excinfo.value)
+    assert "surrogate" in message
+    assert "ABNF_NO_RUST" in message
+
+
+@pytest.mark.skipif(not _BACKEND_IS_RUST, reason="Rust backend only.")
+def test_173_surrogate_input_names_the_real_problem():
+    class SurrogateInputGrammar(Rule):
+        pass
+
+    SurrogateInputGrammar.create("s = 1*%x00-10FFFF")
+    with pytest.raises(ValueError) as excinfo:
+        SurrogateInputGrammar("s").parse_all(_SURROGATE_SOURCE)
+    message = str(excinfo.value)
+    assert "surrogate" in message
+    assert "ABNF_NO_RUST" in message
+
+
+@pytest.mark.skipif(_BACKEND_IS_RUST, reason="Pure-Python backend only.")
+def test_173_pure_python_handles_surrogates():
+    # The workaround the messages above point at has to actually work.
+    class SurrogatePythonGrammar(Rule):
+        pass
+
+    SurrogatePythonGrammar.create("s = 1*%x00-10FFFF")
+    assert SurrogatePythonGrammar("s").parse_all(_SURROGATE_SOURCE).value == _SURROGATE_SOURCE
 
 
 def test_option_str():
@@ -711,6 +856,67 @@ def test_h5_left_recursive_grammar_is_catchable_not_segfault():
     # negative returncode on POSIX (e.g. -11 for SIGSEGV).
     assert result.returncode == 0, (
         f"left-recursive grammar killed the interpreter: "
+        f"returncode={result.returncode}, stderr={result.stderr!r}"
+    )
+    assert result.stdout.startswith("caught:"), (
+        f"expected a caught exception, got: stdout={result.stdout!r}, "
+        f"stderr={result.stderr!r}"
+    )
+
+
+def test_170_deep_nesting_on_a_small_stack_is_catchable_not_fatal():
+    """Regression for issue #170.
+
+    The guard used to bound recursion by counting levels, which only protects
+    a stack big enough for the count: 1000 levels wants ~3 MiB, so on a
+    smaller stack the process died with no catchable error.  Windows found
+    this because it reserves less than Linux and macOS, but the variable that
+    matters is stack size, not platform -- `threading.stack_size` reproduces
+    it anywhere, which is what this test does so the regression is covered on
+    every runner rather than only on Windows.
+
+    Subprocessed because the pre-fix failure mode is a fatal stack overflow,
+    which pytest cannot observe in-process.
+    """
+
+    import subprocess
+    import sys
+
+    script = textwrap.dedent(
+        """
+        import threading
+        from abnf.parser import Rule
+
+        class G(Rule):
+            pass
+
+        G.create('nested = "(" [ nested ] ")"')
+        src = "(" * 1000 + ")" * 1000
+        out = {}
+
+        def run():
+            try:
+                G("nested").parse_all(src)
+            except Exception as exc:
+                out["result"] = f"caught:{type(exc).__name__}"
+            else:
+                out["result"] = "no-exception"
+
+        threading.stack_size(1024 * 1024)
+        thread = threading.Thread(target=run)
+        thread.start()
+        thread.join()
+        print(out.get("result", "thread-died"))
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, (
+        f"deep nesting on a 1 MiB stack killed the interpreter: "
         f"returncode={result.returncode}, stderr={result.stderr!r}"
     )
     assert result.stdout.startswith("caught:"), (

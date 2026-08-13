@@ -160,6 +160,8 @@ class AdCampaignsResource:
         profile_id: str | None = None,
         from_date: str | None = None,
         to_date: str | None = None,
+        has_delivery: bool | None = None,
+        min_spend: float | None = None,
     ) -> dict[str, Any]:
         """List campaigns"""
         params = self._build_params(
@@ -175,6 +177,8 @@ class AdCampaignsResource:
             profile_id=profile_id,
             from_date=from_date,
             to_date=to_date,
+            has_delivery=has_delivery,
+            min_spend=min_spend,
         )
         return self._client._get("/v1/ads/campaigns", params=params)
 
@@ -416,6 +420,8 @@ class AdCampaignsResource:
         campaign_id: str | None = None,
         from_date: str | None = None,
         to_date: str | None = None,
+        has_delivery: bool | None = None,
+        min_spend: float | None = None,
         sort: str | None = "newest",
         time_increment: int | None = None,
         daily_level: str | None = "campaign",
@@ -434,6 +440,8 @@ class AdCampaignsResource:
             campaign_id=campaign_id,
             from_date=from_date,
             to_date=to_date,
+            has_delivery=has_delivery,
+            min_spend=min_spend,
             sort=sort,
             time_increment=time_increment,
             daily_level=daily_level,
@@ -642,6 +650,7 @@ class AdCampaignsResource:
         dsa_payor: str | None = None,
         brand_identity: dict[str, Any] | None = None,
         identity_type: str | None = None,
+        smart_plus: bool | None = None,
         promoted_object: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Create standalone ad"""
@@ -728,6 +737,7 @@ class AdCampaignsResource:
             dsa_payor=dsa_payor,
             brand_identity=brand_identity,
             identity_type=identity_type,
+            smart_plus=smart_plus,
             promoted_object=promoted_object,
         )
         return self._client._post("/v1/ads/create", data=payload)
@@ -817,6 +827,8 @@ class AdCampaignsResource:
         profile_id: str | None = None,
         from_date: str | None = None,
         to_date: str | None = None,
+        has_delivery: bool | None = None,
+        min_spend: float | None = None,
     ) -> dict[str, Any]:
         """List campaigns (async)"""
         params = self._build_params(
@@ -832,6 +844,8 @@ class AdCampaignsResource:
             profile_id=profile_id,
             from_date=from_date,
             to_date=to_date,
+            has_delivery=has_delivery,
+            min_spend=min_spend,
         )
         return await self._client._aget("/v1/ads/campaigns", params=params)
 
@@ -1077,6 +1091,8 @@ class AdCampaignsResource:
         campaign_id: str | None = None,
         from_date: str | None = None,
         to_date: str | None = None,
+        has_delivery: bool | None = None,
+        min_spend: float | None = None,
         sort: str | None = "newest",
         time_increment: int | None = None,
         daily_level: str | None = "campaign",
@@ -1095,6 +1111,8 @@ class AdCampaignsResource:
             campaign_id=campaign_id,
             from_date=from_date,
             to_date=to_date,
+            has_delivery=has_delivery,
+            min_spend=min_spend,
             sort=sort,
             time_increment=time_increment,
             daily_level=daily_level,
@@ -1303,6 +1321,7 @@ class AdCampaignsResource:
         dsa_payor: str | None = None,
         brand_identity: dict[str, Any] | None = None,
         identity_type: str | None = None,
+        smart_plus: bool | None = None,
         promoted_object: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Create standalone ad (async)"""
@@ -1389,6 +1408,7 @@ class AdCampaignsResource:
             dsa_payor=dsa_payor,
             brand_identity=brand_identity,
             identity_type=identity_type,
+            smart_plus=smart_plus,
             promoted_object=promoted_object,
         )
         return await self._client._apost("/v1/ads/create", data=payload)

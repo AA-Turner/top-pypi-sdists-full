@@ -1784,6 +1784,33 @@ class LogClient(object):
         (resp, header) = self._send("GET", project_name, None, resource, params, headers)
         return GetLogStoreResponse(resp, header)
 
+    def enable_logstore_modify(self, project_name, logstore_name):
+        """Enable log modification and deletion for an existing logstore.
+
+        The conversion is asynchronous; a successful response only means that
+        the enable request was accepted.
+
+        :type project_name: string
+        :param project_name: the project name
+
+        :type logstore_name: string
+        :param logstore_name: the logstore name
+
+        :return: LogResponse
+
+        :raise: LogException
+        """
+        body_str = six.b(json.dumps({"enabled": True}))
+        headers = {
+            "x-log-bodyrawsize": str(len(body_str)),
+            "Content-Type": "application/json",
+        }
+        resource = "/logstores/" + logstore_name + "/modification"
+        (resp, header) = self._send(
+            "PUT", project_name, body_str, resource, {}, headers
+        )
+        return LogResponse(header, resp)
+
     def update_logstore(self, project_name, logstore_name, ttl=None, enable_tracking=None, shard_count=None,
                         append_meta=None,
                         auto_split=None,

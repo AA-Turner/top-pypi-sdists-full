@@ -35,45 +35,45 @@ Role(
     {
         "privileges": [
             {
-                "access": "all",
+                "path": "/api/security",
                 "_links": {
                     "self": {
                         "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/secure_role/privileges/%2Fapi%2Fsecurity"
                     }
                 },
-                "path": "/api/security",
+                "access": "all",
             },
             {
-                "access": "readonly",
+                "path": "/api/storage/volumes/651f7fdf-7752-11eb-8d4e-0050568ed6bd/snapshots",
                 "_links": {
                     "self": {
                         "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/secure_role/privileges/%2Fapi%2Fstorage%2Fvolumes%2F651f7fdf-7752-11eb-8d4e-0050568ed6bd%2Fsnapshots"
                     }
                 },
-                "path": "/api/storage/volumes/651f7fdf-7752-11eb-8d4e-0050568ed6bd/snapshots",
+                "access": "readonly",
             },
             {
-                "access": "readonly",
+                "path": "/api/storage/volumes/6dfeb406-9a16-11ec-819e-005056bb1a7c/top-metrics/clients",
                 "_links": {
                     "self": {
                         "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/secure_role/privileges/%2Fapi%2Fstorage%2Fvolumes%2F6dfeb406-9a16-11ec-819e-005056bb1a7c%2Ftop-metrics%2Fclients"
                     }
                 },
-                "path": "/api/storage/volumes/6dfeb406-9a16-11ec-819e-005056bb1a7c/top-metrics/clients",
+                "access": "readonly",
             },
         ],
+        "owner": {
+            "uuid": "aaef7c38-4bd3-11e9-b238-0050568e2e25",
+            "_links": {
+                "self": {"href": "/api/svm/svms/aaef7c38-4bd3-11e9-b238-0050568e2e25"}
+            },
+            "name": "svm1",
+        },
+        "name": "secure_role",
         "_links": {
             "self": {
                 "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/secure_role"
             }
-        },
-        "name": "secure_role",
-        "owner": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/aaef7c38-4bd3-11e9-b238-0050568e2e25"}
-            },
-            "uuid": "aaef7c38-4bd3-11e9-b238-0050568e2e25",
         },
         "builtin": False,
         "scope": "svm",
@@ -106,46 +106,46 @@ Role(
     {
         "privileges": [
             {
-                "access": "none",
+                "path": "DEFAULT",
                 "_links": {
                     "self": {
                         "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/finVolNoDel/privileges/DEFAULT"
                     }
                 },
-                "path": "DEFAULT",
+                "access": "none",
             },
             {
-                "access": "all",
+                "path": "volume",
                 "_links": {
                     "self": {
                         "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/finVolNoDel/privileges/volume"
                     }
                 },
-                "path": "volume",
+                "access": "all",
             },
             {
-                "query": "-volume vol_fin*",
-                "access": "none",
+                "path": "volume delete",
                 "_links": {
                     "self": {
                         "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/finVolNoDel/privileges/volume%20delete"
                     }
                 },
-                "path": "volume delete",
+                "query": "-volume vol_fin*",
+                "access": "none",
             },
         ],
+        "owner": {
+            "uuid": "aaef7c38-4bd3-11e9-b238-0050568e2e25",
+            "_links": {
+                "self": {"href": "/api/svm/svms/aaef7c38-4bd3-11e9-b238-0050568e2e25"}
+            },
+            "name": "svm1",
+        },
+        "name": "finVolNoDel",
         "_links": {
             "self": {
                 "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/finVolNoDel"
             }
-        },
-        "name": "finVolNoDel",
-        "owner": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/aaef7c38-4bd3-11e9-b238-0050568e2e25"}
-            },
-            "uuid": "aaef7c38-4bd3-11e9-b238-0050568e2e25",
         },
         "builtin": False,
         "scope": "svm",

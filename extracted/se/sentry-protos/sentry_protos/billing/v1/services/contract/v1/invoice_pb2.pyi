@@ -63,6 +63,8 @@ class Invoice(google.protobuf.message.Message):
     GUID_FIELD_NUMBER: builtins.int
     NEEDS_CHARGED_FIELD_NUMBER: builtins.int
     ADDRESS_FIELD_NUMBER: builtins.int
+    TAX_NUMBER_FIELD_NUMBER: builtins.int
+    IS_REVERSE_CHARGE_FIELD_NUMBER: builtins.int
     invoice_id: builtins.int
     amount_billed: builtins.int
     """Not just a sum of line items since there may be credit applied"""
@@ -70,6 +72,10 @@ class Invoice(google.protobuf.message.Message):
     paid: builtins.bool
     guid: builtins.str
     needs_charged: builtins.bool
+    tax_number: builtins.str
+    """The customer's tax registration number (e.g. VAT ID)"""
+    is_reverse_charge: builtins.bool
+    """Whether the tax provider placed the invoice under reverse charge."""
     @property
     def line_items(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___InvoiceLineItem]: ...
     @property
@@ -88,8 +94,11 @@ class Invoice(google.protobuf.message.Message):
         guid: builtins.str = ...,
         needs_charged: builtins.bool = ...,
         address: sentry_protos.billing.v1.common.v1.address_pb2.Address | None = ...,
+        tax_number: builtins.str | None = ...,
+        is_reverse_charge: builtins.bool = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["address", b"address", "date_added", b"date_added"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["address", b"address", "amount_billed", b"amount_billed", "date_added", b"date_added", "guid", b"guid", "invoice_id", b"invoice_id", "line_items", b"line_items", "needs_charged", b"needs_charged", "organization_id", b"organization_id", "paid", b"paid"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_tax_number", b"_tax_number", "address", b"address", "date_added", b"date_added", "tax_number", b"tax_number"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_tax_number", b"_tax_number", "address", b"address", "amount_billed", b"amount_billed", "date_added", b"date_added", "guid", b"guid", "invoice_id", b"invoice_id", "is_reverse_charge", b"is_reverse_charge", "line_items", b"line_items", "needs_charged", b"needs_charged", "organization_id", b"organization_id", "paid", b"paid", "tax_number", b"tax_number"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_tax_number", b"_tax_number"]) -> typing.Literal["tax_number"] | None: ...
 
 global___Invoice = Invoice

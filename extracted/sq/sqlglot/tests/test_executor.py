@@ -138,6 +138,8 @@ class TestExecutor(unittest.TestCase):
         self.assertEqual(generate(parse_one("MAP([1], [2])")), "MAP([1], [2])")
         self.assertEqual(generate(parse_one("1 is null")), "1 == None")
         self.assertEqual(generate(parse_one("x is null")), "scope[None][x] is None")
+        self.assertEqual(generate(parse_one("x like 'y'")), "LIKE(scope[None][x], 'y')")
+        self.assertEqual(generate(parse_one("x not like 'y'")), "NOT(LIKE(scope[None][x], 'y'))")
 
     def test_optimized_tpch(self):
         for i, (_, sql, optimized) in enumerate(self.tpch_sqls, start=1):
@@ -700,6 +702,95 @@ class TestExecutor(unittest.TestCase):
                 result = execute(sql)
                 self.assertEqual(result.columns, tuple(cols))
                 self.assertEqual(result.rows, rows)
+
+    def test_negated_like(self):
+        """NOT LIKE must exclude what LIKE matches, and match no NULL either."""
+        tables = {"t": [{"s": "Bump version"}, {"s": "Add feature"}, {"s": None}]}
+
+        result = execute("SELECT s FROM t WHERE s LIKE 'Bump%'", tables=tables)
+        self.assertEqual(result.rows, [("Bump version",)])
+
+        for sql in (
+            "SELECT s FROM t WHERE s NOT LIKE 'Bump%'",
+            "SELECT s FROM t WHERE NOT (s LIKE 'Bump%')",
+        ):
+            with self.subTest(sql):
+                self.assertEqual(execute(sql, tables=tables).rows, [("Add feature",)])
+
+    def test_like_semantics(self):
+        tables = {"t": [{"s": "Bump version"}, {"s": "Add feature"}]}
+
+        for pattern, matches in (
+            ("Bump", []),
+            ("Bump%", [("Bump version",)]),
+            ("%version", [("Bump version",)]),
+            ("Bump_version", [("Bump version",)]),
+            ("B.mp version", []),
+            ("Bump version", [("Bump version",)]),
+        ):
+            with self.subTest(pattern):
+                rows = execute(f"SELECT s FROM t WHERE s LIKE '{pattern}'", tables=tables).rows
+                self.assertEqual(rows, matches)
+
+                negated = execute(
+                    f"SELECT s FROM t WHERE s NOT LIKE '{pattern}'", tables=tables
+                ).rows
+                self.assertEqual(
+                    negated, [r for r in [("Bump version",), ("Add feature",)] if r not in matches]
+                )
+
+    def test_length(self):
+        tables = {"t": [{"s": "abc"}, {"s": ""}, {"s": None}]}
+
+        for func in ("LENGTH", "CHAR_LENGTH"):
+            with self.subTest(func):
+                rows = execute(f"SELECT {func}(s) FROM t", tables=tables).rows
+                self.assertEqual(rows, [(3,), (0,), (None,)])
+
+    def test_ilike_semantics(self):
+        tables = {"t": [{"s": "Bump Version"}, {"s": "B.mp Version"}, {"s": "Add feature"}]}
+
+        for pattern, matches in (
+            ("bump", []),
+            ("bump%", [("Bump Version",)]),
+            ("%version", [("Bump Version",), ("B.mp Version",)]),
+            ("bump_version", [("Bump Version",)]),
+            ("b.mp version", [("B.mp Version",)]),
+            ("b_mp version", [("Bump Version",), ("B.mp Version",)]),
+            ("bump version", [("Bump Version",)]),
+        ):
+            for cased in (pattern.lower(), pattern.upper()):
+                with self.subTest(cased):
+                    rows = execute(f"SELECT s FROM t WHERE s ILIKE '{cased}'", tables=tables).rows
+                    self.assertEqual(rows, matches)
+
+                    negated = execute(
+                        f"SELECT s FROM t WHERE s NOT ILIKE '{cased}'", tables=tables
+                    ).rows
+                    self.assertEqual(
+                        negated, [(r["s"],) for r in tables["t"] if (r["s"],) not in matches]
+                    )
+
+    def test_typed_division(self):
+        """Postgres' 10 / 3 is 3, but its 10 / 3.0 and 10 / 3::numeric are not."""
+        schema = {"t": {"n": "INT", "d": "DECIMAL"}}
+        tables = {"t": [{"n": 10, "d": 3}]}
+
+        for sql, expected in (
+            ("SELECT n / 3.0 AS x FROM t", 10 / 3),
+            ("SELECT 3.0 / n AS x FROM t", 3.0 / 10),
+            ("SELECT CAST(n AS DOUBLE) / 3 AS x FROM t", 10 / 3),
+            ("SELECT n / d AS x FROM t", 10 / 3),  # decimal: real, but not a float
+            ("SELECT n / 3 AS x FROM t", 3),
+            ("SELECT -n / 3 AS x FROM t", -3),
+        ):
+            for dialect in ("postgres", "sqlite"):
+                with self.subTest(f"{dialect}: {sql}"):
+                    result = execute(sql, schema=schema, tables=tables, dialect=dialect)
+                    self.assertEqual(result.rows, [(expected,)])
+
+        result = execute("SELECT n / 3 AS x FROM t", tables=tables, dialect="postgres")
+        self.assertEqual(result.rows, [(3,)])
 
     def test_aggregate_without_group_by(self):
         result = execute("SELECT SUM(x) FROM t", tables={"t": [{"x": 1}, {"x": 2}]})

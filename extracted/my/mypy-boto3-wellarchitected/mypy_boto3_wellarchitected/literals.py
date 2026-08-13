@@ -26,14 +26,21 @@ __all__ = (
     "AccountJiraIssueManagementStatusType",
     "AdditionalResourceTypeType",
     "AnswerReasonType",
+    "ApplicationTypeType",
     "CheckFailureReasonType",
     "CheckProviderType",
     "CheckStatusType",
     "ChoiceReasonType",
     "ChoiceStatusType",
+    "ContextTypeType",
+    "CriticalityType",
     "DefinitionTypeType",
     "DifferenceStatusType",
     "DiscoveryIntegrationStatusType",
+    "EffortType",
+    "FeedbackCategoryType",
+    "GenerationStatusType",
+    "ImpactCategoryType",
     "ImportLensStatusType",
     "IntegratingServiceType",
     "IntegrationStatusInputType",
@@ -42,20 +49,37 @@ __all__ = (
     "LensStatusType",
     "LensStatusTypeType",
     "LensTypeType",
+    "ListAgentContextsPaginatorName",
+    "ListAgentGoalsPaginatorName",
+    "ListAgentProfilesPaginatorName",
+    "ListAgentRecommendationGenerationsPaginatorName",
+    "ListAgentRecommendationItemsPaginatorName",
+    "ListAgentRecommendationsPaginatorName",
     "MetricTypeType",
     "NotificationTypeType",
     "OrganizationSharingStatusType",
+    "PaginatorName",
     "PermissionTypeType",
+    "PillarType",
+    "PriorityType",
     "ProfileNotificationTypeType",
     "ProfileOwnerTypeType",
     "QuestionPriorityType",
     "QuestionType",
     "QuestionTypeType",
+    "RecommendationFeedbackTypeType",
+    "RecommendationItemTypeType",
+    "RecommendationSourceType",
+    "RecommendationStateType",
+    "RecommendationStatusType",
+    "RecommendationTypeType",
     "RegionName",
+    "RemediationTypeType",
     "ReportFormatType",
     "ResourceServiceName",
     "ReviewTemplateAnswerStatusType",
     "ReviewTemplateUpdateStatusType",
+    "RiskRatingType",
     "RiskType",
     "ServiceName",
     "ShareInvitationActionType",
@@ -74,6 +98,7 @@ AdditionalResourceTypeType = Literal["HELPFUL_RESOURCE", "IMPROVEMENT_PLAN"]
 AnswerReasonType = Literal[
     "ARCHITECTURE_CONSTRAINTS", "BUSINESS_PRIORITIES", "NONE", "OTHER", "OUT_OF_SCOPE"
 ]
+ApplicationTypeType = Literal["DESKTOP_APPLICATION", "OTHER", "SAS"]
 CheckFailureReasonType = Literal[
     "ACCESS_DENIED", "ASSUME_ROLE_ERROR", "PREMIUM_SUPPORT_REQUIRED", "UNKNOWN_ERROR"
 ]
@@ -83,9 +108,23 @@ ChoiceReasonType = Literal[
     "ARCHITECTURE_CONSTRAINTS", "BUSINESS_PRIORITIES", "NONE", "OTHER", "OUT_OF_SCOPE"
 ]
 ChoiceStatusType = Literal["NOT_APPLICABLE", "SELECTED", "UNSELECTED"]
+ContextTypeType = Literal["APPLICATION"]
+CriticalityType = Literal[
+    "BUSINESS_CRITICAL", "MISSION_CRITICAL", "NON_CRITICAL", "TEST_DEVELOPMENT"
+]
 DefinitionTypeType = Literal["APP_REGISTRY", "WORKLOAD_METADATA"]
 DifferenceStatusType = Literal["DELETED", "NEW", "UPDATED"]
 DiscoveryIntegrationStatusType = Literal["DISABLED", "ENABLED"]
+EffortType = Literal["LARGE", "MEDIUM", "SMALL"]
+FeedbackCategoryType = Literal[
+    "OTHER",
+    "RECOMMENDATION_INCORRECT",
+    "RECOMMENDATION_NOT_RELEVANT",
+    "RESOURCE_NOT_IMPORTANT",
+    "RESOURCE_TYPE_NOT_IMPORTANT",
+]
+GenerationStatusType = Literal["COMPLETED", "ERROR", "IN_PROGRESS", "QUEUED"]
+ImpactCategoryType = Literal["HIGH", "LOW", "MEDIUM"]
 ImportLensStatusType = Literal["COMPLETE", "ERROR", "IN_PROGRESS"]
 IntegratingServiceType = Literal["JIRA"]
 IntegrationStatusInputType = Literal["NOT_CONFIGURED"]
@@ -94,18 +133,43 @@ IssueManagementTypeType = Literal["AUTO", "MANUAL"]
 LensStatusType = Literal["CURRENT", "DELETED", "DEPRECATED", "NOT_CURRENT", "UNSHARED"]
 LensStatusTypeType = Literal["ALL", "DRAFT", "PUBLISHED"]
 LensTypeType = Literal["AWS_OFFICIAL", "CUSTOM_SELF", "CUSTOM_SHARED"]
+ListAgentContextsPaginatorName = Literal["list_agent_contexts"]
+ListAgentGoalsPaginatorName = Literal["list_agent_goals"]
+ListAgentProfilesPaginatorName = Literal["list_agent_profiles"]
+ListAgentRecommendationGenerationsPaginatorName = Literal["list_agent_recommendation_generations"]
+ListAgentRecommendationItemsPaginatorName = Literal["list_agent_recommendation_items"]
+ListAgentRecommendationsPaginatorName = Literal["list_agent_recommendations"]
 MetricTypeType = Literal["WORKLOAD"]
 NotificationTypeType = Literal["LENS_VERSION_DEPRECATED", "LENS_VERSION_UPGRADED"]
 OrganizationSharingStatusType = Literal["DISABLED", "ENABLED"]
 PermissionTypeType = Literal["CONTRIBUTOR", "READONLY"]
+PillarType = Literal[
+    "COST_OPTIMIZATION", "OPERATIONAL_EXCELLENCE", "PERFORMANCE", "RESILIENCE", "SECURITY"
+]
+PriorityType = Literal["HIGH", "LOW", "MEDIUM"]
 ProfileNotificationTypeType = Literal["PROFILE_ANSWERS_UPDATED", "PROFILE_DELETED"]
 ProfileOwnerTypeType = Literal["SELF", "SHARED"]
 QuestionPriorityType = Literal["NONE", "PRIORITIZED"]
 QuestionType = Literal["ANSWERED", "UNANSWERED"]
 QuestionTypeType = Literal["NON_PRIORITIZED", "PRIORITIZED"]
+RecommendationFeedbackTypeType = Literal["NOT_USEFUL", "USEFUL"]
+RecommendationItemTypeType = Literal["AWS_RESOURCE", "RECOMMENDATION"]
+RecommendationSourceType = Literal[
+    "CLOUDWATCH",
+    "COST_EXPLORER",
+    "CUSTOMER_IAC",
+    "TRUSTED_ADVISOR",
+    "WELL_ARCHITECTED_AGENT",
+    "WELL_ARCHITECTED_TOOL",
+]
+RecommendationStateType = Literal["CLOSED", "OPEN"]
+RecommendationStatusType = Literal["ACTIVE", "COMPLETED", "SUPPRESSED"]
+RecommendationTypeType = Literal["APPLICATION", "ARCHITECTURE", "RESOURCE"]
+RemediationTypeType = Literal["AUTO_REMEDIATION", "CLI", "CONSOLE", "IAC", "MCP", "SDK"]
 ReportFormatType = Literal["JSON", "PDF"]
 ReviewTemplateAnswerStatusType = Literal["ANSWERED", "UNANSWERED"]
 ReviewTemplateUpdateStatusType = Literal["CURRENT", "LENS_NOT_CURRENT"]
+RiskRatingType = Literal["HIGH", "LOW", "MEDIUM"]
 RiskType = Literal["HIGH", "MEDIUM", "NONE", "NOT_APPLICABLE", "UNANSWERED"]
 ShareInvitationActionType = Literal["ACCEPT", "REJECT"]
 ShareResourceTypeType = Literal["LENS", "PROFILE", "TEMPLATE", "WORKLOAD"]
@@ -122,8 +186,11 @@ WellArchitectedServiceName = Literal["wellarchitected"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -312,8 +379,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -340,6 +405,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -407,10 +474,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -428,6 +495,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -443,6 +511,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -470,6 +539,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -491,7 +561,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -512,6 +581,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -546,6 +616,14 @@ ServiceName = Literal[
 ]
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
+]
+PaginatorName = Literal[
+    "list_agent_contexts",
+    "list_agent_goals",
+    "list_agent_profiles",
+    "list_agent_recommendation_generations",
+    "list_agent_recommendation_items",
+    "list_agent_recommendations",
 ]
 RegionName = Literal[
     "ap-east-1",

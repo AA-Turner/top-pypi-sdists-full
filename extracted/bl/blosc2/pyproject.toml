@@ -41,7 +41,7 @@ dependencies = [
     "rich",
     "threadpoolctl; platform_machine != 'wasm32'",
 ]
-version = "4.10.1"
+version = "4.11.0"
 [project.entry-points."array_api"]
 blosc2 = "blosc2"
 
@@ -118,6 +118,17 @@ test-command = "python -c \"import blosc2; blosc2.print_versions()\""
 # Manylinux 2014 will be the default for x86_64 and aarch64
 manylinux-x86_64-image = "manylinux_2_28"
 manylinux-aarch64-image = "manylinux_2_28"
+
+[tool.scikit-build]
+# Build a single Stable ABI (abi3) wheel covering CPython 3.11+ instead of one
+# wheel per minor version.  CMakeLists.txt turns the SKBUILD_SABI_* variables
+# this produces into USE_SABI on each extension target.
+#
+# On free-threaded interpreters scikit-build-core ignores this and falls back to
+# a version-specific wheel, because abi3t (PEP 803) is a distinct ABI that
+# starts at 3.15 and that Cython cannot emit yet.  So cp314t/cp315t keep
+# building as normal cp3XXt wheels with no extra configuration.
+wheel.py-api = "cp311"
 
 [tool.scikit-build.sdist]
 exclude = ["bench*", ".github*"]

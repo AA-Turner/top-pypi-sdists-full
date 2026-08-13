@@ -26,22 +26,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     UnixUserSettings(
         {
-            "negative_cache_enabled": True,
-            "svm": {"name": "vs43", "uuid": "8a1a8730-2036-11ec-8457-005056bbcfdb"},
             "ttl": "P1D",
-            "negative_ttl": "PT1M",
             "propagation_enabled": True,
+            "negative_cache_enabled": True,
             "enabled": True,
+            "svm": {"uuid": "8a1a8730-2036-11ec-8457-005056bbcfdb", "name": "vs43"},
+            "negative_ttl": "PT1M",
         }
     ),
     UnixUserSettings(
         {
-            "negative_cache_enabled": True,
-            "svm": {"name": "vs34", "uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef"},
             "ttl": "P1D",
-            "negative_ttl": "PT1M",
             "propagation_enabled": True,
+            "negative_cache_enabled": True,
             "enabled": True,
+            "svm": {"uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef", "name": "vs34"},
+            "negative_ttl": "PT1M",
         }
     ),
 ]
@@ -71,12 +71,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 UnixUserSettings(
     {
-        "negative_cache_enabled": True,
-        "svm": {"name": "vs34", "uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef"},
         "ttl": "P1D",
-        "negative_ttl": "PT1M",
         "propagation_enabled": True,
+        "negative_cache_enabled": True,
         "enabled": True,
+        "svm": {"uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef", "name": "vs34"},
+        "negative_ttl": "PT1M",
     }
 )
 

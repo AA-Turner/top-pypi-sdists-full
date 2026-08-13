@@ -26,22 +26,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     StorageAvailabilityZone(
         {
+            "uuid": "05be85be-2a5f-11ef-890a-005056bb9bec",
             "_links": {
                 "self": {
                     "href": "/api/storage/availability-zones/05be85be-2a5f-11ef-890a-005056bb9bec"
                 }
             },
-            "uuid": "05be85be-2a5f-11ef-890a-005056bb9bec",
         }
     ),
     StorageAvailabilityZone(
         {
+            "uuid": "9b3ff559-3333-11ef-b420-005056ae6060",
             "_links": {
                 "self": {
                     "href": "/api/storage/availability-zones/9b3ff559-3333-11ef-b420-005056ae6060"
                 }
             },
-            "uuid": "9b3ff559-3333-11ef-b420-005056ae6060",
         }
     ),
 ]
@@ -70,60 +70,60 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     StorageAvailabilityZone(
         {
+            "nodes": [
+                {"uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1", "name": "node3"},
+                {"uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47", "name": "node4"},
+            ],
+            "uuid": "05be85be-2a5f-11ef-890a-005056bb9bec",
+            "name": "storage_availability_zone_2",
             "_links": {
                 "self": {
                     "href": "/api/storage/availability-zones/05be85be-2a5f-11ef-890a-005056bb9bec"
                 }
             },
             "space": {
-                "efficiency_without_snapshots": {"savings": 8192, "ratio": 1.2},
-                "log_and_recovery_metadata": 32662,
-                "available": 2441216,
-                "nearly_full_threshold_percent": 95,
                 "physical_used_percent": 0,
+                "log_and_recovery_metadata": 32662,
                 "physical_user_data_without_snapshots": 40960,
                 "size": 2457600,
-                "full_threshold_percent": 98,
-                "physical_used": 16384,
                 "logical_user_data_without_snapshots": 49152,
+                "nearly_full_threshold_percent": 95,
+                "efficiency_without_snapshots": {"savings": 8192, "ratio": 1.2},
+                "full_threshold_percent": 98,
+                "available": 2441216,
+                "physical_used": 16384,
                 "delayed_frees": 81920,
                 "total_metadata_used": 32768,
             },
-            "name": "storage_availability_zone_2",
-            "nodes": [
-                {"name": "node3", "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1"},
-                {"name": "node4", "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47"},
-            ],
-            "uuid": "05be85be-2a5f-11ef-890a-005056bb9bec",
         }
     ),
     StorageAvailabilityZone(
         {
+            "nodes": [
+                {"uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4", "name": "node1"},
+                {"uuid": "54440ec3-6127-11e9-a959-005056bb76f9", "name": "node2"},
+            ],
+            "uuid": "9b3ff559-3333-11ef-b420-005056ae6060",
+            "name": "storage_availability_zone_1",
             "_links": {
                 "self": {
                     "href": "/api/storage/availability-zones/9b3ff559-3333-11ef-b420-005056ae6060"
                 }
             },
             "space": {
-                "efficiency_without_snapshots": {"savings": 8192, "ratio": 1.0},
-                "log_and_recovery_metadata": 58678050816,
-                "available": 66676547584,
-                "nearly_full_threshold_percent": 95,
                 "physical_used_percent": 46,
+                "log_and_recovery_metadata": 58678050816,
                 "physical_user_data_without_snapshots": 114688,
                 "size": 125357654016,
-                "full_threshold_percent": 98,
-                "physical_used": 58681106432,
                 "logical_user_data_without_snapshots": 102400,
+                "nearly_full_threshold_percent": 95,
+                "efficiency_without_snapshots": {"savings": 8192, "ratio": 1.0},
+                "full_threshold_percent": 98,
+                "available": 66676547584,
+                "physical_used": 58681106432,
                 "delayed_frees": 13832192,
                 "total_metadata_used": 58693394432,
             },
-            "name": "storage_availability_zone_1",
-            "nodes": [
-                {"name": "node1", "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4"},
-                {"name": "node2", "uuid": "54440ec3-6127-11e9-a959-005056bb76f9"},
-            ],
-            "uuid": "9b3ff559-3333-11ef-b420-005056ae6060",
         }
     ),
 ]
@@ -152,26 +152,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StorageAvailabilityZone(
     {
+        "nodes": [
+            {"uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4", "name": "node1"},
+            {"uuid": "54440ec3-6127-11e9-a959-005056bb76f9", "name": "node2"},
+        ],
+        "uuid": "9b3ff559-3333-11ef-b420-005056ae6060",
+        "name": "storage_availability_zone_1",
         "space": {
-            "efficiency_without_snapshots": {"savings": 8192, "ratio": 1.0},
-            "log_and_recovery_metadata": 58678050816,
-            "available": 66676559872,
-            "nearly_full_threshold_percent": 95,
             "physical_used_percent": 46,
+            "log_and_recovery_metadata": 58678050816,
             "physical_user_data_without_snapshots": 114688,
             "size": 125357654016,
-            "full_threshold_percent": 98,
-            "physical_used": 58681094144,
             "logical_user_data_without_snapshots": 122880,
+            "nearly_full_threshold_percent": 95,
+            "efficiency_without_snapshots": {"savings": 8192, "ratio": 1.0},
+            "full_threshold_percent": 98,
+            "available": 66676559872,
+            "physical_used": 58681094144,
             "delayed_frees": 100458496,
             "total_metadata_used": 58780037120,
         },
-        "name": "storage_availability_zone_1",
-        "nodes": [
-            {"name": "node1", "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4"},
-            {"name": "node2", "uuid": "54440ec3-6127-11e9-a959-005056bb76f9"},
-        ],
-        "uuid": "9b3ff559-3333-11ef-b420-005056ae6060",
     }
 )
 
@@ -300,6 +300,8 @@ class StorageAvailabilityZone(Resource):
     ) -> Iterable["Resource"]:
         r"""Retrieves storage details for all availability zones of the cluster. By default, the availability zone UUID is retrieved. Other Storage details can
 be retrieved using fields parameter. Storage details include storage efficiency and other storage related information.
+### Related ONTAP commands
+* `storage availability-zone show`
 
 ### Learn more
 * [`DOC /storage/availability-zones`](#docs-storage-storage_availability-zones)"""
@@ -348,6 +350,8 @@ be retrieved using fields parameter. Storage details include storage efficiency 
         **kwargs
     ) -> NetAppResponse:
         r"""Updates full_threshold_percent and nearly_full_threshold_percent for an individual availability zone of the cluster.
+### Related ONTAP commands
+* `storage availability-zone modify`
 
 ### Learn more
 * [`DOC /storage/availability-zones`](#docs-storage-storage_availability-zones)"""
@@ -364,6 +368,8 @@ be retrieved using fields parameter. Storage details include storage efficiency 
     def find(cls, *args, connection: HostConnection = None, **kwargs) -> Resource:
         r"""Retrieves storage details for all availability zones of the cluster. By default, the availability zone UUID is retrieved. Other Storage details can
 be retrieved using fields parameter. Storage details include storage efficiency and other storage related information.
+### Related ONTAP commands
+* `storage availability-zone show`
 
 ### Learn more
 * [`DOC /storage/availability-zones`](#docs-storage-storage_availability-zones)"""
@@ -374,6 +380,8 @@ be retrieved using fields parameter. Storage details include storage efficiency 
     def get(self, **kwargs) -> NetAppResponse:
         r"""Retrieves storage details for an individual availability zone of the cluster. By default, this endpoint returns all fields.
 Storage details include storage efficiency and other storage related information.
+### Related ONTAP commands
+* `storage availability-zone show`
 
 ### Learn more
 * [`DOC /storage/availability-zones`](#docs-storage-storage_availability-zones)"""
@@ -391,6 +399,8 @@ Storage details include storage efficiency and other storage related information
         **kwargs
     ) -> NetAppResponse:
         r"""Updates full_threshold_percent and nearly_full_threshold_percent for an individual availability zone of the cluster.
+### Related ONTAP commands
+* `storage availability-zone modify`
 
 ### Learn more
 * [`DOC /storage/availability-zones`](#docs-storage-storage_availability-zones)"""

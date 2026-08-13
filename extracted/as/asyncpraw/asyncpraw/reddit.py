@@ -106,7 +106,7 @@ class Reddit:
         else:
             self._core = self._authorized_core
 
-    async def __aenter__(self):  # noqa: ANN204
+    async def __aenter__(self):  # ruff:ignore[missing-return-type-special-method]
         """Handle the context manager open."""
         return self
 
@@ -217,7 +217,7 @@ class Reddit:
 
         try:
             config_section = (
-                site_name or os.getenv("praw_site") or "DEFAULT"  # noqa: SIM112
+                site_name or os.getenv("praw_site") or "DEFAULT"  # ruff:ignore[uncapitalized-environment-variables]
             )
             self.config = Config(config_section, config_interpolation, **config_settings)
         except configparser.NoSectionError as exc:
@@ -849,14 +849,32 @@ class Reddit:
             provided, ``data`` should not be.
         :param params: The query parameters to add to the request (default: ``None``).
 
+        .. note::
+
+            This method automatically retries after a rate limit response. Only seekable
+            file objects are rewound between attempts; a non-seekable object may be
+            transmitted incompletely if a retry occurs.
+
         """
         if json is None:
             data = data or {}
 
-        attempts = 3
+        file_positions: dict[str, int] = {}
+        if files:
+            for name, file in files.items():
+                try:
+                    position = file.tell()
+                    file.seek(position)
+                except (AttributeError, OSError, ValueError):
+                    continue
+                file_positions[name] = position
+
         last_exception: RedditAPIException | None = None
-        while attempts > 0:
-            attempts -= 1
+        for attempt in range(3):
+            if attempt and file_positions:
+                assert files is not None
+                for name, position in file_positions.items():
+                    files[name].seek(position)
             try:
                 return await self._objectify_request(
                     data=data,

@@ -19,6 +19,10 @@ from charset_normalizer.utils import any_specified_encoding
         (b'<?xml version="1.0" encoding="ibm037"?>', "cp037"),
         (b"<html><head><meta charset=WINDOWS-1252></head></html>", "cp1252"),
         (b'<html><head><meta charset="WINDOWS-1256"></head></html>', "cp1256"),
+        (
+            b'<meta charset="not-an-encoding"><meta charset="utf-8">',
+            "utf_8",
+        ),
     ],
 )
 def test_detect_most_common_body_encoding(payload, expected_encoding):

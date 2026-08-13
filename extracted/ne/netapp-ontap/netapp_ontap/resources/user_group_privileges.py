@@ -29,14 +29,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "privileges": ["sechangenotifyprivilege", "setakeownershipprivilege"],
             "name": "VS1.CIFS\\user1",
-            "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
+            "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
         }
     ),
     UserGroupPrivileges(
         {
             "privileges": ["sebackupprivilege", "setakeownershipprivilege"],
             "name": "ACTIVE_DIRECTORY\\user",
-            "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
+            "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
         }
     ),
     UserGroupPrivileges(
@@ -47,7 +47,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 "serestoreprivilege",
             ],
             "name": "VS2.CIFS\\group1",
-            "svm": {"name": "vs2", "uuid": "0ac79c37-3867-11eb-bece-0050568ed0a2"},
+            "svm": {"uuid": "0ac79c37-3867-11eb-bece-0050568ed0a2", "name": "vs2"},
         }
     ),
 ]
@@ -79,7 +79,7 @@ UserGroupPrivileges(
     {
         "privileges": ["sechangenotifyprivilege", "setakeownershipprivilege"],
         "name": "VS1.CIFS\\user1",
-        "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
+        "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
     }
 )
 

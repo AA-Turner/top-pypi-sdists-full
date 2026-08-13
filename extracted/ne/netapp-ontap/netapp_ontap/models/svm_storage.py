@@ -20,10 +20,10 @@ class SvmStorageSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SvmStorage object"""
 
     allocated = Size(data_key="allocated", allow_none=True)
-    r""" Total size of the volumes in SVM, in bytes. """
+    r""" Total size of the volumes in SVM, in bytes. This field is only available if storage.limit is set. """
 
     available = Size(data_key="available", allow_none=True)
-    r""" Currently available storage capacity in SVM, in bytes. """
+    r""" Currently available storage capacity in SVM, in bytes. This field is only available if storage.limit is set. """
 
     limit = Size(data_key="limit", allow_none=True)
     r""" Maximum storage permitted on a single SVM, in bytes. """
@@ -35,7 +35,7 @@ class SvmStorageSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     r""" Indicates whether the total storage capacity exceeds the alert percentage. """
 
     used_percentage = Size(data_key="used_percentage", allow_none=True)
-    r""" The percentage of storage capacity used. """
+    r""" The percentage of storage capacity used. This field is only available if storage.limit is set. """
 
     @property
     def resource(self):

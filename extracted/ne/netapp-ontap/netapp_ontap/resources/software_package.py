@@ -27,14 +27,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SoftwarePackage(
         {
-            "version": "9.7.0",
             "_links": {"self": {"href": "/api/cluster/software/packages/9.7.0"}},
+            "version": "9.7.0",
         }
     ),
     SoftwarePackage(
         {
-            "version": "9.5.0",
             "_links": {"self": {"href": "/api/cluster/software/packages/9.5.0"}},
+            "version": "9.5.0",
         }
     ),
 ]
@@ -64,8 +64,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SoftwarePackage(
     {
-        "version": "9.7.0",
         "_links": {"self": {"href": "/api/cluster/software/packages/9.7.0"}},
+        "version": "9.7.0",
         "create_time": "2018-05-21T10:06:59+05:30",
     }
 )
@@ -109,13 +109,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Job(
     {
         "message": "success",
+        "uuid": "f587d316-5feb-11e8-b0e0-005056956dfc",
+        "description": "DELETE /api/cluster/software/packages/9.6.0",
         "_links": {
             "self": {"href": "/api/cluster/jobs/f587d316-5feb-11e8-b0e0-005056956dfc"}
         },
         "code": 0,
         "state": "success",
-        "uuid": "f587d316-5feb-11e8-b0e0-005056956dfc",
-        "description": "DELETE /api/cluster/software/packages/9.6.0",
     }
 )
 

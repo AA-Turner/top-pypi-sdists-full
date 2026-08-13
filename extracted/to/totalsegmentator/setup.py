@@ -2,8 +2,8 @@ from setuptools import setup, find_packages
 
 
 setup(name='TotalSegmentator',
-        version='2.17.0',
-        description='Robust segmentation of 104 classes in CT images.',
+        version='2.18.0',
+        description='Robust segmentation of 117 classes in CT images.',
         long_description="See Readme.md on github for more details.",
         url='https://github.com/wasserth/TotalSegmentator',
         author='Jakob Wasserthal',
@@ -65,9 +65,16 @@ setup(name='TotalSegmentator',
             'networkx',
             'pandas',
             'scikit-learn',
-            'fury',
+            'fury<2',  # fury>=2 dropped vtk (needed for --preview)
             'dipy'
         ],
+        extras_require={
+            'mcp': [
+                'mcp',
+                'uvicorn',
+                "xgboost",
+            ],
+        },
         zip_safe=False,
         classifiers=[
             'Intended Audience :: Science/Research',
@@ -92,7 +99,8 @@ setup(name='TotalSegmentator',
                 'totalseg_aorta_report=totalsegmentator.bin.totalseg_aorta_report:main',
                 'totalseg_pulmonary_report=totalsegmentator.bin.totalseg_pulmonary_report:main',
                 'totalseg_get_body_stats=totalsegmentator.bin.totalseg_get_body_stats:main',
-                'totalseg_info=totalsegmentator.bin.totalseg_info:main'
+                'totalseg_info=totalsegmentator.bin.totalseg_info:main',
+                'totalseg_mcp=totalsegmentator_mcp.mcp_server:main'
             ],
         },
     )

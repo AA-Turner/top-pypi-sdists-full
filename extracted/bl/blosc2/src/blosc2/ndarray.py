@@ -315,28 +315,12 @@ def are_partitions_behaved(shape, chunks, blocks):
     bool
         True if the partitions are well-behaved, False otherwise.
     """
+    def check_contiguity(container, part):
+        if container and container[-1] != part[-1]:
+            return False
+        return builtins.all(size % unit == 0 for size, unit in zip(container[:-1], part[:-1], strict=True))
 
-    # Check C-contiguity among partitions
-    def check_contiguity(shape, part):
-        ndims = len(shape)
-        inner_dim = ndims - 1
-        for i, size, unit in zip(reversed(range(ndims)), reversed(shape), reversed(part), strict=True):
-            if size > unit:
-                if i < inner_dim:
-                    if size % unit != 0:
-                        return False
-                else:
-                    if size != unit:
-                        return False
-                inner_dim = i
-        return True
-
-    # Check C-contiguity for blocks inside chunks
-    if not check_contiguity(chunks, blocks):
-        return False
-
-    # Check C-contiguity for chunks inside shape
-    return check_contiguity(shape, chunks)
+    return check_contiguity(chunks, blocks) and check_contiguity(shape, chunks)
 
 
 def get_flat_slices_orig(shape: tuple[int], s: tuple[slice, ...]) -> list[slice]:
@@ -549,6 +533,20 @@ def _normalize_expr_operand(value: Any) -> Any:
     """Normalize foreign expression operands to the array-like object lazy ops expect."""
     raw_col = getattr(value, "_raw_col", None)
     return raw_col if raw_col is not None else value
+
+
+def _defers_boolean_op(value: Any) -> bool:
+    """True when *value* implements a richer boolean algebra than two values.
+
+    A CTable predicate over a nullable column is three-valued (see
+    :class:`blosc2.ctable.NullableBoolExpr`): besides true and false it has
+    *unknown*, and ``&``/``|``/``^`` combine that third value by Kleene's
+    rules rather than bitwise ones.  Returning ``NotImplemented`` from the
+    two-valued operator hands the operation to the operand that knows those
+    rules, so ``lazy_expr & nullable_predicate`` stays three-valued instead of
+    silently collapsing to whichever side Python happened to evaluate first.
+    """
+    return hasattr(value, "_kleene_channels")
 
 
 def _check_allowed_dtypes(
@@ -3485,6 +3483,8 @@ class Operand:
 
     @is_documented_by(bitwise_and)
     def __and__(self, value: int | float | blosc2.Array, /) -> blosc2.LazyExpr:
+        if _defers_boolean_op(value):
+            return NotImplemented
         value = _normalize_expr_operand(value)
         _check_allowed_dtypes(value)
         return blosc2.LazyExpr(new_op=(self, "&", value))
@@ -3497,6 +3497,8 @@ class Operand:
 
     @is_documented_by(bitwise_xor)
     def __xor__(self, other) -> blosc2.LazyExpr:
+        if _defers_boolean_op(other):
+            return NotImplemented
         other = _normalize_expr_operand(other)
         _check_allowed_dtypes(other)
         return blosc2.LazyExpr(new_op=(self, "^", other))
@@ -3509,6 +3511,8 @@ class Operand:
 
     @is_documented_by(bitwise_or)
     def __or__(self, other) -> blosc2.LazyExpr:
+        if _defers_boolean_op(other):
+            return NotImplemented
         other = _normalize_expr_operand(other)
         _check_allowed_dtypes(other)
         return blosc2.LazyExpr(new_op=(self, "|", other))
@@ -4326,7 +4330,12 @@ class NDArray(blosc2_ext.NDArray, Operand):
                 new_shape = sel_idx.newshape(out.shape)
                 out[sel_idx.raw] = chunk[sub_idx].reshape(new_shape)
             else:
-                chunk[sub_idx] = value if np.isscalar(value) else value[sel_idx.raw]
+                # A 0-d array is a scalar for broadcasting, but np.isscalar()
+                # says otherwise and indexing one raises.  It is what a scalar
+                # of a dtype NumPy has no Python scalar for -- a datetime64,
+                # say -- arrives as.
+                scalar = np.isscalar(value) or getattr(value, "ndim", None) == 0
+                chunk[sub_idx] = value if scalar else value[sel_idx.raw]
                 out = super().set_slice((start, stop), chunk)
         return out
 

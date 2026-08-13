@@ -184,9 +184,8 @@ class AutoAI(BaseExperiment):
 
             self.project_id = self._workspace.project_id
             self.space_id = self._workspace.space_id
-            self.runs = AutoPipelinesRuns(
-                engine=ServiceEngine(self._workspace), workspace=self._workspace
-            )
+            self.runs = AutoPipelinesRuns(engine=ServiceEngine(self._workspace))
+            self.runs._workspace = self._workspace
 
         # self._block_autoai_on_git_based_project()
 
@@ -231,15 +230,15 @@ class AutoAI(BaseExperiment):
         name: str,
         *,
         prediction_type: "PredictionType",
-        prediction_column: str | None = None,
-        prediction_columns: List[str] | None = None,
-        timestamp_column_name: str | None = None,
-        scoring: "Metrics | None" = None,
-        desc: str | None = None,
-        test_size: float | None = None,  # deprecated
+        prediction_column: str = None,
+        prediction_columns: List[str] = None,
+        timestamp_column_name: str = None,
+        scoring: "Metrics" = None,
+        desc: str = None,
+        test_size: float = None,  # deprecated
         holdout_size: float | int | None = None,
-        max_number_of_estimators: int | None = None,
-        train_sample_rows_test_size: float | None = None,
+        max_number_of_estimators: int = None,
+        train_sample_rows_test_size: float = None,
         include_only_estimators: List[
             Union[
                 "ClassificationAlgorithms",
@@ -247,61 +246,57 @@ class AutoAI(BaseExperiment):
                 "ForecastingAlgorithms",
                 "TimeseriesAnomalyPredictionAlgorithms",
             ]
-        ]
-        | None = None,
+        ] = None,
         daub_include_only_estimators: List[
             Union["ClassificationAlgorithms", "RegressionAlgorithms"]
-        ]
-        | None = None,  # deprecated
+        ] = None,  # deprecated
         include_batched_ensemble_estimators: List[
             Union["BatchedClassificationAlgorithms", "BatchedRegressionAlgorithms"]
-        ]
-        | None = None,
-        backtest_num: int | None = None,
-        lookback_window: int | None = None,
-        forecast_window: int | None = None,
-        backtest_gap_length: int | None = None,
-        feature_columns: List[str] | None = None,
+        ] = None,
+        backtest_num: int = None,
+        lookback_window: int = None,
+        forecast_window: int = None,
+        backtest_gap_length: int = None,
+        feature_columns: List[str] = None,
         pipeline_types: List[
             Union[
                 "ForecastingPipelineTypes", "TimeseriesAnomalyPredictionPipelineTypes"
             ]
-        ]
-        | None = None,
-        supporting_features_at_forecast: bool | None = None,
-        cognito_transform_names: List["Transformers"] | None = None,
+        ] = None,
+        supporting_features_at_forecast: bool = None,
+        cognito_transform_names: List["Transformers"] = None,
         csv_separator: Union[List[str], str] = ",",
-        excel_sheet: Union[str, int] | None = None,
+        excel_sheet: Union[str, int] = None,
         encoding: str = "utf-8",
-        positive_label: str | None = None,
+        positive_label: str = None,
         drop_duplicates: bool = True,
-        outliers_columns: list | None = None,
-        text_processing: bool | None = None,
-        word2vec_feature_number: int | None = None,
-        daub_give_priority_to_runtime: float | None = None,
-        fairness_info: dict | None = None,
-        sampling_type: "SamplingTypes | None" = None,
-        sample_size_limit: int | None = None,
-        sample_rows_limit: int | None = None,
-        sample_percentage_limit: float | None = None,
-        n_parallel_data_connections: int | None = None,
-        number_of_batch_rows: int | None = None,
-        categorical_imputation_strategy: ImputationStrategy | None = None,
-        numerical_imputation_strategy: ImputationStrategy | None = None,
-        numerical_imputation_value: float | None = None,
-        imputation_threshold: float | None = None,
-        retrain_on_holdout: bool | None = None,
-        categorical_columns: list | None = None,
-        numerical_columns: list | None = None,
+        outliers_columns: list = None,
+        text_processing: bool = None,
+        word2vec_feature_number: int = None,
+        daub_give_priority_to_runtime: float = None,
+        fairness_info: dict = None,
+        sampling_type: "SamplingTypes" = None,
+        sample_size_limit: int = None,
+        sample_rows_limit: int = None,
+        sample_percentage_limit: float = None,
+        n_parallel_data_connections: int = None,
+        number_of_batch_rows: int = None,
+        categorical_imputation_strategy: ImputationStrategy = None,
+        numerical_imputation_strategy: ImputationStrategy = None,
+        numerical_imputation_value: float = None,
+        imputation_threshold: float = None,
+        retrain_on_holdout: bool = None,
+        categorical_columns: list = None,
+        numerical_columns: list = None,
         test_data_csv_separator: Union[List[str], str] = ",",
-        test_data_excel_sheet: str | None = None,
+        test_data_excel_sheet: str = None,
         test_data_encoding: str = "utf-8",
-        confidence_level: float | None = None,
-        incremental_learning: bool | None = None,
-        early_stop_enabled: bool | None = None,
-        early_stop_window_size: int | None = None,
-        time_ordered_data: bool | None = None,
-        feature_selector_mode: str | None = None,
+        confidence_level: float = None,
+        incremental_learning: bool = None,
+        early_stop_enabled: bool = None,
+        early_stop_window_size: int = None,
+        time_ordered_data: bool = None,
+        feature_selector_mode: str = None,
         **kwargs,
     ) -> Union["RemoteAutoPipelines", "LocalAutoPipelines"]:
         r"""
@@ -659,8 +654,9 @@ class AutoAI(BaseExperiment):
                 Metrics.RECALL_SCORE,
             ):
                 raise TimeseriesAnomalyPredictionUnsupportedMetric(scoring)
-        elif prediction_column is None or prediction_columns is not None:
-            raise NonForecastPredictionColumnMissing(prediction_type)
+        else:
+            if prediction_column is None or prediction_columns is not None:
+                raise NonForecastPredictionColumnMissing(prediction_type)
 
         if test_size:
             print("Note: Using `test_size` is deprecated. Use `holdout_size` instead.")
@@ -890,7 +886,7 @@ class AutoAI(BaseExperiment):
             if self._20_class_limit_removal_test:
                 engine._20_class_limit_removal_test = True
 
-            return RemoteAutoPipelines(
+            optimizer = RemoteAutoPipelines(
                 name=name,
                 prediction_type=prediction_type,
                 prediction_column=prediction_column,
@@ -956,9 +952,10 @@ class AutoAI(BaseExperiment):
                 early_stop_window_size=early_stop_window_size,
                 time_ordered_data=time_ordered_data,
                 feature_selector_mode=feature_selector_mode,
-                workspace=self._workspace,
                 **reduced_kwargs,
             )
+            optimizer._workspace = self._workspace
+            return optimizer
 
     def rag_optimizer(
         self,

@@ -30,11 +30,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SecuritySamlSp(
     {
-        "_links": {"self": {"href": "/api/security/authentication/cluster/saml-sp"}},
-        "host": "172.21.74.181",
         "idp_uri": "https://examplelab.customer.com/idp/Metadata",
-        "certificate": {"ca": "cluster1", "serial_number": "156F10C3EB4C51C1"},
+        "host": "172.21.74.181",
+        "_links": {"self": {"href": "/api/security/authentication/cluster/saml-sp"}},
         "enabled": True,
+        "certificate": {"ca": "cluster1", "serial_number": "156F10C3EB4C51C1"},
     }
 )
 

@@ -14,7 +14,12 @@ from ansible_compat.runtime import Runtime
 
 from ansiblelint import formatters
 from ansiblelint._mockings import _perform_mockings
-from ansiblelint.config import PROFILES, Options, get_version_warning
+from ansiblelint.config import (
+    PROFILES,
+    Options,
+    get_version_warning,
+    has_custom_ansible_env,
+)
 from ansiblelint.config import options as default_options
 from ansiblelint.constants import RC, RULE_DOC_URL
 from ansiblelint.loaders import IGNORE_FILE
@@ -46,10 +51,9 @@ class App:
         formatter_factory = choose_formatter_factory(options)
         self.formatter = formatter_factory(options.cwd, options.display_relative_path)
 
-        # Without require_module, our _set_collections_basedir may fail
         self.runtime = Runtime(
             project_dir=Path(options.project_dir),
-            isolated=not options.offline,
+            isolated=not options.offline and not has_custom_ansible_env(),
             require_module=True,
             verbosity=options.verbosity,
         )
@@ -277,7 +281,7 @@ class App:
             return RC.SUCCESS
         return RC.VIOLATIONS_FOUND
 
-    def report_summary(  # pylint: disable=too-many-locals # noqa: C901
+    def report_summary(  # pylint: disable=too-many-locals # ruff:ignore[complex-structure]
         self,
         summary: SummarizedResults,
         changed_files_count: int,
@@ -416,6 +420,16 @@ def _add_module_path_if_needed(
             module_paths.insert(0, str(mock_path))
 
 
+def _ensure_cache_collections_first(app: App) -> None:
+    """Ensure the runtime cache collections directory is first in collections_paths."""
+    if not app.runtime.cache_dir or app.runtime.config.collections_paths is None:
+        return
+    target_dir = str(app.runtime.cache_dir / "collections")
+    if target_dir in app.runtime.config.collections_paths:
+        app.runtime.config.collections_paths.remove(target_dir)
+    app.runtime.config.collections_paths.insert(0, target_dir)
+
+
 def get_app(*, offline: bool | None = None, cached: bool = False) -> App:
     """Return the application instance, caching the return value."""
     # Avoids ever running the app initialization twice if cached argument
@@ -459,6 +473,8 @@ def get_app(*, offline: bool | None = None, cached: bool = False) -> App:
     # https://github.com/ansible/ansible-lint/issues/4973
     _add_collections_path_if_needed(app.options, app.runtime.config.collections_paths)
     _add_module_path_if_needed(app.options, app.runtime.config.default_module_path)
+
+    _ensure_cache_collections_first(app)
 
     app.runtime.prepare_environment(
         install_local=(not offline),

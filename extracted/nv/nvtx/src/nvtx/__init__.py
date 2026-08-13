@@ -26,7 +26,29 @@ from nvtx.nvtx import (
     mark,
     get_domain,
     Domain,
+    numpy_dtype,
 )
+
+from nvtx._lib import (
+    BatchOrdering,
+    EntryKind,
+    EventKind,
+    PayloadEntryType,
+    PredefinedScope,
+)
+
+from nvtx._lib.counters import (
+    Counter,
+    CounterInterpolation,
+    CounterNoValueReason,
+    CounterSemantics,
+    CounterValueType,
+    ExtCounter,
+    Float64Counter,
+    Int64Counter,
+)
+
+from nvtx._lib.time import TimestampType
 
 if enabled():
     from nvtx._lib.profiler import Profile

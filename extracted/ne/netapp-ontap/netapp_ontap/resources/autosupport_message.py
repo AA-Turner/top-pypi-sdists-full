@@ -39,13 +39,13 @@ AutosupportMessage(
         },
         "index": 4,
         "node": {
-            "name": "node1",
+            "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/092e0298-f250-11e8-9a05-005056bb6666"
                 }
             },
-            "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
+            "name": "node1",
         },
     }
 )
@@ -86,13 +86,13 @@ AutosupportMessage(
         },
         "index": 8,
         "node": {
-            "name": "node1",
+            "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/092e0298-f250-11e8-9a05-005056bb6666"
                 }
             },
-            "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
+            "name": "node1",
         },
     }
 )
@@ -128,13 +128,13 @@ AutosupportMessage(
         },
         "index": 4,
         "node": {
-            "name": "node2",
+            "uuid": "e47d2630-f250-11e8-b186-005056bb5cab",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/e47d2630-f250-11e8-b186-005056bb5cab"
                 }
             },
-            "uuid": "e47d2630-f250-11e8-b186-005056bb5cab",
+            "name": "node2",
         },
     }
 )
@@ -170,13 +170,13 @@ AutosupportMessage(
         },
         "index": 5,
         "node": {
-            "name": "node1",
+            "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/092e0298-f250-11e8-9a05-005056bb6666"
                 }
             },
-            "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
+            "name": "node1",
         },
     }
 )
@@ -206,140 +206,140 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     AutosupportMessage(
         {
-            "destination": "smtp",
+            "generated_on": "2019-03-28T10:18:04-04:00",
+            "subject": "USER_TRIGGERED (TEST:test_msg)",
             "_links": {
                 "self": {
                     "href": "/api/support/autosupport/messages/092e0298-f250-11e8-9a05-005056bb6666/1/smtp"
                 }
             },
             "index": 1,
-            "state": "ignore",
-            "generated_on": "2019-03-28T10:18:04-04:00",
-            "subject": "USER_TRIGGERED (TEST:test_msg)",
+            "destination": "smtp",
             "node": {
-                "name": "node1",
+                "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/092e0298-f250-11e8-9a05-005056bb6666"
                     }
                 },
-                "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
+                "name": "node1",
             },
+            "state": "ignore",
         }
     ),
     AutosupportMessage(
         {
-            "destination": "http",
+            "generated_on": "2019-03-28T10:18:04-04:00",
+            "subject": "USER_TRIGGERED (TEST:test_msg)",
             "_links": {
                 "self": {
                     "href": "/api/support/autosupport/messages/092e0298-f250-11e8-9a05-005056bb6666/1/http"
                 }
             },
             "index": 1,
-            "state": "sent_successful",
-            "generated_on": "2019-03-28T10:18:04-04:00",
-            "subject": "USER_TRIGGERED (TEST:test_msg)",
+            "destination": "http",
             "node": {
-                "name": "node1",
+                "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/092e0298-f250-11e8-9a05-005056bb6666"
                     }
                 },
-                "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
+                "name": "node1",
             },
+            "state": "sent_successful",
         }
     ),
     AutosupportMessage(
         {
-            "destination": "noteto",
+            "generated_on": "2019-03-28T10:18:04-04:00",
+            "subject": "USER_TRIGGERED (TEST:test_msg)",
             "_links": {
                 "self": {
                     "href": "/api/support/autosupport/messages/092e0298-f250-11e8-9a05-005056bb6666/1/noteto"
                 }
             },
             "index": 1,
-            "state": "ignore",
-            "generated_on": "2019-03-28T10:18:04-04:00",
-            "subject": "USER_TRIGGERED (TEST:test_msg)",
+            "destination": "noteto",
             "node": {
-                "name": "node1",
+                "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/092e0298-f250-11e8-9a05-005056bb6666"
                     }
                 },
-                "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
+                "name": "node1",
             },
+            "state": "ignore",
         }
     ),
     AutosupportMessage(
         {
-            "destination": "smtp",
+            "generated_on": "2019-03-28T10:18:06-04:00",
+            "subject": "USER_TRIGGERED (TEST:test_msg)",
             "_links": {
                 "self": {
                     "href": "/api/support/autosupport/messages/e47d2630-f250-11e8-b186-005056bb5cab/1/smtp"
                 }
             },
             "index": 1,
-            "state": "ignore",
-            "generated_on": "2019-03-28T10:18:06-04:00",
-            "subject": "USER_TRIGGERED (TEST:test_msg)",
+            "destination": "smtp",
             "node": {
-                "name": "node2",
+                "uuid": "e47d2630-f250-11e8-b186-005056bb5cab",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/e47d2630-f250-11e8-b186-005056bb5cab"
                     }
                 },
-                "uuid": "e47d2630-f250-11e8-b186-005056bb5cab",
+                "name": "node2",
             },
+            "state": "ignore",
         }
     ),
     AutosupportMessage(
         {
-            "destination": "http",
+            "generated_on": "2019-03-28T10:18:06-04:00",
+            "subject": "USER_TRIGGERED (TEST:test_msg)",
             "_links": {
                 "self": {
                     "href": "/api/support/autosupport/messages/e47d2630-f250-11e8-b186-005056bb5cab/1/http"
                 }
             },
             "index": 1,
-            "state": "sent_successful",
-            "generated_on": "2019-03-28T10:18:06-04:00",
-            "subject": "USER_TRIGGERED (TEST:test_msg)",
+            "destination": "http",
             "node": {
-                "name": "node2",
+                "uuid": "e47d2630-f250-11e8-b186-005056bb5cab",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/e47d2630-f250-11e8-b186-005056bb5cab"
                     }
                 },
-                "uuid": "e47d2630-f250-11e8-b186-005056bb5cab",
+                "name": "node2",
             },
+            "state": "sent_successful",
         }
     ),
     AutosupportMessage(
         {
-            "destination": "noteto",
+            "generated_on": "2019-03-28T10:18:06-04:00",
+            "subject": "USER_TRIGGERED (TEST:test_msg)",
             "_links": {
                 "self": {
                     "href": "/api/support/autosupport/messages/e47d2630-f250-11e8-b186-005056bb5cab/1/noteto"
                 }
             },
             "index": 1,
-            "state": "ignore",
-            "generated_on": "2019-03-28T10:18:06-04:00",
-            "subject": "USER_TRIGGERED (TEST:test_msg)",
+            "destination": "noteto",
             "node": {
-                "name": "node2",
+                "uuid": "e47d2630-f250-11e8-b186-005056bb5cab",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/e47d2630-f250-11e8-b186-005056bb5cab"
                     }
                 },
-                "uuid": "e47d2630-f250-11e8-b186-005056bb5cab",
+                "name": "node2",
             },
+            "state": "ignore",
         }
     ),
 ]
@@ -378,25 +378,25 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     AutosupportMessage(
         {
-            "destination": "http",
+            "generated_on": "2019-03-28T10:18:04-04:00",
+            "subject": "USER_TRIGGERED (TEST:test_msg)",
             "_links": {
                 "self": {
                     "href": "/api/support/autosupport/messages/092e0298-f250-11e8-9a05-005056bb6666/1/http"
                 }
             },
             "index": 1,
-            "state": "sent_successful",
-            "generated_on": "2019-03-28T10:18:04-04:00",
-            "subject": "USER_TRIGGERED (TEST:test_msg)",
+            "destination": "http",
             "node": {
-                "name": "node1",
+                "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/092e0298-f250-11e8-9a05-005056bb6666"
                     }
                 },
-                "uuid": "092e0298-f250-11e8-9a05-005056bb6666",
+                "name": "node1",
             },
+            "state": "sent_successful",
         }
     )
 ]

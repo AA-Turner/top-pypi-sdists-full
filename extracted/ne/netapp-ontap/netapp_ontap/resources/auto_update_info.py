@@ -46,9 +46,9 @@ AutoUpdateInfo(
         "_links": {"self": {}},
         "eula": {
             "accepted_timestamp": "2020-12-01T21:24:44-04:00",
+            "user_id_accepted": "admin",
             "accepted": True,
             "accepted_ip_address": "192.168.1.125",
-            "user_id_accepted": "admin",
         },
         "enabled": True,
     }

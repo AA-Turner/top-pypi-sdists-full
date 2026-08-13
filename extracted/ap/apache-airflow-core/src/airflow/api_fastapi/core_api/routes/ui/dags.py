@@ -32,6 +32,7 @@ from airflow.api_fastapi.common.db.dags import generate_dag_with_latest_run_quer
 from airflow.api_fastapi.common.parameters import (
     FilterOptionEnum,
     FilterParam,
+    QueryAnyDagRunStateFilter,
     QueryAssetDependencyFilter,
     QueryBundleNameFilter,
     QueryBundleVersionFilter,
@@ -74,6 +75,9 @@ from airflow.utils.state import TaskInstanceState
 
 dags_router = AirflowRouter(prefix="/dags", tags=["DAG"])
 
+# Per-dag run counts read at most this many rows per state; the UI shows "N+" at the cap.
+STATE_COUNT_CAP = 1000
+
 
 @dags_router.get(
     "",
@@ -103,6 +107,7 @@ def get_dags(
     paused: QueryPausedFilter,
     has_import_errors: QueryHasImportErrorsFilter,
     last_dag_run_state: QueryLastDagRunStateFilter,
+    dag_run_state: QueryAnyDagRunStateFilter,
     bundle_name: QueryBundleNameFilter,
     bundle_version: QueryBundleVersionFilter,
     order_by: Annotated[
@@ -148,6 +153,7 @@ def get_dags(
             tags,
             owners,
             last_dag_run_state,
+            dag_run_state,
             is_favorite,
             has_asset_schedule,
             asset_dependency,

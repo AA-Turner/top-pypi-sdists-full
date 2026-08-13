@@ -7,6 +7,8 @@ This file has been automatically generated based on the ONTAP REST API documenta
 ## Overview
 This API endpoint retrieves WebAuthn global settings for the cluster or SVM.
 Specify the owner UUID and the unique identifier for the cluster or SVM to retrieve the WebAuthn global settings for the cluster or SVM.
+The PATCH method is used to update relying party domains of the cluster.
+Only the 'rp_domains' parameter can be modified. Modification of other parameters is not supported.
 ## Examples
 ### Retrieving the WebAuthn global settings for the cluster or SVM
 ```python
@@ -17,6 +19,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource = WebauthnGlobal(**{"owner.uuid": "d49de271-8c11-11e9-8f78-005056bbf6ac"})
     resource.get()
     print(resource)
+
+```
+
+### Modifying the relying party domain list for a cluster or SVM
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import WebauthnGlobal
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = WebauthnGlobal(**{"owner.uuid": "d49de271-8c11-11e9-8f78-005056bbf6ac"})
+    resource.rp_domains = ["example.com"]
+    resource.patch()
 
 ```
 """
@@ -96,6 +110,9 @@ Valid choices:
 * preferred
 * discouraged"""
 
+    rp_domains = marshmallow_fields.List(marshmallow_fields.Str, data_key="rp_domains", allow_none=True)
+    r""" List of relying party domains"""
+
     scope = marshmallow_fields.Str(
         data_key="scope",
         validate=enum_validation(['cluster', 'svm']),
@@ -141,19 +158,22 @@ Valid choices:
         "owner.uuid",
         "require_rk",
         "resident_key",
+        "rp_domains",
         "scope",
         "timeout",
         "user_verification",
     ]
-    """links,attestation,owner.links,owner.name,owner.uuid,require_rk,resident_key,scope,timeout,user_verification,"""
+    """links,attestation,owner.links,owner.name,owner.uuid,require_rk,resident_key,rp_domains,scope,timeout,user_verification,"""
 
     patchable_fields = [
+        "rp_domains",
     ]
-    """"""
+    """rp_domains,"""
 
     postable_fields = [
+        "rp_domains",
     ]
-    """"""
+    """rp_domains,"""
 
 class WebauthnGlobal(Resource):
     r""" WebAuthn global settings. """
@@ -208,6 +228,30 @@ class WebauthnGlobal(Resource):
 
     fast_get_collection.__func__.__doc__ += "\n\n---\n" + inspect.cleandoc(Resource._get_collection.__doc__)
 
+    @classmethod
+    def patch_collection(
+        cls,
+        body: dict,
+        *args,
+        records: Iterable["WebauthnGlobal"] = None,
+        poll: bool = True,
+        poll_interval: Optional[int] = None,
+        poll_timeout: Optional[int] = None,
+        connection: HostConnection = None,
+        **kwargs
+    ) -> NetAppResponse:
+        r"""Updates a WebAuthn global settings for a cluster or an SVM.
+### Related ONTAP commands
+* `security webauthn modify`
+
+### Learn more
+* [`DOC /security/webauthn/global-settings/{owner.uuid}`](#docs-security-security_webauthn_global-settings_{owner.uuid})"""
+        return super()._patch_collection(
+            body, *args, records=records, poll=poll, poll_interval=poll_interval,
+            poll_timeout=poll_timeout, connection=connection, **kwargs
+        )
+
+    patch_collection.__func__.__doc__ += "\n\n---\n" + inspect.cleandoc(Resource._patch_collection.__doc__)
 
 
 
@@ -235,6 +279,26 @@ class WebauthnGlobal(Resource):
     get.__doc__ += "\n\n---\n" + inspect.cleandoc(Resource._get.__doc__)
 
 
+    def patch(
+        self,
+        hydrate: bool = False,
+        poll: bool = True,
+        poll_interval: Optional[int] = None,
+        poll_timeout: Optional[int] = None,
+        **kwargs
+    ) -> NetAppResponse:
+        r"""Updates a WebAuthn global settings for a cluster or an SVM.
+### Related ONTAP commands
+* `security webauthn modify`
+
+### Learn more
+* [`DOC /security/webauthn/global-settings/{owner.uuid}`](#docs-security-security_webauthn_global-settings_{owner.uuid})"""
+        return super()._patch(
+            hydrate=hydrate, poll=poll, poll_interval=poll_interval,
+            poll_timeout=poll_timeout, **kwargs
+        )
+
+    patch.__doc__ += "\n\n---\n" + inspect.cleandoc(Resource._patch.__doc__)
 
 
 

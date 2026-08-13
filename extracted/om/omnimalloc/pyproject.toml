@@ -1,34 +1,35 @@
 [build-system]
-requires = ["scikit-build-core>=0.11", "nanobind>=2.0"]
+requires = ["scikit-build-core>=1.0", "nanobind>=2.0", "setuptools-scm>=8"]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "omnimalloc"
-version = "0.4.0" # Also update CMakeLists.txt
+dynamic = ["version"]
 description = "Your one-stop shop for static memory allocation."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "Fabian Peddinghaus", email = "fabianpedd@gmail.com" }]
 keywords = ["memory", "allocation", "allocator", "static-allocation"]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Intended Audience :: Science/Research",
-  "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: C++",
   "Topic :: Scientific/Engineering",
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Typing :: Typed",
 ]
 dependencies = [
-  "numpy>=1.25.0",            # This is the only real dependency of omnimalloc
   "typing-extensions>=4.0.0", # Only needed because we support Python < 3.11
 ]
 [project.urls]
@@ -42,6 +43,7 @@ all = [
   "deap>=1.4.0",
   "huggingface-hub>=0.35.0",
   "matplotlib>=3.10.0",
+  "numpy>=1.25.0",
   "onnx>=1.19.0",
   "tqdm>=4.66.0",
 ]
@@ -50,27 +52,37 @@ all = [
 dev = [
   "ipykernel>=6.30.0",
   "ipywidgets>=8.1.0",
+  "nanobind>=2.0",
   "nbconvert>=7.16.0",
   "pre-commit>=4.0.0",
   "pytest>=8.0",
   "pytest-cov>=7.0.0",
-  "ruff>=0.14.0",
-  "ty>=0.0.1a26",
+  "pytest-xdist>=3.6.0",
+  "ruff>=0.16.1",
+  "ty>=0.0.66",
 ]
 
 [tool.scikit-build]
 wheel.packages = ["src/python/omnimalloc"]
-cmake.build-type = "Release"                         # TODO(fpedd): Cross-check with CMakeLists.txt
+cmake.build-type = "Release"
 build-dir = "build/{wheel_tag}"
 sdist.include = ["src/cpp/**"]
 sdist.exclude = [".github", "notebooks", "external"]
 
+[[tool.dynamic-metadata]]
+field = "version"
+provider = "scikit_build_core.metadata.setuptools_scm"
+
+# Version is derived from git tags (vX.Y.Z); the empty table enables the
+# setuptools-scm defaults, e.g. 0.3.1.dev3+ga8f8686 between releases.
+[tool.setuptools_scm]
+
 [tool.cibuildwheel]
-build = "cp310-* cp311-* cp312-* cp313-*"
+build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
 skip = "*-musllinux_*"
-# TODO(fpedd): Enable tests in the future
-# test-requires = ["pytest"]
-# test-command = "pytest {project}/tests/unit -x --no-header -q"
+test-requires = ["pytest"]
+test-extras = ["all"]
+test-command = "pytest {project}/tests/unit -x --no-header -q"
 
 [tool.cibuildwheel.linux]
 archs = ["auto"]
@@ -78,6 +90,9 @@ before-all = "yum install -y cmake || apk add cmake"
 
 [tool.cibuildwheel.macos]
 archs = ["arm64"]
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]
 
 [tool.ruff]
 line-length = 88
@@ -90,6 +105,7 @@ ignore = [
   "B019",    # cache decorator
   "B027",    # non-abstract methods in abc
   "COM812",  # trailing comma (formatter)
+  "CPY001",  # copyright notice
   "D100",    # module docstring
   "D101",    # class docstring
   "D102",    # method docstring
@@ -116,9 +132,11 @@ ignore = [
   "PIE790",  # ellipsis in functions
   "PLC0415", # import outside top-level
   "PLR0913", # too many arguments
+  "PLR0917", # too many positional arguments
   "PLR2004", # magic value comparison
   "PLW2901", # reassign for loop vars
   "PYI019",  # custom TypeVar
+  "PYI034",  # return Self in dunders
   "RET504",  # unnecessary variable before return
   "S101",    # assert
   "S311",    # pseudo-random generators
@@ -132,7 +150,9 @@ ignore = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["--import-mode=importlib"]
+addopts = ["--import-mode=importlib", "-m", "not slow"]
+pythonpath = ["."]
+markers = ["slow: exhaustive stress grids (deselected by default)"]
 log_cli = true
 log_cli_level = "INFO"
 log_cli_format = "%(asctime)s [%(levelname)s] %(message)s (%(filename)s:%(lineno)d)"
@@ -140,8 +160,12 @@ log_cli_date_format = "%Y-%m-%d %H:%M:%S"
 
 [tool.ty]
 
+[tool.ty.rules]
+# Ignores guarding optional imports are needed without the dep, unused with it
+unused-type-ignore-comment = "ignore"
+
 [tool.ty.environment]
 python-version = "3.10"
 
 [tool.ty.src]
-exclude = ["tests/", "*.pyi"]
+exclude = ["tests/", "**/*.pyi", "scripts/stress/contracts.py"]

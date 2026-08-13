@@ -637,12 +637,16 @@ def device_mismatches(obj: Any, device: str) -> List[tuple[str, str, str]]:
     on every boot-trace child of two live families. Such a component is
     skipped whole: its fake parameters allocate nothing and its real buffers
     are part of the graph being traced, so MOVING them would be the defect.
-    A fake tensor is exempt wherever it is found, for the same reason. A META
-    tensor is exempt only inside a structure-only component — elsewhere it is
-    an unmaterialized load, which :func:`meta_tensors` exists to report."""
+    A fake tensor is exempt wherever it is found, for the same reason — and so
+    is a wrapper SUBCLASS over fake data (pgw#1198), which is what a
+    ``setup()``-time quantizer leaves behind and which an ``isinstance``
+    against ``FakeTensor`` cannot see. A META tensor is exempt only inside a
+    structure-only component — elsewhere it is an unmaterialized load, which
+    :func:`meta_tensors` exists to report."""
     try:
         import torch
-        from torch._subclasses.fake_tensor import FakeTensor
+
+        from ..meta_instantiation import is_virtual
 
         target = torch.device(device).type
     except Exception:
@@ -660,7 +664,14 @@ def device_mismatches(obj: Any, device: str) -> List[tuple[str, str, str]]:
         except Exception:
             continue
         for tname, t in named:
-            if not isinstance(t, torch.Tensor) or isinstance(t, FakeTensor):
+            if not isinstance(t, torch.Tensor):
+                continue
+            # Allocates nothing => not misplaced. Asked of the STORAGE, so a
+            # wrapper subclass over fake data answers like the fake it wraps
+            # (pgw#1198). A META tensor is the one virtual thing this walk must
+            # still report: outside a structure-only component it is an
+            # unmaterialized load, which `meta_tensors` reads out of here.
+            if t.device.type != "meta" and is_virtual(t):
                 continue
             if t.device.type != target:
                 out.append((cname, tname, str(t.device)))
@@ -713,12 +724,16 @@ def _sum_tensor_bytes(objs: Iterable[Any], *, cuda_only: bool) -> int:
       so every rung read "off").
 
     It still COUNTS toward the requirement (``cuda_only=False``): the shape and
-    dtype it declares are the bytes a real load — or ``materialize_random`` in
-    the mint child — will go on to allocate. The two estimates below are the
-    two questions, and virtuality answers them differently.
+    dtype it declares are the bytes a real load will go on to allocate. The two
+    estimates below are the two questions, and virtuality answers them
+    differently. (Until pgw#1199 the mint child was a second such allocator —
+    it materialised random values for the pgw#984 proof. It does not any more:
+    the proof runs on the resident parent, so nothing downstream of a
+    structure-only build allocates a checkpoint.)
     """
     import torch
-    from torch._subclasses.fake_tensor import FakeTensor
+
+    from ..meta_instantiation import is_virtual
 
     total = 0
     #: ``("ptr", data_ptr)`` for a tensor with storage — shared storages are
@@ -735,7 +750,10 @@ def _sum_tensor_bytes(objs: Iterable[Any], *, cuda_only: bool) -> int:
             for t in tensors:
                 if not isinstance(t, torch.Tensor):
                     continue
-                virtual = isinstance(t, FakeTensor)
+                # pgw#1198: asked of the STORAGE. A `setup()`-time quantizer
+                # leaves a wrapper subclass over fake data, which is a
+                # FakeTensor to nobody and occupies the card to nothing.
+                virtual = t.device.type != "meta" and is_virtual(t)
                 if cuda_only and (virtual or t.device.type != "cuda"):
                     continue
                 key: tuple[str, int]
@@ -1357,10 +1375,11 @@ def cpu_offload_forbidden() -> bool:
     ``GEN_WORKER_FORBID_CPU_OFFLOAD`` *"makes gen-worker raise on any
     CPU-touching placement"*, and the box exports it for that reason. Measured
     2026-08-03: it had exactly ONE reader in the tree,
-    ``benchmarks/swap_latency.py``, where it refused the swap-latency benchmark
-    and nothing else. The real CPU-offload ladder below never consulted it, so
-    the guard operators believed they had did not exist — stale prose reaching
-    people as fact (C3).
+    ``benchmarks/swap_latency.py`` (deleted by pgw#883), where it refused the
+    swap-latency benchmark and nothing else. The real CPU-offload ladder below
+    never consulted it, so the guard operators believed they had did not
+    exist — stale prose reaching people as fact (C3). This function is now its
+    only reader, and it is the placement boundary.
 
     It is a TRIPWIRE, not configuration: it carries no behaviour of its own and
     exists only to fire on a host that must never touch weights. Same shape as
@@ -1565,36 +1584,9 @@ def low_vram_mode(pipeline: Any) -> str:
 _RESIDENT_MODES = ("off", "vae_only")
 
 
-def reconcile_resident_mode(pipeline: Any, want: str) -> bool:
-    """Converge a fully-CUDA-resident pipeline between 'off' and 'vae_only' by
-    toggling the slicing/tiling flag groups (gw#588). Any other mode pair is
-    untouched: offload rungs trace genuinely different graphs and residency."""
-    have = low_vram_mode(pipeline)
-    if want not in _RESIDENT_MODES or have not in _RESIDENT_MODES:
-        return False
-    if have == want:
-        return True
-    _LOG.info(
-        "low_vram: reconciling resident mode %r -> %r (free VRAM %.1f GB)",
-        have, want, get_available_vram_gb(),
-    )
-    if want == "vae_only":
-        _apply_vae_and_attention(pipeline, {})
-    else:
-        vae = getattr(pipeline, "vae", None)
-        if not _call_if_present(pipeline, "disable_vae_slicing") and vae is not None:
-            _call_if_present(vae, "disable_slicing")
-        if not _call_if_present(pipeline, "disable_vae_tiling") and vae is not None:
-            _call_if_present(vae, "disable_tiling")
-        _call_if_present(pipeline, "disable_attention_slicing")
-    setattr(pipeline, _COZY_MODE_ATTR, want)
-    return True
-
-
 __all__ = [
     "apply_low_vram_config",
     "low_vram_mode",
-    "reconcile_resident_mode",
     "rearm_offload",
     "place_pipeline",
     "next_offload_rung",

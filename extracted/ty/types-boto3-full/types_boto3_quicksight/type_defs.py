@@ -39,9 +39,11 @@ from .literals import (
     AssetBundleExportJobDataSourcePropertyToOverrideType,
     AssetBundleExportJobFolderPropertyToOverrideType,
     AssetBundleExportJobStatusType,
+    AssetBundleExportJobTopicV2PropertyToOverrideType,
     AssetBundleExportJobVPCConnectionPropertyToOverrideType,
     AssetBundleImportFailureActionType,
     AssetBundleImportJobStatusType,
+    AssetTypeType,
     AssignmentStatusType,
     AudioExtractionStatusType,
     AuthenticationMethodOptionType,
@@ -111,6 +113,8 @@ from .literals import (
     DefaultAggregationType,
     DigitGroupingStyleType,
     DisplayFormatType,
+    DlpActionType,
+    DlpSettingStatusType,
     EditionType,
     EmbeddingIdentityTypeType,
     FieldNameType,
@@ -159,6 +163,8 @@ from .literals import (
     LayerCustomActionTriggerType,
     LayoutElementTypeType,
     LegendPositionType,
+    LimitSourceType,
+    LimitUnitType,
     LineChartLineStyleType,
     LineChartMarkerShapeType,
     LineChartTypeType,
@@ -215,6 +221,7 @@ from .literals import (
     RelativeFontSizeType,
     ResizeOptionType,
     ResourceStatusType,
+    ResourceTypeType,
     ReviewedAnswerErrorCodeType,
     RoleType,
     RowLevelPermissionFormatVersionType,
@@ -359,7 +366,11 @@ __all__ = (
     "AppendOperationOutputTypeDef",
     "AppendOperationTypeDef",
     "AppendedColumnTypeDef",
+    "ApplicableToOutputTypeDef",
+    "ApplicableToTypeDef",
+    "ApplicableToUnionTypeDef",
     "ApplicationThemeTypeDef",
+    "ApprovalPolicyTypeDef",
     "ArcAxisConfigurationTypeDef",
     "ArcAxisDisplayRangeTypeDef",
     "ArcConfigurationTypeDef",
@@ -384,6 +395,8 @@ __all__ = (
     "AssetBundleExportJobSummaryTypeDef",
     "AssetBundleExportJobThemeOverridePropertiesOutputTypeDef",
     "AssetBundleExportJobThemeOverridePropertiesTypeDef",
+    "AssetBundleExportJobTopicV2OverridePropertiesOutputTypeDef",
+    "AssetBundleExportJobTopicV2OverridePropertiesTypeDef",
     "AssetBundleExportJobVPCConnectionOverridePropertiesOutputTypeDef",
     "AssetBundleExportJobVPCConnectionOverridePropertiesTypeDef",
     "AssetBundleExportJobValidationStrategyTypeDef",
@@ -436,6 +449,11 @@ __all__ = (
     "AssetBundleImportJobThemeOverridePermissionsTypeDef",
     "AssetBundleImportJobThemeOverrideTagsOutputTypeDef",
     "AssetBundleImportJobThemeOverrideTagsTypeDef",
+    "AssetBundleImportJobTopicV2OverrideParametersTypeDef",
+    "AssetBundleImportJobTopicV2OverridePermissionsOutputTypeDef",
+    "AssetBundleImportJobTopicV2OverridePermissionsTypeDef",
+    "AssetBundleImportJobTopicV2OverrideTagsOutputTypeDef",
+    "AssetBundleImportJobTopicV2OverrideTagsTypeDef",
     "AssetBundleImportJobVPCConnectionOverrideParametersOutputTypeDef",
     "AssetBundleImportJobVPCConnectionOverrideParametersTypeDef",
     "AssetBundleImportJobVPCConnectionOverrideTagsOutputTypeDef",
@@ -496,6 +514,9 @@ __all__ = (
     "BatchDeleteKnowledgeBaseSuccessTypeDef",
     "BatchDeleteTopicReviewedAnswerRequestTypeDef",
     "BatchDeleteTopicReviewedAnswerResponseTypeDef",
+    "BatchDescribeUserLimitsErrorTypeDef",
+    "BatchDescribeUserLimitsRequestTypeDef",
+    "BatchDescribeUserLimitsResponseTypeDef",
     "BigQueryParametersTypeDef",
     "BinCountOptionsTypeDef",
     "BinWidthOptionsTypeDef",
@@ -645,6 +666,8 @@ __all__ = (
     "CreateAgentResponseTypeDef",
     "CreateAnalysisRequestTypeDef",
     "CreateAnalysisResponseTypeDef",
+    "CreateApprovalPolicyRequestTypeDef",
+    "CreateApprovalPolicyResponseTypeDef",
     "CreateBrandRequestTypeDef",
     "CreateBrandResponseTypeDef",
     "CreateColumnsOperationOutputTypeDef",
@@ -658,6 +681,8 @@ __all__ = (
     "CreateDataSetResponseTypeDef",
     "CreateDataSourceRequestTypeDef",
     "CreateDataSourceResponseTypeDef",
+    "CreateDlpSettingRequestTypeDef",
+    "CreateDlpSettingResponseTypeDef",
     "CreateFlowRequestTypeDef",
     "CreateFlowResponseTypeDef",
     "CreateFolderMembershipRequestTypeDef",
@@ -674,6 +699,8 @@ __all__ = (
     "CreateIngestionResponseTypeDef",
     "CreateKnowledgeBaseRequestTypeDef",
     "CreateKnowledgeBaseResponseTypeDef",
+    "CreateLimitsProfileRequestTypeDef",
+    "CreateLimitsProfileResponseTypeDef",
     "CreateNamespaceRequestTypeDef",
     "CreateNamespaceResponseTypeDef",
     "CreateOAuthClientApplicationRequestTypeDef",
@@ -906,6 +933,7 @@ __all__ = (
     "DeleteAgentResponseTypeDef",
     "DeleteAnalysisRequestTypeDef",
     "DeleteAnalysisResponseTypeDef",
+    "DeleteApprovalPolicyRequestTypeDef",
     "DeleteBrandAssignmentRequestTypeDef",
     "DeleteBrandAssignmentResponseTypeDef",
     "DeleteBrandRequestTypeDef",
@@ -922,6 +950,8 @@ __all__ = (
     "DeleteDataSourceResponseTypeDef",
     "DeleteDefaultQBusinessApplicationRequestTypeDef",
     "DeleteDefaultQBusinessApplicationResponseTypeDef",
+    "DeleteDlpSettingRequestTypeDef",
+    "DeleteDlpSettingResponseTypeDef",
     "DeleteFlowRequestTypeDef",
     "DeleteFlowResponseTypeDef",
     "DeleteFolderMembershipRequestTypeDef",
@@ -938,6 +968,8 @@ __all__ = (
     "DeleteIdentityPropagationConfigResponseTypeDef",
     "DeleteKnowledgeBaseRequestTypeDef",
     "DeleteKnowledgeBaseResponseTypeDef",
+    "DeleteLimitsProfileRequestTypeDef",
+    "DeleteLimitsProfileResponseTypeDef",
     "DeleteNamespaceRequestTypeDef",
     "DeleteNamespaceResponseTypeDef",
     "DeleteOAuthClientApplicationRequestTypeDef",
@@ -994,6 +1026,8 @@ __all__ = (
     "DescribeAnalysisPermissionsResponseTypeDef",
     "DescribeAnalysisRequestTypeDef",
     "DescribeAnalysisResponseTypeDef",
+    "DescribeApprovalPolicyRequestTypeDef",
+    "DescribeApprovalPolicyResponseTypeDef",
     "DescribeAssetBundleExportJobRequestTypeDef",
     "DescribeAssetBundleExportJobResponseTypeDef",
     "DescribeAssetBundleImportJobRequestTypeDef",
@@ -1032,6 +1066,8 @@ __all__ = (
     "DescribeDataSourceResponseTypeDef",
     "DescribeDefaultQBusinessApplicationRequestTypeDef",
     "DescribeDefaultQBusinessApplicationResponseTypeDef",
+    "DescribeDlpSettingRequestTypeDef",
+    "DescribeDlpSettingResponseTypeDef",
     "DescribeFlowRequestTypeDef",
     "DescribeFlowResponseTypeDef",
     "DescribeFolderPermissionsRequestPaginateTypeDef",
@@ -1058,6 +1094,8 @@ __all__ = (
     "DescribeKnowledgeBasePermissionsResponseTypeDef",
     "DescribeKnowledgeBaseRequestTypeDef",
     "DescribeKnowledgeBaseResponseTypeDef",
+    "DescribeLimitsProfileRequestTypeDef",
+    "DescribeLimitsProfileResponseTypeDef",
     "DescribeNamespaceRequestTypeDef",
     "DescribeNamespaceResponseTypeDef",
     "DescribeOAuthClientApplicationRequestTypeDef",
@@ -1112,12 +1150,15 @@ __all__ = (
     "DestinationTableTypeDef",
     "DimensionFieldTypeDef",
     "DisplayFormatOptionsTypeDef",
+    "DlpSettingDetailsTypeDef",
+    "DlpSettingSummaryTypeDef",
     "DonutCenterOptionsTypeDef",
     "DonutOptionsTypeDef",
     "DrillDownFilterOutputTypeDef",
     "DrillDownFilterTypeDef",
     "DropDownControlDisplayOptionsTypeDef",
     "DynamicDefaultValueTypeDef",
+    "EffectiveLimitTypeDef",
     "EmptyVisualOutputTypeDef",
     "EmptyVisualTypeDef",
     "EntityTypeDef",
@@ -1472,6 +1513,7 @@ __all__ = (
     "KnowledgeBaseSortByTypeDef",
     "KnowledgeBaseSummaryTypeDef",
     "KnowledgeBaseTypeDef",
+    "LabelActionMappingTypeDef",
     "LabelOptionsTypeDef",
     "LayerCustomActionOperationOutputTypeDef",
     "LayerCustomActionOperationTypeDef",
@@ -1484,6 +1526,7 @@ __all__ = (
     "LayoutOutputTypeDef",
     "LayoutTypeDef",
     "LegendOptionsTypeDef",
+    "LimitsProfileTypeDef",
     "LineChartAggregatedFieldWellsOutputTypeDef",
     "LineChartAggregatedFieldWellsTypeDef",
     "LineChartConfigurationOutputTypeDef",
@@ -1511,6 +1554,9 @@ __all__ = (
     "ListAnalysesRequestPaginateTypeDef",
     "ListAnalysesRequestTypeDef",
     "ListAnalysesResponseTypeDef",
+    "ListApprovalPoliciesRequestPaginateTypeDef",
+    "ListApprovalPoliciesRequestTypeDef",
+    "ListApprovalPoliciesResponseTypeDef",
     "ListAssetBundleExportJobsRequestPaginateTypeDef",
     "ListAssetBundleExportJobsRequestTypeDef",
     "ListAssetBundleExportJobsResponseTypeDef",
@@ -1538,6 +1584,9 @@ __all__ = (
     "ListDataSourcesRequestPaginateTypeDef",
     "ListDataSourcesRequestTypeDef",
     "ListDataSourcesResponseTypeDef",
+    "ListDlpSettingsRequestPaginateTypeDef",
+    "ListDlpSettingsRequestTypeDef",
+    "ListDlpSettingsResponseTypeDef",
     "ListFlowsInputPaginateTypeDef",
     "ListFlowsInputTypeDef",
     "ListFlowsOutputTypeDef",
@@ -1570,6 +1619,9 @@ __all__ = (
     "ListKnowledgeBasesRequestPaginateTypeDef",
     "ListKnowledgeBasesRequestTypeDef",
     "ListKnowledgeBasesResponseTypeDef",
+    "ListLimitsProfilesRequestPaginateTypeDef",
+    "ListLimitsProfilesRequestTypeDef",
+    "ListLimitsProfilesResponseTypeDef",
     "ListNamespacesRequestPaginateTypeDef",
     "ListNamespacesRequestTypeDef",
     "ListNamespacesResponseTypeDef",
@@ -1647,6 +1699,9 @@ __all__ = (
     "MediaExtractionConfigurationTypeDef",
     "MemberIdArnPairTypeDef",
     "MetricComparisonComputationTypeDef",
+    "MicrosoftPurviewCredentialsTypeDef",
+    "MicrosoftPurviewProviderConfigOutputTypeDef",
+    "MicrosoftPurviewProviderConfigTypeDef",
     "MinimumLabelTypeTypeDef",
     "MissingDataConfigurationTypeDef",
     "MySqlParametersTypeDef",
@@ -1807,10 +1862,14 @@ __all__ = (
     "PredictQAResultsRequestTypeDef",
     "PredictQAResultsResponseTypeDef",
     "PrestoParametersTypeDef",
+    "ProfileLimitValueTypeDef",
     "ProgressBarOptionsTypeDef",
     "ProjectOperationOutputTypeDef",
     "ProjectOperationTypeDef",
     "ProjectOperationUnionTypeDef",
+    "ProviderConfigOutputTypeDef",
+    "ProviderConfigTypeDef",
+    "ProviderConfigUnionTypeDef",
     "PutDataSetRefreshPropertiesRequestTypeDef",
     "PutDataSetRefreshPropertiesResponseTypeDef",
     "QAResultTypeDef",
@@ -2354,6 +2413,8 @@ __all__ = (
     "UpdateAnalysisResponseTypeDef",
     "UpdateApplicationWithTokenExchangeGrantRequestTypeDef",
     "UpdateApplicationWithTokenExchangeGrantResponseTypeDef",
+    "UpdateApprovalPolicyRequestTypeDef",
+    "UpdateApprovalPolicyResponseTypeDef",
     "UpdateBrandAssignmentRequestTypeDef",
     "UpdateBrandAssignmentResponseTypeDef",
     "UpdateBrandPublishedVersionRequestTypeDef",
@@ -2382,6 +2443,8 @@ __all__ = (
     "UpdateDataSourceResponseTypeDef",
     "UpdateDefaultQBusinessApplicationRequestTypeDef",
     "UpdateDefaultQBusinessApplicationResponseTypeDef",
+    "UpdateDlpSettingRequestTypeDef",
+    "UpdateDlpSettingResponseTypeDef",
     "UpdateFlowPermissionsInputTypeDef",
     "UpdateFlowPermissionsOutputTypeDef",
     "UpdateFlowRequestTypeDef",
@@ -2404,6 +2467,8 @@ __all__ = (
     "UpdateKnowledgeBasePermissionsResponseTypeDef",
     "UpdateKnowledgeBaseRequestTypeDef",
     "UpdateKnowledgeBaseResponseTypeDef",
+    "UpdateLimitsProfileRequestTypeDef",
+    "UpdateLimitsProfileResponseTypeDef",
     "UpdateOAuthClientApplicationRequestTypeDef",
     "UpdateOAuthClientApplicationResponseTypeDef",
     "UpdatePublicSharingSettingsRequestTypeDef",
@@ -2461,6 +2526,8 @@ __all__ = (
     "UserIdentifierTypeDef",
     "UserIndexCapacityFilterTypeDef",
     "UserIndexCapacityTypeDef",
+    "UserLimitsEntryTypeDef",
+    "UserLimitsTypeDef",
     "UserNameOrEmailFilterTypeDef",
     "UserTypeDef",
     "VPCConnectionSummaryTypeDef",
@@ -2757,6 +2824,22 @@ class AppendedColumnTypeDef(TypedDict):
     NewColumnId: str
 
 
+ApplicableToOutputTypeDef = TypedDict(
+    "ApplicableToOutputTypeDef",
+    {
+        "Type": Literal["GROUP"],
+        "GroupArns": NotRequired[list[str]],
+    },
+)
+ApplicableToTypeDef = TypedDict(
+    "ApplicableToTypeDef",
+    {
+        "Type": Literal["GROUP"],
+        "GroupArns": NotRequired[Sequence[str]],
+    },
+)
+
+
 class ArcAxisDisplayRangeTypeDef(TypedDict):
     Min: NotRequired[float]
     Max: NotRequired[float]
@@ -2810,6 +2893,11 @@ class AssetBundleExportJobThemeOverridePropertiesOutputTypeDef(TypedDict):
     Properties: list[Literal["Name"]]
 
 
+class AssetBundleExportJobTopicV2OverridePropertiesOutputTypeDef(TypedDict):
+    Arn: str
+    Properties: list[AssetBundleExportJobTopicV2PropertyToOverrideType]
+
+
 class AssetBundleExportJobVPCConnectionOverridePropertiesOutputTypeDef(TypedDict):
     Arn: str
     Properties: list[AssetBundleExportJobVPCConnectionPropertyToOverrideType]
@@ -2848,6 +2936,11 @@ class AssetBundleExportJobRefreshScheduleOverridePropertiesTypeDef(TypedDict):
 class AssetBundleExportJobThemeOverridePropertiesTypeDef(TypedDict):
     Arn: str
     Properties: Sequence[Literal["Name"]]
+
+
+class AssetBundleExportJobTopicV2OverridePropertiesTypeDef(TypedDict):
+    Arn: str
+    Properties: Sequence[AssetBundleExportJobTopicV2PropertyToOverrideType]
 
 
 class AssetBundleExportJobVPCConnectionOverridePropertiesTypeDef(TypedDict):
@@ -2952,6 +3045,12 @@ class AssetBundleImportJobResourceIdOverrideConfigurationTypeDef(TypedDict):
 class AssetBundleImportJobThemeOverrideParametersTypeDef(TypedDict):
     ThemeId: str
     Name: NotRequired[str]
+
+
+class AssetBundleImportJobTopicV2OverrideParametersTypeDef(TypedDict):
+    TopicId: str
+    Name: NotRequired[str]
+    Description: NotRequired[str]
 
 
 class AssetBundleImportJobVPCConnectionOverrideParametersOutputTypeDef(TypedDict):
@@ -3124,6 +3223,19 @@ class BatchDeleteTopicReviewedAnswerRequestTypeDef(TypedDict):
     AwsAccountId: str
     TopicId: str
     AnswerIds: NotRequired[Sequence[str]]
+
+
+class BatchDescribeUserLimitsErrorTypeDef(TypedDict):
+    errorCode: str
+    message: str
+    userName: NotRequired[str]
+    namespace: NotRequired[str]
+    userArn: NotRequired[str]
+
+
+class UserLimitsEntryTypeDef(TypedDict):
+    userName: str
+    namespace: str
 
 
 class BigQueryParametersTypeDef(TypedDict):
@@ -3783,6 +3895,11 @@ class CreateIngestionRequestTypeDef(TypedDict):
     IngestionType: NotRequired[IngestionTypeType]
 
 
+class ProfileLimitValueTypeDef(TypedDict):
+    maxValue: int
+    unit: LimitUnitType
+
+
 class CreateRoleMembershipRequestTypeDef(TypedDict):
     MemberName: str
     AwsAccountId: str
@@ -4377,6 +4494,10 @@ class DeleteAnalysisRequestTypeDef(TypedDict):
     ForceDeleteWithoutRecovery: NotRequired[bool]
 
 
+class DeleteApprovalPolicyRequestTypeDef(TypedDict):
+    PolicyId: str
+
+
 class DeleteBrandAssignmentRequestTypeDef(TypedDict):
     AwsAccountId: str
 
@@ -4415,6 +4536,11 @@ class DeleteDataSourceRequestTypeDef(TypedDict):
 class DeleteDefaultQBusinessApplicationRequestTypeDef(TypedDict):
     AwsAccountId: str
     Namespace: NotRequired[str]
+
+
+class DeleteDlpSettingRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    DlpSettingId: str
 
 
 class DeleteFlowRequestTypeDef(TypedDict):
@@ -4461,6 +4587,11 @@ class DeleteIdentityPropagationConfigRequestTypeDef(TypedDict):
 class DeleteKnowledgeBaseRequestTypeDef(TypedDict):
     AwsAccountId: str
     KnowledgeBaseId: str
+
+
+class DeleteLimitsProfileRequestTypeDef(TypedDict):
+    profileId: str
+    accountId: str
 
 
 class DeleteNamespaceRequestTypeDef(TypedDict):
@@ -4618,6 +4749,10 @@ class DescribeAnalysisRequestTypeDef(TypedDict):
     AnalysisId: str
 
 
+class DescribeApprovalPolicyRequestTypeDef(TypedDict):
+    PolicyId: str
+
+
 class DescribeAssetBundleExportJobRequestTypeDef(TypedDict):
     AwsAccountId: str
     AssetBundleExportJobId: str
@@ -4727,6 +4862,11 @@ class DescribeDefaultQBusinessApplicationRequestTypeDef(TypedDict):
     Namespace: NotRequired[str]
 
 
+class DescribeDlpSettingRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    DlpSettingId: str
+
+
 class DescribeFlowRequestTypeDef(TypedDict):
     AwsAccountId: str
     FlowId: str
@@ -4832,6 +4972,11 @@ class DescribeKnowledgeBasePermissionsRequestTypeDef(TypedDict):
 class DescribeKnowledgeBaseRequestTypeDef(TypedDict):
     AwsAccountId: str
     KnowledgeBaseId: str
+
+
+class DescribeLimitsProfileRequestTypeDef(TypedDict):
+    profileId: str
+    accountId: str
 
 
 class DescribeNamespaceRequestTypeDef(TypedDict):
@@ -5014,12 +5159,30 @@ class NegativeFormatTypeDef(TypedDict):
     Suffix: NotRequired[str]
 
 
+class DlpSettingSummaryTypeDef(TypedDict):
+    DlpSettingId: str
+    Name: str
+    Arn: str
+    Status: DlpSettingStatusType
+    ProviderType: Literal["MICROSOFT_PURVIEW"]
+    CreatedAt: datetime
+    UpdatedAt: datetime
+
+
 class DonutCenterOptionsTypeDef(TypedDict):
     LabelVisibility: NotRequired[VisibilityType]
 
 
 class ListControlSelectAllOptionsTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
+
+
+class EffectiveLimitTypeDef(TypedDict):
+    resourceType: ResourceTypeType
+    limitValue: int
+    limitUnit: LimitUnitType
+    source: LimitSourceType
+    profileId: str
 
 
 ErrorInfoTypeDef = TypedDict(
@@ -5511,6 +5674,12 @@ KnowledgeBaseSummaryTypeDef = TypedDict(
 )
 
 
+class LabelActionMappingTypeDef(TypedDict):
+    LabelId: str
+    LabelName: str
+    Action: DlpActionType
+
+
 class MissingDataConfigurationTypeDef(TypedDict):
     TreatmentOption: NotRequired[MissingDataTreatmentOptionType]
 
@@ -5534,6 +5703,11 @@ class ListAgentsRequestTypeDef(TypedDict):
 
 class ListAnalysesRequestTypeDef(TypedDict):
     AwsAccountId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
+class ListApprovalPoliciesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
@@ -5586,6 +5760,12 @@ class ListDataSetsRequestTypeDef(TypedDict):
 
 
 class ListDataSourcesRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
+class ListDlpSettingsRequestTypeDef(TypedDict):
     AwsAccountId: str
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
@@ -5670,6 +5850,13 @@ class ListKnowledgeBasesRequestTypeDef(TypedDict):
     AwsAccountId: str
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+
+class ListLimitsProfilesRequestTypeDef(TypedDict):
+    accountId: str
+    resourceType: NotRequired[ResourceTypeType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 
 class ListNamespacesRequestTypeDef(TypedDict):
@@ -5909,6 +6096,10 @@ class MarginStyleTypeDef(TypedDict):
 class VideoExtractionConfigurationTypeDef(TypedDict):
     videoExtractionStatus: VideoExtractionStatusType
     videoExtractionType: NotRequired[VideoExtractionTypeType]
+
+
+class MicrosoftPurviewCredentialsTypeDef(TypedDict):
+    SecretArn: str
 
 
 class NamedEntityDefinitionMetricOutputTypeDef(TypedDict):
@@ -6940,6 +7131,22 @@ class RegisteredUserDashboardVisualEmbeddingConfigurationTypeDef(TypedDict):
     InitialDashboardVisualId: DashboardVisualIdTypeDef
 
 
+class ApprovalPolicyTypeDef(TypedDict):
+    PolicyId: str
+    PolicyArn: str
+    Name: str
+    Actions: list[Literal["SHARE"]]
+    AssetTypes: list[AssetTypeType]
+    ApplicableTo: ApplicableToOutputTypeDef
+    ApprovalGroups: list[str]
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    Description: NotRequired[str]
+
+
+ApplicableToUnionTypeDef = Union[ApplicableToTypeDef, ApplicableToOutputTypeDef]
+
+
 class ArcAxisConfigurationTypeDef(TypedDict):
     Range: NotRequired[ArcAxisDisplayRangeTypeDef]
     ReserveRange: NotRequired[int]
@@ -6961,6 +7168,7 @@ class AssetBundleCloudFormationOverridePropertyConfigurationOutputTypeDef(TypedD
     Analyses: NotRequired[list[AssetBundleExportJobAnalysisOverridePropertiesOutputTypeDef]]
     Dashboards: NotRequired[list[AssetBundleExportJobDashboardOverridePropertiesOutputTypeDef]]
     Folders: NotRequired[list[AssetBundleExportJobFolderOverridePropertiesOutputTypeDef]]
+    TopicsV2: NotRequired[list[AssetBundleExportJobTopicV2OverridePropertiesOutputTypeDef]]
 
 
 class AssetBundleCloudFormationOverridePropertyConfigurationTypeDef(TypedDict):
@@ -6979,6 +7187,7 @@ class AssetBundleCloudFormationOverridePropertyConfigurationTypeDef(TypedDict):
     Analyses: NotRequired[Sequence[AssetBundleExportJobAnalysisOverridePropertiesTypeDef]]
     Dashboards: NotRequired[Sequence[AssetBundleExportJobDashboardOverridePropertiesTypeDef]]
     Folders: NotRequired[Sequence[AssetBundleExportJobFolderOverridePropertiesTypeDef]]
+    TopicsV2: NotRequired[Sequence[AssetBundleExportJobTopicV2OverridePropertiesTypeDef]]
 
 
 class AssetBundleImportJobAnalysisOverridePermissionsOutputTypeDef(TypedDict):
@@ -7003,6 +7212,11 @@ class AssetBundleImportJobFolderOverridePermissionsOutputTypeDef(TypedDict):
 
 class AssetBundleImportJobThemeOverridePermissionsOutputTypeDef(TypedDict):
     ThemeIds: list[str]
+    Permissions: AssetBundleResourcePermissionsOutputTypeDef
+
+
+class AssetBundleImportJobTopicV2OverridePermissionsOutputTypeDef(TypedDict):
+    TopicIds: list[str]
     Permissions: AssetBundleResourcePermissionsOutputTypeDef
 
 
@@ -7032,6 +7246,11 @@ class AssetBundleImportJobFolderOverridePermissionsTypeDef(TypedDict):
 
 class AssetBundleImportJobThemeOverridePermissionsTypeDef(TypedDict):
     ThemeIds: Sequence[str]
+    Permissions: AssetBundleResourcePermissionsTypeDef
+
+
+class AssetBundleImportJobTopicV2OverridePermissionsTypeDef(TypedDict):
+    TopicIds: Sequence[str]
     Permissions: AssetBundleResourcePermissionsTypeDef
 
 
@@ -7096,6 +7315,16 @@ class AssetBundleImportJobThemeOverrideTagsOutputTypeDef(TypedDict):
 
 class AssetBundleImportJobThemeOverrideTagsTypeDef(TypedDict):
     ThemeIds: Sequence[str]
+    Tags: Sequence[TagTypeDef]
+
+
+class AssetBundleImportJobTopicV2OverrideTagsOutputTypeDef(TypedDict):
+    TopicIds: list[str]
+    Tags: list[TagTypeDef]
+
+
+class AssetBundleImportJobTopicV2OverrideTagsTypeDef(TypedDict):
+    TopicIds: Sequence[str]
     Tags: Sequence[TagTypeDef]
 
 
@@ -7420,6 +7649,13 @@ class CreateDataSourceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateDlpSettingResponseTypeDef(TypedDict):
+    Arn: str
+    DlpSettingId: str
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateFlowResponseTypeDef(TypedDict):
     Arn: str
     FlowId: str
@@ -7462,6 +7698,12 @@ class CreateKnowledgeBaseResponseTypeDef(TypedDict):
     CreationStatus: DataSetStatusType
     RequestId: str
     Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateLimitsProfileResponseTypeDef(TypedDict):
+    arn: str
+    profileId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -7655,6 +7897,13 @@ class DeleteDefaultQBusinessApplicationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DeleteDlpSettingResponseTypeDef(TypedDict):
+    Arn: str
+    DlpSettingId: str
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DeleteFlowResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
@@ -7705,6 +7954,11 @@ class DeleteKnowledgeBaseResponseTypeDef(TypedDict):
     KnowledgeBaseId: str
     RequestId: str
     Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteLimitsProfileResponseTypeDef(TypedDict):
+    arn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -8278,6 +8532,13 @@ class UpdateDefaultQBusinessApplicationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class UpdateDlpSettingResponseTypeDef(TypedDict):
+    Arn: str
+    DlpSettingId: str
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateFlowResponseTypeDef(TypedDict):
     Arn: str
     FlowId: str
@@ -8323,6 +8584,11 @@ class UpdateKnowledgeBaseResponseTypeDef(TypedDict):
     KnowledgeBaseId: str
     RequestId: str
     Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateLimitsProfileResponseTypeDef(TypedDict):
+    arn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -8476,6 +8742,12 @@ class BatchDeleteKnowledgeBaseResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class BatchDescribeUserLimitsRequestTypeDef(TypedDict):
+    accountId: str
+    users: NotRequired[Sequence[UserLimitsEntryTypeDef]]
+    resourceTypes: NotRequired[Sequence[ResourceTypeType]]
 
 
 class HistogramBinOptionsTypeDef(TypedDict):
@@ -8773,6 +9045,33 @@ class UpdateGroupResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateLimitsProfileRequestTypeDef(TypedDict):
+    accountId: str
+    profileName: str
+    resourceLimits: Mapping[ResourceTypeType, ProfileLimitValueTypeDef]
+    clientToken: str
+    description: NotRequired[str]
+
+
+class LimitsProfileTypeDef(TypedDict):
+    profileId: str
+    arn: str
+    accountId: str
+    profileName: str
+    resourceLimits: dict[ResourceTypeType, ProfileLimitValueTypeDef]
+    createdAt: datetime
+    updatedAt: datetime
+    description: NotRequired[str]
+
+
+class UpdateLimitsProfileRequestTypeDef(TypedDict):
+    profileId: str
+    accountId: str
+    profileName: NotRequired[str]
+    description: NotRequired[str]
+    resourceLimits: NotRequired[Mapping[ResourceTypeType, ProfileLimitValueTypeDef]]
 
 
 class CreateTemplateAliasResponseTypeDef(TypedDict):
@@ -9299,6 +9598,10 @@ class ListAnalysesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListApprovalPoliciesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListAssetBundleExportJobsRequestPaginateTypeDef(TypedDict):
     AwsAccountId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -9336,6 +9639,11 @@ class ListDataSetsRequestPaginateTypeDef(TypedDict):
 
 
 class ListDataSourcesRequestPaginateTypeDef(TypedDict):
+    AwsAccountId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListDlpSettingsRequestPaginateTypeDef(TypedDict):
     AwsAccountId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -9397,6 +9705,12 @@ class ListIngestionsRequestPaginateTypeDef(TypedDict):
 
 class ListKnowledgeBasesRequestPaginateTypeDef(TypedDict):
     AwsAccountId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListLimitsProfilesRequestPaginateTypeDef(TypedDict):
+    accountId: str
+    resourceType: NotRequired[ResourceTypeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -9607,9 +9921,22 @@ class DisplayFormatOptionsTypeDef(TypedDict):
     CurrencySymbol: NotRequired[str]
 
 
+class ListDlpSettingsResponseTypeDef(TypedDict):
+    DlpSettingSummaries: list[DlpSettingSummaryTypeDef]
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class DonutOptionsTypeDef(TypedDict):
     ArcOptions: NotRequired[ArcOptionsTypeDef]
     DonutCenterOptions: NotRequired[DonutCenterOptionsTypeDef]
+
+
+class UserLimitsTypeDef(TypedDict):
+    userName: str
+    namespace: str
+    effectiveLimits: list[EffectiveLimitTypeDef]
 
 
 FMKBParametersUnionTypeDef = Union[FMKBParametersTypeDef, FMKBParametersOutputTypeDef]
@@ -10159,6 +10486,18 @@ class MediaExtractionConfigurationTypeDef(TypedDict):
     videoExtractionConfiguration: NotRequired[VideoExtractionConfigurationTypeDef]
 
 
+class MicrosoftPurviewProviderConfigOutputTypeDef(TypedDict):
+    Credentials: MicrosoftPurviewCredentialsTypeDef
+    LabelActionMappings: list[LabelActionMappingTypeDef]
+    UnmappedAction: DlpActionType
+
+
+class MicrosoftPurviewProviderConfigTypeDef(TypedDict):
+    Credentials: MicrosoftPurviewCredentialsTypeDef
+    LabelActionMappings: Sequence[LabelActionMappingTypeDef]
+    UnmappedAction: DlpActionType
+
+
 class NamedEntityDefinitionOutputTypeDef(TypedDict):
     FieldName: NotRequired[str]
     PropertyName: NotRequired[str]
@@ -10688,6 +11027,47 @@ class AnonymousUserDashboardEmbeddingConfigurationTypeDef(TypedDict):
     FeatureConfigurations: NotRequired[AnonymousUserDashboardFeatureConfigurationsTypeDef]
 
 
+class CreateApprovalPolicyResponseTypeDef(TypedDict):
+    Policy: ApprovalPolicyTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeApprovalPolicyResponseTypeDef(TypedDict):
+    Policy: ApprovalPolicyTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListApprovalPoliciesResponseTypeDef(TypedDict):
+    Policies: list[ApprovalPolicyTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class UpdateApprovalPolicyResponseTypeDef(TypedDict):
+    Policy: ApprovalPolicyTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateApprovalPolicyRequestTypeDef(TypedDict):
+    PolicyId: str
+    Name: str
+    Actions: Sequence[Literal["SHARE"]]
+    AssetTypes: Sequence[AssetTypeType]
+    ApplicableTo: ApplicableToUnionTypeDef
+    ApprovalGroups: Sequence[str]
+    Description: NotRequired[str]
+
+
+class UpdateApprovalPolicyRequestTypeDef(TypedDict):
+    PolicyId: str
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    Actions: NotRequired[Sequence[Literal["SHARE"]]]
+    AssetTypes: NotRequired[Sequence[AssetTypeType]]
+    ApplicableTo: NotRequired[ApplicableToUnionTypeDef]
+    ApprovalGroups: NotRequired[Sequence[str]]
+
+
 class DescribeAssetBundleExportJobResponseTypeDef(TypedDict):
     JobStatus: AssetBundleExportJobStatusType
     DownloadUrl: str
@@ -10739,6 +11119,7 @@ class AssetBundleImportJobOverrideTagsOutputTypeDef(TypedDict):
     Analyses: NotRequired[list[AssetBundleImportJobAnalysisOverrideTagsOutputTypeDef]]
     Dashboards: NotRequired[list[AssetBundleImportJobDashboardOverrideTagsOutputTypeDef]]
     Folders: NotRequired[list[AssetBundleImportJobFolderOverrideTagsOutputTypeDef]]
+    TopicsV2: NotRequired[list[AssetBundleImportJobTopicV2OverrideTagsOutputTypeDef]]
 
 
 class AssetBundleImportJobOverrideTagsTypeDef(TypedDict):
@@ -10749,6 +11130,7 @@ class AssetBundleImportJobOverrideTagsTypeDef(TypedDict):
     Analyses: NotRequired[Sequence[AssetBundleImportJobAnalysisOverrideTagsTypeDef]]
     Dashboards: NotRequired[Sequence[AssetBundleImportJobDashboardOverrideTagsTypeDef]]
     Folders: NotRequired[Sequence[AssetBundleImportJobFolderOverrideTagsTypeDef]]
+    TopicsV2: NotRequired[Sequence[AssetBundleImportJobTopicV2OverrideTagsTypeDef]]
 
 
 class ListOAuthClientApplicationsResponseTypeDef(TypedDict):
@@ -10974,6 +11356,17 @@ class SearchDataSetsResponseTypeDef(TypedDict):
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class DescribeLimitsProfileResponseTypeDef(TypedDict):
+    profile: LimitsProfileTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListLimitsProfilesResponseTypeDef(TypedDict):
+    profiles: list[LimitsProfileTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class DestinationParameterValueConfigurationOutputTypeDef(TypedDict):
@@ -11286,6 +11679,12 @@ class TopicIRMetricTypeDef(TypedDict):
     DisplayFormat: NotRequired[DisplayFormatType]
     DisplayFormatOptions: NotRequired[DisplayFormatOptionsTypeDef]
     NamedEntity: NotRequired[NamedEntityRefTypeDef]
+
+
+class BatchDescribeUserLimitsResponseTypeDef(TypedDict):
+    userLimits: list[UserLimitsTypeDef]
+    errors: list[BatchDescribeUserLimitsErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UpdateSpaceResourcesResponseTypeDef(TypedDict):
@@ -11775,6 +12174,14 @@ KnowledgeBaseTypeDef = TypedDict(
 )
 
 
+class ProviderConfigOutputTypeDef(TypedDict):
+    MicrosoftPurview: NotRequired[MicrosoftPurviewProviderConfigOutputTypeDef]
+
+
+class ProviderConfigTypeDef(TypedDict):
+    MicrosoftPurview: NotRequired[MicrosoftPurviewProviderConfigTypeDef]
+
+
 class TopicNamedEntityOutputTypeDef(TypedDict):
     EntityName: str
     EntityDescription: NotRequired[str]
@@ -12248,6 +12655,7 @@ class AssetBundleImportJobOverridePermissionsOutputTypeDef(TypedDict):
     Analyses: NotRequired[list[AssetBundleImportJobAnalysisOverridePermissionsOutputTypeDef]]
     Dashboards: NotRequired[list[AssetBundleImportJobDashboardOverridePermissionsOutputTypeDef]]
     Folders: NotRequired[list[AssetBundleImportJobFolderOverridePermissionsOutputTypeDef]]
+    TopicsV2: NotRequired[list[AssetBundleImportJobTopicV2OverridePermissionsOutputTypeDef]]
 
 
 class AssetBundleImportJobOverridePermissionsTypeDef(TypedDict):
@@ -12257,6 +12665,7 @@ class AssetBundleImportJobOverridePermissionsTypeDef(TypedDict):
     Analyses: NotRequired[Sequence[AssetBundleImportJobAnalysisOverridePermissionsTypeDef]]
     Dashboards: NotRequired[Sequence[AssetBundleImportJobDashboardOverridePermissionsTypeDef]]
     Folders: NotRequired[Sequence[AssetBundleImportJobFolderOverridePermissionsTypeDef]]
+    TopicsV2: NotRequired[Sequence[AssetBundleImportJobTopicV2OverridePermissionsTypeDef]]
 
 
 AssetBundleImportJobOverrideTagsUnionTypeDef = Union[
@@ -12861,6 +13270,21 @@ class DescribeKnowledgeBaseResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DlpSettingDetailsTypeDef(TypedDict):
+    DlpSettingId: str
+    Name: str
+    Arn: str
+    Status: DlpSettingStatusType
+    ProviderType: Literal["MICROSOFT_PURVIEW"]
+    ProviderConfig: ProviderConfigOutputTypeDef
+    ProviderOutageAction: DlpActionType
+    CreatedAt: datetime
+    UpdatedAt: datetime
+
+
+ProviderConfigUnionTypeDef = Union[ProviderConfigTypeDef, ProviderConfigOutputTypeDef]
 
 
 class ComparisonFormatConfigurationTypeDef(TypedDict):
@@ -13645,6 +14069,33 @@ class PutDataSetRefreshPropertiesRequestTypeDef(TypedDict):
     DataSetRefreshProperties: DataSetRefreshPropertiesTypeDef
 
 
+class DescribeDlpSettingResponseTypeDef(TypedDict):
+    DlpSetting: DlpSettingDetailsTypeDef
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateDlpSettingRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    DlpSettingId: str
+    Name: str
+    ProviderType: Literal["MICROSOFT_PURVIEW"]
+    ProviderConfig: ProviderConfigUnionTypeDef
+    ProviderOutageAction: DlpActionType
+    Enabled: bool
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class UpdateDlpSettingRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    DlpSettingId: str
+    Name: NotRequired[str]
+    ProviderType: NotRequired[Literal["MICROSOFT_PURVIEW"]]
+    ProviderConfig: NotRequired[ProviderConfigUnionTypeDef]
+    ProviderOutageAction: NotRequired[DlpActionType]
+    Enabled: NotRequired[bool]
+
+
 class ComparisonConfigurationTypeDef(TypedDict):
     ComparisonMethod: NotRequired[ComparisonMethodType]
     ComparisonFormat: NotRequired[ComparisonFormatConfigurationTypeDef]
@@ -14168,6 +14619,7 @@ class AssetBundleImportJobOverrideParametersOutputTypeDef(TypedDict):
     Analyses: NotRequired[list[AssetBundleImportJobAnalysisOverrideParametersTypeDef]]
     Dashboards: NotRequired[list[AssetBundleImportJobDashboardOverrideParametersTypeDef]]
     Folders: NotRequired[list[AssetBundleImportJobFolderOverrideParametersTypeDef]]
+    TopicsV2: NotRequired[list[AssetBundleImportJobTopicV2OverrideParametersTypeDef]]
 
 
 class GaugeChartOptionsTypeDef(TypedDict):
@@ -15152,6 +15604,7 @@ class AssetBundleImportJobOverrideParametersTypeDef(TypedDict):
     Analyses: NotRequired[Sequence[AssetBundleImportJobAnalysisOverrideParametersTypeDef]]
     Dashboards: NotRequired[Sequence[AssetBundleImportJobDashboardOverrideParametersTypeDef]]
     Folders: NotRequired[Sequence[AssetBundleImportJobFolderOverrideParametersTypeDef]]
+    TopicsV2: NotRequired[Sequence[AssetBundleImportJobTopicV2OverrideParametersTypeDef]]
 
 
 class CredentialPairTypeDef(TypedDict):

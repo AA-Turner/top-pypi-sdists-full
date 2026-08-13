@@ -27,38 +27,38 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     UnixUser(
         {
-            "full_name": "string",
-            "name": "string",
             "primary_gid": 0,
+            "name": "string",
+            "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
             "id": 7,
-            "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
+            "full_name": "string",
         }
     ),
     UnixUser(
         {
-            "full_name": "",
-            "name": "nobody",
             "primary_gid": 65535,
+            "name": "nobody",
+            "svm": {"uuid": "3f479a01-2971-11eb-88e1-0050568eefd4", "name": "vs2"},
             "id": 65535,
-            "svm": {"name": "vs2", "uuid": "3f479a01-2971-11eb-88e1-0050568eefd4"},
+            "full_name": "",
         }
     ),
     UnixUser(
         {
-            "full_name": "",
-            "name": "pcuser",
             "primary_gid": 65534,
+            "name": "pcuser",
+            "svm": {"uuid": "3f479a01-2971-11eb-88e1-0050568eefd4", "name": "vs2"},
             "id": 65534,
-            "svm": {"name": "vs2", "uuid": "3f479a01-2971-11eb-88e1-0050568eefd4"},
+            "full_name": "",
         }
     ),
     UnixUser(
         {
-            "full_name": "",
-            "name": "root",
             "primary_gid": 1,
+            "name": "root",
+            "svm": {"uuid": "3f479a01-2971-11eb-88e1-0050568eefd4", "name": "vs2"},
             "id": 0,
-            "svm": {"name": "vs2", "uuid": "3f479a01-2971-11eb-88e1-0050568eefd4"},
+            "full_name": "",
         }
     ),
 ]
@@ -92,11 +92,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     UnixUser(
         {
-            "full_name": "Full User Name for user1",
-            "name": "user1",
             "primary_gid": 1,
+            "name": "user1",
+            "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
             "id": 1,
-            "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
+            "full_name": "Full User Name for user1",
         }
     )
 ]
@@ -127,11 +127,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 UnixUser(
     {
-        "full_name": "Full User Name for user1",
-        "name": "user1",
         "primary_gid": 1,
+        "name": "user1",
+        "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
         "id": 1,
-        "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
+        "full_name": "Full User Name for user1",
     }
 )
 

@@ -2,38 +2,40 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-import hashlib
+from collections.abc import Sequence
+from typing import Any, TypeVar
 
-from .allocation import Allocation, IdType
+from .allocation import Allocation
 
-
-def hash_id(id_value: IdType) -> int:
-    """Hash a string (or integer) ID into a stable positive integer."""
-
-    if not isinstance(id_value, (str, int)):
-        raise TypeError(f"id_value must be str or int, got {type(id_value)}")
-
-    if isinstance(id_value, int):
-        return id_value
-
-    # Use SHA-256 for stable, deterministic hashing across Python sessions
-    hash_bytes = hashlib.sha256(id_value.encode()).digest()
-
-    # Take first 8 bytes and convert to int, then mask to positive 63-bit
-    hash_val = int.from_bytes(hash_bytes[:8], "big") & 0x7FFFFFFFFFFFFFFF
-
-    return hash_val
+T = TypeVar("T")
 
 
-def get_pressure(allocations: tuple[Allocation, ...]) -> int:
-    """Calculate maximum memory pressure across all allocation intervals."""
-    events = [(alloc.start, alloc.size) for alloc in allocations]
-    events.extend((alloc.end, -alloc.size) for alloc in allocations)
-    events.sort()
+def ensure_unique_ids(entities: Sequence[Any], kind: str) -> None:
+    """Raise if any id repeats; id-keyed placement assumes uniqueness."""
+    seen: dict[Any, int] = {}
+    for index, entity in enumerate(entities):
+        if not hasattr(entity, "id"):
+            raise TypeError(f"Expected an entity with an id, got {type(entity)!r}")
+        if entity.id in seen:
+            raise ValueError(
+                f"{kind} ids must be unique: duplicate id {entity.id!r} "
+                f"at indices {seen[entity.id]} and {index}"
+            )
+        seen[entity.id] = index
 
-    max_pressure = current = 0
-    for _, delta in events:
-        current += delta
-        max_pressure = max(max_pressure, current)
 
-    return max_pressure
+def ensure_items(items: object, item_type: type[T], label: str) -> tuple[T, ...]:
+    """Coerce a raw sequence to a tuple, requiring every element be `item_type`."""
+    if isinstance(items, str | bytes) or not isinstance(items, Sequence):
+        raise TypeError(f"Unsupported {label} type: {type(items)!r}")
+    checked: list[T] = []
+    for item in items:
+        if not isinstance(item, item_type):
+            raise TypeError(f"Expected {item_type.__name__}, got {type(item)!r}")
+        checked.append(item)
+    return tuple(checked)
+
+
+def ensure_allocations(allocations: object) -> tuple[Allocation, ...]:
+    """Coerce a raw sequence to a tuple, requiring every element be an Allocation."""
+    return ensure_items(allocations, Allocation, "entity")

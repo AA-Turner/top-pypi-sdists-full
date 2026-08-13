@@ -42,37 +42,37 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LunMap(
         {
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643"
-                }
-            },
-            "igroup": {
-                "_links": {
-                    "self": {
-                        "href": "/api/protocols/san/igroups/40d98b2c-24c5-11e9-9ec1-005056bba643"
-                    }
-                },
-                "name": "ig1",
-                "uuid": "40d98b2c-24c5-11e9-9ec1-005056bba643",
-            },
             "lun": {
+                "uuid": "a60d9862-9bee-49a6-8162-20d2421bb1a6",
+                "name": "/vol/vol1/lun1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/luns/a60d9862-9bee-49a6-8162-20d2421bb1a6"
                     }
                 },
-                "name": "/vol/vol1/lun1",
-                "uuid": "a60d9862-9bee-49a6-8162-20d2421bb1a6",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643"
+                }
             },
             "svm": {
-                "name": "svm1",
+                "uuid": "03157e81-24c5-11e9-9ec1-005056bba643",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/03157e81-24c5-11e9-9ec1-005056bba643"
                     }
                 },
-                "uuid": "03157e81-24c5-11e9-9ec1-005056bba643",
+                "name": "svm1",
+            },
+            "igroup": {
+                "uuid": "40d98b2c-24c5-11e9-9ec1-005056bba643",
+                "name": "ig1",
+                "_links": {
+                    "self": {
+                        "href": "/api/protocols/san/igroups/40d98b2c-24c5-11e9-9ec1-005056bba643"
+                    }
+                },
             },
         }
     )
@@ -106,13 +106,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LunMap(
     {
-        "_links": {
-            "self": {
-                "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643"
-            }
-        },
         "reporting_nodes": [
             {
+                "uuid": "11a465f5-2ac0-11eb-a303-005056bb1e81",
+                "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643/reporting-nodes/11a465f5-2ac0-11eb-a303-005056bb1e81"
@@ -121,10 +118,10 @@ LunMap(
                         "href": "/cluster/nodes/11a465f5-2ac0-11eb-a303-005056bb1e81"
                     },
                 },
-                "name": "node1",
-                "uuid": "11a465f5-2ac0-11eb-a303-005056bb1e81",
             },
             {
+                "uuid": "6c7cb50f-2abf-11eb-9840-005056bbd490",
+                "name": "node2",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643/reporting-nodes/6c7cb50f-2abf-11eb-9840-005056bbd490"
@@ -133,48 +130,51 @@ LunMap(
                         "href": "/cluster/nodes/6c7cb50f-2abf-11eb-9840-005056bbd490"
                     },
                 },
-                "name": "node2",
-                "uuid": "6c7cb50f-2abf-11eb-9840-005056bbd490",
             },
         ],
-        "logical_unit_number": 0,
-        "igroup": {
-            "protocol": "mixed",
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/igroups/40d98b2c-24c5-11e9-9ec1-005056bba643"
-                }
-            },
-            "name": "ig1",
-            "os_type": "linux",
-            "replicated": False,
-            "uuid": "40d98b2c-24c5-11e9-9ec1-005056bba643",
-        },
         "lun": {
+            "uuid": "a60d9862-9bee-49a6-8162-20d2421bb1a6",
+            "name": "/vol/vol1/lun1",
             "_links": {
                 "self": {
                     "href": "/api/storage/luns/a60d9862-9bee-49a6-8162-20d2421bb1a6"
                 }
             },
-            "name": "/vol/vol1/lun1",
-            "smbc": {"replicated": False},
             "node": {
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/7d8607ea-24c1-11e9-9ec1-005056bba643"
                     }
                 },
-                "name": "node1",
                 "uuid": "7d8607ea-24c1-11e9-9ec1-005056bba643",
+                "name": "node1",
             },
-            "uuid": "a60d9862-9bee-49a6-8162-20d2421bb1a6",
+            "smbc": {"replicated": False},
+        },
+        "_links": {
+            "self": {
+                "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643"
+            }
         },
         "svm": {
-            "name": "svm1",
+            "uuid": "03157e81-24c5-11e9-9ec1-005056bba643",
             "_links": {
                 "self": {"href": "/api/svm/svms/03157e81-24c5-11e9-9ec1-005056bba643"}
             },
-            "uuid": "03157e81-24c5-11e9-9ec1-005056bba643",
+            "name": "svm1",
+        },
+        "logical_unit_number": 0,
+        "igroup": {
+            "uuid": "40d98b2c-24c5-11e9-9ec1-005056bba643",
+            "protocol": "mixed",
+            "name": "ig1",
+            "os_type": "linux",
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/igroups/40d98b2c-24c5-11e9-9ec1-005056bba643"
+                }
+            },
+            "replicated": False,
         },
     }
 )
@@ -259,6 +259,14 @@ Example: 1"""
             )
     r""" The LUN to which the initiator group is mapped. Required in POST by supplying either the `lun.uuid`, `lun.name`, or both."""
 
+    replicated = marshmallow_fields.Boolean(
+        data_key="replicated",
+        allow_none=True,
+    )
+    r""" The `replicated` property only applies when the initiator group is replicated and the mapped LUN is a member of a SnapMirror Synchronous relationship. When these conditions are met, `replicated` defaults to _true_, and maps are replicated. The `replicated` property can be PATCHed to _false_ to disable this replication for a LUN map.
+When set to _false_, the LUN map on the remote cluster is deleted. When set to _true_, the LUN map on the remote cluster is created.
+This property is closely related to the `local_delete_only` query parameter that can be used during DELETE. The properties achieve the same result, with the difference being the cluster where the map is deleted. PATCH the `replicated` property to _false_ to keep the local map and delete the remote map. DELETE with `local_delete_only` set to _true_ to delete the local map and keep the remote map."""
+
     reporting_nodes = marshmallow_fields.List(
                 marshmallow_fields.Nested(
                     lambda: lazy_import_schema("netapp_ontap.resources.lun_map_reporting_node", "LunMapReportingNodeSchema"),
@@ -289,6 +297,7 @@ For further information, see [`DOC /protocols/san/lun-maps/{lun.uuid}/{igroup.uu
         "igroup",
         "logical_unit_number",
         "lun",
+        "replicated",
         "reporting_nodes.links",
         "reporting_nodes.name",
         "reporting_nodes.uuid",
@@ -296,13 +305,14 @@ For further information, see [`DOC /protocols/san/lun-maps/{lun.uuid}/{igroup.uu
         "svm.name",
         "svm.uuid",
     ]
-    """links,igroup,logical_unit_number,lun,reporting_nodes.links,reporting_nodes.name,reporting_nodes.uuid,svm.links,svm.name,svm.uuid,"""
+    """links,igroup,logical_unit_number,lun,replicated,reporting_nodes.links,reporting_nodes.name,reporting_nodes.uuid,svm.links,svm.name,svm.uuid,"""
 
     patchable_fields = [
         "igroup",
         "lun",
+        "replicated",
     ]
-    """igroup,lun,"""
+    """igroup,lun,replicated,"""
 
     postable_fields = [
         "igroup",
@@ -366,6 +376,30 @@ class LunMap(Resource):
 
     fast_get_collection.__func__.__doc__ += "\n\n---\n" + inspect.cleandoc(Resource._get_collection.__doc__)
 
+    @classmethod
+    def patch_collection(
+        cls,
+        body: dict,
+        *args,
+        records: Iterable["LunMap"] = None,
+        poll: bool = True,
+        poll_interval: Optional[int] = None,
+        poll_timeout: Optional[int] = None,
+        connection: HostConnection = None,
+        **kwargs
+    ) -> NetAppResponse:
+        r"""Modifies a LUN map.
+### Related ONTAP commands
+* `lun mapping modify`
+### Learn more
+* [`DOC /protocols/san/lun-maps`](#docs-SAN-protocols_san_lun-maps)
+"""
+        return super()._patch_collection(
+            body, *args, records=records, poll=poll, poll_interval=poll_interval,
+            poll_timeout=poll_timeout, connection=connection, **kwargs
+        )
+
+    patch_collection.__func__.__doc__ += "\n\n---\n" + inspect.cleandoc(Resource._patch_collection.__doc__)
 
     @classmethod
     def post_collection(
@@ -475,6 +509,26 @@ If not specified in POST, the following default property values are assigned.
 
     post.__doc__ += "\n\n---\n" + inspect.cleandoc(Resource._post.__doc__)
 
+    def patch(
+        self,
+        hydrate: bool = False,
+        poll: bool = True,
+        poll_interval: Optional[int] = None,
+        poll_timeout: Optional[int] = None,
+        **kwargs
+    ) -> NetAppResponse:
+        r"""Modifies a LUN map.
+### Related ONTAP commands
+* `lun mapping modify`
+### Learn more
+* [`DOC /protocols/san/lun-maps`](#docs-SAN-protocols_san_lun-maps)
+"""
+        return super()._patch(
+            hydrate=hydrate, poll=poll, poll_interval=poll_interval,
+            poll_timeout=poll_timeout, **kwargs
+        )
+
+    patch.__doc__ += "\n\n---\n" + inspect.cleandoc(Resource._patch.__doc__)
 
     def delete(
         self,

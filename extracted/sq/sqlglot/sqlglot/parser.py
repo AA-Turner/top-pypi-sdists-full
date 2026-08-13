@@ -6198,14 +6198,18 @@ class Parser:
 
             self._retreat(index)
 
+        unit_index = self._index
         if interval_span_units_omitted:
             unit = None
         else:
-            unit = self._parse_function() if parse_function_unit else None
-            if not unit and (
+            # Only attempt to parse a unit if the current token can actually be one, so that a
+            # trailing operator isn't swallowed, e.g. INTERVAL '1 day' AND (x)
+            is_unit = self._curr is not None and (
                 self._curr.token_type == TokenType.VAR
                 or self._curr.text.upper() in self.dialect.VALID_INTERVAL_UNITS
-            ):
+            )
+            unit = self._parse_function() if parse_function_unit and is_unit else None
+            if not unit and is_unit:
                 unit = self._parse_var(any_token=True, upper=True)
 
         # Most dialects support, e.g., the form INTERVAL '5' day, thus we try to parse
@@ -6220,7 +6224,7 @@ class Parser:
             if parts and unit:
                 # Unconsume the eagerly-parsed unit, since the real unit was part of the string
                 unit = None
-                self._retreat(self._index - 1)
+                self._retreat(unit_index)
 
             if len(parts) == 1:
                 this = exp.Literal.string(parts[0][0])
@@ -7173,6 +7177,14 @@ class Parser:
     def _parse_function_args(self, alias: bool = False) -> list[exp.Expr]:
         return self._parse_csv(lambda: self._parse_lambda(alias=alias))
 
+    def _parse_connector_function(self, connector: t.Callable[..., exp.Condition]) -> exp.Paren:
+        args = self._parse_function_args(alias=False)
+        if not args:
+            self.raise_error("Expected at least one argument")
+
+        # Wrapped so the connector keeps its precedence in the parent context
+        return exp.Paren(this=connector(*args, copy=False))
+
     def _parse_function_call(
         self,
         functions: dict[str, t.Callable] | None = None,
@@ -7499,10 +7511,18 @@ class Parser:
         if (not kind and self._match(TokenType.ALIAS)) or self._match_texts(
             ("ALIAS", "MATERIALIZED")
         ):
+            # Match storage before _parse_types so STORED is not treated as a data type
+            # (needed for typeless columns, e.g. SQLite `b AS (a * 2) STORED`).
             persisted = self._prev.text.upper() == "MATERIALIZED"
+            expression = self._parse_disjunction()
+            if not persisted:
+                if self._match_text_seq("PERSISTED"):
+                    persisted = True
+                elif self._match_texts(("STORED", "VIRTUAL")):
+                    persisted = self._prev.text.upper() == "STORED"
             constraint_kind = exp.ComputedColumnConstraint(
-                this=self._parse_disjunction(),
-                persisted=persisted or self._match_text_seq("PERSISTED"),
+                this=expression,
+                persisted=persisted,
                 data_type=exp.Var(this="AUTO")
                 if self._match_text_seq("AUTO")
                 else self._parse_types(),

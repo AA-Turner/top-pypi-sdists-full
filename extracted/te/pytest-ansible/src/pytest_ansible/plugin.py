@@ -36,7 +36,12 @@ from pytest_ansible.fixtures import (
 from pytest_ansible.has_version import has_ansible_v219
 from pytest_ansible.host_manager.utils import get_host_manager
 
-from .molecule import HAS_MOLECULE, MoleculeFile, MoleculeScenario
+from .molecule import (
+    HAS_MOLECULE,
+    MoleculeFile,
+    MoleculeScenario,
+    warn_molecule_deprecated,
+)
 from .units import inject, inject_only
 
 
@@ -112,17 +117,22 @@ def _load_scenarios(config: pytest.Config) -> None:
 
 
 def pytest_load_initial_conftests(
-    early_config: pytest.Config,  # noqa: ARG001
-    parser: pytest.Parser,  # noqa: ARG001
     args: list[str],
 ) -> None:
-    """Detect deprecated --connection usage and warn.
+    """Detect deprecated --connection / --molecule usage and warn.
 
     Args:
-        early_config: pytest.Config (unused)
-        parser: pytest.Parser (unused)
         args: Combined list of CLI args and addopts values
     """
+    molecule_cli_options = (
+        "--molecule",
+        "--molecule_unavailable_driver",
+        "--molecule-unavailable-driver",
+        "--molecule_base_config",
+        "--molecule-base-config",
+        "--skip_no_git_change",
+        "--skip-no-git-change",
+    )
     for arg in args:
         if arg == "--connection" or arg.startswith("--connection="):
             warnings.warn(
@@ -133,6 +143,12 @@ def pytest_load_initial_conftests(
                 DeprecationWarning,
                 stacklevel=1,
             )
+            break
+
+    for arg in args:
+        option = arg.split("=", maxsplit=1)[0]
+        if option in molecule_cli_options:
+            warn_molecule_deprecated(stacklevel=1)
             break
 
 
@@ -257,25 +273,34 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--molecule",
         action="store_true",
         default=False,
-        help="Enable support for running discovered molecule scenarios from pytest.",
+        help=(
+            "DEPRECATED: Enable support for running discovered molecule scenarios "
+            "from pytest. Use `molecule test --all` instead."
+        ),
     )
     group.addoption(
         "--molecule_unavailable_driver",
         action="store",
         default=None,
-        help="What marker to add to molecule scenarios when driver is ",
+        help=("DEPRECATED: What marker to add to molecule scenarios when driver is unavailable."),
     )
     group.addoption(
         "--molecule_base_config",
         action="store",
         default=None,
-        help="Path to the molecule base config file. The value of this option is ",
+        help=(
+            "DEPRECATED: Path to the molecule base config file. The value of this "
+            "option is passed to molecule."
+        ),
     )
     group.addoption(
         "--skip_no_git_change",
         action="store",
         default=None,
-        help="Commit to use as a reference for this test. If the role wasn't",
+        help=(
+            "DEPRECATED: Commit to use as a reference for this test. If the role "
+            "wasn't changed, the scenario is skipped."
+        ),
     )
     # Add github marker to --help
     parser.addini("ansible", "Ansible integration", "args")
@@ -330,6 +355,7 @@ def pytest_collect_file(
         return None
     if not parent.config.option.molecule:
         return None
+    warn_molecule_deprecated()
     if not HAS_MOLECULE:  # pragma: no cover
         pytest.exit(
             f"molecule not installed or found, unable to collect test {file_path}",
@@ -398,11 +424,12 @@ def pytest_generate_tests(metafunc):  # type: ignore[no-untyped-def]  # noqa: AN
             raise pytest.UsageError(exception)  # noqa: B904
         groups = hosts.options["inventory_manager"].list_groups()
         extra_groups = hosts.get_extra_inventory_groups()
-        # Return the group name as a string
-        metafunc.parametrize("ansible_group", iter(hosts[g] for g in groups))
-        metafunc.parametrize("ansible_group", iter(hosts[g] for g in extra_groups))
+        # Parametrize once (pytest rejects duplicate fixture names); drop overlaps
+        all_groups = list(dict.fromkeys([*groups, *extra_groups]))
+        metafunc.parametrize("ansible_group", iter(hosts[g] for g in all_groups))
 
     if "molecule_scenario" in metafunc.fixturenames:
+        warn_molecule_deprecated()
         if not HAS_MOLECULE:
             pytest.exit("molecule not installed or found.")
 
@@ -424,19 +451,22 @@ class PyTestAnsiblePlugin:
         """Return the version of ansible."""
         return f"ansible: {ansible.__version__}"
 
-    def pytest_collection_modifyitems(self, session, config, items):  # type: ignore[no-untyped-def]  # noqa: ANN001, ANN201, ARG002
+    def pytest_collection_modifyitems(self, config, items):  # type: ignore[no-untyped-def]  # noqa: ANN001, ANN201
         """Validate --ansible-* parameters."""
-        uses_ansible_fixtures = False
+        if self._any_item_uses_ansible_fixtures(items):
+            self.assert_required_ansible_parameters(config)  # type: ignore[no-untyped-call]
+
+    @staticmethod
+    def _any_item_uses_ansible_fixtures(items) -> bool:  # type: ignore[no-untyped-def]  # noqa: ANN001
+        """Return True if any collected item requests one of OUR_FIXTURES."""
         for item in items:
             if not hasattr(item, "fixturenames"):
                 continue
 
             for fixture_name in item.fixturenames:
                 if fixture_name in OUR_FIXTURES:
-                    uses_ansible_fixtures = True
-                    break
+                    return True
 
-                # ignore any normal fixtures that have definitions to avoid miss activations
                 if (
                     hasattr(item, "_fixtureinfo")
                     and hasattr(item._fixtureinfo, "name2fixturedefs")  # noqa: SLF001
@@ -444,15 +474,12 @@ class PyTestAnsiblePlugin:
                 ):
                     continue
                 if fixture_name == "request":
-                    continue  # reserved name, from pytest
+                    continue
                 logger.error(
                     "Found %s fixture which seem to have no definition.",
                     fixture_name,
                 )
-
-        if uses_ansible_fixtures:
-            # assert required --ansible-* parameters were used
-            self.assert_required_ansible_parameters(config)  # type: ignore[no-untyped-call]
+        return False
 
     def _load_ansible_config(self, config):  # type: ignore[no-untyped-def]  # noqa: ANN001, ANN202
         """Load ansible configuration from command-line.

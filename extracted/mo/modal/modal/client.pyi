@@ -31,9 +31,10 @@ class _Client:
     _snapshotted: bool
     _connection_manager: typing.Optional[modal._utils.grpc_utils.ConnectionManager]
     client_type: int
+    server_url: str
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.5.3"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.5.4"
     ):
         """mdmd:hidden
         The Modal client object is not intended to be instantiated directly by users.
@@ -197,9 +198,10 @@ class Client:
     _snapshotted: bool
     _connection_manager: typing.Optional[modal._utils.grpc_utils.ConnectionManager]
     client_type: int
+    server_url: str
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.5.3"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.5.4"
     ):
         """mdmd:hidden
         The Modal client object is not intended to be instantiated directly by users.

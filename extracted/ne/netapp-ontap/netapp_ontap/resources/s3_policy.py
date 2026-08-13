@@ -30,48 +30,48 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3Policy(
         {
-            "name": "Policy1",
             "comment": "S3 policy.",
+            "name": "Policy1",
+            "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
             "statements": [
                 {
-                    "effect": "allow",
-                    "index": 0,
                     "resources": ["bucket1", "bucket1/*"],
                     "actions": ["*"],
                     "sid": "FullAccessToBucket1",
+                    "index": 0,
+                    "effect": "allow",
                 },
                 {
-                    "effect": "deny",
-                    "index": 1,
                     "resources": ["*"],
                     "actions": ["DeleteObject"],
                     "sid": "DenyDeleteObjectAccessToAllResources",
+                    "index": 1,
+                    "effect": "deny",
                 },
             ],
-            "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
         }
     ),
     S3Policy(
         {
-            "name": "Policy2",
             "comment": "S3 policy 2.",
+            "name": "Policy2",
+            "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
             "statements": [
                 {
-                    "effect": "allow",
-                    "index": 3,
                     "resources": ["*"],
                     "actions": ["GetObject"],
                     "sid": "AllowGetObjectAccessToAllResources",
+                    "index": 3,
+                    "effect": "allow",
                 },
                 {
-                    "effect": "deny",
-                    "index": 3,
                     "resources": ["*"],
                     "actions": ["*"],
                     "sid": "DenyAccessToAllResources",
+                    "index": 3,
+                    "effect": "deny",
                 },
             ],
-            "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
         }
     ),
 ]
@@ -98,12 +98,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Policy(
     {
-        "name": "Policy1",
         "comment": "S3 policy.",
+        "name": "Policy1",
+        "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
         "statements": [
             {
-                "effect": "deny",
-                "index": 0,
                 "resources": ["*"],
                 "actions": [
                     "GetObject",
@@ -120,9 +119,10 @@ S3Policy(
                     "PutBucketVersioning",
                 ],
                 "sid": "DenyAccessToAllResources",
+                "index": 0,
+                "effect": "deny",
             }
         ],
-        "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
     }
 )
 
@@ -158,18 +158,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Policy(
     {
-        "name": "Policy1",
         "comment": "S3 policy.",
+        "name": "Policy1",
+        "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
         "statements": [
             {
-                "effect": "allow",
-                "index": 5,
                 "resources": ["*"],
                 "actions": ["ListBucket", "ListMyBuckets"],
                 "sid": "AllowListAccessToAllResources",
+                "index": 5,
+                "effect": "allow",
             }
         ],
-        "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
     }
 )
 

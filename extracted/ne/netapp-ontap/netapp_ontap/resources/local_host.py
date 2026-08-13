@@ -27,43 +27,43 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LocalHost(
         {
-            "_links": {
-                "self": {
-                    "href": "/api/name-services/local-hosts/6cdf045c-87ae-11eb-a56a-0050568e0287/1.1.1.1"
-                }
-            },
             "owner": {
-                "name": "svm1",
+                "uuid": "6cdf045c-87ae-11eb-a56a-0050568e0287",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/6cdf045c-87ae-11eb-a56a-0050568e0287"
                     }
                 },
-                "uuid": "6cdf045c-87ae-11eb-a56a-0050568e0287",
+                "name": "svm1",
             },
-            "aliases": ["host1.sales.foo.com", "host2.sakes.foo.com"],
-            "address": "1.1.1.1",
             "hostname": "host.sales.foo.com",
+            "_links": {
+                "self": {
+                    "href": "/api/name-services/local-hosts/6cdf045c-87ae-11eb-a56a-0050568e0287/1.1.1.1"
+                }
+            },
+            "address": "1.1.1.1",
+            "aliases": ["host1.sales.foo.com", "host2.sakes.foo.com"],
         }
     ),
     LocalHost(
         {
-            "_links": {
-                "self": {
-                    "href": "/api/name-services/local-hosts/9d080552-7bff-11eb-a56a-0050568e0287/2.2.2.2"
-                }
-            },
             "owner": {
-                "name": "svm2",
+                "uuid": "9d080552-7bff-11eb-a56a-0050568e0287",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/9d080552-7bff-11eb-a56a-0050568e0287"
                     }
                 },
-                "uuid": "9d080552-7bff-11eb-a56a-0050568e0287",
+                "name": "svm2",
+            },
+            "hostname": "samplehost2",
+            "_links": {
+                "self": {
+                    "href": "/api/name-services/local-hosts/9d080552-7bff-11eb-a56a-0050568e0287/2.2.2.2"
+                }
             },
             "address": "2.2.2.2",
-            "hostname": "samplehost2",
         }
     ),
 ]
@@ -94,21 +94,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LocalHost(
     {
+        "owner": {
+            "uuid": "9d080552-7bff-11eb-a56a-0050568e0287",
+            "_links": {
+                "self": {"href": "/api/svm/svms/9d080552-7bff-11eb-a56a-0050568e0287"}
+            },
+            "name": "svm1",
+        },
+        "hostname": "samplehost3",
         "_links": {
             "self": {
                 "href": "/api/name-services/local-hosts/9d080552-7bff-11eb-a56a-0050568e0287/3.3.3.3"
             }
         },
-        "owner": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/9d080552-7bff-11eb-a56a-0050568e0287"}
-            },
-            "uuid": "9d080552-7bff-11eb-a56a-0050568e0287",
-        },
-        "aliases": ["host1.sales.foo.com", "host2.sakes.foo.com"],
         "address": "3.3.3.3",
-        "hostname": "samplehost3",
+        "aliases": ["host1.sales.foo.com", "host2.sakes.foo.com"],
     }
 )
 

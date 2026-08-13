@@ -24,85 +24,85 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3Bucket(
         {
+            "uuid": "527812ab-7c6d-11e9-97e8-0050568ea123",
             "volume": {
-                "name": "fg_oss_1558514455",
                 "uuid": "51276f5f-7c6d-11e9-97e8-0050568ea123",
-            },
-            "name": "bucket-2",
-            "size": 107374182400,
-            "qos_policy": {
-                "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
-                "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
+                "name": "fg_oss_1558514455",
             },
             "logical_used_size": 157286400,
             "comment": "S3 bucket.",
-            "uuid": "527812ab-7c6d-11e9-97e8-0050568ea123",
+            "size": 107374182400,
+            "name": "bucket-2",
+            "svm": {"uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123", "name": "vs1"},
             "encryption": {"enabled": False},
-            "svm": {"name": "vs1", "uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123"},
+            "qos_policy": {
+                "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
+                "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
+            },
         }
     ),
     S3Bucket(
         {
+            "uuid": "a8234aec-7e06-11e9-97e8-0050568ea123",
             "volume": {
-                "name": "fg_oss_1558690256",
                 "uuid": "a36a1ea7-7e06-11e9-97e8-0050568ea123",
-            },
-            "name": "bucket-1",
-            "size": 107374182400,
-            "qos_policy": {
-                "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
-                "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
+                "name": "fg_oss_1558690256",
             },
             "logical_used_size": 0,
             "comment": "bucket2",
-            "uuid": "a8234aec-7e06-11e9-97e8-0050568ea123",
+            "size": 107374182400,
+            "name": "bucket-1",
+            "svm": {"uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123", "name": "vs1"},
             "encryption": {"enabled": False},
-            "svm": {"name": "vs1", "uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123"},
+            "qos_policy": {
+                "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
+                "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
+            },
         }
     ),
     S3Bucket(
         {
+            "uuid": "19283b75-7ae2-11e9-8abe-0050568ea123",
             "volume": {
-                "name": "fg_oss_1558690257",
                 "uuid": "a46a1ea7-7e06-11e9-97e8-0050568ea123",
+                "name": "fg_oss_1558690257",
             },
-            "name": "bucket-3",
-            "size": 107374182400,
-            "qos_policy": {
-                "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
-                "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
-            },
+            "logical_used_size": 1075838976,
             "policy": {
                 "statements": [
                     {
-                        "effect": "allow",
                         "resources": ["bucket-3", "bucket-3/*"],
                         "actions": ["*"],
-                        "principals": ["Alice"],
                         "sid": "fullAccessForAliceToBucket",
+                        "effect": "allow",
                         "conditions": [
-                            {"source_ips": ["1.1.1.1/10"], "operator": "ip_address"}
+                            {"operator": "ip_address", "source_ips": ["1.1.1.1/10"]}
                         ],
+                        "principals": ["Alice"],
                     }
                 ]
             },
-            "logical_used_size": 1075838976,
-            "comment": "bucket3",
-            "uuid": "19283b75-7ae2-11e9-8abe-0050568ea123",
-            "encryption": {"enabled": False},
             "cors": {
                 "rules": [
                     {
-                        "allowed_methods": ["PUT", "DELETE"],
-                        "max_age_seconds": 1024,
                         "allowed_headers": ["x-amz-request-id"],
-                        "id": "string",
-                        "allowed_origins": ["http://www.example.com"],
+                        "allowed_methods": ["PUT", "DELETE"],
                         "expose_headers": ["http://www.example.com"],
+                        "allowed_origins": ["http://www.example.com"],
+                        "max_age_seconds": 1024,
+                        "id": "string",
                     }
                 ]
             },
-            "svm": {"name": "vs2", "uuid": "ee30eb2d-7ae1-11e9-8abe-0050568ea123"},
+            "comment": "bucket3",
+            "size": 107374182400,
+            "name": "bucket-3",
+            "svm": {"uuid": "ee30eb2d-7ae1-11e9-8abe-0050568ea123", "name": "vs2"},
+            "encryption": {"enabled": False},
+            "qos_policy": {
+                "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
+                "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
+            },
         }
     ),
 ]
@@ -128,26 +128,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3Bucket(
         {
-            "name": "bb1",
-            "size": 107374182400,
             "uuid": "754389d0-7e13-11e9-bfdc-0050568ea123",
-            "svm": {"name": "vs1", "uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123"},
+            "size": 107374182400,
+            "name": "bb1",
+            "svm": {"uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123", "name": "vs1"},
         }
     ),
     S3Bucket(
         {
-            "name": "bb2",
-            "size": 107374182400,
             "uuid": "19283b75-7ae2-11e9-8abe-0050568ea123",
-            "svm": {"name": "vs2", "uuid": "ee30eb2d-7ae1-11e9-8abe-0050568ea123"},
+            "size": 107374182400,
+            "name": "bb2",
+            "svm": {"uuid": "ee30eb2d-7ae1-11e9-8abe-0050568ea123", "name": "vs2"},
         }
     ),
     S3Bucket(
         {
-            "name": "bucket-1",
-            "size": 107374182400,
             "uuid": "a8234aec-7e06-11e9-97e8-0050568ea123",
-            "svm": {"name": "vs1", "uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123"},
+            "size": 107374182400,
+            "name": "bucket-1",
+            "svm": {"uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123", "name": "vs1"},
         }
     ),
 ]
@@ -173,16 +173,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3Bucket(
         {
-            "name": "bb2",
             "uuid": "087d940e-7e15-11e9-bfdc-0050568ea123",
-            "svm": {"name": "vs1", "uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123"},
+            "name": "bb2",
+            "svm": {"uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123", "name": "vs1"},
         }
     ),
     S3Bucket(
         {
-            "name": "bb2",
             "uuid": "19283b75-7ae2-11e9-8abe-0050568ea123",
-            "svm": {"name": "vs2", "uuid": "ee30eb2d-7ae1-11e9-8abe-0050568ea123"},
+            "name": "bb2",
+            "svm": {"uuid": "ee30eb2d-7ae1-11e9-8abe-0050568ea123", "name": "vs2"},
         }
     ),
 ]
@@ -212,21 +212,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Bucket(
     {
+        "uuid": "527812ab-7c6d-11e9-97e8-0050568ea123",
         "volume": {
-            "name": "fg_oss_1558514455",
             "uuid": "51276f5f-7c6d-11e9-97e8-0050568ea123",
-        },
-        "name": "bucket-2",
-        "size": 107374182400,
-        "qos_policy": {
-            "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
-            "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
+            "name": "fg_oss_1558514455",
         },
         "logical_used_size": 157286400,
         "comment": "S3 bucket.",
-        "uuid": "527812ab-7c6d-11e9-97e8-0050568ea123",
+        "size": 107374182400,
+        "name": "bucket-2",
+        "svm": {"uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123", "name": "vs1"},
         "encryption": {"enabled": False},
-        "svm": {"name": "vs1", "uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123"},
+        "qos_policy": {
+            "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
+            "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
+        },
     }
 )
 
@@ -257,7 +257,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 <label for="example4_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example4_result" class="try_it_out_content">
 ```
-S3Bucket({"name": "bucket-3", "comment": "S3 bucket."})
+S3Bucket({"comment": "S3 bucket.", "name": "bucket-3"})
 
 ```
 </div>
@@ -290,7 +290,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 <label for="example5_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example5_result" class="try_it_out_content">
 ```
-S3Bucket({"name": "bucket-3", "comment": "S3 bucket."})
+S3Bucket({"comment": "S3 bucket.", "name": "bucket-3"})
 
 ```
 </div>
@@ -349,7 +349,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 <label for="example6_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example6_result" class="try_it_out_content">
 ```
-S3Bucket({"name": "bucket-3", "comment": "S3 bucket."})
+S3Bucket({"comment": "S3 bucket.", "name": "bucket-3"})
 
 ```
 </div>
@@ -390,7 +390,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example7_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example7_result" class="try_it_out_content">
 ```
-S3Bucket({"name": "bucket-3", "comment": "S3 bucket."})
+S3Bucket({"comment": "S3 bucket.", "name": "bucket-3"})
 
 ```
 </div>
@@ -433,7 +433,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 <label for="example8_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example8_result" class="try_it_out_content">
 ```
-S3Bucket({"name": "bucket-4", "comment": "S3 bucket."})
+S3Bucket({"comment": "S3 bucket.", "name": "bucket-4"})
 
 ```
 </div>
@@ -464,12 +464,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 ```
 S3Bucket(
     {
-        "name": "bucket-7",
         "snapshot_policy": {
-            "name": "default-1weekly",
             "uuid": "f9c5f090-4ac8-11ef-ba24-005056a7ceb6",
+            "name": "default-1weekly",
         },
         "comment": "S3 snapshot policy bucket.",
+        "name": "bucket-7",
         "svm": {"uuid": "8c38f10b-4871-11ef-aab5-005056a7ceb6"},
     }
 )
@@ -1080,6 +1080,7 @@ class S3Bucket(Resource):
 - "qos_policy" can be specified if a bucket needs to be attached to a QoS group policy during creation time.
 - "audit_event_selector" can be specified if a bucket needs to be specify access and permission type for auditing.
 - A CORS configuration can be specified along with bucket creation.
+- If no optional size parameter is provided, the system will attempt to provision a bucket with a default size of 800GB. If there is not enough storage space available, a smaller bucket size is tried until the minimum bucket size limit of 100GB is reached.
 </personalities>
 <personalities supports=aiml>
 ### Important notes
@@ -1088,6 +1089,7 @@ class S3Bucket(Resource):
 - "qos_policy" can be specified if a bucket needs to be attached to a QoS group policy during creation time.
 - "audit_event_selector" can be specified if a bucket needs to be specify access and permission type for auditing.
 - A CORS configuration can be specified along with bucket creation.
+- If no optional size parameter is provided, the system will attempt to provision a bucket with a default size of 1TB * number of nodes. If there is not enough storage space available, the request will fail.
 </personalities>
 ### Required properties
 * `svm.uuid or svm.name` - Existing SVM in which to create the bucket configuration.
@@ -1111,7 +1113,7 @@ class S3Bucket(Resource):
 * `snapshot_policy` - Snapshot policy for the bucket.
 * `is_nas_path_mutable` - Specifies whether the NAS bucket mapping with a NAS volume can change according to the changes in the NAS volume junction-path due to volume operations like mount and unmount.
 ### Default property values
-* `size` - 800MB
+* `size` - 800GB
 * `comment` - ""
 * `aggregates` - No default value.
 * `constituents_per_aggregate` - _4_ , if an aggregates list is specified. Otherwise, no default value.
@@ -1140,7 +1142,7 @@ class S3Bucket(Resource):
 * `snapshot_policy` - Snapshot policy for the bucket.
 * `is_nas_path_mutable` - Specifies whether the NAS bucket mapping with a NAS volume can change according to the changes in the NAS volume junction-path due to volume operations like mount and unmount.
 ### Default property values
-* `size` - 800MB
+* `size` - 1TB * number of nodes
 * `comment` - ""
 * `policy.statements.actions` - GetObject, PutObject, DeleteObject, ListBucket, ListBucketMultipartUploads, ListMultipartUploadParts, GetObjectTagging, PutObjectTagging, DeleteObjectTagging, GetBucketVersioning, PutBucketVersioning.
 * `policy.statements.principals` - all S3 users and groups in the SVM or the NAS groups.
@@ -1244,6 +1246,7 @@ class S3Bucket(Resource):
 - "qos_policy" can be specified if a bucket needs to be attached to a QoS group policy during creation time.
 - "audit_event_selector" can be specified if a bucket needs to be specify access and permission type for auditing.
 - A CORS configuration can be specified along with bucket creation.
+- If no optional size parameter is provided, the system will attempt to provision a bucket with a default size of 800GB. If there is not enough storage space available, a smaller bucket size is tried until the minimum bucket size limit of 100GB is reached.
 </personalities>
 <personalities supports=aiml>
 ### Important notes
@@ -1252,6 +1255,7 @@ class S3Bucket(Resource):
 - "qos_policy" can be specified if a bucket needs to be attached to a QoS group policy during creation time.
 - "audit_event_selector" can be specified if a bucket needs to be specify access and permission type for auditing.
 - A CORS configuration can be specified along with bucket creation.
+- If no optional size parameter is provided, the system will attempt to provision a bucket with a default size of 1TB * number of nodes. If there is not enough storage space available, the request will fail.
 </personalities>
 ### Required properties
 * `svm.uuid or svm.name` - Existing SVM in which to create the bucket configuration.
@@ -1275,7 +1279,7 @@ class S3Bucket(Resource):
 * `snapshot_policy` - Snapshot policy for the bucket.
 * `is_nas_path_mutable` - Specifies whether the NAS bucket mapping with a NAS volume can change according to the changes in the NAS volume junction-path due to volume operations like mount and unmount.
 ### Default property values
-* `size` - 800MB
+* `size` - 800GB
 * `comment` - ""
 * `aggregates` - No default value.
 * `constituents_per_aggregate` - _4_ , if an aggregates list is specified. Otherwise, no default value.
@@ -1304,7 +1308,7 @@ class S3Bucket(Resource):
 * `snapshot_policy` - Snapshot policy for the bucket.
 * `is_nas_path_mutable` - Specifies whether the NAS bucket mapping with a NAS volume can change according to the changes in the NAS volume junction-path due to volume operations like mount and unmount.
 ### Default property values
-* `size` - 800MB
+* `size` - 1TB * number of nodes
 * `comment` - ""
 * `policy.statements.actions` - GetObject, PutObject, DeleteObject, ListBucket, ListBucketMultipartUploads, ListMultipartUploadParts, GetObjectTagging, PutObjectTagging, DeleteObjectTagging, GetBucketVersioning, PutBucketVersioning.
 * `policy.statements.principals` - all S3 users and groups in the SVM or the NAS groups.

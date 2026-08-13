@@ -1,25 +1,40 @@
-"""Re-identification risk package for section 4.2."""
+"""Re-identification risk package for section 4.2.
+
+Intended contents include quasi-identifier detection, uniqueness/k-anonymity
+measurement, and adversarial re-identification analysis.
+"""
 
 from .audit_diff import AuditDiff, diff_audit_reports
 from .budget import (
+    CURRENT_EPSILON_POLICY_SCHEMA_VERSION,
     DEFAULT_DP_SURROGATE_SENSITIVITIES,
     DEFAULT_POLICY_BUDGETS,
     DEFAULT_QI_WEIGHTS,
     DEFAULT_RDP_ORDERS,
     DEFAULT_RISK_BUDGET,
+    EPSILON_POLICY_CONFIG_RESOURCE,
+    BudgetComposition,
+    BudgetDecision,
+    BudgetExceeded,
+    CompositionRule,
+    DPGenerationBudgetAccountant,
     DPSurrogateBudget,
     DPSurrogateBudgetExceeded,
     DPSurrogateComposition,
     DPSurrogateSensitivity,
     DPSurrogateSensitivityRegistry,
     DPSurrogateSpend,
+    EpsilonPolicy,
+    GenerationSpend,
     RiskBudget,
     RiskBudgetExceeded,
     RiskBudgetVerdict,
     RiskBudgetViolation,
     SurrogateDrawKind,
     budget_for_policy,
+    epsilon_policy_for,
     evaluate_budget,
+    load_epsilon_policies,
 )
 from .dashboard import (
     render_release_assessment_dashboard,
@@ -36,7 +51,14 @@ from .k_anonymity import (
     apply_suppression,
     propose_suppression,
 )
-from .kanon import build_generalization_hierarchies, enforce_kanon, kanon_report
+from .kanon import (
+    MemoryCeilingError,
+    StreamingKanonDecision,
+    StreamingKanonState,
+    build_generalization_hierarchies,
+    enforce_kanon,
+    kanon_report,
+)
 from .population import PopulationRiskAssessment, assess_population_risk
 from .reid import (
     LongitudinalCorpus,
@@ -44,9 +66,11 @@ from .reid import (
     LongitudinalNote,
     LongitudinalPatient,
     build_longitudinal_corpus,
+    cross_modal_linkage_risk_report,
     longitudinal_attack_fingerprint,
     longitudinal_risk_report,
     quasi_identifier_key,
+    quasi_identifier_key_bytes,
     risk_report,
 )
 from .release import (
@@ -75,6 +99,8 @@ from .synthetic_tabular import (
 )
 
 __all__ = [
+    "CURRENT_EPSILON_POLICY_SCHEMA_VERSION",
+    "CompositionRule",
     "DEFAULT_DP_SURROGATE_SENSITIVITIES",
     "DEFAULT_CORRELATION_TOLERANCE",
     "DEFAULT_MARGINAL_TOLERANCE",
@@ -82,12 +108,19 @@ __all__ = [
     "DEFAULT_QI_WEIGHTS",
     "DEFAULT_RDP_ORDERS",
     "DEFAULT_RISK_BUDGET",
+    "EPSILON_POLICY_CONFIG_RESOURCE",
+    "BudgetComposition",
+    "BudgetDecision",
+    "BudgetExceeded",
+    "DPGenerationBudgetAccountant",
     "DPSurrogateBudget",
     "DPSurrogateBudgetExceeded",
     "DPSurrogateComposition",
     "DPSurrogateSensitivity",
     "DPSurrogateSensitivityRegistry",
     "DPSurrogateSpend",
+    "EpsilonPolicy",
+    "GenerationSpend",
     "ColumnDistribution",
     "EquivalenceClass",
     "KAnonymityEngine",
@@ -109,14 +142,21 @@ __all__ = [
     "assess_population_risk",
     "budget_for_policy",
     "build_longitudinal_corpus",
+    "cross_modal_linkage_risk_report",
+    "epsilon_policy_for",
     "evaluate_budget",
+    "load_epsilon_policies",
     "fit_tabular_profile",
     "longitudinal_attack_fingerprint",
     "longitudinal_risk_report",
     "quasi_identifier_key",
+    "quasi_identifier_key_bytes",
     "risk_report",
     "sample_synthetic_table",
     "tabular_fidelity_report",
+    "MemoryCeilingError",
+    "StreamingKanonDecision",
+    "StreamingKanonState",
     "build_generalization_hierarchies",
     "enforce_kanon",
     "kanon_report",

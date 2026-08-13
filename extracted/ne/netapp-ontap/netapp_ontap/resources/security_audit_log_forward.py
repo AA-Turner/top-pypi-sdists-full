@@ -102,15 +102,15 @@ with HostConnection(
 ```
 SecurityAuditLogForward(
     {
-        "hostname_format_override": "no_override",
-        "protocol": "udp_unencrypted",
-        "verify_server": False,
-        "facility": "kern",
         "timestamp_format_override": "no_override",
         "port": 514,
-        "ipspace": {"name": "Default", "uuid": "a97a3549-f7ae-11ec-b6bc-005056a7c8ff"},
+        "protocol": "udp_unencrypted",
         "address": "1.1.1.1",
+        "verify_server": False,
+        "hostname_format_override": "no_override",
+        "ipspace": {"uuid": "a97a3549-f7ae-11ec-b6bc-005056a7c8ff", "name": "Default"},
         "message_format": "legacy_netapp",
+        "facility": "kern",
     }
 )
 

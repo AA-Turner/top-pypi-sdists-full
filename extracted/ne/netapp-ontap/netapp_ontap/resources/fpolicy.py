@@ -5,7 +5,7 @@ All rights reserved.
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 ## Overview
-FPolicy is an infrastructure component of ONTAP that enables partner applications to connect to ONTAP in order to monitor and set file access permissions. Every time a client accesses a file from a storage system, based on the configuration of FPolicy, the partner application is notified about file access. This enables partners to set restrictions on files that are created or accessed on the storage system. FPolicy also allows you to create file policies that specify file operation permissions according to file type. For example, you can restrict certain file types, such as .jpeg and .mp3 files, from being stored on the storage system. FPolicy can monitor file access from CIFS and NFS clients.</br>
+FPolicy is an infrastructure component of ONTAP that enables partner applications to connect to ONTAP in order to monitor and set file access permissions. Based on its configuration, FPolicy notifies the partner application about the access event every time a client accesses a file from a storage system (through CIFS or NFS). This allows partners to set restrictions on files that are created or accessed on the storage system. FPolicy also enables you to create policies that specify operation permissions according to file type. For example, you can restrict certain file types, such as .jpeg and .mp3 files, from being stored on the storage system. FPolicy can monitor access from CIFS and NFS clients.</br>
 As part of FPolicy configuration, you can specify an FPolicy engine which defines the external FPolicy server, FPolicy events, which defines the protocol and file operations to monitor and the FPolicy policy that acts as a container for the FPolicy engine and FPolicy events. It provides a way for policy management functions, such as policy enabling and disabling.
 ## Examples
 ### Creating an FPolicy configuration
@@ -60,44 +60,44 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Fpolicy(
     {
+        "persistent_stores": [
+            {
+                "volume": "psvol",
+                "autosize_mode": "off",
+                "size": 1073741824,
+                "name": "ps1",
+            }
+        ],
         "policies": [
             {
-                "engine": {"name": "engine1"},
-                "name": "pol0",
-                "events": [{"name": "event_cifs"}],
-                "mandatory": True,
                 "priority": 1,
+                "name": "pol0",
+                "mandatory": True,
+                "engine": {"name": "engine1"},
                 "scope": {"include_volumes": ["vol1"]},
+                "events": [{"name": "event_cifs"}],
             }
         ],
         "engines": [
             {
-                "name": "engine1",
-                "secondary_servers": ["10.132.145.20", "10.132.145.21"],
-                "format": "xml",
-                "port": 9876,
-                "primary_servers": ["10.132.145.22", "10.140.101.109"],
                 "type": "synchronous",
+                "port": 9876,
+                "secondary_servers": ["10.132.145.20", "10.132.145.21"],
+                "name": "engine1",
+                "primary_servers": ["10.132.145.22", "10.140.101.109"],
+                "format": "xml",
             }
         ],
+        "svm": {"uuid": "b34f5e3d-01d0-11e9-8f63-0050568ea311", "name": "vs1"},
         "events": [
             {
-                "protocol": "cifs",
                 "volume_monitoring": True,
+                "protocol": "cifs",
                 "name": "event_cifs",
-                "filters": {"monitor_ads": True},
                 "file_operations": {"read": True, "write": True},
+                "filters": {"monitor_ads": True},
             }
         ],
-        "persistent_stores": [
-            {
-                "autosize_mode": "off",
-                "size": 1073741824,
-                "name": "ps1",
-                "volume": "psvol",
-            }
-        ],
-        "svm": {"name": "vs1", "uuid": "b34f5e3d-01d0-11e9-8f63-0050568ea311"},
     }
 )
 
@@ -124,86 +124,86 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Fpolicy(
         {
+            "persistent_stores": [
+                {
+                    "volume": "psvol",
+                    "autosize_mode": "off",
+                    "size": 1073741824,
+                    "name": "ps1",
+                }
+            ],
             "policies": [
                 {
-                    "persistent_store": "ps1",
                     "allow_privileged_access": False,
-                    "engine": {"name": "engine1"},
-                    "name": "pol0",
-                    "events": [{"name": "event_cifs"}],
-                    "mandatory": True,
                     "priority": 1,
-                    "passthrough_read": False,
-                    "scope": {"include_volumes": ["vol1"]},
+                    "name": "pol0",
+                    "persistent_store": "ps1",
                     "enabled": True,
+                    "passthrough_read": False,
+                    "mandatory": True,
+                    "engine": {"name": "engine1"},
+                    "scope": {"include_volumes": ["vol1"]},
+                    "events": [{"name": "event_cifs"}],
                 }
             ],
             "engines": [
                 {
-                    "name": "engine1",
-                    "secondary_servers": ["10.132.145.20", "10.132.145.21"],
-                    "format": "xml",
-                    "port": 9876,
-                    "primary_servers": ["10.132.145.22", "10.140.101.109"],
                     "type": "synchronous",
+                    "port": 9876,
+                    "secondary_servers": ["10.132.145.20", "10.132.145.21"],
+                    "name": "engine1",
+                    "primary_servers": ["10.132.145.22", "10.140.101.109"],
+                    "format": "xml",
                 }
             ],
+            "svm": {"uuid": "b34f5e3d-01d0-11e9-8f63-0050568ea311", "name": "vs1"},
             "events": [
                 {
-                    "protocol": "cifs",
                     "volume_monitoring": True,
+                    "protocol": "cifs",
                     "name": "event_cifs",
-                    "filters": {
-                        "open_with_delete_intent": False,
-                        "write_with_size_change": False,
-                        "open_with_write_intent": False,
-                        "offline_bit": False,
-                        "setattr_with_creation_time_change": False,
-                        "exclude_directory": False,
-                        "close_with_modification": False,
-                        "monitor_ads": True,
-                        "setattr_with_owner_change": False,
-                        "setattr_with_group_change": False,
-                        "setattr_with_sacl_change": False,
-                        "first_read": False,
-                        "setattr_with_access_time_change": False,
-                        "setattr_with_dacl_change": False,
-                        "close_without_modification": False,
-                        "setattr_with_allocation_size_change": False,
-                        "first_write": False,
-                        "setattr_with_mode_change": False,
-                        "close_with_read": False,
-                        "setattr_with_size_change": False,
-                        "setattr_with_modify_time_change": False,
-                    },
                     "file_operations": {
+                        "open": False,
+                        "lookup": False,
                         "read": True,
-                        "close": False,
-                        "symlink": False,
-                        "rename_dir": False,
-                        "link": False,
                         "setattr": False,
+                        "close": False,
+                        "delete": False,
+                        "getattr": False,
+                        "symlink": False,
+                        "write": True,
+                        "delete_dir": False,
+                        "rename_dir": False,
                         "create": False,
                         "create_dir": False,
-                        "open": False,
-                        "delete_dir": False,
                         "rename": False,
-                        "write": True,
-                        "lookup": False,
-                        "getattr": False,
-                        "delete": False,
+                        "link": False,
+                    },
+                    "filters": {
+                        "first_write": False,
+                        "setattr_with_size_change": False,
+                        "setattr_with_sacl_change": False,
+                        "close_with_read": False,
+                        "first_read": False,
+                        "offline_bit": False,
+                        "monitor_ads": True,
+                        "setattr_with_allocation_size_change": False,
+                        "open_with_write_intent": False,
+                        "close_with_modification": False,
+                        "setattr_with_mode_change": False,
+                        "setattr_with_access_time_change": False,
+                        "write_with_size_change": False,
+                        "exclude_directory": False,
+                        "setattr_with_owner_change": False,
+                        "setattr_with_group_change": False,
+                        "setattr_with_dacl_change": False,
+                        "close_without_modification": False,
+                        "open_with_delete_intent": False,
+                        "setattr_with_modify_time_change": False,
+                        "setattr_with_creation_time_change": False,
                     },
                 }
             ],
-            "persistent_stores": [
-                {
-                    "autosize_mode": "off",
-                    "size": 1073741824,
-                    "name": "ps1",
-                    "volume": "psvol",
-                }
-            ],
-            "svm": {"name": "vs1", "uuid": "b34f5e3d-01d0-11e9-8f63-0050568ea311"},
         }
     )
 ]
@@ -232,86 +232,86 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Fpolicy(
     {
+        "persistent_stores": [
+            {
+                "volume": "psvol",
+                "autosize_mode": "off",
+                "size": 1073741824,
+                "name": "ps1",
+            }
+        ],
         "policies": [
             {
-                "persistent_store": "ps1",
                 "allow_privileged_access": False,
-                "engine": {"name": "engine1"},
-                "name": "pol0",
-                "events": [{"name": "event_cifs"}],
-                "mandatory": True,
                 "priority": 1,
-                "passthrough_read": False,
-                "scope": {"include_volumes": ["vol1"]},
+                "name": "pol0",
+                "persistent_store": "ps1",
                 "enabled": True,
+                "passthrough_read": False,
+                "mandatory": True,
+                "engine": {"name": "engine1"},
+                "scope": {"include_volumes": ["vol1"]},
+                "events": [{"name": "event_cifs"}],
             }
         ],
         "engines": [
             {
-                "name": "engine1",
-                "secondary_servers": ["10.132.145.20", "10.132.145.21"],
-                "format": "xml",
-                "port": 9876,
-                "primary_servers": ["10.132.145.22", "10.140.101.109"],
                 "type": "synchronous",
+                "port": 9876,
+                "secondary_servers": ["10.132.145.20", "10.132.145.21"],
+                "name": "engine1",
+                "primary_servers": ["10.132.145.22", "10.140.101.109"],
+                "format": "xml",
             }
         ],
+        "svm": {"uuid": "b34f5e3d-01d0-11e9-8f63-0050568ea311", "name": "vs1"},
         "events": [
             {
-                "protocol": "cifs",
                 "volume_monitoring": True,
+                "protocol": "cifs",
                 "name": "event_cifs",
-                "filters": {
-                    "open_with_delete_intent": False,
-                    "write_with_size_change": False,
-                    "open_with_write_intent": False,
-                    "offline_bit": False,
-                    "setattr_with_creation_time_change": False,
-                    "exclude_directory": False,
-                    "close_with_modification": False,
-                    "monitor_ads": True,
-                    "setattr_with_owner_change": False,
-                    "setattr_with_group_change": False,
-                    "setattr_with_sacl_change": False,
-                    "first_read": False,
-                    "setattr_with_access_time_change": False,
-                    "setattr_with_dacl_change": False,
-                    "close_without_modification": False,
-                    "setattr_with_allocation_size_change": False,
-                    "first_write": False,
-                    "setattr_with_mode_change": False,
-                    "close_with_read": False,
-                    "setattr_with_size_change": False,
-                    "setattr_with_modify_time_change": False,
-                },
                 "file_operations": {
+                    "open": False,
+                    "lookup": False,
                     "read": True,
-                    "close": False,
-                    "symlink": False,
-                    "rename_dir": False,
-                    "link": False,
                     "setattr": False,
+                    "close": False,
+                    "delete": False,
+                    "getattr": False,
+                    "symlink": False,
+                    "write": True,
+                    "delete_dir": False,
+                    "rename_dir": False,
                     "create": False,
                     "create_dir": False,
-                    "open": False,
-                    "delete_dir": False,
                     "rename": False,
-                    "write": True,
-                    "lookup": False,
-                    "getattr": False,
-                    "delete": False,
+                    "link": False,
+                },
+                "filters": {
+                    "first_write": False,
+                    "setattr_with_size_change": False,
+                    "setattr_with_sacl_change": False,
+                    "close_with_read": False,
+                    "first_read": False,
+                    "offline_bit": False,
+                    "monitor_ads": True,
+                    "setattr_with_allocation_size_change": False,
+                    "open_with_write_intent": False,
+                    "close_with_modification": False,
+                    "setattr_with_mode_change": False,
+                    "setattr_with_access_time_change": False,
+                    "write_with_size_change": False,
+                    "exclude_directory": False,
+                    "setattr_with_owner_change": False,
+                    "setattr_with_group_change": False,
+                    "setattr_with_dacl_change": False,
+                    "close_without_modification": False,
+                    "open_with_delete_intent": False,
+                    "setattr_with_modify_time_change": False,
+                    "setattr_with_creation_time_change": False,
                 },
             }
         ],
-        "persistent_stores": [
-            {
-                "autosize_mode": "off",
-                "size": 1073741824,
-                "name": "ps1",
-                "volume": "psvol",
-            }
-        ],
-        "svm": {"name": "vs1", "uuid": "b34f5e3d-01d0-11e9-8f63-0050568ea311"},
     }
 )
 
@@ -528,7 +528,7 @@ class Fpolicy(Resource):
 * `engines` -  External server to which the notifications will be sent.
 * `events` - File operations to monitor.
 * `policies` - Policy configuration which acts as a container for FPolicy event and FPolicy engine.
-* `scope` - Scope of the policy. Can be limited to exports, volumes, shares or file extensions.
+* `scope` - Scope of the policy. Can be limited to exports, volumes, shares, file extensions.
 ### Default property values
 If not specified in POST, the following default property values are assigned:
 * `engines.type` - _synchronous_
@@ -635,7 +635,7 @@ The volume associated with the FPolicy Persistent Store is not automatically del
 * `engines` -  External server to which the notifications will be sent.
 * `events` - File operations to monitor.
 * `policies` - Policy configuration which acts as a container for FPolicy event and FPolicy engine.
-* `scope` - Scope of the policy. Can be limited to exports, volumes, shares or file extensions.
+* `scope` - Scope of the policy. Can be limited to exports, volumes, shares, file extensions.
 ### Default property values
 If not specified in POST, the following default property values are assigned:
 * `engines.type` - _synchronous_

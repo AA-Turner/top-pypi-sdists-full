@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 import msgspec
 
 from gen_worker.aot_preconditions import (
+    adapter_backend_preconditions,
     declared_compile_families,
     static_mint_preconditions,
 )
@@ -344,7 +345,7 @@ def _binding_to_manifest(binding: Binding, param_name: str = "") -> Dict[str, An
 
     Every binding is a fixed pick; the slot name is the dict key. Keys stay
     compatible with ``models.download.build_provider_index_from_manifest``
-    (``ref`` / ``provider`` / ``flavor``).
+    (``ref`` / ``provider`` / ``tag``).
     """
     out: Dict[str, Any] = {
         "kind": "fixed",
@@ -359,8 +360,6 @@ def _binding_to_manifest(binding: Binding, param_name: str = "") -> Dict[str, An
         # verbatim). An explicit 'latest' is stamped, never elided.
         if binding.tag and binding.tag != DEFAULT_REF_TAG:
             out["tag"] = binding.tag
-        if binding.flavor:
-            out["flavor"] = binding.flavor
         if binding.components:
             # pgw#505: the hub's desired-snapshot scoping (platform-side,
             # not yet built) reads this to resolve only the named pipeline
@@ -388,7 +387,7 @@ def _binding_to_manifest(binding: Binding, param_name: str = "") -> Dict[str, An
 
 def _stamp_family(binding_manifest: Dict[str, Any], family: str) -> None:
     """Stamp a binding manifest with the endpoint's architecture family
-    (pgw#523: unconditional-when-known, not ``allow_lora``-triggered) so
+    (pgw#523: unconditional-when-known, never gated on a declaration) so
     tensorhub's th#586 gate can family-police any LoRA overlay attached at
     this slot. Identity (the binding) and permission (whether a LoRA may
     attach here — the slot-policy ``loras`` axis, th#772) are separate
@@ -401,13 +400,11 @@ def _stamp_family(binding_manifest: Dict[str, Any], family: str) -> None:
 
 def _model_ref_to_manifest(ref: Any) -> Dict[str, Any]:
     """``default_checkpoint`` ref shape used by the slots
-    block: ``{source, path, tag?, flavor?, revision?, version?, components?}``
+    block: ``{source, path, tag?, revision?, version?, components?}``
     — a structured ModelRef (pgw#511; ``components`` added pgw#505)."""
     out: Dict[str, Any] = {"source": ref.source, "path": ref.path}
     if ref.tag and ref.tag != DEFAULT_REF_TAG:
         out["tag"] = ref.tag
-    if ref.flavor:
-        out["flavor"] = ref.flavor
     if ref.components:
         out["components"] = list(ref.components)
     if ref.source in ("huggingface", "modelscope") and ref.revision:
@@ -468,12 +465,6 @@ def _slot_to_manifest(
 def _schema_and_hash(t: type) -> Tuple[Dict[str, Any], str]:
     """Generate JSON schema and SHA256 hash for a msgspec type."""
     schema = msgspec.json.schema(t)
-    try:
-        from gen_worker.api.payload_constraints import apply_schema_constraints
-
-        schema = apply_schema_constraints(schema, t)
-    except Exception:
-        pass
     raw = json.dumps(schema, separators=(",", ":"), sort_keys=True).encode("utf-8")
     return schema, hashlib.sha256(raw).hexdigest()
 
@@ -544,6 +535,13 @@ def discover_functions(
         sys.path.insert(0, src_str)
 
     top_level = main_module.split(".", 1)[0]
+    # pgw#1163: the audit below is about what THE WALK imported, so the set it
+    # compares against has to be taken before the walk runs. Scanning all of
+    # `sys.modules` instead attributes the CALLER's imports to discovery — and
+    # when the caller is pytest, that is its own `conftest` and test modules,
+    # which live under `root` and are not in the wheel, so they read as
+    # offenders. A pod never imports them.
+    preloaded = frozenset(sys.modules)
     with stub_missing_heavy_deps(extra_heavy_deps):
         try:
             found = find_endpoints([top_level])
@@ -572,7 +570,8 @@ def discover_functions(
 
     _assert_unique_function_names(functions)
     _validate_variant_targets(functions)
-    _audit_source_only_imports(root=root, top_level=top_level)
+    _audit_source_only_imports(
+        root=root, top_level=top_level, preloaded=preloaded)
     return functions
 
 
@@ -591,7 +590,9 @@ class SourceOnlyModuleError(ValueError):
     """
 
 
-def _audit_source_only_imports(*, root: Path, top_level: str) -> None:
+def _audit_source_only_imports(
+    *, root: Path, top_level: str, preloaded: frozenset = frozenset(),
+) -> None:
     """Fail the bake when the walk leaned on source-tree-only modules.
 
     Applies only when the walked project is INSTALLED (its top-level package
@@ -601,6 +602,15 @@ def _audit_source_only_imports(*, root: Path, top_level: str) -> None:
     from under ``root`` must also resolve from the installed environment;
     ``cwd`` is deliberately not honoured (the worker's import set must not
     depend on the directory it happens to start in).
+
+    ``preloaded`` is ``sys.modules`` as it stood BEFORE the walk, and the scan
+    considers only what the walk ADDED (pgw#1163). Without it the audit reports
+    on its CALLER's imports: run from inside pytest it flagged the runner's own
+    ``conftest`` and test modules, which sit under ``root``, are absent from the
+    wheel, and are imported by no pod that ever exists. Excluding by
+    already-loaded rather than by name keeps this free of any knowledge of the
+    test runner — a scan that has to recognise pytest would have to recognise
+    the next tool too.
     """
 
     root_str = str(root)
@@ -636,6 +646,8 @@ def _audit_source_only_imports(*, root: Path, top_level: str) -> None:
 
     offenders: List[str] = []
     for name, mod in list(sys.modules.items()):
+        if name in preloaded:
+            continue  # the caller's import, not the walk's (pgw#1163)
         if "." in name:
             continue  # submodules resolve with their package
         filename = getattr(mod, "__file__", None)
@@ -652,9 +664,13 @@ def _audit_source_only_imports(*, root: Path, top_level: str) -> None:
             "them and every pod of this release will die at boot with "
             "ModuleNotFoundError (pgw#833):\n  "
             + "\n  ".join(sorted(offenders))
-            + "\nFix: include the module in the built package (e.g. hatch "
-            "[tool.hatch.build.targets.wheel] only-include / py-modules), or "
-            "drop the import."
+            + "\nFix: DROP THE IMPORT if the module is not runtime code — a "
+            "test, a conftest, a dev script and anything else a pod never "
+            "imports must not be reachable from the endpoint's import graph, "
+            "and must NEVER be packaged to satisfy this gate. Only if the "
+            "module genuinely runs on the pod, add it to the built package "
+            "(e.g. hatch [tool.hatch.build.targets.wheel] only-include / "
+            "py-modules)."
         )
 
 
@@ -708,7 +724,7 @@ def _extract_entries(obj: Any, module_name: str) -> List[Dict[str, Any]]:
         # Every binding carries the endpoint's architecture family, when
         # known, so the hub's th#586 gate can family-police any LoRA
         # overlay attached at that slot (pgw#523: unconditional-when-known,
-        # not allow_lora-triggered). For Slot-declared bindings the slot map is
+        # never gated on a declaration). For Slot-declared bindings the map is
         # AUTHORITATIVE: it already reconciles the function family with the
         # slot's explicit intent. Bare bindings have no slot declaration and
         # retain the function-level compile family fallback.
@@ -954,9 +970,15 @@ def discover_manifest(root: Optional[Path] = None) -> Dict[str, Any]:
         # that will run them. `validate_endpoint_lock` turns a refusal into a
         # build error, so an endpoint that declares an export it cannot
         # compile never reaches a pod to downgrade there.
+        declared_families = declared_compile_families(functions)
         preconditions = static_mint_preconditions(
-            declared_compile_families(functions),
-            torch_available="torch" not in stubbed)
+            declared_families, torch_available="torch" not in stubbed)
+        # pgw#501: and the ADAPTER capability, which is not an AOT question —
+        # an endpoint declaring `lora_bucket > 0` serves adapters whether or
+        # not it compiles, and `peft` is honest under the heavy-dep stubbing
+        # (it is deliberately not a stubbed root), so this decides here too.
+        preconditions = preconditions + adapter_backend_preconditions(
+            declared_families)
     for fn in functions:
         bucket = int((fn.get("compile") or {}).get("lora_bucket") or 0)
         lanes, exclusions = execution_lanes_for_function(

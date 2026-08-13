@@ -25,41 +25,41 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Schedule(
         {
+            "type": "interval",
+            "uuid": "0941e980-0158-11e9-a82c-005056bb4301",
+            "name": "Balanced Placement Model Cache Update",
             "_links": {
                 "self": {
                     "href": "/api/cluster/schedules/0941e980-0158-11e9-a82c-005056bb4301"
                 }
             },
-            "name": "Balanced Placement Model Cache Update",
-            "uuid": "0941e980-0158-11e9-a82c-005056bb4301",
             "interval": "PT7M30S",
-            "type": "interval",
         }
     ),
     Schedule(
         {
+            "type": "interval",
+            "uuid": "0944b975-0158-11e9-a82c-005056bb4301",
+            "name": "Auto Balance Aggregate Scheduler",
             "_links": {
                 "self": {
                     "href": "/api/cluster/schedules/0944b975-0158-11e9-a82c-005056bb4301"
                 }
             },
-            "name": "Auto Balance Aggregate Scheduler",
-            "uuid": "0944b975-0158-11e9-a82c-005056bb4301",
             "interval": "PT1H",
-            "type": "interval",
         }
     ),
     Schedule(
         {
+            "type": "interval",
+            "uuid": "0c65f1fb-0158-11e9-a82c-005056bb4301",
+            "name": "Application Templates ASUP Dump",
             "_links": {
                 "self": {
                     "href": "/api/cluster/schedules/0c65f1fb-0158-11e9-a82c-005056bb4301"
                 }
             },
-            "name": "Application Templates ASUP Dump",
-            "uuid": "0c65f1fb-0158-11e9-a82c-005056bb4301",
             "interval": "P1D",
-            "type": "interval",
         }
     ),
 ]
@@ -85,19 +85,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Schedule(
     {
+        "type": "cron",
+        "uuid": "25312bd8-0158-11e9-a82c-005056bb4301",
+        "cluster": {
+            "uuid": "f3f9bbfa-0157-11e9-a82c-005056bb4301",
+            "name": "my_cluster",
+        },
+        "name": "monthly",
+        "cron": {"days": [1], "hours": [0], "minutes": [20]},
         "_links": {
             "self": {
                 "href": "/api/cluster/schedules/25312bd8-0158-11e9-a82c-005056bb4301"
             }
         },
-        "cron": {"hours": [0], "minutes": [20], "days": [1]},
-        "name": "monthly",
-        "uuid": "25312bd8-0158-11e9-a82c-005056bb4301",
-        "cluster": {
-            "name": "my_cluster",
-            "uuid": "f3f9bbfa-0157-11e9-a82c-005056bb4301",
-        },
-        "type": "cron",
     }
 )
 

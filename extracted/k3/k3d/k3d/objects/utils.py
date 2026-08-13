@@ -16,7 +16,7 @@ from .volumetric import (MIP, MarchingCubes, SparseVoxels, Volume, VolumeSlice,
 from .._version import __version__ as version
 
 # Objects mapping for factory functions
-(objects_map): TypingDict[str, Any] = {
+objects_map: TypingDict[str, Any] = {
     "Line": Line,
     "Label": Label,
     "Lines": Lines,

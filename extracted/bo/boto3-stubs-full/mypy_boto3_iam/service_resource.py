@@ -106,6 +106,7 @@ from .type_defs import (
     RoleTypeDef,
     SAMLPrivateKeyTypeDef,
     ServerCertificateMetadataTypeDef,
+    SourceRoleTemplateTypeDef,
     TagTypeDef,
     UpdateAccessKeyRequestAccessKeyActivateTypeDef,
     UpdateAccessKeyRequestAccessKeyDeactivateTypeDef,
@@ -2705,6 +2706,7 @@ class Role(ServiceResource):
     permissions_boundary: AttachedPermissionsBoundaryTypeDef
     tags: list[TagTypeDef]
     role_last_used: RoleLastUsedTypeDef
+    source_role_template: SourceRoleTemplateTypeDef
     meta: IAMResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:

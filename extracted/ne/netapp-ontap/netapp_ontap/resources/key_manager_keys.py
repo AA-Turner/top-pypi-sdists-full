@@ -32,23 +32,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 KeyManagerKeys(
     {
-        "key_manager": "onboard",
+        "encryption_algorithm": "XTS-AES-256",
+        "key_tag": "vsim1",
         "restored": False,
-        "node": {"uuid": "00000000-0000-0000-0000-000000000000"},
+        "key_store_type": "okm",
         "_links": {
             "self": {
                 "href": "/api/security/key-managers/f4f98a48-8a5c-c548-cd03-c6335f5803a8/keys/00000000-0000-0000-0000-000000000000/key-ids/000000000000000002000000000005009ad4da8fea2cafe2bed803078b780ebe0000000000000c01"
             }
         },
-        "key_store_type": "okm",
-        "key_store": "onboard",
-        "key_type": "vek",
-        "security_key_manager": {"uuid": "f4f98a48-8a5c-c548-cd03-c6335f5803a8"},
-        "encryption_algorithm": "XTS-AES-256",
-        "key_tag": "vsim1",
         "key_user": "datavs",
-        "key_id": "000000000000000002000000000005009ad4da8fea2cafe2bed803078b780ebe0000000000000c01",
+        "key_store": "onboard",
         "svm": {"name": "cluster-1"},
+        "key_manager": "onboard",
+        "key_type": "vek",
+        "node": {"uuid": "00000000-0000-0000-0000-000000000000"},
+        "key_id": "000000000000000002000000000005009ad4da8fea2cafe2bed803078b780ebe0000000000000c01",
+        "security_key_manager": {"uuid": "f4f98a48-8a5c-c548-cd03-c6335f5803a8"},
     }
 )
 

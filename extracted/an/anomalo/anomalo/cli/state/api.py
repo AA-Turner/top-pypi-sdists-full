@@ -129,9 +129,8 @@ class APIDriver:
         params = {
             **(raw_check["config"].get("params") or {}),
         }
-        if "notification_channel" in params:
-            # Remove the default notification channel, as it is not used in the state
-            del params["notification_channel"]
+        # Remove the default notification channel, as it is not used in the state
+        params.pop("notification_channel", None)
 
         notification_channel_ids = raw_check.get(
             "additional_notification_channel_ids", []
@@ -198,7 +197,7 @@ class APIDriver:
             elif (
                 action.new and action.check_ref
             ):  # Update or create a user created check
-                params = {**action.new.params, **{"ref": action.check_ref}}
+                params = {**action.new.params, "ref": action.check_ref}
                 self.client.create_check(
                     self._table_id(action.table_ref),
                     action.new.check_type,

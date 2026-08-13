@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: k3d
-Version: 2.17.0
+Version: 2.18.1
 Dynamic: Author
 Dynamic: Author-email
 Dynamic: Summary
@@ -36,6 +36,8 @@ Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.7
 Requires-Dist: deepcomparer
 Requires-Dist: ipywidgets<9.0.0,>=7.0.0
@@ -75,6 +77,7 @@ Description-Content-Type: text/markdown
 [![Downloads](https://static.pepy.tech/badge/k3d/month)](https://pepy.tech/project/k3d)
 [![Anaconda-Server Badge](https://anaconda.org/conda-forge/k3d/badges/downloads.svg)](https://anaconda.org/conda-forge/k3d)
 [![CodeQL](https://github.com/K3D-tools/K3D-jupyter/workflows/CodeQL/badge.svg)](https://github.com/K3D-tools/K3D-jupyter/actions)
+[![GitHub Sponsor](https://img.shields.io/github/sponsors/K3D-tools?label=Sponsor&logo=GitHub)](https://github.com/sponsors/K3D-tools)
 
 <div>
 

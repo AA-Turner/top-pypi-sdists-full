@@ -18,6 +18,8 @@ import pytz
 import whenever
 from dateutil import parser
 
+from pyzotero._utils import MAX_RETRY_ATTEMPTS
+
 from .mock_client import MockClient
 
 try:
@@ -848,19 +850,72 @@ class ZoteroTests(unittest.TestCase):
             zot.create_items(itms)
 
     def testRateLimitWithBackoff(self):
-        """Test 429 response handling when a backoff header is received"""
+        """A persistent 429 is retried, then raises instead of returning the
+        error body as bytes (#352)
+        """
         mock = MockClient()
         zot = z.Zotero("myuserID", "user", "myuserkey", client=mock.client)
         mock.register(
             "GET",
             "https://api.zotero.org/users/myuserID/items",
             status=429,
-            body="[]",
+            body="Too many requests. Slow down",
+            content_type="text/plain",
             headers={"backoff": 0.1},
         )
-        zot.items()
+        with self.assertRaises(z.ze.TooManyRetriesError):
+            zot.items()
+        # every allowed attempt was made before giving up
+        self.assertEqual(len(mock.latest_requests()), MAX_RETRY_ATTEMPTS)
         # backoff_until should be in the future
         self.assertGreater(zot.backoff_until, time.time())
+
+    def testRateLimitRetryReturnsPayload(self):
+        """A 429 followed by a success returns the real payload (#352)"""
+        mock = MockClient()
+        zot = z.Zotero("myuserID", "user", "myuserkey", client=mock.client)
+        attempts = []
+
+        def rate_limited_once(request, uri, headers):
+            attempts.append(uri)
+            if len(attempts) == 1:
+                headers["content-type"] = "text/plain"
+                headers["backoff"] = "0.1"
+                return [429, headers, "Too many requests. Slow down"]
+            return [200, headers, self.items_doc]
+
+        mock.register(
+            "GET",
+            "https://api.zotero.org/users/myuserID/items",
+            body=rate_limited_once,
+        )
+        items = zot.items()
+        self.assertEqual(len(attempts), 2)
+        self.assertIsInstance(items, list)
+        self.assertEqual(items[0]["key"], "NM66T6EF")
+
+    def testRateLimitWriteRetried(self):
+        """A 429 on a write is retried instead of reporting success (#352)"""
+        mock = MockClient()
+        zot = z.Zotero("myuserID", "user", "myuserkey", client=mock.client)
+        attempts = []
+
+        def rate_limited_once(request, uri, headers):
+            attempts.append(uri)
+            if len(attempts) == 1:
+                headers["content-type"] = "text/plain"
+                headers["backoff"] = "0.1"
+                return [429, headers, "Too many requests. Slow down"]
+            return [204, headers, ""]
+
+        mock.register(
+            "PUT",
+            "https://api.zotero.org/users/myuserID/items/ABCD2345/fulltext",
+            body=rate_limited_once,
+        )
+        result = zot.set_fulltext("ABCD2345", {"content": "hi", "indexedChars": 2})
+        self.assertTrue(result)
+        self.assertEqual(len(attempts), 2)
 
     def testDeleteTags(self):
         """Tests deleting tags"""
@@ -1089,6 +1144,63 @@ class ZoteroTests(unittest.TestCase):
 
         # Clean up
         os.remove(temp_file_path)
+
+    def testFileUploadPrelimRateLimitRetried(self):
+        """A 429 during upload step 0 is retried, not JSON-decoded (#352)"""
+        mock = MockClient()
+        zot = z.Zotero("myuserID", "user", "myuserkey", client=mock.client)
+        attempts = []
+
+        def rate_limited_once(request, uri, headers):
+            attempts.append(uri)
+            if len(attempts) == 1:
+                headers["content-type"] = "text/plain"
+                headers["backoff"] = "0.1"
+                return [429, headers, "Too many requests. Slow down"]
+            return [200, headers, json.dumps({"success": {"0": "ITEMKEY123"}})]
+
+        mock.register(
+            "POST",
+            "https://api.zotero.org/users/myuserID/items",
+            body=rate_limited_once,
+        )
+
+        payload = [
+            {
+                "filename": "test_upload_file.txt",
+                "title": "Test File",
+                "linkMode": "imported_file",
+            }
+        ]
+        mock_auth_data = {"exists": True}
+        with (
+            patch.object(z.Zupload, "_verify", return_value=None),
+            patch.object(z.Zupload, "_get_auth", return_value=mock_auth_data),
+        ):
+            upload = z.Zupload(zot, payload)
+            result = upload.upload()
+
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual(result["unchanged"][0]["key"], "ITEMKEY123")
+
+    def testFileUploadRegisterRateLimitRaises(self):
+        """A persistent 429 registering an upload raises instead of silently
+        reporting success (#352)
+        """
+        mock = MockClient()
+        zot = z.Zotero("myuserID", "user", "myuserkey", client=mock.client)
+        mock.register(
+            "POST",
+            "https://api.zotero.org/users/myuserID/items/ITEMKEY123/file",
+            status=429,
+            body="Too many requests. Slow down",
+            content_type="text/plain",
+            headers={"backoff": 0.1},
+        )
+        upload = z.Zupload(zot, [{"filename": "nonexistent.txt"}])
+        with self.assertRaises(z.ze.TooManyRetriesError):
+            upload._register_upload({"uploadKey": "upload_key_123"}, "ITEMKEY123")
+        self.assertEqual(len(mock.latest_requests()), MAX_RETRY_ATTEMPTS)
 
     def testFileUploadWithParentItem(self):
         """Tests file upload process with a parent item ID"""

@@ -13,18 +13,18 @@ from functools import lru_cache
 from typing import Any
 from collections.abc import Iterator
 
+from .casing import SentenceCasing, SupportsMembership
 from .strategies import (
-    DefaultDictionaryFactory,
+    DEFAULT_DICTIONARY_FACTORY,
     DefaultStrategy,
     DictionaryLookupStrategy,
     LemmatizationFallbackStrategy,
     LemmatizationStrategy,
     ToLowercaseFallbackStrategy,
 )
+from .strategies.dictionaries import LOW_MEMORY_DICTIONARY_FACTORY
 from .tokenizer import RegexTokenizer, Tokenizer
-from .utils import validate_lang_input
-
-PUNCTUATION = {".", "?", "!", "…", "¿", "¡"}
+from .utils import normalize_token, validate_lang_input
 
 
 def _control_input_type(token: Any) -> None:
@@ -41,7 +41,7 @@ def _control_input_type(token: Any) -> None:
     if not isinstance(token, str):
         raise TypeError(f"Wrong input type, expected string, got {type(token)}")
     if token == "":
-        raise ValueError("Wrong input type: empty string")
+        raise ValueError("Wrong input value: empty string")
 
 
 class Lemmatizer:
@@ -51,12 +51,13 @@ class Lemmatizer:
         "_cached_lemmatize",
         "_fallback_lemmatization_strategy",
         "_lemmatization_strategy",
+        "_member",
         "_tokenizer",
     ]
 
     def __init__(
         self,
-        cache_max_size: int = 1048576,
+        cache_max_size: int = 65536,
         tokenizer: Tokenizer = RegexTokenizer(),
         lemmatization_strategy: LemmatizationStrategy = DefaultStrategy(),
         fallback_lemmatization_strategy: LemmatizationFallbackStrategy = ToLowercaseFallbackStrategy(),
@@ -66,7 +67,7 @@ class Lemmatizer:
 
         Args:
             cache_max_size (int, optional): The maximum size of the cache for the lemmatization results.
-                Defaults to `1048576`.
+                Defaults to `65536`.
             tokenizer (Tokenizer, optional): The tokenizer to use for tokenization.
                 Defaults to `RegexTokenizer()`.
             lemmatization_strategy (LemmatizationStrategy, optional): The lemmatization strategy to use.
@@ -78,6 +79,13 @@ class Lemmatizer:
         self._tokenizer = tokenizer
         self._lemmatization_strategy = lemmatization_strategy
         self._fallback_lemmatization_strategy = fallback_lemmatization_strategy
+        # A strategy exposing raw membership enables the gated/acronym casing
+        # heuristics; others fall back to base initial-lowering.
+        self._member = (
+            lemmatization_strategy.is_dictionary_member
+            if isinstance(lemmatization_strategy, SupportsMembership)
+            else None
+        )
         self._cached_lemmatize = lru_cache(maxsize=cache_max_size)(self._lemmatize)
 
     def lemmatize(
@@ -94,7 +102,8 @@ class Lemmatizer:
         Returns:
             str: The lemmatized form of the token.
         """
-        return self._cached_lemmatize(token, lang)
+        # NFC before caching: canonical key, matches the NFC dictionaries.
+        return self._cached_lemmatize(normalize_token(token), lang)
 
     def _lemmatize(
         self,
@@ -102,6 +111,10 @@ class Lemmatizer:
         lang: str | tuple[str, ...],
     ) -> str:
         """Internal method to lemmatize a token in the specified language(s).
+
+        The token arrives NFC-normalized by ``lemmatize``. Input validation
+        happens here so it only runs on cache misses, keeping hits cheap
+        (exceptions are never cached by ``lru_cache``).
 
         Args:
             token: The token to lemmatize.
@@ -127,6 +140,10 @@ class Lemmatizer:
     ) -> Iterator[str]:
         """Get an iterator over lemmatized tokens in a text.
 
+        With several languages, the casing heuristics (sentence-initial
+        lowering, acronym keeping) follow the first one; lemma lookup
+        still tries all of them in order.
+
         Args:
             text: The text to process.
             lang: The language or languages for lemmatization.
@@ -134,64 +151,71 @@ class Lemmatizer:
         Yields:
             str: The lemmatized tokens in the text.
         """
-        initial = True
-        for token in self._tokenizer.split_text(text):
-            yield self.lemmatize(token.lower() if initial else token, lang)
-            initial = token in PUNCTUATION
+        langs = validate_lang_input(lang)
+        casing = SentenceCasing(langs[0], self._member)
+        for surface, keep in casing.apply(self._tokenizer.split_text(text)):
+            # surface arrives NFC, so skip lemmatize()'s re-normalization
+            yield surface if keep else self._cached_lemmatize(surface, lang)
 
 
-# From here down are legacy function pre-1.0
+# Legacy pre-1.0 functions.
 
-_legacy_dictionary_factory = DefaultDictionaryFactory()
-_legacy_lemmatizer = Lemmatizer(
-    lemmatization_strategy=DefaultStrategy(
-        dictionary_factory=_legacy_dictionary_factory
+
+# Cached to keep each Lemmatizer's token cache alive.
+@lru_cache(maxsize=None)
+def _legacy_lemmatizer_for(greedy: bool, low_memory: bool) -> Lemmatizer:
+    return Lemmatizer(
+        lemmatization_strategy=DefaultStrategy(greedy=greedy, low_memory=low_memory)
     )
-)
-_legacy_greedy_lemmatizer = Lemmatizer(
-    lemmatization_strategy=DefaultStrategy(
-        greedy=True, dictionary_factory=_legacy_dictionary_factory
-    )
-)
 
 
-def is_known(token: str, lang: str | tuple[str, ...]) -> bool:
+_LOOKUP_DEFAULT = DictionaryLookupStrategy(DEFAULT_DICTIONARY_FACTORY)
+_LOOKUP_LOW_MEM = DictionaryLookupStrategy(LOW_MEMORY_DICTIONARY_FACTORY)
+
+
+def is_known(token: str, lang: str | tuple[str, ...], low_memory: bool = False) -> bool:
     """Check if a token is known in the specified language(s).
 
     Args:
         token: The token to check.
         lang: The language or languages to check in.
+        low_memory: Use the memory-frugal dictionary backend (default: False).
 
     Returns:
         bool: True if the token is known, False otherwise.
     """
-
     _control_input_type(token)
+    token = normalize_token(token)
     lang = validate_lang_input(lang)
-
-    dictionary_lookup = DictionaryLookupStrategy(_legacy_dictionary_factory)
-    return any(
-        dictionary_lookup.get_lemma(token, lang_code) is not None for lang_code in lang
-    )
+    lookup = _LOOKUP_LOW_MEM if low_memory else _LOOKUP_DEFAULT
+    return any(lookup.get_lemma(token, code) is not None for code in lang)
 
 
-def lemmatize(token: str, lang: str | tuple[str, ...], greedy: bool = False) -> str:
+def lemmatize(
+    token: str,
+    lang: str | tuple[str, ...],
+    greedy: bool = False,
+    low_memory: bool = False,
+) -> str:
     """Lemmatize a token in the specified language(s).
 
     Args:
         token: The token to lemmatize.
         lang: The language or languages for lemmatization.
         greedy: A flag indicating whether to use greedy lemmatization (default: False).
+        low_memory: Use the memory-frugal dictionary backend (default: False).
 
     Returns:
         str: The lemmatized form of the token.
     """
-    lemmatizer = _legacy_lemmatizer if not greedy else _legacy_greedy_lemmatizer
-    return lemmatizer.lemmatize(token, lang)
+    return _legacy_lemmatizer_for(greedy, low_memory).lemmatize(token, lang)
 
 
 def text_lemmatizer(
-    text: str, lang: str | tuple[str, ...], greedy: bool = False
+    text: str,
+    lang: str | tuple[str, ...],
+    greedy: bool = False,
+    low_memory: bool = False,
 ) -> list[str]:
     """Lemmatize a text in the specified language(s).
 
@@ -199,22 +223,20 @@ def text_lemmatizer(
         text: The text to lemmatize.
         lang: The language or languages for lemmatization.
         greedy: A flag indicating whether to use greedy lemmatization (default: False).
+        low_memory: Use the memory-frugal dictionary backend (default: False).
 
     Returns:
         list[str]: The list of lemmatized tokens.
     """
 
-    return list(
-        lemma_iterator(
-            text,
-            lang,
-            greedy,
-        )
-    )
+    return list(lemma_iterator(text, lang, greedy, low_memory))
 
 
 def lemma_iterator(
-    text: str, lang: str | tuple[str, ...], greedy: bool = False
+    text: str,
+    lang: str | tuple[str, ...],
+    greedy: bool = False,
+    low_memory: bool = False,
 ) -> Iterator[str]:
     """Iterate over lemmatized tokens in a text.
 
@@ -222,9 +244,9 @@ def lemma_iterator(
         text: The text to iterate over.
         lang: The language or languages for lemmatization.
         greedy: A flag indicating whether to use greedy lemmatization (default: False).
+        low_memory: Use the memory-frugal dictionary backend (default: False).
 
     Yields:
         str: The lemmatized tokens in the text.
     """
-    lemmatizer = _legacy_lemmatizer if not greedy else _legacy_greedy_lemmatizer
-    return lemmatizer.get_lemmas_in_text(text, lang)
+    return _legacy_lemmatizer_for(greedy, low_memory).get_lemmas_in_text(text, lang)

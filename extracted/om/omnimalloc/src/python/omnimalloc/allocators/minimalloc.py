@@ -2,33 +2,41 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import math
+from typing import Any, cast
 
-from omnimalloc.common.optional import OptionalDependencyError
-from omnimalloc.common.units import TB
-from omnimalloc.primitives import Allocation, Pool
+from omnimalloc.common.constants import DEFAULT_TIMEOUT, TB
+from omnimalloc.common.deadline import ensure_valid_timeout
+from omnimalloc.common.validation import ensure_positive
+from omnimalloc.primitives import Allocation
 
 from .base import BaseAllocator
 
 try:
     import minimalloc as mm  # type: ignore
-
-    HAS_MINIMALLOC = True
 except ImportError:
-    from types import SimpleNamespace
-    from typing import Any
+    mm = cast("Any", None)
 
-    HAS_MINIMALLOC = False
-    mm: Any = SimpleNamespace(
-        Buffer=None,
-        Lifespan=None,
-        Problem=None,
-        Solution=None,
-        Solver=None,
-        SolverParams=None,
-    )
+HAS_MINIMALLOC = mm is not None
 
 
-def _om_allocation_to_mm_buffer(allocation: Allocation) -> "mm.Buffer":
+def _require_minimalloc() -> None:
+    """Re-check availability at use time so installs after package import work."""
+    global mm, HAS_MINIMALLOC
+    if mm is not None:
+        return
+    try:
+        import minimalloc  # type: ignore
+    except ImportError:
+        # TODO(fpedd): Make minimalloc more easily installable via PyPI
+        raise ImportError(
+            "The MinimallocAllocator feature requires 'minimalloc' which is not "
+            "installed.\nInstall manually: pip install git+https://github.com/google/minimalloc.git"
+        ) from None
+    mm, HAS_MINIMALLOC = minimalloc, True
+
+
+def _to_buffer(allocation: Allocation) -> "mm.Buffer":
     return mm.Buffer(
         id=str(allocation.id),
         size=allocation.size,
@@ -36,74 +44,37 @@ def _om_allocation_to_mm_buffer(allocation: Allocation) -> "mm.Buffer":
     )
 
 
-def _om_pool_to_mm_problem(pool: Pool) -> "mm.Problem":
-    buffers = [
-        _om_allocation_to_mm_buffer(allocation) for allocation in pool.allocations
-    ]
-    return mm.Problem(buffers=buffers)
-
-
-def _mm_problem_to_om_pool(
-    problem: "mm.Problem | None", solution: "mm.Solution | None" = None
-) -> Pool | None:
-    if problem is None or solution is None:
-        return None
-
-    buffers = problem.buffers
-    offsets = solution.offsets
-
-    if len(offsets) != len(buffers):
-        raise ValueError(f"Num offsets {len(offsets)} != num buffers {len(buffers)}")
-
-    for buffer, offset in zip(buffers, offsets, strict=False):
-        buffer.offset = offset
-
-    allocations = tuple(
-        Allocation(
-            id=buffer.id,
-            size=buffer.size,
-            start=buffer.lifespan.lower,
-            end=buffer.lifespan.upper,
-            offset=buffer.offset,
-        )
-        for buffer in problem.buffers
-    )
-
-    return Pool(id=0, allocations=allocations)
-
-
-def _run_solver(
-    problem: "mm.Problem", timeout: int, capacity: int, minimize: bool = True
-) -> "mm.Solution | None":
-    params = mm.SolverParams()
-    params.timeout = timeout
-    params.minimize_capacity = minimize
-    problem.capacity = capacity
-
-    solver = mm.Solver(params)
-    solution = solver.solve(problem)
-
-    return solution
-
-
 class MinimallocAllocator(BaseAllocator):
     """Wrapper for Google's minimalloc constraint-based allocator."""
 
-    def __init__(self, timeout: int = 10, max_capacity: int = 1 * TB) -> None:
-        if not HAS_MINIMALLOC:
-            # TODO(fpedd): Make minimalloc more easily installable via PyPI
-            raise OptionalDependencyError(
-                "The MinimallocAllocator feature requires 'minimalloc' which is not "
-                "installed.\nInstall manually: pip install git+https://github.com/google/minimalloc.git"
-            )
+    # mm.Lifespan is inherently an interval on one timeline
+    supports_vector_time = False
 
+    def __init__(
+        self, timeout: float | None = DEFAULT_TIMEOUT, capacity: int = 1 * TB
+    ) -> None:
+        _require_minimalloc()
+        ensure_valid_timeout(timeout)
+        ensure_positive(capacity, "capacity")
         self._timeout = timeout
-        self._max_capacity = max_capacity
+        self._capacity = capacity
 
-    def allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
-        problem = _om_pool_to_mm_problem(Pool(id=0, allocations=allocations))
-        solution = _run_solver(problem, self._timeout, self._max_capacity)
-        pool = _mm_problem_to_om_pool(problem, solution)
-        if pool is None:
+    def _allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
+        problem = mm.Problem(buffers=[_to_buffer(a) for a in allocations])
+        problem.capacity = self._capacity
+
+        params = mm.SolverParams()
+        # minimalloc's own default timeout is infinite, matching None here;
+        # its solver takes whole seconds, so round up to never shorten the budget
+        if self._timeout is not None:
+            params.timeout = math.ceil(self._timeout)
+        params.minimize_capacity = True
+
+        solution = mm.Solver(params).solve(problem)
+        if solution is None:
             raise RuntimeError("Minimalloc failed to find a solution")
-        return tuple(pool.allocations)
+
+        return tuple(
+            allocation.with_offset(offset)
+            for allocation, offset in zip(allocations, solution.offsets, strict=True)
+        )

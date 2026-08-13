@@ -41,6 +41,14 @@ def test_create_dynamic_table(fake_root, dynamic_tables):
             "warehouse": "wh",
             "columns": [{"name": "c1", "datatype": "int"}],
             "query": "SELECT * FROM foo",
+            "initialization_warehouse": None,
+            "cluster_by_raw": None,
+            "frozen_where": None,
+            "backfill_from": None,
+            "start_at": None,
+            "default_ddl_collation": None,
+            "log_level": None,
+            "row_timestamp": None,
         },
     )
 

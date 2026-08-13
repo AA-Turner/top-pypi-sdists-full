@@ -67,6 +67,7 @@ class CloneRequest(google.protobuf.message.Message):
     CLONE_SOURCE_TABLE_TYPE_FIELD_NUMBER: builtins.int
     TABLE_PROPERTIES_FIELD_NUMBER: builtins.int
     CLONE_CHAIN_DEPTH_LIMIT_FIELD_NUMBER: builtins.int
+    TABLE_NAMESPACE_FIELD_NUMBER: builtins.int
     target_table: builtins.str
     dialect: builtins.str
     default_catalog: builtins.str
@@ -75,6 +76,7 @@ class CloneRequest(google.protobuf.message.Message):
     clone_source_last_modified_epoch: builtins.int
     clone_source_table_type: builtins.str
     clone_chain_depth_limit: builtins.int
+    table_namespace: builtins.str
     @property
     def labels(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]: ...
     @property
@@ -92,15 +94,18 @@ class CloneRequest(google.protobuf.message.Message):
         clone_source_table_type: builtins.str | None = ...,
         table_properties: global___TableProperties | None = ...,
         clone_chain_depth_limit: builtins.int | None = ...,
+        table_namespace: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_clone_chain_depth_limit", b"_clone_chain_depth_limit", "_clone_source_last_modified_epoch", b"_clone_source_last_modified_epoch", "_clone_source_table_type", b"_clone_source_table_type", "_table_properties", b"_table_properties", "clone_chain_depth_limit", b"clone_chain_depth_limit", "clone_source_last_modified_epoch", b"clone_source_last_modified_epoch", "clone_source_table_type", b"clone_source_table_type", "table_properties", b"table_properties"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_clone_chain_depth_limit", b"_clone_chain_depth_limit", "_clone_source_last_modified_epoch", b"_clone_source_last_modified_epoch", "_clone_source_table_type", b"_clone_source_table_type", "_table_properties", b"_table_properties", "clone_chain_depth_limit", b"clone_chain_depth_limit", "clone_source_last_modified_epoch", b"clone_source_last_modified_epoch", "clone_source_table", b"clone_source_table", "clone_source_table_type", b"clone_source_table_type", "default_catalog", b"default_catalog", "dialect", b"dialect", "execution_type", b"execution_type", "labels", b"labels", "table_properties", b"table_properties", "target_table", b"target_table"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_clone_chain_depth_limit", b"_clone_chain_depth_limit", "_clone_source_last_modified_epoch", b"_clone_source_last_modified_epoch", "_clone_source_table_type", b"_clone_source_table_type", "_table_namespace", b"_table_namespace", "_table_properties", b"_table_properties", "clone_chain_depth_limit", b"clone_chain_depth_limit", "clone_source_last_modified_epoch", b"clone_source_last_modified_epoch", "clone_source_table_type", b"clone_source_table_type", "table_namespace", b"table_namespace", "table_properties", b"table_properties"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_clone_chain_depth_limit", b"_clone_chain_depth_limit", "_clone_source_last_modified_epoch", b"_clone_source_last_modified_epoch", "_clone_source_table_type", b"_clone_source_table_type", "_table_namespace", b"_table_namespace", "_table_properties", b"_table_properties", "clone_chain_depth_limit", b"clone_chain_depth_limit", "clone_source_last_modified_epoch", b"clone_source_last_modified_epoch", "clone_source_table", b"clone_source_table", "clone_source_table_type", b"clone_source_table_type", "default_catalog", b"default_catalog", "dialect", b"dialect", "execution_type", b"execution_type", "labels", b"labels", "table_namespace", b"table_namespace", "table_properties", b"table_properties", "target_table", b"target_table"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_clone_chain_depth_limit", b"_clone_chain_depth_limit"]) -> typing.Literal["clone_chain_depth_limit"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_clone_source_last_modified_epoch", b"_clone_source_last_modified_epoch"]) -> typing.Literal["clone_source_last_modified_epoch"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_clone_source_table_type", b"_clone_source_table_type"]) -> typing.Literal["clone_source_table_type"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_table_namespace", b"_table_namespace"]) -> typing.Literal["table_namespace"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_table_properties", b"_table_properties"]) -> typing.Literal["table_properties"] | None: ...
 

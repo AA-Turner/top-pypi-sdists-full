@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyproject-fmt
-Version: 2.27.0
+Version: 2.27.1
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -34,12 +34,8 @@ Apply a consistent format to your ``pyproject.toml`` file with comment support. 
 Recent Changes
 ~~~~~~~~~~~~~~~~
 
-- ✨ feat(pyproject-fmt): normalize and validate project.version by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#428 <https://github.com/tox-dev/toml-fmt/pull/428>`_
-- Update Python dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#424 <https://github.com/tox-dev/toml-fmt/pull/424>`_
-- Update Rust dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#423 <https://github.com/tox-dev/toml-fmt/pull/423>`_ <a id="2.26.0"></a>
+- 🐛 fix(pyproject-fmt): stop normalizing project.version by `@gaborbernat <https://github.com/gaborbernat>`_ in
+  `#431 <https://github.com/tox-dev/toml-fmt/pull/431>`_ <a id="2.27.0"></a>
 
 Philosophy
 ----------
@@ -715,8 +711,8 @@ directly), or when ``setuptools`` itself is missing from ``requires``.
 The :pep:`621` core metadata table. See the
 `packaging specification <https://packaging.python.org/en/latest/specifications/pyproject-toml/#pyproject-project-table>`_.
 
-Keys follow the canonical metadata order; name, version, dependencies, classifiers, and keywords are normalized and
-sorted.
+Keys follow the canonical metadata order; name, dependencies, classifiers, and keywords are normalized and sorted;
+version is validated.
 
 
 **Key ordering:** ``name`` → ``version`` → ``import-names`` → ``import-namespaces`` → ``description`` →
@@ -730,9 +726,9 @@ sorted.
     Converted to canonical format (lowercase with hyphens): ``My_Package`` → ``my-package``
 
 ``version``
-    Converted to the canonical :pep:`440` form: ``V1.0-Alpha.2`` → ``1.0a2``. A value that is not a valid
-    :pep:`440` version is rejected: the formatter reports it on standard error, leaves the file untouched, and
-    exits with a non-zero status.
+    Kept verbatim, because it is the exact version published in the package metadata — normalizing would rewrite
+    e.g. CalVer ``2026.08.10`` to ``2026.8.10``. A value that is not a valid :pep:`440` version is rejected: the
+    formatter reports it on standard error, leaves the file untouched, and exits with a non-zero status.
 
 ``description``
     Whitespace normalized: multiple spaces collapsed, consistent spacing after periods.

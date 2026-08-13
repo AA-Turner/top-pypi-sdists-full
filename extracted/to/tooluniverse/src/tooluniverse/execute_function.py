@@ -47,6 +47,7 @@ from .exceptions import (
     ToolConfigError,
     ToolServerError,
 )
+from .base_tool import resolve_configured_operation
 from .tool_registry import (
     auto_discover_tools,
     get_tool_registry,
@@ -1308,7 +1309,8 @@ class ToolUniverse:
                         f"Skipping agentic tool '{tool_name}' due to missing LLM API keys"
                     )
                     all_missing_keys.add(
-                        "LLM API keys (AZURE_OPENAI_API_KEY, OPENROUTER_API_KEY, or GEMINI_API_KEY)"
+                        "LLM API keys (AZURE_OPENAI_API_KEY, OPENAI_API_KEY, "
+                        "OPENROUTER_API_KEY, GEMINI_API_KEY, or VLLM_SERVER_URL)"
                     )
                     continue
 
@@ -1583,7 +1585,7 @@ class ToolUniverse:
 
         Side Effects:
             - May add new tools to the tool registry
-            - Prints debug information about the discovery process
+            - Logs debug information about the discovery process
             - Updates tool counts after MCP registration
         """
         self.logger.debug("Starting _process_mcp_auto_loaders")
@@ -1695,14 +1697,14 @@ class ToolUniverse:
                                 f"  - Registered: {result.get('registered_count', 0)} tools"
                             )
 
-                            # Print detailed tool information
+                            # Log detailed tool information without polluting stdio stdout.
                             if result.get("tools"):
-                                print(
+                                info(
                                     f"  📋 Discovered MCP tools: {', '.join(result['tools'])}"
                                 )
 
                             if result.get("registered_tools"):
-                                print(
+                                info(
                                     f"  🔧 Registered tools in ToolUniverse: {', '.join(result['registered_tools'])}"
                                 )
                                 self.logger.debug(
@@ -1716,11 +1718,11 @@ class ToolUniverse:
                                 if name.startswith("expert_")
                             ]
                             if expert_tools:
-                                print(
+                                info(
                                     f"  ✅ Expert tools now available: {', '.join(expert_tools)}"
                                 )
                             else:
-                                print(
+                                info(
                                     "  ⚠️  No expert tools found in callable_functions after registration"
                                 )
 
@@ -2411,7 +2413,18 @@ class ToolUniverse:
             dict or None: Tool configuration if found, None otherwise.
         """
         if tool_name not in self.all_tool_dict:
-            warning(f"Tool name {tool_name} not found in the loaded tools.")
+            # Fix-R3-05: a tool held back for a missing API key is not "not
+            # found" -- the name is correct and the fix is to set a key, not to
+            # re-check the spelling. `tu info <gated tool>` printed this
+            # misleading warning immediately above the accurate API-key error.
+            missing_keys = getattr(self, "_excluded_api_key_tools", {}).get(tool_name)
+            if missing_keys:
+                warning(
+                    f"Tool {tool_name} is not loaded: requires API key(s) not set: "
+                    f"{', '.join(missing_keys)}."
+                )
+            else:
+                warning(f"Tool name {tool_name} not found in the loaded tools.")
             return None
 
         tool_config = self.all_tool_dict[tool_name]
@@ -3101,6 +3114,7 @@ class ToolUniverse:
             # Python wrappers, but schema validation rejects None for typed params.
             # None means "not provided" — simply omit such keys.
             arguments = {k: v for k, v in arguments.items() if v is not None}
+            self._apply_operation_default(function_name, arguments)
             function_call_json["arguments"] = arguments
 
             # Validate parameters if requested
@@ -3773,6 +3787,28 @@ class ToolUniverse:
         # Get the expected type
         expected_type = schema.get("type")
 
+        # Fix-R3-06: JSON Schema permits "type" to be a LIST of types, and
+        # ["integer", "null"] is this project's own convention for an optional
+        # parameter. Every comparison below is against a bare string, so a union
+        # type matched nothing and the value stayed a str -- which then failed
+        # schema validation. That made the documented `tu run <tool> limit=10`
+        # shorthand fail on most tools ("'10' is not of type 'integer', 'null'")
+        # while the JSON form worked, and equally affected LLM callers that pass
+        # numbers as strings. Try each non-null member of the union instead.
+        if isinstance(expected_type, list):
+            candidates = [t for t in expected_type if t != "null"]
+            # If a string is acceptable, keep it as-is rather than
+            # reinterpreting it as some other type.
+            if "string" in candidates:
+                return value
+            for candidate in candidates:
+                coerced = self._coerce_value_to_type(
+                    value, dict(schema, type=candidate)
+                )
+                if coerced is not value:
+                    return coerced
+            return value
+
         # Don't coerce if schema expects string type
         if expected_type == "string":
             return value
@@ -3842,6 +3878,31 @@ class ToolUniverse:
 
         return coerced_args
 
+    def _apply_operation_default(self, function_name: str, arguments: dict) -> None:
+        """Fill in `operation` for tools that are registered as a single operation.
+
+        Many multi-operation tool classes are registered once per operation
+        (``DNA_find_orfs``, ``Epidemiology_nnt``, ...) yet still read
+        ``arguments["operation"]``. Callers naturally omit it — the tool name
+        already says which operation it is — and previously got a bare parameter
+        validation failure, with no signal that the tool was usable at all.
+
+        The tool's own config names the operation (``fields.operation``, else the
+        schema default), so supply it here when the caller left it out. An
+        explicitly passed ``operation`` always wins. Mutates ``arguments`` in
+        place, before validation, so it applies whether or not validation runs.
+
+        The value is resolved through ``resolve_configured_operation`` because
+        ``BaseTool.validate_parameters`` needs the same answer to tell an
+        auto-supplied ``operation`` apart from a caller-supplied one
+        (Feature-26A-8); resolving it in two places would let them drift.
+        """
+        if "operation" in arguments:
+            return
+        operation = resolve_configured_operation(self.all_tool_dict.get(function_name))
+        if operation:
+            arguments["operation"] = operation
+
     def _validate_parameters(
         self, function_name: str, arguments: dict
     ) -> Optional[ToolError]:
@@ -3856,16 +3917,31 @@ class ToolUniverse:
             # Check again after loading
             if function_name not in self.all_tool_dict:
                 missing_keys = self._excluded_api_key_tools.get(function_name)
+                # Fix-R3-03: both branches previously omitted next_steps and so
+                # inherited ToolUnavailableError's network-flavoured defaults
+                # ("Check network connection", "Verify service status") -- wrong
+                # and misleading advice for a misspelled tool name or an unset
+                # API key. The sibling not-found path in run_one_function already
+                # passes tool-discovery steps; match it here so SDK and MCP
+                # callers get the same actionable guidance the CLI shows.
                 if missing_keys:
                     return ToolUnavailableError(
                         f"Tool '{function_name}' requires API key(s) not set: "
                         f"{', '.join(missing_keys)}. "
                         "Set them as environment variables and retry.",
                         retriable=False,
+                        next_steps=[
+                            f"Set the environment variable(s): {', '.join(missing_keys)}",
+                            "Run `tu status` to check which API keys are configured",
+                        ],
                     )
                 return ToolUnavailableError(
                     f"Tool '{function_name}' not found even after loading tools",
                     retriable=False,
+                    next_steps=[
+                        "Check tool name spelling",
+                        "Verify tool is available in loaded categories",
+                    ],
                 )
 
         tool_instance = self._get_tool_instance(function_name, cache=True)

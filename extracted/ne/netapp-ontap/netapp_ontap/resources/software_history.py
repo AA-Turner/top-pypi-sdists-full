@@ -30,19 +30,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 SoftwareHistory(
     {
         "from_version": "9.4.0",
-        "to_version": "9.5.0",
-        "state": "successful",
         "start_time": "2018-09-03T16:18:46+05:30",
-        "end_time": "2018-05-21T10:14:51+05:30",
+        "to_version": "9.5.0",
         "node": {
-            "name": "sti70-vsim-ucs165n",
+            "uuid": "58cd3a2b-af63-11e8-8b0d-0050568e7279",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/58cd3a2b-af63-11e8-8b0d-0050568e7279"
                 }
             },
-            "uuid": "58cd3a2b-af63-11e8-8b0d-0050568e7279",
+            "name": "sti70-vsim-ucs165n",
         },
+        "end_time": "2018-05-21T10:14:51+05:30",
+        "state": "successful",
     }
 )
 

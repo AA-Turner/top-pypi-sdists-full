@@ -19,3 +19,9 @@ from yookassa.domain.models.deal import DealStatus, DealType, FeeMoment, Payment
     RefundDealInfo, RefundDealData
 from yookassa.domain.models.me import Me
 from yookassa.domain.models.settings import FiscalizationData, FiscalizationProvider
+from yookassa.domain.models.pos_link_data.request.pos_link_data import PosLinkData
+from yookassa.domain.models.pos_link_data.response.pos_link_last_payment import PosLinkLastPayment
+from yookassa.domain.models.pos_link_data.request.pos_link_payment import PosLinkPayment
+from yookassa.domain.models.pos_link_data.pos_link_recipient import PosLinkRecipient
+from yookassa.domain.models.pos_link_data.pos_link_status import PosLinkStatus
+from yookassa.domain.models.pos_link_data.pos_link_type import PosLinkType

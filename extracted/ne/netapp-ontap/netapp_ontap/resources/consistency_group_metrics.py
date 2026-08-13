@@ -28,38 +28,38 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroupMetrics(
         {
+            "used_space": 1810432,
+            "available_space": 862216192,
+            "iops": {"read": 0, "write": 0, "other": 0, "total": 0},
+            "timestamp": "2023-02-23T03:17:45+00:00",
+            "size": 864026624,
+            "duration": "PT15S",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/5069acd5-b325-11ed-a958-005056ac6b54/metrics/2023-02-23T03%3A17%3A45Z?fields=**"
                 }
             },
-            "latency": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "used_space": 1810432,
-            "timestamp": "2023-02-23T03:17:45+00:00",
-            "iops": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "size": 864026624,
+            "latency": {"read": 0, "write": 0, "other": 0, "total": 0},
             "status": "ok",
-            "duration": "PT15S",
-            "throughput": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "available_space": 862216192,
+            "throughput": {"read": 0, "write": 0, "other": 0, "total": 0},
         }
     ),
     ConsistencyGroupMetrics(
         {
+            "used_space": 0,
+            "available_space": 0,
+            "iops": {"read": 0, "write": 0, "other": 0, "total": 0},
+            "timestamp": "2023-02-23T02:18:00+00:00",
+            "size": 0,
+            "duration": "PT15S",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/5069acd5-b325-11ed-a958-005056ac6b54/metrics/2023-02-23T02%3A18%3A00Z?fields=**"
                 }
             },
-            "latency": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "used_space": 0,
-            "timestamp": "2023-02-23T02:18:00+00:00",
-            "iops": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "size": 0,
+            "latency": {"read": 0, "write": 0, "other": 0, "total": 0},
             "status": "partial_no_data",
-            "duration": "PT15S",
-            "throughput": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "available_space": 0,
+            "throughput": {"read": 0, "write": 0, "other": 0, "total": 0},
         }
     ),
 ]
@@ -93,38 +93,38 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroupMetrics(
         {
+            "used_space": 1843200,
+            "available_space": 862183424,
+            "iops": {"read": 0, "write": 0, "other": 0, "total": 0},
+            "timestamp": "2023-02-23T03:36:45+00:00",
+            "size": 864026624,
+            "duration": "PT15S",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/5069acd5-b325-11ed-a958-005056ac6b54/metrics/2023-02-23T03%3A36%3A45Z?fields=**"
                 }
             },
-            "latency": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "used_space": 1843200,
-            "timestamp": "2023-02-23T03:36:45+00:00",
-            "iops": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "size": 864026624,
+            "latency": {"read": 0, "write": 0, "other": 0, "total": 0},
             "status": "ok",
-            "duration": "PT15S",
-            "throughput": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "available_space": 862183424,
+            "throughput": {"read": 0, "write": 0, "other": 0, "total": 0},
         }
     ),
     ConsistencyGroupMetrics(
         {
+            "used_space": 1843200,
+            "available_space": 862183424,
+            "iops": {"read": 0, "write": 0, "other": 0, "total": 0},
+            "timestamp": "2023-02-23T03:36:30+00:00",
+            "size": 864026624,
+            "duration": "PT15S",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/5069acd5-b325-11ed-a958-005056ac6b54/metrics/2023-02-23T03%3A36%3A30Z?fields=**"
                 }
             },
-            "latency": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "used_space": 1843200,
-            "timestamp": "2023-02-23T03:36:30+00:00",
-            "iops": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "size": 864026624,
+            "latency": {"read": 0, "write": 0, "other": 0, "total": 0},
             "status": "ok",
-            "duration": "PT15S",
-            "throughput": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "available_space": 862183424,
+            "throughput": {"read": 0, "write": 0, "other": 0, "total": 0},
         }
     ),
 ]

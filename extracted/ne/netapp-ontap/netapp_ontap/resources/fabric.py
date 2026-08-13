@@ -33,31 +33,31 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Fabric(
         {
+            "name": "10:00:aa:bb:cc:dd:ee:ff",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/fabrics/10%3A00%3Aaa%3Abb%3Acc%3Add%3Aee%3Aff"
                 }
             },
-            "name": "10:00:aa:bb:cc:dd:ee:ff",
             "cache": {
-                "update_time": "2022-02-07T21:21:29+00:00",
-                "is_current": True,
                 "age": "PT1M16S",
+                "is_current": True,
+                "update_time": "2022-02-07T21:21:29+00:00",
             },
         }
     ),
     Fabric(
         {
+            "name": "10:00:ff:ee:dd:cc:bb:aa",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/fabrics/10%3A00%3Aff%3Aee%3Add%3Acc%3Abb%3Aaa"
                 }
             },
-            "name": "10:00:ff:ee:dd:cc:bb:aa",
             "cache": {
-                "update_time": "2022-02-07T21:21:29+00:00",
-                "is_current": True,
                 "age": "PT1M16S",
+                "is_current": True,
+                "update_time": "2022-02-07T21:21:29+00:00",
             },
         }
     ),
@@ -91,12 +91,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/network/fc/fabrics/10:00:aa:bb:cc:dd:ee:ff/switches/10:00:1a:1b:1c:1d:1e:1f"
                 }
             },
-            "cache": {
-                "update_time": "2022-02-07T21:22:00+00:00",
-                "is_current": True,
-                "age": "PT45S",
-            },
             "wwn": "10:00:1a:1b:1c:1d:1e:1f",
+            "cache": {
+                "age": "PT45S",
+                "is_current": True,
+                "update_time": "2022-02-07T21:22:00+00:00",
+            },
         }
     ),
     FcSwitch(
@@ -106,12 +106,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/network/fc/fabrics/10:00:aa:bb:cc:dd:ee:ff/switches/10:00:2a:2b:2c:2d:2e:1f"
                 }
             },
-            "cache": {
-                "update_time": "2022-02-07T21:22:00+00:00",
-                "is_current": True,
-                "age": "PT45S",
-            },
             "wwn": "10:00:2a:2b:2c:2d:2e:1f",
+            "cache": {
+                "age": "PT45S",
+                "is_current": True,
+                "update_time": "2022-02-07T21:22:00+00:00",
+            },
         }
     ),
     FcSwitch(
@@ -121,12 +121,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/network/fc/fabrics/10:00:aa:bb:cc:dd:ee:ff/switches/10:00:3a:3b:3c:3d:3e:3f"
                 }
             },
-            "cache": {
-                "update_time": "2022-02-07T21:22:00+00:00",
-                "is_current": True,
-                "age": "PT45S",
-            },
             "wwn": "10:00:3a:3b:3c:3d:3e:3f",
+            "cache": {
+                "age": "PT45S",
+                "is_current": True,
+                "update_time": "2022-02-07T21:22:00+00:00",
+            },
         }
     ),
     FcSwitch(
@@ -136,12 +136,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/network/fc/fabrics/10:00:aa:bb:cc:dd:ee:ff/switches/10:00:4a:4b:4c:4d:4e:4f"
                 }
             },
-            "cache": {
-                "update_time": "2022-02-07T21:22:00+00:00",
-                "is_current": True,
-                "age": "PT45S",
-            },
             "wwn": "10:00:4a:4b:4c:4d:4e:4f",
+            "cache": {
+                "age": "PT45S",
+                "is_current": True,
+                "update_time": "2022-02-07T21:22:00+00:00",
+            },
         }
     ),
     FcSwitch(
@@ -151,12 +151,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/network/fc/fabrics/10:00:aa:bb:cc:dd:ee:ff/switches/10:00:5a:5b:1a:5c:5d:5e"
                 }
             },
-            "cache": {
-                "update_time": "2022-02-07T21:22:00+00:00",
-                "is_current": True,
-                "age": "PT45S",
-            },
             "wwn": "10:00:5a:5b:1a:5c:5d:5e",
+            "cache": {
+                "age": "PT45S",
+                "is_current": True,
+                "update_time": "2022-02-07T21:22:00+00:00",
+            },
         }
     ),
 ]
@@ -184,61 +184,61 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FcZone(
         {
+            "name": "zone1",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/fabrics/10:00:aa:bb:cc:dd:ee:ff/zones/zone1"
                 }
             },
-            "name": "zone1",
             "cache": {
-                "update_time": "2022-02-07T20:17:06+00:00",
-                "is_current": True,
                 "age": "PT1H17M54S",
+                "is_current": True,
+                "update_time": "2022-02-07T20:17:06+00:00",
             },
         }
     ),
     FcZone(
         {
+            "name": "zone2",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/fabrics/10:00:aa:bb:cc:dd:ee:ff/zones/zone2"
                 }
             },
-            "name": "zone2",
             "cache": {
-                "update_time": "2022-02-07T20:17:06+00:00",
-                "is_current": True,
                 "age": "PT1H17M54S",
+                "is_current": True,
+                "update_time": "2022-02-07T20:17:06+00:00",
             },
         }
     ),
     FcZone(
         {
+            "name": "zone3",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/fabrics/10:00:aa:bb:cc:dd:ee:ff/zones/zone3"
                 }
             },
-            "name": "zone3",
             "cache": {
-                "update_time": "2022-02-07T20:17:06+00:00",
-                "is_current": True,
                 "age": "PT1H17M54S",
+                "is_current": True,
+                "update_time": "2022-02-07T20:17:06+00:00",
             },
         }
     ),
     FcZone(
         {
+            "name": "zone4",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/fabrics/10:00:aa:bb:cc:dd:ee:ff/zones/zone4"
                 }
             },
-            "name": "zone4",
             "cache": {
-                "update_time": "2022-02-07T20:17:06+00:00",
-                "is_current": True,
                 "age": "PT1H17M54S",
+                "is_current": True,
+                "update_time": "2022-02-07T20:17:06+00:00",
             },
         }
     ),
@@ -275,72 +275,72 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FcSwitch(
         {
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/fabrics/10:00:aa:bb:cc:dd:ee:ff/switches/10:00:6a:6b:6c:6d:6e:6f"
-                }
-            },
-            "cache": {
-                "update_time": "2022-02-07T21:57:29+00:00",
-                "is_current": True,
-                "age": "PT4M49S",
-            },
-            "wwn": "10:00:6a:6b:6c:6d:6e:6f",
             "ports": [
                 {
-                    "attached_device": {
-                        "wwpn": "50:0a:1a:1b:1c:1d:1e:1f",
-                        "port_id": "0x999000",
-                    },
+                    "type": "f_port",
                     "wwpn": "20:00:1a:1b:1c:1d:1e:1f",
                     "slot": "0",
+                    "attached_device": {
+                        "port_id": "0x999000",
+                        "wwpn": "50:0a:1a:1b:1c:1d:1e:1f",
+                    },
                     "state": "online",
-                    "type": "f_port",
                 },
                 {
-                    "attached_device": {
-                        "wwpn": "50:0a:2a:2b:2c:2d:2e:2f",
-                        "port_id": "0x999100",
-                    },
+                    "type": "f_port",
                     "wwpn": "20:01:2a:2b:1c:2d:2e:2f",
                     "slot": "1",
+                    "attached_device": {
+                        "port_id": "0x999100",
+                        "wwpn": "50:0a:2a:2b:2c:2d:2e:2f",
+                    },
                     "state": "online",
-                    "type": "f_port",
                 },
                 {
+                    "type": "none",
                     "wwpn": "20:02:3a:3b:3c:3d:3e:3f",
                     "slot": "2",
                     "state": "offline",
-                    "type": "none",
                 },
                 {
-                    "attached_device": {
-                        "wwpn": "50:0a:4a:4b:4c:4d:4e:4f",
-                        "port_id": "0x999300",
-                    },
+                    "type": "f_port",
                     "wwpn": "20:03:4a:4b:4c:4d:4e:4f",
                     "slot": "3",
+                    "attached_device": {
+                        "port_id": "0x999300",
+                        "wwpn": "50:0a:4a:4b:4c:4d:4e:4f",
+                    },
                     "state": "offline",
-                    "type": "f_port",
                 },
                 {
-                    "attached_device": {
-                        "wwpn": "50:0a:5a:5b:5c:5d:5e:5f",
-                        "port_id": "0x999400",
-                    },
+                    "type": "f_port",
                     "wwpn": "20:04:5a:5b:5c:5d:5e:5f",
                     "slot": "4",
+                    "attached_device": {
+                        "port_id": "0x999400",
+                        "wwpn": "50:0a:5a:5b:5c:5d:5e:5f",
+                    },
                     "state": "online",
-                    "type": "f_port",
                 },
             ],
             "fabric": {
+                "name": "10:00:aa:bb:cc:dd:ee:ff",
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/fabrics/10%3A00%3Aaa%3Abb%3Acc%3Add%3Aee%3Aff"
                     }
                 },
-                "name": "10:00:aa:bb:cc:dd:ee:ff",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/fabrics/10:00:aa:bb:cc:dd:ee:ff/switches/10:00:6a:6b:6c:6d:6e:6f"
+                }
+            },
+            "wwn": "10:00:6a:6b:6c:6d:6e:6f",
+            "cache": {
+                "age": "PT4M49S",
+                "is_current": True,
+                "update_time": "2022-02-07T21:57:29+00:00",
             },
         }
     )

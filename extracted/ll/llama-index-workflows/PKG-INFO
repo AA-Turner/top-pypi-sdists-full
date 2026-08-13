@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index-workflows
-Version: 2.23.0
+Version: 2.23.1
 Summary: An event-driven, async-first, step-based way to control the execution flow of AI applications like Agents.
 License-Expression: MIT
 Requires-Dist: llama-index-instrumentation>=0.4.3

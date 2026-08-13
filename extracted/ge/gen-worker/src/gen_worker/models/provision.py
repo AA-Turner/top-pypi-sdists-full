@@ -36,7 +36,6 @@ _STANDALONE = Settings()
 from . import disk_gc, load_progress
 from .cache_paths import tensorhub_cas_dir
 from .errors import UrlExpiredError
-from .ladder import maybe_rebind_family_fp8
 from .envelope import envelope_refusal
 from .loading import (
     RUNG_NF4_UNLANDED,
@@ -50,6 +49,7 @@ from .loading import (
 from .memory import place_pipeline
 from .refs import DEFAULT_REF_TAG, parse_model_ref
 from .. import activity as activity_mod
+from .. import mint_workers
 
 if TYPE_CHECKING:
     from ..aot_identity import ExpectedIdentity
@@ -431,7 +431,76 @@ def arm_aot(
                     "aot arm: lifted-binding install failed on %r (%s); a "
                     "lifted artifact will refuse at assert_lifted_contract",
                     module_name, exc)
+    # pgw#1168: THE ADOPT'S DEVICE COST, MEASURED AT THE ONE SEAM EVERY ARM
+    # ROUTE PASSES. pgw#1164 measured this in `fleet_cells.adopt_delegated_mint`
+    # — the SELF-MINT adopt only — so the boot adopt, the local-store adopt and
+    # the re-arm ran the identical `aot_serve.enable` -> `load_and_wrap` and
+    # reported nothing. That is this program's most common defect shape (an
+    # emitter wired on one of N paths), and the fix is one emitter here rather
+    # than a second call site there.
+    #
+    # The two terms are measured SEPARATELY because they answer different
+    # questions, and the split is what decides whether the CELL or the GATE is
+    # the problem (th#1825):
+    #   load   — every loaded entry runner, which EVERY serving pod pays for the
+    #            life of the arm. This is the term that decides whether a cell
+    #            fits on the fleet it was built for.
+    #   verify — the §4.32 parity gate's two forwards, paid ONLY on the minting
+    #            pod (`verify_numerics=True`), never by an adopter.
+    # A boot adopt therefore reports `verify=0` by construction, and that row —
+    # taken on the card the fleet actually serves on — is the empirical answer
+    # to "does this cell fit", where before there was only arithmetic.
+    _budget_device = mint_workers.device_of(pipe)
+    _resident_before, _ = mint_workers.adopt_watermark(_budget_device)
+    _load_bytes = 0
+    _emitted = False
+
+    def _emit_adopt_budget(verify_bytes: int, armed: bool) -> None:
+        """One `cell_adopt_budget` row per arm attempt, whatever the outcome.
+
+        Emitted even for a REFUSED arm: the device high-water was paid either
+        way, and a refusal is exactly when the number is most worth having.
+        """
+        nonlocal _emitted
+        if _emitted:
+            return
+        _emitted = True
+        total = int(_load_bytes) + max(0, int(verify_bytes))
+        if total <= 0:
+            return
+        family = str((meta or {}).get("family") or getattr(cfg, "family", "") or "")
+        # The cell's OWN recorded lane.
+        lane = str((meta or {}).get("weight_lane") or "")
+        entries = len((meta or {}).get("entries") or {})
+        gib = 1 << 30
+        activity_mod.emit_event(
+            "cell_adopt_budget",
+            f"family={family} lane={lane or '(plain)'} entries={entries} "
+            f"adopt_device_peak={total / gib:.3f}GiB "
+            f"load={_load_bytes / gib:.3f}GiB "
+            f"verify={max(0, int(verify_bytes)) / gib:.3f}GiB "
+            f"resident_before={_resident_before / gib:.3f}GiB "
+            f"verified={bool(verify_numerics)} armed={bool(armed)} "
+            f"basis=measured — `load` is what EVERY adopting pod pays and is "
+            f"the term that decides whether this cell fits its serving fleet; "
+            f"`verify` is the §4.32 gate and is paid only by the minting pod.",
+            phase="measured",
+        )
+
+    # §4.33 / pgw#1175: THE HEADROOM GATE IS GONE, and the ATTEMPT replaces it.
+    # `mint_budget.adopt_headroom` refused an arm here on `2 * activation`,
+    # where `activation` was a quarter of the RESIDENT SET whenever no forward
+    # had run — a fraction its own docstring called unmeasured — and its
+    # refusal was STICKY for the life of the process. Its own text conceded it
+    # "CANNOT refuse a card that merely cannot hold 36 runners", i.e. it could
+    # not refuse the failure it was written for (th#1825) and could refuse
+    # cards that were fine. The honest gate is the bind itself:
+    # `aot_serve.load_and_wrap` attempts each entry and returns a typed
+    # `insufficient_adopt_vram` miss on a real device OOM, before any live
+    # mutation, and this pod serves eager exactly as it did — on evidence.
     outcome = aot_serve.enable(pipe, cfg, cache_dir, artifact, expected=expected)
+    _, _peak_after_load = mint_workers.adopt_watermark(_budget_device)
+    _load_bytes = max(0, _peak_after_load - _resident_before)
     if not outcome.armed and lifted_install_error:
         # The refusal is real; its ROOT is one frame up. Both, in the order a
         # reader needs them: what refused, and what made it refuse.
@@ -444,8 +513,12 @@ def arm_aot(
     if outcome.armed:
         # §4.32: quality is proven at MINT and in author CI, never at adoption.
         # An adopting pod materializes, arms and serves.
-        if not verify_numerics or gate_cell_numerics(pipe, cfg, strict=True):
+        gate_ok = not verify_numerics or gate_cell_numerics(pipe, cfg, strict=True)
+        _, _peak_after_verify = mint_workers.adopt_watermark(_budget_device)
+        if gate_ok:
+            _emit_adopt_budget(_peak_after_verify - _peak_after_load, True)
             return outcome
+        _emit_adopt_budget(_peak_after_verify - _peak_after_load, False)
         # A refused cell is UNARMED, not merely reported: the whole point is
         # that it must not serve. Staying eager is the ordinary miss policy
         # every other adopt gate uses, so the tenant keeps being served.
@@ -465,6 +538,10 @@ def arm_aot(
             f"they were traced from — nothing is published and this pod serves "
             f"eager (pgw#868, §4.32)",
             outcome.identity)
+    # An arm that never reached the gate (refused at `enable`) still paid the
+    # load, so it still reports — `_emit_adopt_budget` dedupes, so the armed
+    # paths above have already had their say.
+    _emit_adopt_budget(0, bool(outcome.armed))
     if lifted_installed:
         from . import lora_lifted
 
@@ -611,7 +688,7 @@ def enable_compiled(
     artifact: Optional[Path] = None,
 ) -> AdoptOutcome:
     """Arm the best available compiled path for a freshly loaded pipeline:
-    a TRT engine artifact swaps the module (fail-soft), anything else goes
+    an AOTI export swaps the module (fail-soft), anything else goes
     through the torch.compile cache policy (which also covers the no-
     artifact and ALLOW_COLD lanes).
 
@@ -620,7 +697,7 @@ def enable_compiled(
     adopt. Staying eager rolls the branches back — canonical zeroed slots
     cost +21-32% eager (gw#547); the eager adapter path re-enables sparse
     placement per request."""
-    from .. import aot_serve, compile_cache, trt_engine  # lazy: keeps `import gen_worker` off the compile/pb stack
+    from .. import aot_serve, compile_cache  # lazy: keeps `import gen_worker` off the compile/pb stack
     # Deferred: receipts pulls +151 modules onto the `import gen_worker` path.
     from .. import receipts
 
@@ -657,29 +734,18 @@ def enable_compiled(
                 return aot
             refused = aot
             artifact = None  # unusable artifact: fall through to eager policy
-        elif kind == "trt-engine" and not bucket:
-            # TRT engines expose only their plain contract — a lora_bucket
-            # declaration always rides the inductor lane.
-            trt = trt_engine.enable(pipe, cfg, cache_dir, artifact)
-            if trt.armed:
-                return trt
-            refused = trt
-            artifact = None  # unusable engine: fall through to eager policy
-    try:
-        armed = compile_cache.enable(pipe, cfg, cache_dir, artifact)
-    except compile_cache.CellSelectionBugError:
-        # th#883: the loud invariant propagates, but the caller continuing
-        # eager must not inherit the branch-bearing lane.
-        if bucket:
-            compile_cache.drop_lora_execution_lane(pipe)
-        raise
+    # pgw#1181: `compile_cache.enable` no longer takes an artifact — the
+    # `torch-inductor-cache` format it seeded has had no writer since pgw#1178
+    # and is deleted. Everything delivered is dispatched above by
+    # `metadata.json`'s `kind`; what reaches here is the JIT lane.
+    armed = compile_cache.enable(pipe, cfg)
     if bucket and not armed:
         compile_cache.drop_lora_execution_lane(pipe)
     if armed:
         return AdoptOutcome.hit()
     # The inductor lane declines without a classified token of its own — "no
     # delivered cell for this identity" is the whole answer. A prior typed
-    # refusal from the exported/TRT arm is the more specific one and survives.
+    # refusal from the exported arm is the more specific one and survives.
     return refused if refused is not None else AdoptOutcome.miss("no_cell")
 
 
@@ -1059,65 +1125,21 @@ def resolve_bindings(
                 f"unknown binding type for param {param_name!r}: "
                 f"{type(binding).__name__}"
             )
-        selected = binding if offline else _local_flavor_fold(binding, slot)
         out[param_name] = resolve_local_path(
-            ref=wire_ref(selected), provider=selected.source,
+            ref=wire_ref(binding), provider=binding.source,
             offline=offline, emit=emit,
-            allow_patterns=tuple(getattr(selected, "files", ()) or ()),
-            components=tuple(getattr(selected, "components", ()) or ()),
-            civitai_version_id=str(getattr(selected, "version", "") or ""),
+            allow_patterns=tuple(getattr(binding, "files", ()) or ()),
+            components=tuple(getattr(binding, "components", ()) or ()),
+            civitai_version_id=str(getattr(binding, "version", "") or ""),
         )
     return out
 
 
-def _local_flavor_fold(binding: Any, slot: Any) -> Any:
-    """Local AUTO flavor folds over ONE shared resolve: family fp8 (th#964)
-    first, then the GGUF small-VRAM pick (cl#27). Fail-open — any resolve or
-    probe error keeps the binding as declared. Production stays hub-owned."""
-    from .gguf_local import maybe_rebind_gguf  # cycle: gguf_local imports loading
-
-    if (
-        getattr(binding, "source", "") != "tensorhub"
-        or getattr(binding, "flavor", "")
-        or getattr(binding, "storage_dtype", "")
-        or getattr(binding, "components", ())
-    ):
-        return binding
-    try:
-        thref = parse_model_ref(wire_ref(binding)).tensorhub
-        if thref is None or thref.digest or thref.flavor:
-            return binding
-        from .hub_client import resolve_repo
-        from .hub_policy import detect_worker_capabilities
-        from .memory import get_available_vram_gb
-
-        resolved = resolve_repo(thref)
-        caps = detect_worker_capabilities()
-        free = get_available_vram_gb()
-    except Exception as exc:
-        logger.debug("local flavor fold failed open: %s", exc)
-        return binding
-    picked = maybe_rebind_family_fp8(
-        binding, resolved=resolved,
-        slot_family=str(getattr(slot, "family", "") or ""),
-        gpu_sm=caps.gpu_sm, free_vram_gb=free,
-        installed_libs=tuple(caps.installed_libs),
-    )
-    if picked is not binding:
-        return picked
-    return maybe_rebind_gguf(
-        binding, resolved=resolved, gpu_sm=caps.gpu_sm,
-        free_vram_gb=free, installed_libs=tuple(caps.installed_libs),
-    )
-
-
 def _hub_ref_map_path(cache_dir: Path, thref: Any) -> Path:
     """CAS-local memory of tag->snapshot resolutions, so a previously-fetched
-    tag ref keeps working offline: cas/refs/<owner>/<repo>/<tag>[#flavor]."""
+    tag ref keeps working offline: cas/refs/<owner>/<repo>/<tag>."""
     name = str(thref.tag or DEFAULT_REF_TAG)
-    if thref.flavor:
-        name += "#" + str(thref.flavor)
-    safe = "".join(ch if (ch.isalnum() or ch in "._#-") else "_" for ch in name)
+    safe = "".join(ch if (ch.isalnum() or ch in "._-") else "_" for ch in name)
     return cache_dir / "refs" / str(thref.owner) / str(thref.repo) / safe
 
 
@@ -1349,25 +1371,6 @@ def resolve_local_path(
                 "--offline once (or set TENSORHUB_CAS_DIR to a path with the "
                 "snapshot pre-seeded)."
             )
-        from .gguf_local import fetch_gguf_snapshot, gguf_qtype
-
-        if gguf_qtype(str(parsed.tensorhub.flavor or "")):
-            if components:
-                raise ModelResolutionError(
-                    "GGUF composed snapshots require the complete base model; "
-                    "components= cannot be combined with a #gguf-* flavor"
-                )
-            try:
-                gguf_snap = fetch_gguf_snapshot(
-                    parsed.tensorhub, cache_dir=cache_dir, emit=emit,
-                )
-            except Exception as e:
-                raise ModelResolutionError(
-                    "failed to compose tensorhub GGUF snapshot for "
-                    f"{parsed.tensorhub.canonical()}: {e}"
-                ) from e
-            _remember_hub_ref(cache_dir, parsed.tensorhub, Path(gguf_snap).name)
-            return gguf_snap
         return _fetch_tensorhub_snapshot(
             parsed.tensorhub, cache_dir=cache_dir, emit=emit, components=components,
         )

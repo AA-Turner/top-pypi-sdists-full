@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djangorestframework-stubs
-Version: 3.17.1
+Version: 3.18.0
 Summary: PEP-484 stubs for django-rest-framework
 Author: Maksim Kurnikov
 Author-email: Maksim Kurnikov <maxim.kurnikov@gmail.com>
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Classifier: Framework :: Django
-Requires-Dist: django-stubs>=6.0.7
+Requires-Dist: django-stubs>=6.0.9
 Requires-Dist: typing-extensions>=4.0
 Requires-Dist: types-pyyaml
 Requires-Dist: mypy>=1.13,<2.4 ; extra == 'compatible-mypy'

@@ -28,15 +28,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SnmpUser(
     {
+        "owner": {"uuid": "26e52266-a925-11e9-a981-005056bb1dcb", "name": "cluster-1"},
+        "authentication_method": "community",
+        "name": "snmpv1user2",
         "_links": {
             "self": {
                 "href": "/api/support/snmp/users/80000315056622e52625a9e911a981005056bb1dcb/snmpv1user2"
             }
         },
-        "authentication_method": "community",
-        "name": "snmpv1user2",
         "engine_id": "80000315056622e52625a9e911a981005056bb1dcb",
-        "owner": {"name": "cluster-1", "uuid": "26e52266-a925-11e9-a981-005056bb1dcb"},
         "scope": "cluster",
     }
 )

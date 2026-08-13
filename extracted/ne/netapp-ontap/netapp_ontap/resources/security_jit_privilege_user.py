@@ -45,17 +45,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SecurityJitPrivilegeUser(
         {
-            "account": {"name": "testUser"},
-            "application": "ssh",
             "owner": {
-                "name": "Cserver",
+                "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/b009a9e7-4081-b576-7575-ada21efcaf16"
                     }
                 },
-                "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
+                "name": "Cserver",
             },
+            "application": "ssh",
+            "account": {"name": "testUser"},
         }
     )
 ]

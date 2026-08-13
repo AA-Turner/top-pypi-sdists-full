@@ -1,29 +1,26 @@
 [project]
 name = "django-stubs"
-version = "6.0.9"
+version = "6.1.0"
 description = "Mypy stubs for Django"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE.md"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Typing :: Typed",
     "Framework :: Django",
-    "Framework :: Django :: 5.0",
-    "Framework :: Django :: 5.1",
     "Framework :: Django :: 5.2",
     "Framework :: Django :: 6.0",
+    "Framework :: Django :: 6.1",
 ]
 dependencies = [
     "django",
     "django-stubs-ext>=6.0.2",
-    "tomli; python_version < '3.11'",
     "types-pyyaml",
     "typing-extensions>=4.11.0",
 ]
@@ -67,8 +64,8 @@ tests = [
     "pytest-mypy-plugins==4.0.3",
     "pytest-shard==0.1.2",
     "pytest-xdist==3.8.0",
-    "django==5.2.16; python_version < '3.12'",
-    "django==6.0.7; python_version >= '3.12'",
+    "django==5.2.17; python_version < '3.12'",
+    "django==6.1; python_version >= '3.12'",
     "mysqlclient==2.2.8",
     "psycopg[binary]==3.3.4",
     "psycopg2-binary==2.9.12",
@@ -82,7 +79,7 @@ pyrefly = [
     "psycopg2-binary",
 ]
 ty = [
-    "ty==0.0.66",
+    "ty==0.0.69",
     "psycopg2-binary",
 ]
 
@@ -143,7 +140,7 @@ ignore-words-list = "aadd,acount,asend,indentity,nam"
 
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = [
@@ -201,12 +198,6 @@ ignore = [
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api."_typeshed.Self"]
 msg = "Use typing_extensions.Self (PEP 673) instead. If you type a metaclass, add a noqa"
-
-[tool.ruff.lint.flake8-tidy-imports.banned-api."typing.assert_type"]
-msg = "Only available in Python 3.11 and above. Use `typing_extensions.assert_type` instead."
-
-[tool.ruff.lint.flake8-tidy-imports.banned-api."typing.Self"]
-msg = "Only available in Python 3.11 and above. Use `typing_extensions.Self` instead."
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api."typing.TypeVar"]
 msg = "Only support the `default` parameter in Python 3.13 and above. Use `typing_extensions.TypeVar` instead."

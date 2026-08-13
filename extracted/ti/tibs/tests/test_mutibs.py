@@ -531,17 +531,17 @@ def test_set_method_chaining():
     assert a == Tibs('0b1010')
 
 
-def test_set_at_returns_new_mutibs():
+def test_with_set_returns_new_mutibs():
     a = Mutibs('0b0000')
-    b = a.set_at([0, 2])
+    b = a.with_set([0, 2])
     assert a == Tibs('0b0000')
     assert b == Tibs('0b1010')
     assert isinstance(b, Mutibs)
 
 
-def test_unset_at_returns_new_mutibs():
+def test_unwith_set_returns_new_mutibs():
     a = Mutibs('0b1111')
-    b = a.unset_at(range(1, 4))
+    b = a.with_unset(range(1, 4))
     assert a == Tibs('0b1111')
     assert b == Tibs('0b1000')
 
@@ -694,6 +694,15 @@ def test_replace_byte_aligned():
     a.replace('0b1010', '0b1111', byte_aligned=True)
     assert a == Tibs('0b11111010')
 
+    # Whole-byte replacement honours bit-granular bounds and count, including
+    # patterns whose own backing storage starts part way through a byte.
+    old = Tibs("0x0112")[4:12]
+    new = Tibs("0x0aa3")[4:12]
+    a = Mutibs("0x1122112211")
+    assert a.replace(old, new, start=1, end=40, count=1, byte_aligned=True) == 1
+    assert a == Tibs("0x1122aa2211")
+    assert a.replace("0x11", "0xff", start=1, end=7, byte_aligned=True) == 0
+
 
 def test_replace_returns_count():
     a = Mutibs('0b10101010')
@@ -739,6 +748,26 @@ def test_replace_with_count_zero():
     count = a.replace('0b10', '0b11', count=0)
     assert count == 0
     assert a == Tibs('0b10101010')
+
+
+def test_replace_across_word_and_storage_boundaries():
+    old_value = Tibs.from_random(129, seed=b'replace-old')
+    old = Tibs.from_u(old_value.to_u(), len(old_value))
+    source = Tibs('0b011') + old + Tibs('0b0011011') + old + Tibs('0b10')
+    assert old._raw_data()[1] != 0
+
+    for replacement_length in (125, 129, 134):
+        replacement_value = Tibs.from_random(
+            replacement_length, seed=b'replace-new'
+        )
+        replacement = Tibs.from_u(replacement_value.to_u(), replacement_length)
+        target = Mutibs.from_u(source.to_u(), len(source))
+        assert target._raw_data()[1] != 0
+        assert replacement._raw_data()[1] != 0
+
+        expected = Tibs.from_bin(source.bin.replace(old.bin, replacement.bin))
+        assert target.replace(old, replacement) == 2
+        assert target == expected
 
 
 def test_reverse_basic():
@@ -789,6 +818,56 @@ def test_reverse_idempotence():
     a.reverse()
     a.reverse()
     assert a == Tibs('0b10110')
+
+
+# The reverse is done a word at a time over the raw storage, so the lengths
+# that matter are the ones around word and byte boundaries, and the ones that
+# leave a partial byte of padding for the shift to mop up.
+REVERSE_LENGTHS = [0, 1, 2, 7, 8, 9, 15, 16, 17, 63, 64, 65, 71, 127, 128, 129, 255, 257, 1000, 1001]
+
+
+@pytest.mark.parametrize('length', REVERSE_LENGTHS)
+def test_reverse_matches_bit_string(length):
+    bits = ''.join('01101'[i % 5] for i in range(length))
+    a = Mutibs('0b' + bits) if bits else Mutibs()
+    a.reverse()
+    assert a.bin == bits[::-1]
+    assert len(a) == length
+
+
+@pytest.mark.parametrize('length', REVERSE_LENGTHS)
+def test_reverse_matches_reversed_copy(length):
+    a = Mutibs(Tibs.from_random(length, seed=b'reverse'))
+    original = Tibs(a)
+    a.reverse()
+    assert a == original.reversed()
+    a.reverse()
+    assert a == original
+
+
+@pytest.mark.parametrize('offset', range(9))
+@pytest.mark.parametrize('length', [0, 1, 5, 8, 13, 64, 100])
+def test_reverse_with_storage_starting_mid_byte(offset, length):
+    # Slicing gives storage that need not start on a byte boundary, which the
+    # offset handling in the reverse has to take into account.
+    source = ''.join('0110100011110000101'[i % 19] for i in range(offset + length))
+    a = Mutibs('0b' + source)[offset:offset + length]
+    assert a.bin == source[offset:]
+    a.reverse()
+    expected = source[offset:][::-1]
+    assert a.bin == expected
+    # Reading it back out through the byte-level paths must agree too.
+    if expected:
+        assert a.to_padded_bytes() == Mutibs('0b' + expected).to_padded_bytes()
+
+
+def test_reverse_leaves_padding_bits_clear():
+    # A non-whole-byte length pads the final byte; the reverse moves that
+    # padding to the front, so it has to be cleared rather than carried along.
+    a = Mutibs('0b1' + '0' * 11)
+    a.reverse()
+    assert a.bin == '0' * 11 + '1'
+    assert a.to_padded_bytes() == b'\x00\x10'
 
 
 def test_rol_basic():
@@ -1180,6 +1259,41 @@ def test_bit_operations_with_bits():
     assert a == Tibs('0b0110')
 
 
+def test_inplace_bit_operations_across_storage_alignments():
+    lengths = (0, 1, 2, 7, 8, 9, 15, 16, 17, 63, 64, 65, 129)
+    for left_head in (0, 1, 3, 7, 8):
+        for right_head in (0, 1, 5, 7, 8):
+            for length in lengths:
+                left_values = [
+                    (index * 5 + 3) % 11 < 5
+                    for index in range(left_head + length)
+                ]
+                right_values = [
+                    (index * 7 + 1) % 13 < 6
+                    for index in range(right_head + length)
+                ]
+                right = Tibs.from_bools(right_values)[right_head:]
+
+                for operation in ('and', 'or', 'xor'):
+                    left = Mutibs.from_bools(left_values)[left_head:]
+                    original = Tibs(left)
+                    if operation == 'and':
+                        expected = original & right
+                        left &= right
+                    elif operation == 'or':
+                        expected = original | right
+                        left |= right
+                    else:
+                        expected = original ^ right
+                        left ^= right
+                    assert left == expected, (
+                        operation,
+                        left_head,
+                        right_head,
+                        length,
+                    )
+
+
 def test_equality_with_bits():
     # Test equality comparison with Tibs
     a = Mutibs('0b1010')
@@ -1330,14 +1444,14 @@ def test_clear():
 
 def test_reserve():
     a = Mutibs()
-    assert a.capacity() == 0
+    assert a.capacity == 0
     a.reserve(10)
-    assert a.capacity() >= 10
+    assert a.capacity >= 10
     a += Mutibs.from_random(1000000)
-    b4 = a.capacity()
+    b4 = a.capacity
     assert b4 >= 1000000
     a.clear()
-    assert a.capacity() == b4
+    assert a.capacity == b4
 
 
 def test_insert_slice():
@@ -1424,6 +1538,14 @@ def test_count_edge_cases():
     with pytest.raises(TypeError):
         m.count([1, 2])
     assert m.count(m) == 1
+
+
+def test_count_byte_aligned():
+    m = Mutibs('0xabababab')
+    assert m.count('0xab', byte_aligned=True) == 4
+    assert m.count('0xab', byte_aligned=True) == len(m.to_tibs().find_all('0xab', byte_aligned=True))
+    m = Mutibs('0b1000_0001_1000_0000')
+    assert m.count(1, byte_aligned=True) == 2
     assert m.count(m + [0]) == 0
     with pytest.raises(ValueError):
         _ = m.count(2)
@@ -1698,3 +1820,145 @@ def test_empty_encode():
     assert Mutibs.decode(z) == m
     assert Mutibs.decode(r) == m
     assert Mutibs.decode(w) == m
+
+
+def test_find_with_mask():
+    m = Mutibs('0x1f2e3f')
+    assert m.find('0x0f', mask='0x0f', byte_aligned=True) == 0
+    assert m.rfind('0x0f', mask='0x0f', byte_aligned=True) == 16
+    assert m.find_all('0x0f', mask='0x0f', byte_aligned=True) == [0, 16]
+    assert m.count('0x0f', mask='0x0f') == 4
+    assert m.find_all('0b11', mask='0b00') == list(range(len(m) - 1))
+    with pytest.raises(ValueError):
+        m.find('0x0f', mask='0b0')
+
+
+def test_replace_with_mask():
+    m = Mutibs('0x1f2e3f')
+    assert m.replace('0x0f', '0x00', mask='0x0f', byte_aligned=True) == 2
+    assert m == Mutibs('0x002e00')
+
+    m = Mutibs('0x1f2e3f')
+    assert m.replace('0x0f', '0x00', mask='0x0f', byte_aligned=True, count=1) == 1
+    assert m == Mutibs('0x002e3f')
+
+    m = Mutibs('0x1f2e3f')
+    assert m.replaced('0x0f', '0x00', mask='0x0f', byte_aligned=True) == Mutibs('0x002e00')
+    assert m == Mutibs('0x1f2e3f')
+    with pytest.raises(ValueError):
+        m.replace('0x0f', '0x00', mask='0b1')
+
+
+def test_replace_with_mask_long_needle():
+    # Over 64 bits the masked search uses a filter window plus verification.
+    m = Mutibs.from_zeros(100) + Mutibs('0b1') + Mutibs.from_zeros(99)
+    old = Mutibs.from_zeros(70)
+    # Ignoring bit 30 of the needle lets it straddle the single set bit.
+    mask = Mutibs.from_ones(70)
+    mask[30] = 0
+    assert m.find(old, mask=mask) == 0
+    # Either the set bit falls outside the match, or it lands on the ignored bit.
+    assert m.find_all(old, mask=mask) == list(range(31)) + [70] + list(range(101, 131))
+    assert m.replace(old, '0b1', mask=mask, count=1) == 1
+    assert m == Mutibs('0b1') + Mutibs.from_zeros(30) + Mutibs('0b1') + Mutibs.from_zeros(99)
+
+
+def test_pairwise_operations():
+    a, b = Mutibs('0b1100'), Mutibs('0b1010')
+    assert a.count_and(b) == 1
+    assert a.count_or(b) == 3
+    assert a.count_xor(b) == 2
+    assert a.count_andnot(b) == 1
+    assert a.intersects(b) is True
+    assert a.is_disjoint(b) is False
+    assert a.is_subset_of(b) is False
+    assert a.is_superset_of(b) is False
+    assert Mutibs('0b1000').is_subset_of('0b1010') is True
+    assert Mutibs('0b1010').is_superset_of('0b1000') is True
+    assert Mutibs('0b1100').is_disjoint('0b0011') is True
+    # The empty container, all zeros and all ones.
+    empty, zeros, ones = Mutibs(''), Mutibs('0b0000'), Mutibs('0b1111')
+    assert empty.is_disjoint(empty) is True
+    assert empty.is_superset_of(empty) is True
+    assert zeros.is_disjoint(ones) is True
+    assert ones.is_disjoint(ones) is False
+    assert ones.is_superset_of(zeros) is True
+    assert zeros.is_superset_of(ones) is False
+    # Mutibs and Tibs operands are interchangeable.
+    assert a.count_and(Tibs('0b1010')) == 1
+    assert Tibs('0b1100').count_and(a) == 2
+    assert a.is_superset_of(Tibs('0b0100')) is True
+    with pytest.raises(ValueError):
+        a.count_and('0b101')
+    for call in [lambda: a.is_disjoint('0b101'), lambda: a.is_superset_of('0b101')]:
+        with pytest.raises(ValueError):
+            call()
+
+
+def test_pairwise_matches_tibs_when_unaligned():
+    parent = Mutibs.from_ones(400)
+    other = Mutibs.from_random(400, seed=b'm')
+    for offset in range(8):
+        for length in [1, 8, 9, 65, 130]:
+            a, b = parent[offset:offset + length], other[offset:offset + length]
+            ta, tb = Tibs(a), Tibs(b)
+            assert a.count_and(b) == ta.count_and(tb) == (ta & tb).count(1)
+            assert a.count_xor(b) == (ta ^ tb).count(1)
+            assert a.count_andnot(b) == ta.count(1) - (ta & tb).count(1)
+            assert a.intersects(b) == (ta & tb).any()
+            assert a.is_disjoint(b) == (not (ta & tb).any())
+            assert a.is_subset_of(b) == ((ta & tb) == ta)
+            assert a.is_superset_of(b) == ((ta & tb) == tb)
+
+
+def test_invert_empty_special_method():
+    assert ~Mutibs() == Mutibs()
+    assert ~Tibs() == Tibs()
+
+
+def test_extract_deposit_mutibs():
+    m = Mutibs('0b11010110')
+    assert m.extracted('0b10110000') == Mutibs('0b101')
+    # deposit mutates in place and returns None
+    ret = m.deposit('0b111', '0b10110000')
+    assert ret is None
+    assert m == Mutibs('0b11110110')
+    # deposited returns a new object, leaving the original alone
+    base = Mutibs('0b11010110')
+    assert base.deposited('0b111', '0b10110000') == Mutibs('0b11110110')
+    assert base == Mutibs('0b11010110')
+
+
+def test_deposit_self_value():
+    # Depositing a Mutibs into itself must read its pre-write bits.
+    m = Mutibs('0b1010')
+    m.deposit(m, Tibs.from_ones(4))
+    assert m == Tibs('0b1010')
+
+
+def test_deposit_across_word_and_storage_boundaries():
+    # Give the destination, mask, and value independent non-byte-aligned
+    # storage. The 63/64/65 boundaries exercise both full and partial words.
+    for length in (1, 7, 8, 9, 63, 64, 65, 127, 128, 129):
+        destination = Mutibs.from_random(length + 3, seed=b'destination')[3:]
+        mask = Tibs.from_random(length + 5, seed=b'mask')[5:]
+        selected = mask.count()
+        value = Tibs.from_random(selected + 7, seed=b'value')[7:]
+
+        value_bits = iter(value)
+        expected = Tibs.from_bools(
+            next(value_bits) if selected_here else original
+            for original, selected_here in zip(Tibs(destination), mask)
+        )
+        destination.deposit(value, mask)
+        assert destination == expected
+
+
+def test_extract_deposit_mutibs_errors():
+    m = Mutibs('0b1011')
+    with pytest.raises(ValueError):
+        m.extracted('0b101')
+    with pytest.raises(ValueError):
+        m.deposit('0b1', '0b101')
+    with pytest.raises(ValueError):
+        m.deposit('0b1', '0b1100')

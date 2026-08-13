@@ -91,6 +91,21 @@ AGENT_DATA = _evals_constant.AGENT_DATA
 _DEFAULT_CANDIDATE_NAME = _evals_constant.DEFAULT_CANDIDATE_NAME
 
 
+def _local_timestamp() -> str:
+    """Returns the current local time as 'M/D/YYYY, H:MM:SS AM/PM'.
+
+    Matches the Agent Platform UI's default experiment name timestamp format
+    (e.g. '6/1/2026, 1:12:29 PM').
+    """
+    now = datetime.datetime.now()
+    hour_12 = now.hour % 12 or 12
+    meridiem = "AM" if now.hour < 12 else "PM"
+    return (
+        f"{now.month}/{now.day}/{now.year}, "
+        f"{hour_12}:{now.minute:02d}:{now.second:02d} {meridiem}"
+    )
+
+
 @contextlib.contextmanager
 def _temp_logger_level(logger_name: str, level: int) -> None:  # type: ignore[misc]
     """Temporarily sets the level of a logger."""
@@ -341,6 +356,16 @@ def _eval_cases_to_dataframe(
                 row[_evals_constant.CONVERSATION_PLAN] = (
                     case.user_scenario.conversation_plan
                 )
+
+        if case.interactions_data_source:
+            row["interaction"] = getattr(
+                case.interactions_data_source, "interaction", None
+            )
+            gemini_cfg = getattr(
+                case.interactions_data_source, "gemini_agent_config", None
+            )
+            if gemini_cfg:
+                row["gemini_agent"] = getattr(gemini_cfg, "gemini_agent", None)
 
         rows.append(row)
     return pd.DataFrame(rows)
@@ -889,27 +914,56 @@ def _fetch_agent_config_dict(
         An AgentConfig with ``agent_id`` and, when available,
         ``instruction``, ``description``, ``agent_type``, and ``tools``.
     """
-    agent_short_id = agent_resource_name.split("/")[-1] or "agent"
+    parts = agent_resource_name.split("/")
+    agent_location = None
+    agent_short_id = "agent"
+
+    # Expected format: projects/{project}/locations/{location}/agents/{agent_id}
+    if (
+        len(parts) >= 6
+        and parts[0] == "projects"
+        and parts[2] == "locations"
+        and parts[4] == "agents"
+    ):
+        agent_location = parts[3]
+        agent_short_id = parts[5]
+    else:
+        agent_short_id = parts[-1] or "agent"
 
     instruction: Optional[str] = None
     description: Optional[str] = None
     agent_type: Optional[str] = None
     tools: Optional[list[genai_types.Tool]] = None
 
-    try:
-        agent_resp = api_client.request("get", f"agents/{agent_short_id}", {}, None)
-        if agent_resp.body:
-            agent_dict = json.loads(agent_resp.body)
-            instruction = agent_dict.get("system_instruction") or None
-            description = agent_dict.get("description") or None
-            agent_type = agent_dict.get("base_agent") or None
-            tools = _agent_tools_to_config_tools(agent_dict.get("tools"))
-    except Exception as e:  # pylint: disable=broad-exception-caught
+    client_location = _get_resolved_location(api_client)
+
+    if agent_location and client_location and agent_location != client_location:
         logger.warning(
-            "Failed to fetch agent config for '%s' (continuing without it): %s",
+            "Skipping agent config fetch for '%s' due to location mismatch. "
+            "Agent location is '%s', but client location is '%s'. "
+            "To fetch the agent config, configure a client with matching location.",
             agent_resource_name,
-            e,
+            agent_location,
+            client_location,
         )
+    else:
+        try:
+            request_path = (
+                agent_resource_name if agent_location else f"agents/{agent_short_id}"
+            )
+            agent_resp = api_client.request("get", request_path, {}, None)
+            if agent_resp.body:
+                agent_dict = json.loads(agent_resp.body)
+                instruction = agent_dict.get("system_instruction") or None
+                description = agent_dict.get("description") or None
+                agent_type = agent_dict.get("base_agent") or None
+                tools = _agent_tools_to_config_tools(agent_dict.get("tools"))
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.warning(
+                "Failed to fetch agent config for '%s' (continuing without it): %s",
+                agent_resource_name,
+                e,
+            )
 
     return types.evals.AgentConfig(  # pytype: disable=missing-parameter
         agent_id=agent_short_id,
@@ -922,7 +976,10 @@ def _fetch_agent_config_dict(
 
 def _get_resolved_location(api_client: Any) -> Optional[str]:
     """Returns the location configured on the API client."""
-    return getattr(api_client, "location", None)
+    loc = getattr(api_client, "location", None)
+    if isinstance(loc, str):
+        return loc
+    return None
 
 
 class _InteractionsRestClient:

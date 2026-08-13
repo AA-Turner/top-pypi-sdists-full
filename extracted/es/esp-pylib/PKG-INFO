@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esp-pylib
-Version: 1.1.2
+Version: 1.1.3
 Summary: Python library for logging, utils and constants for Espressif Systems' Python projects
 Author: Espressif Systems
 License: Apache-2.0

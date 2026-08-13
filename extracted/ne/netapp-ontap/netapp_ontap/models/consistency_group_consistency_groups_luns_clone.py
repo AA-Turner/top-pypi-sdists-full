@@ -19,6 +19,10 @@ __pdoc__ = {
 class ConsistencyGroupConsistencyGroupsLunsCloneSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ConsistencyGroupConsistencyGroupsLunsClone object"""
 
+    created_as_clone = marshmallow_fields.Boolean(data_key="created_as_clone", allow_none=True)
+    r""" This property is _true_ when the LUN was created as a clone of another LUN. Note that this property only indicates how the LUN was created and does not imply space savings by itself. If the clone and its source have diverged significantly since the clone was created, the original space saving behavior of a clone will have been lost.
+This property is unset for LUNs that are not clones. """
+
     source = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.models.consistency_group_consistency_groups_luns_clone_source", "ConsistencyGroupConsistencyGroupsLunsCloneSourceSchema"),
                 unknown=EXCLUDE,
@@ -34,8 +38,9 @@ Valid in PATCH to overwrite an existing LUN's data as a clone of another. """
         return ConsistencyGroupConsistencyGroupsLunsClone
 
     gettable_fields = [
+        "created_as_clone",
     ]
-    """"""
+    """created_as_clone,"""
 
     patchable_fields = [
         "source",

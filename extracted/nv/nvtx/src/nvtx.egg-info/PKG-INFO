@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nvtx
-Version: 0.2.15
+Version: 0.2.16
 Summary: Python NVTX - Python code annotation library
 Author: NVIDIA Corporation
 License-Expression: Apache-2.0 WITH LLVM-exception
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Provides-Extra: test
@@ -78,6 +79,13 @@ python -m pip install nvtx
 See [here](https://nvidia.github.io/NVTX/python/) for detailed docs.
 
 ## Release Notes
+
+### 0.2.16
+
+- Add support for counter annotations through the NVTX Counters extension.
+- Add `nvtx.writer` for writing pre-collected events and counter samples (NVTXW).
+- Drop support for Python 3.8.
+- Fix several payload-handling edge cases.
 
 ### 0.2.15
 

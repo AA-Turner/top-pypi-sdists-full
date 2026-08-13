@@ -46,19 +46,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 DcnCluster(
     {
-        "service_ip": {
-            "gateway": "10.1.1.1",
-            "netmask": "255.255.255.0",
-            "address": "10.10.10.7",
-        },
         "nodes": [
             {"serial_number": "4048820-60-9"},
             {"serial_number": "4048820-47-3"},
             {"serial_number": "4048820-53-6"},
         ],
         "network_pool": {
-            "subnet": {"netmask": "24", "address": "10.27.0.1"},
-            "ip_ranges": [{"start": "10.27.0.10", "end": "10.27.0.10"}],
+            "ip_ranges": [{"end": "10.27.0.10", "start": "10.27.0.10"}],
+            "subnet": {"address": "10.27.0.1", "netmask": "24"},
+        },
+        "service_ip": {
+            "address": "10.10.10.7",
+            "netmask": "255.255.255.0",
+            "gateway": "10.1.1.1",
         },
     }
 )

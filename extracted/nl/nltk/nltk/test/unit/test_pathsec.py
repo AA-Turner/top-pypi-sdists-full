@@ -280,6 +280,12 @@ def test_urlopen_honors_set_proxy_and_redirect_validation():
     global_opener = urllib.request.build_opener(proxy_handler)
     urllib.request.install_opener(global_opener)
 
+    # Proxied fetches fail closed by default now (GHSA-6ww7, CWE-918). This test
+    # exercises the proxy *inheritance/copy* behavior, so opt into trusting the
+    # proxy for its duration.
+    original_allow = pathsec.ALLOW_PROXIED_FETCH
+    pathsec.ALLOW_PROXIED_FETCH = True
+
     try:
         captured_handlers = []
 
@@ -315,6 +321,7 @@ def test_urlopen_honors_set_proxy_and_redirect_validation():
 
     finally:
         # Teardown: Safely restore the original global opener, leaving no trace of this test
+        pathsec.ALLOW_PROXIED_FETCH = original_allow
         urllib.request.install_opener(original_opener)
 
 
@@ -454,19 +461,81 @@ def test_no_proxy_installs_pinning_and_disables_env_proxy(monkeypatch):
     assert len(proxy_handlers) == 1 and proxy_handlers[0].proxies == {}
 
 
-def test_env_proxy_skips_pinning_handlers(monkeypatch):
-    """When environment proxies are set, the proxy is the egress: the pinning
-    handlers must NOT be installed (they cannot do the CONNECT tunnel) and we
-    must not force an empty ProxyHandler that would disable the env proxy."""
+def test_env_proxy_fails_closed_under_enforce(monkeypatch):
+    """A configured proxy is the egress, so NLTK cannot pin the validated IP and
+    its SSRF filter no longer governs the destination (GHSA-6ww7, CWE-918).
+    Under ENFORCE the proxied fetch must fail closed, not silently proceed."""
     monkeypatch.setattr(
         urllib.request, "getproxies", lambda: {"http": "http://proxy.local:3128"}
     )
+    monkeypatch.setattr(urllib.request, "_opener", None)
+    monkeypatch.setattr(pathsec, "_resolve_hostname", lambda h: [])
+    monkeypatch.setattr(pathsec, "ENFORCE", True)
+    monkeypatch.setattr(pathsec, "ALLOW_PROXIED_FETCH", False)
+
+    with pytest.raises(PermissionError, match="proxied fetch"):
+        pathsec.urlopen("http://safe.example.com/x")
+
+
+def test_env_proxy_opt_in_skips_pinning_handlers(monkeypatch):
+    """When the operator opts into trusting the proxy, the proxy is the egress:
+    the pinning handlers must NOT be installed (they cannot do the CONNECT
+    tunnel) and we must not force an empty ProxyHandler that disables the env
+    proxy. Gated behind the explicit opt-in that fail-closed now requires."""
+    monkeypatch.setattr(
+        urllib.request, "getproxies", lambda: {"http": "http://proxy.local:3128"}
+    )
+    monkeypatch.setattr(pathsec, "ALLOW_PROXIED_FETCH", True)
     handlers = _capture_urlopen_handlers(monkeypatch)
 
     assert not any(isinstance(h, pathsec._SafeHTTPHandler) for h in handlers)
     assert not any(isinstance(h, pathsec._SafeHTTPSHandler) for h in handlers)
     # We did not append our own ProxyHandler({}); build_opener adds the env one.
     assert not any(isinstance(h, urllib.request.ProxyHandler) for h in handlers)
+
+
+def test_proxied_fetch_does_not_reach_internal_target(monkeypatch):
+    """End-to-end regression for GHSA-6ww7: a proxy whose egress is a
+    loopback/internal service must not be reachable through pathsec.urlopen even
+    when the requested URL validates as a public destination. Fail closed by
+    default; only the explicit opt-in lets the (trusted-proxy) fetch through."""
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    SECRET = b"INTERNAL-ONLY-SECRET"
+
+    class _Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(SECRET)
+
+        def log_message(self, *a):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), _Handler)  # loopback == "internal"
+    port = server.server_address[1]
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        # A configured proxy whose egress is the internal loopback service.
+        monkeypatch.setattr(
+            urllib.request, "getproxies", lambda: {"http": f"http://127.0.0.1:{port}"}
+        )
+        monkeypatch.setattr(urllib.request, "_opener", None)
+        public_url = "http://93.184.216.34/"  # validates as a public destination
+
+        # Default: fail closed -- the internal secret is NOT fetched.
+        monkeypatch.setattr(pathsec, "ENFORCE", True)
+        monkeypatch.setattr(pathsec, "ALLOW_PROXIED_FETCH", False)
+        with pytest.raises(PermissionError, match="proxied fetch"):
+            pathsec.urlopen(public_url, timeout=5)
+
+        # Opt-in: the trusted-proxy fetch is allowed to proceed.
+        monkeypatch.setattr(pathsec, "ALLOW_PROXIED_FETCH", True)
+        body = pathsec.urlopen(public_url, timeout=5).read()
+        assert body == SECRET
+    finally:
+        server.shutdown()
 
 
 # --- SSRF address policy: "non-global is forbidden" + IPv4-mapped IPv6 ---------
@@ -604,10 +673,17 @@ class DualFacedPath(os.PathLike):
 
 
 @pytest.fixture
-def sandbox_env(tmp_path):
+def sandbox_env(tmp_path, monkeypatch):
     """Sets up a mock allowed root and an outside unallowed directory."""
     safe_dir = tmp_path / "nltk_safe_root"
     safe_dir.mkdir()
+
+    # Register the mock allowed root on nltk.data.path so it is a genuine
+    # pathsec-allowed root. (This previously relied on the whole system temp
+    # directory being blanket-allowed, which it no longer is.)
+    import nltk.data as _nltk_data
+
+    monkeypatch.setattr(_nltk_data, "path", [str(safe_dir), *_nltk_data.path])
 
     unsafe_dir = tmp_path / "outside_root"
     unsafe_dir.mkdir()
@@ -699,3 +775,128 @@ def test_restrictive_guard_allows_pure_primitives(sandbox_env):
     # Bytes path should be allowed (decoded safely)
     with pathsec.open(os.fsencode(str(allowed_file)), "r", required_root=safe_dir) as f:
         assert f.read() == "AUTHORIZED_DATA"
+
+
+# ----------------------------------------------------------------------
+# System temp dir: trust only a PRIVATE per-user temp, never a shared
+# world-writable one (GHSA-p4rw follow-up, CWE-377/CWE-378)
+# ----------------------------------------------------------------------
+
+posix_only = pytest.mark.skipif(
+    os.name != "posix", reason="POSIX ownership/permission semantics"
+)
+
+
+@posix_only
+def test_is_private_dir_distinguishes_world_and_group_writable(tmp_path):
+    """is_private_dir accepts a user-owned, non-shared dir and rejects world- or
+    group-writable ones (and missing paths)."""
+    priv = tmp_path / "priv"
+    priv.mkdir()
+    os.chmod(priv, 0o700)
+    world = tmp_path / "world"
+    world.mkdir()
+    os.chmod(world, 0o777)
+    group = tmp_path / "group"
+    group.mkdir()
+    os.chmod(group, 0o770)
+
+    assert pathsec.is_private_dir(str(priv)) is True
+    assert pathsec.is_private_dir(str(world)) is False
+    assert pathsec.is_private_dir(str(group)) is False
+    assert pathsec.is_private_dir(str(tmp_path / "missing")) is False
+
+
+@posix_only
+def test_world_writable_temp_dir_is_not_trusted_and_is_refused(tmp_path, monkeypatch):
+    """A shared world-writable temp dir (like Linux /tmp) must not be an allowed
+    root, and a file there is refused under ENFORCE."""
+    from pathlib import Path
+
+    import nltk.data as _nltk_data
+
+    shared = tmp_path / "shared_tmp"
+    shared.mkdir()
+    os.chmod(shared, 0o777)
+
+    monkeypatch.setattr(pathsec, "ENFORCE", True)
+    # Isolate the allowed roots: no data paths, so the only candidate is the
+    # (world-writable) temp dir under test -- which must be rejected.
+    monkeypatch.setattr(_nltk_data, "path", [])
+    monkeypatch.setenv("NLTK_DATA", "")
+    monkeypatch.setattr("tempfile.gettempdir", lambda: str(shared))
+    monkeypatch.setattr(pathsec, "_ALLOWED_ROOTS_CACHE", None)
+    monkeypatch.setattr(pathsec, "_LAST_DATA_PATHS", None)
+
+    allowed = pathsec._get_allowed_roots()
+    assert Path(shared).resolve() not in allowed
+
+    secret = shared / "secret.txt"
+    secret.write_text("SECRET", encoding="utf-8")
+    with pytest.raises((PermissionError, ValueError)):
+        with pathsec.open(str(secret), "r"):
+            pass
+
+
+def test_private_temp_dir_trust_matches_its_privacy(monkeypatch):
+    """The real system temp dir is trusted iff it is private (macOS $TMPDIR /
+    Windows %TEMP% are private and trusted; a world-writable Linux /tmp is not)."""
+    import tempfile
+    from pathlib import Path
+
+    import nltk.data as _nltk_data
+
+    # Isolate from data paths / the conftest base registration so we observe the
+    # temp dir's own trust decision.
+    monkeypatch.setattr(_nltk_data, "path", [])
+    monkeypatch.setenv("NLTK_DATA", "")
+    monkeypatch.setattr(pathsec, "_ALLOWED_ROOTS_CACHE", None)
+    monkeypatch.setattr(pathsec, "_LAST_DATA_PATHS", None)
+
+    tmp = Path(tempfile.gettempdir()).resolve()
+    roots = pathsec._get_allowed_roots()
+    if pathsec.is_private_dir(str(tmp)):
+        assert tmp in roots
+    else:
+        assert tmp not in roots
+
+
+@posix_only
+def test_authorize_data_dir_refuses_world_writable(tmp_path, monkeypatch):
+    """A world-writable download_dir is refused (not registered) with a warning:
+    another local user could plant files there (the download_dir threat)."""
+    import nltk.data as _nltk_data
+    from nltk.downloader import _authorize_data_dir
+
+    monkeypatch.setattr(_nltk_data, "path", list(_nltk_data.path))
+    shared = tmp_path / "ww_download"
+    shared.mkdir()
+    os.chmod(shared, 0o777)
+    real = os.path.realpath(str(shared))
+
+    with pytest.warns(UserWarning, match="non-private"):
+        _authorize_data_dir(str(shared))
+    assert real not in {
+        os.path.realpath(str(p)) for p in _nltk_data.path if isinstance(p, str)
+    }
+
+
+def test_authorize_data_dir_registers_private_dir(tmp_path, monkeypatch):
+    """A private download_dir is authorized as its own allowed root."""
+    import nltk.data as _nltk_data
+    from nltk.downloader import _authorize_data_dir
+
+    monkeypatch.setattr(_nltk_data, "path", list(_nltk_data.path))
+    custom = tmp_path / "mydata"
+    custom.mkdir()
+    os.chmod(custom, 0o700)
+    real = os.path.realpath(str(custom))
+
+    def registered():
+        return real in {
+            os.path.realpath(str(p)) for p in _nltk_data.path if isinstance(p, str)
+        }
+
+    assert not registered()
+    _authorize_data_dir(str(custom))
+    assert registered()

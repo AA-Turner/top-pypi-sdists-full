@@ -25,82 +25,82 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Switch(
         {
-            "role": "cluster",
             "network": "cluster",
-            "rcf_version": "RCF NX3232C v1.13 1-CLUSTER",
+            "role": "cluster",
+            "serial_number": "Unknown",
+            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.2(3)",
+            "monitoring": {"monitored": True, "enabled": True, "reason": "None"},
+            "name": "RTP-CS01-510R11(FOC22092K12)",
+            "snmp": {"user": "cshm1!", "version": "snmpv2c"},
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/switches/RTP-CS01-510R11%28FOC22092K12%29"
                 }
             },
-            "serial_number": "Unknown",
-            "snmp": {"version": "snmpv2c", "user": "cshm1!"},
-            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.2(3)",
-            "discovered": True,
-            "monitoring": {"monitored": True, "reason": "None", "enabled": True},
-            "name": "RTP-CS01-510R11(FOC22092K12)",
-            "model": "NX3232C",
             "address": "172.26.207.77",
+            "rcf_version": "RCF NX3232C v1.13 1-CLUSTER",
+            "model": "NX3232C",
+            "discovered": True,
         }
     ),
     Switch(
         {
-            "role": "cluster",
             "network": "cluster",
-            "rcf_version": "RCF NX3232C v1.13 1-CLUSTER",
+            "role": "cluster",
+            "serial_number": "FOC22373C3P",
+            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.2(3)",
+            "monitoring": {"monitored": True, "enabled": True, "reason": "None"},
+            "name": "RTP-CS01-510R12(FOC22373C3P)",
+            "snmp": {"user": "cshm1!", "version": "snmpv2c"},
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/switches/RTP-CS01-510R12%28FOC22373C3P%29"
                 }
             },
-            "serial_number": "FOC22373C3P",
-            "snmp": {"version": "snmpv2c", "user": "cshm1!"},
-            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.2(3)",
-            "discovered": True,
-            "monitoring": {"monitored": True, "reason": "None", "enabled": True},
-            "name": "RTP-CS01-510R12(FOC22373C3P)",
-            "model": "NX3232C",
             "address": "172.26.207.82",
+            "rcf_version": "RCF NX3232C v1.13 1-CLUSTER",
+            "model": "NX3232C",
+            "discovered": True,
         }
     ),
     Switch(
         {
-            "role": "storage",
             "network": "storage",
-            "rcf_version": "RCF NX3232C v1.13 1-STORAGE",
+            "role": "storage",
+            "serial_number": "FOC22170DFR",
+            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.3(3)",
+            "monitoring": {"monitored": True, "enabled": True, "reason": "None"},
+            "name": "RTP-SS01-510R10(FOC22170DFR)",
+            "snmp": {"user": "cshm1!", "version": "snmpv2c"},
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/switches/RTP-SS01-510R10%28FOC22170DFR%29"
                 }
             },
-            "serial_number": "FOC22170DFR",
-            "snmp": {"version": "snmpv2c", "user": "cshm1!"},
-            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.3(3)",
-            "discovered": True,
-            "monitoring": {"monitored": True, "reason": "None", "enabled": True},
-            "name": "RTP-SS01-510R10(FOC22170DFR)",
-            "model": "NX3232C",
             "address": "172.26.207.65",
+            "rcf_version": "RCF NX3232C v1.13 1-STORAGE",
+            "model": "NX3232C",
+            "discovered": True,
         }
     ),
     Switch(
         {
-            "role": "storage",
             "network": "storage",
-            "rcf_version": "RCF NX3232C v1.13 1-STORAGE",
+            "role": "storage",
+            "serial_number": "FOC22131U6T",
+            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.3(3)",
+            "monitoring": {"monitored": True, "enabled": True, "reason": "None"},
+            "name": "RTP-SS02-510R10(FOC22131U6T)",
+            "snmp": {"user": "cshm1!", "version": "snmpv2c"},
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/switches/RTP-SS02-510R10%28FOC22131U6T%29"
                 }
             },
-            "serial_number": "FOC22131U6T",
-            "snmp": {"version": "snmpv2c", "user": "cshm1!"},
-            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.3(3)",
-            "discovered": True,
-            "monitoring": {"monitored": True, "reason": "None", "enabled": True},
-            "name": "RTP-SS02-510R10(FOC22131U6T)",
-            "model": "NX3232C",
             "address": "172.26.207.66",
+            "rcf_version": "RCF NX3232C v1.13 1-STORAGE",
+            "model": "NX3232C",
+            "discovered": True,
         }
     ),
 ]
@@ -128,22 +128,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Switch(
     {
-        "role": "storage",
         "network": "storage",
-        "rcf_version": "RCF NX3232C v1.13 1-STORAGE",
+        "role": "storage",
+        "serial_number": "FOC22131U6T",
+        "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.3(3)",
+        "monitoring": {"monitored": True, "enabled": True, "reason": "None"},
+        "name": "RTP-SS02-510R10(FOC22131U6T)",
+        "snmp": {"user": "cshm1!", "version": "snmpv2c"},
         "_links": {
             "self": {
                 "href": "/api/network/ethernet/switches/RTP-SS02-510R10(FOC22131U6T)"
             }
         },
-        "serial_number": "FOC22131U6T",
-        "snmp": {"version": "snmpv2c", "user": "cshm1!"},
-        "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.3(3)",
-        "discovered": True,
-        "monitoring": {"monitored": True, "reason": "None", "enabled": True},
-        "name": "RTP-SS02-510R10(FOC22131U6T)",
-        "model": "NX3232C",
         "address": "172.26.207.66",
+        "rcf_version": "RCF NX3232C v1.13 1-STORAGE",
+        "model": "NX3232C",
+        "discovered": True,
     }
 )
 
@@ -190,11 +190,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Switch(
     {
         "network": "storage",
-        "snmp": {"version": "snmpv2c", "user": "cshm1!"},
         "monitoring": {"enabled": True},
         "name": "RTP-SS02-510R10(FOC22131U6T)",
-        "model": "NX3232C",
+        "snmp": {"user": "cshm1!", "version": "snmpv2c"},
         "address": "172.26.207.66",
+        "model": "NX3232C",
     }
 )
 

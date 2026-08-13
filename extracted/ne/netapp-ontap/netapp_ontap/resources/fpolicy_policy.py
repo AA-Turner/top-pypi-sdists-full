@@ -45,22 +45,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyPolicy(
     {
-        "engine": {"name": "engine1"},
-        "name": "FPolicy_policy_0",
-        "events": [{"name": "cifs"}, {"name": "nfs"}],
-        "mandatory": True,
-        "passthrough_read": True,
         "privileged_user": "mydomain\\testuser",
+        "name": "FPolicy_policy_0",
+        "passthrough_read": True,
+        "mandatory": True,
+        "engine": {"name": "engine1"},
         "scope": {
-            "exclude_volumes": ["vol0"],
-            "exclude_shares": ["sh1"],
-            "exclude_export_policies": ["export_pol1"],
-            "exclude_extension": ["txt", "png"],
-            "include_shares": ["sh2", "sh3"],
-            "include_export_policies": ["export_pol10"],
             "include_extension": ["pdf"],
+            "exclude_export_policies": ["export_pol1"],
+            "exclude_shares": ["sh1"],
+            "include_shares": ["sh2", "sh3"],
+            "exclude_volumes": ["vol0"],
+            "include_export_policies": ["export_pol10"],
+            "exclude_extension": ["txt", "png"],
             "include_volumes": ["vol1", "vol2"],
         },
+        "events": [{"name": "cifs"}, {"name": "nfs"}],
     }
 )
 
@@ -104,23 +104,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyPolicy(
     {
-        "engine": {"name": "engine1"},
-        "name": "FPolicy_policy_0",
-        "events": [{"name": "cifs"}, {"name": "nfs"}],
-        "mandatory": True,
-        "priority": 1,
-        "passthrough_read": True,
         "privileged_user": "mydomain\\testuser",
+        "priority": 1,
+        "name": "FPolicy_policy_0",
+        "passthrough_read": True,
+        "mandatory": True,
+        "engine": {"name": "engine1"},
         "scope": {
-            "exclude_volumes": ["vol0"],
-            "exclude_shares": ["sh1"],
-            "exclude_export_policies": ["export_pol1"],
-            "exclude_extension": ["txt", "png"],
-            "include_shares": ["sh2", "sh3"],
-            "include_export_policies": ["export_pol10"],
             "include_extension": ["pdf"],
+            "exclude_export_policies": ["export_pol1"],
+            "exclude_shares": ["sh1"],
+            "include_shares": ["sh2", "sh3"],
+            "exclude_volumes": ["vol0"],
+            "include_export_policies": ["export_pol10"],
+            "exclude_extension": ["txt", "png"],
             "include_volumes": ["vol1", "vol2"],
         },
+        "events": [{"name": "cifs"}, {"name": "nfs"}],
     }
 )
 
@@ -152,8 +152,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 FpolicyPolicy(
     {
         "name": "pol_minimum_fields",
-        "events": [{"name": "cifs"}, {"name": "nfs"}],
         "scope": {"include_volumes": ["vol1", "vol2"]},
+        "events": [{"name": "cifs"}, {"name": "nfs"}],
     }
 )
 
@@ -186,76 +186,76 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FpolicyPolicy(
         {
-            "persistent_store": "ps1",
             "allow_privileged_access": False,
-            "svm": {"uuid": "a00fac5d-0164-11e9-b64a-0050568eeb34"},
-            "engine": {"name": "engine1"},
             "name": "pol0",
-            "events": [{"name": "cifs"}, {"name": "nfs"}],
-            "mandatory": True,
-            "passthrough_read": False,
-            "scope": {
-                "exclude_volumes": ["vol0"],
-                "exclude_shares": ["sh1"],
-                "exclude_export_policies": ["export_pol1"],
-                "exclude_extension": ["txt", "png"],
-                "include_shares": ["sh2", "sh3"],
-                "include_export_policies": ["export_pol10"],
-                "include_extension": ["pdf"],
-                "include_volumes": ["vol1", "vol2"],
-            },
-            "enabled": False,
-        }
-    ),
-    FpolicyPolicy(
-        {
             "persistent_store": "ps1",
-            "allow_privileged_access": False,
             "svm": {"uuid": "a00fac5d-0164-11e9-b64a-0050568eeb34"},
+            "enabled": False,
+            "passthrough_read": False,
+            "mandatory": True,
             "engine": {"name": "engine1"},
-            "name": "FPolicy_policy_on",
-            "events": [{"name": "cifs"}, {"name": "nfs"}],
-            "mandatory": True,
-            "priority": 1,
-            "passthrough_read": False,
             "scope": {
-                "exclude_volumes": ["vol0"],
-                "exclude_shares": ["sh1"],
-                "exclude_export_policies": ["export_pol1"],
-                "exclude_extension": ["txt", "png"],
-                "include_shares": ["sh2", "sh3"],
-                "include_export_policies": ["export_pol10"],
                 "include_extension": ["pdf"],
+                "exclude_export_policies": ["export_pol1"],
+                "exclude_shares": ["sh1"],
+                "include_shares": ["sh2", "sh3"],
+                "exclude_volumes": ["vol0"],
+                "include_export_policies": ["export_pol10"],
+                "exclude_extension": ["txt", "png"],
                 "include_volumes": ["vol1", "vol2"],
             },
-            "enabled": True,
-        }
-    ),
-    FpolicyPolicy(
-        {
-            "persistent_store": "ps1",
-            "allow_privileged_access": False,
-            "svm": {"uuid": "a00fac5d-0164-11e9-b64a-0050568eeb34"},
-            "engine": {"name": "native"},
-            "name": "cluster_pol",
-            "events": [{"name": "cluster"}],
-            "mandatory": True,
-            "passthrough_read": False,
-            "enabled": False,
-        }
-    ),
-    FpolicyPolicy(
-        {
-            "persistent_store": "ps1",
-            "allow_privileged_access": False,
-            "svm": {"uuid": "a00fac5d-0164-11e9-b64a-0050568eeb34"},
-            "engine": {"name": "native"},
-            "name": "pol_minimum_fields",
             "events": [{"name": "cifs"}, {"name": "nfs"}],
-            "mandatory": True,
+        }
+    ),
+    FpolicyPolicy(
+        {
+            "allow_privileged_access": False,
+            "priority": 1,
+            "name": "FPolicy_policy_on",
+            "persistent_store": "ps1",
+            "svm": {"uuid": "a00fac5d-0164-11e9-b64a-0050568eeb34"},
+            "enabled": True,
             "passthrough_read": False,
-            "scope": {"include_volumes": ["vol1", "vol2"]},
+            "mandatory": True,
+            "engine": {"name": "engine1"},
+            "scope": {
+                "include_extension": ["pdf"],
+                "exclude_export_policies": ["export_pol1"],
+                "exclude_shares": ["sh1"],
+                "include_shares": ["sh2", "sh3"],
+                "exclude_volumes": ["vol0"],
+                "include_export_policies": ["export_pol10"],
+                "exclude_extension": ["txt", "png"],
+                "include_volumes": ["vol1", "vol2"],
+            },
+            "events": [{"name": "cifs"}, {"name": "nfs"}],
+        }
+    ),
+    FpolicyPolicy(
+        {
+            "allow_privileged_access": False,
+            "name": "cluster_pol",
+            "persistent_store": "ps1",
+            "svm": {"uuid": "a00fac5d-0164-11e9-b64a-0050568eeb34"},
             "enabled": False,
+            "passthrough_read": False,
+            "mandatory": True,
+            "engine": {"name": "native"},
+            "events": [{"name": "cluster"}],
+        }
+    ),
+    FpolicyPolicy(
+        {
+            "allow_privileged_access": False,
+            "name": "pol_minimum_fields",
+            "persistent_store": "ps1",
+            "svm": {"uuid": "a00fac5d-0164-11e9-b64a-0050568eeb34"},
+            "enabled": False,
+            "passthrough_read": False,
+            "mandatory": True,
+            "engine": {"name": "native"},
+            "scope": {"include_volumes": ["vol1", "vol2"]},
+            "events": [{"name": "cifs"}, {"name": "nfs"}],
         }
     ),
 ]
@@ -292,45 +292,49 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FpolicyPolicy(
         {
-            "persistent_store": "ps1",
             "allow_privileged_access": False,
-            "svm": {"uuid": "a00fac5d-0164-11e9-b64a-0050568eeb34"},
-            "engine": {"name": "engine1"},
             "name": "pol0",
-            "events": [{"name": "cifs"}, {"name": "nfs"}],
-            "mandatory": True,
-            "passthrough_read": False,
-            "scope": {
-                "exclude_export_policies": ["export_pol1"],
-                "exclude_extension": ["txt", "png"],
-                "include_export_policies": ["export_pol10"],
-                "include_extension": ["pdf"],
-            },
+            "persistent_store": "ps1",
+            "svm": {"uuid": "a00fac5d-0164-11e9-b64a-0050568eeb34"},
             "enabled": False,
+            "passthrough_read": False,
+            "mandatory": True,
+            "engine": {"name": "engine1"},
+            "scope": {
+                "include_extension": ["pdf"],
+                "exclude_export_policies": ["export_pol1"],
+                "exclude_shares": ["sh1"],
+                "include_shares": ["sh2", "sh3"],
+                "exclude_volumes": ["vol0"],
+                "include_export_policies": ["export_pol10"],
+                "exclude_extension": ["txt", "png"],
+                "include_volumes": ["vol1", "vol2"],
+            },
+            "events": [{"name": "cifs"}, {"name": "nfs"}],
         }
     ),
     FpolicyPolicy(
         {
-            "persistent_store": "ps1",
             "allow_privileged_access": False,
-            "svm": {"uuid": "a00fac5d-0164-11e9-b64a-0050568eeb34"},
-            "engine": {"name": "engine1"},
-            "name": "FPolicy_policy_on",
-            "events": [{"name": "cifs"}, {"name": "nfs"}],
-            "mandatory": True,
             "priority": 1,
+            "name": "FPolicy_policy_on",
+            "persistent_store": "ps1",
+            "svm": {"uuid": "a00fac5d-0164-11e9-b64a-0050568eeb34"},
+            "enabled": True,
             "passthrough_read": False,
+            "mandatory": True,
+            "engine": {"name": "engine1"},
             "scope": {
-                "exclude_volumes": ["vol0"],
-                "exclude_shares": ["sh1"],
-                "exclude_export_policies": ["export_pol1"],
-                "exclude_extension": ["txt", "png"],
-                "include_shares": ["sh2", "sh3"],
-                "include_export_policies": ["export_pol10"],
                 "include_extension": ["pdf"],
+                "exclude_export_policies": ["export_pol1"],
+                "exclude_shares": ["sh1"],
+                "include_shares": ["sh2", "sh3"],
+                "exclude_volumes": ["vol0"],
+                "include_export_policies": ["export_pol10"],
+                "exclude_extension": ["txt", "png"],
                 "include_volumes": ["vol1", "vol2"],
             },
-            "enabled": True,
+            "events": [{"name": "cifs"}, {"name": "nfs"}],
         }
     ),
 ]
@@ -359,25 +363,25 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyPolicy(
     {
-        "persistent_store": "ps1",
         "allow_privileged_access": False,
-        "svm": {"uuid": "a00fac5d-0164-11e9-b64a-0050568eeb34"},
-        "engine": {"name": "engine1"},
         "name": "pol0",
-        "events": [{"name": "cifs"}, {"name": "nfs"}],
-        "mandatory": True,
+        "persistent_store": "ps1",
+        "svm": {"uuid": "a00fac5d-0164-11e9-b64a-0050568eeb34"},
+        "enabled": False,
         "passthrough_read": False,
+        "mandatory": True,
+        "engine": {"name": "engine1"},
         "scope": {
-            "exclude_volumes": ["vol0"],
-            "exclude_shares": ["sh1"],
-            "exclude_export_policies": ["export_pol1"],
-            "exclude_extension": ["txt", "png"],
-            "include_shares": ["sh2", "sh3"],
-            "include_export_policies": ["export_pol10"],
             "include_extension": ["pdf"],
+            "exclude_export_policies": ["export_pol1"],
+            "exclude_shares": ["sh1"],
+            "include_shares": ["sh2", "sh3"],
+            "exclude_volumes": ["vol0"],
+            "include_export_policies": ["export_pol10"],
+            "exclude_extension": ["txt", "png"],
             "include_volumes": ["vol1", "vol2"],
         },
-        "enabled": False,
+        "events": [{"name": "cifs"}, {"name": "nfs"}],
     }
 )
 
@@ -716,7 +720,7 @@ class FpolicyPolicy(Resource):
 * `svm.uuid` - Existing SVM in which to create the FPolicy policy.
 * `events` - Name of the events to monitor.
 * `name` - Name of the FPolicy policy.
-* `scope` - Scope of the policy. Can be limited to exports, volumes, shares or file extensions.
+* `scope` - Scope of the policy. Can be limited to exports, volumes, shares, file extensions.
 * `priority`- Priority of the policy (ranging from 1 to 10).
 ### Default property values
 * `mandatory` - _true_
@@ -805,7 +809,7 @@ class FpolicyPolicy(Resource):
 * `svm.uuid` - Existing SVM in which to create the FPolicy policy.
 * `events` - Name of the events to monitor.
 * `name` - Name of the FPolicy policy.
-* `scope` - Scope of the policy. Can be limited to exports, volumes, shares or file extensions.
+* `scope` - Scope of the policy. Can be limited to exports, volumes, shares, file extensions.
 * `priority`- Priority of the policy (ranging from 1 to 10).
 ### Default property values
 * `mandatory` - _true_

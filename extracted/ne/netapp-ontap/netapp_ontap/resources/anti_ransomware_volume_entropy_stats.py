@@ -33,32 +33,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     AntiRansomwareVolumeEntropyStats(
         {
+            "entropy_stats_type": "sub_hourly",
+            "data_written_in_bytes": 13249687,
+            "timestamp": "2024-12-13T03:36:24-05:00",
+            "volume": {"uuid": "61edb8bb-b7d1-11ef-932d-005056bbaeff", "name": "v2"},
+            "duration": "PT10M21S",
             "_links": {
                 "self": {
                     "href": "/api/security/anti-ransomware/volume/entropy-stats/61edb8bb-b7d1-11ef-932d-005056bbaeff/sub_hourly/2024-12-13T03%3A36%3A24-05%3A00"
                 }
             },
-            "entropy_stats_type": "sub_hourly",
-            "data_written_in_bytes": 13249687,
-            "volume": {"name": "v2", "uuid": "61edb8bb-b7d1-11ef-932d-005056bbaeff"},
             "encryption_percentage": 51,
-            "timestamp": "2024-12-13T03:36:24-05:00",
-            "duration": "PT10M21S",
         }
     ),
     AntiRansomwareVolumeEntropyStats(
         {
+            "entropy_stats_type": "hourly",
+            "data_written_in_bytes": 13249687,
+            "timestamp": "2024-12-13T04:16:06-05:00",
+            "volume": {"uuid": "61edb8bb-b7d1-11ef-932d-005056bbaeff", "name": "v2"},
+            "duration": "PT1H2M36S",
             "_links": {
                 "self": {
                     "href": "/api/security/anti-ransomware/volume/entropy-stats/61edb8bb-b7d1-11ef-932d-005056bbaeff/hourly/2024-12-13T04%3A16%3A06-05%3A00"
                 }
             },
-            "entropy_stats_type": "hourly",
-            "data_written_in_bytes": 13249687,
-            "volume": {"name": "v2", "uuid": "61edb8bb-b7d1-11ef-932d-005056bbaeff"},
             "encryption_percentage": 51,
-            "timestamp": "2024-12-13T04:16:06-05:00",
-            "duration": "PT1H2M36S",
         }
     ),
 ]

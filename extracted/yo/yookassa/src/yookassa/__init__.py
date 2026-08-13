@@ -7,6 +7,7 @@ from yookassa.invoice import Invoice
 from yookassa.payment import Payment
 from yookassa.payout import Payout
 from yookassa.personal_data import PersonalData
+from yookassa.pos_link import PosLink
 from yookassa.receipt import Receipt
 from yookassa.refund import Refund
 from yookassa.sbp_banks import SbpBanks
@@ -17,4 +18,4 @@ from yookassa.payment_method import PaymentMethod
 
 __author__ = "YooMoney"
 __email__ = 'cms@yoomoney.ru'
-__version__ = '3.11.0'
+__version__ = '3.12.0'

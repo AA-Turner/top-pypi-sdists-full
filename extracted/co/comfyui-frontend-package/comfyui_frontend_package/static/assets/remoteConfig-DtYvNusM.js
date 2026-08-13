@@ -1,2 +1,0 @@
-import"./rolldown-runtime-G-74P12b.js";import{M as e,Nt as t}from"./vendor-vue-core-BZZQdWHo.js";import{V as n}from"./vendor-vueuse-lvcmc1E7.js";var r=t(`unloaded`),i=e(()=>r.value===`authenticated`),a=t({});function configValueOrDefault(e,t,n){return e[t]||n}var o=n(`team_workspaces_enabled`,void 0),s=n(`consolidated_billing_enabled`,void 0),c=n(`billing_control_enabled`,void 0);export{i as a,configValueOrDefault as i,s as n,a as o,o as r,r as s,c as t};
-//# sourceMappingURL=remoteConfig-DtYvNusM.js.map

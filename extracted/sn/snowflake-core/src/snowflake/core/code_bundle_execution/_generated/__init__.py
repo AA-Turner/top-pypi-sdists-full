@@ -22,8 +22,11 @@ __version__ = "1.0.0"
 from snowflake.core.code_bundle_execution._generated.api.code_bundle_execution_api import CodeBundleExecutionApi
 
 # import models into sdk package
+from snowflake.core.code_bundle_execution._generated.models.bundle_spec import BundleSpec
 from snowflake.core.code_bundle_execution._generated.models.code_bundle_execution import CodeBundleExecution
+from snowflake.core.code_bundle_execution._generated.models.code_bundle_specification import CodeBundleSpecification
 from snowflake.core.code_bundle_execution._generated.models.error_response import ErrorResponse
 from snowflake.core.code_bundle_execution._generated.models.execute_code_bundle_request import ExecuteCodeBundleRequest
+from snowflake.core.code_bundle_execution._generated.models.stage_mount import StageMount
 from snowflake.core.code_bundle_execution._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.code_bundle_execution._generated.models.success_response import SuccessResponse

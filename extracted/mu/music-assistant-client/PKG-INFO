@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: music_assistant_client
-Version: 1.4.3
+Version: 1.5.0
 Summary: Music Assistant Client
 Author-email: The Music Assistant Authors <music_assistant@users.noreply.github.com>
 License: Apache-2.0
@@ -12,16 +12,16 @@ Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp>=3.8.6
-Requires-Dist: music_assistant_models==1.1.152
+Requires-Dist: music_assistant_models==1.1.186
 Requires-Dist: orjson>=3.9
 Provides-Extra: test
-Requires-Dist: codespell==2.4.2; extra == "test"
+Requires-Dist: codespell==2.4.3; extra == "test"
 Requires-Dist: isort==8.0.1; extra == "test"
-Requires-Dist: mypy==2.1.0; extra == "test"
-Requires-Dist: pre-commit==4.6.0; extra == "test"
+Requires-Dist: mypy==2.3.0; extra == "test"
+Requires-Dist: pre-commit==4.6.1; extra == "test"
 Requires-Dist: pre-commit-hooks==6.0.0; extra == "test"
 Requires-Dist: tomli==2.4.1; extra == "test"
-Requires-Dist: ruff==0.14.9; extra == "test"
+Requires-Dist: ruff==0.15.10; extra == "test"
 Dynamic: license-file
 
 # Music Assistant Client

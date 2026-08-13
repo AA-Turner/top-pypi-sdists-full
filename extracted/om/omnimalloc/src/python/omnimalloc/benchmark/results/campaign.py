@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import copy
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
 from omnimalloc.primitives import IdType
+from omnimalloc.primitives.utils import ensure_unique_ids
 
 from .report import BenchmarkReport
 from .utils import get_environment_metadata
@@ -23,8 +25,13 @@ class BenchmarkCampaign:
     def __post_init__(self) -> None:
         if not self.reports:
             raise ValueError("BenchmarkCampaign must contain at least one report")
-        if len({r.id for r in self.reports}) != len(self.reports):
-            raise ValueError("report ids must be unique")
+        ensure_unique_ids(self.reports, "report")
+        try:
+            object.__setattr__(self, "metadata", copy.deepcopy(self.metadata))
+        except TypeError as error:
+            raise TypeError(
+                f"Campaign metadata must be deep-copyable: {error}"
+            ) from error
 
     @property
     def num_reports(self) -> int:
@@ -40,7 +47,7 @@ class BenchmarkCampaign:
 
     @property
     def num_allocations(self) -> int:
-        return sum(r.num_allocations for r in self.reports)
+        return sum(r.total_num_allocations for r in self.reports)
 
     @property
     def num_allocations_per_report(self) -> float:
@@ -60,34 +67,11 @@ class BenchmarkCampaign:
 
     @property
     def allocator_names(self) -> tuple[str, ...]:
-        names = {r.allocator_name for r in self.reports if r.allocator_name is not None}
-        return tuple(sorted(names))
+        return tuple(sorted({r.allocator_name for r in self.reports}))
 
     @property
     def source_names(self) -> tuple[str, ...]:
-        names = {r.source_name for r in self.reports if r.source_name is not None}
-        return tuple(sorted(names))
-
-    @property
-    def reports_by_num_allocations(self) -> dict[int, tuple[BenchmarkReport, ...]]:
-        grouped: defaultdict[int, list[BenchmarkReport]] = defaultdict(list)
-        for r in self.reports:
-            grouped[r.num_allocations].append(r)
-        return {k: tuple(v) for k, v in grouped.items()}
-
-    @property
-    def reports_by_allocator(self) -> dict[str, tuple[BenchmarkReport, ...]]:
-        grouped: defaultdict[str, list[BenchmarkReport]] = defaultdict(list)
-        for r in self.reports:
-            grouped[r.allocator_name].append(r)
-        return {k: tuple(v) for k, v in grouped.items()}
-
-    @property
-    def reports_by_source(self) -> dict[str, tuple[BenchmarkReport, ...]]:
-        grouped: defaultdict[str, list[BenchmarkReport]] = defaultdict(list)
-        for r in self.reports:
-            grouped[r.source_name].append(r)
-        return {k: tuple(v) for k, v in grouped.items()}
+        return tuple(sorted({r.source_name for r in self.reports}))
 
     @property
     def reports_by_source_allocator_variant(
@@ -118,7 +102,7 @@ class BenchmarkCampaign:
 
     @property
     def default_metadata(self) -> dict[str, Any]:
-        # TODO(fpedd): Align this utils.py
+        """Environment plus campaign shape; `metadata` wins on a key clash."""
         return get_environment_metadata() | {
             "num_reports": self.num_reports,
             "num_results_per_report": round(self.num_results_per_report, 2),

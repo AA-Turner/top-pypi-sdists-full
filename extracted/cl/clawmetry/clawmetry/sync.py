@@ -5744,6 +5744,11 @@ def sync_voice_log_events(config: dict, state: dict, paths: dict) -> int:
                             # are only present on tts.* records; None for others.
                             "char_count":  obj.get("char_count") or obj.get("characterCount") or obj.get("text_length"),
                             "voice_id":    obj.get("voice_id") or obj.get("voiceId"),
+                            # Fish Audio TTS fields (#4724): ttsModel and isLocal
+                            # are needed by backfill_tts_event_costs to route S2
+                            # Pro (local, $0) away from hosted S2.1 synthesis.
+                            "ttsModel":    obj.get("ttsModel") or obj.get("fishModel") or None,
+                            "isLocal":     obj.get("isLocal") if obj.get("isLocal") is not None else obj.get("is_local"),
                         }, separators=(",", ":")),
                     })
                 offsets[fname] = f.tell()
@@ -14071,6 +14076,50 @@ def _build_traces(limit_traces=5, span_cap=100):
                 "agent_graph": _tr._build_agent_graph(spans),
                 "_truncated": truncated,
             }
+        for t in summaries:
+            t["source"] = "events"
+
+        # Span-only traces (#4782). A bring-your-own-agent app that speaks OTLP
+        # emits spans and no events, so it is absent from everything above. The
+        # hosted dashboard has no DuckDB, so without this slice the cloud
+        # Tracing tab would show the app in the runtime switcher and nothing in
+        # the trace list -- exactly the blank-card failure the cloud-parity gate
+        # exists to prevent. Read on the daemon's OWN handle: a read_only
+        # re-open here would brick the writer lock (#1771).
+        try:
+            seen_sessions = set(by_sid)
+            for row in (store.query_traces(limit=limit_traces * 4) or []):
+                if len(summaries) >= limit_traces * 2:
+                    break
+                sid = (row.get("session_id") or "").strip()
+                if sid and (sid in seen_sessions or hide_clawmetry_session(sid)):
+                    continue
+                summary = _tr._summarize_span_trace(row)
+                tid = summary["trace_id"]
+                if not tid or tid in detail:
+                    continue
+                span_rows = store.query_spans(trace_id=tid, limit=span_cap) or []
+                if not span_rows:
+                    continue
+                spans, roots = _tr._build_spans_from_store(span_rows)
+                for s in spans:
+                    if s.get("detail"):
+                        s["detail"] = s["detail"][:400]
+                    if s.get("output"):
+                        s["output"] = s["output"][:400]
+                summaries.append(summary)
+                detail[tid] = {
+                    "trace_id": tid,
+                    "summary": summary,
+                    "spans": spans,
+                    "root_span_ids": roots,
+                    "agent_graph": _tr._build_agent_graph(spans),
+                    "_truncated": len(span_rows) >= span_cap,
+                }
+        except Exception as _se:
+            log.debug("span-trace snapshot merge failed: %s", _se)
+
+        summaries.sort(key=lambda t: (t.get("start_ms") or 0), reverse=True)
         return {"list": summaries, "detail": detail}
     except Exception as _e:
         log.debug("traces snapshot build failed: %s", _e)
@@ -14648,6 +14697,30 @@ def _backfill_event_costs_once(store) -> None:
         log.debug("cost backfill failed: %s", _e)
 
 
+_tts_cost_backfill_done = False
+
+
+def _backfill_tts_event_costs_once(store) -> None:
+    """#4724: drain the TTS cost_usd backfill once per daemon process. Derives
+    cost from char_count × TTS provider rate for tts.* events that arrived with
+    cost_usd=NULL/0. Bounded batches; never raises."""
+    global _tts_cost_backfill_done
+    if _tts_cost_backfill_done:
+        return
+    _tts_cost_backfill_done = True
+    try:
+        total = 0
+        for _ in range(40):  # cap: 40 × 5000 = up to 200k rows / process
+            n = store.backfill_tts_event_costs(batch=5000)
+            total += n
+            if n < 5000:
+                break
+        if total:
+            log.info("TTS cost backfill: populated cost_usd for %d voice events (#4724)", total)
+    except Exception as _e:
+        log.debug("TTS cost backfill failed: %s", _e)
+
+
 _benign_backfill_done = False
 
 
@@ -14697,6 +14770,10 @@ def _build_daily_usage(days=14):
         # so the Cost tab showed ~$0). Runs once per process, on the daemon's
         # writer handle, draining in bounded batches before we read costs.
         _backfill_event_costs_once(store)
+        # #4724: one-time backfill of cost_usd for TTS voice events (tts.*)
+        # that carry char_count + provider but no pre-computed cost. Derives
+        # cost via estimate_tts_cost_usd (Fish Audio S2.1 = $0.015/1K chars).
+        _backfill_tts_event_costs_once(store)
         # #2196: one-time backfill to clear flagged-but-benign tool errors
         # (read-guards / transient timeouts) on history, so error counts match
         # the at-ingest correction. Same writer handle, bounded batches.

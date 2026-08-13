@@ -49,46 +49,46 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Chassis(
     {
-        "state": "ok",
-        "frus": [
-            {"state": "ok", "id": "PSU2", "type": "psu"},
-            {"state": "ok", "id": "PSU1", "type": "psu"},
-            {"state": "ok", "id": "Fan2", "type": "fan"},
-            {"state": "ok", "id": "Fan3", "type": "fan"},
-            {"state": "ok", "id": "Fan1", "type": "fan"},
-        ],
-        "id": "021352005981",
         "nodes": [
             {
+                "uuid": "6ede364b-c3d0-11e8-a86a-00a098567f31",
+                "name": "node-1",
+                "position": "top",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/6ede364b-c3d0-11e8-a86a-00a098567f31"
                     }
                 },
-                "name": "node-1",
-                "usbs": {
-                    "supported": True,
-                    "ports": [{"connected": False}],
-                    "enabled": True,
-                },
-                "position": "top",
                 "pcis": {
                     "cards": [
                         {
-                            "slot": "0",
-                            "device": "Gigabit Ethernet I210",
                             "info": "\t  e0M MAC Address:    d0:39:ea:3f:06:2b (auto-1000t-fd-up) \n\t  e0S MAC Address:    d0:39:ea:3f:06:2c (auto-1000t-fd-up) \n\t  Device Type:        1533\n\t  Firmware Version:   3.25-0.0 0x800005D1\n",
+                            "device": "Gigabit Ethernet I210",
+                            "slot": "0",
                         },
                         {
-                            "slot": "0",
-                            "device": "Intel Lewisburg series chipset SATA Controller",
                             "info": "\t  Additional Info: 0 (0xaaf00000)   \n\t  SHM2S86Q120GLM22NP FW1146 114473MB 512B/sect (SPG190108HJ)  \n",
+                            "device": "Intel Lewisburg series chipset SATA Controller",
+                            "slot": "0",
                         },
                     ]
                 },
-                "uuid": "6ede364b-c3d0-11e8-a86a-00a098567f31",
+                "usbs": {
+                    "ports": [{"connected": False}],
+                    "enabled": True,
+                    "supported": True,
+                },
             }
         ],
+        "frus": [
+            {"type": "psu", "state": "ok", "id": "PSU2"},
+            {"type": "psu", "state": "ok", "id": "PSU1"},
+            {"type": "fan", "state": "ok", "id": "Fan2"},
+            {"type": "fan", "state": "ok", "id": "Fan3"},
+            {"type": "fan", "state": "ok", "id": "Fan1"},
+        ],
+        "state": "ok",
+        "id": "021352005981",
     }
 )
 

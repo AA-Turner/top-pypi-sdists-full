@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nicegui
-Version: 3.15.0
+Version: 3.16.0
 Summary: Create web-based user interfaces with Python. The nice way.
 License-Expression: MIT
 License-File: LICENSE
@@ -34,7 +34,7 @@ Provides-Extra: plotly
 Provides-Extra: redis
 Requires-Dist: Pygments (>=2.20.0,<3.0.0)
 Requires-Dist: aiofiles (>=23.1.0)
-Requires-Dist: aiohttp (>=3.14.1)
+Requires-Dist: aiohttp (>=3.14.3)
 Requires-Dist: altair (>=6.0.0) ; extra == "altair"
 Requires-Dist: anywidget (>=0.9.21) ; extra == "anywidget"
 Requires-Dist: certifi (>=2024.7.4)
@@ -47,8 +47,6 @@ Requires-Dist: idna (>=3.15)
 Requires-Dist: ifaddr (>=0.2.0)
 Requires-Dist: itsdangerous (>=2.1.2,<3)
 Requires-Dist: jinja2 (>=3.1.6,<4)
-Requires-Dist: lxml (>=6.1.0)
-Requires-Dist: lxml-html-clean (>=0.4.4)
 Requires-Dist: markdown2 (>=2.4.7,!=2.4.11)
 Requires-Dist: matplotlib (>=3.5.0,<4) ; extra == "matplotlib"
 Requires-Dist: nicegui-highcharts (>=3.3.0,<4) ; extra == "highcharts"
@@ -196,6 +194,7 @@ If you would like to support this project and have your avatar or company logo a
   <a href="https://github.com/whoulden"><img src="https://github.com/whoulden.png" width="50px" alt="Wayne Houlden" /></a>
   <a href="https://github.com/digiquip"><img src="https://github.com/digiquip.png" width="50px" alt="DigiQuip AS" /></a>
   <a href="https://github.com/aitech95"><img src="https://github.com/aitech95.png" width="50px" alt="JACOB SHI " /></a>
+  <a href="https://www.testmuai.com/?utm_medium=sponsor&utm_source=nicegui"><img src="https://github.com/LambdaTest-Inc.png" width="50px" alt="TestMu AI Open Source Office (Formerly LambdaTest)" /></a>
   <a href="https://github.com/Zaga-Solutions"><img src="https://github.com/Zaga-Solutions.png" width="50px" alt="Zaga Solutions" /></a>
   <a href="https://github.com/discolike"><img src="https://github.com/discolike.png" width="50px" alt="DiscoLike Inc." /></a>
 </p>

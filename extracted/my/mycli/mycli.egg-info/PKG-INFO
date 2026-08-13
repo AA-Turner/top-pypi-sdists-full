@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mycli
-Version: 2.13.1
-Summary: Rich terminal client for MySQL with autocompletion, syntax highlighting, and dataframes
+Version: 2.13.2
+Summary: Rich MySQL terminal client with autocompletion, syntax highlighting, and dataframes
 Author: Mycli Core Team
 License-Expression: BSD-3-Clause
 Project-URL: Homepage, https://mycli.net
@@ -51,6 +51,7 @@ Provides-Extra: llm
 Requires-Dist: llm~=0.31.1; extra == "llm"
 Requires-Dist: setuptools==83.*; extra == "llm"
 Requires-Dist: pip~=26.1.2; extra == "llm"
+Requires-Dist: openai~=2.48.0; extra == "llm"
 Provides-Extra: dataframe
 Requires-Dist: polars~=1.42.1; extra == "dataframe"
 Requires-Dist: altair~=6.2.2; extra == "dataframe"

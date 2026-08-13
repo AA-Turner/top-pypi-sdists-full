@@ -4,4 +4,3 @@ var e=`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http:/
 <path d="M21.5 15C21.5 18.3137 18.8137 21 15.5 21C12.1863 21 9.5 18.3137 9.5 15C9.5 11.6863 12.1863 9 15.5 9C18.8137 9 21.5 11.6863 21.5 15Z" stroke="currentColor" stroke-width="1.3"/>
 </svg>
 `;export{e as default};
-//# sourceMappingURL=channels-DSWx8wO_.js.map

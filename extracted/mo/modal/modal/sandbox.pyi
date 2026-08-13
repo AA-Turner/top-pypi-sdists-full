@@ -54,10 +54,20 @@ class SandboxVersion(enum.Enum):
     V2 = 2
 
 def _is_v1_sandbox_id(sandbox_id: str) -> bool: ...
-def _is_v2_sandbox_id(sandbox_id: str) -> bool: ...
 def _get_sandbox_version(sandbox_id: str) -> SandboxVersion: ...
 def _result_returncode(result: typing.Optional[modal_proto.api_pb2.GenericResult]) -> typing.Optional[int]: ...
 def _validate_exec_args(args: collections.abc.Sequence[str]) -> None: ...
+def _build_outbound_network_access(
+    block_network: bool,
+    outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]],
+    outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]],
+) -> modal_proto.api_pb2.NetworkAccess:
+    """Build the outbound `NetworkAccess` for the given params.
+
+    Shared by `Sandbox.create` and the sidecar create path. When nothing is
+    specified, defaults to open network access.
+    """
+    ...
 
 class DefaultSandboxNameOverride(str):
     """A singleton class that represents the default sandbox name override.
@@ -132,6 +142,12 @@ class Probe:
         """Return hash(self)."""
         ...
 
+def _resolve_app_id_and_client(
+    app: typing.Optional[modal.app._App], client: typing.Optional[modal.client._Client]
+) -> tuple[typing.Optional[str], typing.Optional[modal.client._Client]]:
+    """Resolve the App id and client for Sandbox creation, validating that an App is available."""
+    ...
+
 class _Sandbox(modal._object._Object):
     """A `Sandbox` object lets you interact with a running sandbox. This API is similar to Python's
     [asyncio.subprocess.Process](https://docs.python.org/3/library/asyncio-subprocess.html#asyncio.subprocess.Process).
@@ -147,6 +163,7 @@ class _Sandbox(modal._object._Object):
     _tunnels: typing.Optional[dict[int, modal._tunnel.Tunnel]]
     _enable_snapshot: bool
     _command_router_client: typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient]
+    _init_command_router_access: typing.Optional[modal_proto.api_pb2.CommandRouterAccess]
     _attached: bool
     _filesystem: typing.Optional[modal.sandbox_fs._SandboxFilesystem]
     _is_v2: bool
@@ -573,13 +590,12 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
-    async def _experimental_get_exit_snapshot(self, timeout: typing.Optional[float] = 60) -> modal._image._Image:
+    async def _experimental_get_exit_snapshot(self, timeout: typing.Optional[float] = None) -> modal._image._Image:
         """Get the exit filesystem snapshot image.
 
         Args:
-            timeout: Client-side deadline in seconds (default 60). Use `None` to
-                poll until the snapshot reaches a terminal state. Use `0` to
-                perform an immediate check.
+            timeout: Deadline in seconds. `None` polls until the snapshot reaches
+                a terminal state. `0` performs an immediate check.
 
         Returns:
             The exit snapshot Image.
@@ -770,15 +786,15 @@ class _Sandbox(modal._object._Object):
 
         Added in v1.1.0.
 
-        Blocks until the Volumes have been reloaded, bounded by `timeout` (55 seconds by default). If the reload
-        does not complete within that window, `modal.exception.TimeoutError` is raised; note that the reload may
-        still complete in the background.
+        Blocks until the reload completes, or raises `modal.exception.TimeoutError` on timeout (the reload
+        may still complete in the background).
 
         Args:
-            timeout: Maximum time in seconds to wait for the reload. Must be positive.
+            timeout: Defaults to 55 seconds.
         """
         ...
 
+    async def _reload_volumes(self, *, timeout: int, container_id: str = "") -> None: ...
     @typing.overload
     async def terminate(self, *, wait: typing.Literal[True]) -> int: ...
     @typing.overload
@@ -1021,17 +1037,18 @@ class _Sandbox(modal._object._Object):
         tags: typing.Optional[dict[str, str]] = None,
         client: typing.Optional[modal.client._Client] = None,
     ) -> collections.abc.AsyncGenerator[_Sandbox, None]:
-        """List v2 Sandboxes in an App.
+        """List all sandboxes (both v1 and v2).
 
-        This function lists v2 sandboxes, ie sandboxes created via modal.Sandbox._experimental_create.
+        Pass `app_id` to scope to an App; without it, Sandboxes across the current
+        Environment are listed (deprecated — prefer scoping by `app_id`).
 
         Args:
-            app_id: The App to list Sandboxes under.
+            app_id: If set, restrict results to Sandboxes under this App.
             tags: If set, only sandboxes containing at least these tags are returned.
             client: Optional client to use for the session.
 
         Yields:
-            `Sandbox` objects that are currently running in the App.
+            `Sandbox` objects that are currently running.
         """
         ...
 
@@ -1102,6 +1119,18 @@ class _SidecarContainer:
     async def terminate(self, *, wait: typing.Literal[True]) -> int: ...
     @typing.overload
     async def terminate(self, *, wait: typing.Literal[False] = False) -> None: ...
+    async def reload_volumes(self, *, timeout: int = 55) -> None:
+        """Reload all Volumes mounted in this sidecar container.
+
+        EXPERIMENTAL: the API is subject to change.
+
+        Blocks until the reload completes, or raises `modal.exception.TimeoutError` on timeout (the reload
+        may still complete in the background).
+
+        Args:
+            timeout: Defaults to 55 seconds.
+        """
+        ...
 
 class _SidecarManager:
     """Creates and manages sidecar containers in a Sandbox."""
@@ -1122,12 +1151,20 @@ class _SidecarManager:
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
         workdir: typing.Optional[str] = None,
         volumes: typing.Optional[dict[typing.Union[str, os.PathLike], modal.volume._Volume]] = None,
+        outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
     ) -> _SidecarContainer:
         """Create a sidecar container running alongside the Sandbox's main container.
 
         Sidecar containers share the Sandbox's lifecycle but run their own Image and command. They
         can be used to run auxiliary processes, such as a database or a service the main container
         depends on.
+
+        The sidecar's outbound network policy is independent of the main container's and defaults to
+        open network access. To restrict it, pass `outbound_cidr_allowlist` and/or
+        `outbound_domain_allowlist`. To block all external egress while keeping connectivity to the
+        main container, pass an empty allowlist (`outbound_cidr_allowlist=[]`); a fully network-blocked
+        sidecar is not supported because it would have no IP and could not reach the main container.
 
         Args:
             *args: Command and arguments to run inside the sidecar container.
@@ -1137,6 +1174,11 @@ class _SidecarManager:
             secrets: Secrets to inject as environment variables in the sidecar container.
             workdir: Working directory for the command; must be absolute if set.
             volumes: Mapping of mount paths to `Volume` objects to mount in the sidecar container.
+            outbound_cidr_allowlist: If set, restrict the sidecar's outbound traffic to these CIDR
+                blocks. An empty list blocks all external egress while preserving connectivity to the
+                main container.
+            outbound_domain_allowlist: If set, restrict the sidecar's outbound TLS connections (port
+                443) to these SNI domains. Supports wildcards like ``*.example.com``.
 
         Returns:
             A `SidecarContainer` handle for the running container.
@@ -1145,6 +1187,41 @@ class _SidecarManager:
 
     async def get(self, *, name: str, include_terminated: bool = False) -> _SidecarContainer: ...
     async def list(self, include_terminated: bool = False) -> list[_SidecarContainer]: ...
+
+class ___container_exec_spec(typing_extensions.Protocol):
+    def __call__(
+        self,
+        /,
+        pty: bool,
+        container_id: str = "",
+        command: tuple[str, ...] = (),
+        sandbox_id_v2: typing.Optional[str] = None,
+    ):
+        """Execute a command in a container.
+
+        For tasks belonging to V2 sandboxes, `sandbox_id_v2` may be set to the
+        sandbox ID; otherwise the V2 backend is used whenever the task ID itself
+        marks a V2 sandbox task.
+        """
+        ...
+
+    async def aio(
+        self,
+        /,
+        pty: bool,
+        container_id: str = "",
+        command: tuple[str, ...] = (),
+        sandbox_id_v2: typing.Optional[str] = None,
+    ):
+        """Execute a command in a container.
+
+        For tasks belonging to V2 sandboxes, `sandbox_id_v2` may be set to the
+        sandbox ID; otherwise the V2 backend is used whenever the task ID itself
+        marks a V2 sandbox task.
+        """
+        ...
+
+_container_exec: ___container_exec_spec
 
 class SidecarContainer:
     """Handle to an additional container running in a Sandbox."""
@@ -1272,6 +1349,35 @@ class SidecarContainer:
 
     terminate: __terminate_spec
 
+    class __reload_volumes_spec(typing_extensions.Protocol):
+        def __call__(self, /, *, timeout: int = 55) -> None:
+            """Reload all Volumes mounted in this sidecar container.
+
+            EXPERIMENTAL: the API is subject to change.
+
+            Blocks until the reload completes, or raises `modal.exception.TimeoutError` on timeout (the reload
+            may still complete in the background).
+
+            Args:
+                timeout: Defaults to 55 seconds.
+            """
+            ...
+
+        async def aio(self, /, *, timeout: int = 55) -> None:
+            """Reload all Volumes mounted in this sidecar container.
+
+            EXPERIMENTAL: the API is subject to change.
+
+            Blocks until the reload completes, or raises `modal.exception.TimeoutError` on timeout (the reload
+            may still complete in the background).
+
+            Args:
+                timeout: Defaults to 55 seconds.
+            """
+            ...
+
+    reload_volumes: __reload_volumes_spec
+
 class SidecarManager:
     """Creates and manages sidecar containers in a Sandbox."""
     def __init__(self, sandbox: Sandbox) -> None: ...
@@ -1298,12 +1404,20 @@ class SidecarManager:
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
             workdir: typing.Optional[str] = None,
             volumes: typing.Optional[dict[typing.Union[str, os.PathLike], modal.volume.Volume]] = None,
+            outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         ) -> SidecarContainer:
             """Create a sidecar container running alongside the Sandbox's main container.
 
             Sidecar containers share the Sandbox's lifecycle but run their own Image and command. They
             can be used to run auxiliary processes, such as a database or a service the main container
             depends on.
+
+            The sidecar's outbound network policy is independent of the main container's and defaults to
+            open network access. To restrict it, pass `outbound_cidr_allowlist` and/or
+            `outbound_domain_allowlist`. To block all external egress while keeping connectivity to the
+            main container, pass an empty allowlist (`outbound_cidr_allowlist=[]`); a fully network-blocked
+            sidecar is not supported because it would have no IP and could not reach the main container.
 
             Args:
                 *args: Command and arguments to run inside the sidecar container.
@@ -1313,6 +1427,11 @@ class SidecarManager:
                 secrets: Secrets to inject as environment variables in the sidecar container.
                 workdir: Working directory for the command; must be absolute if set.
                 volumes: Mapping of mount paths to `Volume` objects to mount in the sidecar container.
+                outbound_cidr_allowlist: If set, restrict the sidecar's outbound traffic to these CIDR
+                    blocks. An empty list blocks all external egress while preserving connectivity to the
+                    main container.
+                outbound_domain_allowlist: If set, restrict the sidecar's outbound TLS connections (port
+                    443) to these SNI domains. Supports wildcards like ``*.example.com``.
 
             Returns:
                 A `SidecarContainer` handle for the running container.
@@ -1329,12 +1448,20 @@ class SidecarManager:
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
             workdir: typing.Optional[str] = None,
             volumes: typing.Optional[dict[typing.Union[str, os.PathLike], modal.volume.Volume]] = None,
+            outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         ) -> SidecarContainer:
             """Create a sidecar container running alongside the Sandbox's main container.
 
             Sidecar containers share the Sandbox's lifecycle but run their own Image and command. They
             can be used to run auxiliary processes, such as a database or a service the main container
             depends on.
+
+            The sidecar's outbound network policy is independent of the main container's and defaults to
+            open network access. To restrict it, pass `outbound_cidr_allowlist` and/or
+            `outbound_domain_allowlist`. To block all external egress while keeping connectivity to the
+            main container, pass an empty allowlist (`outbound_cidr_allowlist=[]`); a fully network-blocked
+            sidecar is not supported because it would have no IP and could not reach the main container.
 
             Args:
                 *args: Command and arguments to run inside the sidecar container.
@@ -1344,6 +1471,11 @@ class SidecarManager:
                 secrets: Secrets to inject as environment variables in the sidecar container.
                 workdir: Working directory for the command; must be absolute if set.
                 volumes: Mapping of mount paths to `Volume` objects to mount in the sidecar container.
+                outbound_cidr_allowlist: If set, restrict the sidecar's outbound traffic to these CIDR
+                    blocks. An empty list blocks all external egress while preserving connectivity to the
+                    main container.
+                outbound_domain_allowlist: If set, restrict the sidecar's outbound TLS connections (port
+                    443) to these SNI domains. Supports wildcards like ``*.example.com``.
 
             Returns:
                 A `SidecarContainer` handle for the running container.
@@ -1379,6 +1511,7 @@ class Sandbox(modal.object.Object):
     _tunnels: typing.Optional[dict[int, modal._tunnel.Tunnel]]
     _enable_snapshot: bool
     _command_router_client: typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient]
+    _init_command_router_access: typing.Optional[modal_proto.api_pb2.CommandRouterAccess]
     _attached: bool
     _filesystem: typing.Optional[modal.sandbox_fs.SandboxFilesystem]
     _is_v2: bool
@@ -2224,13 +2357,12 @@ class Sandbox(modal.object.Object):
     _experimental_set_outbound_network_policy: ___experimental_set_outbound_network_policy_spec
 
     class ___experimental_get_exit_snapshot_spec(typing_extensions.Protocol):
-        def __call__(self, /, timeout: typing.Optional[float] = 60) -> modal.image.Image:
+        def __call__(self, /, timeout: typing.Optional[float] = None) -> modal.image.Image:
             """Get the exit filesystem snapshot image.
 
             Args:
-                timeout: Client-side deadline in seconds (default 60). Use `None` to
-                    poll until the snapshot reaches a terminal state. Use `0` to
-                    perform an immediate check.
+                timeout: Deadline in seconds. `None` polls until the snapshot reaches
+                    a terminal state. `0` performs an immediate check.
 
             Returns:
                 The exit snapshot Image.
@@ -2249,13 +2381,12 @@ class Sandbox(modal.object.Object):
             """
             ...
 
-        async def aio(self, /, timeout: typing.Optional[float] = 60) -> modal.image.Image:
+        async def aio(self, /, timeout: typing.Optional[float] = None) -> modal.image.Image:
             """Get the exit filesystem snapshot image.
 
             Args:
-                timeout: Client-side deadline in seconds (default 60). Use `None` to
-                    poll until the snapshot reaches a terminal state. Use `0` to
-                    perform an immediate check.
+                timeout: Deadline in seconds. `None` polls until the snapshot reaches
+                    a terminal state. `0` performs an immediate check.
 
             Returns:
                 The exit snapshot Image.
@@ -2644,12 +2775,11 @@ class Sandbox(modal.object.Object):
 
             Added in v1.1.0.
 
-            Blocks until the Volumes have been reloaded, bounded by `timeout` (55 seconds by default). If the reload
-            does not complete within that window, `modal.exception.TimeoutError` is raised; note that the reload may
-            still complete in the background.
+            Blocks until the reload completes, or raises `modal.exception.TimeoutError` on timeout (the reload
+            may still complete in the background).
 
             Args:
-                timeout: Maximum time in seconds to wait for the reload. Must be positive.
+                timeout: Defaults to 55 seconds.
             """
             ...
 
@@ -2658,16 +2788,21 @@ class Sandbox(modal.object.Object):
 
             Added in v1.1.0.
 
-            Blocks until the Volumes have been reloaded, bounded by `timeout` (55 seconds by default). If the reload
-            does not complete within that window, `modal.exception.TimeoutError` is raised; note that the reload may
-            still complete in the background.
+            Blocks until the reload completes, or raises `modal.exception.TimeoutError` on timeout (the reload
+            may still complete in the background).
 
             Args:
-                timeout: Maximum time in seconds to wait for the reload. Must be positive.
+                timeout: Defaults to 55 seconds.
             """
             ...
 
     reload_volumes: __reload_volumes_spec
+
+    class ___reload_volumes_spec(typing_extensions.Protocol):
+        def __call__(self, /, *, timeout: int, container_id: str = "") -> None: ...
+        async def aio(self, /, *, timeout: int, container_id: str = "") -> None: ...
+
+    _reload_volumes: ___reload_volumes_spec
 
     class __terminate_spec(typing_extensions.Protocol):
         @typing.overload
@@ -3174,17 +3309,18 @@ class Sandbox(modal.object.Object):
             tags: typing.Optional[dict[str, str]] = None,
             client: typing.Optional[modal.client.Client] = None,
         ) -> typing.Generator[Sandbox, None, None]:
-            """List v2 Sandboxes in an App.
+            """List all sandboxes (both v1 and v2).
 
-            This function lists v2 sandboxes, ie sandboxes created via modal.Sandbox._experimental_create.
+            Pass `app_id` to scope to an App; without it, Sandboxes across the current
+            Environment are listed (deprecated — prefer scoping by `app_id`).
 
             Args:
-                app_id: The App to list Sandboxes under.
+                app_id: If set, restrict results to Sandboxes under this App.
                 tags: If set, only sandboxes containing at least these tags are returned.
                 client: Optional client to use for the session.
 
             Yields:
-                `Sandbox` objects that are currently running in the App.
+                `Sandbox` objects that are currently running.
             """
             ...
 
@@ -3196,17 +3332,18 @@ class Sandbox(modal.object.Object):
             tags: typing.Optional[dict[str, str]] = None,
             client: typing.Optional[modal.client.Client] = None,
         ) -> collections.abc.AsyncGenerator[Sandbox, None]:
-            """List v2 Sandboxes in an App.
+            """List all sandboxes (both v1 and v2).
 
-            This function lists v2 sandboxes, ie sandboxes created via modal.Sandbox._experimental_create.
+            Pass `app_id` to scope to an App; without it, Sandboxes across the current
+            Environment are listed (deprecated — prefer scoping by `app_id`).
 
             Args:
-                app_id: The App to list Sandboxes under.
+                app_id: If set, restrict results to Sandboxes under this App.
                 tags: If set, only sandboxes containing at least these tags are returned.
                 client: Optional client to use for the session.
 
             Yields:
-                `Sandbox` objects that are currently running in the App.
+                `Sandbox` objects that are currently running.
             """
             ...
 

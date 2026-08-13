@@ -16,6 +16,7 @@ Usage::
         DescribeFolderResolvedPermissionsPaginator,
         ListActionConnectorsPaginator,
         ListAnalysesPaginator,
+        ListApprovalPoliciesPaginator,
         ListAssetBundleExportJobsPaginator,
         ListAssetBundleImportJobsPaginator,
         ListBrandsPaginator,
@@ -24,6 +25,7 @@ Usage::
         ListDashboardsPaginator,
         ListDataSetsPaginator,
         ListDataSourcesPaginator,
+        ListDlpSettingsPaginator,
         ListFlowsPaginator,
         ListFolderMembersPaginator,
         ListFoldersForResourcePaginator,
@@ -34,6 +36,7 @@ Usage::
         ListIAMPolicyAssignmentsPaginator,
         ListIngestionsPaginator,
         ListKnowledgeBasesPaginator,
+        ListLimitsProfilesPaginator,
         ListNamespacesPaginator,
         ListOAuthClientApplicationsPaginator,
         ListRoleMembershipsPaginator,
@@ -65,6 +68,7 @@ Usage::
     describe_folder_resolved_permissions_paginator: DescribeFolderResolvedPermissionsPaginator = client.get_paginator("describe_folder_resolved_permissions")
     list_action_connectors_paginator: ListActionConnectorsPaginator = client.get_paginator("list_action_connectors")
     list_analyses_paginator: ListAnalysesPaginator = client.get_paginator("list_analyses")
+    list_approval_policies_paginator: ListApprovalPoliciesPaginator = client.get_paginator("list_approval_policies")
     list_asset_bundle_export_jobs_paginator: ListAssetBundleExportJobsPaginator = client.get_paginator("list_asset_bundle_export_jobs")
     list_asset_bundle_import_jobs_paginator: ListAssetBundleImportJobsPaginator = client.get_paginator("list_asset_bundle_import_jobs")
     list_brands_paginator: ListBrandsPaginator = client.get_paginator("list_brands")
@@ -73,6 +77,7 @@ Usage::
     list_dashboards_paginator: ListDashboardsPaginator = client.get_paginator("list_dashboards")
     list_data_sets_paginator: ListDataSetsPaginator = client.get_paginator("list_data_sets")
     list_data_sources_paginator: ListDataSourcesPaginator = client.get_paginator("list_data_sources")
+    list_dlp_settings_paginator: ListDlpSettingsPaginator = client.get_paginator("list_dlp_settings")
     list_flows_paginator: ListFlowsPaginator = client.get_paginator("list_flows")
     list_folder_members_paginator: ListFolderMembersPaginator = client.get_paginator("list_folder_members")
     list_folders_for_resource_paginator: ListFoldersForResourcePaginator = client.get_paginator("list_folders_for_resource")
@@ -83,6 +88,7 @@ Usage::
     list_iam_policy_assignments_paginator: ListIAMPolicyAssignmentsPaginator = client.get_paginator("list_iam_policy_assignments")
     list_ingestions_paginator: ListIngestionsPaginator = client.get_paginator("list_ingestions")
     list_knowledge_bases_paginator: ListKnowledgeBasesPaginator = client.get_paginator("list_knowledge_bases")
+    list_limits_profiles_paginator: ListLimitsProfilesPaginator = client.get_paginator("list_limits_profiles")
     list_namespaces_paginator: ListNamespacesPaginator = client.get_paginator("list_namespaces")
     list_o_auth_client_applications_paginator: ListOAuthClientApplicationsPaginator = client.get_paginator("list_o_auth_client_applications")
     list_role_memberships_paginator: ListRoleMembershipsPaginator = client.get_paginator("list_role_memberships")
@@ -124,6 +130,8 @@ from .type_defs import (
     ListActionConnectorsResponseTypeDef,
     ListAnalysesRequestPaginateTypeDef,
     ListAnalysesResponseTypeDef,
+    ListApprovalPoliciesRequestPaginateTypeDef,
+    ListApprovalPoliciesResponseTypeDef,
     ListAssetBundleExportJobsRequestPaginateTypeDef,
     ListAssetBundleExportJobsResponseTypeDef,
     ListAssetBundleImportJobsRequestPaginateTypeDef,
@@ -140,6 +148,8 @@ from .type_defs import (
     ListDataSetsResponseTypeDef,
     ListDataSourcesRequestPaginateTypeDef,
     ListDataSourcesResponseTypeDef,
+    ListDlpSettingsRequestPaginateTypeDef,
+    ListDlpSettingsResponseTypeDef,
     ListFlowsInputPaginateTypeDef,
     ListFlowsOutputTypeDef,
     ListFolderMembersRequestPaginateTypeDef,
@@ -160,6 +170,8 @@ from .type_defs import (
     ListIngestionsResponseTypeDef,
     ListKnowledgeBasesRequestPaginateTypeDef,
     ListKnowledgeBasesResponseTypeDef,
+    ListLimitsProfilesRequestPaginateTypeDef,
+    ListLimitsProfilesResponseTypeDef,
     ListNamespacesRequestPaginateTypeDef,
     ListNamespacesResponseTypeDef,
     ListOAuthClientApplicationsRequestPaginateTypeDef,
@@ -217,6 +229,7 @@ __all__ = (
     "DescribeFolderResolvedPermissionsPaginator",
     "ListActionConnectorsPaginator",
     "ListAnalysesPaginator",
+    "ListApprovalPoliciesPaginator",
     "ListAssetBundleExportJobsPaginator",
     "ListAssetBundleImportJobsPaginator",
     "ListBrandsPaginator",
@@ -225,6 +238,7 @@ __all__ = (
     "ListDashboardsPaginator",
     "ListDataSetsPaginator",
     "ListDataSourcesPaginator",
+    "ListDlpSettingsPaginator",
     "ListFlowsPaginator",
     "ListFolderMembersPaginator",
     "ListFoldersForResourcePaginator",
@@ -235,6 +249,7 @@ __all__ = (
     "ListIAMPolicyAssignmentsPaginator",
     "ListIngestionsPaginator",
     "ListKnowledgeBasesPaginator",
+    "ListLimitsProfilesPaginator",
     "ListNamespacesPaginator",
     "ListOAuthClientApplicationsPaginator",
     "ListRoleMembershipsPaginator",
@@ -343,6 +358,27 @@ class ListAnalysesPaginator(_ListAnalysesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListAnalyses.html#QuickSight.Paginator.ListAnalyses.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#listanalysespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListApprovalPoliciesPaginatorBase = Paginator[ListApprovalPoliciesResponseTypeDef]
+else:
+    _ListApprovalPoliciesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListApprovalPoliciesPaginator(_ListApprovalPoliciesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListApprovalPolicies.html#QuickSight.Paginator.ListApprovalPolicies)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#listapprovalpoliciespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListApprovalPoliciesRequestPaginateTypeDef]
+    ) -> PageIterator[ListApprovalPoliciesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListApprovalPolicies.html#QuickSight.Paginator.ListApprovalPolicies.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#listapprovalpoliciespaginator)
         """
 
 
@@ -511,6 +547,27 @@ class ListDataSourcesPaginator(_ListDataSourcesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListDataSources.html#QuickSight.Paginator.ListDataSources.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#listdatasourcespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListDlpSettingsPaginatorBase = Paginator[ListDlpSettingsResponseTypeDef]
+else:
+    _ListDlpSettingsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListDlpSettingsPaginator(_ListDlpSettingsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListDlpSettings.html#QuickSight.Paginator.ListDlpSettings)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#listdlpsettingspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDlpSettingsRequestPaginateTypeDef]
+    ) -> PageIterator[ListDlpSettingsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListDlpSettings.html#QuickSight.Paginator.ListDlpSettings.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#listdlpsettingspaginator)
         """
 
 
@@ -723,6 +780,27 @@ class ListKnowledgeBasesPaginator(_ListKnowledgeBasesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListKnowledgeBases.html#QuickSight.Paginator.ListKnowledgeBases.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#listknowledgebasespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListLimitsProfilesPaginatorBase = Paginator[ListLimitsProfilesResponseTypeDef]
+else:
+    _ListLimitsProfilesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListLimitsProfilesPaginator(_ListLimitsProfilesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListLimitsProfiles.html#QuickSight.Paginator.ListLimitsProfiles)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#listlimitsprofilespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListLimitsProfilesRequestPaginateTypeDef]
+    ) -> PageIterator[ListLimitsProfilesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListLimitsProfiles.html#QuickSight.Paginator.ListLimitsProfiles.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/paginators/#listlimitsprofilespaginator)
         """
 
 

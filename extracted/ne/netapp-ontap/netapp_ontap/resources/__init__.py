@@ -28,7 +28,6 @@ apipkg.initpkg(__name__,{
         'Snmp' : 'netapp_ontap.resources.snmp:Snmp',
         'DcnNodeCertificate' : 'netapp_ontap.resources.dcn_node_certificate:DcnNodeCertificate',
         'LunMap' : 'netapp_ontap.resources.lun_map:LunMap',
-        'GovernanceWorkspaceAggregations' : 'netapp_ontap.resources.governance_workspace_aggregations:GovernanceWorkspaceAggregations',
         'StorageUnitAntiRansomwareEntropyStats' : 'netapp_ontap.resources.storage_unit_anti_ransomware_entropy_stats:StorageUnitAntiRansomwareEntropyStats',
         'NfsService' : 'netapp_ontap.resources.nfs_service:NfsService',
         'FpolicyPolicy' : 'netapp_ontap.resources.fpolicy_policy:FpolicyPolicy',
@@ -49,24 +48,19 @@ apipkg.initpkg(__name__,{
         'FileCopy' : 'netapp_ontap.resources.file_copy:FileCopy',
         'VscanServerStatus' : 'netapp_ontap.resources.vscan_server_status:VscanServerStatus',
         'MetroclusterNode' : 'netapp_ontap.resources.metrocluster_node:MetroclusterNode',
-        'DataEngineGovernanceAuditCount' : 'netapp_ontap.resources.data_engine_governance_audit_count:DataEngineGovernanceAuditCount',
         'NetgroupFile' : 'netapp_ontap.resources.netgroup_file:NetgroupFile',
-        'DataEnginePolicyVersion' : 'netapp_ontap.resources.data_engine_policy_version:DataEnginePolicyVersion',
         'Cluster' : 'netapp_ontap.resources.cluster:Cluster',
         'NvmeService' : 'netapp_ontap.resources.nvme_service:NvmeService',
         'NdmpSvm' : 'netapp_ontap.resources.ndmp_svm:NdmpSvm',
-        'DatacollectionEntity' : 'netapp_ontap.resources.datacollection_entity:DatacollectionEntity',
-        'DatacollectionVersion' : 'netapp_ontap.resources.datacollection_version:DatacollectionVersion',
-        'DataSource' : 'netapp_ontap.resources.data_source:DataSource',
         'SnmpUser' : 'netapp_ontap.resources.snmp_user:SnmpUser',
         'AutoUpdateInfo' : 'netapp_ontap.resources.auto_update_info:AutoUpdateInfo',
         'KeyManagerAuthKey' : 'netapp_ontap.resources.key_manager_auth_key:KeyManagerAuthKey',
+        'SecurityClusterNetworkIpsecAssociation' : 'netapp_ontap.resources.security_cluster_network_ipsec_association:SecurityClusterNetworkIpsecAssociation',
         'AntiRansomware' : 'netapp_ontap.resources.anti_ransomware:AntiRansomware',
         'SecurityOauth2Global' : 'netapp_ontap.resources.security_oauth2_global:SecurityOauth2Global',
         'PerformanceNvmeMetric' : 'netapp_ontap.resources.performance_nvme_metric:PerformanceNvmeMetric',
-        'WorkspaceQuery' : 'netapp_ontap.resources.workspace_query:WorkspaceQuery',
+        'SecurityClusterNetworkIpsecPolicy' : 'netapp_ontap.resources.security_cluster_network_ipsec_policy:SecurityClusterNetworkIpsecPolicy',
         'SecurityCertificate' : 'netapp_ontap.resources.security_certificate:SecurityCertificate',
-        'DataEngineGovernancePoliciesClassificationCategory' : 'netapp_ontap.resources.data_engine_governance_policies_classification_category:DataEngineGovernancePoliciesClassificationCategory',
         'TopMetricsSvmUser' : 'netapp_ontap.resources.top_metrics_svm_user:TopMetricsSvmUser',
         'S3Service' : 'netapp_ontap.resources.s3_service:S3Service',
         'ResourceTag' : 'netapp_ontap.resources.resource_tag:ResourceTag',
@@ -85,11 +79,9 @@ apipkg.initpkg(__name__,{
         'VolumeEfficiencyPolicy' : 'netapp_ontap.resources.volume_efficiency_policy:VolumeEfficiencyPolicy',
         'SecurityExternalRoleMapping' : 'netapp_ontap.resources.security_external_role_mapping:SecurityExternalRoleMapping',
         'S3Group' : 'netapp_ontap.resources.s3_group:S3Group',
-        'DataEngineGovernanceFilePreviewFileContentRequest' : 'netapp_ontap.resources.data_engine_governance_file_preview_file_content_request:DataEngineGovernanceFilePreviewFileContentRequest',
         'ApplicationSnapshot' : 'netapp_ontap.resources.application_snapshot:ApplicationSnapshot',
         'ClusterNdmpProperties' : 'netapp_ontap.resources.cluster_ndmp_properties:ClusterNdmpProperties',
         'TopMetricsDirectory' : 'netapp_ontap.resources.top_metrics_directory:TopMetricsDirectory',
-        'GovernanceAggregations' : 'netapp_ontap.resources.governance_aggregations:GovernanceAggregations',
         'CifsDomainPreferredDc' : 'netapp_ontap.resources.cifs_domain_preferred_dc:CifsDomainPreferredDc',
         'RolePrivilege' : 'netapp_ontap.resources.role_privilege:RolePrivilege',
         'SoftwareHistory' : 'netapp_ontap.resources.software_history:SoftwareHistory',
@@ -108,7 +100,6 @@ apipkg.initpkg(__name__,{
         'Flexcache' : 'netapp_ontap.resources.flexcache:Flexcache',
         'MetroclusterSvm' : 'netapp_ontap.resources.metrocluster_svm:MetroclusterSvm',
         'KerberosRealm' : 'netapp_ontap.resources.kerberos_realm:KerberosRealm',
-        'DatacollectionSearchData' : 'netapp_ontap.resources.datacollection_search_data:DatacollectionSearchData',
         'FlexcacheOrigin' : 'netapp_ontap.resources.flexcache_origin:FlexcacheOrigin',
         'ClientLock' : 'netapp_ontap.resources.client_lock:ClientLock',
         'DcnClusterSoftwarePackage' : 'netapp_ontap.resources.dcn_cluster_software_package:DcnClusterSoftwarePackage',
@@ -116,7 +107,6 @@ apipkg.initpkg(__name__,{
         'EmsFilter' : 'netapp_ontap.resources.ems_filter:EmsFilter',
         'MetroclusterOperation' : 'netapp_ontap.resources.metrocluster_operation:MetroclusterOperation',
         'Schedule' : 'netapp_ontap.resources.schedule:Schedule',
-        'DataEngineEvent' : 'netapp_ontap.resources.data_engine_event:DataEngineEvent',
         'AzureKeyVault' : 'netapp_ontap.resources.azure_key_vault:AzureKeyVault',
         'EmsApplicationLog' : 'netapp_ontap.resources.ems_application_log:EmsApplicationLog',
         'PortMetrics' : 'netapp_ontap.resources.port_metrics:PortMetrics',
@@ -133,12 +123,10 @@ apipkg.initpkg(__name__,{
         'PerformanceFcInterfaceMetric' : 'netapp_ontap.resources.performance_fc_interface_metric:PerformanceFcInterfaceMetric',
         'CifsSearchPath' : 'netapp_ontap.resources.cifs_search_path:CifsSearchPath',
         'SnaplockLitigationFile' : 'netapp_ontap.resources.snaplock_litigation_file:SnaplockLitigationFile',
-        'WorkspaceVersionDiff' : 'netapp_ontap.resources.workspace_version_diff:WorkspaceVersionDiff',
         'LdapSchema' : 'netapp_ontap.resources.ldap_schema:LdapSchema',
         'Qtree' : 'netapp_ontap.resources.qtree:Qtree',
         'SecurityOauth2' : 'netapp_ontap.resources.security_oauth2:SecurityOauth2',
         'NvmeSubsystem' : 'netapp_ontap.resources.nvme_subsystem:NvmeSubsystem',
-        'WorkspaceVersion' : 'netapp_ontap.resources.workspace_version:WorkspaceVersion',
         'Sensors' : 'netapp_ontap.resources.sensors:Sensors',
         'SecurityKeystore' : 'netapp_ontap.resources.security_keystore:SecurityKeystore',
         'Duo' : 'netapp_ontap.resources.duo:Duo',
@@ -172,7 +160,6 @@ apipkg.initpkg(__name__,{
         'ConnectionStatus' : 'netapp_ontap.resources.connection_status:ConnectionStatus',
         'ActiveDirectoryPreferredDc' : 'netapp_ontap.resources.active_directory_preferred_dc:ActiveDirectoryPreferredDc',
         'UnixGroup' : 'netapp_ontap.resources.unix_group:UnixGroup',
-        'DataEngineGovernancePoliciesClassificationClassifier' : 'netapp_ontap.resources.data_engine_governance_policies_classification_classifier:DataEngineGovernancePoliciesClassificationClassifier',
         'ExportClient' : 'netapp_ontap.resources.export_client:ExportClient',
         'SecurityAuditLogForward' : 'netapp_ontap.resources.security_audit_log_forward:SecurityAuditLogForward',
         'QosWorkload' : 'netapp_ontap.resources.qos_workload:QosWorkload',
@@ -193,7 +180,6 @@ apipkg.initpkg(__name__,{
         'ExportPolicy' : 'netapp_ontap.resources.export_policy:ExportPolicy',
         'Fpolicy' : 'netapp_ontap.resources.fpolicy:Fpolicy',
         'SvmMigrationVolume' : 'netapp_ontap.resources.svm_migration_volume:SvmMigrationVolume',
-        'Datacollection' : 'netapp_ontap.resources.datacollection:Datacollection',
         'CapacityPool' : 'netapp_ontap.resources.capacity_pool:CapacityPool',
         'KerberosInterface' : 'netapp_ontap.resources.kerberos_interface:KerberosInterface',
         'Shelf' : 'netapp_ontap.resources.shelf:Shelf',
@@ -201,7 +187,6 @@ apipkg.initpkg(__name__,{
         'Port' : 'netapp_ontap.resources.port:Port',
         'ShadowcopySet' : 'netapp_ontap.resources.shadowcopy_set:ShadowcopySet',
         'SnaplockComplianceClock' : 'netapp_ontap.resources.snaplock_compliance_clock:SnaplockComplianceClock',
-        'DataEngineJob' : 'netapp_ontap.resources.data_engine_job:DataEngineJob',
         'BgpPeerGroup' : 'netapp_ontap.resources.bgp_peer_group:BgpPeerGroup',
         'VvolBinding' : 'netapp_ontap.resources.vvol_binding:VvolBinding',
         'TopMetricsSvmDirectory' : 'netapp_ontap.resources.top_metrics_svm_directory:TopMetricsSvmDirectory',
@@ -217,7 +202,6 @@ apipkg.initpkg(__name__,{
         'Totp' : 'netapp_ontap.resources.totp:Totp',
         'IscsiSession' : 'netapp_ontap.resources.iscsi_session:IscsiSession',
         'UnixGroupUsers' : 'netapp_ontap.resources.unix_group_users:UnixGroupUsers',
-        'DataEngineDatacollectionAcl' : 'netapp_ontap.resources.data_engine_datacollection_acl:DataEngineDatacollectionAcl',
         'DcnCluster' : 'netapp_ontap.resources.dcn_cluster:DcnCluster',
         'LocalCifsGroupMembers' : 'netapp_ontap.resources.local_cifs_group_members:LocalCifsGroupMembers',
         'SnaplockFileRetention' : 'netapp_ontap.resources.snaplock_file_retention:SnaplockFileRetention',
@@ -226,7 +210,6 @@ apipkg.initpkg(__name__,{
         'Netbios' : 'netapp_ontap.resources.netbios:Netbios',
         'DcnNodeMetrics' : 'netapp_ontap.resources.dcn_node_metrics:DcnNodeMetrics',
         'UnixUser' : 'netapp_ontap.resources.unix_user:UnixUser',
-        'DataEngineEntityCustomAttribute' : 'netapp_ontap.resources.data_engine_entity_custom_attribute:DataEngineEntityCustomAttribute',
         'ApplicationComponent' : 'netapp_ontap.resources.application_component:ApplicationComponent',
         'SvmMigration' : 'netapp_ontap.resources.svm_migration:SvmMigration',
         'SnmpTraphost' : 'netapp_ontap.resources.snmp_traphost:SnmpTraphost',
@@ -234,7 +217,6 @@ apipkg.initpkg(__name__,{
         'LdapService' : 'netapp_ontap.resources.ldap_service:LdapService',
         'FileDirectorySecurityAcl' : 'netapp_ontap.resources.file_directory_security_acl:FileDirectorySecurityAcl',
         'NvmeSubsystemController' : 'netapp_ontap.resources.nvme_subsystem_controller:NvmeSubsystemController',
-        'WorkspaceDataSource' : 'netapp_ontap.resources.workspace_data_source:WorkspaceDataSource',
         'SecurityGroup' : 'netapp_ontap.resources.security_group:SecurityGroup',
         'EbrOperation' : 'netapp_ontap.resources.ebr_operation:EbrOperation',
         'Container' : 'netapp_ontap.resources.container:Container',
@@ -264,7 +246,6 @@ apipkg.initpkg(__name__,{
         'SecurityKeyManager' : 'netapp_ontap.resources.security_key_manager:SecurityKeyManager',
         'ConsistencyGroup' : 'netapp_ontap.resources.consistency_group:ConsistencyGroup',
         'VscanOnDemand' : 'netapp_ontap.resources.vscan_on_demand:VscanOnDemand',
-        'DataEngineAcl' : 'netapp_ontap.resources.data_engine_acl:DataEngineAcl',
         'StorageSwitch' : 'netapp_ontap.resources.storage_switch:StorageSwitch',
         'IpServicePolicy' : 'netapp_ontap.resources.ip_service_policy:IpServicePolicy',
         'Ipspace' : 'netapp_ontap.resources.ipspace:Ipspace',
@@ -273,7 +254,6 @@ apipkg.initpkg(__name__,{
         'NetgroupsSettings' : 'netapp_ontap.resources.netgroups_settings:NetgroupsSettings',
         'StorageUnitAntiRansomwareSuspect' : 'netapp_ontap.resources.storage_unit_anti_ransomware_suspect:StorageUnitAntiRansomwareSuspect',
         'GroupPolicyObject' : 'netapp_ontap.resources.group_policy_object:GroupPolicyObject',
-        'DataEngineGovernanceFilePreviewJob' : 'netapp_ontap.resources.data_engine_governance_file_preview_job:DataEngineGovernanceFilePreviewJob',
         'FpolicyEvent' : 'netapp_ontap.resources.fpolicy_event:FpolicyEvent',
         'FcLogin' : 'netapp_ontap.resources.fc_login:FcLogin',
         'SecurityJitPrivilegeUser' : 'netapp_ontap.resources.security_jit_privilege_user:SecurityJitPrivilegeUser',
@@ -287,10 +267,7 @@ apipkg.initpkg(__name__,{
         'IgroupInitiator' : 'netapp_ontap.resources.igroup_initiator:IgroupInitiator',
         'GroupRoleMappings' : 'netapp_ontap.resources.group_role_mappings:GroupRoleMappings',
         'Mediator' : 'netapp_ontap.resources.mediator:Mediator',
-        'DataEngineGovernancePoliciesGuardrail' : 'netapp_ontap.resources.data_engine_governance_policies_guardrail:DataEngineGovernancePoliciesGuardrail',
         'AutosupportMessage' : 'netapp_ontap.resources.autosupport_message:AutosupportMessage',
-        'DataEngine' : 'netapp_ontap.resources.data_engine:DataEngine',
-        'DataEngineEntity' : 'netapp_ontap.resources.data_engine_entity:DataEngineEntity',
         'MetroclusterDrGroup' : 'netapp_ontap.resources.metrocluster_dr_group:MetroclusterDrGroup',
         'FpolicyConnection' : 'netapp_ontap.resources.fpolicy_connection:FpolicyConnection',
         'NodeMetrics' : 'netapp_ontap.resources.node_metrics:NodeMetrics',
@@ -300,7 +277,6 @@ apipkg.initpkg(__name__,{
         'FileMove' : 'netapp_ontap.resources.file_move:FileMove',
         'Vscan' : 'netapp_ontap.resources.vscan:Vscan',
         'UnixGroupSettings' : 'netapp_ontap.resources.unix_group_settings:UnixGroupSettings',
-        'DataEngineGovernanceAuditDatacollectionCount' : 'netapp_ontap.resources.data_engine_governance_audit_datacollection_count:DataEngineGovernanceAuditDatacollectionCount',
         'WebauthnCredentials' : 'netapp_ontap.resources.webauthn_credentials:WebauthnCredentials',
         'FirmwareHistory' : 'netapp_ontap.resources.firmware_history:FirmwareHistory',
         'VscanScannerPool' : 'netapp_ontap.resources.vscan_scanner_pool:VscanScannerPool',
@@ -315,24 +291,19 @@ apipkg.initpkg(__name__,{
         'AutoUpdateConfiguration' : 'netapp_ontap.resources.auto_update_configuration:AutoUpdateConfiguration',
         'SecurityJitPrivilege' : 'netapp_ontap.resources.security_jit_privilege:SecurityJitPrivilege',
         'NdmpSession' : 'netapp_ontap.resources.ndmp_session:NdmpSession',
-        'DatacollectionVersionDiff' : 'netapp_ontap.resources.datacollection_version_diff:DatacollectionVersionDiff',
         'StorageBridge' : 'netapp_ontap.resources.storage_bridge:StorageBridge',
         'Metrocluster' : 'netapp_ontap.resources.metrocluster:Metrocluster',
         'QuotaReport' : 'netapp_ontap.resources.quota_report:QuotaReport',
         'SecurityAssociation' : 'netapp_ontap.resources.security_association:SecurityAssociation',
-        'DataEngineGovernanceAuditImpactedFiles' : 'netapp_ontap.resources.data_engine_governance_audit_impacted_files:DataEngineGovernanceAuditImpactedFiles',
-        'WorkspaceQueryEntity' : 'netapp_ontap.resources.workspace_query_entity:WorkspaceQueryEntity',
         'Node' : 'netapp_ontap.resources.node:Node',
         'IpsecCaCertificate' : 'netapp_ontap.resources.ipsec_ca_certificate:IpsecCaCertificate',
         'Audit' : 'netapp_ontap.resources.audit:Audit',
         'MultiAdminVerifyApprovalGroup' : 'netapp_ontap.resources.multi_admin_verify_approval_group:MultiAdminVerifyApprovalGroup',
         'Svm' : 'netapp_ontap.resources.svm:Svm',
         'TopMetricsSvmClient' : 'netapp_ontap.resources.top_metrics_svm_client:TopMetricsSvmClient',
-        'Workspace' : 'netapp_ontap.resources.workspace:Workspace',
         'UnixUserSettings' : 'netapp_ontap.resources.unix_user_settings:UnixUserSettings',
         'MultiAdminVerifyRequest' : 'netapp_ontap.resources.multi_admin_verify_request:MultiAdminVerifyRequest',
         'VolumeMetrics' : 'netapp_ontap.resources.volume_metrics:VolumeMetrics',
-        'DataEnginePolicy' : 'netapp_ontap.resources.data_engine_policy:DataEnginePolicy',
         'NvmeInterface' : 'netapp_ontap.resources.nvme_interface:NvmeInterface',
         'ConsistencyGroupSnapshot' : 'netapp_ontap.resources.consistency_group_snapshot:ConsistencyGroupSnapshot',
         'SnapmirrorPolicy' : 'netapp_ontap.resources.snapmirror_policy:SnapmirrorPolicy',
@@ -580,7 +551,6 @@ URL|Resource
 `/api/support/snmp`| <a title="netapp_ontap.resources.snmp.Snmp" href="../resources/snmp.html"><code>Snmp</code></a>
 `/api/dcn/security/node/certificates`| <a title="netapp_ontap.resources.dcn_node_certificate.DcnNodeCertificate" href="../resources/dcn_node_certificate.html"><code>DcnNodeCertificate</code></a>
 `/api/protocols/san/lun-maps`| <a title="netapp_ontap.resources.lun_map.LunMap" href="../resources/lun_map.html"><code>LunMap</code></a>
-`/api/data-engine/governance/aggregation/workspaces`| <a title="netapp_ontap.resources.governance_workspace_aggregations.GovernanceWorkspaceAggregations" href="../resources/governance_workspace_aggregations.html"><code>GovernanceWorkspaceAggregations</code></a>
 `/api/security/anti-ransomware/storage-unit/entropy-stats`| <a title="netapp_ontap.resources.storage_unit_anti_ransomware_entropy_stats.StorageUnitAntiRansomwareEntropyStats" href="../resources/storage_unit_anti_ransomware_entropy_stats.html"><code>StorageUnitAntiRansomwareEntropyStats</code></a>
 `/api/protocols/nfs/services`| <a title="netapp_ontap.resources.nfs_service.NfsService" href="../resources/nfs_service.html"><code>NfsService</code></a>
 `/api/protocols/fpolicy/{svm[uuid]}/policies`| <a title="netapp_ontap.resources.fpolicy_policy.FpolicyPolicy" href="../resources/fpolicy_policy.html"><code>FpolicyPolicy</code></a>
@@ -601,24 +571,19 @@ URL|Resource
 `/api/storage/file/copy`| <a title="netapp_ontap.resources.file_copy.FileCopy" href="../resources/file_copy.html"><code>FileCopy</code></a>
 `/api/protocols/vscan/server-status`| <a title="netapp_ontap.resources.vscan_server_status.VscanServerStatus" href="../resources/vscan_server_status.html"><code>VscanServerStatus</code></a>
 `/api/cluster/metrocluster/nodes`| <a title="netapp_ontap.resources.metrocluster_node.MetroclusterNode" href="../resources/metrocluster_node.html"><code>MetroclusterNode</code></a>
-`/api/data-engine/governance/audit/policies`| <a title="netapp_ontap.resources.data_engine_governance_audit_count.DataEngineGovernanceAuditCount" href="../resources/data_engine_governance_audit_count.html"><code>DataEngineGovernanceAuditCount</code></a>
 `/api/name-services/netgroup-files`| <a title="netapp_ontap.resources.netgroup_file.NetgroupFile" href="../resources/netgroup_file.html"><code>NetgroupFile</code></a>
-`/api/data-engine/policies/{data_engine_policy[uuid]}/versions`| <a title="netapp_ontap.resources.data_engine_policy_version.DataEnginePolicyVersion" href="../resources/data_engine_policy_version.html"><code>DataEnginePolicyVersion</code></a>
 `/api/cluster`| <a title="netapp_ontap.resources.cluster.Cluster" href="../resources/cluster.html"><code>Cluster</code></a>
 `/api/protocols/nvme/services`| <a title="netapp_ontap.resources.nvme_service.NvmeService" href="../resources/nvme_service.html"><code>NvmeService</code></a>
 `/api/protocols/ndmp/svms`| <a title="netapp_ontap.resources.ndmp_svm.NdmpSvm" href="../resources/ndmp_svm.html"><code>NdmpSvm</code></a>
-`/api/data-engine/workspaces/{workspace[uuid]}/data-collections/{datacollection[uuid]}/entities`| <a title="netapp_ontap.resources.datacollection_entity.DatacollectionEntity" href="../resources/datacollection_entity.html"><code>DatacollectionEntity</code></a>
-`/api/data-engine/workspaces/{workspace[uuid]}/data-collections/{datacollection[uuid]}/versions`| <a title="netapp_ontap.resources.datacollection_version.DatacollectionVersion" href="../resources/datacollection_version.html"><code>DatacollectionVersion</code></a>
-`/api/data-engine/data-sources`| <a title="netapp_ontap.resources.data_source.DataSource" href="../resources/data_source.html"><code>DataSource</code></a>
 `/api/support/snmp/users`| <a title="netapp_ontap.resources.snmp_user.SnmpUser" href="../resources/snmp_user.html"><code>SnmpUser</code></a>
 `/api/support/auto-update`| <a title="netapp_ontap.resources.auto_update_info.AutoUpdateInfo" href="../resources/auto_update_info.html"><code>AutoUpdateInfo</code></a>
 `/api/security/key-managers/{security_key_manager[uuid]}/auth-keys`| <a title="netapp_ontap.resources.key_manager_auth_key.KeyManagerAuthKey" href="../resources/key_manager_auth_key.html"><code>KeyManagerAuthKey</code></a>
+`/api/security/cluster-network/ipsec/associations`| <a title="netapp_ontap.resources.security_cluster_network_ipsec_association.SecurityClusterNetworkIpsecAssociation" href="../resources/security_cluster_network_ipsec_association.html"><code>SecurityClusterNetworkIpsecAssociation</code></a>
 `/api/security/anti-ransomware`| <a title="netapp_ontap.resources.anti_ransomware.AntiRansomware" href="../resources/anti_ransomware.html"><code>AntiRansomware</code></a>
 `/api/security/authentication/cluster/oauth2`| <a title="netapp_ontap.resources.security_oauth2_global.SecurityOauth2Global" href="../resources/security_oauth2_global.html"><code>SecurityOauth2Global</code></a>
 `/api/protocols/nvme/services/{svm[uuid]}/metrics`| <a title="netapp_ontap.resources.performance_nvme_metric.PerformanceNvmeMetric" href="../resources/performance_nvme_metric.html"><code>PerformanceNvmeMetric</code></a>
-`/api/data-engine/workspaces/{workspace[uuid]}/queries`| <a title="netapp_ontap.resources.workspace_query.WorkspaceQuery" href="../resources/workspace_query.html"><code>WorkspaceQuery</code></a>
+`/api/security/cluster-network/ipsec/policies`| <a title="netapp_ontap.resources.security_cluster_network_ipsec_policy.SecurityClusterNetworkIpsecPolicy" href="../resources/security_cluster_network_ipsec_policy.html"><code>SecurityClusterNetworkIpsecPolicy</code></a>
 `/api/security/certificates`| <a title="netapp_ontap.resources.security_certificate.SecurityCertificate" href="../resources/security_certificate.html"><code>SecurityCertificate</code></a>
-`/api/data-engine/governance/policies/classification/categories`| <a title="netapp_ontap.resources.data_engine_governance_policies_classification_category.DataEngineGovernancePoliciesClassificationCategory" href="../resources/data_engine_governance_policies_classification_category.html"><code>DataEngineGovernancePoliciesClassificationCategory</code></a>
 `/api/svm/svms/{svm[uuid]}/top-metrics/users`| <a title="netapp_ontap.resources.top_metrics_svm_user.TopMetricsSvmUser" href="../resources/top_metrics_svm_user.html"><code>TopMetricsSvmUser</code></a>
 `/api/protocols/s3/services`| <a title="netapp_ontap.resources.s3_service.S3Service" href="../resources/s3_service.html"><code>S3Service</code></a>
 `/api/resource-tags`| <a title="netapp_ontap.resources.resource_tag.ResourceTag" href="../resources/resource_tag.html"><code>ResourceTag</code></a>
@@ -637,11 +602,9 @@ URL|Resource
 `/api/storage/volume-efficiency-policies`| <a title="netapp_ontap.resources.volume_efficiency_policy.VolumeEfficiencyPolicy" href="../resources/volume_efficiency_policy.html"><code>VolumeEfficiencyPolicy</code></a>
 `/api/security/external-role-mappings`| <a title="netapp_ontap.resources.security_external_role_mapping.SecurityExternalRoleMapping" href="../resources/security_external_role_mapping.html"><code>SecurityExternalRoleMapping</code></a>
 `/api/protocols/s3/services/{svm[uuid]}/groups`| <a title="netapp_ontap.resources.s3_group.S3Group" href="../resources/s3_group.html"><code>S3Group</code></a>
-`/api/data-engine/governance/file-preview/file-content`| <a title="netapp_ontap.resources.data_engine_governance_file_preview_file_content_request.DataEngineGovernanceFilePreviewFileContentRequest" href="../resources/data_engine_governance_file_preview_file_content_request.html"><code>DataEngineGovernanceFilePreviewFileContentRequest</code></a>
 `/api/application/applications/{application[uuid]}/snapshots`| <a title="netapp_ontap.resources.application_snapshot.ApplicationSnapshot" href="../resources/application_snapshot.html"><code>ApplicationSnapshot</code></a>
 `/api/protocols/ndmp`| <a title="netapp_ontap.resources.cluster_ndmp_properties.ClusterNdmpProperties" href="../resources/cluster_ndmp_properties.html"><code>ClusterNdmpProperties</code></a>
 `/api/storage/volumes/{volume[uuid]}/top-metrics/directories`| <a title="netapp_ontap.resources.top_metrics_directory.TopMetricsDirectory" href="../resources/top_metrics_directory.html"><code>TopMetricsDirectory</code></a>
-`/api/data-engine/governance/aggregation`| <a title="netapp_ontap.resources.governance_aggregations.GovernanceAggregations" href="../resources/governance_aggregations.html"><code>GovernanceAggregations</code></a>
 `/api/protocols/cifs/domains/{svm[uuid]}/preferred-domain-controllers`| <a title="netapp_ontap.resources.cifs_domain_preferred_dc.CifsDomainPreferredDc" href="../resources/cifs_domain_preferred_dc.html"><code>CifsDomainPreferredDc</code></a>
 `/api/security/roles/{owner[uuid]}/{role[name]}/privileges`| <a title="netapp_ontap.resources.role_privilege.RolePrivilege" href="../resources/role_privilege.html"><code>RolePrivilege</code></a>
 `/api/cluster/software/history`| <a title="netapp_ontap.resources.software_history.SoftwareHistory" href="../resources/software_history.html"><code>SoftwareHistory</code></a>
@@ -660,7 +623,6 @@ URL|Resource
 `/api/storage/flexcache/flexcaches`| <a title="netapp_ontap.resources.flexcache.Flexcache" href="../resources/flexcache.html"><code>Flexcache</code></a>
 `/api/cluster/metrocluster/svms`| <a title="netapp_ontap.resources.metrocluster_svm.MetroclusterSvm" href="../resources/metrocluster_svm.html"><code>MetroclusterSvm</code></a>
 `/api/protocols/nfs/kerberos/realms`| <a title="netapp_ontap.resources.kerberos_realm.KerberosRealm" href="../resources/kerberos_realm.html"><code>KerberosRealm</code></a>
-`/api/data-engine/workspaces/{workspace[uuid]}/data-collections/{datacollection[uuid]}/search`| <a title="netapp_ontap.resources.datacollection_search_data.DatacollectionSearchData" href="../resources/datacollection_search_data.html"><code>DatacollectionSearchData</code></a>
 `/api/storage/flexcache/origins`| <a title="netapp_ontap.resources.flexcache_origin.FlexcacheOrigin" href="../resources/flexcache_origin.html"><code>FlexcacheOrigin</code></a>
 `/api/protocols/locks`| <a title="netapp_ontap.resources.client_lock.ClientLock" href="../resources/client_lock.html"><code>ClientLock</code></a>
 `/api/dcn/cluster/software/packages`| <a title="netapp_ontap.resources.dcn_cluster_software_package.DcnClusterSoftwarePackage" href="../resources/dcn_cluster_software_package.html"><code>DcnClusterSoftwarePackage</code></a>
@@ -668,7 +630,6 @@ URL|Resource
 `/api/support/ems/filters`| <a title="netapp_ontap.resources.ems_filter.EmsFilter" href="../resources/ems_filter.html"><code>EmsFilter</code></a>
 `/api/cluster/metrocluster/operations`| <a title="netapp_ontap.resources.metrocluster_operation.MetroclusterOperation" href="../resources/metrocluster_operation.html"><code>MetroclusterOperation</code></a>
 `/api/cluster/schedules`| <a title="netapp_ontap.resources.schedule.Schedule" href="../resources/schedule.html"><code>Schedule</code></a>
-`/api/data-engine/events`| <a title="netapp_ontap.resources.data_engine_event.DataEngineEvent" href="../resources/data_engine_event.html"><code>DataEngineEvent</code></a>
 `/api/security/azure-key-vaults`| <a title="netapp_ontap.resources.azure_key_vault.AzureKeyVault" href="../resources/azure_key_vault.html"><code>AzureKeyVault</code></a>
 `/api/support/ems/application-logs`| <a title="netapp_ontap.resources.ems_application_log.EmsApplicationLog" href="../resources/ems_application_log.html"><code>EmsApplicationLog</code></a>
 `/api/network/ethernet/ports/{port[uuid]}/metrics`| <a title="netapp_ontap.resources.port_metrics.PortMetrics" href="../resources/port_metrics.html"><code>PortMetrics</code></a>
@@ -685,12 +646,10 @@ URL|Resource
 `/api/network/fc/interfaces/{fc_interface[uuid]}/metrics`| <a title="netapp_ontap.resources.performance_fc_interface_metric.PerformanceFcInterfaceMetric" href="../resources/performance_fc_interface_metric.html"><code>PerformanceFcInterfaceMetric</code></a>
 `/api/protocols/cifs/home-directory/search-paths`| <a title="netapp_ontap.resources.cifs_search_path.CifsSearchPath" href="../resources/cifs_search_path.html"><code>CifsSearchPath</code></a>
 `/api/storage/snaplock/litigations/{litigation[id]}/files`| <a title="netapp_ontap.resources.snaplock_litigation_file.SnaplockLitigationFile" href="../resources/snaplock_litigation_file.html"><code>SnaplockLitigationFile</code></a>
-`/api/data-engine/workspaces/{workspace[uuid]}/versions/{workspace_version[uuid]}/diffs`| <a title="netapp_ontap.resources.workspace_version_diff.WorkspaceVersionDiff" href="../resources/workspace_version_diff.html"><code>WorkspaceVersionDiff</code></a>
 `/api/name-services/ldap-schemas`| <a title="netapp_ontap.resources.ldap_schema.LdapSchema" href="../resources/ldap_schema.html"><code>LdapSchema</code></a>
 `/api/storage/qtrees`| <a title="netapp_ontap.resources.qtree.Qtree" href="../resources/qtree.html"><code>Qtree</code></a>
 `/api/security/authentication/cluster/oauth2/clients`| <a title="netapp_ontap.resources.security_oauth2.SecurityOauth2" href="../resources/security_oauth2.html"><code>SecurityOauth2</code></a>
 `/api/protocols/nvme/subsystems`| <a title="netapp_ontap.resources.nvme_subsystem.NvmeSubsystem" href="../resources/nvme_subsystem.html"><code>NvmeSubsystem</code></a>
-`/api/data-engine/workspaces/{workspace[uuid]}/versions`| <a title="netapp_ontap.resources.workspace_version.WorkspaceVersion" href="../resources/workspace_version.html"><code>WorkspaceVersion</code></a>
 `/api/cluster/sensors`| <a title="netapp_ontap.resources.sensors.Sensors" href="../resources/sensors.html"><code>Sensors</code></a>
 `/api/security/key-stores`| <a title="netapp_ontap.resources.security_keystore.SecurityKeystore" href="../resources/security_keystore.html"><code>SecurityKeystore</code></a>
 `/api/security/authentication/duo/profiles`| <a title="netapp_ontap.resources.duo.Duo" href="../resources/duo.html"><code>Duo</code></a>
@@ -724,7 +683,6 @@ URL|Resource
 `/api/storage/flexcache/connection-status`| <a title="netapp_ontap.resources.connection_status.ConnectionStatus" href="../resources/connection_status.html"><code>ConnectionStatus</code></a>
 `/api/protocols/active-directory/{svm[uuid]}/preferred-domain-controllers`| <a title="netapp_ontap.resources.active_directory_preferred_dc.ActiveDirectoryPreferredDc" href="../resources/active_directory_preferred_dc.html"><code>ActiveDirectoryPreferredDc</code></a>
 `/api/name-services/unix-groups`| <a title="netapp_ontap.resources.unix_group.UnixGroup" href="../resources/unix_group.html"><code>UnixGroup</code></a>
-`/api/data-engine/governance/policies/classification/classifiers`| <a title="netapp_ontap.resources.data_engine_governance_policies_classification_classifier.DataEngineGovernancePoliciesClassificationClassifier" href="../resources/data_engine_governance_policies_classification_classifier.html"><code>DataEngineGovernancePoliciesClassificationClassifier</code></a>
 `/api/protocols/nfs/export-policies/{policy[id]}/rules/{export_rule[index]}/clients`| <a title="netapp_ontap.resources.export_client.ExportClient" href="../resources/export_client.html"><code>ExportClient</code></a>
 `/api/security/audit/destinations`| <a title="netapp_ontap.resources.security_audit_log_forward.SecurityAuditLogForward" href="../resources/security_audit_log_forward.html"><code>SecurityAuditLogForward</code></a>
 `/api/storage/qos/workloads`| <a title="netapp_ontap.resources.qos_workload.QosWorkload" href="../resources/qos_workload.html"><code>QosWorkload</code></a>
@@ -745,7 +703,6 @@ URL|Resource
 `/api/protocols/nfs/export-policies`| <a title="netapp_ontap.resources.export_policy.ExportPolicy" href="../resources/export_policy.html"><code>ExportPolicy</code></a>
 `/api/protocols/fpolicy`| <a title="netapp_ontap.resources.fpolicy.Fpolicy" href="../resources/fpolicy.html"><code>Fpolicy</code></a>
 `/api/svm/migrations/{svm_migration[uuid]}/volumes`| <a title="netapp_ontap.resources.svm_migration_volume.SvmMigrationVolume" href="../resources/svm_migration_volume.html"><code>SvmMigrationVolume</code></a>
-`/api/data-engine/workspaces/{workspace[uuid]}/data-collections`| <a title="netapp_ontap.resources.datacollection.Datacollection" href="../resources/datacollection.html"><code>Datacollection</code></a>
 `/api/cluster/licensing/capacity-pools`| <a title="netapp_ontap.resources.capacity_pool.CapacityPool" href="../resources/capacity_pool.html"><code>CapacityPool</code></a>
 `/api/protocols/nfs/kerberos/interfaces`| <a title="netapp_ontap.resources.kerberos_interface.KerberosInterface" href="../resources/kerberos_interface.html"><code>KerberosInterface</code></a>
 `/api/storage/shelves`| <a title="netapp_ontap.resources.shelf.Shelf" href="../resources/shelf.html"><code>Shelf</code></a>
@@ -753,7 +710,6 @@ URL|Resource
 `/api/network/ethernet/ports`| <a title="netapp_ontap.resources.port.Port" href="../resources/port.html"><code>Port</code></a>
 `/api/protocols/cifs/shadowcopy-sets`| <a title="netapp_ontap.resources.shadowcopy_set.ShadowcopySet" href="../resources/shadowcopy_set.html"><code>ShadowcopySet</code></a>
 `/api/storage/snaplock/compliance-clocks`| <a title="netapp_ontap.resources.snaplock_compliance_clock.SnaplockComplianceClock" href="../resources/snaplock_compliance_clock.html"><code>SnaplockComplianceClock</code></a>
-`/api/data-engine/jobs`| <a title="netapp_ontap.resources.data_engine_job.DataEngineJob" href="../resources/data_engine_job.html"><code>DataEngineJob</code></a>
 `/api/network/ip/bgp/peer-groups`| <a title="netapp_ontap.resources.bgp_peer_group.BgpPeerGroup" href="../resources/bgp_peer_group.html"><code>BgpPeerGroup</code></a>
 `/api/protocols/san/vvol-bindings`| <a title="netapp_ontap.resources.vvol_binding.VvolBinding" href="../resources/vvol_binding.html"><code>VvolBinding</code></a>
 `/api/svm/svms/{svm[uuid]}/top-metrics/directories`| <a title="netapp_ontap.resources.top_metrics_svm_directory.TopMetricsSvmDirectory" href="../resources/top_metrics_svm_directory.html"><code>TopMetricsSvmDirectory</code></a>
@@ -769,7 +725,6 @@ URL|Resource
 `/api/security/login/totps`| <a title="netapp_ontap.resources.totp.Totp" href="../resources/totp.html"><code>Totp</code></a>
 `/api/protocols/san/iscsi/sessions`| <a title="netapp_ontap.resources.iscsi_session.IscsiSession" href="../resources/iscsi_session.html"><code>IscsiSession</code></a>
 `/api/name-services/unix-groups/{svm[uuid]}/{unix_group[name]}/users`| <a title="netapp_ontap.resources.unix_group_users.UnixGroupUsers" href="../resources/unix_group_users.html"><code>UnixGroupUsers</code></a>
-`/api/data-engine/workspaces/{workspace[uuid]}/data-collections/{datacollection[uuid]}/acls`| <a title="netapp_ontap.resources.data_engine_datacollection_acl.DataEngineDatacollectionAcl" href="../resources/data_engine_datacollection_acl.html"><code>DataEngineDatacollectionAcl</code></a>
 `/api/dcn/cluster`| <a title="netapp_ontap.resources.dcn_cluster.DcnCluster" href="../resources/dcn_cluster.html"><code>DcnCluster</code></a>
 `/api/protocols/cifs/local-groups/{svm[uuid]}/{local_cifs_group[sid]}/members`| <a title="netapp_ontap.resources.local_cifs_group_members.LocalCifsGroupMembers" href="../resources/local_cifs_group_members.html"><code>LocalCifsGroupMembers</code></a>
 `/api/storage/snaplock/file`| <a title="netapp_ontap.resources.snaplock_file_retention.SnaplockFileRetention" href="../resources/snaplock_file_retention.html"><code>SnaplockFileRetention</code></a>
@@ -778,7 +733,6 @@ URL|Resource
 `/api/protocols/cifs/netbios`| <a title="netapp_ontap.resources.netbios.Netbios" href="../resources/netbios.html"><code>Netbios</code></a>
 `/api/dcn/cluster/nodes/{node[uuid]}/metrics`| <a title="netapp_ontap.resources.dcn_node_metrics.DcnNodeMetrics" href="../resources/dcn_node_metrics.html"><code>DcnNodeMetrics</code></a>
 `/api/name-services/unix-users`| <a title="netapp_ontap.resources.unix_user.UnixUser" href="../resources/unix_user.html"><code>UnixUser</code></a>
-`/api/data-engine/workspaces/{workspace[uuid]}/entities/{data_engine_entity[uuid]}/custom-attributes`| <a title="netapp_ontap.resources.data_engine_entity_custom_attribute.DataEngineEntityCustomAttribute" href="../resources/data_engine_entity_custom_attribute.html"><code>DataEngineEntityCustomAttribute</code></a>
 `/api/application/applications/{application[uuid]}/components`| <a title="netapp_ontap.resources.application_component.ApplicationComponent" href="../resources/application_component.html"><code>ApplicationComponent</code></a>
 `/api/svm/migrations`| <a title="netapp_ontap.resources.svm_migration.SvmMigration" href="../resources/svm_migration.html"><code>SvmMigration</code></a>
 `/api/support/snmp/traphosts`| <a title="netapp_ontap.resources.snmp_traphost.SnmpTraphost" href="../resources/snmp_traphost.html"><code>SnmpTraphost</code></a>
@@ -786,7 +740,6 @@ URL|Resource
 `/api/name-services/ldap`| <a title="netapp_ontap.resources.ldap_service.LdapService" href="../resources/ldap_service.html"><code>LdapService</code></a>
 `/api/protocols/file-security/permissions/{svm[uuid]}/{file_directory_security_acl[path]}/acl`| <a title="netapp_ontap.resources.file_directory_security_acl.FileDirectorySecurityAcl" href="../resources/file_directory_security_acl.html"><code>FileDirectorySecurityAcl</code></a>
 `/api/protocols/nvme/subsystem-controllers`| <a title="netapp_ontap.resources.nvme_subsystem_controller.NvmeSubsystemController" href="../resources/nvme_subsystem_controller.html"><code>NvmeSubsystemController</code></a>
-`/api/data-engine/workspaces/{workspace[uuid]}/data-sources`| <a title="netapp_ontap.resources.workspace_data_source.WorkspaceDataSource" href="../resources/workspace_data_source.html"><code>WorkspaceDataSource</code></a>
 `/api/security/groups`| <a title="netapp_ontap.resources.security_group.SecurityGroup" href="../resources/security_group.html"><code>SecurityGroup</code></a>
 `/api/storage/snaplock/event-retention/operations`| <a title="netapp_ontap.resources.ebr_operation.EbrOperation" href="../resources/ebr_operation.html"><code>EbrOperation</code></a>
 `/api/application/containers`| <a title="netapp_ontap.resources.container.Container" href="../resources/container.html"><code>Container</code></a>
@@ -816,7 +769,6 @@ URL|Resource
 `/api/security/key-managers`| <a title="netapp_ontap.resources.security_key_manager.SecurityKeyManager" href="../resources/security_key_manager.html"><code>SecurityKeyManager</code></a>
 `/api/application/consistency-groups`| <a title="netapp_ontap.resources.consistency_group.ConsistencyGroup" href="../resources/consistency_group.html"><code>ConsistencyGroup</code></a>
 `/api/protocols/vscan/{svm[uuid]}/on-demand-policies`| <a title="netapp_ontap.resources.vscan_on_demand.VscanOnDemand" href="../resources/vscan_on_demand.html"><code>VscanOnDemand</code></a>
-`/api/data-engine/workspaces/{workspace[uuid]}/acls`| <a title="netapp_ontap.resources.data_engine_acl.DataEngineAcl" href="../resources/data_engine_acl.html"><code>DataEngineAcl</code></a>
 `/api/storage/switches`| <a title="netapp_ontap.resources.storage_switch.StorageSwitch" href="../resources/storage_switch.html"><code>StorageSwitch</code></a>
 `/api/network/ip/service-policies`| <a title="netapp_ontap.resources.ip_service_policy.IpServicePolicy" href="../resources/ip_service_policy.html"><code>IpServicePolicy</code></a>
 `/api/network/ipspaces`| <a title="netapp_ontap.resources.ipspace.Ipspace" href="../resources/ipspace.html"><code>Ipspace</code></a>
@@ -825,7 +777,6 @@ URL|Resource
 `/api/name-services/cache/netgroup/settings`| <a title="netapp_ontap.resources.netgroups_settings.NetgroupsSettings" href="../resources/netgroups_settings.html"><code>NetgroupsSettings</code></a>
 `/api/security/anti-ransomware/storage-unit/suspects`| <a title="netapp_ontap.resources.storage_unit_anti_ransomware_suspect.StorageUnitAntiRansomwareSuspect" href="../resources/storage_unit_anti_ransomware_suspect.html"><code>StorageUnitAntiRansomwareSuspect</code></a>
 `/api/protocols/cifs/group-policies/{svm[uuid]}/objects`| <a title="netapp_ontap.resources.group_policy_object.GroupPolicyObject" href="../resources/group_policy_object.html"><code>GroupPolicyObject</code></a>
-`/api/data-engine/governance/file-preview/jobs`| <a title="netapp_ontap.resources.data_engine_governance_file_preview_job.DataEngineGovernanceFilePreviewJob" href="../resources/data_engine_governance_file_preview_job.html"><code>DataEngineGovernanceFilePreviewJob</code></a>
 `/api/protocols/fpolicy/{svm[uuid]}/events`| <a title="netapp_ontap.resources.fpolicy_event.FpolicyEvent" href="../resources/fpolicy_event.html"><code>FpolicyEvent</code></a>
 `/api/network/fc/logins`| <a title="netapp_ontap.resources.fc_login.FcLogin" href="../resources/fc_login.html"><code>FcLogin</code></a>
 `/api/security/jit-privilege-users`| <a title="netapp_ontap.resources.security_jit_privilege_user.SecurityJitPrivilegeUser" href="../resources/security_jit_privilege_user.html"><code>SecurityJitPrivilegeUser</code></a>
@@ -839,10 +790,7 @@ URL|Resource
 `/api/protocols/san/igroups/{igroup[uuid]}/initiators`| <a title="netapp_ontap.resources.igroup_initiator.IgroupInitiator" href="../resources/igroup_initiator.html"><code>IgroupInitiator</code></a>
 `/api/security/group/role-mappings`| <a title="netapp_ontap.resources.group_role_mappings.GroupRoleMappings" href="../resources/group_role_mappings.html"><code>GroupRoleMappings</code></a>
 `/api/cluster/mediators`| <a title="netapp_ontap.resources.mediator.Mediator" href="../resources/mediator.html"><code>Mediator</code></a>
-`/api/data-engine/governance/policies/guardrails`| <a title="netapp_ontap.resources.data_engine_governance_policies_guardrail.DataEngineGovernancePoliciesGuardrail" href="../resources/data_engine_governance_policies_guardrail.html"><code>DataEngineGovernancePoliciesGuardrail</code></a>
 `/api/support/autosupport/messages`| <a title="netapp_ontap.resources.autosupport_message.AutosupportMessage" href="../resources/autosupport_message.html"><code>AutosupportMessage</code></a>
-`/api/data-engine`| <a title="netapp_ontap.resources.data_engine.DataEngine" href="../resources/data_engine.html"><code>DataEngine</code></a>
-`/api/data-engine/workspaces/{workspace[uuid]}/entities`| <a title="netapp_ontap.resources.data_engine_entity.DataEngineEntity" href="../resources/data_engine_entity.html"><code>DataEngineEntity</code></a>
 `/api/cluster/metrocluster/dr-groups`| <a title="netapp_ontap.resources.metrocluster_dr_group.MetroclusterDrGroup" href="../resources/metrocluster_dr_group.html"><code>MetroclusterDrGroup</code></a>
 `/api/protocols/fpolicy/{svm[uuid]}/connections`| <a title="netapp_ontap.resources.fpolicy_connection.FpolicyConnection" href="../resources/fpolicy_connection.html"><code>FpolicyConnection</code></a>
 `/api/cluster/nodes/{node[uuid]}/metrics`| <a title="netapp_ontap.resources.node_metrics.NodeMetrics" href="../resources/node_metrics.html"><code>NodeMetrics</code></a>
@@ -852,7 +800,6 @@ URL|Resource
 `/api/storage/file/moves`| <a title="netapp_ontap.resources.file_move.FileMove" href="../resources/file_move.html"><code>FileMove</code></a>
 `/api/protocols/vscan`| <a title="netapp_ontap.resources.vscan.Vscan" href="../resources/vscan.html"><code>Vscan</code></a>
 `/api/name-services/cache/unix-group/settings`| <a title="netapp_ontap.resources.unix_group_settings.UnixGroupSettings" href="../resources/unix_group_settings.html"><code>UnixGroupSettings</code></a>
-`/api/data-engine/governance/audit/data-collections`| <a title="netapp_ontap.resources.data_engine_governance_audit_datacollection_count.DataEngineGovernanceAuditDatacollectionCount" href="../resources/data_engine_governance_audit_datacollection_count.html"><code>DataEngineGovernanceAuditDatacollectionCount</code></a>
 `/api/security/webauthn/credentials`| <a title="netapp_ontap.resources.webauthn_credentials.WebauthnCredentials" href="../resources/webauthn_credentials.html"><code>WebauthnCredentials</code></a>
 `/api/cluster/firmware/history`| <a title="netapp_ontap.resources.firmware_history.FirmwareHistory" href="../resources/firmware_history.html"><code>FirmwareHistory</code></a>
 `/api/protocols/vscan/{svm[uuid]}/scanner-pools`| <a title="netapp_ontap.resources.vscan_scanner_pool.VscanScannerPool" href="../resources/vscan_scanner_pool.html"><code>VscanScannerPool</code></a>
@@ -867,24 +814,19 @@ URL|Resource
 `/api/support/auto-update/configurations`| <a title="netapp_ontap.resources.auto_update_configuration.AutoUpdateConfiguration" href="../resources/auto_update_configuration.html"><code>AutoUpdateConfiguration</code></a>
 `/api/security/jit-privileges`| <a title="netapp_ontap.resources.security_jit_privilege.SecurityJitPrivilege" href="../resources/security_jit_privilege.html"><code>SecurityJitPrivilege</code></a>
 `/api/protocols/ndmp/sessions`| <a title="netapp_ontap.resources.ndmp_session.NdmpSession" href="../resources/ndmp_session.html"><code>NdmpSession</code></a>
-`/api/data-engine/workspaces/{workspace[uuid]}/data-collections/{datacollection[uuid]}/versions/{datacollection_version[uuid]}/diffs`| <a title="netapp_ontap.resources.datacollection_version_diff.DatacollectionVersionDiff" href="../resources/datacollection_version_diff.html"><code>DatacollectionVersionDiff</code></a>
 `/api/storage/bridges`| <a title="netapp_ontap.resources.storage_bridge.StorageBridge" href="../resources/storage_bridge.html"><code>StorageBridge</code></a>
 `/api/cluster/metrocluster`| <a title="netapp_ontap.resources.metrocluster.Metrocluster" href="../resources/metrocluster.html"><code>Metrocluster</code></a>
 `/api/storage/quota/reports`| <a title="netapp_ontap.resources.quota_report.QuotaReport" href="../resources/quota_report.html"><code>QuotaReport</code></a>
 `/api/security/ipsec/security-associations`| <a title="netapp_ontap.resources.security_association.SecurityAssociation" href="../resources/security_association.html"><code>SecurityAssociation</code></a>
-`/api/data-engine/governance/audit/files`| <a title="netapp_ontap.resources.data_engine_governance_audit_impacted_files.DataEngineGovernanceAuditImpactedFiles" href="../resources/data_engine_governance_audit_impacted_files.html"><code>DataEngineGovernanceAuditImpactedFiles</code></a>
-`/api/data-engine/workspaces/{workspace[uuid]}/queries/{workspace_query[uuid]}/entities`| <a title="netapp_ontap.resources.workspace_query_entity.WorkspaceQueryEntity" href="../resources/workspace_query_entity.html"><code>WorkspaceQueryEntity</code></a>
 `/api/cluster/nodes`| <a title="netapp_ontap.resources.node.Node" href="../resources/node.html"><code>Node</code></a>
 `/api/security/ipsec/ca-certificates`| <a title="netapp_ontap.resources.ipsec_ca_certificate.IpsecCaCertificate" href="../resources/ipsec_ca_certificate.html"><code>IpsecCaCertificate</code></a>
 `/api/protocols/audit`| <a title="netapp_ontap.resources.audit.Audit" href="../resources/audit.html"><code>Audit</code></a>
 `/api/security/multi-admin-verify/approval-groups`| <a title="netapp_ontap.resources.multi_admin_verify_approval_group.MultiAdminVerifyApprovalGroup" href="../resources/multi_admin_verify_approval_group.html"><code>MultiAdminVerifyApprovalGroup</code></a>
 `/api/svm/svms`| <a title="netapp_ontap.resources.svm.Svm" href="../resources/svm.html"><code>Svm</code></a>
 `/api/svm/svms/{svm[uuid]}/top-metrics/clients`| <a title="netapp_ontap.resources.top_metrics_svm_client.TopMetricsSvmClient" href="../resources/top_metrics_svm_client.html"><code>TopMetricsSvmClient</code></a>
-`/api/data-engine/workspaces`| <a title="netapp_ontap.resources.workspace.Workspace" href="../resources/workspace.html"><code>Workspace</code></a>
 `/api/name-services/cache/unix-user/settings`| <a title="netapp_ontap.resources.unix_user_settings.UnixUserSettings" href="../resources/unix_user_settings.html"><code>UnixUserSettings</code></a>
 `/api/security/multi-admin-verify/requests`| <a title="netapp_ontap.resources.multi_admin_verify_request.MultiAdminVerifyRequest" href="../resources/multi_admin_verify_request.html"><code>MultiAdminVerifyRequest</code></a>
 `/api/storage/volumes/{volume[uuid]}/metrics`| <a title="netapp_ontap.resources.volume_metrics.VolumeMetrics" href="../resources/volume_metrics.html"><code>VolumeMetrics</code></a>
-`/api/data-engine/policies`| <a title="netapp_ontap.resources.data_engine_policy.DataEnginePolicy" href="../resources/data_engine_policy.html"><code>DataEnginePolicy</code></a>
 `/api/protocols/nvme/interfaces`| <a title="netapp_ontap.resources.nvme_interface.NvmeInterface" href="../resources/nvme_interface.html"><code>NvmeInterface</code></a>
 `/api/application/consistency-groups/{consistency_group[uuid]}/snapshots`| <a title="netapp_ontap.resources.consistency_group_snapshot.ConsistencyGroupSnapshot" href="../resources/consistency_group_snapshot.html"><code>ConsistencyGroupSnapshot</code></a>
 `/api/snapmirror/policies`| <a title="netapp_ontap.resources.snapmirror_policy.SnapmirrorPolicy" href="../resources/snapmirror_policy.html"><code>SnapmirrorPolicy</code></a>

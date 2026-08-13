@@ -74,15 +74,6 @@ STAMP = "_cozy_structure_only"
 MODE_STAMP = "_cozy_structure_fake_mode"
 FACTS_STAMP = "_cozy_structure_facts"
 
-#: Standard deviation of the random values the pgw#984 warm proof runs on.
-#: Small enough that a deep stack of matmuls cannot overflow fp16, non-zero so
-#: a degenerate all-zero forward cannot pass a proof a real one would fail.
-RANDOM_STD = 0.02
-#: Fixed, because a proof that behaves differently on two runs of the same cell
-#: is not a proof. Not configurable: the value is not a tuning knob.
-RANDOM_SEED = 1080
-
-
 class StructureOnlyUnsupported(WorkerError):
     """This component cannot be built from code + config alone.
 
@@ -400,6 +391,56 @@ def _torch_dtype(root: Path, component: str, dtype: str) -> Any:
     return None
 
 
+def _wrapper_parts(tensor: Any) -> Optional[Tuple[List[str], Any]]:
+    """``(inner attribute names, context)`` when ``tensor`` is a traceable
+    wrapper subclass — torch's own contract for seeing inside one.
+
+    A ``setup()``-time quantizer leaves these behind on a virtual structure
+    (torchao's ``Float8Tensor``: fake ``qdata`` + fake ``scale``, outer dtype
+    bf16), and both directions of the mint's fake↔real swap have to rebuild
+    the SUBCLASS rather than a plain tensor of the outer dtype. Flattening one
+    to bf16 traces bf16 Linears for a pod that serves fp8 — a cell for a graph
+    the pod never executes, which is the defect ``_refuse_artifact_lanes``
+    exists to prevent, arriving by the other door (pgw#1198).
+    """
+    try:
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass
+
+        if not is_traceable_wrapper_subclass(tensor):
+            return None
+        names, ctx = tensor.__tensor_flatten__()
+    except Exception:  # noqa: BLE001 — an unwalkable object is not a subclass
+        return None
+    return ([str(n) for n in names], ctx) if names else None
+
+
+def _rebuild_wrapper(tensor: Any, inner: Dict[str, Any]) -> Any:
+    parts = _wrapper_parts(tensor)
+    ctx = parts[1] if parts is not None else None
+    return type(tensor).__tensor_unflatten__(
+        inner, ctx, tuple(tensor.shape), tuple(tensor.stride()))
+
+
+def _fake_like(tensor: Any, *, dtype: Any = None) -> Any:
+    """A zero-storage twin of ``tensor``. Call inside the fake mode + device.
+
+    ``dtype`` casts a plain floating-point tensor to the composition's compute
+    precision; a wrapper subclass is rebuilt from fake inner tensors and is
+    NEVER cast — its outer dtype already IS the compute precision and its
+    payload's dtype is the quantization.
+    """
+    import torch
+
+    parts = _wrapper_parts(tensor)
+    if parts is not None:
+        names, _ctx = parts
+        return _rebuild_wrapper(tensor, {
+            name: _fake_like(getattr(tensor, name)) for name in names})
+    want = dtype if (dtype is not None
+                     and tensor.is_floating_point()) else tensor.dtype
+    return torch.empty(tuple(tensor.shape), dtype=want)
+
+
 def virtualize(module: Any, *, device: str = "", dtype: Any = None) -> Any:
     """Parameters → fake tensors on ``device``; buffers → real, on ``device``.
 
@@ -418,11 +459,8 @@ def virtualize(module: Any, *, device: str = "", dtype: Any = None) -> Any:
             for name, param in list(sub._parameters.items()):
                 if param is None:
                     continue
-                want = dtype if (dtype is not None
-                                 and param.is_floating_point()) else param.dtype
                 sub._parameters[name] = nn.Parameter(
-                    torch.empty(tuple(param.shape), dtype=want),
-                    requires_grad=False)
+                    _fake_like(param, dtype=dtype), requires_grad=False)
     for sub in module.modules():
         for name, buf in list(sub._buffers.items()):
             if buf is None:
@@ -512,6 +550,151 @@ def structure_only_components(pipe: Any) -> Tuple[str, ...]:
         if getattr(value, STAMP, False):
             out.append(str(name).lstrip("_"))
     return tuple(sorted(set(out)))
+
+
+def target_module(pipe: Any, target: str) -> Any:
+    """The module holding the WEIGHTS of declared compile target ``target``.
+
+    ``None`` when the pipeline does not carry it, which is the legitimate case
+    a multi-slot family produces (a refiner slot has no denoiser of the
+    primary's name).
+
+    Resolution is delegated to ``compile_cache.resolve_targets`` — the ONE
+    target authority (§1.29) — rather than re-walked here, because a target is
+    an ATTRIBUTE PATH and not a component name: ``transformer.denoise`` and
+    ``vae.decode`` are both declared on the fleet, and a second walk that only
+    understood ``getattr(pipe, name)`` would read every dotted target as "not
+    carried" and skip the fence for exactly the families whose targets are
+    nested. A guard with its own weaker resolver is a guard that cannot fire.
+    """
+    import types
+
+    from .. import compile_cache as cc
+
+    name = str(target or "").strip()
+    if not name:
+        return None
+    for _declared, owner, _attr, _fn in cc.resolve_targets(
+            pipe, types.SimpleNamespace(targets=(name,))):
+        if owner is not None and hasattr(owner, "named_parameters"):
+            return owner
+    return None
+
+
+@dataclass(frozen=True)
+class WeightFreeBreach:
+    """One declared compile target that is NOT weight-free, and why."""
+
+    component: str
+    cls_name: str
+    #: ``not_structure_only`` — carried, but never built from code+config;
+    #: ``real_parameters`` — stamped structure-only and holding real storage.
+    reason: str
+    real_param_bytes: int = 0
+    devices: Tuple[str, ...] = ()
+
+    def sentence(self) -> str:
+        where = f" on {', '.join(self.devices)}" if self.devices else ""
+        if self.reason == "not_structure_only":
+            return (
+                f"{self.component} ({self.cls_name}) carries "
+                f"{self.real_param_bytes} byte(s) of REAL parameters{where} "
+                f"— it was never built from code + config")
+        return (
+            f"{self.component} ({self.cls_name}) is stamped structure-only "
+            f"and still holds {self.real_param_bytes} byte(s) of REAL "
+            f"parameters{where}")
+
+
+def weight_free_breaches(
+    pipe: Any, targets: Any,
+) -> Tuple[WeightFreeBreach, ...]:
+    """Every declared compile target ``pipe`` carries that holds real weights.
+
+    Empty is the premise holding. **This is an ALL-of check over the declared
+    targets, deliberately.** ``structure_only_components`` answers "is anything
+    here virtual", which a two-target family satisfies with ONE target virtual
+    while the other traces ~weight-scale real tensors — and on a
+    ``place=False`` load that second target sits on the HOST, so the
+    off-host walk (:func:`gen_worker.boot_trace_child.off_host_tensors`) reads
+    clean too. Both guards can be green while the weight-free premise every
+    VRAM conclusion downstream rests on is false (pgw#1173).
+
+    BUFFERS ARE NOT COUNTED. A structure-only component's buffers stay real by
+    construction — they are config-derived tables and a literal-bearing family
+    ships them inside the cell (see this module's header). Parameters are the
+    checkpoint, and the checkpoint is the thing that must not be here.
+    """
+    import torch
+
+    out: List[WeightFreeBreach] = []
+    for name in sorted({str(t).strip() for t in (targets or ()) if str(t).strip()}):
+        module = target_module(pipe, name)
+        if module is None:
+            continue  # not carried by THIS slot — legitimately absent
+        real_bytes = 0
+        devices: List[str] = []
+        try:
+            params = list(module.named_parameters())
+        except Exception:  # noqa: BLE001 — an unwalkable target is reported below
+            params = []
+        for _pname, tensor in params:
+            if not isinstance(tensor, torch.Tensor) or mi.is_virtual(tensor):
+                continue
+            real_bytes += int(tensor.numel()) * int(tensor.element_size())
+            devices.append(str(tensor.device))
+        stamped = bool(getattr(module, STAMP, False))
+        if stamped and not real_bytes:
+            continue
+        if not stamped and not real_bytes and params:
+            # Not stamped, and every parameter is already virtual: some other
+            # mechanism (an author-side meta build) delivered the property.
+            # The premise is what is fenced, not the stamp.
+            continue
+        out.append(WeightFreeBreach(
+            component=name,
+            cls_name=type(module).__name__,
+            reason="real_parameters" if stamped else "not_structure_only",
+            real_param_bytes=real_bytes,
+            devices=tuple(sorted(set(devices))[:4]),
+        ))
+    return tuple(out)
+
+
+def assert_weight_free(pipe: Any, targets: Any, *, what: str = "") -> None:
+    """Fail closed unless every compile target ``pipe`` carries is weight-free.
+
+    The typed fence pgw#1173 asked for. It raises :class:`StructureNotHonored`
+    — the type that ALREADY means "this composition is holding weights it must
+    not" and that every caller of the structure-only path is required to treat
+    as fatal rather than as a reason to fall back.
+
+    Raises when the pipeline carries NONE of its declared targets too: a trace
+    with no target is not a weight-free trace, it is a trace of nothing, and
+    reporting it as success is how a derivation can look clean and mean
+    nothing.
+    """
+    names = sorted({str(t).strip() for t in (targets or ()) if str(t).strip()})
+    carried = [n for n in names if target_module(pipe, n) is not None]
+    cls_name = type(pipe).__name__
+    if names and not carried:
+        raise StructureNotHonored(
+            component=",".join(names), cls_name=cls_name,
+            lacks=(
+                f"{cls_name} carries none of the declared compile target(s) "
+                f"{names!r}{' for ' + what if what else ''}, so there is "
+                f"nothing here whose weight-freedom could be proven"))
+    breaches = weight_free_breaches(pipe, names)
+    if not breaches:
+        return
+    total = sum(b.real_param_bytes for b in breaches)
+    raise StructureNotHonored(
+        component=",".join(b.component for b in breaches), cls_name=cls_name,
+        lacks=(
+            f"{len(breaches)} of {len(carried)} declared compile target(s) "
+            f"on {cls_name}{' for ' + what if what else ''} hold REAL "
+            f"parameters totalling {total} bytes — "
+            + "; ".join(b.sentence() for b in breaches)))
 
 
 def modules_of(pipe: Any) -> Tuple[Tuple[str, Any], ...]:
@@ -643,103 +826,183 @@ def under(mode: Optional[Any]) -> Iterator[None]:
 
 
 # ---------------------------------------------------------------------------
-# The pgw#984 warm proof runs on RANDOM values (coordinator ruling, 2026-08-10)
+# pgw#1111: the META round-trip that lets a weight-free program cross the
+# entry-compile pool's process boundary
 # ---------------------------------------------------------------------------
+#
+# The parallel entry pool hands each ExportedProgram to a compile CHILD by
+# ``torch.export.save`` in the parent and ``torch.export.load`` in the child
+# (pgw#809). A structure-only program's PARAMETERS are FAKE tensors, and a fake
+# tensor has no storage to serialize — the child dies deserializing it
+# ("We ran into an error when deserializing the saved file"). So before
+# ``fc77b923`` a weight-free mint could only compile SERIALLY, in the parent,
+# which is K=1 (pgw#1051 regression).
+#
+# The round-trip: on the way OUT, re-cast the fake params to META — meta
+# tensors carry shape/dtype and serialize (they, too, hold no storage, but the
+# serializer records them as metadata rather than reaching for bytes). On the
+# way IN, re-virtualize META -> FAKE inside the load's OWN fake mode and on the
+# real device, both read off the program's example inputs (which are fake in
+# that mode already, exactly as a real-weight program's are). aot_compile then
+# sees params and inputs sharing ONE fake mode — its precondition — and the
+# graph is byte-identical to the serial path, so the cell key does not move.
 
 
-def materialize_random(module: Any, *, device: str = "") -> int:
-    """Give every virtual parameter REAL random values; return the bytes.
-
-    The endpoint's own handler is proved to RUN before a byte is exported
-    (pgw#984), and a handler cannot run against zero-storage tensors. The
-    ruling is random values — the proof is structural ("does it run"), and the
-    ratified variability rule already forbids value-dependent program
-    structure, so a handler whose control flow breaks under random weights is
-    violating that rule and surfacing it is the point.
-
-    Random values are NOT checkpoint values: nothing this process holds came
-    from the model's bytes. The cost is reported (``values=random``) rather
-    than hidden, because it IS weight-scale for the length of the proof.
-    """
-    import torch
-    import torch.nn as nn
-
-    dev = device or "cpu"
-    generator = torch.Generator(device=dev).manual_seed(RANDOM_SEED)
-    total = 0
-    for sub in module.modules():
-        for name, param in list(sub._parameters.items()):
-            if param is None:
-                continue
-            real = torch.empty(tuple(param.shape), dtype=param.dtype,
-                               device=dev)
-            if param.is_floating_point() and real.dtype in (
-                    torch.float16, torch.bfloat16, torch.float32,
-                    torch.float64):
-                real.normal_(0.0, RANDOM_STD, generator=generator)
-            else:
-                # fp8 and integer parameters have no `normal_`; a defined
-                # value beats an undefined one, and NaN/overflow would make
-                # every downstream cosine undefined (pgw#1056's guard).
-                real.zero_()
-            sub._parameters[name] = nn.Parameter(real, requires_grad=False)
-            total += int(real.numel()) * int(real.element_size())
-    return total
+def _program_tensor_tables(program: Any) -> Iterator[Tuple[Any, str, Any]]:
+    """``(table, name, tensor)`` over a program's state_dict and constants."""
+    for holder in ("state_dict", "constants"):
+        table = getattr(program, holder, None)
+        if not isinstance(table, dict):
+            continue
+        for name, tensor in list(table.items()):
+            if tensor is not None:
+                yield table, name, tensor
 
 
-def stray_real_tensors(module: Any) -> Tuple[Tuple[str, Any], ...]:
-    """Real tensors hanging off the tree that are NEITHER parameter nor buffer.
+def to_meta_for_save(program: Any) -> int:
+    """Re-cast a weight-free program's FAKE params/constants to META, in place.
 
-    This is how the z-image rope class actually shows up on a weightless mint,
-    and it is the one place it CAN be seen. The gate's call-time half
-    (ie#628) watches for a real allocation — but inside a fake-mode export
-    every allocation is fake, so a lazily-built pinned table is invisible
-    there. What it cannot hide is the RESIDUE: the pgw#984 warm proof runs the
-    handler for real, the lazy build fires, and the table is cached on a plain
-    attribute where ``restore_virtual`` (which only re-fakes parameters) does
-    not reach. A real tensor still on the tree when the export begins is
-    exactly the property failing.
-
-    Searched: each module's own ``__dict__``, plus one level into plain
-    objects it holds — the shape upstream uses (``RopeEmbedder`` is not an
-    ``nn.Module``), and deep enough to name the attribute an author edits.
+    Only fake tensors move; real buffers (config-derived tables, the literals a
+    family ships inside the cell) stay real and serialize as they always have.
+    Returns the number of tensors converted — 0 means this was not a weight-free
+    program and nothing changed. The example inputs are left untouched: they are
+    fake on a real device and torch.export already serialises them as metadata
+    (a real-weight program round-trips with fake example inputs today).
     """
     import torch
 
-    out: List[Tuple[str, Any]] = []
-    for prefix, sub in module.named_modules():
-        registered = set(sub._parameters) | set(sub._buffers)
-        for name, value in list(vars(sub).items()):
-            if name.startswith("_") or name in registered:
-                continue
-            path = f"{prefix}.{name}" if prefix else name
-            if isinstance(value, torch.Tensor):
-                if not mi.is_virtual(value):
-                    out.append((path, value))
-                continue
-            if isinstance(value, torch.nn.Module) or not hasattr(
-                    value, "__dict__"):
-                continue
-            for inner, held in list(vars(value).items()):
-                if isinstance(held, torch.Tensor) and not mi.is_virtual(held):
-                    out.append((f"{path}.{inner}", held))
-    return tuple(out)
+    moved = 0
+    for table, name, tensor in _program_tensor_tables(program):
+        if not mi.is_virtual(tensor):
+            continue
+        if str(getattr(getattr(tensor, "device", None), "type", "")) == "meta":
+            continue
+        meta = torch.empty(tuple(tensor.shape), dtype=tensor.dtype,
+                           device="meta")
+        if isinstance(tensor, torch.nn.Parameter):
+            meta = torch.nn.Parameter(meta, requires_grad=False)
+        table[name] = meta
+        moved += 1
+    return moved
 
 
-def restore_virtual(module: Any, *, device: str = "") -> Any:
-    """Return every parameter to a fake tensor, freeing the random values.
+@contextlib.contextmanager
+def as_meta_for_save(program: Any) -> Iterator[int]:
+    """:func:`to_meta_for_save` for the duration of a save, then EXACTLY the
+    original tensor objects back.
 
-    A NEW fake mode, deliberately: the values that ran the proof are gone and
-    the export must not carry a mode that ever held them.
+    The parent keeps using its programs after staging them (class
+    canonicalization, the resident release's weight aliases), so the cast must
+    not outlive the ``torch.export.save`` it exists for. Restoring the original
+    objects — not equivalent new fakes — keeps tensor IDENTITY, which is what
+    an alias map compares.
     """
-    return virtualize(module, device=device)
+    before: List[Tuple[Any, Dict[str, Any]]] = []
+    seen: List[int] = []
+    for table, _name, _tensor in _program_tensor_tables(program):
+        if id(table) not in seen:
+            seen.append(id(table))
+            before.append((table, dict(table)))
+    moved = to_meta_for_save(program)
+    try:
+        yield moved
+    finally:
+        if moved:
+            for table, original in before:
+                table.clear()
+                table.update(original)
+
+
+def has_meta_params(program: Any) -> bool:
+    """Whether this loaded program carries META params — the signal that it was
+    saved by :func:`to_meta_for_save` and must be re-virtualized before compile.
+    """
+    for _table, _name, tensor in _program_tensor_tables(program):
+        if str(getattr(getattr(tensor, "device", None), "type", "")) == "meta":
+            return True
+    return False
+
+
+def _load_mode_and_device(program: Any) -> Tuple[Optional[Any], Optional[Any]]:
+    """The fake mode and real device the load rebuilt this program's example
+    inputs in. aot_compile requires params and inputs to share ONE mode, so the
+    re-virtualized params must join THIS mode on THIS device — never a fresh one.
+    """
+    example = getattr(program, "example_inputs", None)
+    if not example:
+        return None, None
+    args, kwargs = example if isinstance(example, tuple) and len(example) == 2 \
+        else (example, {})
+    tensors: List[Any] = []
+    for value in list(args or ()) + list((kwargs or {}).values()):
+        if hasattr(value, "fake_mode") or hasattr(value, "device"):
+            tensors.append(value)
+    for tensor in tensors:
+        mode = getattr(tensor, "fake_mode", None)
+        if mode is not None:
+            return mode, getattr(tensor, "device", None)
+    return None, None
+
+
+def revirtualize_from_meta(program: Any) -> Optional[Any]:
+    """META params -> FAKE, inside the load's own mode and on the real device.
+
+    The inverse of :func:`to_meta_for_save`, run in the compile child after
+    ``torch.export.load``. Returns the fake mode the program now belongs to
+    (``None`` when there was nothing to do). After this call
+    :func:`fake_mode_of_program` finds that mode via the state dict, so
+    :func:`compiling_under` installs it and the export's ShapeEnv exactly as the
+    in-process serial path did — the compile is byte-identical.
+    """
+    import torch
+
+    mode, device = _load_mode_and_device(program)
+    if mode is None or device is None:
+        return None
+    for table, name, tensor in _program_tensor_tables(program):
+        if str(getattr(getattr(tensor, "device", None), "type", "")) != "meta":
+            continue
+        with mode, torch.device(str(device)):
+            fake = torch.empty(tuple(tensor.shape), dtype=tensor.dtype)
+        if isinstance(tensor, torch.nn.Parameter):
+            fake = torch.nn.Parameter(fake, requires_grad=False)
+        table[name] = fake
+    return mode
+
+
+# ---------------------------------------------------------------------------
+# pgw#1199: what USED to live here, and why it does not any more
+# ---------------------------------------------------------------------------
+#
+# `materialize_random` / `restore_virtual` / `stray_real_tensors` gave every
+# virtual parameter REAL random values so the mint child could run the pgw#984
+# does-it-run proof, then took them away again. That is one full checkpoint at
+# compute dtype, allocated in the process this module exists to keep empty,
+# concurrently with the parent's resident copy — 56.2 GB on wan-2.2 against
+# 15.5 GiB free, measured on pod `729431an6ugbvq`. It is also the number
+# §4.33's "a mint costs ~8 GiB" was really measuring: this walk, for an
+# sdxl-sized family.
+#
+# The proof did not need to be here. §4.33 steps 4-5 put verification on the
+# LIVE pipeline that already holds the weights, and `gen_worker.handler_proof`
+# is that: one warm forward through the endpoint's own handler, on the resident
+# pipeline, with REAL checkpoint values — strictly stronger than a random-value
+# re-run, and free on the fleet path where the executor's boot warm plan has
+# already run every declared handler before a mint is delegated.
+#
+# `stray_real_tensors` went with them, and this is the part worth stating
+# plainly rather than quietly: it hunted a REAL tensor cached on a plain
+# attribute by a lazily-built device-pinned table (ie#628's call-time class).
+# That residue existed *because* a real forward had just run here. With no real
+# values in this process the same lazy build fires inside the export's fake
+# mode and produces a FAKE constant, which `aot_package` cannot pack — the
+# failure is still loud, it just arrives at pack time instead of at a stray
+# walk. Nothing silently ships.
 
 
 __all__ = [
     "FACTS_STAMP",
     "MODE_STAMP",
-    "RANDOM_SEED",
-    "RANDOM_STD",
     "STAMP",
     "TOKEN_CAPABILITY_MISSING",
     "TOKEN_UNSUPPORTED",
@@ -747,19 +1010,23 @@ __all__ = [
     "StructureFacts",
     "StructureNotHonored",
     "StructureOnlyUnsupported",
+    "WeightFreeBreach",
+    "assert_weight_free",
     "build_component",
     "compiling_under",
     "facts_of",
     "fake_mode_of",
     "fake_mode_of_program",
+    "has_meta_params",
     "is_structure_only",
-    "materialize_random",
     "modules_of",
     "program_shape_env",
     "refusal_token",
-    "restore_virtual",
-    "stray_real_tensors",
+    "revirtualize_from_meta",
     "structure_only_components",
+    "target_module",
+    "to_meta_for_save",
     "virtualize",
+    "weight_free_breaches",
     "under",
 ]

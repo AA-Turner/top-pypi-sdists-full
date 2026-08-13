@@ -25,7 +25,7 @@ from music_assistant_models.media_items import (
     media_from_dict,
 )
 
-from .helpers import impersonation_arg
+from .helpers import LinkedUser, impersonation_arg
 
 if TYPE_CHECKING:
     from music_assistant_models.queue_item import QueueItem
@@ -719,12 +719,16 @@ class Music:
         return media_from_dict(await self.client.send_command("music/item_by_uri", uri=uri))
 
     async def verify_item_uri(
-        self, uri: str, user: str | None = None, username: str | None = None
+        self,
+        uri: str,
+        user: str | LinkedUser | None = None,
+        username: str | None = None,
     ) -> bool:
         """
         Verify whether a uri points to a valid, accessible item.
 
-        :param user: Optionally verify access on behalf of this user (user_id or username).
+        :param user: Optionally verify access on behalf of this user: a user_id or username
+            string, or a LinkedUser reference by auth provider.
             Requires the authenticated client to have sufficient permissions.
         :param username: Deprecated alias for user.
         """
@@ -934,7 +938,7 @@ class Music:
         for splitter in ("•", "-", "|", "(", "["):
             if splitter in track_name:
                 return await self.get_track_by_name(
-                    track_name=track_name.split(splitter)[0].strip(),
+                    track_name=track_name.split(splitter, maxsplit=1)[0].strip(),
                     artist_name=artist_name,
                     album_name=None,
                     track_version=track_version,
@@ -1003,14 +1007,15 @@ class Music:
         artist: str | None = None,
         album: str | None = None,
         media_type: MediaType | None = None,
-        user: str | None = None,
+        user: str | LinkedUser | None = None,
         username: str | None = None,
     ) -> MediaItemType | ItemMapping | None:
         """
         Try to find a media item (such as a playlist) by name.
 
-        :param user: Optionally perform the lookup on behalf of this user (user_id or
-            username). Requires the authenticated client to have sufficient permissions.
+        :param user: Optionally perform the lookup on behalf of this user: a user_id or
+            username string, or a LinkedUser reference by auth provider.
+            Requires the authenticated client to have sufficient permissions.
             Only honored by the native server lookup (schema >= 33); the legacy fallback
             always runs as the authenticated user.
         :param username: Deprecated alias for user.

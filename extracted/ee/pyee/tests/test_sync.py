@@ -131,7 +131,31 @@ def test_listener_removal():
     assert ee._events["event"] == OrderedDict([(third, third), (fourth, fourth)])
 
     ee.remove_all_listeners("event")
-    assert "event" not in ee._events["event"]
+    assert "event" not in ee._events
+    assert ee.event_names() == set()
+
+
+def test_remove_all_listeners_clears_every_event():
+    """`remove_all_listeners()` with no argument removes every event."""
+
+    ee = EventEmitter()
+
+    @ee.on("a")
+    def a_handler():
+        pass
+
+    @ee.on("b")
+    def b_handler():
+        pass
+
+    assert ee.event_names() == {"a", "b"}
+
+    ee.remove_all_listeners()
+
+    assert ee._events == dict()
+    assert ee.event_names() == set()
+    assert ee.emit("a") is False
+    assert ee.emit("b") is False
 
 
 def test_listener_removal_on_emit():

@@ -1308,6 +1308,7 @@ class RunCache:
             clone_table_properties=self._get_table_properties(node),
             clone_chain_depth_limit=self.clone_chain_depth_limit,
             dbt_node_state=dbt_node_state,
+            table_namespace=self.table_namespace,
         )
 
     def _emit_enriched_sql_prepared_telemetry(
@@ -1450,6 +1451,7 @@ class RunCache:
                 compare_unrendered_code=self._run_cache_config.resolve_compare_unrendered_code(
                     node_config
                 ),
+                table_namespace=self.table_namespace,
             ), last_modified_duration_ms
 
         # The caller owns the view traversal so the speculative decision can be made after it
@@ -1565,6 +1567,7 @@ class RunCache:
             compare_unrendered_code=self._run_cache_config.resolve_compare_unrendered_code(
                 node_config
             ),
+            table_namespace=self.table_namespace,
         ), last_modified_duration_ms
 
     def _build_clone_request(
@@ -1587,6 +1590,7 @@ class RunCache:
             clone_source_table_type=clone_source_table_type,
             table_properties=self._get_table_properties(node),
             clone_chain_depth_limit=self.clone_chain_depth_limit,
+            table_namespace=self.table_namespace,
         )
 
     @staticmethod
@@ -1994,6 +1998,22 @@ class RunCache:
         """Whether or not we are in "write only" mode, which records execution outcomes but does not
         ask the cache to make decisions"""
         return self._run_cache_config.cache_mode.is_write_only
+
+    @property
+    def table_namespace(self) -> str:
+        """An identifier to tag a group of tables with. Cache decisions are then scoped to tables tagged with the same namespace.
+
+        This prevents for example a "skip" response being returned based on an execution record that was actually executed
+        against a different database server and table in question doesn't even exist in the current database server.
+
+        A common place this can occur is in CI pipelines, where CI executes against an isolated fresh/empty database that is specified
+        using an environment variable (and nothing else about the project is changed - identical catalog, default schema, table names etc).
+
+        Without namespaces, the state server could return Skip or Clone decisions based on the production database, not the CI one
+        """
+        # this is adapter-specific but essentially tries to tag a unique connection
+        # for example, the Snowflake adapter includes the snowflake account_id and the Postgres adapter includes the database hostname
+        return self._config.credentials.hashed_unique_field()
 
 
 class _DataTestAdapterProxy:

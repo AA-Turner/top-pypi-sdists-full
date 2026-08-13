@@ -12,12 +12,7 @@ What it does, and why in this order
 1. **Seal the environment** exactly as a worker boot does. The cell key
    digests the inductor config; a child that sealed differently would stamp a
    cell the parent's ``verify()`` then rejects on an axis nobody changed.
-2. **Cap its own VRAM** (``torch.cuda.set_per_process_memory_fraction``). The
-   parent reserved a share for this child and kept the rest for the tenant;
-   this is what makes that reservation an ENFORCED bound instead of a hope.
-   A child that wants more OOMs ITSELF — a failed mint reported by a live
-   worker — rather than stealing the peak out from under a live request.
-3. **Install the parent's RESOLVED slot bindings** (pgw#969) onto the specs
+2. **Install the parent's RESOLVED slot bindings** (pgw#969) onto the specs
    this process rediscovered, before a weight is read. Rediscovery yields
    only what ``@endpoint`` DECLARED, and a hub-catalog slot
    (``Slot(selected_by=...)`` with no ``default_checkpoint=``) declares
@@ -25,10 +20,10 @@ What it does, and why in this order
    ``ctx.slots["pipeline"]`` unbound and the mint dies 0.0 s into
    ``warmup_forward``. A request that still cannot resolve a declared slot
    REFUSES here, by name, rather than nine seconds later inside the endpoint.
-4. **Load the endpoint's own pipeline**, through ``cli.run.run_setup``: the
+3. **Load the endpoint's own pipeline**, through ``cli.run.run_setup``: the
    endpoint's real ``setup()``/``warmup()``, the production ``provision``
    loader, the same already-materialized weights on local disk. No network.
-5. **Arm COLD and drive the endpoint's OWN derived warm plan** — never
+4. **Arm COLD and drive the endpoint's OWN derived warm plan** — never
    ``mint_artifact``'s producer-style ``_compile_and_warm``. That distinction
    is gw#586/gw#587's whole lesson: a synthetic single-stage warm call can
    trace DIFFERENT FX graphs than a conditioned/two-stage endpoint's real
@@ -43,7 +38,7 @@ What it does, and why in this order
    working endpoint from one whose forward dies on its first request, and a
    green mint that sealed a cell for the latter is the shape pgw#969 cost
    four hours to find on a pod.
-6. **Pack** the exported cell and write a typed report.
+5. **Pack** the exported cell and write a typed report.
 
 The parity claim is checked, not asserted
 -----------------------------------------
@@ -62,18 +57,16 @@ from __future__ import annotations
 import logging
 import os
 import sys
-import tempfile
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import msgspec
 
-from . import compile_posture, warm_spans, worker_goals
+from . import compile_posture, handler_proof, warm_spans
 from .api.errors import ValidationError
 from .api.export_contract import (
     blocker_refusal, export_declaration, open_blockers)
-from .config import load_settings
 from .mint_process import (
     EXIT_BAD_REQUEST,
     EXIT_MINTED,
@@ -212,67 +205,6 @@ def _write_report(path: Path, report: MintReport) -> None:
     tmp = path.with_suffix(".part")
     tmp.write_bytes(msgspec.json.encode(report))
     os.replace(tmp, path)
-
-
-def cap_vram(device: int, cap_bytes: int) -> str:
-    """Bound this process's device allocations to its reservation.
-
-    Returns a human note, ALWAYS non-empty, so the caller frames it. The
-    fraction is computed from the card's REAL total, so the bound is the
-    parent's byte reservation and not a fraction anybody guessed.
-
-    pgw#973 (§4.24 item 4): every path that does NOT cap now says so. A mint
-    child sharing a card with the serving process runs uncapped whenever
-    `MintRequest.vram_cap_bytes` is 0 — which is the legitimate value for an
-    unprobeable card (`mint_budget.co_residency` reports `probed=False`) and
-    equally the value a budget that computed to nothing produces. Both used to
-    return "" here, the caller framed nothing, and the phase table recorded a
-    capped mint and an uncapped mint identically. "Uncapped" is a state to
-    STATE, not an absence to infer.
-    """
-    if cap_bytes <= 0:
-        note = (
-            "vram cap NOT applied: the request carries no cap "
-            "(vram_cap_bytes=0) — this child may allocate the whole card")
-        logger.warning("mint-child: %s", note)
-        return note
-    try:
-        import torch
-
-        if not torch.cuda.is_available():
-            return "vram cap NOT applied: no CUDA in this process"
-        # pgw#877 #6. `mint_process.child_env` pins CUDA_VISIBLE_DEVICES only
-        # when `request.device >= 0`, so "the pin already chose for us" is
-        # true for a named device and FALSE for -1 — and this used to cap
-        # ordinal 0 either way, written `0 if device < 0 else 0`: a ternary
-        # with one arm, which read like a decision and was not one.
-        #
-        # A cap applied to the wrong card is worse than no cap: it neither
-        # bounds the child nor protects the tenant, and it reports a note
-        # saying it did both. So an ambiguous request refuses to cap and SAYS
-        # so, rather than capping a card nobody named.
-        if device < 0 and torch.cuda.device_count() > 1:
-            note = (
-                f"vram cap NOT applied: the request named no device and "
-                f"{torch.cuda.device_count()} cards are visible, so there is "
-                f"no ordinal this process can honestly cap — capping cuda:0 "
-                f"would bound a card the pipeline may not be on")
-            logger.warning("mint-child: %s", note)
-            return note
-        dev = torch.cuda.current_device()
-        torch.cuda.set_device(dev)
-        _free, total = torch.cuda.mem_get_info(dev)
-        if total <= 0:
-            return (f"vram cap NOT applied: cuda:{dev} reports no total "
-                    f"memory, so there is no fraction to compute")
-        fraction = min(1.0, max(0.01, cap_bytes / float(total)))
-        torch.cuda.set_per_process_memory_fraction(fraction, dev)
-        return (
-            f"vram cap {cap_bytes / (1 << 30):.2f}GiB "
-            f"({fraction:.3f} of {total / (1 << 30):.2f}GiB)")
-    except Exception as exc:  # noqa: BLE001 — an uncappable child still mints
-        logger.warning("mint-child: could not cap VRAM (%s)", exc)
-        return f"vram cap NOT applied: {type(exc).__name__}: {exc}"
 
 
 def select_specs(
@@ -451,69 +383,6 @@ def pick_compile_target(loaded: Dict[str, Any], cfg: Any) -> Tuple[str, Any]:
         f"targets={list(cfg.targets)}")
 
 
-def _warm_jobs(specs: Sequence[Any]) -> List[Any]:
-    from . import warmup as warmup_mod
-    from .api.decorators import ATTR as DECL_ATTR
-
-    decl = getattr(specs[0].cls, DECL_ATTR, None)
-    if decl is None:
-        raise MintChildRefused(
-            "the endpoint class carries no @endpoint declaration, so no warm "
-            "plan can be derived")
-    jobs, _skips = warmup_mod.plan(
-        specs, decl_warmup=decl.warmup, has_warmup_method=False)
-    jobs, _mode = warmup_mod.select_runs(jobs, tracing=True)
-    if not jobs:
-        raise MintChildRefused(
-            "the derived warm plan is empty — there is nothing to compile")
-    return jobs
-
-
-def _run_warm_job(
-    instance: Any, job: Any, config: Dict[str, Any], execution_lane: str,
-    origin: str = "",
-) -> None:
-    """One warm forward through the endpoint's OWN handler.
-
-    Mirrors the executor's ``_invoke_warmup`` (bound handler, ctx+payload
-    kwargs, stream consumed) — deliberately the same call shape, because the
-    graphs this traces are the graphs the parent will later have to hit.
-    """
-    import asyncio
-
-    from . import warmup
-
-    spec = job.spec
-    with tempfile.TemporaryDirectory(prefix="gw-mintchild-") as tmp:
-        payload = job.build(tmp)
-        if payload is None:
-            return
-        # pgw#828: the SAME construction the executor's warm path uses. This
-        # was three hand-rolled contexts, and the child's had no slots at
-        # all — `ctx.slots["pipeline"]` raised `KeyError: 'pipeline'` on a
-        # real L4 after a 16.45 s load, so the dynamo mint route published
-        # nothing.
-        ctx = warmup.warm_context(
-            spec, request_id=f"mint-child-{spec.name}",
-            local_output_dir=tmp, execution_lane=execution_lane, config=config,
-            origin=origin)
-        bound = getattr(instance, spec.attr_name)
-        kwargs = {spec.ctx_param: ctx, spec.payload_param: payload}
-        if spec.is_async_gen:
-            async def _drain() -> None:
-                async for _ in bound(**kwargs):
-                    pass
-
-            asyncio.run(_drain())
-        elif spec.is_async:
-            asyncio.run(bound(**kwargs))
-        else:
-            out = bound(**kwargs)
-            if spec.output_mode == "stream":
-                for _ in out:
-                    pass
-
-
 def _drive_warm_plan(
     instance: Any, jobs: Sequence[Any], request: MintRequest, *,
     proof_only: bool = False,
@@ -547,7 +416,7 @@ def _drive_warm_plan(
               note=job.spec.name)
         try:
             with ledger.job(job.spec.name):
-                _run_warm_job(
+                handler_proof.run_warm_job(
                     instance, job,
                     dict(request.configs.get(job.spec.name) or {}),
                     request.execution_lane, origin=mint_identity(request))
@@ -749,11 +618,6 @@ def _mint_aot(
             # 0 on a pod that has never minted this (family, lane).
             entry_peak_rss_bytes=int(
                 getattr(request, "entry_peak_rss_bytes", 0) or 0),
-            # pgw#877: and the DEVICE half. Read off the request rather than a
-            # module global, because a module global here is always empty —
-            # the parent is the only process that banks.
-            entry_device_peak_bytes=int(
-                getattr(request, "entry_device_peak_bytes", 0) or 0),
             # pgw#848: rewritten on every beat, so a mint this process is
             # KILLED in still leaves its measurements on disk for the parent.
             phase_snapshot=(
@@ -847,8 +711,6 @@ def mint(request: MintRequest) -> MintReport:
 
     frame(phase="load", note="env seal")
     env_seal.establish()
-    # Always framed: `cap_vram` states the uncapped cases too (pgw#973).
-    frame(phase="load", note=cap_vram(request.device, request.vram_cap_bytes))
 
     if not cc.toolchain_present():
         raise MintChildRefused(
@@ -977,85 +839,43 @@ def mint(request: MintRequest) -> MintReport:
                 f"{f.virtual_param_bytes / 2 ** 20:.1f} MiB virtual, "
                 f"{f.real_buffer_bytes / 2 ** 20:.1f} MiB real buffers"
                 for f in facts)))
-    # pgw#984: PROVE the endpoint's own forward runs, before a byte is
-    # exported. `torch.export` traces the declared graph classes off the
-    # modules directly and never enters the handler, so an AOT mint's
-    # phase table read `load / trace_graph / seal_publish / finalize` —
-    # green, with no `warmup_forward` row, for an endpoint whose handler
-    # could not run at all. That is precisely pgw#969's crash class
-    # (`ctx.slots["pipeline"]`, 0.0 s into `warmup_forward`), and it was
-    # unreachable on this recipe.
+    # pgw#984's guarantee, discharged where it costs nothing (pgw#1199).
     #
-    # ONE forward, not the whole plan: the export derives its own class set, so
-    # a full eager pass would buy minutes and prove nothing more than the first
-    # job does. Eager — nothing is armed here — so it specializes no graph the
-    # export then has to trace around.
+    # The endpoint's own handler must be PROVEN to run before a cell seals:
+    # `torch.export` traces the declared graph classes off the modules directly
+    # and never enters the handler, so a mint's phase table could read
+    # `load / trace_graph / seal_publish / finalize` — green — for an endpoint
+    # whose handler could not run at all (pgw#969: `ctx.slots["pipeline"]`,
+    # 0.0 s into `warmup_forward`).
     #
-    # pgw#1080 (coordinator ruling 2026-08-10): on a structure-only mint the
-    # proof runs on RANDOM values. It is a does-it-run proof, not a numerics
-    # one, and the ratified variability rule already forbids value-dependent
-    # program structure — so a handler whose control flow breaks under random
-    # weights is violating that rule and surfacing it here is the point.
-    # Random values are NOT checkpoint values, but they ARE weight-scale for
-    # the length of the proof, so the window is measured and reported
-    # separately from the export's, which is the number the pgw#992 census
-    # must size the next export child against.
-    device_label = _device_label(request)
+    # It used to be proven HERE, which on a weight-free mint meant materialising
+    # REAL random values for every virtual parameter first — one full checkpoint
+    # at compute dtype, in a process holding none, concurrently with the
+    # parent's resident copy. That is 56.2 GB on wan-2.2 against 15.5 GiB free,
+    # and it is what §4.33's "~8 GiB" was actually measuring (`materialize_random`
+    # for an sdxl-sized family). §4.33 steps 4-5 put verification on the LIVE
+    # pipeline that already holds these weights, so the proof travels as the
+    # parent's PROVENANCE and this process allocates nothing for it. The SDK had
+    # already made the same call for the kernel-lane A/B — see
+    # `execution_lane_verdict_for`'s `meta_mint` branch.
+    #
+    # REFUSED, never re-proven here: a child that proved it itself would
+    # reintroduce the allocation, and a caller that cannot prove its handler
+    # runs has no business publishing a cell for it.
     if virtual_modules:
-        _reset_peak()
-        randomized = sum(
-            structure_only.materialize_random(module, device=device_label)
-            for _name, module in virtual_modules)
+        assert_handler_proven(request)
+        footprint["handler_proof"] = str(request.handler_proof)
         frame(phase="warmup_forward", note=(
-            f"values=random ({randomized / 2 ** 20:.1f} MiB) on "
-            f"{[name for name, _m in virtual_modules]}"))
-        # The BASELINE for the call-time check below. The lane installs real
-        # tensors of its own before any forward runs — LoRA branch containers
-        # are the standing example, and they are legitimate (a lifted adapter
-        # is a graph INPUT, not a baked constant). What the check is looking
-        # for is a tensor that APPEARS during the proof, so it compares
-        # against what was already there instead of hardcoding a vocabulary.
-        strays_before = {
-            f"{name}.{path}"
-            for name, module in virtual_modules
-            for path, _tensor in structure_only.stray_real_tensors(module)
-        }
-    _drive_warm_plan(instance, _warm_jobs(siblings), request, proof_only=True)
-    if virtual_modules:
-        footprint["warm_proof_peak_bytes"] = _peak_vram()
-        footprint["warm_proof_values"] = "random"
-        for _name, module in virtual_modules:
-            structure_only.restore_virtual(module, device=device_label)
-        # ie#628's call-time class, caught where it CAN be caught on a
-        # weightless mint. Inside a fake-mode export every allocation is fake,
-        # so the mode-based gate cannot see a lazily-built pinned table — but
-        # the warm proof just ran the handler for real, so if one was built it
-        # is now cached on a plain attribute, still real, about to be traced.
-        strays = [
-            (f"{name}.{path}", tensor)
-            for name, module in virtual_modules
-            for path, tensor in structure_only.stray_real_tensors(module)
-            if f"{name}.{path}" not in strays_before
-        ]
-        if strays:
-            raise MintChildRefused(
-                "meta-instantiation gate (ie#628, call-time): after the warm "
-                "proof released its random values, "
-                + ", ".join(
-                    f"{path} still holds a REAL {tuple(t.shape)} "
-                    f"{t.dtype} tensor on {t.device}" for path, t in strays[:4])
-                + ". A weightless mint traces what the module holds, so this "
-                "tensor would be exported as an anonymous graph literal and "
-                "the cell would carry values no adopter can rebind. It is "
-                "built at CALL time instead of at __init__: register derived "
-                "tables with `register_buffer` and NO device pin (ie#630's "
-                "`rope_buffers` is the worked example); an explicit "
-                "`with torch.device(...)` inside model code is itself the "
-                "violation to remove.")
-        _release()
-        frame(phase="warmup_forward", note=(
-            f"random values released; warm-proof device peak "
-            f"{footprint['warm_proof_peak_bytes'] / 2 ** 20:.1f} MiB"))
+            f"handler proven by the parent, on resident weights: "
+            f"{request.handler_proof} — this child allocates nothing for it"))
+    else:
+        # The real-weight fallback: structure-only was refused for this family
+        # (a quantized artifact lane, a class with no config surface), so the
+        # checkpoint is already resident IN THIS PROCESS and the proof costs
+        # what it has always cost — nothing extra.
+        _drive_warm_plan(
+            instance, handler_proof.warm_jobs(siblings), request,
+            proof_only=True)
     _reset_peak()
     # Deliberately NOT `aot_mint.compose_for_mint` (which builds a pipeline
     # from a model ref for an operator's mint pod): the graphs this cell must
@@ -1066,6 +886,40 @@ def mint(request: MintRequest) -> MintReport:
         request, pipe, cfg, target, started=started,
         sha256_file=sha256_file, execution_lane_verdict=verdict, spec=aot_spec,
         footprint=footprint)
+
+
+def assert_handler_proven(request: MintRequest) -> None:
+    """A weight-free mint REFUSES unless the parent proved the handler runs.
+
+    pgw#984's guarantee, and the one thing pgw#1199 had to be careful not to
+    drop while moving where it is discharged. The child cannot prove it itself
+    on this path: it holds no weights, so proving it means materialising one
+    full checkpoint at compute dtype beside the parent's resident copy — 56.2
+    GB on wan-2.2 against 15.5 GiB free, which is the mint that died on pod
+    `729431an6ugbvq`, and which is what §4.33's "~8 GiB" was measuring for an
+    sdxl-sized family.
+
+    So the obligation moves to the caller, whole: run ONE warm forward on the
+    resident pipeline and say so. It is free on the fleet path (the executor's
+    boot warm plan has already run every declared handler before a mint is
+    delegated) and one forward on cozy-local. Refusing here is not a fence
+    weakened to make a case pass — it is the same sentence, addressed to the
+    process that can afford to say it.
+
+    Public because it IS the contract between the two processes, and a caller
+    that wants to know whether its request will be accepted should be able to
+    ask the same question the child asks.
+    """
+    if str(getattr(request, "handler_proof", "") or "").strip():
+        return
+    raise MintChildRefused(
+        f"{mint_identity(request)}: this is a WEIGHT-FREE mint and the parent "
+        f"sent no handler proof. pgw#984 requires the endpoint's own handler "
+        f"to have run before a cell seals, and since pgw#1199 that proof "
+        f"belongs to the process that HOLDS the weights — proving it here "
+        f"would mean materialising one full checkpoint at compute dtype in a "
+        f"process that holds none. Run one warm forward on the resident "
+        f"pipeline and declare it (`MintRequest.handler_proof`).")
 
 
 def _device_label(request: MintRequest) -> str:
@@ -1136,52 +990,6 @@ def _is_resource_error(exc: BaseException) -> bool:
     return isinstance(exc, MemoryError)
 
 
-def _install_goals() -> None:
-    """Publish THIS process's goal set (pgw#868 A4).
-
-    ``worker_goals`` is a per-process publication with exactly one carrier and
-    one moment it is set. Both existing callers of :func:`worker_goals.install`
-    are in the SERVING parent (``entrypoint``, ``procsplit.parent``) — and the
-    mint runs in a child spawned as ``python -m gen_worker.mint_child``, which
-    installed nothing. So ``worker_goals.current()`` fell back to
-    :data:`~gen_worker.worker_goals.SERVE_ONLY` in the one process that decides
-    the compile pool's width (``aot_compile_pool.entry_workers`` is called from
-    ``aot_mint._mint_cell``, three frames down from here), and a mint-only pod
-    held back a tenant VRAM reserve, a serving CPU headroom and a tenant
-    host-RAM reserve for a tenant that cannot reach it: it accepts no dispatch.
-
-    The fallback is the RIGHT default for a library import with no hub — this
-    process has a hub, and its declaration is already in the environment the
-    parent handed down (``mint_process.child_env`` copies it), read here the
-    same way the parent reads it: off typed `Settings`, never off `os.environ`
-    (§1.18). A declaration this build cannot interpret still lands, carrying
-    ``declaration_understood=False``, exactly as it does in the parent.
-
-    Never fatal: a child that cannot read its settings keeps the serve-only
-    fallback and mints at the narrower width, which is what it does today.
-
-    The settings are LOADED and not ``config.install``ed, deliberately. This
-    child is a process entry and §1.18 says a process entry installs — but it
-    never has, so every ``config.current_or(default)`` reader inside a mint has
-    been answering from its default for the life of this module. Publishing
-    them here would flip all of those at once, which is a blast radius this
-    change has no way to test and no business taking. It is a real gap and it
-    is recorded as one; what this function fixes is the goal set, whose only
-    reader inside the child is the width policy.
-    """
-    try:
-        goals = worker_goals.from_settings(load_settings())
-    except Exception:  # noqa: BLE001 — a narrower pool beats a dead mint
-        logger.warning(
-            "mint-child: could not read worker goals; keeping the serve-only "
-            "fallback (the pool will hold tenant reserves)", exc_info=True)
-        return
-    worker_goals.install(goals)
-    logger.info(
-        "mint-child: goals serve=%s mint=%s (declared %r, understood=%s)",
-        goals.serve, goals.mint, goals.declared, goals.declaration_understood)
-
-
 def _install_posture(request: MintRequest) -> None:
     """Adopt the posture the parent DECLARED, and act on it — §4.30.
 
@@ -1189,8 +997,8 @@ def _install_posture(request: MintRequest) -> None:
     single graph is exported:
 
     **1. Publish it**, so ``aot_compile_pool.entry_workers`` — three frames
-    down, in this process — sizes K against it. Same carrier and same single
-    moment as :func:`_install_goals`.
+    down, in this process — sizes K against it. One carrier, one moment
+    (§4.22).
 
     **2. Drop this process's scheduling priority**, which is the whole of the
     CPU half of politeness. It is done HERE, by the child to itself, and NOT
@@ -1262,7 +1070,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"BAD REQUEST {args[0]}: {exc}", file=sys.stderr)
         return EXIT_BAD_REQUEST
 
-    _install_goals()
     _install_posture(request)
     report_path = Path(request.report)
     started = time.monotonic()
@@ -1315,5 +1122,5 @@ if __name__ == "__main__":  # pragma: no cover
 
 __all__ = ["MintChildRefused", "assert_composable", "assert_slots_resolvable",
            "pick_compile_target",
-           "bind_slots", "cap_vram", "frame", "main",
+           "bind_slots", "frame", "main",
            "mint_identity", "mint", "select_specs"]

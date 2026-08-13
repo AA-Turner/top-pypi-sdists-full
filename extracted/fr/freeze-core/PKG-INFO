@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: freeze-core
-Version: 0.7.0.post1
+Version: 0.7.1
 Summary: Core dependency for cx_Freeze
 Author-email: Marcelo Duarte <marcelotduarte@users.noreply.github.com>
 License-Expression: MIT
@@ -31,7 +31,6 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: setuptools<84.0,>=78.1.1
 Requires-Dist: filelock>=3.20.3
 Requires-Dist: cabarchive>=0.2.4; sys_platform == "win32"
 Requires-Dist: striprtf>=0.0.26; sys_platform == "win32"

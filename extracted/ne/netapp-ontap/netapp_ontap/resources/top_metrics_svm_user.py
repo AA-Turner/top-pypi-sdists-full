@@ -25,7 +25,6 @@ The API can sometimes fail to return the list of users with the most I/O activit
 * The NFS/CIFS client operations are being served by the client-side filesystem cache.
 * The NFS/CIFS client operations are being buffered by the client operating system.
 * On rare occasions, the incoming traffic pattern is not suitable to obtain the list of users with the most I/O activity.
-* NFSv4 client read operations using Multi-Processor I/O (MPIO) are not tracked.
 ## Failure to return the usernames
 The API can sometimes fail to obtain the usernames for the list of userid entries, due to internal transient errors.
 In such cases, instead of the username, the API will return "{<user-id>}" for the user entry.
@@ -56,7 +55,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsSvmUser(
         {
+            "iops": {
+                "write": 1495,
+                "error": {"lower_bound": 1495, "upper_bound": 1505},
+            },
             "user_id": "S-1-5-21-256008430-3394229847-3930036330-1001",
+            "user_name": "user1",
             "svm": {"name": "vs1"},
             "volumes": [
                 {
@@ -65,8 +69,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                             "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864"
                         }
                     },
-                    "name": "fv1",
                     "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef864",
+                    "name": "fv1",
                 },
                 {
                     "_links": {
@@ -74,8 +78,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                             "href": "/api/storage/volumes/2ea74c3e-d5ca-11eb-8fbb-005056ac0f33"
                         }
                     },
-                    "name": "fv2",
                     "uuid": "2ea74c3e-d5ca-11eb-8fbb-005056ac0f33",
+                    "name": "fv2",
                 },
                 {
                     "_links": {
@@ -83,51 +87,48 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                             "href": "/api/storage/volumes/5bbfc226-3fd8-42c9-a651-fa6167c2cf84"
                         }
                     },
-                    "name": "fv4",
                     "uuid": "5bbfc226-3fd8-42c9-a651-fa6167c2cf84",
+                    "name": "fv4",
                 },
             ],
-            "iops": {
-                "error": {"lower_bound": 1495, "upper_bound": 1505},
-                "write": 1495,
-            },
-            "user_name": "user1",
         }
     ),
     TopMetricsSvmUser(
         {
-            "user_id": "S-1-5-21-256008430-3394229847-3930036330-1002",
-            "svm": {"name": "vs1"},
-            "volumes": [
-                {
-                    "_links": {
-                        "self": {
-                            "href": "/api/storage/volumes/2ea74c3e-d5ca-11eb-8fbb-005056ac0f33"
-                        }
-                    },
-                    "name": "fv2",
-                    "uuid": "2ea74c3e-d5ca-11eb-8fbb-005056ac0f33",
-                },
-                {
-                    "_links": {
-                        "self": {
-                            "href": "/api/storage/volumes/1ca74c3e-d5ca-11eb-8fbb-005056ac0f88"
-                        }
-                    },
-                    "name": "fv3",
-                    "uuid": "1ca74c3e-d5ca-11eb-8fbb-005056ac0f88",
-                },
-            ],
             "iops": {
-                "error": {"lower_bound": 1022, "upper_bound": 1032},
                 "write": 1022,
+                "error": {"lower_bound": 1022, "upper_bound": 1032},
             },
+            "user_id": "S-1-5-21-256008430-3394229847-3930036330-1002",
             "user_name": "user2",
+            "svm": {"name": "vs1"},
+            "volumes": [
+                {
+                    "_links": {
+                        "self": {
+                            "href": "/api/storage/volumes/2ea74c3e-d5ca-11eb-8fbb-005056ac0f33"
+                        }
+                    },
+                    "uuid": "2ea74c3e-d5ca-11eb-8fbb-005056ac0f33",
+                    "name": "fv2",
+                },
+                {
+                    "_links": {
+                        "self": {
+                            "href": "/api/storage/volumes/1ca74c3e-d5ca-11eb-8fbb-005056ac0f88"
+                        }
+                    },
+                    "uuid": "1ca74c3e-d5ca-11eb-8fbb-005056ac0f88",
+                    "name": "fv3",
+                },
+            ],
         }
     ),
     TopMetricsSvmUser(
         {
+            "iops": {"write": 345, "error": {"lower_bound": 345, "upper_bound": 355}},
             "user_id": "S-1-5-21-256008430-3394229847-3930036330-1003",
+            "user_name": "user3",
             "svm": {"name": "vs1"},
             "volumes": [
                 {
@@ -136,17 +137,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                             "href": "/api/storage/volumes/1ca74c3e-d5ca-11eb-8fbb-005056ac0f88"
                         }
                     },
-                    "name": "fv3",
                     "uuid": "1ca74c3e-d5ca-11eb-8fbb-005056ac0f88",
+                    "name": "fv3",
                 }
             ],
-            "iops": {"error": {"lower_bound": 345, "upper_bound": 355}, "write": 345},
-            "user_name": "user3",
         }
     ),
     TopMetricsSvmUser(
         {
+            "iops": {"write": 235, "error": {"lower_bound": 235, "upper_bound": 245}},
             "user_id": "1988",
+            "user_name": "user4",
             "svm": {"name": "vs1"},
             "volumes": [
                 {
@@ -155,17 +156,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                             "href": "/api/storage/volumes/5bbfc226-3fd8-42c9-a651-fa6167c2cf84"
                         }
                     },
-                    "name": "fv4",
                     "uuid": "5bbfc226-3fd8-42c9-a651-fa6167c2cf84",
+                    "name": "fv4",
                 }
             ],
-            "iops": {"error": {"lower_bound": 235, "upper_bound": 245}, "write": 235},
-            "user_name": "user4",
         }
     ),
     TopMetricsSvmUser(
         {
+            "iops": {"write": 235, "error": {"lower_bound": 235, "upper_bound": 245}},
             "user_id": "S-1-5-21-256008430-3394229847-3930036330-1005",
+            "user_name": "user5",
             "svm": {"name": "vs1"},
             "volumes": [
                 {
@@ -174,12 +175,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                             "href": "/api/storage/volumes/5bbfc227-3fd8-42c9-a651-fa6167c2cf85"
                         }
                     },
-                    "name": "fv5",
                     "uuid": "5bbfc227-3fd8-42c9-a651-fa6167c2cf85",
+                    "name": "fv5",
                 }
             ],
-            "iops": {"error": {"lower_bound": 235, "upper_bound": 245}, "write": 235},
-            "user_name": "user5",
         }
     ),
 ]
@@ -265,6 +264,22 @@ class TopMetricsSvmUserSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
             )
     r""" The throughput field of the top_metrics_svm_user."""
 
+    total_ops = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.top_metrics_client_total_ops", "TopMetricsClientTotalOpsSchema"),
+                data_key="total_ops",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" The total_ops field of the top_metrics_svm_user."""
+
+    total_throughput = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.top_metrics_client_total_throughput", "TopMetricsClientTotalThroughputSchema"),
+                data_key="total_throughput",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" The total_throughput field of the top_metrics_svm_user."""
+
     user_id = marshmallow_fields.Str(
         data_key="user_id",
         allow_none=True,
@@ -302,29 +317,35 @@ Example: James"""
         "svm.name",
         "svm.uuid",
         "throughput",
+        "total_ops",
+        "total_throughput",
         "user_id",
         "user_name",
         "volumes.links",
         "volumes.name",
         "volumes.uuid",
     ]
-    """iops,svm.links,svm.name,svm.uuid,throughput,user_id,user_name,volumes.links,volumes.name,volumes.uuid,"""
+    """iops,svm.links,svm.name,svm.uuid,throughput,total_ops,total_throughput,user_id,user_name,volumes.links,volumes.name,volumes.uuid,"""
 
     patchable_fields = [
         "iops",
         "throughput",
+        "total_ops",
+        "total_throughput",
         "volumes.name",
         "volumes.uuid",
     ]
-    """iops,throughput,volumes.name,volumes.uuid,"""
+    """iops,throughput,total_ops,total_throughput,volumes.name,volumes.uuid,"""
 
     postable_fields = [
         "iops",
         "throughput",
+        "total_ops",
+        "total_throughput",
         "volumes.name",
         "volumes.uuid",
     ]
-    """iops,throughput,volumes.name,volumes.uuid,"""
+    """iops,throughput,total_ops,total_throughput,volumes.name,volumes.uuid,"""
 
 class TopMetricsSvmUser(Resource):
     r""" Aggregated information about a user's IO activity at a SVM scope. """

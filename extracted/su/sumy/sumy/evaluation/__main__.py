@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """
 Sumy - evaluation of automatic text summary.
@@ -23,32 +22,39 @@ Options:
 
 """
 
-from __future__ import absolute_import
-from __future__ import division, print_function, unicode_literals
 
 import sys
-
 from itertools import chain
+
 from docopt import docopt
+
 from .. import __version__
-from ..utils import ItemsCount, get_stop_words, fetch_url
-from ..models import TfDocumentModel
 from .._compat import to_string
+from ..models import TfDocumentModel
+from ..nlp.stemmers import Stemmer
 from ..nlp.tokenizers import Tokenizer
 from ..parsers.html import HtmlParser
 from ..parsers.plaintext import PlaintextParser
-from ..summarizers.random import RandomSummarizer
-from ..summarizers.luhn import LuhnSummarizer
 from ..summarizers.edmundson import EdmundsonSummarizer
-from ..summarizers.lsa import LsaSummarizer
-from ..summarizers.text_rank import TextRankSummarizer
-from ..summarizers.lex_rank import LexRankSummarizer
-from ..summarizers.sum_basic import SumBasicSummarizer
 from ..summarizers.kl import KLSummarizer
-from ..nlp.stemmers import Stemmer
-from . import precision, recall, f_score, cosine_similarity, unit_overlap
-from . import rouge_1, rouge_2, rouge_l_sentence_level, rouge_l_summary_level
-
+from ..summarizers.lex_rank import LexRankSummarizer
+from ..summarizers.lsa import LsaSummarizer
+from ..summarizers.luhn import LuhnSummarizer
+from ..summarizers.random import RandomSummarizer
+from ..summarizers.sum_basic import SumBasicSummarizer
+from ..summarizers.text_rank import TextRankSummarizer
+from ..utils import ItemsCount, fetch_url, get_stop_words
+from . import (
+    cosine_similarity,
+    f_score,
+    precision,
+    recall,
+    rouge_1,
+    rouge_2,
+    rouge_l_sentence_level,
+    rouge_l_summary_level,
+    unit_overlap,
+)
 
 PARSERS = {
     "html": HtmlParser,
@@ -169,7 +175,7 @@ def main(args=None):
             result = evaluate(evaluated_sentences, document.sentences)
         else:
             result = evaluate(evaluated_sentences, reference_sentences)
-        print("%s: %f" % (name, result))
+        print(f"{name}: {result:f}")
 
     return 0
 
@@ -177,7 +183,7 @@ def main(args=None):
 def handle_arguments(args):
     document_format = args["--format"]
     if document_format is not None and document_format not in PARSERS:
-        raise ValueError("Unsupported format of input document. Possible values are: %s. Given: %s." % (
+        raise ValueError("Unsupported format of input document. Possible values are: {}. Given: {}.".format(
             ", ".join(PARSERS.keys()),
             document_format,
         ))
@@ -212,9 +218,9 @@ def handle_arguments(args):
 if __name__ == "__main__":
     try:
         exit_code = main()
-        exit(exit_code)
+        sys.exit(exit_code)
     except KeyboardInterrupt:
-        exit(1)
-    except Exception as e:
+        sys.exit(1)
+    except Exception as e:  # noqa: BLE001 -- top-level CLI handler must catch everything
         print(e)
-        exit(1)
+        sys.exit(1)

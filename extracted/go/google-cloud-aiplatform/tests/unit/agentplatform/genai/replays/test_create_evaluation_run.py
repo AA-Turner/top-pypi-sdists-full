@@ -16,6 +16,7 @@
 
 from tests.unit.agentplatform.genai.replays import pytest_helper
 from agentplatform import types
+from agentplatform._genai import _evals_common
 from google.genai import types as genai_types
 import pandas as pd
 import pytest
@@ -106,7 +107,7 @@ INPUT_DF_WITH_CONTEXT_AND_HISTORY = pd.DataFrame(
 CANDIDATE_NAME = "candidate_1"
 MODEL_NAME = "projects/977012026409/locations/us-central1/publishers/google/models/gemini-2.5-flash"
 EVAL_SET_NAME = (
-    "projects/977012026409/locations/us-central1/evaluationSets/6619939608513740800"
+    "projects/977012026409/locations/us-central1/evaluationSets/1936778737211146240"
 )
 
 
@@ -319,8 +320,13 @@ def test_create_eval_run_with_allow_cross_region_model(client):
     assert evaluation_run.error is None
 
 
+@mock.patch.object(
+    _evals_common, "_local_timestamp", return_value="1/1/2026, 12:00:00 AM"
+)
 @mock.patch("uuid.uuid4")
-def test_create_eval_run_with_metric_resource_name(mock_uuid4, client):
+def test_create_eval_run_with_metric_resource_name(
+    mock_uuid4, mock_local_timestamp, client
+):
     """Tests create_evaluation_run with metric_resource_name."""
     mock_uuid4.side_effect = [
         uuid.UUID("d392c573-9e81-4a30-b984-8a6aa4656369"),
@@ -718,7 +724,7 @@ def test_create_eval_run_with_interactions_data_source(mock_uuid4, client):
     """
     mock_uuid4.return_value = uuid.UUID("a1b2c3d4-e5f6-7890-abcd-ef1234567890")
     client._api_client._http_options.api_version = "v1beta1"
-    interaction_id = "ChA2YzllYzk0MjY1NjZjODM5EAgaATAqBG1haW4"
+    interaction_id = "ChBjYjdiNWIzYTMzMGQ2MjE1EAgaATAqBG1haW4"
     gemini_agent = (
         "projects/model-evaluation-dev/locations/global/agents/test-agent-eval"
     )
@@ -742,6 +748,31 @@ def test_create_eval_run_with_interactions_data_source(mock_uuid4, client):
     )
     assert isinstance(evaluation_run, types.EvaluationRun)
     assert evaluation_run.state == types.EvaluationRunState.PENDING
+    assert evaluation_run.error is None
+
+
+_KMS_KEY = (
+    "projects/977012026409/locations/us-central1"
+    "/keyRings/test-kr/cryptoKeys/test-key"
+)
+
+
+def test_create_eval_run_with_cmek(client):
+    """CMEK: encryption_spec is forwarded in the request and returned on the resource."""
+    client._api_client._http_options.api_version = "v1beta1"
+    evaluation_run = client.evals.create_evaluation_run(
+        name="test_cmek",
+        display_name="test_cmek",
+        dataset=types.EvaluationRunDataSource(evaluation_set=EVAL_SET_NAME),
+        dest=GCS_DEST,
+        metrics=[GENERAL_QUALITY_METRIC],
+        encryption_spec=genai_types.EncryptionSpec(kms_key_name=_KMS_KEY),
+    )
+    assert isinstance(evaluation_run, types.EvaluationRun)
+    assert evaluation_run.display_name == "test_cmek"
+    assert evaluation_run.state == types.EvaluationRunState.PENDING
+    assert evaluation_run.encryption_spec is not None
+    assert evaluation_run.encryption_spec.kms_key_name == _KMS_KEY
     assert evaluation_run.error is None
 
 
@@ -914,7 +945,7 @@ def test_create_eval_run_with_gemini_agent(client):
     )
     eval_set = (
         "projects/model-evaluation-dev/locations/global/evaluationSets/"
-        "7392342128979869696"
+        "4227422097682464768"
     )
     evaluation_run = client.evals.create_evaluation_run(
         name="test_gemini_agent",

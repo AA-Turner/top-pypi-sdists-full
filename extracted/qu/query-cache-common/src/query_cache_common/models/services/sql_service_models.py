@@ -29,6 +29,7 @@ class SubmitValuesRequest(BaseSerDeModel):
     clone_table_properties: t.Optional[TableProperties] = None
     clone_chain_depth_limit: t.Optional[int] = None
     dbt_node_state: t.Optional[shared_models.DbtNodeState] = None
+    table_namespace: t.Optional[str] = None
 
 
 @proto_dataclass(sql_service_pb2.SubmitEnrichedSQLRequest)
@@ -52,6 +53,7 @@ class SubmitEnrichedSQLRequest(BaseSerDeModel):
     dbt_node_state: t.Optional[shared_models.DbtNodeState] = None
     default_schema: t.Optional[str] = None
     compare_unrendered_code: bool = False
+    table_namespace: t.Optional[str] = None
 
 
 @proto_dataclass(sql_service_pb2.QueryHashMatchMetadataInfo)

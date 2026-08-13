@@ -664,14 +664,18 @@ class QuaProgram(_message.Message):
         struct: QuaProgram.StructVarRefExpression
         def __init__(self, loc: _Optional[str] = ..., stream: _Optional[_Union[QuaProgram.ExternalStreamRefExpression, _Mapping]] = ..., struct: _Optional[_Union[QuaProgram.StructVarRefExpression, _Mapping]] = ...) -> None: ...
     class ReceiveFromExternalStreamStatement(_message.Message):
-        __slots__ = ["loc", "stream", "struct"]
+        __slots__ = ["loc", "stream", "struct", "is_valid", "duration"]
         LOC_FIELD_NUMBER: _ClassVar[int]
         STREAM_FIELD_NUMBER: _ClassVar[int]
         STRUCT_FIELD_NUMBER: _ClassVar[int]
+        IS_VALID_FIELD_NUMBER: _ClassVar[int]
+        DURATION_FIELD_NUMBER: _ClassVar[int]
         loc: str
         stream: QuaProgram.ExternalStreamRefExpression
         struct: QuaProgram.StructVarRefExpression
-        def __init__(self, loc: _Optional[str] = ..., stream: _Optional[_Union[QuaProgram.ExternalStreamRefExpression, _Mapping]] = ..., struct: _Optional[_Union[QuaProgram.StructVarRefExpression, _Mapping]] = ...) -> None: ...
+        is_valid: QuaProgram.VarRefExpression
+        duration: int
+        def __init__(self, loc: _Optional[str] = ..., stream: _Optional[_Union[QuaProgram.ExternalStreamRefExpression, _Mapping]] = ..., struct: _Optional[_Union[QuaProgram.StructVarRefExpression, _Mapping]] = ..., is_valid: _Optional[_Union[QuaProgram.VarRefExpression, _Mapping]] = ..., duration: _Optional[int] = ...) -> None: ...
     class GlobalVariableAssignmentStatement(_message.Message):
         __slots__ = ["loc", "variables"]
         LOC_FIELD_NUMBER: _ClassVar[int]

@@ -28,82 +28,82 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FirmwareHistory(
         {
+            "start_time": "1970-01-01T00:02:03+00:00",
             "update_status": [
                 {
                     "worker": {
+                        "state": "failed",
                         "error": {
                             "message": "A firmware file already exists.",
                             "code": 2228327,
                         },
                         "node": {
-                            "name": "node1",
                             "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
+                            "name": "node1",
                         },
-                        "state": "failed",
                     }
                 },
                 {
                     "worker": {
+                        "state": "complete",
                         "error": {"message": "Success", "code": 0},
                         "node": {
-                            "name": "node2",
                             "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ef",
+                            "name": "node2",
                         },
-                        "state": "complete",
                     }
                 },
             ],
+            "fw_update_state": "starting_workers",
             "_links": {
                 "self": {
                     "href": "/api/cluster/firmware/history/1970-01-01T00%3A02%3A03-00%3A00/adf700c2-b50e-11ea-a54f-005056bbec43"
                 }
             },
-            "job": {"uuid": "adf700c2-b50e-11ea-a54f-005056bbec43"},
-            "start_time": "1970-01-01T00:02:03+00:00",
-            "end_time": "1970-01-01T00:07:36+00:00",
-            "node": {"name": "node1", "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee"},
-            "fw_update_state": "starting_workers",
             "fw_file_name": "all_disk_fw.zip",
+            "node": {"uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee", "name": "node1"},
+            "end_time": "1970-01-01T00:07:36+00:00",
+            "job": {"uuid": "adf700c2-b50e-11ea-a54f-005056bbec43"},
         }
     ),
     FirmwareHistory(
         {
+            "start_time": "1970-01-01T00:02:03+00:00",
             "update_status": [
                 {
                     "worker": {
+                        "state": "failed",
                         "error": {
                             "message": "A firmware file already exists.",
                             "code": 2228327,
                         },
                         "node": {
-                            "name": "node1",
                             "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
+                            "name": "node1",
                         },
-                        "state": "failed",
                     }
                 },
                 {
                     "worker": {
+                        "state": "complete",
                         "error": {"message": "Success", "code": 0},
                         "node": {
-                            "name": "node2",
                             "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ef",
+                            "name": "node2",
                         },
-                        "state": "complete",
                     }
                 },
             ],
+            "fw_update_state": "completed",
             "_links": {
                 "self": {
                     "href": "/api/cluster/firmware/history/1970-01-01T00%3A02%3A03-00%3A00/f84adabe-b50e-11ea-a54f-005056bbec43"
                 }
             },
-            "job": {"uuid": "f84adabe-b50e-11ea-a54f-005056bbec43"},
-            "start_time": "1970-01-01T00:02:03+00:00",
-            "end_time": "1970-01-01T00:07:36+00:00",
-            "node": {"name": "node1", "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee"},
-            "fw_update_state": "completed",
             "fw_file_name": "all_shelf_fw.zip",
+            "node": {"uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee", "name": "node1"},
+            "end_time": "1970-01-01T00:07:36+00:00",
+            "job": {"uuid": "f84adabe-b50e-11ea-a54f-005056bbec43"},
         }
     ),
 ]

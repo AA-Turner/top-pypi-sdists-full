@@ -28,8 +28,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "name": "plex0",
             "aggregate": {
-                "name": "test2",
                 "uuid": "04b7296e-a302-42a6-a2a9-dda6be054b29",
+                "name": "test2",
             },
         }
     ),
@@ -37,8 +37,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "name": "plex1",
             "aggregate": {
-                "name": "test2",
                 "uuid": "04b7296e-a302-42a6-a2a9-dda6be054b29",
+                "name": "test2",
             },
         }
     ),
@@ -46,8 +46,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "name": "plex0",
             "aggregate": {
-                "name": "test",
                 "uuid": "66c4b221-65ff-4211-9b58-ada3c6fc41af",
+                "name": "test",
             },
         }
     ),
@@ -55,8 +55,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "name": "plex1",
             "aggregate": {
-                "name": "test",
                 "uuid": "66c4b221-65ff-4211-9b58-ada3c6fc41af",
+                "name": "test",
             },
         }
     ),
@@ -64,8 +64,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "name": "plex0",
             "aggregate": {
-                "name": "aggr1",
                 "uuid": "7ee89e48-5d81-4609-9e1b-5d8d0995a886",
+                "name": "aggr1",
             },
         }
     ),
@@ -73,8 +73,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "name": "plex0",
             "aggregate": {
-                "name": "test3",
                 "uuid": "8bb2e3bf-c4f1-4748-9033-ca9231cf1c40",
+                "name": "test3",
             },
         }
     ),
@@ -82,8 +82,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "name": "plex1",
             "aggregate": {
-                "name": "test3",
                 "uuid": "8bb2e3bf-c4f1-4748-9033-ca9231cf1c40",
+                "name": "test3",
             },
         }
     ),
@@ -91,8 +91,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "name": "plex0",
             "aggregate": {
-                "name": "aggr2",
                 "uuid": "8f13de5c-99cf-4ada-884c-3cc32deb304a",
+                "name": "aggr2",
             },
         }
     ),
@@ -124,8 +124,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "name": "plex0",
             "aggregate": {
-                "name": "test2",
                 "uuid": "04b7296e-a302-42a6-a2a9-dda6be054b29",
+                "name": "test2",
             },
         }
     ),
@@ -133,8 +133,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "name": "plex0",
             "aggregate": {
-                "name": "test",
                 "uuid": "66c4b221-65ff-4211-9b58-ada3c6fc41af",
+                "name": "test",
             },
         }
     ),
@@ -142,8 +142,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "name": "plex0",
             "aggregate": {
-                "name": "aggr1",
                 "uuid": "7ee89e48-5d81-4609-9e1b-5d8d0995a886",
+                "name": "aggr1",
             },
         }
     ),
@@ -151,8 +151,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "name": "plex0",
             "aggregate": {
-                "name": "test3",
                 "uuid": "8bb2e3bf-c4f1-4748-9033-ca9231cf1c40",
+                "name": "test3",
             },
         }
     ),
@@ -160,8 +160,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "name": "plex0",
             "aggregate": {
-                "name": "aggr2",
                 "uuid": "8f13de5c-99cf-4ada-884c-3cc32deb304a",
+                "name": "aggr2",
             },
         }
     ),
@@ -211,66 +211,66 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Plex(
     {
-        "resync": {"active": False},
-        "online": True,
-        "name": "plex0",
-        "state": "normal",
-        "aggregate": {"name": "test1", "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c"},
+        "pool": "pool0",
         "raid_groups": [
             {
                 "cache_tier": False,
-                "recomputing_parity": {"active": False},
+                "raid_type": "raid_dp",
+                "degraded": False,
+                "name": "rg0",
                 "disks": [
                     {
-                        "usable_size": 86769664,
-                        "state": "normal",
-                        "position": "dparity",
+                        "type": "ssd",
                         "disk": {"name": "1.1.29"},
-                        "type": "ssd",
-                    },
-                    {
+                        "position": "dparity",
                         "usable_size": 86769664,
                         "state": "normal",
-                        "position": "parity",
+                    },
+                    {
+                        "type": "ssd",
                         "disk": {"name": "1.1.4"},
-                        "type": "ssd",
-                    },
-                    {
+                        "position": "parity",
                         "usable_size": 86769664,
                         "state": "normal",
-                        "position": "data",
+                    },
+                    {
+                        "type": "ssd",
                         "disk": {"name": "1.1.30"},
-                        "type": "ssd",
-                    },
-                    {
+                        "position": "data",
                         "usable_size": 86769664,
                         "state": "normal",
-                        "position": "data",
+                    },
+                    {
+                        "type": "ssd",
                         "disk": {"name": "1.1.5"},
-                        "type": "ssd",
-                    },
-                    {
+                        "position": "data",
                         "usable_size": 86769664,
                         "state": "normal",
-                        "position": "data",
+                    },
+                    {
+                        "type": "ssd",
                         "disk": {"name": "1.1.31"},
-                        "type": "ssd",
-                    },
-                    {
+                        "position": "data",
                         "usable_size": 86769664,
                         "state": "normal",
-                        "position": "data",
-                        "disk": {"name": "1.1.6"},
+                    },
+                    {
                         "type": "ssd",
+                        "disk": {"name": "1.1.6"},
+                        "position": "data",
+                        "usable_size": 86769664,
+                        "state": "normal",
                     },
                 ],
                 "reconstruct": {"active": False},
-                "name": "rg0",
-                "degraded": False,
-                "raid_type": "raid_dp",
+                "recomputing_parity": {"active": False},
             }
         ],
-        "pool": "pool0",
+        "resync": {"active": False},
+        "name": "plex0",
+        "online": True,
+        "aggregate": {"uuid": "19425837-f2fa-4a9f-8f01-712f626c983c", "name": "test1"},
+        "state": "normal",
     }
 )
 

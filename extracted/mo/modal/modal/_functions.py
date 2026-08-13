@@ -45,7 +45,7 @@ from ._utils.async_utils import (
     synchronizer,
     warn_if_generator_is_not_consumed,
 )
-from ._utils.blob_utils import MAX_OBJECT_SIZE_BYTES
+from ._utils.blob_utils import MAX_ASYNC_OBJECT_SIZE_BYTES, MAX_OBJECT_SIZE_BYTES
 from ._utils.function_utils import (
     ATTEMPT_TIMEOUT_GRACE_PERIOD,
     OUTPUTS_TIMEOUT,
@@ -56,7 +56,9 @@ from ._utils.function_utils import (
     _stream_function_call_data,
     get_function_type,
     is_async,
+    normalize_fractional_target_concurrency,
     parse_gpu_config,
+    validate_target_concurrency,
 )
 from ._utils.grpc_utils import Retry, RetryWarningMessage
 from ._utils.mount_utils import validate_network_file_systems, validate_volumes, validate_volumes_by_object_id
@@ -93,7 +95,7 @@ from .proxy import _Proxy
 from .retries import Retries, RetryManager
 from .schedule import Schedule
 from .secret import _Secret
-from .types import FunctionStats
+from .types import FunctionAutoscalerSettings, FunctionStats, ServerAutoscalerSettings
 from .volume import _Volume, _volume_to_mount_proto
 
 if TYPE_CHECKING:
@@ -424,6 +426,7 @@ class _InputPlaneInvocation:
         client: _Client,
         input_plane_url: str,
         input_plane_region: str,
+        function_call_invocation_type: "api_pb2.FunctionCallInvocationType.ValueType",
     ) -> "_InputPlaneInvocation":
         stub = await client.get_stub(input_plane_url)
 
@@ -435,6 +438,7 @@ class _InputPlaneInvocation:
             kwargs,
             control_plane_stub,
             function=function,
+            function_call_invocation_type=function_call_invocation_type,
         )
 
         request = api_pb2.AttemptStartRequest(
@@ -636,7 +640,12 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         await self.hydrate()
         if not self._app_id:
             raise ExecutionError("app_id should have been set during function hydration")
-        return _LogQueryData(self.client, self._app_id, LogsFilters(function_id=self.object_id))
+        return _LogQueryData(
+            self.client,
+            self._app_id,
+            LogsFilters(function_id=self.object_id),
+            source_object_id=self.object_id,
+        )
 
     @property
     def logs(self) -> _FunctionLogsManager:
@@ -679,7 +688,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         scaleup_window: int | None = None,
         scaledown_window: int | None = None,
         max_concurrent_inputs: int | None = None,
-        target_concurrent_inputs: int | None = None,
+        target_concurrent_inputs: float | None = None,
         batch_max_size: int | None = None,
         batch_wait_ms: int | None = None,
         cloud: str | None = None,
@@ -786,6 +795,17 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             scaleup_window=scaleup_window,
             scaledown_window=scaledown_window,
         )
+
+        target_concurrent_inputs_int = 0
+        if target_concurrent_inputs is not None:
+            if is_server:
+                validate_target_concurrency(target_concurrent_inputs, "target_inputs", allow_fractional=True)
+                autoscaler_settings.target_concurrency_float = normalize_fractional_target_concurrency(
+                    target_concurrent_inputs
+                )
+            else:
+                validate_target_concurrency(target_concurrent_inputs, "target_inputs", allow_fractional=False)
+                target_concurrent_inputs_int = int(target_concurrent_inputs)
 
         # For clustered functions, container settings must be multiples of cluster_size
         if cluster_size is not None and cluster_size > 1:
@@ -1012,7 +1032,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
                     app_name=app_name,
                     is_builder_function=is_builder_function,
                     max_concurrent_inputs=max_concurrent_inputs or 0,
-                    target_concurrent_inputs=target_concurrent_inputs or 0,
+                    target_concurrent_inputs=target_concurrent_inputs_int,
                     batch_max_size=batch_max_size or 0,
                     batch_linger_ms=batch_wait_ms or 0,
                     worker_id=config.get("worker_id"),
@@ -1177,23 +1197,43 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         min_containers: int | None = None,
         max_containers: int | None = None,
         buffer_containers: int | None = None,
+        scaledown_window: int | None = None,
+    ) -> FunctionAutoscalerSettings:
+        settings = api_pb2.AutoscalerSettings(
+            min_containers=min_containers,
+            max_containers=max_containers,
+            buffer_containers=buffer_containers,
+            scaledown_window=scaledown_window,
+        )
+        request = api_pb2.FunctionUpdateSchedulingParamsRequest(function_id=self.object_id, settings=settings)
+        response = await self.client.stub.FunctionUpdateSchedulingParams(request)
+
+        return FunctionAutoscalerSettings._from_proto(response.current_settings)
+
+    async def _update_autoscaler_server(
+        self,
+        *,
+        min_containers: int | None = None,
+        max_containers: int | None = None,
+        buffer_containers: int | None = None,
         scaleup_window: int | None = None,
         scaledown_window: int | None = None,
-        target_concurrency: int | None = None,
-    ) -> None:
+        target_concurrency: float | None = None,
+    ) -> ServerAutoscalerSettings:
         settings = api_pb2.AutoscalerSettings(
             min_containers=min_containers,
             max_containers=max_containers,
             buffer_containers=buffer_containers,
             scaleup_window=scaleup_window,
             scaledown_window=scaledown_window,
-            target_concurrency=target_concurrency,
         )
+        if target_concurrency is not None:
+            validate_target_concurrency(target_concurrency, "target_concurrency", allow_fractional=True)
+            settings.target_concurrency_float = normalize_fractional_target_concurrency(target_concurrency)
         request = api_pb2.FunctionUpdateSchedulingParamsRequest(function_id=self.object_id, settings=settings)
-        await self.client.stub.FunctionUpdateSchedulingParams(request)
+        response = await self.client.stub.FunctionUpdateSchedulingParams(request)
 
-        # One idea would be for FunctionUpdateScheduleParams to return the current (coalesced) settings
-        # and then we could return them here (would need some ad hoc dataclass, which I don't love)
+        return ServerAutoscalerSettings._from_proto(response.current_settings)
 
     @live_method
     async def update_autoscaler(
@@ -1203,7 +1243,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         max_containers: int | None = None,
         buffer_containers: int | None = None,
         scaledown_window: int | None = None,
-    ) -> None:
+    ) -> FunctionAutoscalerSettings:
         """Override the current autoscaler behavior for this Function.
 
         Unspecified parameters will retain their current value, i.e. either the static value
@@ -1217,6 +1257,10 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             max_containers: Maximum concurrent containers.
             buffer_containers: Extra containers to keep warm beyond current demand.
             scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
+
+        Returns:
+            A `FunctionAutoscalerSettings` dataclass which contains the current autoscaler settings
+            of this Function after the call.
 
         Examples:
             ```python notest
@@ -1237,7 +1281,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         if self._is_method:
             raise InvalidError("Cannot call .update_autoscaler() on a method. Call it on the class instance instead.")
 
-        await self._update_autoscaler(
+        return await self._update_autoscaler(
             min_containers=min_containers,
             max_containers=max_containers,
             buffer_containers=buffer_containers,
@@ -1427,6 +1471,11 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         self._max_object_size_bytes = (
             metadata.max_object_size_bytes if metadata.HasField("max_object_size_bytes") else MAX_OBJECT_SIZE_BYTES
         )
+        self._max_async_object_size_bytes = (
+            metadata.max_async_object_size_bytes
+            if metadata.HasField("max_async_object_size_bytes")
+            else MAX_ASYNC_OBJECT_SIZE_BYTES
+        )
         self._experimental_flash_urls = metadata._experimental_flash_urls
         self._app_id = metadata.app_id or None
 
@@ -1451,6 +1500,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             input_plane_url=self._input_plane_url,
             input_plane_region=self._input_plane_region,
             max_object_size_bytes=self._max_object_size_bytes,
+            max_async_object_size_bytes=self._max_async_object_size_bytes,
             _experimental_flash_urls=self._experimental_flash_urls,
             supported_input_formats=self._metadata.supported_input_formats if self._metadata else [],
             supported_output_formats=self._metadata.supported_output_formats if self._metadata else [],
@@ -1714,6 +1764,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
                 client=self.client,
                 input_plane_url=self._input_plane_url,
                 input_plane_region=self._input_plane_region,
+                function_call_invocation_type=api_pb2.FUNCTION_CALL_INVOCATION_TYPE_SYNC,
             )
         else:
             invocation = await _Invocation.create(
@@ -1755,6 +1806,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
                 client=self.client,
                 input_plane_url=self._input_plane_url,
                 input_plane_region=self._input_plane_region,
+                function_call_invocation_type=api_pb2.FUNCTION_CALL_INVOCATION_TYPE_SYNC_LEGACY,
             )
         else:
             invocation = await _Invocation.create(
@@ -2030,7 +2082,12 @@ class _FunctionCall(typing.Generic[ReturnType], _Object, type_prefix="fc"):
             await self._hydrate_from_id_metadata()
         if not self._app_id:
             raise ExecutionError("app_id should have been set during function call hydration")
-        return _LogQueryData(self.client, self._app_id, LogsFilters(function_call_id=self.object_id))
+        return _LogQueryData(
+            self.client,
+            self._app_id,
+            LogsFilters(function_call_id=self.object_id),
+            source_object_id=self.object_id,
+        )
 
     @property
     def logs(self) -> _FunctionCallLogsManager:

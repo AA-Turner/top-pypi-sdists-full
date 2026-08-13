@@ -5,20 +5,40 @@ from collections import Counter
 from itertools import chain
 from typing import Any, Literal, cast
 
-import lightning as pl
 import numpy as np
 import torch
 from tokenizers import Tokenizer
+from torch import nn
 from tqdm import trange
 
 from model2vec.inference import evaluate_single_or_multi_label
 from model2vec.train.base import BaseFinetuneable
-from model2vec.train.lightning_modules import ClassifierLightningModule, MultiLabelClassifierLightningModule
-from model2vec.train.utils import _DEFAULT_RANDOM_SEED
+from model2vec.train.utils import DEFAULT_RANDOM_SEED, seed_everything
 
 logger = logging.getLogger(__name__)
 
 LabelType = list[str] | list[list[str]]
+
+
+def _classifier_metrics(head_out: torch.Tensor, y: torch.Tensor, loss: torch.Tensor) -> dict[str, float]:
+    """Validation metrics for single-label classification: loss and accuracy."""
+    accuracy = (head_out.argmax(dim=1) == y).float().mean()
+    return {"val_loss": loss.item(), "val_accuracy": accuracy.item()}
+
+
+def _compute_accuracy(y_true: torch.Tensor, y_pred: torch.Tensor) -> float:
+    """Compute the multilabel accuracy score, averaged over samples."""
+    intersection = (y_true * y_pred).sum(dim=1)
+    union = ((y_true + y_pred) > 0).float().sum(dim=1)
+    scores = torch.where(union > 0, intersection / union, torch.zeros_like(union))
+    return scores.mean().item()
+
+
+def _multilabel_classifier_metrics(head_out: torch.Tensor, y: torch.Tensor, loss: torch.Tensor) -> dict[str, float]:
+    """Validation metrics for multi-label classification: loss and Jaccard accuracy."""
+    preds = (torch.sigmoid(head_out) > 0.5).float()
+    accuracy = _compute_accuracy(y, preds)
+    return {"val_loss": loss.item(), "val_accuracy": accuracy}
 
 
 class StaticModelForClassification(BaseFinetuneable):
@@ -123,11 +143,11 @@ class StaticModelForClassification(BaseFinetuneable):
         y_val: LabelType | None = None,
         class_weight: Literal["balanced"] | dict[str, float] | torch.Tensor | None = None,
         validation_steps: int | None = None,
-        random_seed: int = _DEFAULT_RANDOM_SEED,
+        random_seed: int = DEFAULT_RANDOM_SEED,
     ) -> StaticModelForClassification:
         """Fit a model.
 
-        This function creates a Lightning Trainer object and fits the model to the data.
+        This function trains the model with a plain torch training loop.
         It supports both single-label and multi-label classification.
         We use early stopping. After training, the weights of the best model are loaded back into the model.
 
@@ -157,7 +177,7 @@ class StaticModelForClassification(BaseFinetuneable):
         :return: The fitted model.
         :raises ValueError: If either X_val or y_val are provided, but not both.
         """
-        pl.seed_everything(random_seed)
+        seed_everything(random_seed)
         logger.info("Re-initializing model.")
 
         # Determine whether the task is multilabel based on the type of y.
@@ -177,16 +197,16 @@ class StaticModelForClassification(BaseFinetuneable):
         train_dataset, val_dataset = self._create_datasets(X, y, X_val, y_val, test_size)
         batch_size = self._determine_batch_size(batch_size, len(train_dataset))
 
-        c: pl.LightningModule
         if self.multilabel:
-            c = MultiLabelClassifierLightningModule(
-                self, learning_rate=learning_rate, class_weight=resolved_class_weight
-            )
+            loss_function: nn.Module = nn.BCEWithLogitsLoss(pos_weight=resolved_class_weight)
+            compute_metrics = _multilabel_classifier_metrics
         else:
-            c = ClassifierLightningModule(self, learning_rate=learning_rate, class_weight=resolved_class_weight)
+            loss_function = nn.CrossEntropyLoss(weight=resolved_class_weight)
+            compute_metrics = _classifier_metrics
 
         self._train(
-            module=c,
+            loss_function=loss_function,
+            learning_rate=learning_rate,
             train_dataset=train_dataset,
             val_dataset=val_dataset,
             batch_size=batch_size,
@@ -195,6 +215,7 @@ class StaticModelForClassification(BaseFinetuneable):
             max_epochs=max_epochs,
             device=device,
             validation_steps=validation_steps,
+            compute_metrics=compute_metrics,
         )
 
         return self
@@ -219,22 +240,19 @@ class StaticModelForClassification(BaseFinetuneable):
         return torch.tensor(weights, dtype=torch.float32)
 
     def evaluate(
-        self, X: list[str], y: LabelType, batch_size: int = 1024, threshold: float = 0.5, output_dict: bool = False
-    ) -> str | dict[str, dict[str, float]]:
-        """Evaluate the classifier on a given dataset using scikit-learn's classification report.
+        self, X: list[str], y: LabelType, batch_size: int = 1024, threshold: float = 0.5
+    ) -> dict[str, dict[str, float]]:
+        """Evaluate the classifier on a given dataset.
 
         :param X: The texts to predict on.
         :param y: The ground truth labels.
         :param batch_size: The batch size.
         :param threshold: The threshold for multilabel classification.
-        :param output_dict: Whether to output the classification report as a dictionary.
-        :return: A classification report.
+        :return: A classification report, as a dictionary.
         """
         self.eval()
         predictions = self.predict(X, show_progress_bar=True, batch_size=batch_size, threshold=threshold)
-        report = evaluate_single_or_multi_label(predictions=predictions, y=y, output_dict=output_dict)
-
-        return report
+        return evaluate_single_or_multi_label(predictions=predictions, y=y)
 
     def _initialize_on_labels(self, y: LabelType) -> None:
         """Sets the output dimensionality, the classes, and initializes the head.

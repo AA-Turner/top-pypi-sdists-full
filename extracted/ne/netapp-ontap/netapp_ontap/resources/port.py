@@ -30,122 +30,122 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Port(
         {
-            "name": "e0a",
+            "uuid": "2d2c90c0-f70d-11e8-b145-005056bb5b8e",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/ports/2d2c90c0-f70d-11e8-b145-005056bb5b8e"
                 }
             },
             "type": "physical",
-            "uuid": "2d2c90c0-f70d-11e8-b145-005056bb5b8e",
+            "name": "e0a",
         }
     ),
     Port(
         {
-            "name": "e0b",
+            "uuid": "2d3004da-f70d-11e8-b145-005056bb5b8e",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/ports/2d3004da-f70d-11e8-b145-005056bb5b8e"
                 }
             },
             "type": "physical",
-            "uuid": "2d3004da-f70d-11e8-b145-005056bb5b8e",
+            "name": "e0b",
         }
     ),
     Port(
         {
-            "name": "e0c",
+            "uuid": "2d34a2cb-f70d-11e8-b145-005056bb5b8e",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/ports/2d34a2cb-f70d-11e8-b145-005056bb5b8e"
                 }
             },
             "type": "physical",
-            "uuid": "2d34a2cb-f70d-11e8-b145-005056bb5b8e",
+            "name": "e0c",
         }
     ),
     Port(
         {
-            "name": "e0d",
+            "uuid": "2d37189f-f70d-11e8-b145-005056bb5b8e",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/ports/2d37189f-f70d-11e8-b145-005056bb5b8e"
                 }
             },
             "type": "physical",
-            "uuid": "2d37189f-f70d-11e8-b145-005056bb5b8e",
+            "name": "e0d",
         }
     ),
     Port(
         {
-            "name": "e0a",
+            "uuid": "35de5d8b-f70d-11e8-abdf-005056bb7fc8",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/ports/35de5d8b-f70d-11e8-abdf-005056bb7fc8"
                 }
             },
             "type": "physical",
-            "uuid": "35de5d8b-f70d-11e8-abdf-005056bb7fc8",
+            "name": "e0a",
         }
     ),
     Port(
         {
-            "name": "e0b",
+            "uuid": "35de78cc-f70d-11e8-abdf-005056bb7fc8",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/ports/35de78cc-f70d-11e8-abdf-005056bb7fc8"
                 }
             },
             "type": "physical",
-            "uuid": "35de78cc-f70d-11e8-abdf-005056bb7fc8",
+            "name": "e0b",
         }
     ),
     Port(
         {
-            "name": "e0c",
+            "uuid": "35dead3c-f70d-11e8-abdf-005056bb7fc8",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/ports/35dead3c-f70d-11e8-abdf-005056bb7fc8"
                 }
             },
             "type": "physical",
-            "uuid": "35dead3c-f70d-11e8-abdf-005056bb7fc8",
+            "name": "e0c",
         }
     ),
     Port(
         {
-            "name": "e0d",
+            "uuid": "35deda90-f70d-11e8-abdf-005056bb7fc8",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/ports/35deda90-f70d-11e8-abdf-005056bb7fc8"
                 }
             },
             "type": "physical",
-            "uuid": "35deda90-f70d-11e8-abdf-005056bb7fc8",
+            "name": "e0d",
         }
     ),
     Port(
         {
-            "name": "e0c-100",
+            "uuid": "42e25145-f97d-11e8-ade9-005056bb7fc8",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/ports/42e25145-f97d-11e8-ade9-005056bb7fc8"
                 }
             },
             "type": "vlan",
-            "uuid": "42e25145-f97d-11e8-ade9-005056bb7fc8",
+            "name": "e0c-100",
         }
     ),
     Port(
         {
-            "name": "a0a",
+            "uuid": "569e0abd-f97d-11e8-ade9-005056bb7fc8",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/ports/569e0abd-f97d-11e8-ade9-005056bb7fc8"
                 }
             },
             "type": "lag",
-            "uuid": "569e0abd-f97d-11e8-ade9-005056bb7fc8",
+            "name": "a0a",
         }
     ),
 ]
@@ -176,61 +176,61 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Port(
     {
-        "name": "e0d",
-        "broadcast_domain": {
-            "_links": {
-                "self": {
-                    "href": "/api/network/ethernet/broadcast-domains/36434bec-f70d-11e8-b145-005056bb5b8e"
-                }
-            },
-            "name": "Default",
-            "ipspace": {"name": "Default"},
-            "uuid": "36434bec-f70d-11e8-b145-005056bb5b8e",
-        },
-        "node": {
-            "name": "user-cluster-01",
-            "_links": {
-                "self": {
-                    "href": "/api/cluster/nodes/faa56898-f70c-11e8-b145-005056bb5b8e"
-                }
-            },
-            "uuid": "faa56898-f70c-11e8-b145-005056bb5b8e",
-        },
         "mac_address": "00:50:56:bb:62:2d",
-        "speed": 1000,
+        "uuid": "2d37189f-f70d-11e8-b145-005056bb5b8e",
+        "mtu": 1500,
         "enabled": True,
+        "speed": 1000,
         "_links": {
             "self": {
                 "href": "/api/network/ethernet/ports/2d37189f-f70d-11e8-b145-005056bb5b8e"
             }
         },
-        "state": "up",
+        "node": {
+            "uuid": "faa56898-f70c-11e8-b145-005056bb5b8e",
+            "_links": {
+                "self": {
+                    "href": "/api/cluster/nodes/faa56898-f70c-11e8-b145-005056bb5b8e"
+                }
+            },
+            "name": "user-cluster-01",
+        },
         "type": "physical",
-        "uuid": "2d37189f-f70d-11e8-b145-005056bb5b8e",
-        "reachability": "not_repairable",
-        "mtu": 1500,
+        "broadcast_domain": {
+            "uuid": "36434bec-f70d-11e8-b145-005056bb5b8e",
+            "name": "Default",
+            "_links": {
+                "self": {
+                    "href": "/api/network/ethernet/broadcast-domains/36434bec-f70d-11e8-b145-005056bb5b8e"
+                }
+            },
+            "ipspace": {"name": "Default"},
+        },
         "reachable_broadcast_domains": [
             {
+                "uuid": "36434bec-f70d-11e8-b145-005056bb5b8e",
+                "name": "Default",
                 "_links": {
                     "self": {
                         "href": "/api/network/ethernet/broadcast-domains/36434bec-f70d-11e8-b145-005056bb5b8e"
                     }
                 },
-                "name": "Default",
                 "ipspace": {"name": "Default"},
-                "uuid": "36434bec-f70d-11e8-b145-005056bb5b8e",
             },
             {
+                "uuid": "df640ccf-72c4-11ea-b31d-005056bbfb29",
+                "name": "Default-1",
                 "_links": {
                     "self": {
                         "href": "/api/network/ethernet/broadcast-domains/df640ccf-72c4-11ea-b31d-005056bbfb29"
                     }
                 },
-                "name": "Default-1",
                 "ipspace": {"name": "Default"},
-                "uuid": "df640ccf-72c4-11ea-b31d-005056bbfb29",
             },
         ],
+        "state": "up",
+        "reachability": "not_repairable",
+        "name": "e0d",
     }
 )
 
@@ -260,64 +260,64 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Port(
     {
+        "mac_address": "00:50:56:bb:52:2f",
+        "uuid": "42e25145-f97d-11e8-ade9-005056bb7fc8",
+        "mtu": 1500,
+        "enabled": True,
         "vlan": {
+            "tag": 100,
             "base_port": {
-                "name": "e0e",
-                "node": {"name": "user-cluster-02"},
+                "uuid": "35deff03-f70d-11e8-abdf-005056bb7fc8",
                 "_links": {
                     "self": {
                         "href": "/api/network/ethernet/ports/35deff03-f70d-11e8-abdf-005056bb7fc8"
                     }
                 },
-                "uuid": "35deff03-f70d-11e8-abdf-005056bb7fc8",
+                "node": {"name": "user-cluster-02"},
+                "name": "e0e",
             },
-            "tag": 100,
         },
-        "name": "e0e-100",
-        "broadcast_domain": {
-            "_links": {
-                "self": {
-                    "href": "/api/network/ethernet/broadcast-domains/36434bec-f70d-11e8-b145-005056bb5b8e"
-                }
-            },
-            "name": "Default",
-            "ipspace": {"name": "Default"},
-            "uuid": "36434bec-f70d-11e8-b145-005056bb5b8e",
-        },
-        "node": {
-            "name": "user-cluster-02",
-            "_links": {
-                "self": {
-                    "href": "/api/cluster/nodes/6042cf47-f70c-11e8-abdf-005056bb7fc8"
-                }
-            },
-            "uuid": "6042cf47-f70c-11e8-abdf-005056bb7fc8",
-        },
-        "mac_address": "00:50:56:bb:52:2f",
         "speed": 0,
-        "enabled": True,
         "_links": {
             "self": {
                 "href": "/api/network/ethernet/ports/42e25145-f97d-11e8-ade9-005056bb7fc8"
             }
         },
-        "state": "up",
+        "node": {
+            "uuid": "6042cf47-f70c-11e8-abdf-005056bb7fc8",
+            "_links": {
+                "self": {
+                    "href": "/api/cluster/nodes/6042cf47-f70c-11e8-abdf-005056bb7fc8"
+                }
+            },
+            "name": "user-cluster-02",
+        },
         "type": "vlan",
-        "uuid": "42e25145-f97d-11e8-ade9-005056bb7fc8",
-        "reachability": "ok",
-        "mtu": 1500,
+        "broadcast_domain": {
+            "uuid": "36434bec-f70d-11e8-b145-005056bb5b8e",
+            "name": "Default",
+            "_links": {
+                "self": {
+                    "href": "/api/network/ethernet/broadcast-domains/36434bec-f70d-11e8-b145-005056bb5b8e"
+                }
+            },
+            "ipspace": {"name": "Default"},
+        },
         "reachable_broadcast_domains": [
             {
+                "uuid": "36434bec-f70d-11e8-b145-005056bb5b8e",
+                "name": "Default",
                 "_links": {
                     "self": {
                         "href": "/api/network/ethernet/broadcast-domains/36434bec-f70d-11e8-b145-005056bb5b8e"
                     }
                 },
-                "name": "Default",
                 "ipspace": {"name": "Default"},
-                "uuid": "36434bec-f70d-11e8-b145-005056bb5b8e",
             }
         ],
+        "state": "up",
+        "reachability": "ok",
+        "name": "e0e-100",
     }
 )
 
@@ -347,98 +347,98 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Port(
     {
-        "name": "a0a",
-        "broadcast_domain": {
-            "_links": {
-                "self": {
-                    "href": "/api/network/ethernet/broadcast-domains/36434bec-f70d-11e8-b145-005056bb5b8e"
-                }
-            },
-            "name": "Default",
-            "ipspace": {"name": "Default"},
-            "uuid": "36434bec-f70d-11e8-b145-005056bb5b8e",
-        },
-        "node": {
-            "name": "user-cluster-02",
-            "_links": {
-                "self": {
-                    "href": "/api/cluster/nodes/6042cf47-f70c-11e8-abdf-005056bb7fc8"
-                }
-            },
-            "uuid": "6042cf47-f70c-11e8-abdf-005056bb7fc8",
-        },
-        "mac_address": "02:50:56:bb:7f:c8",
-        "speed": 0,
-        "enabled": True,
-        "_links": {
-            "self": {
-                "href": "/api/network/ethernet/ports/569e0abd-f97d-11e8-ade9-005056bb7fc8"
-            }
-        },
-        "state": "up",
-        "type": "lag",
-        "uuid": "569e0abd-f97d-11e8-ade9-005056bb7fc8",
         "lag": {
             "mode": "singlemode",
             "member_ports": [
                 {
-                    "name": "e0f",
-                    "node": {"name": "user-cluster-02"},
+                    "uuid": "35df318d-f70d-11e8-abdf-005056bb7fc8",
                     "_links": {
                         "self": {
                             "href": "/api/network/ethernet/ports/35df318d-f70d-11e8-abdf-005056bb7fc8"
                         }
                     },
-                    "uuid": "35df318d-f70d-11e8-abdf-005056bb7fc8",
+                    "node": {"name": "user-cluster-02"},
+                    "name": "e0f",
                 },
                 {
-                    "name": "e0g",
-                    "node": {"name": "user-cluster-02"},
+                    "uuid": "35df5bad-f70d-11e8-abdf-005056bb7fc8",
                     "_links": {
                         "self": {
                             "href": "/api/network/ethernet/ports/35df5bad-f70d-11e8-abdf-005056bb7fc8"
                         }
                     },
-                    "uuid": "35df5bad-f70d-11e8-abdf-005056bb7fc8",
+                    "node": {"name": "user-cluster-02"},
+                    "name": "e0g",
                 },
                 {
-                    "name": "e0h",
-                    "node": {"name": "user-cluster-02"},
+                    "uuid": "35df9926-f70d-11e8-abdf-005056bb7fc8",
                     "_links": {
                         "self": {
                             "href": "/api/network/ethernet/ports/35df9926-f70d-11e8-abdf-005056bb7fc8"
                         }
                     },
-                    "uuid": "35df9926-f70d-11e8-abdf-005056bb7fc8",
+                    "node": {"name": "user-cluster-02"},
+                    "name": "e0h",
                 },
             ],
             "distribution_policy": "mac",
             "active_ports": [
                 {
-                    "name": "e0f",
+                    "uuid": "35df318d-f70d-11e8-abdf-005056bb7fc8",
                     "_links": {
                         "self": {
                             "href": "/api/network/ethernet/ports/35df318d-f70d-11e8-abdf-005056bb7fc8"
                         }
                     },
-                    "uuid": "35df318d-f70d-11e8-abdf-005056bb7fc8",
+                    "name": "e0f",
                 }
             ],
         },
-        "reachability": "repairable",
+        "mac_address": "02:50:56:bb:7f:c8",
+        "uuid": "569e0abd-f97d-11e8-ade9-005056bb7fc8",
         "mtu": 1500,
+        "enabled": True,
+        "speed": 0,
+        "_links": {
+            "self": {
+                "href": "/api/network/ethernet/ports/569e0abd-f97d-11e8-ade9-005056bb7fc8"
+            }
+        },
+        "node": {
+            "uuid": "6042cf47-f70c-11e8-abdf-005056bb7fc8",
+            "_links": {
+                "self": {
+                    "href": "/api/cluster/nodes/6042cf47-f70c-11e8-abdf-005056bb7fc8"
+                }
+            },
+            "name": "user-cluster-02",
+        },
+        "type": "lag",
+        "broadcast_domain": {
+            "uuid": "36434bec-f70d-11e8-b145-005056bb5b8e",
+            "name": "Default",
+            "_links": {
+                "self": {
+                    "href": "/api/network/ethernet/broadcast-domains/36434bec-f70d-11e8-b145-005056bb5b8e"
+                }
+            },
+            "ipspace": {"name": "Default"},
+        },
         "reachable_broadcast_domains": [
             {
+                "uuid": "c7934b4f-691f-11ea-87fd-005056bb1ad3",
+                "name": "Default",
                 "_links": {
                     "self": {
                         "href": "/api/network/ethernet/broadcast-domains/c7934b4f-691f-11ea-87fd-005056bb1ad3"
                     }
                 },
-                "name": "Default",
                 "ipspace": {"name": "Default"},
-                "uuid": "c7934b4f-691f-11ea-87fd-005056bb1ad3",
             }
         ],
+        "state": "up",
+        "reachability": "repairable",
+        "name": "a0a",
     }
 )
 
@@ -475,34 +475,34 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Port(
         {
-            "name": "a0b",
-            "node": {"name": "user-cluster-01"},
-            "speed": 0,
+            "uuid": "0c226db0-4b63-11e9-8113-005056bbe040",
+            "mtu": 1500,
             "enabled": True,
+            "speed": 0,
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/ports/0c226db0-4b63-11e9-8113-005056bbe040"
                 }
             },
+            "node": {"name": "user-cluster-01"},
             "type": "lag",
-            "uuid": "0c226db0-4b63-11e9-8113-005056bbe040",
-            "mtu": 1500,
+            "name": "a0b",
         }
     ),
     Port(
         {
-            "name": "a0a",
-            "node": {"name": "user-cluster-01"},
-            "speed": 0,
+            "uuid": "d3a84153-4b3f-11e9-a00d-005056bbe040",
+            "mtu": 1500,
             "enabled": True,
+            "speed": 0,
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/ports/d3a84153-4b3f-11e9-a00d-005056bbe040"
                 }
             },
+            "node": {"name": "user-cluster-01"},
             "type": "lag",
-            "uuid": "d3a84153-4b3f-11e9-a00d-005056bbe040",
-            "mtu": 1500,
+            "name": "a0a",
         }
     ),
 ]
@@ -545,36 +545,36 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Port(
     {
+        "uuid": "88b2f682-fa42-11e8-a6d7-005056bb5b8e",
+        "enabled": True,
         "vlan": {
+            "tag": 100,
             "base_port": {
-                "name": "e0e",
-                "node": {"name": "user-cluster-01"},
+                "uuid": "2d39df72-f70d-11e8-b145-005056bb5b8e",
                 "_links": {
                     "self": {
                         "href": "/api/network/ethernet/ports/2d39df72-f70d-11e8-b145-005056bb5b8e"
                     }
                 },
-                "uuid": "2d39df72-f70d-11e8-b145-005056bb5b8e",
+                "node": {"name": "user-cluster-01"},
+                "name": "e0e",
             },
-            "tag": 100,
         },
-        "node": {
-            "name": "user-cluster-01",
-            "_links": {
-                "self": {
-                    "href": "/api/cluster/nodes/faa56898-f70c-11e8-b145-005056bb5b8e"
-                }
-            },
-            "uuid": "faa56898-f70c-11e8-b145-005056bb5b8e",
-        },
-        "enabled": True,
         "_links": {
             "self": {
                 "href": "/api/network/ethernet/ports/88b2f682-fa42-11e8-a6d7-005056bb5b8e"
             }
         },
+        "node": {
+            "uuid": "faa56898-f70c-11e8-b145-005056bb5b8e",
+            "_links": {
+                "self": {
+                    "href": "/api/cluster/nodes/faa56898-f70c-11e8-b145-005056bb5b8e"
+                }
+            },
+            "name": "user-cluster-01",
+        },
         "type": "vlan",
-        "uuid": "88b2f682-fa42-11e8-a6d7-005056bb5b8e",
     }
 )
 
@@ -612,46 +612,46 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Port(
     {
+        "uuid": "88b2f682-fa42-11e8-a6d7-005056bb5b8e",
+        "enabled": True,
         "vlan": {
+            "tag": 100,
             "base_port": {
-                "name": "e0e",
-                "node": {"name": "user-cluster-01"},
+                "uuid": "2d39df72-f70d-11e8-b145-005056bb5b8e",
                 "_links": {
                     "self": {
                         "href": "/api/network/ethernet/ports/2d39df72-f70d-11e8-b145-005056bb5b8e"
                     }
                 },
-                "uuid": "2d39df72-f70d-11e8-b145-005056bb5b8e",
+                "node": {"name": "user-cluster-01"},
+                "name": "e0e",
             },
-            "tag": 100,
         },
-        "broadcast_domain": {
-            "_links": {
-                "self": {
-                    "href": "/api/network/ethernet/broadcast-domains/36434bec-f70d-11e8-b145-005056bb5b8e"
-                }
-            },
-            "name": "Default",
-            "ipspace": {"name": "Default"},
-            "uuid": "36434bec-f70d-11e8-b145-005056bb5b8e",
-        },
-        "node": {
-            "name": "user-cluster-01",
-            "_links": {
-                "self": {
-                    "href": "/api/cluster/nodes/faa56898-f70c-11e8-b145-005056bb5b8e"
-                }
-            },
-            "uuid": "faa56898-f70c-11e8-b145-005056bb5b8e",
-        },
-        "enabled": True,
         "_links": {
             "self": {
                 "href": "/api/network/ethernet/ports/88b2f682-fa42-11e8-a6d7-005056bb5b8e"
             }
         },
+        "node": {
+            "uuid": "faa56898-f70c-11e8-b145-005056bb5b8e",
+            "_links": {
+                "self": {
+                    "href": "/api/cluster/nodes/faa56898-f70c-11e8-b145-005056bb5b8e"
+                }
+            },
+            "name": "user-cluster-01",
+        },
         "type": "vlan",
-        "uuid": "88b2f682-fa42-11e8-a6d7-005056bb5b8e",
+        "broadcast_domain": {
+            "uuid": "36434bec-f70d-11e8-b145-005056bb5b8e",
+            "name": "Default",
+            "_links": {
+                "self": {
+                    "href": "/api/network/ethernet/broadcast-domains/36434bec-f70d-11e8-b145-005056bb5b8e"
+                }
+            },
+            "ipspace": {"name": "Default"},
+        },
     }
 )
 
@@ -693,34 +693,34 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Port(
     {
-        "node": {
-            "name": "user-cluster-01",
-            "uuid": "faa56898-f70c-11e8-b145-005056bb5b8e",
-        },
-        "enabled": True,
-        "type": "lag",
-        "uuid": "1807772a-fa4d-11e8-a6d7-005056bb5b8e",
         "lag": {
             "mode": "singlemode",
             "member_ports": [
                 {
-                    "name": "e0f",
-                    "node": {"name": "user-cluster-01"},
                     "uuid": "2d3c9adc-f70d-11e8-b145-005056bb5b8e",
+                    "node": {"name": "user-cluster-01"},
+                    "name": "e0f",
                 },
                 {
-                    "name": "e0g",
-                    "node": {"name": "user-cluster-01"},
                     "uuid": "2d40b097-f70d-11e8-b145-005056bb5b8e",
+                    "node": {"name": "user-cluster-01"},
+                    "name": "e0g",
                 },
                 {
-                    "name": "e0h",
-                    "node": {"name": "user-cluster-01"},
                     "uuid": "2d46d01e-f70d-11e8-b145-005056bb5b8e",
+                    "node": {"name": "user-cluster-01"},
+                    "name": "e0h",
                 },
             ],
             "distribution_policy": "mac",
         },
+        "uuid": "1807772a-fa4d-11e8-a6d7-005056bb5b8e",
+        "enabled": True,
+        "node": {
+            "uuid": "faa56898-f70c-11e8-b145-005056bb5b8e",
+            "name": "user-cluster-01",
+        },
+        "type": "lag",
     }
 )
 
@@ -763,38 +763,38 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Port(
     {
-        "broadcast_domain": {
-            "name": "Default",
-            "ipspace": {"name": "Default"},
-            "uuid": "36434bec-f70d-11e8-b145-005056bb5b8e",
-        },
-        "node": {
-            "name": "user-cluster-01",
-            "uuid": "faa56898-f70c-11e8-b145-005056bb5b8e",
-        },
-        "enabled": True,
-        "type": "lag",
-        "uuid": "1807772a-fa4d-11e8-a6d7-005056bb5b8e",
         "lag": {
             "mode": "singlemode",
             "member_ports": [
                 {
-                    "name": "e0f",
-                    "node": {"name": "user-cluster-01"},
                     "uuid": "2d3c9adc-f70d-11e8-b145-005056bb5b8e",
+                    "node": {"name": "user-cluster-01"},
+                    "name": "e0f",
                 },
                 {
-                    "name": "e0g",
-                    "node": {"name": "user-cluster-01"},
                     "uuid": "2d40b097-f70d-11e8-b145-005056bb5b8e",
+                    "node": {"name": "user-cluster-01"},
+                    "name": "e0g",
                 },
                 {
-                    "name": "e0h",
-                    "node": {"name": "user-cluster-01"},
                     "uuid": "2d46d01e-f70d-11e8-b145-005056bb5b8e",
+                    "node": {"name": "user-cluster-01"},
+                    "name": "e0h",
                 },
             ],
             "distribution_policy": "mac",
+        },
+        "uuid": "1807772a-fa4d-11e8-a6d7-005056bb5b8e",
+        "enabled": True,
+        "node": {
+            "uuid": "faa56898-f70c-11e8-b145-005056bb5b8e",
+            "name": "user-cluster-01",
+        },
+        "type": "lag",
+        "broadcast_domain": {
+            "uuid": "36434bec-f70d-11e8-b145-005056bb5b8e",
+            "name": "Default",
+            "ipspace": {"name": "Default"},
         },
     }
 )

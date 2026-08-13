@@ -25,22 +25,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     WebauthnCredentials(
         {
-            "relying_party": {"name": "ontap1.example.com", "id": "ontap1.example.com"},
-            "_links": {
-                "self": {
-                    "href": "/api/security/webauthn/credentials/389758ee-40cd-11ef-bb21-005056aeae31/user_1/0/ontap1.example.com"
-                }
-            },
-            "index": 0,
-            "username": "user_1",
             "owner": {
+                "uuid": "389758ee-40cd-11ef-bb21-005056aeae31",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/389758ee-40cd-11ef-bb21-005056aeae31"
                     }
                 },
-                "uuid": "389758ee-40cd-11ef-bb21-005056aeae31",
             },
+            "_links": {
+                "self": {
+                    "href": "/api/security/webauthn/credentials/389758ee-40cd-11ef-bb21-005056aeae31/user_1/0/ontap1.example.com"
+                }
+            },
+            "username": "user_1",
+            "index": 0,
+            "relying_party": {"id": "ontap1.example.com", "name": "ontap1.example.com"},
         }
     )
 ]

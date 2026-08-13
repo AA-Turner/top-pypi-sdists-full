@@ -27,9 +27,9 @@ module:
 
 The orchestration helper ``terminate_subtree_with_grace`` ties those
 together: SIGTERM the group → wait the grace window → SIGKILL the
-group on POSIX; ``taskkill`` with a single-shot kill fallback on
-Windows. That's the shape ``FirmwareController._terminate_job_process``
-needs.
+group on POSIX; ``taskkill`` sweep → ``TerminateJobObject`` →
+single-shot kill on Windows. That's the shape
+``FirmwareController._terminate_job_process`` needs.
 
 POSIX vs Windows asymmetry is deliberate: the POSIX path has a
 graceful SIGTERM stage because well-behaved tools (``esptool``,
@@ -46,8 +46,12 @@ import logging
 import os
 import signal
 import sys
+from typing import TYPE_CHECKING
 
 from .subprocess import create_subprocess_exec, kill_quietly
+
+if TYPE_CHECKING:
+    from .windows_job_object import WindowsJobObject
 
 __all__ = [
     "kill_quietly",
@@ -115,8 +119,8 @@ async def _terminate_subtree_windows(pid: int) -> bool:
 
     Returns False (and logs a warning) when ``taskkill`` is missing,
     times out, or exits non-zero (access denied, invalid pid, partial
-    failure). The caller should fall back to ``proc.kill()`` so the
-    parent at least dies even when the tree-walk fails.
+    failure); the chain then leans on the job object, with
+    ``proc.kill()`` as the last resort.
     """
     try:
         killer = await create_subprocess_exec(
@@ -139,7 +143,7 @@ async def _terminate_subtree_windows(pid: int) -> bool:
         return False
     if killer.returncode != 0:
         _LOGGER.warning(
-            "taskkill exited %s for pid %d — caller should fall back to proc.kill()",
+            "taskkill exited %s for pid %d — falling through to the job object",
             killer.returncode,
             pid,
         )
@@ -152,6 +156,7 @@ async def terminate_subtree_with_grace(
     *,
     grace_seconds: float = _TERMINATE_GRACE_SECONDS,
     job_label: str = "subprocess",
+    win_job: WindowsJobObject | None = None,
 ) -> None:
     """
     Bring down *proc* and its descendants, gracefully if possible.
@@ -162,12 +167,11 @@ async def terminate_subtree_with_grace(
     group exists to signal — without that, only the direct child
     receives the signal and the compiler grandchildren orphan.
 
-    Windows: ``taskkill /F /T`` to walk the kernel's parent-child
-    accounting and force-kill the subtree. There's no graceful
-    stage on Windows because the compile chain ignores polite
-    signals; if ``taskkill`` is missing or hangs, fall back to
-    ``proc.kill()`` so the direct child at least dies and the
-    runner loop can finalise the job.
+    Windows: ``taskkill /F /T`` sweeps the PID tree first, then
+    ``TerminateJobObject`` on *win_job* atomically kills every job
+    member, then ``proc.kill()`` so the direct child at least dies.
+    There's no graceful stage on Windows because the compile chain
+    ignores polite signals.
 
     No-op when *proc* has already exited. *job_label* is used in
     the warning log if the SIGTERM grace window expires (POSIX only).
@@ -175,7 +179,13 @@ async def terminate_subtree_with_grace(
     if proc.returncode is not None:
         return
     if sys.platform == "win32":
-        if not await _terminate_subtree_windows(proc.pid):
+        # Sweep before the job kill: a child spawned between
+        # CreateProcess and the job assignment is in no job, and the
+        # PID-tree walk can only reach it while the tracked parent is
+        # still alive to walk from.
+        swept = await _terminate_subtree_windows(proc.pid)
+        job_killed = win_job is not None and win_job.terminate()
+        if not swept and not job_killed:
             kill_quietly(proc)
         return
     if not _signal_process_group(proc.pid, signal.SIGTERM):

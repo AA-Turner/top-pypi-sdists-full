@@ -33,23 +33,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LunAttribute(
         {
-            "value": "value1",
             "_links": {
                 "self": {
                     "href": "/api/storage/luns/4bc204df-ecd8-4f35-8207-d0ccb4db3a90/attributes/name1"
                 }
             },
+            "value": "value1",
             "name": "name1",
         }
     ),
     LunAttribute(
         {
-            "value": "value2",
             "_links": {
                 "self": {
                     "href": "/api/storage/luns/4bc204df-ecd8-4f35-8207-d0ccb4db3a90/attributes/name2"
                 }
             },
+            "value": "value2",
             "name": "name2",
         }
     ),
@@ -77,31 +77,31 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Lun(
     {
-        "name": "/vol/vol1/lun1",
+        "uuid": "4bc204df-ecd8-4f35-8207-d0ccb4db3a90",
         "_links": {
             "self": {"href": "/api/storage/luns/4bc204df-ecd8-4f35-8207-d0ccb4db3a90"}
         },
-        "uuid": "4bc204df-ecd8-4f35-8207-d0ccb4db3a90",
         "attributes": [
             {
-                "value": "name1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/luns/4bc204df-ecd8-4f35-8207-d0ccb4db3a90/attributes/name1"
                     }
                 },
+                "value": "name1",
                 "name": "name1",
             },
             {
-                "value": "value2",
                 "_links": {
                     "self": {
                         "href": "/api/storage/luns/4bc204df-ecd8-4f35-8207-d0ccb4db3a90/attributes/name2"
                     }
                 },
+                "value": "value2",
                 "name": "name2",
             },
         ],
+        "name": "/vol/vol1/lun1",
     }
 )
 
@@ -130,12 +130,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LunAttribute(
     {
-        "value": "value1",
         "_links": {
             "self": {
                 "href": "/api/storage/luns/4bc204df-ecd8-4f35-8207-d0ccb4db3a90/attributes/name1"
             }
         },
+        "value": "value1",
         "name": "name1",
     }
 )

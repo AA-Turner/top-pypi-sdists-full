@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """
 Czech stemmer
@@ -12,14 +11,11 @@ Usage:
     czech_stemmer.py light|aggressive
 """
 
-from __future__ import absolute_import
-from __future__ import division, print_function, unicode_literals
 
 import re
-
 from warnings import warn
-from ..._compat import unicode
 
+from ..._compat import unicode
 
 WORD_PATTERN = re.compile(r"^\w+$", re.UNICODE)
 
@@ -98,9 +94,8 @@ def _remove_possessives(word):
 
 
 def _remove_comparative(word):
-    if len(word) > 5:
-        if word[-3:] in ("ejš", "ějš"):
-            return _palatalize(word[:-2])
+    if len(word) > 5 and word[-3:] in ("ejš", "ějš"):
+        return _palatalize(word[:-2])
     return word
 
 

@@ -1,5 +1,6 @@
 # Copyright Modal Labs 2022
-import uuid
+import asyncio
+import dataclasses
 import warnings
 from datetime import datetime, timezone
 
@@ -11,31 +12,29 @@ from rich.text import Text
 from modal._environments import ensure_env
 from modal._logs import _FETCH_LIMIT, _MAX_FETCH_RANGE, LogsFilters
 from modal._object import _get_environment_name
-from modal._output.pty import get_pty_info
 from modal._utils.async_utils import synchronizer
-from modal._utils.task_command_router_client import TaskCommandRouterClient
 from modal._utils.time_utils import timestamp_to_localized_str
 from modal.cli.app import _DEFAULT_LOGS_TAIL, _SOURCE_OPTIONS, _parse_time_arg
 from modal.cli.utils import (
+    _fetch_app_logs,
+    _stream_app_logs,
+    _tail_app_logs,
     confirm_or_suggest_yes,
     display_table,
     env_option,
-    fetch_app_logs,
     is_tty,
-    stream_app_logs,
-    tail_app_logs,
     yes_option,
 )
 from modal.client import _Client
-from modal.config import config
-from modal.container_process import _ContainerProcess
-from modal.exception import InvalidError
-from modal.stream_type import StreamType
-from modal_proto import api_pb2, task_command_router_pb2 as sr_pb2
+from modal.exception import ConflictError, InvalidError
+from modal.sandbox import SandboxVersion, _container_exec, _get_sandbox_version, _Sandbox
+from modal_proto import api_pb2
 
 from ._help import ModalGroup
 
 container_cli = ModalGroup(name="container", help="Manage and connect to running containers.")
+
+_SANDBOX_TASK_ID_WAIT_SECS = 55.0
 
 
 @container_cli.command("list")
@@ -70,7 +69,7 @@ async def list_(
                 task_stats.task_id,
                 task_stats.app_id,
                 task_stats.app_description,
-                timestamp_to_localized_str(task_stats.started_at, json) if task_stats.started_at else "Pending",
+                timestamp_to_localized_str(task_stats.started_at, json) or "Pending",
             ]
         )
 
@@ -154,6 +153,13 @@ async def logs(
     else:
         raise InvalidError(f"Invalid container ID: {container_id}")
 
+    is_v2_sandbox = sandbox_id is not None and _get_sandbox_version(sandbox_id) == SandboxVersion.V2
+
+    if follow and is_v2_sandbox:
+        raise UsageError(
+            "Following logs (-f/--follow) is not supported for this Sandbox. Re-run without -f to fetch its logs."
+        )
+
     if follow and (since or until or tail):
         raise UsageError("--follow cannot be combined with --since, --until, or --tail.")
 
@@ -184,7 +190,7 @@ async def logs(
     )
 
     if follow:
-        await stream_app_logs.aio(
+        await _stream_app_logs(
             task_id=task_id,
             sandbox_id=sandbox_id,
             show_timestamps=timestamps,
@@ -195,31 +201,52 @@ async def logs(
         # Resolve the app_id for the container.
         client = await _Client.from_env()
 
-        if sandbox_id:
-            sb_resp = await client.stub.SandboxGetTaskId(api_pb2.SandboxGetTaskIdRequest(sandbox_id=sandbox_id))
-            task_id = sb_resp.task_id
+        enqueued_dt: datetime | None = None
+        finished_dt: datetime | None = None
 
-        task_info_resp = await client.stub.TaskGetInfo(api_pb2.TaskGetInfoRequest(task_id=task_id))
-        app_id = task_info_resp.app_id
+        if is_v2_sandbox:
+            assert sandbox_id is not None
+            sandbox = await _Sandbox.from_id(sandbox_id, client)
+            app_id = sandbox._app_id or ""
+            try:
+                task_id = await asyncio.wait_for(
+                    sandbox._get_task_id(raise_if_task_complete=True),
+                    timeout=_SANDBOX_TASK_ID_WAIT_SECS,
+                )
+            except (asyncio.TimeoutError, ConflictError):
+                # No container ran (still queued, or finished before starting), so there are no
+                # logs. Returning empty is consistent with other no-logs-yet cases (e.g. logs not
+                # yet flushed to ClickHouse), so we don't warn.
+                return
+            log_filters = dataclasses.replace(log_filters, sandbox_id="", task_id=task_id)
+        else:
+            if sandbox_id:
+                sb_resp = await client.stub.SandboxGetTaskId(api_pb2.SandboxGetTaskIdRequest(sandbox_id=sandbox_id))
+                task_id = sb_resp.task_id
 
-        if not task_info_resp.info.enqueued_at:
-            return
+            assert task_id
+            task_info_resp = await client.stub.TaskGetInfo(api_pb2.TaskGetInfoRequest(task_id=task_id))
+            app_id = task_info_resp.app_id
 
-        container_enqueued_dt = datetime.fromtimestamp(task_info_resp.info.enqueued_at, timezone.utc)
+            if not task_info_resp.info.enqueued_at:
+                return
+
+            enqueued_dt = datetime.fromtimestamp(task_info_resp.info.enqueued_at, timezone.utc)
+            if task_info_resp.info.finished_at:
+                finished_dt = datetime.fromtimestamp(task_info_resp.info.finished_at, timezone.utc)
 
         now = datetime.now(timezone.utc)
+        # V2 Sandboxes don't expose task enqueue/finish times to the client, so fall back to the
+        # widest single-query window. This can miss logs older than _MAX_FETCH_RANGE for workspaces
+        # whose custom log retention window exceeds it.
+        default_since_dt = enqueued_dt or (now - _MAX_FETCH_RANGE)
+        default_until_dt = finished_dt or now
+
         if all_logs:
-            since_dt = container_enqueued_dt
-            if task_info_resp.info.finished_at:
-                until_dt = datetime.fromtimestamp(task_info_resp.info.finished_at, timezone.utc)
-            else:
-                until_dt = now
+            since_dt = default_since_dt
+            until_dt = default_until_dt
         else:
-            since_dt = _parse_time_arg(since, default=container_enqueued_dt)
-            if task_info_resp.info.finished_at:
-                default_until_dt = datetime.fromtimestamp(task_info_resp.info.finished_at, timezone.utc)
-            else:
-                default_until_dt = now
+            since_dt = _parse_time_arg(since, default=default_since_dt)
             until_dt = _parse_time_arg(until, default=default_until_dt)
 
         if since is not None and until is not None and since_dt >= until_dt:
@@ -236,14 +263,13 @@ async def logs(
             warnings.warn("--until time is before the Container started, no logs to fetch.", UserWarning)
             return
 
-        if since_dt is not None:
-            effective_until = until_dt or now
-            if effective_until - since_dt > _MAX_FETCH_RANGE:
-                raise UsageError(f"Log fetch time range cannot exceed {_MAX_FETCH_RANGE.days} days.")
+        effective_until = until_dt or now
+        if effective_until - since_dt > _MAX_FETCH_RANGE:
+            raise UsageError(f"Log fetch time range cannot exceed {_MAX_FETCH_RANGE.days} days.")
 
         if all_logs or (since and tail is None):
             # Range mode: --since without --tail fetches everything in the range.
-            await fetch_app_logs.aio(
+            await _fetch_app_logs(
                 app_id,
                 since_dt,
                 until_dt or now,
@@ -254,7 +280,7 @@ async def logs(
             # Tail mode: single fetch with limit.
             # --since is a hard floor, --until shifts the anchor.
             effective_tail = tail if tail is not None else _DEFAULT_LOGS_TAIL
-            await tail_app_logs.aio(
+            await _tail_app_logs(
                 app_id,
                 effective_tail,
                 show_timestamps=timestamps,
@@ -262,67 +288,6 @@ async def logs(
                 until=until_dt,
                 filters=log_filters,
             )
-
-
-@synchronizer.create_blocking
-async def _exec_impl(
-    pty: bool | None = None,
-    container_id: str = "",
-    command: tuple[str, ...] = (),
-    object_id_for_v2: str | None = None,
-):
-    """Execute a command in a container (implementation).
-
-    For tasks belonging to V2 sandboxes, `object_id_for_v2` must be set to the
-    sandbox ID.
-    """
-
-    if pty is None:
-        pty = is_tty()
-
-    client = await _Client.from_env()
-
-    if object_id_for_v2 is not None:
-        command_router_client = await TaskCommandRouterClient.init_v2(client, object_id_for_v2, container_id)
-    else:
-        command_router_client = await TaskCommandRouterClient.init(client, container_id)
-
-    process_id = str(uuid.uuid4())
-
-    start_req = sr_pb2.TaskExecStartRequest(
-        task_id=container_id,
-        exec_id=process_id,
-        command_args=command,
-        stdout_config=sr_pb2.TaskExecStdoutConfig.TASK_EXEC_STDOUT_CONFIG_PIPE,
-        stderr_config=sr_pb2.TaskExecStderrConfig.TASK_EXEC_STDERR_CONFIG_PIPE,
-        pty_info=get_pty_info(shell=True) if pty else None,
-        runtime_debug=config.get("function_runtime_debug"),
-    )
-    await command_router_client.exec_start(start_req)
-
-    if pty:
-        # PTY output is raw terminal bytes (control sequences, mouse events,
-        # glyphs in non-UTF-8 locales, etc.) — not text. Strict UTF-8 decode on
-        # this stream crashes the shell as soon as anything emits a byte that
-        # isn't valid UTF-8, e.g. vim drawing a Latin-1 file under LC_CTYPE=C.
-        # Pass bytes through unmodified; `attach()` writes them straight to the
-        # local fd.
-        await _ContainerProcess(
-            process_id,
-            container_id,
-            client,
-            command_router_client=command_router_client,
-            text=False,
-        ).attach()
-    else:
-        await _ContainerProcess(
-            process_id,
-            container_id,
-            client,
-            command_router_client=command_router_client,
-            stdout=StreamType.STDOUT,
-            stderr=StreamType.STDOUT,
-        ).wait()
 
 
 @container_cli.command("exec", no_args_is_help=True)
@@ -335,7 +300,9 @@ def exec(
     command: tuple[str, ...] = (),
 ):
     """Execute a command in a container."""
-    _exec_impl(pty=pty, container_id=container_id, command=command)
+    if pty is None:
+        pty = is_tty()
+    _container_exec(pty=pty, container_id=container_id, command=command)
 
 
 @container_cli.command("stop", no_args_is_help=True)

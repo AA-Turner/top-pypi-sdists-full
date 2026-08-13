@@ -2185,6 +2185,8 @@ def register_generated_tools(mcp, _get_client):
         profile_id: str | None = None,
         from_date: str | None = None,
         to_date: str | None = None,
+        has_delivery: bool | None = None,
+        min_spend: float | None = None,
     ) -> str:
         """List campaigns
 
@@ -2200,7 +2202,9 @@ def register_generated_tools(mcp, _get_client):
             account_id: Social account ID
             profile_id: Profile ID
             from_date: Start of metrics date range (YYYY-MM-DD, inclusive). Defaults to 90 days ago when both date params are omitted.
-            to_date: End of metrics date range (YYYY-MM-DD, inclusive). Defaults to today. Max 730-day range."""
+            to_date: End of metrics date range (YYYY-MM-DD, inclusive). Defaults to today. Max 730-day range.
+            has_delivery: Return only campaigns that delivered between `fromDate` and `toDate` — spend above zero, or impressions served at zero spend. Unlike `status`, which reads a campaign's CURRENT state, this filters on what happened inside the window. Filters the campaign set itself, so `pagination.total` counts only matching campaigns. Mirrors the same filter on /v1/ads/tree.
+            min_spend: Return only campaigns whose spend between `fromDate` and `toDate` reaches this amount, in each campaign's OWN currency (the `currency` field on the campaign). Implies `hasDelivery`; `minSpend=0` applies no filter. Mirrors the same filter on /v1/ads/tree."""
         client = _get_client()
         try:
             response = client.ad_campaigns.list_ad_campaigns(
@@ -2216,6 +2220,8 @@ def register_generated_tools(mcp, _get_client):
                 profile_id=profile_id,
                 from_date=from_date,
                 to_date=to_date,
+                has_delivery=has_delivery,
+                min_spend=min_spend,
             )
             return _format_response(response)
         except Exception as e:
@@ -2695,6 +2701,8 @@ def register_generated_tools(mcp, _get_client):
         campaign_id: str | None = None,
         from_date: str | None = None,
         to_date: str | None = None,
+        has_delivery: bool | None = None,
+        min_spend: float | None = None,
         sort: str = "newest",
         time_increment: int | None = None,
         daily_level: str = "campaign",
@@ -2712,8 +2720,10 @@ def register_generated_tools(mcp, _get_client):
             account_id: Social account ID
             profile_id: Profile ID
             campaign_id: Restrict the tree to a single campaign by its platform campaign id (the id the platform assigns, e.g. Meta's numeric campaign id). Filters the campaign set itself, so it works regardless of account size and pagination — pass this when you already hold a campaign id instead of paging the tree to find it. Mirrors the `campaignId` filter on GET /v1/ads.
-            from_date: Start of the METRICS date range (YYYY-MM-DD). Affects only the spend/impression numbers overlaid on each node, NOT which campaigns are returned. Defaults to 90 days ago.
+            from_date: Start of the METRICS date range (YYYY-MM-DD). On its own it affects only the spend/impression numbers overlaid on each node, not which campaigns are returned — pass `hasDelivery` or `minSpend` to also filter the campaign set to this window. Defaults to 90 days ago.
             to_date: End of metrics date range (YYYY-MM-DD). Defaults to today. Max 730-day range.
+            has_delivery: Return only campaigns that delivered between `fromDate` and `toDate` — spend above zero, or impressions served at zero spend. Unlike `status`, which reads a campaign's CURRENT state, this filters on what happened inside the window, so a campaign that spent then and is paused today is still returned. Filters the campaign set itself, so `pagination.total` counts only matching campaigns.
+            min_spend: Return only campaigns whose spend between `fromDate` and `toDate` reaches this amount. Expressed in each campaign's OWN currency (the `currency` field on the campaign node): spend is stored per ad account in its native currency and one response can span several. Implies `hasDelivery`; `minSpend=0` applies no filter.
             sort: Campaign-level sort order. `newest` (default) / `oldest` order by the campaign's newest-ad createdAt. `spend_desc` / `spend_asc` order by aggregated spend in the requested date range; campaigns with no spend land at the end.
             time_increment: Set to `1` to also return a daily breakdown. Mirrors Meta Insights' `time_increment=1`: each node gains a `daily[]` array of per-day metrics (same fields as the aggregated `metrics`) alongside the range total, so you get per-entity daily trends in ONE call instead of calling the tree once per day. Only `1` (daily) is supported. The daily series covers the same date range and uses the same source data as `metrics`, except `reach` on Meta and TikTok: the range total is the platform's de-duplicated value, so daily reach does not sum to it. See `dailyLevel` to control which levels carry it.
             daily_level: Which tree levels get the `daily[]` series when `timeIncrement=1`. `campaign` (default) attaches it on campaign nodes only — the common per-campaign-trend case, and the smallest payload. `adset` adds it on ad sets too; `ad` adds it on every ad in `ads[]` as well (heaviest — a long range × up to 100 ads per ad set). Scope with `campaignId` to keep `ad`-level responses small. Ignored when `timeIncrement` is unset."""
@@ -2732,6 +2742,8 @@ def register_generated_tools(mcp, _get_client):
                 campaign_id=campaign_id,
                 from_date=from_date,
                 to_date=to_date,
+                has_delivery=has_delivery,
+                min_spend=min_spend,
                 sort=sort,
                 time_increment=time_increment,
                 daily_level=daily_level,
@@ -3157,6 +3169,7 @@ def register_generated_tools(mcp, _get_client):
         dsa_payor: str | None = None,
         brand_identity: dict[str, Any] | None = None,
         identity_type: str | None = None,
+        smart_plus: bool | None = None,
         promoted_object: dict[str, Any] | None = None,
     ) -> str:
         """Create standalone ad
@@ -3505,6 +3518,18 @@ def register_generated_tools(mcp, _get_client):
         Ads (`POST /v1/ads/boost`) always use `TT_USER` regardless
         of this field — TikTok requires the original organic
         post's author identity for Spark.
+                smart_plus: TikTok only. Creates the ad as a TikTok Upgraded Smart+
+        campaign: TikTok automates targeting, bidding and delivery. Supports goals
+        `conversions` (Smart+ Web Conversions), `lead_generation` (Smart+ Lead
+        Generation with a website form on `linkUrl`; TikTok Instant Forms not supported)
+        and `app_promotion` (Smart+ App installs; the ad's destination is the app store,
+        so `linkUrl` is not used). The web goals require `promotedObject.pixelId` AND
+        `promotedObject.customEventType`; `app_promotion` requires
+        `promotedObject.applicationId` instead.
+        Targeting works like on any TikTok ad (defaults to `countries: ["US"]` when
+        omitted); TikTok automates delivery within it.
+        The budget lives on the Smart+ campaign (Campaign Budget Optimization); a `lifetime`
+        budget additionally requires `endDate`. Cannot be combined with `adSetId`.
                 promoted_object: What the ad optimises against. Behaviour depends on the platform.
 
         **Meta**: forwarded to the ad set's `promoted_object` (snake-cased).
@@ -3517,12 +3542,15 @@ def register_generated_tools(mcp, _get_client):
 
         Other Meta goals (engagement, traffic, awareness, video_views) ignore this field.
 
-        **TikTok**: only `goal: conversions` uses it.
+        **TikTok**: used by `goal: conversions` and the Smart+ goals (`smartPlus: true`).
           - `pixelId` maps to the ad group's `pixel_id`. Required: a TikTok website-conversion
             ad group without a pixel is rejected with `40002: Please select a pixel`.
           - `customEventType` maps to the ad group's `optimization_event` (the pixel event to
-            optimise for). Optional: TikTok accepts a pixel-only auto-bid conversion ad group.
+            optimise for). Optional on the regular conversions flow, required on Smart+.
             See the `customEventType` field below for the valid TikTok codes.
+          - `applicationId` (Smart+ `goal: app_promotion` only) maps to the ad group's `app_id`:
+            the App ID of an app registered on the TikTok Ads account (Assets → Events →
+            App Events). Install optimization needs the app's MMP tracking configured.
 
         The remaining `promotedObject.*` fields are Meta-only. Platforms other than
         Meta and TikTok ignore `promotedObject` entirely."""
@@ -3611,6 +3639,7 @@ def register_generated_tools(mcp, _get_client):
                 dsa_payor=dsa_payor,
                 brand_identity=brand_identity,
                 identity_type=identity_type,
+                smart_plus=smart_plus,
                 promoted_object=promoted_object,
             )
             return _format_response(response)
@@ -4002,6 +4031,84 @@ def register_generated_tools(mcp, _get_client):
                 to_date=to_date,
                 campaign_id=campaign_id,
                 ad_group_id=ad_group_id,
+                page_token=page_token,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Google Local Services Ads leads",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_insights_list_local_services_leads(
+        account_id: str,
+        customer_id: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        lead_type: str | None = None,
+        lead_status: str | None = None,
+        charged_only: bool | None = None,
+        page_token: str | None = None,
+    ) -> str:
+        """Google Local Services Ads leads
+
+        Args:
+            account_id: Google ads SocialAccount id. (required)
+            customer_id: Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer.
+            from_date: Leads created at/after this day.
+            to_date: Leads created at/before this day.
+            lead_type
+            lead_status: Google LocalServicesLeadStatus enum value (e.g. NEW, BOOKED, WIPED_OUT).
+            charged_only: true = only leads Google charged for.
+            page_token: Cursor from paging.nextPageToken of the previous page."""
+        client = _get_client()
+        try:
+            response = client.ad_insights.list_local_services_leads(
+                account_id=account_id,
+                customer_id=customer_id,
+                from_date=from_date,
+                to_date=to_date,
+                lead_type=lead_type,
+                lead_status=lead_status,
+                charged_only=charged_only,
+                page_token=page_token,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Conversations of a Local Services lead",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_insights_list_local_services_lead_conversations(
+        lead_id: str,
+        account_id: str,
+        customer_id: str | None = None,
+        page_token: str | None = None,
+    ) -> str:
+        """Conversations of a Local Services lead
+
+        Args:
+            lead_id: Numeric lead id from /v1/ads/local-services/leads. (required)
+            account_id: Google ads SocialAccount id. (required)
+            customer_id: Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer.
+            page_token: Cursor from paging.nextPageToken of the previous page."""
+        client = _get_client()
+        try:
+            response = client.ad_insights.list_local_services_lead_conversations(
+                lead_id=lead_id,
+                account_id=account_id,
+                customer_id=customer_id,
                 page_token=page_token,
             )
             return _format_response(response)
@@ -8024,7 +8131,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             profile_id: Filter by profile. Omit to list across all profiles. Matches the profile recorded on the contact itself, which is set when the contact is created and is independent of the profile its account currently belongs to. Filter by accountId to list a contact through its channel instead.
             account_id: Filter by the SocialAccount that owns the contact channel. Contacts are resolved through their channels, so the profileId contact filter is not applied while accountId is set. A profileId sent alongside is still access-checked and still scopes the returned filters.tags list.
-            search
+            search: Case-insensitive substring match on the contact name, email and company. Phone numbers and other platform identifiers are not matched: they live on the contact channel, not on the contact. To reach a contact from an inbox webhook, use the conversation.contactId it already carries.
             tag
             tags: Comma-separated tags, matches contacts carrying any of them
             platform
@@ -10859,7 +10966,7 @@ def register_generated_tools(mcp, _get_client):
                 conversation_id: Opaque conversation identifier, accepted verbatim from the list endpoint or from the conversationId on inbox webhooks. Format not to be assumed. (required)
                 account_id: Social account ID (required)
                 message: Message text
-                attachment_url: URL of the attachment to send (image, video, audio, or file). The URL must be publicly accessible. For binary file uploads, use multipart/form-data instead.
+                attachment_url: URL of the attachment to send (image, video, audio, or file). The URL must be publicly accessible. For binary file uploads, use multipart/form-data instead. On WhatsApp, combining an image, video, or file with `buttons` renders the media as the header of one interactive reply-button message; audio cannot be combined with buttons.
                 category: WhatsApp only (Meta Direct Send). Sends this message as a business-initiated UTILITY message without an approved template, for example outside the 24-hour customer service window; Meta matches or auto-creates a template asynchronously. The WhatsApp Business Account must be eligible for Direct Send, otherwise the send fails with an error telling you to use an approved message template instead. Supported only for text messages (link preview ok) and interactive messages (reply buttons, CTA URL buttons, voice-call button, header of text/image/video/document). Cannot be combined with template, attachments, location, or contacts. Utility messages only; marketing content is not allowed under this category. Accepted on the JSON body only, not on multipart requests.
                 attachment_type: Type of attachment. Defaults to file if not specified.
                 attachment_name: WhatsApp only. Display name for a document sent via attachmentUrl with attachmentType: file (e.g. "Report.pdf"). Maps to the recipient's file name; without it WhatsApp derives the name from the URL and shows "Untitled". Ignored for image/video/audio and for binary uploads (which use the uploaded file's name).
@@ -10884,6 +10991,12 @@ def register_generated_tools(mcp, _get_client):
         reply-button message, provide `title` + `payload` and set
         `type: postback`, e.g.
         `{ "type": "postback", "title": "Yes", "payload": "yes" }`.
+
+        Combine `buttons` with `attachmentUrl` and `attachmentType`
+        `image`, `video`, or `file` to render one WhatsApp message with
+        a media header, body text, and reply buttons. Audio is not a
+        supported interactive header and returns 400 when combined
+        with buttons.
                 template: Platform-dependent template payload. Ignored on Telegram.
 
         Instagram / Facebook: a generic template (carousel). Set `type: generic`

@@ -28,10 +28,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Duogroup(
     {
-        "name": "test",
-        "excluded_users": ["tsmith", "msmith"],
         "comment": "test group create",
-        "owner": {"name": "cluster-1", "uuid": "f810005a-d908-11ed-a6e6-0050568e8ef2"},
+        "owner": {"uuid": "f810005a-d908-11ed-a6e6-0050568e8ef2", "name": "cluster-1"},
+        "excluded_users": ["tsmith", "msmith"],
+        "name": "test",
     }
 )
 

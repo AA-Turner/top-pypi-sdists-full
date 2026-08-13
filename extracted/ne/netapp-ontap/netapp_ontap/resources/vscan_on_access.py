@@ -25,54 +25,54 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     VscanOnAccess(
         {
+            "owner": "cluster",
             "protocol": "CIFS",
+            "name": "default_CIFS",
             "svm": {
-                "name": "vs1",
+                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"
                     }
                 },
-                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
+                "name": "vs1",
             },
-            "name": "default_CIFS",
+            "enabled": True,
             "mandatory": True,
-            "owner": "cluster",
             "scope": {
-                "scan_readonly_volumes": False,
+                "include_extensions": ["*"],
                 "scan_without_extension": True,
                 "only_execute_access": False,
                 "max_file_size": 2147483648,
-                "include_extensions": ["*"],
+                "scan_readonly_volumes": False,
             },
-            "enabled": True,
         }
     ),
     VscanOnAccess(
         {
+            "owner": "vserver",
             "protocol": "CIFS",
+            "name": "on-access-policy",
             "svm": {
-                "name": "vs1",
+                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"
                     }
                 },
-                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
-            },
-            "name": "on-access-policy",
-            "mandatory": True,
-            "owner": "vserver",
-            "scope": {
-                "scan_readonly_volumes": False,
-                "scan_without_extension": True,
-                "only_execute_access": True,
-                "max_file_size": 3221225472,
-                "include_extensions": ["mp*", "tx*"],
-                "exclude_paths": ["\\vol\\a b\\", "\\vol\\a,b\\"],
-                "exclude_extensions": ["mp3", "txt"],
+                "name": "vs1",
             },
             "enabled": False,
+            "mandatory": True,
+            "scope": {
+                "include_extensions": ["mp*", "tx*"],
+                "scan_without_extension": True,
+                "only_execute_access": True,
+                "exclude_extensions": ["mp3", "txt"],
+                "max_file_size": 3221225472,
+                "exclude_paths": ["\\vol\\a b\\", "\\vol\\a,b\\"],
+                "scan_readonly_volumes": False,
+            },
         }
     ),
 ]
@@ -103,25 +103,25 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanOnAccess(
     {
+        "name": "on-access-policy",
         "svm": {
-            "name": "vs1",
+            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
             "_links": {
                 "self": {"href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"}
             },
-            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
-        },
-        "name": "on-access-policy",
-        "mandatory": True,
-        "scope": {
-            "scan_readonly_volumes": False,
-            "scan_without_extension": True,
-            "only_execute_access": True,
-            "max_file_size": 3221225472,
-            "include_extensions": ["mp*", "tx*"],
-            "exclude_paths": ["\\vol\\a b\\", "\\vol\\a,b\\"],
-            "exclude_extensions": ["mp3", "txt"],
+            "name": "vs1",
         },
         "enabled": True,
+        "mandatory": True,
+        "scope": {
+            "include_extensions": ["mp*", "tx*"],
+            "scan_without_extension": True,
+            "only_execute_access": True,
+            "exclude_extensions": ["mp3", "txt"],
+            "max_file_size": 3221225472,
+            "exclude_paths": ["\\vol\\a b\\", "\\vol\\a,b\\"],
+            "scan_readonly_volumes": False,
+        },
     }
 )
 
@@ -162,19 +162,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanOnAccess(
     {
-        "svm": {"name": "vs1"},
         "name": "on-access-policy",
+        "svm": {"name": "vs1"},
+        "enabled": False,
         "mandatory": True,
         "scope": {
-            "scan_readonly_volumes": False,
+            "include_extensions": ["mp*", "txt"],
             "scan_without_extension": True,
             "only_execute_access": True,
-            "max_file_size": 3221225472,
-            "include_extensions": ["mp*", "txt"],
-            "exclude_paths": ["\\dir1\\dir2\\ame", "\\vol\\a b"],
             "exclude_extensions": ["txt", "mp3"],
+            "max_file_size": 3221225472,
+            "exclude_paths": ["\\dir1\\dir2\\ame", "\\vol\\a b"],
+            "scan_readonly_volumes": False,
         },
-        "enabled": False,
     }
 )
 
@@ -210,15 +210,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanOnAccess(
     {
-        "svm": {"name": "vs1"},
         "name": "on-access-policy",
+        "svm": {"name": "vs1"},
+        "enabled": False,
         "mandatory": True,
         "scope": {
             "scan_without_extension": True,
             "max_file_size": 1073741824,
             "exclude_paths": ["\\vol\\a b", "\\vol\\a,b\\"],
         },
-        "enabled": False,
     }
 )
 

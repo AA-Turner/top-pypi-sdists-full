@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: openinference-instrumentation-litellm
-Version: 0.1.36
+Version: 0.1.37
 Summary: OpenInference liteLLM Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-litellm
 Author-email: OpenInference Authors <oss@arize.com>

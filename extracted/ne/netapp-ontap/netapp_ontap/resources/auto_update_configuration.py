@@ -28,10 +28,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AutoUpdateConfiguration(
     {
-        "category": "firmware",
         "action": "confirm",
-        "description": {"message": "SP/BMC Firmware", "code": "131072402"},
         "uuid": "440ae2e4-fd8f-4225-9bee-94e2da3f8d9d",
+        "category": "firmware",
+        "description": {"message": "SP/BMC Firmware", "code": "131072402"},
     }
 )
 

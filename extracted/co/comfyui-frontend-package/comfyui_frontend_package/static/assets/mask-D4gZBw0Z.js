@@ -13,4 +13,3 @@ var e=`<svg xmlns="http://www.w3.org/2000/svg" class="" viewBox="0 0 16 16" fill
   </defs>
 </svg>
 `;export{e as default};
-//# sourceMappingURL=mask-D4gZBw0Z.js.map

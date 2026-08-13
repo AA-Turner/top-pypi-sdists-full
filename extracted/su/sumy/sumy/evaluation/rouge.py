@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-from __future__ import division, print_function, unicode_literals
+
+from collections import Counter
 
 from ..models.dom import Sentence
 
@@ -19,7 +18,7 @@ def _split_into_words(sentences):
     full_text_words = []
     for s in sentences:
         if not isinstance(s, Sentence):
-            raise (ValueError("Object in collection must be of type Sentence"))
+            raise (TypeError("Object in collection must be of type Sentence"))
         full_text_words.extend(s.words)
     return full_text_words
 
@@ -66,7 +65,7 @@ def _lcs(x, y):
     :returns table: dictionary of coord and len lcs
     """
     n, m = _get_index_of_lcs(x, y)
-    table = dict()
+    table = {}
     for i in range(n + 1):
         for j in range(m + 1):
             if i == 0 or j == 0:
@@ -78,14 +77,18 @@ def _lcs(x, y):
     return table
 
 
-def _recon_lcs(x, y):
+def _recon_lcs_with_positions(x, y):
     """
-    Returns the Longest Subsequence between x and y.
+    Returns the Longest Subsequence between x and y as (item, position) pairs.
     Source: http://www.algorithmist.com/index.php/Longest_Common_Subsequence
+
+    The position is the 1-based index of the item in `x`, which is what makes
+    subsequences of different `y` comparable: two occurrences of the same word
+    in `x` are distinct pairs, so they survive being collected into a set.
 
     :param x: sequence of words
     :param y: sequence of words
-    :returns sequence: LCS of x and y
+    :returns sequence: LCS of x and y as (word, position in x) pairs
     """
     table = _lcs(x, y)
 
@@ -100,8 +103,18 @@ def _recon_lcs(x, y):
             return _recon(i, j - 1)
 
     i, j = _get_index_of_lcs(x, y)
-    recon_tuple = tuple(map(lambda r: r[0], _recon(i, j)))
-    return recon_tuple
+    return tuple(_recon(i, j))
+
+
+def _recon_lcs(x, y):
+    """
+    Returns the Longest Subsequence between x and y.
+
+    :param x: sequence of words
+    :param y: sequence of words
+    :returns sequence: LCS of x and y
+    """
+    return tuple(word for word, _position in _recon_lcs_with_positions(x, y))
 
 
 def rouge_n(evaluated_sentences, reference_sentences, n=2):
@@ -118,7 +131,9 @@ def rouge_n(evaluated_sentences, reference_sentences, n=2):
     :returns:
         float 0 <= ROUGE-N <= 1, where 0 means no overlap and 1 means
         exactly the same.
-    :raises ValueError: raises exception if a param has len <= 0
+    :raises ValueError:
+        raises exception if a param has len <= 0 or if the reference sentences
+        are too short to hold a single n-gram of that size
     """
     if len(evaluated_sentences) <= 0 or len(reference_sentences) <= 0:
         raise (ValueError("Collections must contain at least 1 sentence."))
@@ -126,6 +141,12 @@ def rouge_n(evaluated_sentences, reference_sentences, n=2):
     evaluated_ngrams = _get_word_ngrams(n, evaluated_sentences)
     reference_ngrams = _get_word_ngrams(n, reference_sentences)
     reference_count = len(reference_ngrams)
+
+    # ROUGE-N is a recall metric, so only the reference is a denominator. A
+    # reference shorter than n words holds no n-gram at all and there is nothing
+    # to recall from it. An evaluated summary without n-grams is fine and scores 0.
+    if reference_count <= 0:
+        raise (ValueError(f"Reference sentences must contain at least 1 n-gram of size {n}."))
 
     # Gets the overlapping ngrams between evaluated and reference
     overlapping_ngrams = evaluated_ngrams.intersection(reference_ngrams)
@@ -170,17 +191,24 @@ def _f_lcs(llcs, m, n):
     Source: http://research.microsoft.com/en-us/um/people/cyl/download/papers/
     rouge-working-note-v1.3.1.pdf
 
+    The score is computed from R_lcs = llcs/m, P_lcs = llcs/n and
+    beta = P_lcs/R_lcs as F_lcs = ((1 + beta^2)*R_lcs*P_lcs) / (R_lcs + (beta^2)*P_lcs).
+    Substituting R_lcs, P_lcs and beta into that expression and cancelling
+    reduces it to the closed form used below:
+
+        F_lcs = llcs * (m^2 + n^2) / (m^3 + n^3)
+
+    Both forms are equal for a non-empty LCS, but the closed form has no
+    removable singularity at llcs == 0. Computing beta as P_lcs/R_lcs divides
+    by zero whenever the LCS is empty, even though F is plainly 0 there, since
+    a summary with no common subsequence has neither precision nor recall.
+
     :param llcs: Length of LCS
     :param m: number of words in reference summary
     :param n: number of words in candidate summary
     :returns float: LCS-based F-measure score
     """
-    r_lcs = llcs / m
-    p_lcs = llcs / n
-    beta = p_lcs / r_lcs
-    num = (1 + (beta ** 2)) * r_lcs * p_lcs
-    denom = r_lcs + ((beta ** 2) * p_lcs)
-    return num / denom
+    return llcs * (m ** 2 + n ** 2) / (m ** 3 + n ** 3)
 
 
 def rouge_l_sentence_level(evaluated_sentences, reference_sentences):
@@ -205,7 +233,7 @@ def rouge_l_sentence_level(evaluated_sentences, reference_sentences):
     :param reference_sentences:
         The sentences from the reference set
     :returns float: F_lcs
-    :raises ValueError: raises exception if a param has len <= 0
+    :raises ValueError: raises exception if a param has len <= 0 or holds no word
     """
     if len(evaluated_sentences) <= 0 or len(reference_sentences) <= 0:
         raise (ValueError("Collections must contain at least 1 sentence."))
@@ -213,25 +241,23 @@ def rouge_l_sentence_level(evaluated_sentences, reference_sentences):
     evaluated_words = _split_into_words(evaluated_sentences)
     m = len(reference_words)
     n = len(evaluated_words)
+    if m <= 0 or n <= 0:
+        raise (ValueError("Collections must contain at least 1 word."))
     lcs = _len_lcs(evaluated_words, reference_words)
     return _f_lcs(lcs, m, n)
 
 
-def _union_lcs(evaluated_sentences, reference_sentence):
+def _union_lcs_positions(evaluated_sentences, reference_sentence):
     """
-    Returns LCS_u(r_i, C) which is the LCS score of the union longest common subsequence
-    between reference sentence ri and candidate summary C. For example, if
-    r_i= w1 w2 w3 w4 w5, and C contains two sentences: c1 = w1 w2 w6 w7 w8 and
-    c2 = w1 w3 w8 w9 w5, then the longest common subsequence of r_i and c1 is
-    “w1 w2” and the longest common subsequence of r_i and c2 is “w1 w3 w5”. The
-    union longest common subsequence of r_i, c1, and c2 is “w1 w2 w3 w5” and
-    LCS_u(r_i, C) = 4/5.
+    Returns the union of the longest common subsequences between the reference
+    sentence r_i and every sentence of the candidate summary C, as
+    (word, position in r_i) pairs.
 
     :param evaluated_sentences:
         The sentences that have been picked by the summarizer
     :param reference_sentence:
         One of the sentences in the reference summaries
-    :returns float: LCS_u(r_i, C)
+    :returns set: the covered (word, position in r_i) pairs
     :raises ValueError: raises exception if a param has len <= 0
     """
     if len(evaluated_sentences) <= 0:
@@ -239,16 +265,37 @@ def _union_lcs(evaluated_sentences, reference_sentence):
 
     lcs_union = set()
     reference_words = _split_into_words([reference_sentence])
-    combined_lcs_length = 0
     for eval_s in evaluated_sentences:
         evaluated_words = _split_into_words([eval_s])
-        lcs = set(_recon_lcs(reference_words, evaluated_words))
-        combined_lcs_length += len(lcs)
-        lcs_union = lcs_union.union(lcs)
+        lcs_union |= set(_recon_lcs_with_positions(reference_words, evaluated_words))
 
-    union_lcs_count = len(lcs_union)
-    union_lcs_value = union_lcs_count / combined_lcs_length
-    return union_lcs_value
+    return lcs_union
+
+
+def _union_lcs(evaluated_sentences, reference_sentence):
+    """
+    Returns LCS_u(r_i, C), the number of words of the reference sentence r_i
+    covered by the union of the longest common subsequences it shares with the
+    sentences of the candidate summary C. For example, if
+    r_i= w1 w2 w3 w4 w5, and C contains two sentences: c1 = w1 w2 w6 w7 w8 and
+    c2 = w1 w3 w8 w9 w5, then the longest common subsequence of r_i and c1 is
+    “w1 w2” and the longest common subsequence of r_i and c2 is “w1 w3 w5”. The
+    union longest common subsequence of r_i, c1, and c2 is “w1 w2 w3 w5”, so
+    LCS_u(r_i, C) = 4 out of the 5 words of r_i.
+
+    The count is deliberately *not* normalized here. The summary level score
+    normalizes the sum over all reference sentences by the total number of
+    reference words (see `rouge_l_summary_level`), so normalizing per sentence
+    as well would count the reference length twice.
+
+    :param evaluated_sentences:
+        The sentences that have been picked by the summarizer
+    :param reference_sentence:
+        One of the sentences in the reference summaries
+    :returns int: LCS_u(r_i, C)
+    :raises ValueError: raises exception if a param has len <= 0
+    """
+    return len(_union_lcs_positions(evaluated_sentences, reference_sentence))
 
 
 def rouge_l_summary_level(evaluated_sentences, reference_sentences):
@@ -274,7 +321,7 @@ def rouge_l_summary_level(evaluated_sentences, reference_sentences):
     :param reference_sentences:
         The sentences from the reference set
     :returns float: F_lcs
-    :raises ValueError: raises exception if a param has len <= 0
+    :raises ValueError: raises exception if a param has len <= 0 or holds no word
     """
     if len(evaluated_sentences) <= 0 or len(reference_sentences) <= 0:
         raise (ValueError("Collections must contain at least 1 sentence."))
@@ -285,7 +332,21 @@ def rouge_l_summary_level(evaluated_sentences, reference_sentences):
     # total number of words in evaluated sentences
     n = len(_split_into_words(evaluated_sentences))
 
-    union_lcs_sum_across_all_references = 0
+    if m <= 0 or n <= 0:
+        raise (ValueError("Collections must contain at least 1 word."))
+
+    # LCS_u is counted in positions of the reference sentence, so the same
+    # candidate word may be covered once per reference sentence. Clip each word
+    # to the number of times the candidate summary actually contains it, as
+    # ROUGE-1.5.5 does, otherwise a repetitive reference inflates the sum above
+    # the length of the candidate and F_lcs can exceed 1.
+    covered_words = Counter()
     for ref_s in reference_sentences:
-        union_lcs_sum_across_all_references += _union_lcs(evaluated_sentences, ref_s)
+        for word, _position in _union_lcs_positions(evaluated_sentences, ref_s):
+            covered_words[word] += 1
+
+    available_words = Counter(_split_into_words(evaluated_sentences))
+    union_lcs_sum_across_all_references = sum(
+        min(count, available_words[word]) for word, count in covered_words.items()
+    )
     return _f_lcs(union_lcs_sum_across_all_references, m, n)

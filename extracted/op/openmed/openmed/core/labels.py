@@ -1,4 +1,4 @@
-"""Canonical PII/PHI label taxonomy.
+"""Canonical PII/PHI and biomedical label taxonomy.
 
 Different OpenMed PII model families use different label-naming conventions:
 
@@ -8,6 +8,8 @@ Different OpenMed PII model families use different label-naming conventions:
   ``DATEOFBIRTH``).
 - The privacy-filter family emits BIOES-tagged labels (``B-NAME``,
   ``I-EMAIL``, ``E-ADDRESS``, ``S-PHONE``).
+- Biomedical NER families emit uppercase and snake-case concepts
+  (``DISEASE``, ``simple_chemical``, ``gene_or_gene_product``).
 
 This module provides a single ``CANONICAL_LABELS`` taxonomy in
 ``UPPER_SNAKE_CASE`` and a ``normalize_label`` helper that maps any of the
@@ -97,6 +99,31 @@ MICROORGANISM: Final = "MICROORGANISM"
 ANTIBIOTIC: Final = "ANTIBIOTIC"
 SUSCEPTIBILITY: Final = "SUSCEPTIBILITY"
 
+#: Biomedical entities emitted by the shipped NER model families.
+DISEASE: Final = "DISEASE"
+DRUG: Final = "DRUG"
+CHEMICAL: Final = "CHEMICAL"
+GENE_OR_GENE_PRODUCT: Final = "GENE_OR_GENE_PRODUCT"
+GENE: Final = "GENE"
+PROTEIN: Final = "PROTEIN"
+DNA: Final = "DNA"
+RNA: Final = "RNA"
+ANATOMY: Final = "ANATOMY"
+ORGAN: Final = "ORGAN"
+TISSUE: Final = "TISSUE"
+CELL: Final = "CELL"
+CANCER: Final = "CANCER"
+SPECIES: Final = "SPECIES"
+ORGANISM: Final = "ORGANISM"
+PATHOLOGY: Final = "PATHOLOGY"
+BIOMARKER: Final = "BIOMARKER"
+
+#: Radiology finding concepts (issue #1971)
+FINDING: Final = "FINDING"
+IMAGING_MODALITY: Final = "IMAGING_MODALITY"
+LATERALITY: Final = "LATERALITY"
+MEASUREMENT: Final = "MEASUREMENT"
+
 #: Clinical concepts (grounding targets for RxNorm/ICD-10-CM/LOINC/SNOMED/HPO)
 CONDITION: Final = "CONDITION"
 MEDICATION: Final = "MEDICATION"
@@ -105,6 +132,77 @@ PROCEDURE: Final = "PROCEDURE"
 BODY_SITE: Final = "BODY_SITE"
 #: Procedure-record device concepts (issue #313)
 DEVICE: Final = "DEVICE"
+
+#: Canonical non-identifier labels shared by the biomedical NER families.
+BIOMEDICAL_LABELS: Final[FrozenSet[str]] = frozenset(
+    {
+        DISEASE,
+        CONDITION,
+        DRUG,
+        CHEMICAL,
+        GENE_OR_GENE_PRODUCT,
+        GENE,
+        PROTEIN,
+        DNA,
+        RNA,
+        ANATOMY,
+        ORGAN,
+        TISSUE,
+        CELL,
+        CANCER,
+        SPECIES,
+        ORGANISM,
+        PATHOLOGY,
+        BIOMARKER,
+        FINDING,
+        IMAGING_MODALITY,
+        LATERALITY,
+        MEASUREMENT,
+    }
+)
+# ``CONDITION`` predates this taxonomy and retains its existing compatibility
+# cross-maps. Newly canonical biomedical labels intentionally carry none.
+_BIOMEDICAL_CROSS_MAP_EXEMPT_LABELS: Final[FrozenSet[str]] = BIOMEDICAL_LABELS - {
+    CONDITION
+}
+
+#: Relation-extraction head and attribute concepts (issue #252)
+PROBLEM: Final = "PROBLEM"
+SEVERITY: Final = "SEVERITY"
+DOSAGE: Final = "DOSAGE"
+ROUTE: Final = "ROUTE"
+FREQUENCY: Final = "FREQUENCY"
+DURATION: Final = "DURATION"
+FORM: Final = "FORM"
+STRENGTH: Final = "STRENGTH"
+INDICATION: Final = "INDICATION"
+LAB_VALUE: Final = "LAB_VALUE"
+UNIT: Final = "UNIT"
+REFERENCE_RANGE: Final = "REFERENCE_RANGE"
+ABNORMAL_FLAG: Final = "ABNORMAL_FLAG"
+
+#: Stable relation-extraction vocabulary for clinical heads and attributes.
+#: ``MEDICATION`` and ``BODY_SITE`` pre-date issue #252 but belong to the same
+#: public vocabulary as the labels introduced here.
+CLINICAL_CONCEPT_LABELS: Final[FrozenSet[str]] = frozenset(
+    {
+        PROBLEM,
+        MEDICATION,
+        DOSAGE,
+        ROUTE,
+        FREQUENCY,
+        DURATION,
+        FORM,
+        STRENGTH,
+        INDICATION,
+        LAB_VALUE,
+        UNIT,
+        REFERENCE_RANGE,
+        ABNORMAL_FLAG,
+        BODY_SITE,
+        SEVERITY,
+    }
+)
 
 #: Anesthesia-record concepts (issue #952)
 ANESTHESIA_TYPE: Final = "ANESTHESIA_TYPE"
@@ -124,6 +222,12 @@ DOSE_NUMBER: Final = "DOSE_NUMBER"
 ADMINISTRATION_ROUTE: Final = "ADMINISTRATION_ROUTE"
 VACCINE_LOT: Final = "VACCINE_LOT"
 VACCINE_SERIES: Final = "VACCINE_SERIES"
+
+#: Nursing-care observation concepts (issue #910)
+INTAKE_OUTPUT: Final = "INTAKE_OUTPUT"
+LINE_DRAIN_TUBE: Final = "LINE_DRAIN_TUBE"
+NURSING_RISK_SCORE: Final = "NURSING_RISK_SCORE"
+CARE_INTERVENTION: Final = "CARE_INTERVENTION"
 
 #: Clinical-genomics variant-mention concepts (issue #906)
 GENE_SYMBOL: Final = "GENE_SYMBOL"
@@ -283,12 +387,46 @@ CANONICAL_LABELS: Final[FrozenSet[str]] = frozenset(
         MICROORGANISM,
         ANTIBIOTIC,
         SUSCEPTIBILITY,
+        DISEASE,
+        DRUG,
+        CHEMICAL,
+        GENE_OR_GENE_PRODUCT,
+        GENE,
+        PROTEIN,
+        DNA,
+        RNA,
+        ANATOMY,
+        ORGAN,
+        TISSUE,
+        CELL,
+        CANCER,
+        SPECIES,
+        ORGANISM,
+        PATHOLOGY,
+        BIOMARKER,
+        FINDING,
+        IMAGING_MODALITY,
+        LATERALITY,
+        MEASUREMENT,
         CONDITION,
         MEDICATION,
         LAB_TEST,
         PROCEDURE,
         BODY_SITE,
         DEVICE,
+        PROBLEM,
+        SEVERITY,
+        DOSAGE,
+        ROUTE,
+        FREQUENCY,
+        DURATION,
+        FORM,
+        STRENGTH,
+        INDICATION,
+        LAB_VALUE,
+        UNIT,
+        REFERENCE_RANGE,
+        ABNORMAL_FLAG,
         ANESTHESIA_TYPE,
         ANESTHETIC_AGENT,
         AIRWAY_MANAGEMENT,
@@ -302,6 +440,10 @@ CANONICAL_LABELS: Final[FrozenSet[str]] = frozenset(
         ADMINISTRATION_ROUTE,
         VACCINE_LOT,
         VACCINE_SERIES,
+        INTAKE_OUTPUT,
+        LINE_DRAIN_TUBE,
+        NURSING_RISK_SCORE,
+        CARE_INTERVENTION,
         GENE_SYMBOL,
         CKD_STAGE,
         DIALYSIS_MODALITY,
@@ -330,6 +472,62 @@ CANONICAL_LABELS: Final[FrozenSet[str]] = frozenset(
     }
 )
 
+# Structured-table semantic types map onto the same canonical vocabulary used
+# by text de-identification. Keeping this mapping in the label taxonomy avoids
+# a second, subtly incompatible label system in the tabular workflow.
+COLUMN_SEMANTIC_LABELS: Final[Mapping[str, str]] = {
+    "person_name": PERSON,
+    "medical_record_number": ID_NUM,
+    "nhs_number": ID_NUM,
+    "social_security_number": SSN,
+    "record_identifier": ID_NUM,
+    "email_address": EMAIL,
+    "phone_number": PHONE,
+    "street_address": STREET_ADDRESS,
+    "date_of_birth": DATE_OF_BIRTH,
+    "date": DATE,
+    "age": AGE,
+    "postal_code": ZIPCODE,
+    "location": LOCATION,
+    "gender": GENDER,
+    "organization": ORGANIZATION,
+    "clinical_code": CONDITION,
+    "diagnosis_code": CONDITION,
+    "procedure_code": PROCEDURE,
+    "medication_code": MEDICATION,
+    "lab_code": LAB_TEST,
+    "clinical_condition": CONDITION,
+    "medication": MEDICATION,
+    "procedure": PROCEDURE,
+    "lab_test": LAB_TEST,
+    "lab_value": LAB_VALUE,
+    "unit": UNIT,
+    "reference_range": REFERENCE_RANGE,
+    "free_text": OTHER,
+    "boolean": OTHER,
+    "categorical": OTHER,
+    "numeric": OTHER,
+    "unknown": OTHER,
+}
+
+
+def canonical_label_for_column_semantic(semantic_type: str) -> str:
+    """Return the canonical label for a structured column semantic type.
+
+    Args:
+        semantic_type: Stable semantic type emitted by the structured column
+            classifier.
+
+    Raises:
+        KeyError: If ``semantic_type`` is not part of the public mapping.
+    """
+
+    try:
+        return COLUMN_SEMANTIC_LABELS[semantic_type]
+    except (KeyError, TypeError):
+        raise KeyError(f"unknown column semantic type: {semantic_type!r}") from None
+
+
 # Boundary morphology is limited to labels that unambiguously identify a
 # person's name. Prefixes and usernames remain excluded because suffix-like
 # text can be part of those identifiers.
@@ -346,6 +544,9 @@ DIRECT_IDENTIFIER: Final = "DIRECT_IDENTIFIER"
 QUASI_IDENTIFIER: Final = "QUASI_IDENTIFIER"
 SENSITIVE_ATTRIBUTE: Final = "SENSITIVE_ATTRIBUTE"
 CLINICAL_CONCEPT: Final = "CLINICAL_CONCEPT"
+PII_LABEL_KIND: Final = "PII"
+BIOMEDICAL_LABEL_KIND: Final = "BIOMEDICAL"
+LABEL_KINDS: Final[FrozenSet[str]] = frozenset({PII_LABEL_KIND, BIOMEDICAL_LABEL_KIND})
 POLICY_LABELS: Final[FrozenSet[str]] = frozenset(
     {
         DIRECT_IDENTIFIER,
@@ -490,6 +691,19 @@ NDPA_SENSITIVE_CLASS_LABELS: Final[Mapping[str, FrozenSet[str]]] = {
             PROCEDURE,
             BODY_SITE,
             DEVICE,
+            PROBLEM,
+            SEVERITY,
+            DOSAGE,
+            ROUTE,
+            FREQUENCY,
+            DURATION,
+            FORM,
+            STRENGTH,
+            INDICATION,
+            LAB_VALUE,
+            UNIT,
+            REFERENCE_RANGE,
+            ABNORMAL_FLAG,
             ANESTHESIA_TYPE,
             ANESTHETIC_AGENT,
             AIRWAY_MANAGEMENT,
@@ -503,6 +717,10 @@ NDPA_SENSITIVE_CLASS_LABELS: Final[Mapping[str, FrozenSet[str]]] = {
             ADMINISTRATION_ROUTE,
             VACCINE_LOT,
             VACCINE_SERIES,
+            INTAKE_OUTPUT,
+            LINE_DRAIN_TUBE,
+            NURSING_RISK_SCORE,
+            CARE_INTERVENTION,
             GENE_SYMBOL,
             VARIANT_DESCRIPTOR,
             PROTEIN_CHANGE,
@@ -544,6 +762,11 @@ def _label_metadata(
     system_hints: tuple[str, ...] = _NO_SYSTEM_HINTS,
 ) -> Mapping[str, object]:
     return {
+        "kind": (
+            BIOMEDICAL_LABEL_KIND
+            if policy_label == CLINICAL_CONCEPT
+            else PII_LABEL_KIND
+        ),
         "policy_label": policy_label,
         "risk_level": risk_level,
         "system_hints": system_hints,
@@ -614,6 +837,29 @@ LABEL_METADATA: Final[Mapping[str, Mapping[str, object]]] = {
     MICROORGANISM: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED, LOINC)),
     ANTIBIOTIC: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (RXNORM, SNOMED)),
     SUSCEPTIBILITY: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (LOINC, SNOMED)),
+    # Biomedical NER family concepts
+    DISEASE: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (ICD_10_CM, SNOMED, HPO)),
+    DRUG: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (RXNORM, SNOMED)),
+    CHEMICAL: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    GENE_OR_GENE_PRODUCT: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED, HPO)),
+    GENE: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED, HPO)),
+    PROTEIN: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    DNA: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    RNA: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    ANATOMY: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    ORGAN: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    TISSUE: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    CELL: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    CANCER: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (ICD_10_CM, SNOMED, HPO)),
+    SPECIES: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    ORGANISM: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    PATHOLOGY: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (ICD_10_CM, SNOMED, HPO)),
+    BIOMARKER: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (LOINC, SNOMED)),
+    # Radiology finding concepts (issue #1971)
+    FINDING: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    IMAGING_MODALITY: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    LATERALITY: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    MEASUREMENT: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (LOINC, SNOMED)),
     # Clinical concepts
     CONDITION: _label_metadata(
         CLINICAL_CONCEPT,
@@ -629,6 +875,39 @@ LABEL_METADATA: Final[Mapping[str, Mapping[str, object]]] = {
     PROCEDURE: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
     BODY_SITE: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
     DEVICE: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    # Relation-extraction heads and attributes (issue #252). Free-text
+    # problem/indication text and result values remain medium-risk so rare
+    # conditions and distinctive measurements are visible to risk tooling,
+    # while their policy class keeps them out of default PII redaction.
+    PROBLEM: _label_metadata(
+        CLINICAL_CONCEPT,
+        RISK_MEDIUM,
+        (ICD_10_CM, SNOMED, HPO),
+    ),
+    SEVERITY: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    DOSAGE: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (RXNORM, SNOMED)),
+    ROUTE: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    FREQUENCY: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    DURATION: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    FORM: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (RXNORM, SNOMED)),
+    STRENGTH: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (RXNORM, SNOMED)),
+    INDICATION: _label_metadata(
+        CLINICAL_CONCEPT,
+        RISK_MEDIUM,
+        (ICD_10_CM, SNOMED, HPO),
+    ),
+    LAB_VALUE: _label_metadata(CLINICAL_CONCEPT, RISK_MEDIUM, (LOINC, SNOMED)),
+    UNIT: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (LOINC, SNOMED)),
+    REFERENCE_RANGE: _label_metadata(
+        CLINICAL_CONCEPT,
+        RISK_LOW,
+        (LOINC, SNOMED),
+    ),
+    ABNORMAL_FLAG: _label_metadata(
+        CLINICAL_CONCEPT,
+        RISK_MEDIUM,
+        (LOINC, SNOMED),
+    ),
     # Anesthesia-record concepts (issue #952)
     ANESTHESIA_TYPE: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
     ANESTHETIC_AGENT: _label_metadata(
@@ -649,6 +928,11 @@ LABEL_METADATA: Final[Mapping[str, Mapping[str, object]]] = {
     ADMINISTRATION_ROUTE: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
     VACCINE_LOT: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
     VACCINE_SERIES: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    # Nursing-care observation concepts (issue #910)
+    INTAKE_OUTPUT: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (LOINC, SNOMED)),
+    LINE_DRAIN_TUBE: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
+    NURSING_RISK_SCORE: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED, LOINC)),
+    CARE_INTERVENTION: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
     # Clinical genomics
     GENE_SYMBOL: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
     VARIANT_DESCRIPTOR: _label_metadata(CLINICAL_CONCEPT, RISK_LOW, (SNOMED,)),
@@ -786,6 +1070,19 @@ LABEL_TO_HIPAA: Final[Mapping[str, str]] = {
     PROCEDURE: HIPAA_UNIQUE_IDENTIFIER,
     BODY_SITE: HIPAA_UNIQUE_IDENTIFIER,
     DEVICE: HIPAA_UNIQUE_IDENTIFIER,
+    PROBLEM: HIPAA_UNIQUE_IDENTIFIER,
+    SEVERITY: HIPAA_UNIQUE_IDENTIFIER,
+    DOSAGE: HIPAA_UNIQUE_IDENTIFIER,
+    ROUTE: HIPAA_UNIQUE_IDENTIFIER,
+    FREQUENCY: HIPAA_UNIQUE_IDENTIFIER,
+    DURATION: HIPAA_UNIQUE_IDENTIFIER,
+    FORM: HIPAA_UNIQUE_IDENTIFIER,
+    STRENGTH: HIPAA_UNIQUE_IDENTIFIER,
+    INDICATION: HIPAA_UNIQUE_IDENTIFIER,
+    LAB_VALUE: HIPAA_UNIQUE_IDENTIFIER,
+    UNIT: HIPAA_UNIQUE_IDENTIFIER,
+    REFERENCE_RANGE: HIPAA_UNIQUE_IDENTIFIER,
+    ABNORMAL_FLAG: HIPAA_UNIQUE_IDENTIFIER,
     # Anesthesia-record concepts
     ANESTHESIA_TYPE: HIPAA_UNIQUE_IDENTIFIER,
     ANESTHETIC_AGENT: HIPAA_UNIQUE_IDENTIFIER,
@@ -802,6 +1099,11 @@ LABEL_TO_HIPAA: Final[Mapping[str, str]] = {
     ADMINISTRATION_ROUTE: HIPAA_UNIQUE_IDENTIFIER,
     VACCINE_LOT: HIPAA_UNIQUE_IDENTIFIER,
     VACCINE_SERIES: HIPAA_UNIQUE_IDENTIFIER,
+    # Nursing-care observation concepts
+    INTAKE_OUTPUT: HIPAA_UNIQUE_IDENTIFIER,
+    LINE_DRAIN_TUBE: HIPAA_UNIQUE_IDENTIFIER,
+    NURSING_RISK_SCORE: HIPAA_UNIQUE_IDENTIFIER,
+    CARE_INTERVENTION: HIPAA_UNIQUE_IDENTIFIER,
     # Clinical genomics
     GENE_SYMBOL: HIPAA_UNIQUE_IDENTIFIER,
     VARIANT_DESCRIPTOR: HIPAA_UNIQUE_IDENTIFIER,
@@ -906,6 +1208,19 @@ LABEL_TO_POPIA: Final[Mapping[str, str]] = {
     PROCEDURE: POPIA_HEALTH_INFORMATION,
     BODY_SITE: POPIA_HEALTH_INFORMATION,
     DEVICE: POPIA_HEALTH_INFORMATION,
+    PROBLEM: POPIA_HEALTH_INFORMATION,
+    SEVERITY: POPIA_HEALTH_INFORMATION,
+    DOSAGE: POPIA_HEALTH_INFORMATION,
+    ROUTE: POPIA_HEALTH_INFORMATION,
+    FREQUENCY: POPIA_HEALTH_INFORMATION,
+    DURATION: POPIA_HEALTH_INFORMATION,
+    FORM: POPIA_HEALTH_INFORMATION,
+    STRENGTH: POPIA_HEALTH_INFORMATION,
+    INDICATION: POPIA_HEALTH_INFORMATION,
+    LAB_VALUE: POPIA_HEALTH_INFORMATION,
+    UNIT: POPIA_HEALTH_INFORMATION,
+    REFERENCE_RANGE: POPIA_HEALTH_INFORMATION,
+    ABNORMAL_FLAG: POPIA_HEALTH_INFORMATION,
     ANESTHESIA_TYPE: POPIA_HEALTH_INFORMATION,
     ANESTHETIC_AGENT: POPIA_HEALTH_INFORMATION,
     AIRWAY_MANAGEMENT: POPIA_HEALTH_INFORMATION,
@@ -919,6 +1234,10 @@ LABEL_TO_POPIA: Final[Mapping[str, str]] = {
     ADMINISTRATION_ROUTE: POPIA_HEALTH_INFORMATION,
     VACCINE_LOT: POPIA_HEALTH_INFORMATION,
     VACCINE_SERIES: POPIA_HEALTH_INFORMATION,
+    INTAKE_OUTPUT: POPIA_HEALTH_INFORMATION,
+    LINE_DRAIN_TUBE: POPIA_HEALTH_INFORMATION,
+    NURSING_RISK_SCORE: POPIA_HEALTH_INFORMATION,
+    CARE_INTERVENTION: POPIA_HEALTH_INFORMATION,
     GENE_SYMBOL: POPIA_HEALTH_INFORMATION,
     VARIANT_DESCRIPTOR: POPIA_HEALTH_INFORMATION,
     PROTEIN_CHANGE: POPIA_HEALTH_INFORMATION,
@@ -953,6 +1272,7 @@ def _validate_label_metadata() -> None:
     hipaa_labels = set(LABEL_TO_HIPAA)
     popia_labels = set(LABEL_TO_POPIA)
     ndpa_classes = set(NDPA_SENSITIVE_CLASS_LABELS)
+    cross_map_labels = CANONICAL_LABELS - _BIOMEDICAL_CROSS_MAP_EXEMPT_LABELS
     if metadata_labels != CANONICAL_LABELS:
         missing = sorted(CANONICAL_LABELS - metadata_labels)
         extra = sorted(metadata_labels - CANONICAL_LABELS)
@@ -960,18 +1280,18 @@ def _validate_label_metadata() -> None:
             "LABEL_METADATA must cover CANONICAL_LABELS exactly; "
             f"missing={missing}, extra={extra}"
         )
-    if hipaa_labels != CANONICAL_LABELS:
-        missing = sorted(CANONICAL_LABELS - hipaa_labels)
-        extra = sorted(hipaa_labels - CANONICAL_LABELS)
+    if hipaa_labels != cross_map_labels:
+        missing = sorted(cross_map_labels - hipaa_labels)
+        extra = sorted(hipaa_labels - cross_map_labels)
         raise RuntimeError(
-            "LABEL_TO_HIPAA must cover CANONICAL_LABELS exactly; "
+            "LABEL_TO_HIPAA must cover identifier cross-map labels exactly; "
             f"missing={missing}, extra={extra}"
         )
-    if popia_labels != CANONICAL_LABELS:
-        missing = sorted(CANONICAL_LABELS - popia_labels)
-        extra = sorted(popia_labels - CANONICAL_LABELS)
+    if popia_labels != cross_map_labels:
+        missing = sorted(cross_map_labels - popia_labels)
+        extra = sorted(popia_labels - cross_map_labels)
         raise RuntimeError(
-            "LABEL_TO_POPIA must cover CANONICAL_LABELS exactly; "
+            "LABEL_TO_POPIA must cover identifier cross-map labels exactly; "
             f"missing={missing}, extra={extra}"
         )
     if ndpa_classes != set(NDPA_SENSITIVE_DATA_CLASSES):
@@ -989,10 +1309,27 @@ def _validate_label_metadata() -> None:
             raise RuntimeError(
                 f"{ndpa_class} has unknown canonical labels {unknown_labels}"
             )
+        biomedical_labels = sorted(set(labels) - cross_map_labels)
+        if biomedical_labels:
+            raise RuntimeError(
+                f"{ndpa_class} has non-identifier biomedical labels {biomedical_labels}"
+            )
     for label, metadata in LABEL_METADATA.items():
         policy_label = metadata["policy_label"]
+        kind = metadata["kind"]
         risk_level = metadata["risk_level"]
         system_hints = metadata["system_hints"]
+        if kind not in LABEL_KINDS:
+            raise RuntimeError(f"{label} has invalid kind {kind!r}")
+        expected_kind = (
+            BIOMEDICAL_LABEL_KIND
+            if policy_label == CLINICAL_CONCEPT
+            else PII_LABEL_KIND
+        )
+        if kind != expected_kind:
+            raise RuntimeError(
+                f"{label} kind {kind!r} does not match policy {policy_label!r}"
+            )
         if policy_label not in POLICY_LABELS:
             raise RuntimeError(f"{label} has invalid policy_label {policy_label!r}")
         if risk_level not in RISK_LEVELS:
@@ -1206,32 +1543,76 @@ _ALIAS_MAP: Final[Mapping[str, str]] = {
     # Microbiology
     "microorganism": MICROORGANISM,
     "microbe": MICROORGANISM,
-    "organism": MICROORGANISM,
     "pathogen": MICROORGANISM,
     "antibiotic": ANTIBIOTIC,
     "antimicrobial": ANTIBIOTIC,
     "susceptibility": SUSCEPTIBILITY,
     "susceptibilityresult": SUSCEPTIBILITY,
+    # Biomedical NER family concepts and family-native aliases
+    "disease": DISEASE,
+    "drug": DRUG,
+    "chemical": CHEMICAL,
+    "chem": CHEMICAL,
+    "simplechemical": CHEMICAL,
+    "aminoacid": CHEMICAL,
+    "geneorgeneproduct": GENE_OR_GENE_PRODUCT,
+    "geneproduct": GENE_OR_GENE_PRODUCT,
+    "gene": GENE,
+    "protein": PROTEIN,
+    "proteincomplex": PROTEIN,
+    "proteinenum": PROTEIN,
+    "proteinenumeration": PROTEIN,
+    "proteinfamilyorgroup": PROTEIN,
+    "proteinfamiliyorgroup": PROTEIN,
+    "proteinvariant": PROTEIN,
+    "dna": DNA,
+    "rna": RNA,
+    "anatomy": ANATOMY,
+    "anatomical": ANATOMY,
+    "anatomicalsystem": ANATOMY,
+    "developinganatomicalstructure": ANATOMY,
+    "immaterialanatomicalentity": ANATOMY,
+    "multitissuestructure": TISSUE,
+    "organ": ORGAN,
+    "tissue": TISSUE,
+    "cell": CELL,
+    "cellline": CELL,
+    "celltype": CELL,
+    "cellularcomponent": CELL,
+    "cl": CELL,
+    "cancer": CANCER,
+    "species": SPECIES,
+    "organism": ORGANISM,
+    "organismsubdivision": ORGANISM,
+    "organismsubstance": ORGANISM,
+    "pathology": PATHOLOGY,
+    "pathologicalformation": PATHOLOGY,
+    "biomarker": BIOMARKER,
+    # Radiology finding concepts
+    "finding": FINDING,
+    "radiologyfinding": FINDING,
+    "imagingfinding": FINDING,
+    "impression": FINDING,
+    "imagingmodality": IMAGING_MODALITY,
+    "modality": IMAGING_MODALITY,
+    "laterality": LATERALITY,
+    "measurement": MEASUREMENT,
     # Clinical concepts
     "condition": CONDITION,
-    "disease": CONDITION,
-    "diagnosis": CONDITION,
+    "diagnosis": PROBLEM,
     "ayushmorbidity": CONDITION,
     "namastemorbidity": CONDITION,
-    "finding": CONDITION,
-    "problem": CONDITION,
+    "problem": PROBLEM,
     "disorder": CONDITION,
     "syndrome": CONDITION,
     "medication": MEDICATION,
-    "drug": MEDICATION,
+    "med": MEDICATION,
     "indiandrug": MEDICATION,
     "indiandrugbrand": MEDICATION,
-    "chemical": MEDICATION,
     "substance": MEDICATION,
     "labtest": LAB_TEST,
     "test": LAB_TEST,
     "lab": LAB_TEST,
-    "measurement": LAB_TEST,
     "analyte": LAB_TEST,
     "procedure": PROCEDURE,
     "surgery": PROCEDURE,
@@ -1245,9 +1626,6 @@ _ALIAS_MAP: Final[Mapping[str, str]] = {
     "approach": OTHER,
     "bodysite": BODY_SITE,
     "bodypart": BODY_SITE,
-    "anatomy": BODY_SITE,
-    "anatomical": BODY_SITE,
-    "organ": BODY_SITE,
     # Procedure-record device concepts (issue #313)
     "device": DEVICE,
     "medicaldevice": DEVICE,
@@ -1278,7 +1656,7 @@ _ALIAS_MAP: Final[Mapping[str, str]] = {
     "vaccinationname": VACCINE_NAME,
     "vaccination": VACCINE_NAME,
     "dosenumber": DOSE_NUMBER,
-    "dose": DOSE_NUMBER,
+    "dose": DOSAGE,
     "administrationroute": ADMINISTRATION_ROUTE,
     "vaccineroute": ADMINISTRATION_ROUTE,
     "vaccinelot": VACCINE_LOT,
@@ -1287,8 +1665,61 @@ _ALIAS_MAP: Final[Mapping[str, str]] = {
     "vaccinationseries": VACCINE_SERIES,
     "administrationdate": DATE,
     "administrationsite": BODY_SITE,
+    # Relation-extraction heads and attributes (issue #252)
+    "dx": PROBLEM,
+    "problemlist": PROBLEM,
+    "problemlistitem": PROBLEM,
+    "activeproblem": PROBLEM,
+    "severity": SEVERITY,
+    "severitygrade": SEVERITY,
+    "dosage": DOSAGE,
+    "dosing": DOSAGE,
+    "route": ROUTE,
+    "routeofadministration": ROUTE,
+    "frequency": FREQUENCY,
+    "freq": FREQUENCY,
+    "duration": DURATION,
+    "form": FORM,
+    "doseform": FORM,
+    "dosageform": FORM,
+    "strength": STRENGTH,
+    "dosestrength": STRENGTH,
+    "indication": INDICATION,
+    "reasonfordrug": INDICATION,
+    "labvalue": LAB_VALUE,
+    "labresult": LAB_VALUE,
+    "resultvalue": LAB_VALUE,
+    "unit": UNIT,
+    "units": UNIT,
+    "uom": UNIT,
+    "referencerange": REFERENCE_RANGE,
+    "normalrange": REFERENCE_RANGE,
+    "refrange": REFERENCE_RANGE,
+    "abnormalflag": ABNORMAL_FLAG,
+    "abnormalityflag": ABNORMAL_FLAG,
+    # Nursing-care observation concepts
+    "intakeoutput": INTAKE_OUTPUT,
+    "intakeandoutput": INTAKE_OUTPUT,
+    "urineoutput": INTAKE_OUTPUT,
+    "foley": LINE_DRAIN_TUBE,
+    "foleycatheter": LINE_DRAIN_TUBE,
+    "centralline": LINE_DRAIN_TUBE,
+    "chesttube": LINE_DRAIN_TUBE,
+    "linedraintube": LINE_DRAIN_TUBE,
+    "nursingriskscore": NURSING_RISK_SCORE,
+    "riskscore": NURSING_RISK_SCORE,
+    "bradenscore": NURSING_RISK_SCORE,
+    "braden": NURSING_RISK_SCORE,
+    "morsefallscale": NURSING_RISK_SCORE,
+    "fallrisk": NURSING_RISK_SCORE,
+    "careintervention": CARE_INTERVENTION,
+    "wounddressing": CARE_INTERVENTION,
+    "dressingchange": CARE_INTERVENTION,
+    "repositioning": CARE_INTERVENTION,
+    "mobilitystatus": OTHER,
+    "painscore": OTHER,
+    "skinassessment": BODY_SITE,
     # Clinical genomics
-    "gene": GENE_SYMBOL,
     "genesymbol": GENE_SYMBOL,
     "genename": GENE_SYMBOL,
     "variantdescriptor": VARIANT_DESCRIPTOR,
@@ -1575,6 +2006,12 @@ def policy_label_for(label: str, lang: str = "en") -> str:
     return cast(str, _metadata_for(label, lang=lang)["policy_label"])
 
 
+def label_kind_for(label: str, lang: str = "en") -> str:
+    """Return whether a normalized label is PII or a biomedical concept."""
+
+    return cast(str, _metadata_for(label, lang=lang)["kind"])
+
+
 def risk_level_for(label: str, lang: str = "en") -> str:
     """Return the residual-risk level for a label after canonical normalization."""
     return cast(str, _metadata_for(label, lang=lang)["risk_level"])
@@ -1585,14 +2022,14 @@ def system_hints_for(label: str, lang: str = "en") -> tuple[str, ...]:
     return cast(tuple[str, ...], _metadata_for(label, lang=lang)["system_hints"])
 
 
-def hipaa_class_for(label: str, lang: str = "en") -> str:
-    """Return the outbound HIPAA Safe Harbor class for a normalized label."""
-    return LABEL_TO_HIPAA[normalize_label(label, lang=lang)]
+def hipaa_class_for(label: str, lang: str = "en") -> str | None:
+    """Return the HIPAA class, or ``None`` for non-identifier biomedical labels."""
+    return LABEL_TO_HIPAA.get(normalize_label(label, lang=lang))
 
 
-def popia_class_for(label: str, lang: str = "en") -> str:
-    """Return the POPIA identifier class for a normalized label."""
-    return LABEL_TO_POPIA[normalize_label(label, lang=lang)]
+def popia_class_for(label: str, lang: str = "en") -> str | None:
+    """Return the POPIA class, or ``None`` for non-identifier biomedical labels."""
+    return LABEL_TO_POPIA.get(normalize_label(label, lang=lang))
 
 
 def ndpa_classes_for(label: str, lang: str = "en") -> FrozenSet[str]:
@@ -1609,8 +2046,12 @@ _validate_label_metadata()
 
 __all__ = [
     "CANONICAL_LABELS",
+    "BIOMEDICAL_LABELS",
+    "COLUMN_SEMANTIC_LABELS",
+    "CLINICAL_CONCEPT_LABELS",
     "NAME_BOUNDARY_REFINEMENT_LABELS",
     "normalize_label",
+    "canonical_label_for_column_semantic",
     "supports_name_boundary_refinement",
     "CMEEE_LABEL_TO_CANONICAL",
     "id_subtype_for",
@@ -1641,10 +2082,13 @@ __all__ = [
     "LABEL_TO_POPIA",
     "NDPA_SENSITIVE_CLASS_LABELS",
     "POLICY_LABELS",
+    "LABEL_KINDS",
     "DIRECT_IDENTIFIER",
     "QUASI_IDENTIFIER",
     "SENSITIVE_ATTRIBUTE",
     "CLINICAL_CONCEPT",
+    "PII_LABEL_KIND",
+    "BIOMEDICAL_LABEL_KIND",
     "RISK_LEVELS",
     "RISK_LOW",
     "RISK_MEDIUM",
@@ -1662,6 +2106,7 @@ __all__ = [
     "NDPA_TRADE_UNION_MEMBERSHIPS",
     "NDPA_OTHER_COMMISSION_PRESCRIBED_DATA",
     "policy_label_for",
+    "label_kind_for",
     "risk_level_for",
     "system_hints_for",
     "hipaa_class_for",
@@ -1721,12 +2166,46 @@ __all__ = [
     "MICROORGANISM",
     "ANTIBIOTIC",
     "SUSCEPTIBILITY",
+    "DISEASE",
+    "DRUG",
+    "CHEMICAL",
+    "GENE_OR_GENE_PRODUCT",
+    "GENE",
+    "PROTEIN",
+    "DNA",
+    "RNA",
+    "ANATOMY",
+    "ORGAN",
+    "TISSUE",
+    "CELL",
+    "CANCER",
+    "SPECIES",
+    "ORGANISM",
+    "PATHOLOGY",
+    "BIOMARKER",
+    "FINDING",
+    "IMAGING_MODALITY",
+    "LATERALITY",
+    "MEASUREMENT",
     "CONDITION",
     "MEDICATION",
     "LAB_TEST",
     "PROCEDURE",
     "BODY_SITE",
     "DEVICE",
+    "PROBLEM",
+    "SEVERITY",
+    "DOSAGE",
+    "ROUTE",
+    "FREQUENCY",
+    "DURATION",
+    "FORM",
+    "STRENGTH",
+    "INDICATION",
+    "LAB_VALUE",
+    "UNIT",
+    "REFERENCE_RANGE",
+    "ABNORMAL_FLAG",
     "ANESTHESIA_TYPE",
     "ANESTHETIC_AGENT",
     "AIRWAY_MANAGEMENT",
@@ -1740,6 +2219,10 @@ __all__ = [
     "ADMINISTRATION_ROUTE",
     "VACCINE_LOT",
     "VACCINE_SERIES",
+    "INTAKE_OUTPUT",
+    "LINE_DRAIN_TUBE",
+    "NURSING_RISK_SCORE",
+    "CARE_INTERVENTION",
     "GENE_SYMBOL",
     "VARIANT_DESCRIPTOR",
     "PROTEIN_CHANGE",

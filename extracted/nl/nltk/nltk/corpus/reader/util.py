@@ -621,6 +621,14 @@ def read_sexpr_block(stream, block_size=16384, comment_char=None):
 
     if comment_char:
         COMMENT = re.compile("(?m)^%s.*$" % re.escape(comment_char))
+    # When a single s-expression spans more than one block, we grow ``block``
+    # and re-parse it. Growing by a *fixed* amount re-parses (and, with a
+    # comment_char, re-substitutes) the whole growing buffer on every step,
+    # which is O(n^2) on one oversized s-expression (CWE-407). Doubling the read
+    # size instead makes the number of re-parses O(log n) and the total work a
+    # geometric sum O(n), with no change to the parsed result (the stream is
+    # seeked back to the parsed offset regardless of any over-read).
+    read_size = block_size
     while True:
         try:
             # If we're stripping comments, then make sure our block ends
@@ -645,7 +653,8 @@ def read_sexpr_block(stream, block_size=16384, comment_char=None):
             return tokens
         except ValueError as e:
             if e.args[0] == "Block too small":
-                next_block = stream.read(block_size)
+                read_size *= 2  # exponential growth -> O(log n) re-parses, O(n) total
+                next_block = stream.read(read_size)
                 if next_block:
                     block += next_block
                     continue
@@ -712,6 +721,17 @@ def _parse_sexpr_block(block):
 def find_corpus_fileids(root, regexp):
     if not isinstance(root, PathPointer):
         raise TypeError("find_corpus_fileids: expected a PathPointer")
+
+    # Defense in depth (CWE-73, GHSA-3gq4-3j92-5w49): validate the root against
+    # the NLTK data sandbox before scanning it.  A few readers call
+    # find_corpus_fileids() before their super().__init__() runs the root check,
+    # so without this an out-of-sandbox FileSystemPathPointer root would still be
+    # enumerated (an os.walk directory listing) before construction is refused.
+    from nltk import pathsec
+
+    if pathsec.ENFORCE:
+        pathsec.validate_path(root, context="find_corpus_fileids")
+
     regexp += "$"
 
     # Find fileids in a zipfile: scan the zipfile's namelist.  Filter

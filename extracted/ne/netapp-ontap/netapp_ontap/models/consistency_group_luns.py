@@ -19,6 +19,21 @@ __pdoc__ = {
 class ConsistencyGroupLunsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ConsistencyGroupLuns object"""
 
+    access_mode = marshmallow_fields.Str(data_key="access_mode", allow_none=True)
+    r""" The `access_mode` property controls how SCSI task set management is handled for the LUN.
+This property is only supported on LUNs with the following `os_type`:
+
+* aix
+A value of _global_ is the default access mode, and indicates that task set operations impact all initiators accessing the LUN. In this mode, if an individual initiator encounters an I/O failure, its recovery can cascade the disruption to other initiators accessing the same LUN. Host operating systems not supported by this property are designed to avoid these cascading disruptions, so this property can be safely ignored.
+A value of _local_ indicates that task set operations only impact the initiator that requested the operation. When many hosts of a supported `os_type` are accessing the same LUN, the _local_ `access_mode` should be preferred.
+Modification of this property is only supported while the `status.state` of the LUN is _offline_. If a PATCH is performed while the LUN is _online_, the PATCH will automatically bring the LUN _offline_, perform the `access_mode` modification, and then bring the LUN back _online_. The host must perform a rescan to detect the new `access_mode`.
+
+
+Valid choices:
+
+* global
+* local """
+
     clone = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.models.consistency_group_consistency_groups_luns_clone", "ConsistencyGroupConsistencyGroupsLunsCloneSchema"),
                 unknown=EXCLUDE,
@@ -119,6 +134,8 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412 """
         return ConsistencyGroupLuns
 
     gettable_fields = [
+        "access_mode",
+        "clone",
         "comment",
         "create_time",
         "enabled",
@@ -130,9 +147,10 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412 """
         "space",
         "uuid",
     ]
-    """comment,create_time,enabled,lun_maps,name,os_type,qos.policy,serial_number,space,uuid,"""
+    """access_mode,clone,comment,create_time,enabled,lun_maps,name,os_type,qos.policy,serial_number,space,uuid,"""
 
     patchable_fields = [
+        "access_mode",
         "clone",
         "comment",
         "lun_maps",
@@ -140,9 +158,10 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412 """
         "qos.policy",
         "space",
     ]
-    """clone,comment,lun_maps,provisioning_options,qos.policy,space,"""
+    """access_mode,clone,comment,lun_maps,provisioning_options,qos.policy,space,"""
 
     postable_fields = [
+        "access_mode",
         "clone",
         "comment",
         "lun_maps",
@@ -152,7 +171,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412 """
         "qos.policy",
         "space",
     ]
-    """clone,comment,lun_maps,name,os_type,provisioning_options,qos.policy,space,"""
+    """access_mode,clone,comment,lun_maps,name,os_type,provisioning_options,qos.policy,space,"""
 
 
 class ConsistencyGroupLuns(Resource):

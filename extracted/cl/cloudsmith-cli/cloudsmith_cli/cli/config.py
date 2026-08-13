@@ -3,6 +3,7 @@
 import os
 import re
 import threading
+from typing import ClassVar
 
 import click
 from click_configfile import ConfigFileReader, Param, SectionSchema, matches_section
@@ -22,9 +23,8 @@ class ConfigParam(Param):
     def parse(self, text):
         if text:
             text = text.strip()
-        if self.type.name == "boolean":
-            if not text:
-                return None
+        if self.type.name == "boolean" and not text:
+            return None
         return super().parse(text)
 
     def get_error_hint(self, ctx):
@@ -67,6 +67,8 @@ class ConfigSchema:
         mcp_allowed_tools = ConfigParam(name="mcp_allowed_tools", type=str)
         mcp_allowed_tool_groups = ConfigParam(name="mcp_allowed_tool_groups", type=str)
         oidc_audience = ConfigParam(name="oidc_audience", type=str)
+        org = ConfigParam(name="org", type=str)
+        organization = ConfigParam(name="organization", type=str)
         oidc_org = ConfigParam(name="oidc_org", type=str)
         oidc_service_slug = ConfigParam(name="oidc_service_slug", type=str)
         oidc_detector_order = ConfigParam(name="oidc_detector_order", type=str)
@@ -81,10 +83,10 @@ class ConfigSchema:
 class ConfigReader(ConfigFileReader):
     """Reader for standard configuration."""
 
-    config_files = ["config.ini"]
+    config_files: ClassVar = ["config.ini"]
     config_name = "standard"
-    config_searchpath = list(_CFG_SEARCH_PATHS)
-    config_section_schemas = [ConfigSchema.Default, ConfigSchema.Profile]
+    config_searchpath: ClassVar = list(_CFG_SEARCH_PATHS)
+    config_section_schemas: ClassVar = [ConfigSchema.Default, ConfigSchema.Profile]
 
     @classmethod
     def select_config_schema_for(cls, section_name):
@@ -193,7 +195,7 @@ class ConfigReader(ConfigFileReader):
         cls._load_values_into_opts(opts, values)
 
         if profile and profile != "default":
-            values = config.get("profile:%s" % profile, {})
+            values = config.get(f"profile:{profile}", {})
             cls._load_values_into_opts(opts, values)
 
         return values
@@ -204,9 +206,9 @@ class ConfigReader(ConfigFileReader):
             if v is None:
                 continue
             if isinstance(v, str):
-                if v.startswith('"') or v.startswith("'"):
+                if v.startswith(('"', "'")):
                     v = v[1:]
-                if v.endswith('"') or v.endswith("'"):
+                if v.endswith(('"', "'")):
                     v = v[:-1]
                 if not v:
                     continue
@@ -233,10 +235,13 @@ class CredentialsSchema:
 class CredentialsReader(ConfigReader):
     """Reader for credentials configuration."""
 
-    config_files = ["credentials.ini"]
+    config_files: ClassVar = ["credentials.ini"]
     config_name = "credentials"
-    config_searchpath = list(_CFG_SEARCH_PATHS)
-    config_section_schemas = [CredentialsSchema.Default, CredentialsSchema.Profile]
+    config_searchpath: ClassVar = list(_CFG_SEARCH_PATHS)
+    config_section_schemas: ClassVar = [
+        CredentialsSchema.Default,
+        CredentialsSchema.Profile,
+    ]
 
     @classmethod
     def find_existing_files(cls):
@@ -484,14 +489,36 @@ class Options:  # pylint: disable=too-many-public-methods
         self._set_option("oidc_audience", value)
 
     @property
+    def org(self):
+        """Get value for the Cloudsmith organisation slug."""
+        return self._get_option("org")
+
+    @org.setter
+    def org(self, value):
+        """Set value for the Cloudsmith organisation slug."""
+        if isinstance(value, str):
+            value = value.strip() or None
+        self._set_option("org", value)
+
+    @property
+    def organization(self):
+        """Get the organisation slug, spelled in full."""
+        return self.org
+
+    @organization.setter
+    def organization(self, value):
+        """Set the organisation slug, spelled in full."""
+        self.org = value
+
+    @property
     def oidc_org(self):
-        """Get value for OIDC organisation slug."""
-        return self._get_option("oidc_org")
+        """Get the organisation slug under its original OIDC-era name."""
+        return self.org
 
     @oidc_org.setter
     def oidc_org(self, value):
-        """Set value for OIDC organisation slug."""
-        self._set_option("oidc_org", value)
+        """Set the organisation slug under its original OIDC-era name."""
+        self.org = value
 
     @property
     def oidc_service_slug(self):

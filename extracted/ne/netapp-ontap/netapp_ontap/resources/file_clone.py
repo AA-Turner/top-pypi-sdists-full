@@ -49,6 +49,12 @@ class FileCloneSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Mark clone file for auto deletion."""
 
+    bypass_throttle = marshmallow_fields.Boolean(
+        data_key="bypass_throttle",
+        allow_none=True,
+    )
+    r""" Bypass throttle checks."""
+
     destination_path = marshmallow_fields.Str(
         data_key="destination_path",
         allow_none=True,
@@ -64,6 +70,18 @@ Example: dest_file1 or dir1/dest_file2"""
     r""" Mark clone file for backup.
 
 Example: false"""
+
+    is_vvol_backup = marshmallow_fields.Boolean(
+        data_key="is_vvol_backup",
+        allow_none=True,
+    )
+    r""" Clone vvol for backup."""
+
+    nosplit_entry = marshmallow_fields.Boolean(
+        data_key="nosplit_entry",
+        allow_none=True,
+    )
+    r""" Mark clone to keep unsplit."""
 
     overwrite_destination = marshmallow_fields.Boolean(
         data_key="overwrite_destination",
@@ -104,8 +122,11 @@ Example: src_file1 or dir1/src_file2 or ./.snapshot/snap1/src_file3"""
 
     gettable_fields = [
         "autodelete",
+        "bypass_throttle",
         "destination_path",
         "is_backup",
+        "is_vvol_backup",
+        "nosplit_entry",
         "overwrite_destination",
         "range",
         "source_path",
@@ -114,12 +135,15 @@ Example: src_file1 or dir1/src_file2 or ./.snapshot/snap1/src_file3"""
         "volume.name",
         "volume.uuid",
     ]
-    """autodelete,destination_path,is_backup,overwrite_destination,range,source_path,token_uuid,volume.links,volume.name,volume.uuid,"""
+    """autodelete,bypass_throttle,destination_path,is_backup,is_vvol_backup,nosplit_entry,overwrite_destination,range,source_path,token_uuid,volume.links,volume.name,volume.uuid,"""
 
     patchable_fields = [
         "autodelete",
+        "bypass_throttle",
         "destination_path",
         "is_backup",
+        "is_vvol_backup",
+        "nosplit_entry",
         "overwrite_destination",
         "range",
         "source_path",
@@ -127,12 +151,15 @@ Example: src_file1 or dir1/src_file2 or ./.snapshot/snap1/src_file3"""
         "volume.name",
         "volume.uuid",
     ]
-    """autodelete,destination_path,is_backup,overwrite_destination,range,source_path,token_uuid,volume.name,volume.uuid,"""
+    """autodelete,bypass_throttle,destination_path,is_backup,is_vvol_backup,nosplit_entry,overwrite_destination,range,source_path,token_uuid,volume.name,volume.uuid,"""
 
     postable_fields = [
         "autodelete",
+        "bypass_throttle",
         "destination_path",
         "is_backup",
+        "is_vvol_backup",
+        "nosplit_entry",
         "overwrite_destination",
         "range",
         "source_path",
@@ -140,7 +167,7 @@ Example: src_file1 or dir1/src_file2 or ./.snapshot/snap1/src_file3"""
         "volume.name",
         "volume.uuid",
     ]
-    """autodelete,destination_path,is_backup,overwrite_destination,range,source_path,token_uuid,volume.name,volume.uuid,"""
+    """autodelete,bypass_throttle,destination_path,is_backup,is_vvol_backup,nosplit_entry,overwrite_destination,range,source_path,token_uuid,volume.name,volume.uuid,"""
 
 class FileClone(Resource):
     r""" File clone """

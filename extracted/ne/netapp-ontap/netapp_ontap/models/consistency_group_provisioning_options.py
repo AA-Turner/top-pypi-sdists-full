@@ -33,10 +33,10 @@ Valid choices:
     name = marshmallow_fields.Str(data_key="name", allow_none=True)
     r""" New name for consistency group. Required to resolve naming collisions. """
 
-    snapshot_autodelete_enabled = marshmallow_fields.Dict(data_key="snapshot_autodelete_enabled", allow_none=True)
+    snapshot_autodelete_enabled = marshmallow_fields.Boolean(data_key="snapshot_autodelete_enabled", allow_none=True)
     r""" Enable snapshot autodelete on a storage unit. """
 
-    snapshot_reserve_percent = marshmallow_fields.Dict(data_key="snapshot_reserve_percent", allow_none=True)
+    snapshot_reserve_percent = Size(data_key="snapshot_reserve_percent", allow_none=True)
     r""" The space that has been set aside as a reserve for storage unit snapshot usage, in percent. """
 
     storage_service = marshmallow_fields.Nested(

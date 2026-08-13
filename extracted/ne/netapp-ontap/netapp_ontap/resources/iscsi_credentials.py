@@ -89,123 +89,123 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     IscsiCredentials(
         {
-            "initiator": "default",
+            "authentication_type": "none",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/iscsi/credentials/19d04b8e-94d7-11e8-8370-005056b48fd2/default"
                 }
             },
-            "authentication_type": "none",
             "svm": {
-                "name": "svm1",
+                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"
                     }
                 },
-                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
+                "name": "svm1",
             },
+            "initiator": "default",
         }
     ),
     IscsiCredentials(
         {
-            "initiator": "iqn.1992-08.com.netapp:initiator1",
+            "authentication_type": "none",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/iscsi/credentials/19d04b8e-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator1"
                 }
             },
-            "authentication_type": "none",
             "svm": {
-                "name": "svm1",
+                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"
                     }
                 },
-                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
+                "name": "svm1",
             },
+            "initiator": "iqn.1992-08.com.netapp:initiator1",
         }
     ),
     IscsiCredentials(
         {
-            "initiator": "iqn.1992-08.com.netapp:initiator2",
+            "authentication_type": "chap",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/iscsi/credentials/19d04b8e-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator2"
                 }
             },
-            "chap": {"inbound": {"user": "user1"}},
-            "authentication_type": "chap",
             "svm": {
-                "name": "svm1",
+                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"
                     }
                 },
-                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
+                "name": "svm1",
             },
+            "chap": {"inbound": {"user": "user1"}},
+            "initiator": "iqn.1992-08.com.netapp:initiator2",
         }
     ),
     IscsiCredentials(
         {
-            "initiator": "default",
+            "authentication_type": "none",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/iscsi/credentials/25f617cf-94d7-11e8-8370-005056b48fd2/default"
                 }
             },
-            "authentication_type": "none",
             "svm": {
-                "name": "svm2",
+                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/25f617cf-94d7-11e8-8370-005056b48fd2"
                     }
                 },
-                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
+                "name": "svm2",
             },
+            "initiator": "default",
         }
     ),
     IscsiCredentials(
         {
-            "initiator": "iqn.1992-08.com.netapp:initiator2",
+            "authentication_type": "none",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/iscsi/credentials/25f617cf-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator2"
                 }
             },
-            "authentication_type": "none",
             "svm": {
-                "name": "svm2",
+                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/25f617cf-94d7-11e8-8370-005056b48fd2"
                     }
                 },
-                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
+                "name": "svm2",
             },
+            "initiator": "iqn.1992-08.com.netapp:initiator2",
         }
     ),
     IscsiCredentials(
         {
-            "initiator": "iqn.1992-08.com.netapp:initiator3",
+            "authentication_type": "deny",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/iscsi/credentials/25f617cf-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator3"
                 }
             },
-            "authentication_type": "deny",
             "svm": {
-                "name": "svm2",
+                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/25f617cf-94d7-11e8-8370-005056b48fd2"
                     }
                 },
-                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
+                "name": "svm2",
             },
+            "initiator": "iqn.1992-08.com.netapp:initiator3",
         }
     ),
 ]
@@ -236,21 +236,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IscsiCredentials(
     {
-        "initiator": "iqn.1992-08.com.netapp:initiator2",
+        "authentication_type": "chap",
         "_links": {
             "self": {
                 "href": "/api/protocols/san/iscsi/credentials/25f617cf-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator2"
             }
         },
-        "chap": {"inbound": {"user": "user1"}},
-        "authentication_type": "chap",
         "svm": {
-            "name": "svm2",
+            "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
             "_links": {
                 "self": {"href": "/api/svm/svms/25f617cf-94d7-11e8-8370-005056b48fd2"}
             },
-            "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
+            "name": "svm2",
         },
+        "chap": {"inbound": {"user": "user1"}},
+        "initiator": "iqn.1992-08.com.netapp:initiator2",
     }
 )
 

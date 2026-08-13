@@ -25,7 +25,6 @@ The API can sometimes fail to return the list of files with the most I/O activit
 * The NFS/CIFS client operations are being served by the client-side filesystem cache.
 * The NFS/CIFS client operations are being buffered by the client operating system.
 * On rare occasions, the incoming traffic pattern is not suitable to obtain the list of files with the most I/O activity.
-* NFSv4 client read operations using Multi-Processor I/O (MPIO) are not tracked.
 ## Failure to return pathnames
 The API can sometimes fail to obtain the filesystem pathnames for certain files, either due to internal transient errors or if those files have been recently deleted.
 In such cases, instead of the pathname, the API will return "{<volume_instance_uuid>.<fileid>}" for that file.
@@ -58,74 +57,74 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsSvmFile(
         {
-            "_links": {
-                "metadata": {
-                    "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864/files/d5%2Ff5?return_metadata=true"
-                }
-            },
+            "path": "/vol/fv1/d5/f5",
             "volume": {
-                "name": "fv1",
+                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef864",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864"
                     }
                 },
-                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef864",
+                "name": "fv1",
             },
-            "junction-path": "/fv1",
-            "path": "/vol/fv1/d5/f5",
-            "throughput": {
-                "error": {"lower_bound": 24, "upper_bound": 29},
-                "write": 24,
+            "_links": {
+                "metadata": {
+                    "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864/files/d5%2Ff5?return_metadata=true"
+                }
             },
             "svm": {"name": "vs1"},
+            "throughput": {
+                "write": 24,
+                "error": {"lower_bound": 24, "upper_bound": 29},
+            },
+            "junction-path": "/fv1",
         }
     ),
     TopMetricsSvmFile(
         {
-            "_links": {
-                "metadata": {
-                    "href": "/api/storage/volumes/2ea74c3e-d5ca-11eb-8fbb-005056ac0f33/files/d6%2Ff6?return_metadata=true"
-                }
-            },
+            "path": "/vol/fv2/d6/f6",
             "volume": {
-                "name": "fv2",
+                "uuid": "2ea74c3e-d5ca-11eb-8fbb-005056ac0f33",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/2ea74c3e-d5ca-11eb-8fbb-005056ac0f33"
                     }
                 },
-                "uuid": "2ea74c3e-d5ca-11eb-8fbb-005056ac0f33",
+                "name": "fv2",
             },
-            "junction-path": "/fv2",
-            "path": "/vol/fv2/d6/f6",
-            "throughput": {
-                "error": {"lower_bound": 12, "upper_bound": 22},
-                "write": 12,
+            "_links": {
+                "metadata": {
+                    "href": "/api/storage/volumes/2ea74c3e-d5ca-11eb-8fbb-005056ac0f33/files/d6%2Ff6?return_metadata=true"
+                }
             },
             "svm": {"name": "vs1"},
+            "throughput": {
+                "write": 12,
+                "error": {"lower_bound": 12, "upper_bound": 22},
+            },
+            "junction-path": "/fv2",
         }
     ),
     TopMetricsSvmFile(
         {
-            "_links": {
-                "metadata": {
-                    "href": "/api/storage/volumes/1ca74c3e-d5ca-11eb-8fbb-005056ac0f88/files/d3%2Ff3?return_metadata=true"
-                }
-            },
+            "path": "/vol/fv3/d3/f3",
             "volume": {
-                "name": "fv3",
+                "uuid": "1ca74c3e-d5ca-11eb-8fbb-005056ac0f88",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/1ca74c3e-d5ca-11eb-8fbb-005056ac0f88"
                     }
                 },
-                "uuid": "1ca74c3e-d5ca-11eb-8fbb-005056ac0f88",
+                "name": "fv3",
             },
-            "junction-path": "/fv3",
-            "path": "/vol/fv3/d3/f3",
-            "throughput": {"error": {"lower_bound": 8, "upper_bound": 10}, "write": 8},
+            "_links": {
+                "metadata": {
+                    "href": "/api/storage/volumes/1ca74c3e-d5ca-11eb-8fbb-005056ac0f88/files/d3%2Ff3?return_metadata=true"
+                }
+            },
             "svm": {"name": "vs1"},
+            "throughput": {"write": 8, "error": {"lower_bound": 8, "upper_bound": 10}},
+            "junction-path": "/fv3",
         }
     ),
 ]
@@ -152,53 +151,53 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsSvmFile(
         {
+            "path": "73b293df-e9d7-46cc-a9ce-2df8e52ef86.1232",
+            "iops": {"read": 1495, "error": {"lower_bound": 1495, "upper_bound": 1505}},
             "volume": {
-                "name": "fv1",
+                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef86",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef86"
                     }
                 },
-                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef86",
+                "name": "fv1",
             },
-            "iops": {"error": {"lower_bound": 1495, "upper_bound": 1505}, "read": 1495},
-            "junction-path": "/fv1",
-            "path": "73b293df-e9d7-46cc-a9ce-2df8e52ef86.1232",
             "svm": {"name": "vs1"},
+            "junction-path": "/fv1",
         }
     ),
     TopMetricsSvmFile(
         {
+            "path": "11b293df-e9d7-46cc-a9ce-2df8e52ef811.6574",
+            "iops": {"read": 1022, "error": {"lower_bound": 1022, "upper_bound": 1032}},
             "volume": {
-                "name": "fv2",
+                "uuid": "11b293df-e9d7-46cc-a9ce-2df8e52ef811",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/11b293df-e9d7-46cc-a9ce-2df8e52ef811"
                     }
                 },
-                "uuid": "11b293df-e9d7-46cc-a9ce-2df8e52ef811",
+                "name": "fv2",
             },
-            "iops": {"error": {"lower_bound": 1022, "upper_bound": 1032}, "read": 1022},
-            "junction-path": "/fv2",
-            "path": "11b293df-e9d7-46cc-a9ce-2df8e52ef811.6574",
             "svm": {"name": "vs1"},
+            "junction-path": "/fv2",
         }
     ),
     TopMetricsSvmFile(
         {
+            "path": "73b293df-e9d7-46cc-a9ce-2df8e52ef864.7844",
+            "iops": {"read": 345, "error": {"lower_bound": 345, "upper_bound": 355}},
             "volume": {
-                "name": "fv1",
+                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef864",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864"
                     }
                 },
-                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef864",
+                "name": "fv1",
             },
-            "iops": {"error": {"lower_bound": 345, "upper_bound": 355}, "read": 345},
-            "junction-path": "/fv1",
-            "path": "73b293df-e9d7-46cc-a9ce-2df8e52ef864.7844",
             "svm": {"name": "vs1"},
+            "junction-path": "/fv1",
         }
     ),
 ]
@@ -308,6 +307,22 @@ Example: /vol/fv/dir_abc/dir_123/file_1"""
             )
     r""" The throughput field of the top_metrics_svm_file."""
 
+    total_ops = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.top_metrics_client_total_ops", "TopMetricsClientTotalOpsSchema"),
+                data_key="total_ops",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" The total_ops field of the top_metrics_svm_file."""
+
+    total_throughput = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.top_metrics_client_total_throughput", "TopMetricsClientTotalThroughputSchema"),
+                data_key="total_throughput",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" The total_throughput field of the top_metrics_svm_file."""
+
     volume = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
                 data_key="volume",
@@ -329,23 +344,29 @@ Example: /vol/fv/dir_abc/dir_123/file_1"""
         "svm.name",
         "svm.uuid",
         "throughput",
+        "total_ops",
+        "total_throughput",
         "volume.links",
         "volume.name",
         "volume.uuid",
     ]
-    """links,iops,junction_path,path,svm.links,svm.name,svm.uuid,throughput,volume.links,volume.name,volume.uuid,"""
+    """links,iops,junction_path,path,svm.links,svm.name,svm.uuid,throughput,total_ops,total_throughput,volume.links,volume.name,volume.uuid,"""
 
     patchable_fields = [
         "iops",
         "throughput",
+        "total_ops",
+        "total_throughput",
     ]
-    """iops,throughput,"""
+    """iops,throughput,total_ops,total_throughput,"""
 
     postable_fields = [
         "iops",
         "throughput",
+        "total_ops",
+        "total_throughput",
     ]
-    """iops,throughput,"""
+    """iops,throughput,total_ops,total_throughput,"""
 
 class TopMetricsSvmFile(Resource):
     r""" Information about a file's IO activity. """

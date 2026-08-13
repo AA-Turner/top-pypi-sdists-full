@@ -34,6 +34,8 @@ class SuccessAcceptedResponse(BaseModel):
         Message returned by the server
     result_handler : str, optional
         Opaque result ID used for checking for request completion through one or more subsequent completion check operations.
+    job_id : str, optional
+        ID of the job/query backing the in-progress request. This is the result handler without the trailing result-type indicator appended to it.
     """
 
     code: Optional[StrictStr] = None
@@ -42,7 +44,9 @@ class SuccessAcceptedResponse(BaseModel):
 
     result_handler: Optional[StrictStr] = Field(default=None, alias="resultHandler")
 
-    __properties = ["code", "message", "resultHandler"]
+    job_id: Optional[StrictStr] = None
+
+    __properties = ["code", "message", "resultHandler", "job_id"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -94,6 +98,7 @@ class SuccessAcceptedResponse(BaseModel):
                 "code": obj.get("code"),
                 "message": obj.get("message"),
                 "result_handler": obj.get("resultHandler"),
+                "job_id": obj.get("job_id"),
             }
         )
 
@@ -106,6 +111,7 @@ class SuccessAcceptedResponseModel:
         code: Optional[str] = None,
         message: Optional[str] = None,
         result_handler: Optional[str] = None,
+        job_id: Optional[str] = None,
     ):
         """A model object representing the SuccessAcceptedResponse resource.
 
@@ -119,12 +125,15 @@ class SuccessAcceptedResponseModel:
             Message returned by the server
         result_handler : str, optional
             Opaque result ID used for checking for request completion through one or more subsequent completion check operations.
+        job_id : str, optional
+            ID of the job/query backing the in-progress request. This is the result handler without the trailing result-type indicator appended to it.
         """
         self.code = code
         self.message = message
         self.result_handler = result_handler
+        self.job_id = job_id
 
-    __properties = ["code", "message", "resultHandler"]
+    __properties = ["code", "message", "resultHandler", "job_id"]
 
     def __repr__(self) -> str:
         return repr(self._to_model())
@@ -134,6 +143,7 @@ class SuccessAcceptedResponseModel:
             code=self.code,
             message=self.message,
             result_handler=self.result_handler,
+            job_id=self.job_id,
         )
 
     @classmethod
@@ -142,6 +152,7 @@ class SuccessAcceptedResponseModel:
             code=model.code,
             message=model.message,
             result_handler=model.result_handler,
+            job_id=model.job_id,
         )
 
     def to_dict(self):

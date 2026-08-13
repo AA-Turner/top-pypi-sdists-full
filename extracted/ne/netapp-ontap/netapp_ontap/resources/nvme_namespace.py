@@ -42,40 +42,40 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeNamespace(
     {
-        "name": "/vol/vol1/namespace1",
-        "os_type": "linux",
-        "status": {"container_state": "online", "state": "online", "read_only": False},
+        "uuid": "dccdc3e6-cf4e-498f-bec6-f7897f945669",
+        "enabled": True,
+        "status": {"state": "online", "read_only": False, "container_state": "online"},
+        "space": {
+            "guarantee": {"requested": False, "reserved": False},
+            "size": 322122547200,
+            "used": 0,
+            "block_size": 4096,
+        },
         "location": {
             "namespace": "namespace1",
             "volume": {
-                "name": "vol1",
+                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/71cd0dba-2a1c-11e9-b682-005056bbc17d"
                     }
                 },
-                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
+                "name": "vol1",
             },
         },
-        "enabled": True,
         "_links": {
             "self": {
                 "href": "/api/storage/namespaces/dccdc3e6-cf4e-498f-bec6-f7897f945669"
             }
         },
-        "space": {
-            "used": 0,
-            "guarantee": {"reserved": False, "requested": False},
-            "size": 322122547200,
-            "block_size": 4096,
-        },
-        "uuid": "dccdc3e6-cf4e-498f-bec6-f7897f945669",
+        "os_type": "linux",
+        "name": "/vol/vol1/namespace1",
         "svm": {
-            "name": "svm1",
+            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
             "_links": {
                 "self": {"href": "/api/svm/svms/6bf967fd-2a1c-11e9-b682-005056bbc17d"}
             },
-            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
+            "name": "svm1",
         },
     }
 )
@@ -88,11 +88,17 @@ NvmeNamespace(
 ### Updating an NVMe namespace comment
 This example sets the `comment` property of an NVMe namespace.
 <br/>
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import NvmeNamespace
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = NvmeNamespace(uuid="dccdc3e6-cf4e-498f-bec6-f7897f945669")
+    resource.comment = "Your new comment here"
+    resource.patch()
+
 ```
-# The API:
-PATCH /api/storage/namespaces/{uuid}
-# The call:
-```
+
 ### Updating the size of an NVMe namespace
 This example increases the size of an NVMe namespace.
 <br/>
@@ -126,47 +132,47 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example2_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example2_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example2_result" class="try_it_out_content">
+<input id="example3_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example3_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example3_result" class="try_it_out_content">
 ```
 [
     NvmeNamespace(
         {
-            "name": "/vol/vol1/namespace2",
+            "uuid": "5c254d22-96a6-42ac-aad8-0cd9ebd126b6",
             "status": {"state": "online"},
             "_links": {
                 "self": {
                     "href": "/api/storage/namespaces/5c254d22-96a6-42ac-aad8-0cd9ebd126b6"
                 }
             },
-            "uuid": "5c254d22-96a6-42ac-aad8-0cd9ebd126b6",
+            "name": "/vol/vol1/namespace2",
             "svm": {"name": "svm1"},
         }
     ),
     NvmeNamespace(
         {
-            "name": "/vol/vol1/namespace1",
+            "uuid": "dccdc3e6-cf4e-498f-bec6-f7897f945669",
             "status": {"state": "online"},
             "_links": {
                 "self": {
                     "href": "/api/storage/namespaces/dccdc3e6-cf4e-498f-bec6-f7897f945669"
                 }
             },
-            "uuid": "dccdc3e6-cf4e-498f-bec6-f7897f945669",
+            "name": "/vol/vol1/namespace1",
             "svm": {"name": "svm1"},
         }
     ),
     NvmeNamespace(
         {
-            "name": "/vol/vol2/namespace3",
+            "uuid": "be732687-20cf-47d2-a0e2-2a989d15661d",
             "status": {"state": "online"},
             "_links": {
                 "self": {
                     "href": "/api/storage/namespaces/be732687-20cf-47d2-a0e2-2a989d15661d"
                 }
             },
-            "uuid": "be732687-20cf-47d2-a0e2-2a989d15661d",
+            "name": "/vol/vol2/namespace3",
             "svm": {"name": "svm1"},
         }
     ),
@@ -191,86 +197,86 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example3_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example3_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example3_result" class="try_it_out_content">
+<input id="example4_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example4_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example4_result" class="try_it_out_content">
 ```
 NvmeNamespace(
     {
+        "uuid": "dccdc3e6-cf4e-498f-bec6-f7897f945669",
         "subsystem_map": {
-            "anagrpid": "00000001h",
-            "subsystem": {
-                "_links": {
-                    "self": {
-                        "href": "/api/protocols/nvme/subsystems/01f17d05-2be9-11e9-bed2-005056bbc17d"
-                    }
-                },
-                "name": "subsystem1",
-                "uuid": "01f17d05-2be9-11e9-bed2-005056bbc17d",
-            },
             "nsid": "00000001h",
             "_links": {
                 "self": {
                     "href": "/api/protocols/nvme/subsystem-maps/dccdc3e6-cf4e-498f-bec6-f7897f945669/01f17d05-2be9-11e9-bed2-005056bbc17d"
                 }
             },
+            "anagrpid": "00000001h",
+            "subsystem": {
+                "uuid": "01f17d05-2be9-11e9-bed2-005056bbc17d",
+                "name": "subsystem1",
+                "_links": {
+                    "self": {
+                        "href": "/api/protocols/nvme/subsystems/01f17d05-2be9-11e9-bed2-005056bbc17d"
+                    }
+                },
+            },
         },
-        "name": "/vol/vol1/namespace1",
-        "os_type": "linux",
-        "auto_delete": False,
+        "enabled": True,
         "status": {
-            "container_state": "online",
-            "mapped": True,
             "state": "online",
             "read_only": False,
+            "mapped": True,
+            "container_state": "online",
         },
-        "metric": {
-            "latency": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "timestamp": "2019-04-09T05:50:15+00:00",
-            "iops": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "status": "ok",
-            "duration": "PT15S",
-            "throughput": {"write": 0, "total": 0, "read": 0},
+        "space": {
+            "guarantee": {"requested": False, "reserved": False},
+            "size": 322122547200,
+            "used": 0,
+            "block_size": 4096,
         },
         "location": {
             "namespace": "namespace1",
             "volume": {
-                "name": "vol1",
+                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/71cd0dba-2a1c-11e9-b682-005056bbc17d"
                     }
                 },
-                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
+                "name": "vol1",
             },
         },
-        "enabled": True,
+        "metric": {
+            "iops": {"read": 0, "write": 0, "other": 0, "total": 0},
+            "timestamp": "2019-04-09T05:50:15+00:00",
+            "duration": "PT15S",
+            "status": "ok",
+            "latency": {"read": 0, "write": 0, "other": 0, "total": 0},
+            "throughput": {"read": 0, "write": 0, "total": 0},
+        },
+        "auto_delete": False,
         "_links": {
             "self": {
                 "href": "/api/storage/namespaces/dccdc3e6-cf4e-498f-bec6-f7897f945669?fields=**"
             }
         },
-        "space": {
-            "used": 0,
-            "guarantee": {"reserved": False, "requested": False},
-            "size": 322122547200,
-            "block_size": 4096,
-        },
+        "os_type": "linux",
         "statistics": {
-            "throughput_raw": {"write": 0, "total": 0, "read": 0},
-            "iops_raw": {"write": 0, "total": 3, "other": 3, "read": 0},
+            "throughput_raw": {"read": 0, "write": 0, "total": 0},
+            "latency_raw": {"read": 0, "write": 0, "other": 38298, "total": 38298},
+            "iops_raw": {"read": 0, "write": 0, "other": 3, "total": 3},
             "timestamp": "2019-04-09T05:50:42+00:00",
             "status": "ok",
-            "latency_raw": {"write": 0, "total": 38298, "other": 38298, "read": 0},
         },
         "comment": "Data for the research department.",
-        "uuid": "dccdc3e6-cf4e-498f-bec6-f7897f945669",
+        "name": "/vol/vol1/namespace1",
         "svm": {
-            "name": "svm1",
+            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
             "_links": {
                 "self": {"href": "/api/svm/svms/6bf967fd-2a1c-11e9-b682-005056bbc17d"}
             },
-            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
+            "name": "svm1",
         },
     }
 )
@@ -576,6 +582,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
     gettable_fields = [
         "links",
         "auto_delete",
+        "clone",
         "comment",
         "consistency_group",
         "create_time",
@@ -595,7 +602,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "svm.uuid",
         "uuid",
     ]
-    """links,auto_delete,comment,consistency_group,create_time,enabled,encryption,location,metric,name,os_type,qos_policy,space,statistics,status,subsystem_map,svm.links,svm.name,svm.uuid,uuid,"""
+    """links,auto_delete,clone,comment,consistency_group,create_time,enabled,encryption,location,metric,name,os_type,qos_policy,space,statistics,status,subsystem_map,svm.links,svm.name,svm.uuid,uuid,"""
 
     patchable_fields = [
         "auto_delete",
@@ -711,8 +718,13 @@ There is an added computational cost to retrieving values for these properties. 
     ) -> NetAppResponse:
         r"""Updates an NVMe namespace.
 ### Related ONTAP commands
+<personalities supports=unified>
 * `volume file clone autodelete`
+</personalities>
 * `vserver nvme namespace modify`
+<personalities supports=asar2>
+* `vserver nvme namespace rename`
+</personalities>
 <personalities supports=asar2>
 PATCH is asynchronous when modifying `name` or `qos_policy`.
 </personalities>
@@ -750,8 +762,10 @@ If not specified in POST, the following default property values are assigned:
 * `auto_delete` - _false_
 * `space.block_size` - _4096_ ( _512_ when 'os_type' is _vmware_ )
 ### Related ONTAP commands
+<personalities supports=unified>
 * `volume file clone autodelete`
 * `volume file clone create`
+</personalities>
 * `vserver nvme namespace convert-from-lun`
 * `vserver nvme namespace create`
 <personalities supports=asar2>
@@ -863,8 +877,10 @@ If not specified in POST, the following default property values are assigned:
 * `auto_delete` - _false_
 * `space.block_size` - _4096_ ( _512_ when 'os_type' is _vmware_ )
 ### Related ONTAP commands
+<personalities supports=unified>
 * `volume file clone autodelete`
 * `volume file clone create`
+</personalities>
 * `vserver nvme namespace convert-from-lun`
 * `vserver nvme namespace create`
 <personalities supports=asar2>
@@ -891,8 +907,13 @@ POST is asynchronous when creating a new namespace. It is synchronous when conve
     ) -> NetAppResponse:
         r"""Updates an NVMe namespace.
 ### Related ONTAP commands
+<personalities supports=unified>
 * `volume file clone autodelete`
+</personalities>
 * `vserver nvme namespace modify`
+<personalities supports=asar2>
+* `vserver nvme namespace rename`
+</personalities>
 <personalities supports=asar2>
 PATCH is asynchronous when modifying `name` or `qos_policy`.
 </personalities>

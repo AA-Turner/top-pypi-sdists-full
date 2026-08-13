@@ -20,6 +20,7 @@ from av import (
     VideoFrame,
 )
 from av.codec.codec import UnknownCodecError
+from av.codec.context import OptionFlags, OptionType
 from av.video.frame import PictureType
 
 from .common import TestCase, fate_suite
@@ -70,10 +71,56 @@ def iter_raw_frames(
 
 
 class TestCodecContext(TestCase):
+    def test_supported_options(self) -> None:
+        ctx = Codec("flac", "w").create()
+        supported = ctx.supported_options
+        generic = {option.name: option for option in supported.generic}
+        private = {option.name: option for option in supported.private}
+
+        bit_rate = generic["b"]
+        assert bit_rate.type is OptionType.INT64
+        assert bit_rate.default is not None
+        assert bit_rate.flags & OptionFlags.ENCODING_PARAM
+        assert bit_rate.flags & OptionFlags.AUDIO_PARAM
+
+        strict_choices = {choice.name for choice in generic["strict"].choices}
+        assert "experimental" in strict_choices
+
+        lpc_type = private["lpc_type"]
+        assert lpc_type.type is OptionType.INT
+        assert lpc_type.default == "-1"
+        assert {choice.name for choice in lpc_type.choices} >= {
+            "none",
+            "fixed",
+            "levinson",
+        }
+
+        # Descriptors report FFmpeg's defaults, not values changed on this context.
+        ctx.bit_rate = 123456
+        changed_supported = ctx.supported_options
+        changed_generic = {option.name: option for option in changed_supported.generic}
+        assert changed_generic["b"].default == bit_rate.default
+
     def test_global_quality(self):
         ctx = Codec("mpeg4", "w").create()
         ctx.global_quality = 5
         assert ctx.global_quality == 5
+
+    def test_level(self):
+        with av.open(fate_suite("h264/interlaced_crop.mp4")) as container:
+            assert container.streams.video[0].codec_context.level == 41
+
+        ctx = Codec("mpeg4", "w").create()
+        ctx.level = 5
+        assert ctx.level == 5
+
+    def test_field_order(self):
+        with av.open(fate_suite("h264/interlaced_crop.mp4")) as container:
+            assert container.streams.video[0].codec_context.field_order == 2
+
+        ctx = Codec("mpeg4", "w").create()
+        ctx.field_order = 1
+        assert ctx.field_order == 1
 
     def test_skip_frame_default(self):
         ctx = Codec("png", "w").create()

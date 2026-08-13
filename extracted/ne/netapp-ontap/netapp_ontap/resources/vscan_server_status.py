@@ -25,42 +25,44 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     VscanServerStatus(
         {
+            "privileged_user": "mydomain\\testuser",
+            "type": "primary",
+            "update_time": "2021-05-07T21:35:02+05:30",
             "version": "5.643",
             "vendor": "mighty master anti-evil scanner",
-            "ip": "10.140.132.141",
             "interface": {
+                "uuid": "6911e7c6-aefc-11eb-bd8c-0050568e8ed1",
                 "ip": {"address": "10.140.69.165"},
                 "name": "vs1.data",
-                "uuid": "6911e7c6-aefc-11eb-bd8c-0050568e8ed1",
             },
-            "state": "connected",
-            "update_time": "2021-05-07T21:35:02+05:30",
-            "type": "primary",
+            "svm": {"uuid": "66f8564d-aefc-11eb-bd8c-0050568e8ed1", "name": "vs1"},
             "node": {
-                "name": "user-vsim1",
                 "uuid": "ce2463d9-aef6-11eb-bd8c-0050568e8ed1",
+                "name": "user-vsim1",
             },
-            "svm": {"name": "vs1", "uuid": "66f8564d-aefc-11eb-bd8c-0050568e8ed1"},
+            "ip": "10.140.132.141",
+            "state": "connected",
         }
     ),
     VscanServerStatus(
         {
+            "privileged_user": "mydomain\\testuser",
+            "type": "primary",
+            "update_time": "2021-05-07T21:35:43+05:30",
             "version": "5.643",
             "vendor": "mighty master anti-evil scanner",
-            "ip": "10.140.128.163",
             "interface": {
+                "uuid": "c070b4c2-aef9-11eb-8530-0050568e8ed1",
                 "ip": {"address": "10.140.70.154"},
                 "name": "vs2.data",
-                "uuid": "c070b4c2-aef9-11eb-8530-0050568e8ed1",
             },
-            "state": "connected",
-            "update_time": "2021-05-07T21:35:43+05:30",
-            "type": "primary",
+            "svm": {"uuid": "a776e8f2-aef9-11eb-8530-0050568e8ed1", "name": "vs2"},
             "node": {
-                "name": "user-vsim1",
                 "uuid": "ce2463d9-aef6-11eb-bd8c-0050568e8ed1",
+                "name": "user-vsim1",
             },
-            "svm": {"name": "vs2", "uuid": "a776e8f2-aef9-11eb-8530-0050568e8ed1"},
+            "ip": "10.140.128.163",
+            "state": "connected",
         }
     ),
 ]
@@ -88,22 +90,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     VscanServerStatus(
         {
+            "privileged_user": "mydomain\\testuser",
+            "type": "primary",
+            "update_time": "2021-05-07T23:08:21+05:30",
             "version": "5.643",
             "vendor": "mighty master anti-evil scanner",
-            "ip": "10.140.132.141",
             "interface": {
+                "uuid": "6911e7c6-aefc-11eb-bd8c-0050568e8ed1",
                 "ip": {"address": "10.140.69.165"},
                 "name": "vs1.data",
-                "uuid": "6911e7c6-aefc-11eb-bd8c-0050568e8ed1",
             },
-            "state": "connected",
-            "update_time": "2021-05-07T23:08:21+05:30",
-            "type": "primary",
+            "svm": {"uuid": "66f8564d-aefc-11eb-bd8c-0050568e8ed1", "name": "vs1"},
             "node": {
-                "name": "user-vsim1",
                 "uuid": "ce2463d9-aef6-11eb-bd8c-0050568e8ed1",
+                "name": "user-vsim1",
             },
-            "svm": {"name": "vs1", "uuid": "66f8564d-aefc-11eb-bd8c-0050568e8ed1"},
+            "ip": "10.140.132.141",
+            "state": "connected",
         }
     )
 ]
@@ -189,6 +192,12 @@ enum:
             )
     r""" The node field of the vscan_server_status."""
 
+    privileged_user = marshmallow_fields.Str(
+        data_key="privileged_user",
+        allow_none=True,
+    )
+    r""" Specifies the privileged users that are used to connect to the Vscan servers."""
+
     state = marshmallow_fields.Str(
         data_key="state",
         allow_none=True,
@@ -258,6 +267,7 @@ Valid choices:
         "node.links",
         "node.name",
         "node.uuid",
+        "privileged_user",
         "state",
         "svm.links",
         "svm.name",
@@ -267,13 +277,14 @@ Valid choices:
         "vendor",
         "version",
     ]
-    """disconnected_reason,interface.links,interface.ip,interface.name,interface.uuid,ip,node.links,node.name,node.uuid,state,svm.links,svm.name,svm.uuid,type,update_time,vendor,version,"""
+    """disconnected_reason,interface.links,interface.ip,interface.name,interface.uuid,ip,node.links,node.name,node.uuid,privileged_user,state,svm.links,svm.name,svm.uuid,type,update_time,vendor,version,"""
 
     patchable_fields = [
         "disconnected_reason",
         "interface.name",
         "interface.uuid",
         "ip",
+        "privileged_user",
         "state",
         "svm.name",
         "svm.uuid",
@@ -282,13 +293,14 @@ Valid choices:
         "vendor",
         "version",
     ]
-    """disconnected_reason,interface.name,interface.uuid,ip,state,svm.name,svm.uuid,type,update_time,vendor,version,"""
+    """disconnected_reason,interface.name,interface.uuid,ip,privileged_user,state,svm.name,svm.uuid,type,update_time,vendor,version,"""
 
     postable_fields = [
         "disconnected_reason",
         "interface.name",
         "interface.uuid",
         "ip",
+        "privileged_user",
         "state",
         "svm.name",
         "svm.uuid",
@@ -297,7 +309,7 @@ Valid choices:
         "vendor",
         "version",
     ]
-    """disconnected_reason,interface.name,interface.uuid,ip,state,svm.name,svm.uuid,type,update_time,vendor,version,"""
+    """disconnected_reason,interface.name,interface.uuid,ip,privileged_user,state,svm.name,svm.uuid,type,update_time,vendor,version,"""
 
 class VscanServerStatus(Resource):
     r""" Displays the connection status information of the external virus-scanning servers. """

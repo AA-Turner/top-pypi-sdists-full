@@ -26,56 +26,56 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3Service(
         {
-            "name": "vs1",
+            "enabled": False,
             "min_lock_retention_period": "none",
             "max_lock_retention_period": "none",
-            "enabled": False,
             "comment": "S3 server",
-            "svm": {"name": "vs2", "uuid": "cf90b8f2-8071-11e9-8190-0050568eae21"},
+            "name": "vs1",
+            "svm": {"uuid": "cf90b8f2-8071-11e9-8190-0050568eae21", "name": "vs2"},
         }
     ),
     S3Service(
         {
-            "buckets": [
-                {
-                    "volume": {
-                        "name": "fg_oss_1559026220",
-                        "uuid": "de146bff-8114-11e9-8190-0050568eae21",
-                    },
-                    "name": "bucket-1",
-                    "size": 107374182400,
-                    "logical_used_size": 157286400,
-                    "comment": "s3 bucket",
-                    "uuid": "e08665af-8114-11e9-8190-0050568eae21",
-                    "encryption": {"enabled": False},
-                },
-                {
-                    "volume": {
-                        "name": "fg_oss_1559026269",
-                        "uuid": "f9b1cdd0-8114-11e9-8190-0050568eae21",
-                    },
-                    "name": "bucket-2",
-                    "size": 107374182400,
-                    "logical_used_size": 78643200,
-                    "comment": "s3 bucket",
-                    "uuid": "fb1912ef-8114-11e9-8190-0050568eae21",
-                    "encryption": {"enabled": False},
-                },
-            ],
-            "name": "Server-1",
-            "min_lock_retention_period": "none",
-            "max_lock_retention_period": "none",
             "users": [
                 {
+                    "comment": "S3 user",
                     "access_key": "<AWS-ACCESS-KEY-ID>",
                     "name": "user-1",
-                    "comment": "S3 user",
                 },
-                {"access_key": "<AWS-ACCESS-KEY-ID>", "name": "user-2", "comment": ""},
+                {"comment": "", "access_key": "<AWS-ACCESS-KEY-ID>", "name": "user-2"},
             ],
             "enabled": True,
+            "min_lock_retention_period": "none",
+            "buckets": [
+                {
+                    "uuid": "e08665af-8114-11e9-8190-0050568eae21",
+                    "volume": {
+                        "uuid": "de146bff-8114-11e9-8190-0050568eae21",
+                        "name": "fg_oss_1559026220",
+                    },
+                    "logical_used_size": 157286400,
+                    "comment": "s3 bucket",
+                    "size": 107374182400,
+                    "name": "bucket-1",
+                    "encryption": {"enabled": False},
+                },
+                {
+                    "uuid": "fb1912ef-8114-11e9-8190-0050568eae21",
+                    "volume": {
+                        "uuid": "f9b1cdd0-8114-11e9-8190-0050568eae21",
+                        "name": "fg_oss_1559026269",
+                    },
+                    "logical_used_size": 78643200,
+                    "comment": "s3 bucket",
+                    "size": 107374182400,
+                    "name": "bucket-2",
+                    "encryption": {"enabled": False},
+                },
+            ],
+            "max_lock_retention_period": "none",
             "comment": "S3 server",
-            "svm": {"name": "vs1", "uuid": "d7f1219c-7f8e-11e9-9124-0050568eae21"},
+            "name": "Server-1",
+            "svm": {"uuid": "d7f1219c-7f8e-11e9-9124-0050568eae21", "name": "vs1"},
         }
     ),
 ]
@@ -102,79 +102,80 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Service(
     {
+        "users": [
+            {
+                "comment": "s3 user",
+                "access_key": "<AWS-ACCESS-KEY-ID>",
+                "name": "user-1",
+            },
+            {"comment": "", "access_key": "<AWS-ACCESS-KEY-ID>", "name": "user-2"},
+        ],
+        "enabled": True,
+        "bucket_create_retention_mode": "compliance",
+        "min_lock_retention_period": "none",
         "buckets": [
             {
+                "uuid": "e08665af-8114-11e9-8190-0050568eae21",
                 "volume": {
-                    "name": "fg_oss_1559026220",
                     "uuid": "de146bff-8114-11e9-8190-0050568eae21",
+                    "name": "fg_oss_1559026220",
                 },
-                "name": "bucket-1",
-                "size": 107374182400,
+                "logical_used_size": 157286400,
                 "policy": {
                     "statements": [
                         {
-                            "effect": "deny",
                             "resources": [
                                 "bucket-1/policy-docs/*",
                                 "bucket-1/confidential-*",
                             ],
                             "actions": ["*Object"],
-                            "principals": ["mike"],
                             "sid": "DenyAccessToGetPutDeleteObjectForMike",
+                            "effect": "deny",
+                            "principals": ["mike"],
                         },
                         {
-                            "effect": "allow",
                             "resources": ["bucket-1/readme"],
                             "actions": ["GetObject"],
-                            "principals": ["*"],
                             "sid": "AccessToGetObjectForAnonymousUser",
+                            "effect": "allow",
+                            "principals": ["*"],
                         },
                     ]
                 },
-                "logical_used_size": 157286400,
-                "comment": "s3 bucket",
-                "uuid": "e08665af-8114-11e9-8190-0050568eae21",
-                "encryption": {"enabled": False},
                 "cors": {
                     "rules": [
                         {
-                            "allowed_methods": ["PUT", "DELETE"],
-                            "max_age_seconds": 1024,
                             "allowed_headers": ["x-amz-request-id"],
-                            "id": "string",
-                            "allowed_origins": ["http://www.example.com"],
+                            "allowed_methods": ["PUT", "DELETE"],
                             "expose_headers": ["http://www.example.com"],
+                            "allowed_origins": ["http://www.example.com"],
+                            "max_age_seconds": 1024,
+                            "id": "string",
                         }
                     ]
                 },
+                "comment": "s3 bucket",
+                "size": 107374182400,
+                "name": "bucket-1",
+                "encryption": {"enabled": False},
             },
             {
+                "uuid": "fb1912ef-8114-11e9-8190-0050568eae21",
                 "volume": {
-                    "name": "fg_oss_1559026269",
                     "uuid": "f9b1cdd0-8114-11e9-8190-0050568eae21",
+                    "name": "fg_oss_1559026269",
                 },
-                "name": "bucket-2",
-                "size": 107374182400,
                 "logical_used_size": 1075838976,
                 "comment": "s3 bucket",
-                "uuid": "fb1912ef-8114-11e9-8190-0050568eae21",
+                "size": 107374182400,
+                "name": "bucket-2",
                 "encryption": {"enabled": False},
             },
         ],
-        "name": "Server-1",
-        "min_lock_retention_period": "none",
         "max_lock_retention_period": "none",
-        "users": [
-            {
-                "access_key": "<AWS-ACCESS-KEY-ID>",
-                "name": "user-1",
-                "comment": "s3 user",
-            },
-            {"access_key": "<AWS-ACCESS-KEY-ID>", "name": "user-2", "comment": ""},
-        ],
-        "enabled": True,
         "comment": "S3 server",
-        "svm": {"name": "vs1", "uuid": "d7f1219c-7f8e-11e9-9124-0050568eae21"},
+        "name": "Server-1",
+        "svm": {"uuid": "d7f1219c-7f8e-11e9-9124-0050568eae21", "name": "vs1"},
     }
 )
 
@@ -207,14 +208,14 @@ S3Service(
     {
         "users": [
             {
+                "secret_key": "<AWS-SECRET-ACCESS-KEY>",
                 "access_key": "<AWS-ACCESS-KEY-ID>",
                 "name": "user-1",
-                "secret_key": "<AWS-SECRET-ACCESS-KEY>",
             },
             {
+                "secret_key": "<AWS-SECRET-ACCESS-KEY>",
                 "access_key": "<AWS-ACCESS-KEY-ID>",
                 "name": "user-2",
-                "secret_key": "<AWS-SECRET-ACCESS-KEY>",
             },
         ],
         "_links": {"self": {"href": "/api/protocols/s3/services/"}},
@@ -284,14 +285,14 @@ S3Service(
     {
         "users": [
             {
+                "secret_key": "<AWS-SECRET-ACCESS-KEY>",
                 "access_key": "<AWS-ACCESS-KEY-ID>",
                 "name": "user-1",
-                "secret_key": "<AWS-SECRET-ACCESS-KEY>",
             },
             {
+                "secret_key": "<AWS-SECRET-ACCESS-KEY>",
                 "access_key": "<AWS-ACCESS-KEY-ID>",
                 "name": "user-2",
-                "secret_key": "<AWS-SECRET-ACCESS-KEY>",
             },
         ],
         "_links": {"self": {"href": "/api/protocols/s3/services/"}},
@@ -402,6 +403,19 @@ class S3ServiceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
                 allow_none=True
             )
     r""" The links field of the s3_service."""
+
+    bucket_create_retention_mode = marshmallow_fields.Str(
+        data_key="bucket_create_retention_mode",
+        validate=enum_validation(['no_lock', 'compliance', 'governance']),
+        allow_none=True,
+    )
+    r""" The default lock mode that will be applied to a S3 bucket when the bucket is created using S3 API.
+
+Valid choices:
+
+* no_lock
+* compliance
+* governance"""
 
     buckets = marshmallow_fields.List(
                 marshmallow_fields.Nested(
@@ -557,6 +571,7 @@ Example: 443"""
 
     gettable_fields = [
         "links",
+        "bucket_create_retention_mode",
         "buckets",
         "certificate.links",
         "certificate.name",
@@ -590,9 +605,10 @@ Example: 443"""
         "svm.uuid",
         "users",
     ]
-    """links,buckets,certificate.links,certificate.name,certificate.uuid,comment,default_unix_user,default_win_user,enabled,is_http_enabled,is_https_enabled,max_key_time_to_live,max_lock_retention_period,metric.links,metric.duration,metric.iops,metric.latency,metric.status,metric.throughput,metric.timestamp,min_lock_retention_period,name,port,secure_port,statistics.iops_raw,statistics.latency_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,svm.links,svm.name,svm.uuid,users,"""
+    """links,bucket_create_retention_mode,buckets,certificate.links,certificate.name,certificate.uuid,comment,default_unix_user,default_win_user,enabled,is_http_enabled,is_https_enabled,max_key_time_to_live,max_lock_retention_period,metric.links,metric.duration,metric.iops,metric.latency,metric.status,metric.throughput,metric.timestamp,min_lock_retention_period,name,port,secure_port,statistics.iops_raw,statistics.latency_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,svm.links,svm.name,svm.uuid,users,"""
 
     patchable_fields = [
+        "bucket_create_retention_mode",
         "certificate.name",
         "certificate.uuid",
         "comment",
@@ -608,9 +624,10 @@ Example: 443"""
         "port",
         "secure_port",
     ]
-    """certificate.name,certificate.uuid,comment,default_unix_user,default_win_user,enabled,is_http_enabled,is_https_enabled,max_key_time_to_live,max_lock_retention_period,min_lock_retention_period,name,port,secure_port,"""
+    """bucket_create_retention_mode,certificate.name,certificate.uuid,comment,default_unix_user,default_win_user,enabled,is_http_enabled,is_https_enabled,max_key_time_to_live,max_lock_retention_period,min_lock_retention_period,name,port,secure_port,"""
 
     postable_fields = [
+        "bucket_create_retention_mode",
         "buckets",
         "certificate.name",
         "certificate.uuid",
@@ -630,7 +647,7 @@ Example: 443"""
         "svm.uuid",
         "users",
     ]
-    """buckets,certificate.name,certificate.uuid,comment,default_unix_user,default_win_user,enabled,is_http_enabled,is_https_enabled,max_key_time_to_live,max_lock_retention_period,min_lock_retention_period,name,port,secure_port,svm.name,svm.uuid,users,"""
+    """bucket_create_retention_mode,buckets,certificate.name,certificate.uuid,comment,default_unix_user,default_win_user,enabled,is_http_enabled,is_https_enabled,max_key_time_to_live,max_lock_retention_period,min_lock_retention_period,name,port,secure_port,svm.name,svm.uuid,users,"""
 
 class S3Service(Resource):
     r""" Specifies the S3 server configuration. """

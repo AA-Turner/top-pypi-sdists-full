@@ -144,7 +144,7 @@ Example: bucket1"""
         validate=enum_validation(['fabricpool', 'snapmirror', 's3_snapmirror']),
         allow_none=True,
     )
-    r""" Owner of the target. Allowed values are <personalities supports=unified> FabricPool, </personalities> SnapMirror or S3_SnapMirror. A target can be used by only one feature.
+    r""" Owner of the target. Allowed values are <personalities supports=unified, aiml> FabricPool, </personalities> SnapMirror or S3_SnapMirror. A target can be used by only one feature.
 
 Valid choices:
 
@@ -162,7 +162,7 @@ Valid choices:
         data_key="provider_type",
         allow_none=True,
     )
-    r""" Type of cloud provider. Allowed values depend on owner type. <personalities supports=unified> For FabricPool, AliCloud, AWS_S3, Azure_Cloud, GoogleCloud, IBM_COS, SGWS, and ONTAP_S3 are allowed. </personalities> For SnapMirror, the valid values are AWS_S3 or SGWS. For FabricLink, AWS_S3, SGWS, S3_Compatible, S3EMU, LOOPBACK and ONTAP_S3 are allowed."""
+    r""" Type of cloud provider. Allowed values depend on owner type. <personalities supports=unified>For FabricPool, AliCloud, AWS_S3, Azure_Cloud, GoogleCloud, IBM_COS, SGWS, and ONTAP_S3 are allowed. </personalities><personalities supports=aiml>For FabricPool, SGWS, and ONTAP_S3 are allowed. </personalities> For SnapMirror, the valid values are AWS_S3 or SGWS. For FabricLink, AWS_S3, SGWS, S3_Compatible, S3EMU, LOOPBACK and ONTAP_S3 are allowed."""
 
     read_latency_warning_threshold = Size(
         data_key="read_latency_warning_threshold",
@@ -372,7 +372,10 @@ class CloudTarget(Resource):
     ) -> Iterable["Resource"]:
         r"""Retrieves the collection of cloud targets in the cluster.
 ### Related ONTAP commands
-* `storage aggregate object-store config show`
+<personalities supports=unified>
+* `storage aggregate object-store config show`</personalities>
+<personalities supports=aiml>
+* `cluster object-store config show`</personalities>
 * `snapmirror object-store config show`
 
 ### Learn more
@@ -423,7 +426,8 @@ class CloudTarget(Resource):
     ) -> NetAppResponse:
         r"""Updates the cloud target specified by the UUID with the fields in the body. This request starts a job and returns a link to that job.
 ### Related ONTAP commands
-* `storage aggregate object-store config modify`
+<personalities supports=unified>* `storage aggregate object-store config modify`</personalities>
+<personalities supports=aiml>* `cluster object-store config modify`</personalities>
 
 ### Learn more
 * [`DOC /cloud/targets`](#docs-cloud-cloud_targets)"""
@@ -449,8 +453,8 @@ class CloudTarget(Resource):
         r"""Creates a cloud target.
 ### Required properties
 * `name` - Name for the cloud target.
-* `owner` - Owner of the target: <personalities supports=unified> _fabricpool_,</personalities> _snapmirror_.
-* `provider_type` - Type of cloud provider: _AWS_S3_, _Azure_Cloud_, _SGWS_, _IBM_COS_, _AliCloud_, _GoogleCloud_, _ONTAP_S3_.
+* `owner` - Owner of the target: <personalities supports=unified, aiml> _fabricpool_,</personalities> _snapmirror_.
+* `provider_type` - Type of cloud providers: <personalities supports=unified, aiml>_SGWS_, _ONTAP_S3_</personalities><personalities supports=unified>, _AWS_S3_, _Azure_Cloud_, _IBM_COS_, _AliCloud_, _GoogleCloud_</personalities><personalities supports=unified,aiml>.</personalities>
 * `server` - Fully qualified domain name of the object store server. Required when `provider_type` is one of the following: _SGWS_, _IBM_COS_, _AliCloud_.
 * `container` - Data bucket/container name.
 * `access_key` - Access key ID if `provider_type` is not _Azure_Cloud_ and `authentication_type` is _key_.
@@ -496,7 +500,8 @@ class CloudTarget(Resource):
   - _path_style_ - if `provider_type` is neither _AWS_S3_ nor _AliCloud_
   - _virtual_hosted_style_ - if `provider_type` is either _AWS_S3 or _AliCloud__
 ### Related ONTAP commands
-* `storage aggregate object-store config create`
+<personalities supports=unified>* `storage aggregate object-store config create`</personalities>
+<personalities supports=aiml>* `cluster object-store config create`</personalities>
 
 ### Learn more
 * [`DOC /cloud/targets`](#docs-cloud-cloud_targets)"""
@@ -521,7 +526,7 @@ class CloudTarget(Resource):
     ) -> NetAppResponse:
         r"""Deletes the cloud target specified by the UUID. This request starts a job and returns a link to that job.
 ### Related ONTAP commands
-* `storage aggregate object-store config delete`
+<personalities supports=unified>* `storage aggregate object-store config delete`</personalities>
 
 ### Learn more
 * [`DOC /cloud/targets`](#docs-cloud-cloud_targets)"""
@@ -536,7 +541,10 @@ class CloudTarget(Resource):
     def find(cls, *args, connection: HostConnection = None, **kwargs) -> Resource:
         r"""Retrieves the collection of cloud targets in the cluster.
 ### Related ONTAP commands
-* `storage aggregate object-store config show`
+<personalities supports=unified>
+* `storage aggregate object-store config show`</personalities>
+<personalities supports=aiml>
+* `cluster object-store config show`</personalities>
 * `snapmirror object-store config show`
 
 ### Learn more
@@ -548,7 +556,11 @@ class CloudTarget(Resource):
     def get(self, **kwargs) -> NetAppResponse:
         r"""Retrieves the cloud target specified by the UUID.
 ### Related ONTAP commands
-* `storage aggregate object-store config show`
+<personalities supports=unified>
+* `storage aggregate object-store config show`</personalities>
+<personalities supports=aiml>
+* `cluster object-store config show`</personalities>
+* `snapmirror object-store config show`
 
 ### Learn more
 * [`DOC /cloud/targets`](#docs-cloud-cloud_targets)"""
@@ -567,8 +579,8 @@ class CloudTarget(Resource):
         r"""Creates a cloud target.
 ### Required properties
 * `name` - Name for the cloud target.
-* `owner` - Owner of the target: <personalities supports=unified> _fabricpool_,</personalities> _snapmirror_.
-* `provider_type` - Type of cloud provider: _AWS_S3_, _Azure_Cloud_, _SGWS_, _IBM_COS_, _AliCloud_, _GoogleCloud_, _ONTAP_S3_.
+* `owner` - Owner of the target: <personalities supports=unified, aiml> _fabricpool_,</personalities> _snapmirror_.
+* `provider_type` - Type of cloud providers: <personalities supports=unified, aiml>_SGWS_, _ONTAP_S3_</personalities><personalities supports=unified>, _AWS_S3_, _Azure_Cloud_, _IBM_COS_, _AliCloud_, _GoogleCloud_</personalities><personalities supports=unified,aiml>.</personalities>
 * `server` - Fully qualified domain name of the object store server. Required when `provider_type` is one of the following: _SGWS_, _IBM_COS_, _AliCloud_.
 * `container` - Data bucket/container name.
 * `access_key` - Access key ID if `provider_type` is not _Azure_Cloud_ and `authentication_type` is _key_.
@@ -614,7 +626,8 @@ class CloudTarget(Resource):
   - _path_style_ - if `provider_type` is neither _AWS_S3_ nor _AliCloud_
   - _virtual_hosted_style_ - if `provider_type` is either _AWS_S3 or _AliCloud__
 ### Related ONTAP commands
-* `storage aggregate object-store config create`
+<personalities supports=unified>* `storage aggregate object-store config create`</personalities>
+<personalities supports=aiml>* `cluster object-store config create`</personalities>
 
 ### Learn more
 * [`DOC /cloud/targets`](#docs-cloud-cloud_targets)"""
@@ -635,7 +648,8 @@ class CloudTarget(Resource):
     ) -> NetAppResponse:
         r"""Updates the cloud target specified by the UUID with the fields in the body. This request starts a job and returns a link to that job.
 ### Related ONTAP commands
-* `storage aggregate object-store config modify`
+<personalities supports=unified>* `storage aggregate object-store config modify`</personalities>
+<personalities supports=aiml>* `cluster object-store config modify`</personalities>
 
 ### Learn more
 * [`DOC /cloud/targets`](#docs-cloud-cloud_targets)"""
@@ -656,7 +670,7 @@ class CloudTarget(Resource):
     ) -> NetAppResponse:
         r"""Deletes the cloud target specified by the UUID. This request starts a job and returns a link to that job.
 ### Related ONTAP commands
-* `storage aggregate object-store config delete`
+<personalities supports=unified>* `storage aggregate object-store config delete`</personalities>
 
 ### Learn more
 * [`DOC /cloud/targets`](#docs-cloud-cloud_targets)"""

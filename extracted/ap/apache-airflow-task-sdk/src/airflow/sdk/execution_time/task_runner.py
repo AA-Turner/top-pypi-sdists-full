@@ -72,9 +72,12 @@ from airflow.sdk.definitions.mappedoperator import MappedOperator
 from airflow.sdk.definitions.param import process_params
 from airflow.sdk.exceptions import (
     AirflowException,
+    AirflowFailException,
     AirflowInactiveAssetInInletOrOutletException,
     AirflowRescheduleException,
     AirflowRuntimeError,
+    AirflowSensorTimeout,
+    AirflowTaskTerminated,
     AirflowTaskTimeout,
     ErrorType,
     TaskAwaitingInput,
@@ -135,6 +138,11 @@ from airflow.sdk.execution_time.context import (
     context_to_airflow_vars,
     get_previous_dagrun_success,
     set_current_context,
+)
+from airflow.sdk.execution_time.email_backend import (
+    _DEFAULT_EMAIL_BACKEND,
+    _ErrorEmailNotifier,
+    _LegacyEmailBackendNotifier,
 )
 from airflow.sdk.execution_time.sentry import Sentry
 from airflow.sdk.execution_time.xcom import XCom
@@ -231,6 +239,9 @@ class RuntimeTaskInstance(TaskInstance):
 
     _terminal_state_send_failed: bool = False
     """True when the supervisor IPC send for a non-success terminal state raised; signals main() to sys.exit(1) after finalize() so the supervisor doesn't misclassify the run as SUCCESS via exit code 0."""
+
+    _failure_metrics_emitted: bool = False
+    """True once the failure counters have been recorded, so a second pass through the failure path (one attempt raised part-way through) does not count the same failure twice."""
 
     _ti_context_from_server: Annotated[TIRunContext | None, Field(repr=False)] = None
     """The Task Instance context from the API server, if any."""
@@ -1507,22 +1518,17 @@ def _await_input_task(
     return msg, state
 
 
-@Sentry.enrich_errors
-@detail_span("run")
-def run(
+def _run_task_and_map_outcome(
     ti: RuntimeTaskInstance,
     context: Context,
     log: Logger,
 ) -> tuple[TaskInstanceState, ToSupervisor | None, BaseException | None]:
-    """Run the task in this process."""
+    """Execute the task and map its outcome -- success or a handled exception -- to a message and state."""
     import signal
 
     from airflow.sdk.exceptions import (
-        AirflowFailException,
         AirflowRescheduleException,
-        AirflowSensorTimeout,
         AirflowSkipException,
-        AirflowTaskTerminated,
         DagRunTriggerException,
         DownstreamTasksSkipped,
         TaskAwaitingInput,
@@ -1547,9 +1553,6 @@ def run(
     msg: ToSupervisor | None = None
     state: TaskInstanceState | None = None
     error: BaseException | None = None
-
-    stats_tags = ti.stats_tags
-    stats.incr("ti.start", tags=stats_tags)
 
     try:
         # First, clear the xcom data sent from server
@@ -1674,6 +1677,32 @@ def run(
         log.info("::group::Post Execute")
         msg, state = _handle_current_task_failed(ti, e, log, context)
         error = e
+
+    return state, msg, error
+
+
+@Sentry.enrich_errors
+@detail_span("run")
+def run(
+    ti: RuntimeTaskInstance,
+    context: Context,
+    log: Logger,
+) -> tuple[TaskInstanceState, ToSupervisor | None, BaseException | None]:
+    """Run the task in this process."""
+    msg: ToSupervisor | None = None
+    state: TaskInstanceState | None = None
+    error: BaseException | None = None
+
+    stats_tags = ti.stats_tags
+    stats.incr("ti.start", tags=stats_tags)
+
+    try:
+        state, msg, error = _run_task_and_map_outcome(ti, context, log)
+    except Exception as e:
+        # Python does not offer an exception raised inside an ``except`` clause to that
+        # clause's siblings, so a handler that fails would otherwise escape entirely --
+        # skipping the retry decision and every callback in ``finalize()``.
+        msg, state, error = _handle_handler_failure(ti, e, log, context)
     finally:
         # `state` may still be unset if an exception handler above raised before
         # binding it
@@ -1781,6 +1810,46 @@ def _evaluate_retry_policy(
         return None
 
 
+def _handle_handler_failure(
+    ti: RuntimeTaskInstance, exception: Exception, log: Logger, context: Context
+) -> tuple[RetryTask | TaskState, TaskInstanceState, Exception]:
+    """
+    Decide the outcome for an exception raised by one of the outcome handlers themselves.
+
+    Handlers reach this by talking to the API server -- a missing Dag makes
+    ``_handle_trigger_dag_run`` raise ``AirflowRuntimeError`` -- or by serializing
+    user-supplied values, since ``_defer_task`` and ``_await_input_task`` run
+    ``serde_serialize`` over kwargs and it raises ``TypeError`` for anything it has no
+    serializer for.
+
+    The handler chain's own classifications are preserved rather than routing everything
+    through the retry-count check, so an exception that means "do not retry" still means
+    that when it surfaces from a handler.
+    """
+    log.exception("Task failed with exception")
+    if isinstance(exception, (AirflowFailException, AirflowSensorTimeout, AirflowTaskTerminated)):
+        return _terminal_failure(ti), TaskInstanceState.FAILED, exception
+    try:
+        msg, state = _handle_current_task_failed(ti, exception, log, context)
+    except Exception:
+        # The failure path itself failed. Re-entering it would just fail again and
+        # escape, losing the callbacks this whole function exists to preserve, so fail
+        # closed on a plain FAILED state instead.
+        log.exception("Could not determine terminal state, failing closed")
+        return _terminal_failure(ti), TaskInstanceState.FAILED, exception
+    return msg, state, exception
+
+
+def _terminal_failure(ti: RuntimeTaskInstance) -> TaskState:
+    """Build a plain FAILED terminal message, bypassing any retry decision."""
+    ti.end_date = datetime.now(tz=timezone.utc)
+    return TaskState(
+        state=TaskInstanceState.FAILED,
+        end_date=ti.end_date,
+        rendered_map_index=ti.rendered_map_index,
+    )
+
+
 def _handle_current_task_failed(
     ti: RuntimeTaskInstance,
     exception: BaseException,
@@ -1832,12 +1901,16 @@ def _finalize_task_failure(
     end_date = datetime.now(tz=timezone.utc)
     ti.end_date = end_date
 
-    # Record operator and task instance failed metrics
-    operator = ti.task.__class__.__name__
-    stats_tags = ti.stats_tags
+    # Record operator and task instance failed metrics. One failure is one increment even
+    # if this runs twice, which happens when a first pass raised after counting -- see
+    # `_handle_handler_failure`.
+    if not ti._failure_metrics_emitted:
+        operator = ti.task.__class__.__name__
+        stats_tags = ti.stats_tags
 
-    stats.incr("operator_failures", tags={**stats_tags, "operator_name": operator})
-    stats.incr("ti_failures", tags=stats_tags)
+        stats.incr("operator_failures", tags={**stats_tags, "operator_name": operator})
+        stats.incr("ti_failures", tags=stats_tags)
+        ti._failure_metrics_emitted = True
 
     if ti._ti_context_from_server and ti._ti_context_from_server.should_retry:
         retry_kwargs: dict[str, Any] = {"end_date": end_date}
@@ -1997,19 +2070,38 @@ def _send_error_email_notification(
     error: BaseException | str | None,
     log: Logger,
 ) -> None:
-    """Send email notification for task errors using SmtpNotifier."""
-    try:
-        from airflow.providers.smtp.notifications.smtp import SmtpNotifier
-    except ImportError:
-        log.error(
-            "Failed to send task failure or retry email notification: "
-            "`apache-airflow-providers-smtp` is not installed. "
-            "Install this provider to enable email notifications."
-        )
-        return
+    """
+    Send email notification for task errors through the configured email backend.
 
+    A non-default ``[email] email_backend`` (an SES, SendGrid or org-internal callable with the
+    ``airflow.utils.email.send_email`` signature) is wrapped in
+    :class:`~airflow.sdk.execution_time.email_backend._LegacyEmailBackendNotifier`; otherwise the
+    default :class:`~airflow.providers.smtp.notifications.smtp.SmtpNotifier` is used.
+
+    Both the worker task-runner path (:func:`finalize`) and the DAG-processor callback path
+    (``_execute_email_callbacks``) funnel through this function, so the resolved backend is used
+    consistently regardless of how the task failed.
+    """
     if not task.email:
         return
+
+    email_backend = conf.get("email", "email_backend", fallback=_DEFAULT_EMAIL_BACKEND)
+    notifier_description = "SmtpNotifier"
+
+    if email_backend and email_backend != _DEFAULT_EMAIL_BACKEND:
+        notifier_class: _ErrorEmailNotifier = _LegacyEmailBackendNotifier
+        notifier_description = f"configured email_backend {email_backend!r}"
+    else:
+        try:
+            from airflow.providers.smtp.notifications.smtp import SmtpNotifier
+        except ImportError:
+            log.error(
+                "Failed to send task failure or retry email notification: "
+                "`apache-airflow-providers-smtp` is not installed. "
+                "Install this provider to enable email notifications."
+            )
+            return
+        notifier_class = SmtpNotifier
 
     subject_template_file = conf.get("email", "subject_template", fallback=None)
 
@@ -2053,7 +2145,7 @@ def _send_error_email_notification(
         return
 
     try:
-        notifier = SmtpNotifier(
+        notifier = notifier_class(
             to=to_emails,
             subject=subject,
             html_content=html_content,
@@ -2061,7 +2153,44 @@ def _send_error_email_notification(
         )
         notifier(email_context)
     except Exception:
-        log.exception("Failed to send email notification")
+        log.exception("Failed to send email notification via %s", notifier_description)
+
+
+@detail_span("task.execute")
+def _run_execute_callable(
+    context: Context,
+    execute: Callable[..., Any] | functools.partial[Any],
+    task: BaseOperator,
+) -> Any:
+    """
+    Run the task's execute callable, applying the execution timeout if one is set.
+
+    The contextvars snapshot is taken here, after the ``task.execute`` span is
+    current, so spans the operator emits during ``execute`` nest under it rather
+    than under the caller. ``ExecutorSafeguard``'s tracker is set into that copy
+    so the operator's ``execute`` passes the safeguard check, while the copy keeps
+    the change from leaking into the surrounding context.
+    """
+    ctx = contextvars.copy_context()
+    ctx.run(ExecutorSafeguard.tracker.set, task)
+    if task.execution_timeout:
+        from airflow.sdk.execution_time.timeout import timeout
+
+        # TODO: handle timeout in case of deferral
+        timeout_seconds = task.execution_timeout.total_seconds()
+        try:
+            # It's possible we're already timed out, so fast-fail if true
+            if timeout_seconds <= 0:
+                raise AirflowTaskTimeout()
+            # Run task in timeout wrapper
+            with timeout(timeout_seconds):
+                result = ctx.run(execute, context=context)
+        except AirflowTaskTimeout:
+            task.on_kill()
+            raise
+    else:
+        result = ctx.run(execute, context=context)
+    return result
 
 
 @detail_span("_execute_task")
@@ -2087,10 +2216,6 @@ def _execute_task(context: Context, ti: RuntimeTaskInstance, log: Logger):
             assert isinstance(kwargs, dict)
         execute = functools.partial(task.resume_execution, next_method=next_method, next_kwargs=kwargs)
 
-    ctx = contextvars.copy_context()
-    # Populate the context var so ExecutorSafeguard doesn't complain
-    ctx.run(ExecutorSafeguard.tracker.set, task)
-
     # Export context in os.environ to make it available for operators to use.
     airflow_context_vars = context_to_airflow_vars(context, in_env_var_format=True)
     os.environ.update(airflow_context_vars)
@@ -2106,23 +2231,7 @@ def _execute_task(context: Context, ti: RuntimeTaskInstance, log: Logger):
 
     log.info("::endgroup::")
 
-    if task.execution_timeout:
-        from airflow.sdk.execution_time.timeout import timeout
-
-        # TODO: handle timeout in case of deferral
-        timeout_seconds = task.execution_timeout.total_seconds()
-        try:
-            # It's possible we're already timed out, so fast-fail if true
-            if timeout_seconds <= 0:
-                raise AirflowTaskTimeout()
-            # Run task in timeout wrapper
-            with timeout(timeout_seconds):
-                result = ctx.run(execute, context=context)
-        except AirflowTaskTimeout:
-            task.on_kill()
-            raise
-    else:
-        result = ctx.run(execute, context=context)
+    result = _run_execute_callable(context, execute, task)
 
     if (post_execute_hook := task._post_execute_hook) is not None:
         create_executable_runner(post_execute_hook, outlet_events, logger=log).run(context, result)

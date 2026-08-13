@@ -25,12 +25,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     DcnNodeMetrics(
         {
-            "cpu": {"memory_used": 1024000000, "processor_utilization": 13},
-            "timestamp": "2017-01-25T11:20:13+00:00",
-            "gpu": {"memory_used": 1024000000, "processor_utilization": 13},
-            "status": "ok",
-            "duration": "PT15S",
             "uuid": "1cd8a442-86d1-11e0-ae1c-123478563412",
+            "timestamp": "2017-01-25T11:20:13+00:00",
+            "cpu": {"processor_utilization": 13, "memory_used": 1024000000},
+            "duration": "PT15S",
+            "status": "ok",
+            "gpu": {"processor_utilization": 13, "memory_used": 1024000000},
         }
     )
 ]

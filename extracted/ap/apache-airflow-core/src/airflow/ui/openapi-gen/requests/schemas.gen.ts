@@ -2504,7 +2504,9 @@ export const $CreateAssetEventsBody = {
         partition_key: {
             anyOf: [
                 {
-                    type: 'string'
+                    type: 'string',
+                    maxLength: 250,
+                    pattern: '\\S'
                 },
                 {
                     type: 'null'
@@ -9126,9 +9128,16 @@ export const $DeadlineAlertResponse = {
             title: 'Reference Type'
         },
         interval: {
-            type: 'number',
+            anyOf: [
+                {
+                    type: 'number'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             title: 'Interval',
-            description: 'Interval in seconds between deadline evaluations.'
+            description: 'Interval in seconds between the reference time and the deadline. Null for a dynamic interval (e.g. a VariableInterval) whose value is only resolved at scheduler evaluation time.'
         },
         created_at: {
             type: 'string',
@@ -9137,7 +9146,7 @@ export const $DeadlineAlertResponse = {
         }
     },
     type: 'object',
-    required: ['id', 'reference_type', 'interval', 'created_at'],
+    required: ['id', 'reference_type', 'created_at'],
     title: 'DeadlineAlertResponse',
     description: 'DeadlineAlert serializer for responses.'
 } as const;
@@ -9614,6 +9623,10 @@ export const $GridRunsResponse = {
             type: 'boolean',
             title: 'Has Missed Deadline'
         },
+        has_note: {
+            type: 'boolean',
+            title: 'Has Note'
+        },
         duration: {
             type: 'number',
             title: 'Duration',
@@ -9621,7 +9634,7 @@ export const $GridRunsResponse = {
         }
     },
     type: 'object',
-    required: ['dag_id', 'run_id', 'queued_at', 'start_date', 'end_date', 'run_after', 'state', 'run_type', 'has_missed_deadline', 'duration'],
+    required: ['dag_id', 'run_id', 'queued_at', 'start_date', 'end_date', 'run_after', 'state', 'run_type', 'has_missed_deadline', 'has_note', 'duration'],
     title: 'GridRunsResponse',
     description: 'Base Node serializer for responses.'
 } as const;
@@ -9658,13 +9671,19 @@ export const $HistoricalMetricDataResponse = {
         task_instance_states: {
             '$ref': '#/components/schemas/TaskInstanceStateCount'
         },
-        state_count_limit: {
-            type: 'integer',
-            title: 'State Count Limit'
+        dag_run_counts_are_lower_bounds: {
+            type: 'boolean',
+            title: 'Dag Run Counts Are Lower Bounds',
+            default: false
+        },
+        task_instance_counts_are_lower_bounds: {
+            type: 'boolean',
+            title: 'Task Instance Counts Are Lower Bounds',
+            default: false
         }
     },
     type: 'object',
-    required: ['dag_run_states', 'task_instance_states', 'state_count_limit'],
+    required: ['dag_run_states', 'task_instance_states'],
     title: 'HistoricalMetricDataResponse',
     description: 'Historical Metric Data serializer for responses.'
 } as const;
@@ -9737,6 +9756,11 @@ export const $LightGridTaskInstanceSummary = {
                 }
             ],
             title: 'Dag Version Number'
+        },
+        has_note: {
+            type: 'boolean',
+            title: 'Has Note',
+            default: false
         }
     },
     type: 'object',

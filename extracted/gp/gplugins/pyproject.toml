@@ -2,7 +2,7 @@
 
 [build-system]
 build-backend = "flit_core.buildapi"
-requires = ["flit_core >=3.2,<4"]
+requires = ["flit_core >=3.2,<5"]
 
 [project]
 authors = [{name = "gdsfactory", email = "contact@gdsfactory.com"}]
@@ -25,12 +25,12 @@ license = {file = "LICENSE"}
 name = "gplugins"
 readme = "README.md"
 requires-python = ">=3.11"
-version = "2.1.1"
+version = "2.1.3"
 
 [project.optional-dependencies]
 dev = [
   "hypothesis",
-  "numba",
+  "numba>=0.60",
   "pre-commit",
   "pyswarms",
   "pytest",
@@ -50,6 +50,7 @@ docs = [
   "scikit-learn",
   "zensical>=0.0.46,<0.1.0"
 ]
+emode = ["emodeconnection>=1.1.11"]
 femwell = ["femwell~=0.1.11", "meshwell~=2.1.1"]
 gfviz = ["jinja2", "fastapi", "shapely", "natsort"]
 klayout = ["klayout", "pyvis<=0.3.2", "vlsir", "vlsirtools", "gitpython"]
@@ -57,7 +58,7 @@ luminescent = ["luminescent>=0.2.12,<4.1.0", "sortedcontainers"]
 maintainer = ["mypy", "tbump", "towncrier"]
 meow = ["meow-sim>=0.15", "sax>=0.17,<0.19", "tidy3d~=2.11.1"]
 meshwell = ["shapely", "meshwell~=2.1.1"]
-path_length_analysis = ["bokeh", "numba", "shapely"]
+path_length_analysis = ["bokeh", "numba>=0.60", "shapely"]
 sax = ["sax>=0.17,<0.19"]
 schematic = ["bokeh", "ipywidgets", "natsort"]
 tidy3d = ["tidy3d~=2.11.1", "gdstk", "pytz"]  # pin max version because tidy3d often introduces breaking API changes across minor releases
@@ -169,12 +170,15 @@ cmd = "grep -q -F {new_version} CHANGELOG.md"
 name = "create & check changelog"
 
 [[tool.tbump.file]]
+search = '^# gplugins {current_version}$'
 src = "README.md"
 
 [[tool.tbump.file]]
+search = '^version = "{current_version}"$'
 src = "pyproject.toml"
 
 [[tool.tbump.file]]
+search = '^__version__ = "{current_version}"$'
 src = "gplugins/__init__.py"
 
 [tool.tbump.git]
@@ -182,7 +186,7 @@ message_template = "Bump to {new_version}"
 tag_template = "v{new_version}"
 
 [tool.tbump.version]
-current = "2.1.1"
+current = "2.1.3"
 regex = '''
   (?P<major>\d+)
   \.

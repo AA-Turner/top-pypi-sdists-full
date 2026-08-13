@@ -2,23 +2,63 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import math
 from dataclasses import dataclass, field
+from typing import Final
 
-import numpy as np
+from omnimalloc.primitives import (
+    Allocation,
+    AllocationKind,
+    IdType,
+    Memory,
+    Pool,
+    System,
+)
 
-from omnimalloc.primitives import Allocation, BufferKind, IdType, Memory, Pool, System
+# Bits, not bytes: the sub-byte types are packed several to a byte, which is
+# what the tensors actually occupy and what numpy's itemsize gets wrong.
+ITEMBITS: Final[dict[str, int]] = {
+    "int2": 2,
+    "uint2": 2,
+    "int4": 4,
+    "uint4": 4,
+    "float4_e2m1fn": 4,
+    "bool": 8,
+    "int8": 8,
+    "uint8": 8,
+    "float8_e4m3fn": 8,
+    "float8_e4m3fnuz": 8,
+    "float8_e5m2": 8,
+    "float8_e5m2fnuz": 8,
+    "float8_e8m0fnu": 8,
+    "int16": 16,
+    "uint16": 16,
+    "float16": 16,
+    "bfloat16": 16,
+    "int32": 32,
+    "uint32": 32,
+    "float32": 32,
+    "int64": 64,
+    "uint64": 64,
+    "float64": 64,
+    "complex64": 64,
+    "object": 64,
+    "complex128": 128,
+}
 
 
 @dataclass(frozen=True)
 class Buffer:
     id: IdType
     shape: tuple[int, ...]
-    dtype: np.dtype[np.generic]
-    kind: BufferKind
+    dtype: str
+    kind: AllocationKind
 
     def __post_init__(self) -> None:
         if not all(isinstance(dim, int) and dim > 0 for dim in self.shape):
             raise ValueError("shape dimensions must be positive integers")
+        if self.dtype not in ITEMBITS:
+            raise ValueError(f"unknown dtype {self.dtype!r}")
 
     @property
     def ndim(self) -> int:
@@ -26,7 +66,7 @@ class Buffer:
 
     @property
     def size(self) -> int:
-        return int(self.dtype.itemsize * np.prod(self.shape, dtype=int))
+        return math.ceil(ITEMBITS[self.dtype] * math.prod(self.shape) / 8)
 
 
 @dataclass(frozen=True)
@@ -65,22 +105,19 @@ def _compute_buffer_lifetimes(
     io_inf_lifetime: bool,
 ) -> tuple[dict[Buffer, int], dict[Buffer, int]]:
     """Compute first and last usage indices for each buffer."""
-    op_to_index = {op_id: idx for idx, op_id in enumerate(model.ops)}
-
     buffer_to_first_index: dict[Buffer, int] = {}
     buffer_to_last_index: dict[Buffer, int] = {}
 
-    for op_id, op in model.ops.items():
-        idx = op_to_index[op_id]
+    for idx, op in enumerate(model.ops.values()):
         for buffer in op.inputs | op.outputs:
             if buffer not in buffer_to_first_index:
                 buffer_to_first_index[buffer] = idx
             buffer_to_last_index[buffer] = idx
 
-    # Apply infinite lifetime constraints
-    max_index = len(model.ops) - 1
+    # Apply infinite lifetime constraints (at least one step for op-less models)
+    max_index = max(len(model.ops) - 1, 0)
     for buffer in model.buffers.values():
-        if (buffer.kind == BufferKind.CONSTANT and const_inf_lifetime) or (
+        if (buffer.kind == AllocationKind.CONSTANT and const_inf_lifetime) or (
             buffer.kind.is_io and io_inf_lifetime
         ):
             buffer_to_first_index[buffer] = 0
@@ -107,8 +144,10 @@ def _create_allocations(
         )
         for buffer in model.buffers.values()
         if (
-            (include_const or buffer.kind != BufferKind.CONSTANT)
+            (include_const or buffer.kind != AllocationKind.CONSTANT)
             and (include_io or not buffer.kind.is_io)
+            # Buffers referenced by no op have no lifetime and need no memory
+            and buffer in buffer_to_first_index
         )
     ]
 
@@ -134,8 +173,8 @@ def model_to_pools(
     model: Model,
     include_const: bool = True,
     include_io: bool = True,
-    const_inf_lifetime: bool = False,
-    io_inf_lifetime: bool = False,
+    const_inf_lifetime: bool = True,
+    io_inf_lifetime: bool = True,
 ) -> tuple[Pool, ...]:
     """Extract Pools grouped by buffer kind."""
     buffer_to_first_index, buffer_to_last_index = _compute_buffer_lifetimes(
@@ -146,9 +185,9 @@ def model_to_pools(
     )
 
     # Group allocations by kind
-    allocations_by_kind: dict[BufferKind, list[Allocation]] = {}
+    allocations_by_kind: dict[AllocationKind, list[Allocation]] = {}
     for alloc in allocations:
-        kind = alloc.kind if alloc.kind is not None else BufferKind.WORKSPACE
+        kind = alloc.kind if alloc.kind is not None else AllocationKind.WORKSPACE
         allocations_by_kind.setdefault(kind, []).append(alloc)
 
     return tuple(

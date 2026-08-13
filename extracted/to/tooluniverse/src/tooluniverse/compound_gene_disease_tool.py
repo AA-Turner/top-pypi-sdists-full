@@ -10,6 +10,20 @@ from .base_tool import BaseTool
 from .tool_registry import register_tool
 
 
+def _truncate_msg(msg: str, limit: int = 240) -> str:
+    """Truncate an error message on a word boundary, never mid-word.
+
+    Sub-tool error messages (e.g. DisGeNET's "...resolve first (e.g.
+    umls_search_concepts), then pass disease='C0152200'.") are the only
+    actionable guidance a caller gets on a failed source; cutting them off
+    mid-word at a fixed character count silently drops that guidance.
+    """
+    if len(msg) <= limit:
+        return msg
+    head = msg[:limit].rsplit(" ", 1)[0]
+    return head + "..."
+
+
 @register_tool("CompoundGeneDiseaseAssociationTool")
 class CompoundGeneDiseaseAssociationTool(BaseTool):
     """Query multiple gene-disease databases in a single call."""
@@ -42,12 +56,12 @@ class CompoundGeneDiseaseAssociationTool(BaseTool):
                 r = tu.run_one_function({"name": tool_name, "arguments": args})
                 if isinstance(r, dict) and r.get("status") == "error":
                     sources_failed.append(
-                        f"{source_name}: {r.get('error', 'unknown error')[:100]}"
+                        f"{source_name}: {_truncate_msg(r.get('error', 'unknown error'))}"
                     )
                     return r
                 return r
             except Exception as e:
-                sources_failed.append(f"{source_name}: {str(e)[:100]}")
+                sources_failed.append(f"{source_name}: {_truncate_msg(str(e))}")
                 return {"status": "error", "error": str(e)}
 
         # 1. DisGeNET
@@ -177,10 +191,34 @@ class CompoundGeneDiseaseAssociationTool(BaseTool):
                     "error": f"No target match for gene '{gene}'",
                 }
 
+            # Fix-R28D-2: OpenTargets_get_target_id_description_by_name is a
+            # fuzzy free-text search, so an unrecognised symbol still comes back
+            # with a full hit list ranked by text relevance. Falling back to
+            # hits[0] when nothing matched exactly made the tool answer about a
+            # DIFFERENT gene with no signal at all -- confirmed live that
+            # {"gene": "THP"} (the clinical alias for uromodulin) returned
+            # GLI2's holoprosencephaly associations at score 0.80, shaped
+            # exactly like a correct answer. The hits carry only id/name/
+            # description -- no synonym fields -- so the alias is genuinely
+            # unresolvable here; report it as unresolved and name the
+            # candidates instead of guessing.
             gene_upper = gene.upper()
             match = next(
-                (h for h in hits if h.get("name", "").upper() == gene_upper), hits[0]
+                (h for h in hits if h.get("name", "").upper() == gene_upper), None
             )
+            if match is None:
+                candidates = [h.get("name", "") for h in hits if h.get("name")][:8]
+                candidate_text = ", ".join(candidates) if candidates else "none named"
+                msg = (
+                    f"'{gene}' did not exactly match any OpenTargets target "
+                    f"symbol, so no associated diseases were fetched (answering "
+                    f"with another target's diseases would misattribute them to "
+                    f"'{gene}'). The fuzzy target search returned these "
+                    f"candidate symbols: {candidate_text}. Re-query with the "
+                    f"exact approved symbol you mean."
+                )
+                sources_failed.append(f"OpenTargets: {msg}")
+                return {"status": "error", "error": msg}
             ensembl_id = match.get("id")
 
             result = tu.run_one_function(
@@ -191,11 +229,11 @@ class CompoundGeneDiseaseAssociationTool(BaseTool):
             )
             if isinstance(result, dict) and result.get("status") == "error":
                 sources_failed.append(
-                    f"OpenTargets: {result.get('error', 'unknown error')[:100]}"
+                    f"OpenTargets: {_truncate_msg(result.get('error', 'unknown error'))}"
                 )
             return result
         except Exception as e:
-            sources_failed.append(f"OpenTargets: {str(e)[:100]}")
+            sources_failed.append(f"OpenTargets: {_truncate_msg(str(e))}")
             return {"status": "error", "error": str(e)}
 
     def _opentargets_disease_genes(
@@ -230,11 +268,11 @@ class CompoundGeneDiseaseAssociationTool(BaseTool):
             )
             if isinstance(result, dict) and result.get("status") == "error":
                 sources_failed.append(
-                    f"OpenTargets: {result.get('error', 'unknown error')[:100]}"
+                    f"OpenTargets: {_truncate_msg(result.get('error', 'unknown error'))}"
                 )
             return result
         except Exception as e:
-            sources_failed.append(f"OpenTargets: {str(e)[:100]}")
+            sources_failed.append(f"OpenTargets: {_truncate_msg(str(e))}")
             return {"status": "error", "error": str(e)}
 
     def _extract_genes_or_diseases(
@@ -328,6 +366,24 @@ class CompoundGeneDiseaseAssociationTool(BaseTool):
                                 items.append(
                                     {"name": str(g), "score": None, "source": source}
                                 )
+            return items
+
+        # OMIM_search: each row is {"entry": {"titles": {"preferredTitle": ...},
+        # "mimNumber": ...}} -- the identifying text is nested one level under
+        # "entry", not a top-level gene/disease field, so the generic
+        # extraction below (which only looks at top-level keys) always found
+        # nothing and silently produced zero items for every OMIM query.
+        # OMIM titles conflate gene and disorder names in one string (e.g.
+        # "VON HIPPEL-LINDAU TUMOR SUPPRESSOR; VHL"), so there's no clean
+        # gene-only/disease-only split to make here -- surface the title as-is
+        # for both query directions, same as ClinVar's disease->gene branch
+        # falls back to what the source actually gives us.
+        if isinstance(data, dict) and "entries" in data:
+            for row in (data.get("entries") or [])[:30]:
+                entry = (row or {}).get("entry") or {}
+                title = (entry.get("titles") or {}).get("preferredTitle", "")
+                if title:
+                    items.append({"name": str(title), "score": None, "source": source})
             return items
 
         # Generic list: prefer the field the caller is asking for -- gene fields

@@ -34,22 +34,22 @@ with HostConnection(
         {
             "role": "admin",
             "application": "http",
-            "index": 4294967299,
-            "state": "pending",
+            "input": "GET /api/security/audit/destinations/",
             "timestamp": "2019-03-08T11:03:32-05:00",
             "user": "admin",
-            "input": "GET /api/security/audit/destinations/",
-            "location": "172.21.16.89",
+            "index": 4294967299,
             "node": {
-                "name": "node1",
+                "uuid": "bc9af9da-41bb-11e9-a3db-005056bb27cf",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/bc9af9da-41bb-11e9-a3db-005056bb27cf"
                     }
                 },
-                "uuid": "bc9af9da-41bb-11e9-a3db-005056bb27cf",
+                "name": "node1",
             },
             "scope": "cluster",
+            "state": "pending",
+            "location": "172.21.16.89",
         }
     )
 ]

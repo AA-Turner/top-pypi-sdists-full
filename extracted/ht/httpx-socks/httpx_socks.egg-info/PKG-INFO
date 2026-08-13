@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: httpx-socks
-Version: 0.12.0
+Version: 0.13.0
 Summary: Proxy (HTTP, SOCKS) transports for httpx
 Author-email: Roman Snegirev <snegiryev@gmail.com>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: homepage, https://github.com/romis2012/httpx-socks
 Project-URL: repository, https://github.com/romis2012/httpx-socks
 Keywords: httpx,socks,socks5,socks4,http,proxy,asyncio,trio,anyio
@@ -11,7 +11,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -25,20 +24,19 @@ Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Intended Audience :: Developers
 Classifier: Framework :: AsyncIO
 Classifier: Framework :: Trio
-Classifier: License :: OSI Approved :: Apache Software License
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: httpx<0.29.0,>=0.28.0
 Requires-Dist: httpcore<2.0,>=1.0
-Requires-Dist: python-socks<3.0.0,>=2.4.3
+Requires-Dist: python-socks<4.0.0,>=2.4.3
 Requires-Dist: sniffio>=1.1.0
 Provides-Extra: asyncio
-Requires-Dist: async-timeout>=4.0; python_version < "3.11" and extra == "asyncio"
+Requires-Dist: async-timeout>=5.0.1; python_version < "3.11" and extra == "asyncio"
 Provides-Extra: trio
-Requires-Dist: trio>=0.24; extra == "trio"
+Requires-Dist: trio>=0.30.0; extra == "trio"
 Provides-Extra: anyio
-Requires-Dist: anyio<5.0.0,>=3.3.4; extra == "anyio"
+Requires-Dist: anyio<5.0.0,>=4.12.1; extra == "anyio"
 Dynamic: license-file
 
 # httpx-socks

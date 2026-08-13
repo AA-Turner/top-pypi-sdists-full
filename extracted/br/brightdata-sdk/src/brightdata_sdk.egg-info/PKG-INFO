@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: brightdata-sdk
-Version: 2.5.0
+Version: 2.5.2
 Summary: Modern async-first Python SDK for Bright Data APIs
 Home-page: https://github.com/brightdata/sdk-python
 Author: Bright Data

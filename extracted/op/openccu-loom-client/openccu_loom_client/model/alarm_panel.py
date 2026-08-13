@@ -5,16 +5,25 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 if TYPE_CHECKING:
-    from openccu_loom_types.rest import AlarmModeReadiness, AlarmPanelEntity, AlarmZoneStatus
+    from openccu_loom_types.rest import AlarmModeReadiness, AlarmMotionResetResult, AlarmPanelEntity, AlarmZoneStatus
 
     from openccu_loom_client.store import LoomStore
 
 # The daemon's pseudo-zone id of the aggregate master panel
 # (``alarmpanel.MasterZoneID``, wire-stable).
 MASTER_ZONE_ID = "master"
+
+# Catalogue keys naming the two entities a consumer builds *beside* a
+# panel, and the separator the daemon joins them to the panel name with.
+# All three mirror ``internal/north/mqtt/alarm_discovery.go``, so the
+# same zone reads identically whether Home Assistant learned it from
+# this client or from the daemon's own MQTT discovery.
+_RESET_MOTION_NAME_KEY: Final = "discovery.alarm_reset_motion"
+_TRIGGERED_MOTION_NAME_KEY: Final = "discovery.alarm_triggered_motion"
+_COMPANION_NAME_SEPARATOR: Final = " — "
 
 
 def _token(*, value: Any) -> str | None:
@@ -55,6 +64,7 @@ class AlarmPanel:
         "_readiness",
         "_store",
         "_summary",
+        "_triggered_motion_count",
         "_walktest_active",
     )
 
@@ -72,6 +82,7 @@ class AlarmPanel:
         self._last_incident_id: int | None = None
         self._last_incident_cause: str | None = None
         self._last_incident_sensor: str | None = None
+        self._triggered_motion_count = 0
 
     @property
     def summary(self) -> AlarmPanelEntity:
@@ -188,6 +199,50 @@ class AlarmPanel:
         """The sensor name behind the most recent trigger, if any."""
         return self._last_incident_sensor
 
+    @property
+    def triggered_motion_count(self) -> int:
+        """
+        How many latched detectors a :meth:`reset_motion` would clear.
+
+        The master panel carries the total across all zones. Zero until
+        :meth:`LoomStore.apply_triggered_motion` has run once — the
+        daemon broadcasts no latch event, so this is refreshed by
+        re-reading ``GET /alarm/triggered-motion``, never pushed.
+        """
+        return self._triggered_motion_count
+
+    # ---- companion entity names ----
+
+    @property
+    def reset_motion_name(self) -> str | None:
+        """
+        The daemon's name for this panel's motion-reset button, or ``None``.
+
+        A consumer that gives the reset its own entity gets the name
+        from here rather than wording it again: the daemon is the single
+        naming authority (ADR 0046) and has carried these words in its
+        i18n catalogue all along — they simply never left the MQTT
+        discovery plane, so the second consumer of the same surface kept
+        a second copy that drifted on the first edit to either.
+
+        ``None`` when the catalogue has not been read, or has been read
+        from a daemon that does not carry the key. Both mean the same
+        thing to a caller: fall back to your own wording.
+        """
+        return self._companion_name(key=_RESET_MOTION_NAME_KEY)
+
+    @property
+    def triggered_motion_name(self) -> str | None:
+        """The daemon's name for this panel's latched-detector counter, or ``None``."""
+        return self._companion_name(key=_TRIGGERED_MOTION_NAME_KEY)
+
+    def _companion_name(self, *, key: str) -> str | None:
+        """Compose ``<panel name> — <catalogue label>`` for one companion entity."""
+        label = self._store.entity_names.get(key)
+        if not label:
+            return None
+        return f"{self.name}{_COMPANION_NAME_SEPARATOR}{label}"
+
     # ---- write-back ----
 
     async def arm(
@@ -238,6 +293,21 @@ class AlarmPanel:
         """Acknowledge this zone's ended incident (clears the latch)."""
         await self._store.acknowledge_alarm_zone(zone_id=self.zone_id, code=code)
 
+    async def reset_motion(self) -> AlarmMotionResetResult:
+        """
+        Clear latched motion/presence detectors (master: daemon-side reset-all).
+
+        The master delegates to the daemon's aggregate route rather than
+        looping the zones, mirroring :meth:`silence` — one pass, one set
+        of counters, and detectors shared between zones are written once.
+
+        Takes no code: the reset clears a *blocker*, it does not change
+        the armed state, so it is not an authorization-bearing verb.
+        """
+        if self.is_master:
+            return await self._store.reset_all_alarm_motion()
+        return await self._store.reset_alarm_zone_motion(zone_id=self.zone_id)
+
     # ---- store-facing mutation (never rebuild) ----
 
     def _replace_summary(self, *, summary: AlarmPanelEntity) -> None:
@@ -275,6 +345,9 @@ class AlarmPanel:
 
     def _set_walktest_active(self, *, active: bool) -> None:
         self._walktest_active = active
+
+    def _set_triggered_motion_count(self, *, count: int) -> None:
+        self._triggered_motion_count = count
 
     def _record_incident(self, *, incident_id: int, cause: str, sensor_name: str | None) -> None:
         self._last_incident_id = incident_id

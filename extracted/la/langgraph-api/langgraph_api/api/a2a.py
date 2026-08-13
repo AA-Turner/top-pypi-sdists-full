@@ -25,6 +25,7 @@ from starlette.responses import JSONResponse, Response
 from typing_extensions import TypedDict
 
 from langgraph_api import __version__
+from langgraph_api.config import A2A_ALLOWED_TOOL_CALL_RESULTS
 from langgraph_api.metadata import USER_API_URL
 from langgraph_api.route import ApiRequest, ApiRoute
 from langgraph_api.schema import RunCommand
@@ -768,6 +769,12 @@ def _tool_result_data(message: dict[str, Any]) -> dict[str, Any] | None:
     """
     tool_call_id = message.get("tool_call_id")
     if not isinstance(tool_call_id, str) or not tool_call_id:
+        return None
+
+    if (
+        A2A_ALLOWED_TOOL_CALL_RESULTS is not None
+        and message.get("name") not in A2A_ALLOWED_TOOL_CALL_RESULTS
+    ):
         return None
 
     result: dict[str, Any] = {"toolCallId": tool_call_id}

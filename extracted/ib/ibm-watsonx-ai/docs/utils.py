@@ -12,7 +12,7 @@ import subprocess
 from typing import NamedTuple
 
 
-VERSION_REGEX = re.compile(r"^v(\d+)\.(\d+)\.(\d+)([^\d].*)?$")
+VERSION_REGEX = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 
 
 class Version(NamedTuple):
@@ -23,7 +23,6 @@ class Version(NamedTuple):
     major: int
     minor: int
     patch: int
-    suffix: str
 
     @classmethod
     def from_tag(cls, tag: str) -> Version:
@@ -32,9 +31,7 @@ class Version(NamedTuple):
         Raises `ValueError` if the tag does not match the expected format.
 
         >>> Version.from_tag("v1.2.3")
-        Version(1, 2, 3, "")
-        >>> Version.from_tag("v1.2.3dev39")
-        Version(1, 2, 3, "dev39")
+        Version(1, 2, 3)
         >>> Version.from_tag("my_tag")
         ValueError: Invalid version format: my_tag
         """
@@ -42,14 +39,14 @@ class Version(NamedTuple):
         if not (m := VERSION_REGEX.match(tag)):
             raise ValueError(f"Invalid version format: {tag}")
 
-        major, minor, patch, suffix = m.groups()
-        return cls(int(major), int(minor), int(patch), suffix or "")
+        major, minor, patch = map(int, m.groups())
+        return cls(major, minor, patch)
 
     def __bool__(self) -> bool:
         return bool(self.major or self.minor or self.patch)
 
     def __str__(self) -> str:
-        return f"v{self.major}.{self.minor}.{self.patch}{self.suffix}"
+        return f"v{self.major}.{self.minor}.{self.patch}"
 
     def to_major_minor(self) -> tuple[int, int]:
         """
@@ -61,8 +58,15 @@ class Version(NamedTuple):
         return (self.major, self.minor)
 
 
+_MAX_VERSION_FROM_ENV = (
+    Version.from_tag(os.environ["DOCUMENTATION_MAX_TAG"])
+    if "DOCUMENTATION_MAX_TAG" in os.environ
+    else None
+)
+
+
 def get_versions_from_git_tags(
-    max_version: Version | None = None,
+    max_version: Version | None = _MAX_VERSION_FROM_ENV,
 ) -> list[Version]:
     """
     Returns a list of all git tags that match the version format.
@@ -72,12 +76,9 @@ def get_versions_from_git_tags(
     [Version(1, 2, 3), Version(1, 2, 4), Version(1, 2, 5)]
     """
 
-    if max_version is None and (tag := os.environ.get("SMV_MAX_TAG")):
-        max_version = Version.from_tag(tag)
-
     try:
         output = subprocess.check_output(
-            ["git", "tag", "--list", "v[0-9]*.[0-9]*.[0-9a-z]*"], text=True
+            ["git", "tag", "--list", "v[0-9]*.[0-9]*.[0-9]*"], text=True
         )
     except subprocess.CalledProcessError:
         return []
@@ -85,8 +86,8 @@ def get_versions_from_git_tags(
     tags = map(lambda x: x.strip(), output.splitlines())
     version_tags = filter(VERSION_REGEX.match, tags)
     versions = map(Version.from_tag, version_tags)
+    filtered_versions = filter(lambda x: x >= Version(1, 1, 0), versions)
 
-    filtered_versions = filter(lambda x: x >= Version(1, 1, 0, ""), versions)
     if max_version:
         filtered_versions = filter(lambda x: x <= max_version, filtered_versions)
 
@@ -100,17 +101,17 @@ def get_latest_version_by_major_minor(
     Returns a dictionary of the latest version for each major.minor version.
 
     >>> versions = [
-        Version(0, 1, 0, ""),
-        Version(1, 2, 0, ""),
-        Version(1, 2, 1, ""),
-        Version(1, 2, 1, "dev"),
-        Version(1, 3, 0, "")
+        Version(0, 1, 0),
+        Version(1, 2, 0),
+        Version(1, 2, 1),
+        Version(1, 2, 2),
+        Version(1, 3, 0)
     ]
-    >>> get_latest_version_by_major_minor(versions)
+    >>> get_latest_version_by_major_minor(versions, Version(1, 2, 2))
     {
-        (0, 1): Version(0, 1, 0, ""),
-        (1, 2): Version(1, 2, 1, "dev"),
-        (1, 3): Version(1, 3, 0, ""),
+        (0, 1): Version(0, 1, 0),
+        (1, 2): Version(1, 2, 2),
+        (1, 3): Version(1, 3, 0),
     }
     """
 

@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING
 
 from pmd_pytcp.lib.logger import log
 from pmd_pytcp.protocols.tcp import tcp__constants
-from pmd_pytcp.protocols.tcp.tcp__enums import FsmState, SysCall
+from pmd_pytcp.protocols.tcp.tcp__enums import ConnError, FsmState, SysCall
 from pmd_pytcp.protocols.tcp.tcp__seq import add32, ge32, gt32, in_range32, le32, lt32, sub32
 
 if TYPE_CHECKING:
@@ -185,6 +185,11 @@ def fsm__established__packet(session: TcpSession, packet_rx_md: TcpMetadata) -> 
                     )
                     session._persist.active = False
                     session._persist.timeout = tcp__constants.TCP__RTO__INITIAL_MS
+                    # Cancel the logical deadline too: a
+                    # deactivated-but-armed deadline is permanently
+                    # expired and would spin the coalesced service
+                    # at its 1 ms floor forever.
+                    session._cancel_timer("persist")
                 session._ingest_sack_info(packet_rx_md)
                 return
             # Idle session (SND.UNA == SND.NXT) with an ACK at
@@ -237,7 +242,17 @@ def fsm__established__packet(session: TcpSession, packet_rx_md: TcpMetadata) -> 
                     if lt32(ovl_left, ovl_right):
                         session._pending_dsack = (ovl_left, ovl_right)
                         break
-            session._ooo_packet_queue[packet_rx_md.tcp__seq] = packet_rx_md
+            # Bounded queue: a segment arriving with the queue full
+            # is dropped — the mandatory immediate dup-ACK below
+            # still goes out and the peer retransmits the segment
+            # once the gap fills. Without the cap a peer streaming
+            # disjoint tiny out-of-order segments pins one full
+            # packet buffer per in-window byte.
+            if (
+                len(session._ooo_packet_queue) < tcp__constants.TCP__OOO_QUEUE__MAX_LEN
+                or packet_rx_md.tcp__seq in session._ooo_packet_queue
+            ):
+                session._ooo_packet_queue[packet_rx_md.tcp__seq] = packet_rx_md
             # RFC 5681 §4.2: a TCP receiver MUST send an
             # immediate duplicate ACK on every out-of-order
             # segment arrival - no per-gap rate limit. The
@@ -333,11 +348,12 @@ def fsm__established__packet(session: TcpSession, packet_rx_md: TcpMetadata) -> 
     # (folding RFC 5961 §3.2 blind-RST attack mitigation) via
     # the shared '_check_rst_acceptability' helper which runs
     # the three-way classification (case 1 reset / case 2
-    # challenge ACK / case 3 silent drop). On case 1 we
-    # additionally wake any blocked 'recv()' caller so the
-    # application sees the connection-reset signal without
-    # blocking forever on the rx-buffer event.
+    # challenge ACK / case 3 silent drop). On case 1 mark the
+    # connection reset so a blocked / subsequent 'recv()' raises
+    # a connection-reset error instead of misreading the
+    # destroyed stream as a clean EOF; the CLOSED transition
+    # itself wakes any blocked reader.
     if packet_rx_md.tcp__flag_rst and not any({packet_rx_md.tcp__flag_fin, packet_rx_md.tcp__flag_syn}):
         if session._check_rst_acceptability(packet_rx_md):
-            session._event__rx_buffer.set()
+            session._connection_error = ConnError.RESET
             session._change_state(FsmState.CLOSED)

@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from charset_normalizer.api import from_bytes
-from charset_normalizer.models import CharsetMatches
+from charset_normalizer.models import CharsetMatch, CharsetMatches
 
 
 def test_empty():
@@ -14,6 +14,9 @@ def test_empty():
         best_guess.encoding == "utf_8"
     ), "Empty bytes payload SHOULD be guessed as UTF-8 (arbitrary)"
     assert len(best_guess.alphabets) == 0, ""
+    assert best_guess.multi_byte_usage == 0.0, (
+        "Empty raw payload SHOULD report 0.0 multi-byte usage without dividing by zero"
+    )
 
 
 def test_bool_matches():
@@ -26,6 +29,18 @@ def test_bool_matches():
     assert (
         bool(guesses_empty) is False
     ), "Bool behaviour of CharsetMatches altered, should be False"
+
+
+def test_matches_sort_lazily():
+    payload = b"plain ascii"
+    matches = CharsetMatches()
+    matches.append(CharsetMatch(payload, "ascii", 0.1, False, []))
+    matches.append(CharsetMatch(payload, "utf_8", 0.0, False, []))
+
+    assert matches.best() is not None
+    assert matches.best().encoding == "utf_8"
+    assert matches[0].encoding == "utf_8"
+    assert [match.encoding for match in matches] == ["utf_8", "ascii"]
 
 
 @pytest.mark.parametrize(
@@ -187,6 +202,40 @@ def test_mb_cutting_chk():
     assert best_guess.encoding == "cp949"
 
 
+@pytest.mark.parametrize(
+    "encoding, content",
+    [
+        ("iso2022_jp", "日本語の文章を正しく検出します。" * 400),
+        ("iso2022_kr", "한국어 문장을 올바르게 감지합니다. " * 400),
+    ],
+    ids=["iso2022-jp", "iso2022-kr"],
+)
+def test_stateful_multibyte_sampling(encoding, content):
+    best_guess = from_bytes(content.encode(encoding)).best()
+
+    assert best_guess is not None
+    assert best_guess.encoding == encoding
+    assert str(best_guess) == content
+
+
+def test_utf8_sig_overrides_misleading_declaration():
+    content = '<meta charset="cp1252"> café déjà vu'
+    best_guess = from_bytes(content.encode("utf_8_sig")).best()
+
+    assert best_guess is not None
+    assert best_guess.encoding == "utf_8"
+    assert str(best_guess) == content
+
+
+def test_ansi_escape_falls_back_to_unicode():
+    content = "\x1b[31mred text\x1b[0m"
+    best_guess = from_bytes(content.encode()).best()
+
+    assert best_guess is not None
+    assert best_guess.encoding == "utf_8"
+    assert str(best_guess) == content
+
+
 def test_alphabets_property():
     best_guess = from_bytes("😀 Hello World! How affairs are going? 😀".encode()).best()
 
@@ -210,3 +259,23 @@ def test_direct_cmp_charset_match():
     assert best_guess == "utf-8"
     assert best_guess != 8
     assert best_guess != None
+
+
+def test_match_equality_with_arbitrary_string():
+    """CharsetMatch.__eq__ must be total: comparing to a string that is not a
+    known encoding alias returns False, it does not raise (data-model /
+    membership contract)."""
+    best_guess = from_bytes(b"Hello world plain ascii text here.").best()
+    assert best_guess is not None
+
+    # Valid encoding aliases still compare as before.
+    assert best_guess == best_guess.encoding
+    assert (best_guess == "utf-16") is False
+
+    # Arbitrary strings (not codec aliases) must compare unequal, not raise.
+    assert (best_guess == "not-a-real-encoding") is False
+    assert (best_guess == "hello") is False
+    assert (best_guess == 123) is False
+
+    # Membership relies on __eq__, so this must not raise either.
+    assert "not-a-real-encoding" not in [best_guess]

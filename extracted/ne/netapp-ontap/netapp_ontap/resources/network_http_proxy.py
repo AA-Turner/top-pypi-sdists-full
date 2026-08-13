@@ -26,26 +26,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NetworkHttpProxy(
         {
-            "authentication_enabled": False,
             "uuid": "4133a1fc-7228-11e9-b40c-005056bb4f0c",
+            "authentication_enabled": False,
             "port": 3128,
             "server": "server1.example.com",
-            "svm": {"name": "vs1", "uuid": "4133a1fc-7228-11e9-b40c-005056bb4f0c"},
+            "svm": {"uuid": "4133a1fc-7228-11e9-b40c-005056bb4f0c", "name": "vs1"},
         }
     ),
     NetworkHttpProxy(
         {
-            "authentication_enabled": True,
             "uuid": "96219ce3-7214-11e9-828c-005056bb4f0c",
+            "authentication_enabled": True,
             "port": 3128,
-            "ipspace": {
-                "name": "Default",
-                "uuid": "7433520f-7214-11e9-828c-005056bb4f0c",
-            },
             "server": "1.1.1.",
             "svm": {
-                "name": "cluster-1",
                 "uuid": "96219ce3-7214-11e9-828c-005056bb4f0c",
+                "name": "cluster-1",
+            },
+            "ipspace": {
+                "uuid": "7433520f-7214-11e9-828c-005056bb4f0c",
+                "name": "Default",
             },
         }
     ),
@@ -73,12 +73,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NetworkHttpProxy(
     {
-        "authentication_enabled": False,
         "uuid": "96219ce3-7214-11e9-828c-005056bb4f0c",
+        "authentication_enabled": False,
         "port": 3128,
-        "ipspace": {"name": "Default", "uuid": "7433520f-7214-11e9-828c-005056bb4f0c"},
         "server": "1.1.1.1",
-        "svm": {"name": "cluster-1", "uuid": "96219ce3-7214-11e9-828c-005056bb4f0c"},
+        "svm": {"uuid": "96219ce3-7214-11e9-828c-005056bb4f0c", "name": "cluster-1"},
+        "ipspace": {"uuid": "7433520f-7214-11e9-828c-005056bb4f0c", "name": "Default"},
     }
 )
 

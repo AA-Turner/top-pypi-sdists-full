@@ -29,27 +29,27 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     VscanScannerPool(
         {
             "role": "primary",
+            "cluster": {
+                "uuid": "3af387d8-6131-11ef-92d9-005056bbd354",
+                "name": "clus1",
+            },
             "privileged_users": ["cifs\\u1", "cifs\\u2"],
             "name": "scanner-1",
-            "cluster": {
-                "name": "clus1",
-                "uuid": "3af387d8-6131-11ef-92d9-005056bbd354",
-            },
+            "svm": {"uuid": "1ccbefd6-6132-11ef-92d9-005056bbd354", "name": "vs1"},
             "servers": ["1.1.1.1", "10.72.204.27"],
-            "svm": {"name": "vs1", "uuid": "1ccbefd6-6132-11ef-92d9-005056bbd354"},
         }
     ),
     VscanScannerPool(
         {
             "role": "secondary",
+            "cluster": {
+                "uuid": "3af387d8-6131-11ef-92d9-005056bbd354",
+                "name": "clus1",
+            },
             "privileged_users": ["cifs\\u1", "cifs\\u2"],
             "name": "scanner-2",
-            "cluster": {
-                "name": "clus1",
-                "uuid": "3af387d8-6131-11ef-92d9-005056bbd354",
-            },
+            "svm": {"uuid": "1ccbefd6-6132-11ef-92d9-005056bbd354", "name": "vs1"},
             "servers": ["1.1.1.1", "10.72.204.27"],
-            "svm": {"name": "vs1", "uuid": "1ccbefd6-6132-11ef-92d9-005056bbd354"},
         }
     ),
 ]
@@ -82,14 +82,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     VscanScannerPool(
         {
             "role": "secondary",
+            "cluster": {
+                "uuid": "0933f9b5-f226-11e8-9601-0050568ecc06",
+                "name": "Cluster3",
+            },
             "privileged_users": ["cifs\\u1", "cifs\\u2"],
             "name": "scanner-2",
-            "cluster": {
-                "name": "Cluster3",
-                "uuid": "0933f9b5-f226-11e8-9601-0050568ecc06",
-            },
+            "svm": {"uuid": "0e2f7c91-f227-11e8-9601-0050568ecc06", "name": "vs1"},
             "servers": ["1.1.1.1", "10.72.204.27"],
-            "svm": {"name": "vs1", "uuid": "0e2f7c91-f227-11e8-9601-0050568ecc06"},
         }
     )
 ]
@@ -119,11 +119,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 VscanScannerPool(
     {
         "role": "primary",
+        "cluster": {"uuid": "0933f9b5-f226-11e8-9601-0050568ecc06", "name": "Cluster3"},
         "privileged_users": ["cifs\\u1", "cifs\\u2"],
         "name": "scanner-1",
-        "cluster": {"name": "Cluster3", "uuid": "0933f9b5-f226-11e8-9601-0050568ecc06"},
+        "svm": {"uuid": "0e2f7c91-f227-11e8-9601-0050568ecc06", "name": "vs1"},
         "servers": ["1.1.1.1", "10.72.204.27"],
-        "svm": {"name": "vs1", "uuid": "0e2f7c91-f227-11e8-9601-0050568ecc06"},
     }
 )
 
@@ -158,9 +158,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 VscanScannerPool(
     {
         "role": "primary",
+        "cluster": {"uuid": "ab746d77-17b7-11e9-b450-0050568ecd85", "name": "Cluster1"},
         "privileged_users": ["cifs\\u1", "cifs\\u2"],
         "name": "test-scanner",
-        "cluster": {"name": "Cluster1", "uuid": "ab746d77-17b7-11e9-b450-0050568ecd85"},
         "servers": ["1.1.1.1", "10.72.204.27"],
     }
 )

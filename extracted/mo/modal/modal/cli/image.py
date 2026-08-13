@@ -10,12 +10,14 @@ from typing import Optional
 import click
 
 from modal._environments import ensure_env
-from modal._image import _parse_named_image_ref
+from modal._image import _upgrade_image_name
+from modal._logs_manager import _resolve_source
 from modal._utils.async_utils import synchronizer
 from modal._utils.time_utils import timestamp_to_localized_str
 from modal.cli.utils import display_table, env_option
 from modal.client import _Client
-from modal.exception import InvalidError
+from modal.config import config
+from modal.image import Image
 from modal.output import OutputManager
 from modal_proto import api_pb2
 
@@ -34,6 +36,41 @@ image_cli.add_command(image_names_cli)
 def _print_result_summary(count: int) -> None:
     result_label = "result" if count == 1 else "results"
     OutputManager.get().print(f"Showing {count} {result_label}")
+
+
+@image_cli.command("logs", no_args_is_help=True)
+@click.argument("image_id")
+@click.option(
+    "--layers",
+    type=int,
+    default=None,
+    help="Fetch logs from the last N build layers. Defaults to 1.",
+)
+@click.option("--all", "all_layers", is_flag=True, help="Fetch logs from all available build layers.")
+@synchronizer.create_blocking
+async def logs(image_id: str, layers: int | None, all_layers: bool) -> None:
+    """Fetch build logs for an Image."""
+    if layers is not None and layers < 1:
+        raise click.UsageError("--layers must be at least 1.")
+    if all_layers and layers is not None:
+        raise click.UsageError("--all cannot be combined with --layers.")
+
+    effective_layers = None if all_layers else layers or 1
+    image = Image.from_id(image_id)
+    output_mgr = OutputManager.get()
+    last_message = ""
+    async for entry in image.logs.fetch.aio(layers=effective_layers):
+        last_message = entry.message
+        await output_mgr.put_fetched_log(
+            api_pb2.TaskLogs(
+                data=entry.message,
+                timestamp=entry.timestamp.timestamp(),
+                file_descriptor=_resolve_source(entry.source),  # type: ignore
+            )
+        )
+    output_mgr.flush_lines()
+    if last_message and not last_message.endswith("\n"):
+        output_mgr.print("")
 
 
 def _tag_item_json(item: api_pb2.ImageListTagsItem) -> dict[str, str]:
@@ -91,14 +128,12 @@ async def _iter_tag_pages(
 
 async def _fetch_history_page(
     client: _Client,
-    env: str,
-    tag: str,
+    name_tag: str,
     page_token: str,
 ) -> api_pb2.ImageTagRevisionsResponse:
     return await client.stub.ImageTagRevisions(
         api_pb2.ImageTagRevisionsRequest(
-            tag=tag,
-            environment_name=env,
+            tag=name_tag,
             max_objects=IMAGE_NAMES_HISTORY_PAGE_SIZE,
             page_token=page_token,
         )
@@ -106,7 +141,7 @@ async def _fetch_history_page(
 
 
 async def _iter_history_pages(
-    client: _Client, env: str, tag: str, first_page: api_pb2.ImageTagRevisionsResponse
+    client: _Client, name_tag: str, first_page: api_pb2.ImageTagRevisionsResponse
 ) -> AsyncIterator[api_pb2.ImageTagRevisionsResponse]:
     response = first_page
 
@@ -116,7 +151,7 @@ async def _iter_history_pages(
         if not response.next_page_token:
             return
         await asyncio.sleep(IMAGE_NAMES_HISTORY_PAGE_DELAY_SECONDS)
-        response = await _fetch_history_page(client, env, tag, response.next_page_token)
+        response = await _fetch_history_page(client, name_tag, response.next_page_token)
 
 
 @image_names_cli.command("list", help="List named Images.")
@@ -160,36 +195,26 @@ async def list_(
     "history", help="Show publishing history for a named Image.", hidden=True, no_args_is_help=True
 )
 @click.argument("name")
-@env_option
 @click.option("--json", is_flag=True, default=False)
 @synchronizer.create_blocking
 async def history(
     name: str,
-    env: Optional[str] = None,
     json: bool = False,
 ):
-    explicit_env = env  # None when --env is not passed by the user
-    env = ensure_env(env)
-    try:
-        namespace_prefix, name_tag = _parse_named_image_ref(name)
-    except InvalidError as exc:
-        raise click.UsageError(str(exc)) from exc
-
-    if namespace_prefix:
-        if explicit_env is not None:
-            raise click.UsageError("Cannot specify '--env' when the image name contains a '/'.")
-        env = ""
-
+    upgraded_image_name = _upgrade_image_name(
+        name,
+        fallback_environment_name=config.get("environment"),
+    )
     client = await _Client.from_env()
 
-    first_page = await _fetch_history_page(client, env, name_tag, "")
+    first_page = await _fetch_history_page(client, upgraded_image_name, "")
     if not first_page.items:
         raise click.ClickException(f"No publishing history found for named image {first_page.tag!r}.")
 
     if json:
         click.echo("[", nl=False)
         count = 0
-        async for response in _iter_history_pages(client, env, name_tag, first_page):
+        async for response in _iter_history_pages(client, upgraded_image_name, first_page):
             for item in response.items:
                 if count:
                     click.echo(",", nl=False)
@@ -200,7 +225,7 @@ async def history(
 
     count = 0
     show_title = True
-    async for response in _iter_history_pages(client, env, name_tag, first_page):
+    async for response in _iter_history_pages(client, upgraded_image_name, first_page):
         if response.items:
             title = f"History for {response.tag}" if show_title else ""
             display_table(

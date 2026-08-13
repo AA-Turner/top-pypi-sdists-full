@@ -47,14 +47,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SecurityGroup(
         {
-            "name": "AzureGroup1",
+            "type": "entra",
             "uuid": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
             "owner": {
-                "name": "C1_sti213-vsim-sr023a_1718680001",
                 "uuid": "116127b1-2d21-11ef-a5e1-005056ae1bc2",
+                "name": "C1_sti213-vsim-sr023a_1718680001",
             },
+            "name": "AzureGroup1",
             "id": 1,
-            "type": "entra",
         }
     )
 ]

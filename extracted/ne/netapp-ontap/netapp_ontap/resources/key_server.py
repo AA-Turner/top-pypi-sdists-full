@@ -65,6 +65,15 @@ Example: 60"""
 
 Example: password"""
 
+    port = Size(
+        data_key="port",
+        validate=integer_validation(minimum=1, maximum=65535),
+        allow_none=True,
+    )
+    r""" TCP port number for the key server.
+
+Example: 5698"""
+
     records = marshmallow_fields.List(
                 marshmallow_fields.Nested(
                     lambda: lazy_import_schema("netapp_ontap.models.key_server_no_records", "KeyServerNoRecordsSchema"),
@@ -126,11 +135,12 @@ Example: username"""
     patchable_fields = [
         "create_remove_timeout",
         "password",
+        "port",
         "secondary_key_servers",
         "timeout",
         "username",
     ]
-    """create_remove_timeout,password,secondary_key_servers,timeout,username,"""
+    """create_remove_timeout,password,port,secondary_key_servers,timeout,username,"""
 
     postable_fields = [
         "records",

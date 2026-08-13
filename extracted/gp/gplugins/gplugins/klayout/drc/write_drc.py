@@ -50,8 +50,8 @@ def get_drc_script_start(name, shortcut) -> str:
  <text># {name} DRC
 
 # Read about Klayout DRC scripts in the User Manual under "Design Rule Check (DRC)"
-# Based on https://gdsfactory.github.io/gdsfactory/notebooks/_2_klayout.html#Klayout-DRC
-# and https://gdsfactory.github.io/gdsfactory/api.html#klayout-drc
+# Based on https://gdsfactory.github.io/gdsfactory/notebooks/_2_klayout/
+# and https://gdsfactory.github.io/gdsfactory/api/
 
 report("{name} DRC")
 time_start = Time.now
@@ -402,7 +402,7 @@ def write_drc_deck_macro(
             check_area,
             check_density,
         )
-        from gdsfactory.generic_tech import LAYER
+        from gdsfactory.gpdk import LAYER
         rules = [
             check_width(layer="WG", value=0.2),
             check_space(layer="WG", value=0.2),
@@ -445,7 +445,7 @@ def write_drc_deck_macro(
 
 
 if __name__ == "__main__":
-    from gdsfactory.generic_tech import LAYER
+    from gdsfactory.gpdk import LAYER
 
     rules = [
         derived_layer_boolean("TRENCH", "SLAB90", "-", "WG"),

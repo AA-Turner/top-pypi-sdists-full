@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::{BTreeSet, HashMap};
 use fancy_regex::Regex;
 
@@ -61,6 +62,27 @@ pub enum RestoreOutcome {
     Complete,
 }
 
+impl RestoreOutcome {
+    /// The stable snake_case name of this outcome — the SECURITY vocabulary the
+    /// Python (`crates/argus-redact-py/src/restore.rs`) and wasm
+    /// (`crates/argus-redact-wasm/src/lib.rs`) faces both surface verbatim. This
+    /// is the single source of that wire string; both bindings call it, so the
+    /// emitted names are byte-identical across runtimes.
+    ///
+    /// The match is exhaustive over every variant (no wildcard arm): although the
+    /// enum is `#[non_exhaustive]` for downstream crates, this crate OWNS the
+    /// enum, so adding a variant is a compile error here until its name is added
+    /// — the "grow in lockstep" invariant, now enforced at the source instead of
+    /// silently degrading to a fallback string in each binding.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            RestoreOutcome::Blocked => "blocked",
+            RestoreOutcome::Partial => "partial",
+            RestoreOutcome::Complete => "complete",
+        }
+    }
+}
+
 /// The kind of guard check a [`GuardEvent`] reports on.
 ///
 /// `#[non_exhaustive]` for the same forward-compatibility reason as
@@ -73,6 +95,23 @@ pub enum GuardEventKind {
     EmptyKeyWithScope,
     OutOfScopePseudonym,
     AliasCollision,
+}
+
+impl GuardEventKind {
+    /// The stable snake_case name of this guard-event kind — the SECURITY
+    /// vocabulary the Python and wasm faces both surface verbatim (see
+    /// [`RestoreOutcome::as_str`] for the SSOT / byte-identical reasoning). The
+    /// match is exhaustive over every variant for the same reason: a new variant
+    /// must gain its name here, in the crate that owns the enum.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            GuardEventKind::GuardNoAnchor => "guard_no_anchor",
+            GuardEventKind::ProvenanceFailed => "provenance_failed",
+            GuardEventKind::EmptyKeyWithScope => "empty_key_with_scope",
+            GuardEventKind::OutOfScopePseudonym => "out_of_scope_pseudonym",
+            GuardEventKind::AliasCollision => "alias_collision",
+        }
+    }
 }
 
 /// One guard check's outcome. `count` is how many instances the check found;
@@ -389,13 +428,16 @@ fn advance_chars(s: &str, from: usize, n_chars: usize) -> usize {
 /// pseudonyms, and an alias inherits the scope of the fake that owns it, so
 /// without an owner the guard cannot tell an authorised alias from one that
 /// smuggles a withheld identity back into the reply.
-fn merge_aliases(
-    key: &HashMap<String, String>,
+fn merge_aliases<'k>(
+    key: &'k HashMap<String, String>,
     aliases: Option<&HashMap<String, Vec<String>>>,
-) -> (HashMap<String, String>, Vec<String>, HashMap<String, String>) {
+) -> (Cow<'k, HashMap<String, String>>, Vec<String>, HashMap<String, String>) {
     let mut alias_collisions: Vec<String> = Vec::new();
     let mut alias_owner: HashMap<String, String> = HashMap::new();
-    let flat: HashMap<String, String> = if let Some(alias_map) = aliases {
+    // With aliases → build the merged map (owned). Without → the flat map IS the
+    // key, so BORROW it: the common `restore_body`/`RestoreSession` no-alias path
+    // no longer deep-clones the whole key map just to hand out a `&HashMap`.
+    let flat: Cow<HashMap<String, String>> = if let Some(alias_map) = aliases {
         let mut m: HashMap<String, String> = key.clone();
         let mut fakes: Vec<&String> = alias_map.keys().collect();
         fakes.sort();
@@ -419,9 +461,9 @@ fn merge_aliases(
                 }
             }
         }
-        m
+        Cow::Owned(m)
     } else {
-        key.clone()
+        Cow::Borrowed(key)
     };
     (flat, alias_collisions, alias_owner)
 }
@@ -467,8 +509,11 @@ fn restore_body(
 
     // The display-marker strip is scoped to this key's own FAKES (not the
     // merged map): markers are written by `mark_for_display` against the
-    // pseudonyms, so that is exactly where they can be.
-    let marker_fakes: Vec<String> = key.keys().cloned().collect();
+    // pseudonyms, so that is exactly where they can be. `restore_flat` only
+    // reads `marker_fakes` when `display_marker` is Some, so building the list
+    // otherwise is wasted work whose empty result is never observed.
+    let marker_fakes: Vec<String> =
+        if display_marker.is_some() { key.keys().cloned().collect() } else { Vec::new() };
 
     // No shield on the unguarded path: nothing is withheld, so every token in
     // the merged map is substitutable.
@@ -523,10 +568,16 @@ fn restore_flat(
     // A shield entry that is ALSO a lookup key would be SUBSTITUTED, not
     // shielded — the lookup wins in `substitute_with`. The guarded caller
     // derives the two sets by complementary filters on one map so they cannot
-    // intersect; this filter makes the property local rather than a contract
-    // the caller has to remember.
-    let shield_only: Vec<String> =
-        shield.iter().filter(|s| !flat.contains_key(*s)).cloned().collect();
+    // intersect (and the unguarded path passes an empty shield); this filter
+    // makes the property local rather than a contract the caller has to
+    // remember. Since a collision never happens on either real path, borrow
+    // `shield` as-is and only allocate the filtered copy if one ever does —
+    // byte-identical either way.
+    let shield_only: Cow<[String]> = if shield.iter().any(|s| flat.contains_key(s)) {
+        Cow::Owned(shield.iter().filter(|s| !flat.contains_key(*s)).cloned().collect())
+    } else {
+        Cow::Borrowed(shield)
+    };
 
     // Step 3: core substitution over the flat lookup.
     //
@@ -837,7 +888,7 @@ impl RestoreSession {
             )
         };
 
-        Ok(RestoreSession { flat, matcher, alias_collisions })
+        Ok(RestoreSession { flat: flat.into_owned(), matcher, alias_collisions })
     }
 
     /// Aliases claimed by more than one original — one entry per LOSING claim,
@@ -1012,16 +1063,15 @@ possible hallucination or fabrication"
 
 /// Count non-overlapping occurrences of `needle` in `haystack` (mirrors Python `str.count`).
 fn count_occurrences(haystack: &str, needle: &str) -> usize {
+    // `str::matches` is non-overlapping (it resumes after each match), matching
+    // the hand-rolled `start += pos + needle.len()` advance this replaced. The
+    // empty-needle guard stays: `matches("")` splits at every boundary, whereas
+    // the contract here (and Python `str.count`'s non-empty case) is 0.
     if needle.is_empty() {
-        return 0;
+        0
+    } else {
+        haystack.matches(needle).count()
     }
-    let mut count = 0;
-    let mut start = 0;
-    while let Some(pos) = haystack[start..].find(needle) {
-        count += 1;
-        start += pos + needle.len();
-    }
-    count
 }
 
 #[cfg(test)]
@@ -1059,6 +1109,26 @@ mod integration_probe {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Pin the SECURITY wire vocabulary the Python + wasm bindings surface. These
+    /// strings are a cross-runtime contract: changing one silently breaks the
+    /// `security_events` / guard-outcome names the two faces expose, so pin every
+    /// variant's exact bytes here at the SSOT.
+    #[test]
+    fn restore_outcome_as_str_is_the_stable_vocabulary() {
+        assert_eq!(RestoreOutcome::Blocked.as_str(), "blocked");
+        assert_eq!(RestoreOutcome::Partial.as_str(), "partial");
+        assert_eq!(RestoreOutcome::Complete.as_str(), "complete");
+    }
+
+    #[test]
+    fn guard_event_kind_as_str_is_the_stable_vocabulary() {
+        assert_eq!(GuardEventKind::GuardNoAnchor.as_str(), "guard_no_anchor");
+        assert_eq!(GuardEventKind::ProvenanceFailed.as_str(), "provenance_failed");
+        assert_eq!(GuardEventKind::EmptyKeyWithScope.as_str(), "empty_key_with_scope");
+        assert_eq!(GuardEventKind::OutOfScopePseudonym.as_str(), "out_of_scope_pseudonym");
+        assert_eq!(GuardEventKind::AliasCollision.as_str(), "alias_collision");
+    }
 
     #[test]
     fn longest_key_first() {

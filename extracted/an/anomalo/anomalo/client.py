@@ -27,6 +27,12 @@ AUTHORIZATION_HEADER = "Authorization"
 AUTHORIZATION_HEADER_ENV_VAR = "ANOMALO_AUTHORIZATION_HEADER"
 NOT_SET = NotSet()
 
+# Synthetic label id that matches tables with no labels. Pass it as label_id to
+# tables()/filter_tables_by_label() to filter to unlabeled tables. Kept in sync
+# with UNLABELED_LABEL_ID in the server (main.models.organization); a negative id
+# cannot collide with a real label id.
+UNLABELED_LABEL_ID = -1
+
 OptionalStringList = Union[List[str], NotSet, None]
 
 
@@ -290,6 +296,8 @@ class Client:
         label_id: int | Sequence[int] | None = None,
         without_access_groups: bool | None = None,
     ):
+        """List tables. Pass label_id to filter by label; use UNLABELED_LABEL_ID
+        to match tables with no labels."""
         params = {
             "limit": limit,
             "offset": offset,

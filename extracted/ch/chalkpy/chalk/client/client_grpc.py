@@ -4969,28 +4969,41 @@ class ChalkGRPCClient:
             sub_backfills=[AggregateBackfillConverter.plan_decode(backfill) for backfill in plan_response.backfills],
         )
 
-    def _resolve_model_volume_mount(self, model_name: str, model_version: int, spec: Any) -> Optional[Dict[str, str]]:
+    def _lookup_volume_mount(self, volume_name: str, mount_path: str) -> Optional[Dict[str, Any]]:
+        """Return a mount for an existing volume, or None when it is absent."""
+        from chalkcompute import (  # pyright: ignore[reportMissingImports]
+            ConnectClient,
+            VolumeClient,
+            VolumeNotFoundError,
+        )
+
+        with VolumeClient.from_connect(ConnectClient(chalk_client=self)) as client:
+            try:
+                volume = client.lookup(volume_name)
+            except VolumeNotFoundError:
+                return None
+            return volume.mount(mount_path).to_spec_dict()
+
+    def _resolve_model_volume_mount(self, model_name: str, model_version: int, spec: Any) -> Optional[Dict[str, Any]]:
         """Mount dict for a version's persisted ``model_volume``, or None if it has none.
 
-        Model volumes are always ``versioned_chalkfs``. We verify the volume still exists
-        with a dedicated existence check (not a type lookup) so a volume deleted between
-        registration and deploy fails with a clear error rather than an opaque pod mount failure.
+        Looking up the volume validates that it still exists and lets the volume object
+        produce the canonical mount specification.
         """
         if not (spec.HasField("model_volume") and spec.model_volume):
             return None
         volume_name = spec.model_volume
-        from chalkcompute import ConnectClient, VersionedVolumeClient  # pyright: ignore[reportMissingImports]
-
-        if not VersionedVolumeClient.from_connect(ConnectClient(chalk_client=self)).exists(volume_name):
+        mount = self._lookup_volume_mount(volume_name, CHALK_HANDLER_ARTIFACT_PATH)
+        if mount is None:
             raise ValueError(
                 f"Model '{model_name}' v{model_version} references volume '{volume_name}', which no longer "
                 + "exists. Restore the volume or re-register the model version before deploying."
             )
-        return {"name": volume_name, "mount_path": CHALK_HANDLER_ARTIFACT_PATH, "type": "versioned_chalkfs"}
+        return mount
 
     def _ensure_model_image(
         self, model_name: str, model_version: int, validate: bool = True
-    ) -> tuple[int, List[Dict[str, str]], Optional[str], Optional[str]]:
+    ) -> tuple[int, List[Dict[str, Any]], Optional[str], Optional[str]]:
         """Resolve the image to deploy: returns (version, volume_mounts, image_uri, serving_handler).
 
         serving_handler is the chalk-shim entrypoint ("model_handler.handler") for handler/inferred
@@ -5044,40 +5057,23 @@ class ChalkGRPCClient:
 
             # Legacy path: model_volume not set, derive volume name from (name, version).
             volume_name = chalk_handler_volume_name(model_name, model_version)
-            from chalkcompute import (  # pyright: ignore[reportMissingImports]
-                ConnectClient,
-                VolumeError,
-                resolve_referenced_volume_type,
-            )
-
-            try:
-                vol_type = resolve_referenced_volume_type(ConnectClient(chalk_client=self), volume_name)
-                volume_mounts = [
-                    {
-                        "name": volume_name,
-                        "mount_path": CHALK_HANDLER_ARTIFACT_PATH,
-                        "type": vol_type,
-                    }
-                ]
-            except VolumeError:
+            legacy_mount = self._lookup_volume_mount(volume_name, CHALK_HANDLER_ARTIFACT_PATH)
+            if legacy_mount is not None:
+                volume_mounts = [legacy_mount]
+            else:
+                # Only artifact-backed models have files to mount; image-only models deploy as-is.
                 if spec.model_files:
                     model_files = self.download_model_artifact(model_name, model_version).downloaded_model_files
                 else:
                     model_files = []
                 if model_files:
                     try:
-                        upload_chalk_handler_artifacts(
+                        volume_mount = upload_chalk_handler_artifacts(
                             volume_name=volume_name,
                             uploads=[(model_files[0], os.path.basename(model_files[0]))],
                             chalk_client=self,
                         )
-                        volume_mounts = [
-                            {
-                                "name": volume_name,
-                                "mount_path": CHALK_HANDLER_ARTIFACT_PATH,
-                                "type": "versioned_chalkfs",
-                            }
-                        ]
+                        volume_mounts = [volume_mount]
                     finally:
                         download_dir = os.path.dirname(model_files[0])
                         if download_dir and os.path.exists(download_dir):
@@ -5112,17 +5108,18 @@ class ChalkGRPCClient:
                 )
             )
 
-            upload_chalk_handler_artifacts(
+            volume_mount = upload_chalk_handler_artifacts(
                 volume_name=vol_name,
                 uploads=[(model_files[0], model_filename)],
                 chalk_client=self,
+                mount_path=f"/volumes/{vol_name}",
             )
         finally:
             download_dir = os.path.dirname(model_files[0])
             if download_dir and os.path.exists(download_dir):
                 shutil.rmtree(download_dir)
 
-        volume_mounts = [{"name": vol_name, "mount_path": f"/volumes/{vol_name}", "type": "versioned_chalkfs"}]
+        volume_mounts = [volume_mount]
         return model_version, volume_mounts, image_uri, serving_handler
 
     def deploy_model_version_to_scaling_group(

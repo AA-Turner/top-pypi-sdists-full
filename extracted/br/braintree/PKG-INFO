@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: braintree
-Version: 4.45.0
+Version: 4.46.0
 Summary: Braintree Python Library
 Home-page: https://developer.paypal.com/braintree/docs/reference/overview
 Author: Braintree
@@ -16,6 +16,16 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 License-File: LICENSE
+Requires-Dist: requests<3.0,>=0.11.1
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 
         The Braintree Python SDK provides integration access to the Braintree Gateway.

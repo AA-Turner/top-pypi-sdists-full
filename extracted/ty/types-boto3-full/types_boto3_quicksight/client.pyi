@@ -31,6 +31,7 @@ from .paginator import (
     DescribeFolderResolvedPermissionsPaginator,
     ListActionConnectorsPaginator,
     ListAnalysesPaginator,
+    ListApprovalPoliciesPaginator,
     ListAssetBundleExportJobsPaginator,
     ListAssetBundleImportJobsPaginator,
     ListBrandsPaginator,
@@ -39,6 +40,7 @@ from .paginator import (
     ListDashboardVersionsPaginator,
     ListDataSetsPaginator,
     ListDataSourcesPaginator,
+    ListDlpSettingsPaginator,
     ListFlowsPaginator,
     ListFolderMembersPaginator,
     ListFoldersForResourcePaginator,
@@ -49,6 +51,7 @@ from .paginator import (
     ListIAMPolicyAssignmentsPaginator,
     ListIngestionsPaginator,
     ListKnowledgeBasesPaginator,
+    ListLimitsProfilesPaginator,
     ListNamespacesPaginator,
     ListOAuthClientApplicationsPaginator,
     ListRoleMembershipsPaginator,
@@ -79,6 +82,8 @@ from .type_defs import (
     BatchDeleteKnowledgeBaseResponseTypeDef,
     BatchDeleteTopicReviewedAnswerRequestTypeDef,
     BatchDeleteTopicReviewedAnswerResponseTypeDef,
+    BatchDescribeUserLimitsRequestTypeDef,
+    BatchDescribeUserLimitsResponseTypeDef,
     CancelIngestionRequestTypeDef,
     CancelIngestionResponseTypeDef,
     CreateAccountCustomizationRequestTypeDef,
@@ -91,6 +96,8 @@ from .type_defs import (
     CreateAgentResponseTypeDef,
     CreateAnalysisRequestTypeDef,
     CreateAnalysisResponseTypeDef,
+    CreateApprovalPolicyRequestTypeDef,
+    CreateApprovalPolicyResponseTypeDef,
     CreateBrandRequestTypeDef,
     CreateBrandResponseTypeDef,
     CreateCustomPermissionsRequestTypeDef,
@@ -101,6 +108,8 @@ from .type_defs import (
     CreateDataSetResponseTypeDef,
     CreateDataSourceRequestTypeDef,
     CreateDataSourceResponseTypeDef,
+    CreateDlpSettingRequestTypeDef,
+    CreateDlpSettingResponseTypeDef,
     CreateFlowRequestTypeDef,
     CreateFlowResponseTypeDef,
     CreateFolderMembershipRequestTypeDef,
@@ -117,6 +126,8 @@ from .type_defs import (
     CreateIngestionResponseTypeDef,
     CreateKnowledgeBaseRequestTypeDef,
     CreateKnowledgeBaseResponseTypeDef,
+    CreateLimitsProfileRequestTypeDef,
+    CreateLimitsProfileResponseTypeDef,
     CreateNamespaceRequestTypeDef,
     CreateNamespaceResponseTypeDef,
     CreateOAuthClientApplicationRequestTypeDef,
@@ -155,6 +166,7 @@ from .type_defs import (
     DeleteAgentResponseTypeDef,
     DeleteAnalysisRequestTypeDef,
     DeleteAnalysisResponseTypeDef,
+    DeleteApprovalPolicyRequestTypeDef,
     DeleteBrandAssignmentRequestTypeDef,
     DeleteBrandAssignmentResponseTypeDef,
     DeleteBrandRequestTypeDef,
@@ -171,6 +183,8 @@ from .type_defs import (
     DeleteDataSourceResponseTypeDef,
     DeleteDefaultQBusinessApplicationRequestTypeDef,
     DeleteDefaultQBusinessApplicationResponseTypeDef,
+    DeleteDlpSettingRequestTypeDef,
+    DeleteDlpSettingResponseTypeDef,
     DeleteFlowRequestTypeDef,
     DeleteFlowResponseTypeDef,
     DeleteFolderMembershipRequestTypeDef,
@@ -187,6 +201,8 @@ from .type_defs import (
     DeleteIdentityPropagationConfigResponseTypeDef,
     DeleteKnowledgeBaseRequestTypeDef,
     DeleteKnowledgeBaseResponseTypeDef,
+    DeleteLimitsProfileRequestTypeDef,
+    DeleteLimitsProfileResponseTypeDef,
     DeleteNamespaceRequestTypeDef,
     DeleteNamespaceResponseTypeDef,
     DeleteOAuthClientApplicationRequestTypeDef,
@@ -243,6 +259,8 @@ from .type_defs import (
     DescribeAnalysisPermissionsResponseTypeDef,
     DescribeAnalysisRequestTypeDef,
     DescribeAnalysisResponseTypeDef,
+    DescribeApprovalPolicyRequestTypeDef,
+    DescribeApprovalPolicyResponseTypeDef,
     DescribeAssetBundleExportJobRequestTypeDef,
     DescribeAssetBundleExportJobResponseTypeDef,
     DescribeAssetBundleImportJobRequestTypeDef,
@@ -281,6 +299,8 @@ from .type_defs import (
     DescribeDataSourceResponseTypeDef,
     DescribeDefaultQBusinessApplicationRequestTypeDef,
     DescribeDefaultQBusinessApplicationResponseTypeDef,
+    DescribeDlpSettingRequestTypeDef,
+    DescribeDlpSettingResponseTypeDef,
     DescribeFlowRequestTypeDef,
     DescribeFlowResponseTypeDef,
     DescribeFolderPermissionsRequestTypeDef,
@@ -305,6 +325,8 @@ from .type_defs import (
     DescribeKnowledgeBasePermissionsResponseTypeDef,
     DescribeKnowledgeBaseRequestTypeDef,
     DescribeKnowledgeBaseResponseTypeDef,
+    DescribeLimitsProfileRequestTypeDef,
+    DescribeLimitsProfileResponseTypeDef,
     DescribeNamespaceRequestTypeDef,
     DescribeNamespaceResponseTypeDef,
     DescribeOAuthClientApplicationRequestTypeDef,
@@ -375,6 +397,8 @@ from .type_defs import (
     ListAgentsResponseTypeDef,
     ListAnalysesRequestTypeDef,
     ListAnalysesResponseTypeDef,
+    ListApprovalPoliciesRequestTypeDef,
+    ListApprovalPoliciesResponseTypeDef,
     ListAssetBundleExportJobsRequestTypeDef,
     ListAssetBundleExportJobsResponseTypeDef,
     ListAssetBundleImportJobsRequestTypeDef,
@@ -391,6 +415,8 @@ from .type_defs import (
     ListDataSetsResponseTypeDef,
     ListDataSourcesRequestTypeDef,
     ListDataSourcesResponseTypeDef,
+    ListDlpSettingsRequestTypeDef,
+    ListDlpSettingsResponseTypeDef,
     ListFlowsInputTypeDef,
     ListFlowsOutputTypeDef,
     ListFolderMembersRequestTypeDef,
@@ -413,6 +439,8 @@ from .type_defs import (
     ListIngestionsResponseTypeDef,
     ListKnowledgeBasesRequestTypeDef,
     ListKnowledgeBasesResponseTypeDef,
+    ListLimitsProfilesRequestTypeDef,
+    ListLimitsProfilesResponseTypeDef,
     ListNamespacesRequestTypeDef,
     ListNamespacesResponseTypeDef,
     ListOAuthClientApplicationsRequestTypeDef,
@@ -525,6 +553,8 @@ from .type_defs import (
     UpdateAnalysisResponseTypeDef,
     UpdateApplicationWithTokenExchangeGrantRequestTypeDef,
     UpdateApplicationWithTokenExchangeGrantResponseTypeDef,
+    UpdateApprovalPolicyRequestTypeDef,
+    UpdateApprovalPolicyResponseTypeDef,
     UpdateBrandAssignmentRequestTypeDef,
     UpdateBrandAssignmentResponseTypeDef,
     UpdateBrandPublishedVersionRequestTypeDef,
@@ -553,6 +583,8 @@ from .type_defs import (
     UpdateDataSourceResponseTypeDef,
     UpdateDefaultQBusinessApplicationRequestTypeDef,
     UpdateDefaultQBusinessApplicationResponseTypeDef,
+    UpdateDlpSettingRequestTypeDef,
+    UpdateDlpSettingResponseTypeDef,
     UpdateFlowPermissionsInputTypeDef,
     UpdateFlowPermissionsOutputTypeDef,
     UpdateFlowRequestTypeDef,
@@ -575,6 +607,8 @@ from .type_defs import (
     UpdateKnowledgeBasePermissionsResponseTypeDef,
     UpdateKnowledgeBaseRequestTypeDef,
     UpdateKnowledgeBaseResponseTypeDef,
+    UpdateLimitsProfileRequestTypeDef,
+    UpdateLimitsProfileResponseTypeDef,
     UpdateOAuthClientApplicationRequestTypeDef,
     UpdateOAuthClientApplicationResponseTypeDef,
     UpdatePublicSharingSettingsRequestTypeDef,
@@ -727,6 +761,18 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#batch_delete_topic_reviewed_answer)
         """
 
+    def batch_describe_user_limits(
+        self, **kwargs: Unpack[BatchDescribeUserLimitsRequestTypeDef]
+    ) -> BatchDescribeUserLimitsResponseTypeDef:
+        """
+        Describes the effective resource limits for one or more Amazon Quick Sight
+        users, including the limits that apply to each user based on their profile
+        assignments.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/batch_describe_user_limits.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#batch_describe_user_limits)
+        """
+
     def cancel_ingestion(
         self, **kwargs: Unpack[CancelIngestionRequestTypeDef]
     ) -> CancelIngestionResponseTypeDef:
@@ -788,6 +834,16 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#create_analysis)
         """
 
+    def create_approval_policy(
+        self, **kwargs: Unpack[CreateApprovalPolicyRequestTypeDef]
+    ) -> CreateApprovalPolicyResponseTypeDef:
+        """
+        Creates an approval policy in Quick Sight.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_approval_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#create_approval_policy)
+        """
+
     def create_brand(
         self, **kwargs: Unpack[CreateBrandRequestTypeDef]
     ) -> CreateBrandResponseTypeDef:
@@ -837,6 +893,17 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_data_source.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#create_data_source)
+        """
+
+    def create_dlp_setting(
+        self, **kwargs: Unpack[CreateDlpSettingRequestTypeDef]
+    ) -> CreateDlpSettingResponseTypeDef:
+        """
+        Creates a data loss prevention (DLP) setting configuration for an Amazon Web
+        Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_dlp_setting.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#create_dlp_setting)
         """
 
     def create_flow(self, **kwargs: Unpack[CreateFlowRequestTypeDef]) -> CreateFlowResponseTypeDef:
@@ -916,6 +983,17 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_knowledge_base.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#create_knowledge_base)
+        """
+
+    def create_limits_profile(
+        self, **kwargs: Unpack[CreateLimitsProfileRequestTypeDef]
+    ) -> CreateLimitsProfileResponseTypeDef:
+        """
+        Creates a limits profile that defines resource usage limits for Amazon Quick
+        Sight users.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_limits_profile.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#create_limits_profile)
         """
 
     def create_namespace(
@@ -1113,6 +1191,16 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#delete_analysis)
         """
 
+    def delete_approval_policy(
+        self, **kwargs: Unpack[DeleteApprovalPolicyRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes an approval policy in Quick Sight.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_approval_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#delete_approval_policy)
+        """
+
     def delete_brand(
         self, **kwargs: Unpack[DeleteBrandRequestTypeDef]
     ) -> DeleteBrandResponseTypeDef:
@@ -1193,6 +1281,16 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#delete_default_q_business_application)
         """
 
+    def delete_dlp_setting(
+        self, **kwargs: Unpack[DeleteDlpSettingRequestTypeDef]
+    ) -> DeleteDlpSettingResponseTypeDef:
+        """
+        Deletes a DLP setting configuration from an Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_dlp_setting.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#delete_dlp_setting)
+        """
+
     def delete_flow(self, **kwargs: Unpack[DeleteFlowRequestTypeDef]) -> DeleteFlowResponseTypeDef:
         """
         Permanently deletes a flow from the specified Amazon Web Services account.
@@ -1270,6 +1368,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_knowledge_base.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#delete_knowledge_base)
+        """
+
+    def delete_limits_profile(
+        self, **kwargs: Unpack[DeleteLimitsProfileRequestTypeDef]
+    ) -> DeleteLimitsProfileResponseTypeDef:
+        """
+        Deletes a limits profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_limits_profile.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#delete_limits_profile)
         """
 
     def delete_namespace(
@@ -1557,6 +1665,16 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#describe_analysis_permissions)
         """
 
+    def describe_approval_policy(
+        self, **kwargs: Unpack[DescribeApprovalPolicyRequestTypeDef]
+    ) -> DescribeApprovalPolicyResponseTypeDef:
+        """
+        Describes an approval policy in Quick Sight.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_approval_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#describe_approval_policy)
+        """
+
     def describe_asset_bundle_export_job(
         self, **kwargs: Unpack[DescribeAssetBundleExportJobRequestTypeDef]
     ) -> DescribeAssetBundleExportJobResponseTypeDef:
@@ -1749,6 +1867,17 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#describe_default_q_business_application)
         """
 
+    def describe_dlp_setting(
+        self, **kwargs: Unpack[DescribeDlpSettingRequestTypeDef]
+    ) -> DescribeDlpSettingResponseTypeDef:
+        """
+        Describes the full configuration of a DLP setting in an Amazon Web Services
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_dlp_setting.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#describe_dlp_setting)
+        """
+
     def describe_flow(
         self, **kwargs: Unpack[DescribeFlowRequestTypeDef]
     ) -> DescribeFlowResponseTypeDef:
@@ -1871,6 +2000,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_knowledge_base_permissions.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#describe_knowledge_base_permissions)
+        """
+
+    def describe_limits_profile(
+        self, **kwargs: Unpack[DescribeLimitsProfileRequestTypeDef]
+    ) -> DescribeLimitsProfileResponseTypeDef:
+        """
+        Describes the properties of an existing limits profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_limits_profile.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#describe_limits_profile)
         """
 
     def describe_namespace(
@@ -2231,6 +2370,16 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#list_analyses)
         """
 
+    def list_approval_policies(
+        self, **kwargs: Unpack[ListApprovalPoliciesRequestTypeDef]
+    ) -> ListApprovalPoliciesResponseTypeDef:
+        """
+        Lists all approval policies in the specified Quick Sight account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_approval_policies.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#list_approval_policies)
+        """
+
     def list_asset_bundle_export_jobs(
         self, **kwargs: Unpack[ListAssetBundleExportJobsRequestTypeDef]
     ) -> ListAssetBundleExportJobsResponseTypeDef:
@@ -2310,6 +2459,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_data_sources.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#list_data_sources)
+        """
+
+    def list_dlp_settings(
+        self, **kwargs: Unpack[ListDlpSettingsRequestTypeDef]
+    ) -> ListDlpSettingsResponseTypeDef:
+        """
+        Lists all DLP settings in an Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_dlp_settings.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#list_dlp_settings)
         """
 
     def list_flows(self, **kwargs: Unpack[ListFlowsInputTypeDef]) -> ListFlowsOutputTypeDef:
@@ -2420,6 +2579,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_knowledge_bases.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#list_knowledge_bases)
+        """
+
+    def list_limits_profiles(
+        self, **kwargs: Unpack[ListLimitsProfilesRequestTypeDef]
+    ) -> ListLimitsProfilesResponseTypeDef:
+        """
+        Lists all limits profiles in an Amazon Quick Sight account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_limits_profiles.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#list_limits_profiles)
         """
 
     def list_namespaces(
@@ -2986,6 +3155,16 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#update_application_with_token_exchange_grant)
         """
 
+    def update_approval_policy(
+        self, **kwargs: Unpack[UpdateApprovalPolicyRequestTypeDef]
+    ) -> UpdateApprovalPolicyResponseTypeDef:
+        """
+        Updates an approval policy in Quick Sight.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_approval_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#update_approval_policy)
+        """
+
     def update_brand(
         self, **kwargs: Unpack[UpdateBrandRequestTypeDef]
     ) -> UpdateBrandResponseTypeDef:
@@ -3126,6 +3305,16 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#update_default_q_business_application)
         """
 
+    def update_dlp_setting(
+        self, **kwargs: Unpack[UpdateDlpSettingRequestTypeDef]
+    ) -> UpdateDlpSettingResponseTypeDef:
+        """
+        Updates an existing DLP setting configuration in an Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_dlp_setting.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#update_dlp_setting)
+        """
+
     def update_flow(self, **kwargs: Unpack[UpdateFlowRequestTypeDef]) -> UpdateFlowResponseTypeDef:
         """
         Updates an existing flow.
@@ -3233,6 +3422,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_knowledge_base_permissions.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#update_knowledge_base_permissions)
+        """
+
+    def update_limits_profile(
+        self, **kwargs: Unpack[UpdateLimitsProfileRequestTypeDef]
+    ) -> UpdateLimitsProfileResponseTypeDef:
+        """
+        Updates the properties of an existing limits profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_limits_profile.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#update_limits_profile)
         """
 
     def update_o_auth_client_application(
@@ -3542,6 +3741,17 @@ class QuickSightClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_approval_policies"]
+    ) -> ListApprovalPoliciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_asset_bundle_export_jobs"]
     ) -> ListAssetBundleExportJobsPaginator:
         """
@@ -3621,6 +3831,17 @@ class QuickSightClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_data_sources"]
     ) -> ListDataSourcesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_dlp_settings"]
+    ) -> ListDlpSettingsPaginator:
         """
         Create a paginator for an operation.
 
@@ -3731,6 +3952,17 @@ class QuickSightClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_knowledge_bases"]
     ) -> ListKnowledgeBasesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_limits_profiles"]
+    ) -> ListLimitsProfilesPaginator:
         """
         Create a paginator for an operation.
 

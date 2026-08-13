@@ -40,6 +40,9 @@ from .paginator import (
     ListDbNodesPaginator,
     ListDbServersPaginator,
     ListDbSystemShapesPaginator,
+    ListExadbVmClustersPaginator,
+    ListExascaleDbStorageVaultsPaginator,
+    ListGiMinorVersionsPaginator,
     ListGiVersionsPaginator,
     ListOdbNetworksPaginator,
     ListOdbPeeringConnectionsPaginator,
@@ -48,6 +51,8 @@ from .paginator import (
 from .type_defs import (
     AcceptMarketplaceRegistrationInputTypeDef,
     AssociateIamRoleToResourceInputTypeDef,
+    AssociateVirtualMachinesToExadbVmClusterInputTypeDef,
+    AssociateVirtualMachinesToExadbVmClusterOutputTypeDef,
     CreateAutonomousDatabaseBackupInputTypeDef,
     CreateAutonomousDatabaseBackupOutputTypeDef,
     CreateAutonomousDatabaseInputTypeDef,
@@ -60,6 +65,10 @@ from .type_defs import (
     CreateCloudExadataInfrastructureOutputTypeDef,
     CreateCloudVmClusterInputTypeDef,
     CreateCloudVmClusterOutputTypeDef,
+    CreateExadbVmClusterInputTypeDef,
+    CreateExadbVmClusterOutputTypeDef,
+    CreateExascaleDbStorageVaultInputTypeDef,
+    CreateExascaleDbStorageVaultOutputTypeDef,
     CreateOdbNetworkInputTypeDef,
     CreateOdbNetworkOutputTypeDef,
     CreateOdbPeeringConnectionInputTypeDef,
@@ -69,9 +78,13 @@ from .type_defs import (
     DeleteCloudAutonomousVmClusterInputTypeDef,
     DeleteCloudExadataInfrastructureInputTypeDef,
     DeleteCloudVmClusterInputTypeDef,
+    DeleteExadbVmClusterInputTypeDef,
+    DeleteExascaleDbStorageVaultInputTypeDef,
     DeleteOdbNetworkInputTypeDef,
     DeleteOdbPeeringConnectionInputTypeDef,
     DisassociateIamRoleFromResourceInputTypeDef,
+    DisassociateVirtualMachinesFromExadbVmClusterInputTypeDef,
+    DisassociateVirtualMachinesFromExadbVmClusterOutputTypeDef,
     FailoverAutonomousDatabaseInputTypeDef,
     FailoverAutonomousDatabaseOutputTypeDef,
     GetAutonomousDatabaseBackupInputTypeDef,
@@ -92,6 +105,10 @@ from .type_defs import (
     GetDbNodeOutputTypeDef,
     GetDbServerInputTypeDef,
     GetDbServerOutputTypeDef,
+    GetExadbVmClusterInputTypeDef,
+    GetExadbVmClusterOutputTypeDef,
+    GetExascaleDbStorageVaultInputTypeDef,
+    GetExascaleDbStorageVaultOutputTypeDef,
     GetOciOnboardingStatusOutputTypeDef,
     GetOdbNetworkInputTypeDef,
     GetOdbNetworkOutputTypeDef,
@@ -124,6 +141,12 @@ from .type_defs import (
     ListDbServersOutputTypeDef,
     ListDbSystemShapesInputTypeDef,
     ListDbSystemShapesOutputTypeDef,
+    ListExadbVmClustersInputTypeDef,
+    ListExadbVmClustersOutputTypeDef,
+    ListExascaleDbStorageVaultsInputTypeDef,
+    ListExascaleDbStorageVaultsOutputTypeDef,
+    ListGiMinorVersionsInputTypeDef,
+    ListGiMinorVersionsOutputTypeDef,
     ListGiVersionsInputTypeDef,
     ListGiVersionsOutputTypeDef,
     ListOdbNetworksInputTypeDef,
@@ -160,6 +183,10 @@ from .type_defs import (
     UpdateAutonomousDatabaseOutputTypeDef,
     UpdateCloudExadataInfrastructureInputTypeDef,
     UpdateCloudExadataInfrastructureOutputTypeDef,
+    UpdateExadbVmClusterInputTypeDef,
+    UpdateExadbVmClusterOutputTypeDef,
+    UpdateExascaleDbStorageVaultInputTypeDef,
+    UpdateExascaleDbStorageVaultOutputTypeDef,
     UpdateOdbNetworkInputTypeDef,
     UpdateOdbNetworkOutputTypeDef,
     UpdateOdbPeeringConnectionInputTypeDef,
@@ -242,6 +269,16 @@ class OdbClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#associate_iam_role_to_resource)
         """
 
+    def associate_virtual_machines_to_exadb_vm_cluster(
+        self, **kwargs: Unpack[AssociateVirtualMachinesToExadbVmClusterInputTypeDef]
+    ) -> AssociateVirtualMachinesToExadbVmClusterOutputTypeDef:
+        """
+        Adds virtual machines to the specified Exascale VM cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/associate_virtual_machines_to_exadb_vm_cluster.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#associate_virtual_machines_to_exadb_vm_cluster)
+        """
+
     def create_autonomous_database(
         self, **kwargs: Unpack[CreateAutonomousDatabaseInputTypeDef]
     ) -> CreateAutonomousDatabaseOutputTypeDef:
@@ -300,6 +337,26 @@ class OdbClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/create_cloud_vm_cluster.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#create_cloud_vm_cluster)
+        """
+
+    def create_exadb_vm_cluster(
+        self, **kwargs: Unpack[CreateExadbVmClusterInputTypeDef]
+    ) -> CreateExadbVmClusterOutputTypeDef:
+        """
+        Creates an Exascale VM cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/create_exadb_vm_cluster.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#create_exadb_vm_cluster)
+        """
+
+    def create_exascale_db_storage_vault(
+        self, **kwargs: Unpack[CreateExascaleDbStorageVaultInputTypeDef]
+    ) -> CreateExascaleDbStorageVaultOutputTypeDef:
+        """
+        Creates an Exascale storage vault.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/create_exascale_db_storage_vault.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#create_exascale_db_storage_vault)
         """
 
     def create_odb_network(
@@ -372,6 +429,26 @@ class OdbClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#delete_cloud_vm_cluster)
         """
 
+    def delete_exadb_vm_cluster(
+        self, **kwargs: Unpack[DeleteExadbVmClusterInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the specified Exascale VM cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/delete_exadb_vm_cluster.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#delete_exadb_vm_cluster)
+        """
+
+    def delete_exascale_db_storage_vault(
+        self, **kwargs: Unpack[DeleteExascaleDbStorageVaultInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the specified Exascale storage vault.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/delete_exascale_db_storage_vault.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#delete_exascale_db_storage_vault)
+        """
+
     def delete_odb_network(self, **kwargs: Unpack[DeleteOdbNetworkInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified ODB network.
@@ -400,6 +477,16 @@ class OdbClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/disassociate_iam_role_from_resource.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#disassociate_iam_role_from_resource)
+        """
+
+    def disassociate_virtual_machines_from_exadb_vm_cluster(
+        self, **kwargs: Unpack[DisassociateVirtualMachinesFromExadbVmClusterInputTypeDef]
+    ) -> DisassociateVirtualMachinesFromExadbVmClusterOutputTypeDef:
+        """
+        Removes virtual machines from the specified Exascale VM cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/disassociate_virtual_machines_from_exadb_vm_cluster.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#disassociate_virtual_machines_from_exadb_vm_cluster)
         """
 
     def failover_autonomous_database(
@@ -498,6 +585,26 @@ class OdbClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/get_db_server.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#get_db_server)
+        """
+
+    def get_exadb_vm_cluster(
+        self, **kwargs: Unpack[GetExadbVmClusterInputTypeDef]
+    ) -> GetExadbVmClusterOutputTypeDef:
+        """
+        Returns information about the specified Exascale VM cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/get_exadb_vm_cluster.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#get_exadb_vm_cluster)
+        """
+
+    def get_exascale_db_storage_vault(
+        self, **kwargs: Unpack[GetExascaleDbStorageVaultInputTypeDef]
+    ) -> GetExascaleDbStorageVaultOutputTypeDef:
+        """
+        Returns information about the specified Exascale storage vault.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/get_exascale_db_storage_vault.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#get_exascale_db_storage_vault)
         """
 
     def get_oci_onboarding_status(self) -> GetOciOnboardingStatusOutputTypeDef:
@@ -668,6 +775,39 @@ class OdbClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/list_db_system_shapes.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#list_db_system_shapes)
+        """
+
+    def list_exadb_vm_clusters(
+        self, **kwargs: Unpack[ListExadbVmClustersInputTypeDef]
+    ) -> ListExadbVmClustersOutputTypeDef:
+        """
+        Returns information about the Exascale VM clusters owned by your Amazon Web
+        Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/list_exadb_vm_clusters.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#list_exadb_vm_clusters)
+        """
+
+    def list_exascale_db_storage_vaults(
+        self, **kwargs: Unpack[ListExascaleDbStorageVaultsInputTypeDef]
+    ) -> ListExascaleDbStorageVaultsOutputTypeDef:
+        """
+        Returns information about the Exascale storage vaults owned by your Amazon Web
+        Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/list_exascale_db_storage_vaults.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#list_exascale_db_storage_vaults)
+        """
+
+    def list_gi_minor_versions(
+        self, **kwargs: Unpack[ListGiMinorVersionsInputTypeDef]
+    ) -> ListGiMinorVersionsOutputTypeDef:
+        """
+        Returns a list of the Oracle Grid Infrastructure (GI) minor versions for the
+        specified major version.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/list_gi_minor_versions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#list_gi_minor_versions)
         """
 
     def list_gi_versions(
@@ -858,6 +998,26 @@ class OdbClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#update_cloud_exadata_infrastructure)
         """
 
+    def update_exadb_vm_cluster(
+        self, **kwargs: Unpack[UpdateExadbVmClusterInputTypeDef]
+    ) -> UpdateExadbVmClusterOutputTypeDef:
+        """
+        Updates the specified Exascale VM cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/update_exadb_vm_cluster.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#update_exadb_vm_cluster)
+        """
+
+    def update_exascale_db_storage_vault(
+        self, **kwargs: Unpack[UpdateExascaleDbStorageVaultInputTypeDef]
+    ) -> UpdateExascaleDbStorageVaultOutputTypeDef:
+        """
+        Updates the specified Exascale storage vault.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/update_exascale_db_storage_vault.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#update_exascale_db_storage_vault)
+        """
+
     def update_odb_network(
         self, **kwargs: Unpack[UpdateOdbNetworkInputTypeDef]
     ) -> UpdateOdbNetworkOutputTypeDef:
@@ -1015,6 +1175,39 @@ class OdbClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_db_system_shapes"]
     ) -> ListDbSystemShapesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_exadb_vm_clusters"]
+    ) -> ListExadbVmClustersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_exascale_db_storage_vaults"]
+    ) -> ListExascaleDbStorageVaultsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_gi_minor_versions"]
+    ) -> ListGiMinorVersionsPaginator:
         """
         Create a paginator for an operation.
 

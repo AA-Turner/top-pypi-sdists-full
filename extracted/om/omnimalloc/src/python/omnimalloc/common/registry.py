@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import inspect
 import re
 from abc import ABC
-from typing import ClassVar
+from typing import ClassVar, cast
 
 from typing_extensions import Self
 
@@ -12,35 +13,38 @@ from typing_extensions import Self
 class Registered(ABC):
     """Mixin for auto-registering and managing subclasses.
 
-    Any direct subclass of Registered will maintain its own registry. Any
-    subclass of that subclass that's not abstract will be registered in the
-    direct subclass's registry.
+    Each direct subclass maintains its own registry; non-abstract descendants
+    register automatically, named by snake_case minus `_strip_suffix`.
     """
 
     _registry: ClassVar[dict[str, type[Self]]]
     _name: str
+    _strip_suffix: ClassVar[str] = ""
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
 
-        cls._name = _camel_to_snake(cls.__name__)
-
-        # Direct subclass of Registered - initialize registry, don't register
+        # Direct subclass of Registered: initialize registry, don't register
         if Registered in cls.__bases__:
+            cls._name = _camel_to_snake(cls.__name__)
             cls._registry = {}
             return
 
-        # Skip abstract classes from registration
-        if getattr(cls, "__abstractmethods__", None):
+        # Abstract classes keep their full name and skip registration
+        if inspect.isabstract(cls):
+            cls._name = _camel_to_snake(cls.__name__)
             return
 
-        # Child class - register in parent's registry
-        for base in reversed(cls.__mro__[1:]):
-            if Registered in base.__bases__ and issubclass(base, Registered):
-                base._registry[cls._name] = cls  # noqa: SLF001
-                return
-
-        raise RuntimeError(f"Could not register class {cls.__name__}")
+        # Child class: register in the root's registry, which plain attribute
+        # inheritance already resolves
+        cls._name = _derive_name(cls.__name__, cls._strip_suffix)
+        registered = cls._registry.get(cls._name)
+        if registered is not None and registered is not cls:
+            raise RuntimeError(
+                f"Registry name '{cls._name}' already taken by "
+                f"{registered.__qualname__}; cannot register {cls.__qualname__}"
+            )
+        cls._registry[cls._name] = cls
 
     def __str__(self) -> str:
         return self._name
@@ -60,10 +64,37 @@ class Registered(ABC):
         """Get a registered class by name."""
         if name in cls._registry:
             return cls._registry[name]
+        raise KeyError(cls._unknown_name_message(name))
+
+    @classmethod
+    def resolve(cls, value: "Self | type[Self] | str") -> Self:
+        """Normalize a registry name, class, or instance into an instance."""
+        if isinstance(value, str):
+            if value not in cls._registry:
+                raise ValueError(cls._unknown_name_message(value))
+            value = cls._registry[value]
+        if isinstance(value, type):
+            if not issubclass(value, cls):
+                raise TypeError(f"{value.__qualname__} is not a {cls.__name__}")
+            return value()
+        if not isinstance(value, cls):
+            raise TypeError(f"{type(value).__qualname__} is not a {cls.__name__}")
+        return cast("Self", value)
+
+    @classmethod
+    def _unknown_name_message(cls, name: str) -> str:
         available = ", ".join(f"'{n}'" for n in sorted(cls._registry.keys()))
-        raise KeyError(
-            f"'{name}' not in {cls.__name__} registry. Available: {available}"
+        return f"'{name}' not in {cls.__name__} registry. Available: {available}"
+
+
+def _derive_name(class_name: str, role_token: str) -> str:
+    """Registry key for `class_name`: strip the `role_token` suffix, snake_case."""
+    stripped = class_name.removesuffix(role_token) if role_token else class_name
+    if not stripped:
+        raise RuntimeError(
+            f"Registry name for {class_name!r} is empty after stripping {role_token!r}"
         )
+    return _camel_to_snake(stripped)
 
 
 def _camel_to_snake(name: str) -> str:

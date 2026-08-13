@@ -19,6 +19,85 @@ fn test_single_line() {
 }
 
 #[test]
+fn parsed_headings_cover_document_and_blockquote_semantics() {
+    let content = "# Top\nSetext {#setext}\n=====\n> ## Quoted ## {#quoted}\n>> ### Nested\n#lowercase\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    let headings: Vec<_> = ctx.headings().collect();
+    assert_eq!(headings.len(), 5);
+    assert_eq!(
+        headings
+            .iter()
+            .map(|parsed| (parsed.line_num, parsed.heading.text.as_str(), parsed.blockquote_depth))
+            .collect::<Vec<_>>(),
+        vec![
+            (1, "Top", 0),
+            (2, "Setext", 0),
+            (4, "Quoted", 1),
+            (5, "Nested", 2),
+            (6, "lowercase", 0)
+        ]
+    );
+
+    assert!(headings[1].is_setext());
+    assert!(headings[2].is_blockquote());
+    assert_eq!(headings[2].heading.custom_id.as_deref(), Some("quoted"));
+    assert!(headings[2].heading.has_closing_sequence);
+    assert_eq!(headings[2].heading.closing_sequence, "##");
+    assert_eq!(headings[2].text_byte_range(content), (5, 11));
+    assert!(!headings[4].heading.is_valid);
+
+    let top_level_valid_lines: Vec<_> = ctx.valid_headings().map(|heading| heading.line_num).collect();
+    assert_eq!(top_level_valid_lines, vec![1, 2]);
+    assert_eq!(ctx.heading_on_line(4).map(|heading| heading.blockquote_depth), Some(1));
+    assert!(ctx.heading_on_line(3).is_none());
+    assert!(ctx.heading_on_line(0).is_none());
+}
+
+#[test]
+fn parsed_headings_exclude_non_markdown_regions() {
+    let content =
+        "---\ntitle: '# Front matter'\n---\n\n```md\n> ## Code\n```\n\n<div>\n> ## Raw HTML\n</div>\n\n# Visible\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    let headings: Vec<_> = ctx
+        .headings()
+        .map(|heading| (heading.line_num, heading.heading.text.as_str()))
+        .collect();
+    assert_eq!(headings, vec![(13, "Visible")]);
+}
+
+#[test]
+fn parsed_blockquote_headings_include_markdown_enabled_html() {
+    let content = "<div markdown>\n> ## Rendered\n</div>\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    let headings: Vec<_> = ctx
+        .headings()
+        .map(|heading| {
+            (
+                heading.line_num,
+                heading.heading.text.as_str(),
+                heading.blockquote_depth,
+            )
+        })
+        .collect();
+    assert_eq!(headings, vec![(2, "Rendered", 1)]);
+}
+
+#[test]
+fn parsed_blockquote_headings_respect_mkdocs_snippet_markers() {
+    let content = "> # -8<- [start:section]\n> # Actual\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+
+    let headings: Vec<_> = ctx
+        .headings()
+        .map(|heading| (heading.line_num, heading.heading.text.as_str()))
+        .collect();
+    assert_eq!(headings, vec![(2, "Actual")]);
+}
+
+#[test]
 fn test_multi_line() {
     let content = "# Title\n\nSecond line\nThird line";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
@@ -102,6 +181,208 @@ fn test_list_item_detection() {
 }
 
 #[test]
+fn parsed_list_views_preserve_existing_cache_semantics() {
+    let fixtures = [
+        (
+            MarkdownFlavor::Standard,
+            "- root\n  1. ordered child\n     continuation\n  * sibling\n\n> 10. quoted\n>     - nested\n\nparagraph\n\t- tabbed\n\n    - indented code\n",
+        ),
+        (
+            MarkdownFlavor::MkDocs,
+            "!!! note\n    - item\n        + nested\n\n=== tab\n    1. ordered\n       - child\n",
+        ),
+        (
+            MarkdownFlavor::Kramdown,
+            "{::nomarkdown}\n- hidden\n{:/nomarkdown}\n\n- visible\n  - child\n",
+        ),
+        (MarkdownFlavor::AzureDevOps, ":::python\n- code\n:::\n\n> - visible\n"),
+    ];
+
+    for (flavor, content) in fixtures {
+        let ctx = LintContext::new(content, flavor, None);
+        let raw_items: Vec<_> = ctx
+            .lines
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, line)| {
+                line.list_item.as_deref().map(|item| {
+                    (
+                        idx + 1,
+                        item.marker.as_str(),
+                        item.is_ordered,
+                        item.number,
+                        item.marker_column,
+                        item.content_column,
+                        line.blockquote.as_ref().map_or(0, |bq| bq.nesting_level),
+                        line.blockquote.as_ref().map_or(0, |bq| bq.prefix.len()),
+                    )
+                })
+            })
+            .collect();
+        let parsed_items: Vec<_> = ctx
+            .list_items()
+            .map(|item| {
+                (
+                    item.line_num(),
+                    item.marker(),
+                    item.is_ordered(),
+                    item.number(),
+                    item.marker_column(),
+                    item.content_column(),
+                    item.blockquote_depth(),
+                    item.blockquote_prefix_len(),
+                )
+            })
+            .collect();
+        assert_eq!(parsed_items, raw_items, "list item view drifted for {flavor:?}");
+
+        for line_num in 0..=ctx.lines.len() + 1 {
+            let raw = line_num
+                .checked_sub(1)
+                .and_then(|idx| ctx.lines.get(idx))
+                .and_then(|line| line.list_item.as_deref());
+            let parsed = ctx.list_item_on_line(line_num);
+            assert_eq!(parsed.is_some(), raw.is_some(), "lookup drifted at line {line_num}");
+            if let (Some(parsed), Some(raw)) = (parsed, raw) {
+                assert_eq!(parsed.marker(), raw.marker);
+                assert_eq!(
+                    parsed.marker_byte_offset(),
+                    parsed.line_info().byte_offset + raw.marker_column
+                );
+            }
+        }
+
+        let parsed_blocks = ctx.parsed_list_blocks();
+        assert_eq!(parsed_blocks.len(), ctx.list_blocks.len());
+        assert_eq!(parsed_blocks.is_empty(), ctx.list_blocks.is_empty());
+        for (index, (parsed, raw)) in parsed_blocks.into_iter().zip(&ctx.list_blocks).enumerate() {
+            assert_eq!(
+                parsed_blocks.get(index).map(ParsedListBlock::start_line),
+                Some(raw.start_line)
+            );
+            assert_eq!(parsed.start_line(), raw.start_line);
+            assert_eq!(parsed.end_line(), raw.end_line);
+            assert_eq!(parsed.is_ordered(), raw.is_ordered);
+            assert_eq!(parsed.marker(), raw.marker.as_deref());
+            assert_eq!(parsed.blockquote_prefix(), raw.blockquote_prefix);
+            assert_eq!(parsed.nesting_level(), raw.nesting_level);
+            assert_eq!(parsed.max_marker_width(), raw.max_marker_width);
+            assert_eq!(
+                parsed.items().map(ParsedListItem::line_num).collect::<Vec<_>>(),
+                raw.item_lines
+                    .iter()
+                    .copied()
+                    .filter(|line| ctx.list_item_on_line(*line).is_some())
+                    .collect::<Vec<_>>()
+            );
+        }
+        assert!(parsed_blocks.get(parsed_blocks.len()).is_none());
+        assert_eq!(ctx.has_list_items(), !raw_items.is_empty());
+        assert_eq!(ctx.has_unordered_list_items(), raw_items.iter().any(|item| !item.2));
+    }
+}
+
+#[test]
+fn parsed_list_block_items_keep_source_order_and_container_depth() {
+    let content = "- root\n  - child\n> 1. quoted\n>    + nested\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    assert_eq!(
+        ctx.list_items()
+            .map(|item| (item.line_num(), item.marker(), item.blockquote_depth()))
+            .collect::<Vec<_>>(),
+        vec![(1, "-", 0), (2, "-", 0), (3, "1.", 1), (4, "+", 1)]
+    );
+    let block_lines: Vec<Vec<_>> = ctx
+        .parsed_list_blocks()
+        .into_iter()
+        .map(|block| block.items().map(ParsedListItem::line_num).collect())
+        .collect();
+    assert_eq!(block_lines, vec![vec![1, 2, 3, 4]]);
+}
+
+#[test]
+fn commonmark_ordered_lists_preserve_raw_membership_and_start_values() {
+    let fixtures = [
+        (
+            MarkdownFlavor::Standard,
+            "11. outer\n     1. nested\n     2. nested\n12. outer\n\nparagraph\n\n1. restart\n2. restart\n\n> 7. quoted\n> 8. quoted\n",
+        ),
+        (
+            MarkdownFlavor::MkDocs,
+            "1. outer\n    9. nested\n    10. nested\n2. outer\n\n!!! note\n    4. inside\n    5. inside\n",
+        ),
+        (
+            MarkdownFlavor::Pandoc,
+            "(@example) example marker\n\n3) parenthesized\n4) parenthesized\n\n1. ordinary\n",
+        ),
+    ];
+
+    for (flavor, content) in fixtures {
+        let ctx = LintContext::new(content, flavor, None);
+        assert!(ctx.commonmark_ordered_lists_cache.get().is_none());
+        let raw = crate::utils::code_block_utils::CodeBlockUtils::detect_code_blocks_and_spans(content);
+        let mut groups: std::collections::HashMap<usize, Vec<usize>> = std::collections::HashMap::new();
+
+        for line_num in 1..=ctx.lines.len() {
+            if ctx.list_item_on_line(line_num).is_some_and(ParsedListItem::is_ordered)
+                && let Some(&list_id) = raw.line_to_list.get(&line_num)
+            {
+                groups.entry(list_id).or_default().push(line_num);
+            }
+        }
+
+        let mut expected: Vec<_> = groups
+            .into_iter()
+            .map(|(list_id, mut item_lines)| {
+                item_lines.sort_unstable();
+                (raw.list_start_values.get(&list_id).copied().unwrap_or(1), item_lines)
+            })
+            .collect();
+        expected.sort_by_key(|(_, lines)| lines.first().copied().unwrap_or(0));
+
+        let lists = ctx.commonmark_ordered_lists();
+        assert!(ctx.commonmark_ordered_lists_cache.get().is_some());
+        let actual: Vec<_> = lists
+            .into_iter()
+            .map(|list| {
+                (
+                    list.start_value(),
+                    list.items().map(ParsedListItem::line_num).collect::<Vec<_>>(),
+                )
+            })
+            .collect();
+        assert_eq!(actual, expected, "CommonMark grouping drifted for {flavor:?}");
+        assert_eq!(lists.len(), expected.len());
+        assert_eq!(lists.is_empty(), expected.is_empty());
+        for (index, expected_list) in expected.iter().enumerate() {
+            let list = lists.get(index).expect("index comes from expected list collection");
+            assert_eq!(list.start_value(), expected_list.0);
+        }
+        assert!(lists.get(lists.len()).is_none());
+    }
+}
+
+#[test]
+fn commonmark_ordered_lists_keep_nested_groups_source_ordered() {
+    let content = "11. outer\n     1. nested\n     2. nested\n12. outer\n\ntext\n\n1. restart\n2. restart\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    let groups: Vec<_> = ctx
+        .commonmark_ordered_lists()
+        .into_iter()
+        .map(|list| {
+            (
+                list.start_value(),
+                list.items().map(ParsedListItem::line_num).collect::<Vec<_>>(),
+            )
+        })
+        .collect();
+
+    assert_eq!(groups, vec![(11, vec![1, 4]), (1, vec![2, 3]), (1, vec![8, 9])]);
+}
+
+#[test]
 fn test_offset_to_line_col_edge_cases() {
     let content = "a\nb\nc";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
@@ -123,6 +404,32 @@ fn test_offset_to_line_col_non_ascii() {
     assert_eq!(ctx.offset_to_line_col(0), (1, 1)); // 你 -> char column 1
     assert_eq!(ctx.offset_to_line_col(3), (1, 2)); // 好 -> char column 2
     assert_eq!(ctx.offset_to_line_col(6), (1, 3)); // x  -> char column 3 (not byte 7)
+}
+
+#[test]
+fn source_location_queries_define_utf8_crlf_and_eof_boundaries() {
+    let content = "éx\r\n中\nlast";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    assert_eq!(ctx.line_start_byte(1), Some(0));
+    assert_eq!(ctx.line_start_byte(2), Some(5));
+    assert_eq!(ctx.line_start_byte(3), Some(9));
+    assert_eq!(ctx.line_start_byte(0), None);
+    assert_eq!(ctx.line_start_byte(4), None);
+
+    assert_eq!(ctx.line_column_byte_range(1, 2), 2..2);
+    assert_eq!(ctx.line_column_byte_range_with_length(1, 1, 2), 0..3);
+    assert_eq!(ctx.line_text_byte_range(2, 1, 2), 5..8);
+
+    assert_eq!(ctx.line_content_byte_range(1), 0..3);
+    assert_eq!(ctx.whole_line_byte_range(1), 0..5);
+    assert_eq!(ctx.line_span_byte_range(1, 2), 0..9);
+    assert_eq!(ctx.line_content_byte_range(3), 9..13);
+    assert_eq!(ctx.whole_line_byte_range(3), 9..13);
+
+    let eof = content.len();
+    assert_eq!(ctx.line_column_byte_range(99, 99), eof..eof);
+    assert_eq!(ctx.line_content_byte_range(99), eof..eof);
 }
 
 #[test]
@@ -234,17 +541,22 @@ fn test_ref_def_with_angle_bracket_destination_containing_space() {
     // CommonMark §6.6 admits <...>-form destinations that contain spaces.
     // Without this, the auto-fix output `[id]: <./has space.md>` (which
     // `format_url_destination` chooses for whitespace-bearing URLs) silently
-    // disappears from `ctx.reference_defs` on the next parse, breaking
+    // disappears from `ctx.reference_definitions()` on the next parse, breaking
     // dedup in MD054 and ref-def discovery in MD053/MD057.
     let content = "[docs]: <./has space.md>\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.reference_defs.len(), 1, "angle-bracket destination must parse");
-    assert_eq!(ctx.reference_defs[0].id, "docs");
     assert_eq!(
-        ctx.reference_defs[0].url, "./has space.md",
+        ctx.reference_definitions().len(),
+        1,
+        "angle-bracket destination must parse"
+    );
+    assert_eq!(ctx.reference_definitions()[0].id, "docs");
+    assert_eq!(
+        ctx.reference_definitions()[0].url,
+        "./has space.md",
         "URL should be the destination content, not the angle-bracketed form"
     );
-    assert_eq!(ctx.reference_defs[0].title, None);
+    assert_eq!(ctx.reference_definitions()[0].title, None);
 }
 
 #[test]
@@ -252,9 +564,9 @@ fn test_ref_def_with_angle_bracket_destination_and_title() {
     // The optional title still parses after an angle-bracket destination.
     let content = "[docs]: <./has space.md> \"Help me\"\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.reference_defs.len(), 1);
-    assert_eq!(ctx.reference_defs[0].url, "./has space.md");
-    assert_eq!(ctx.reference_defs[0].title.as_deref(), Some("Help me"));
+    assert_eq!(ctx.reference_definitions().len(), 1);
+    assert_eq!(ctx.reference_definitions()[0].url, "./has space.md");
+    assert_eq!(ctx.reference_definitions()[0].title.as_deref(), Some("Help me"));
 }
 
 #[test]
@@ -264,8 +576,8 @@ fn test_ref_def_multiline_title_on_next_line() {
     // title line - is one reference definition.
     let content = "[ref]: https://example.com\n  \"the title\"\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.reference_defs.len(), 1);
-    assert_eq!(ctx.reference_defs[0].title.as_deref(), Some("the title"));
+    assert_eq!(ctx.reference_definitions().len(), 1);
+    assert_eq!(ctx.reference_definitions()[0].title.as_deref(), Some("the title"));
     // The byte range and is_in_reference_def cover the continuation title line.
     let quote = content.find('"').unwrap();
     assert!(
@@ -274,7 +586,7 @@ fn test_ref_def_multiline_title_on_next_line() {
     );
     // The title byte range spans the delimiters exactly, and byte_end reaches
     // the end of the continuation line (the byte before its newline).
-    let def = &ctx.reference_defs[0];
+    let def = &ctx.reference_definitions()[0];
     assert_eq!(
         def.title_byte_start,
         Some(quote),
@@ -299,9 +611,9 @@ fn test_ref_def_single_quote_and_paren_title_on_next_line() {
         "[ref]: https://example.com\n  (the title)\n",
     ] {
         let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
-        assert_eq!(ctx.reference_defs.len(), 1, "input: {content:?}");
+        assert_eq!(ctx.reference_definitions().len(), 1, "input: {content:?}");
         assert_eq!(
-            ctx.reference_defs[0].title.as_deref(),
+            ctx.reference_definitions()[0].title.as_deref(),
             Some("the title"),
             "input: {content:?}"
         );
@@ -314,8 +626,8 @@ fn test_ref_def_blank_line_breaks_multiline_title() {
     // line is a separate paragraph, not the definition's title.
     let content = "[ref]: https://example.com\n\n\"not a title\"\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.reference_defs.len(), 1);
-    assert_eq!(ctx.reference_defs[0].title, None);
+    assert_eq!(ctx.reference_definitions().len(), 1);
+    assert_eq!(ctx.reference_definitions()[0].title, None);
     let quote = content.find('"').unwrap();
     assert!(
         !ctx.is_in_reference_def(quote),
@@ -329,8 +641,8 @@ fn test_ref_def_non_title_next_line_not_consumed() {
     // or parenthesised title; ordinary prose is a separate paragraph.
     let content = "[ref]: https://example.com\nordinary paragraph text\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.reference_defs.len(), 1);
-    assert_eq!(ctx.reference_defs[0].title, None);
+    assert_eq!(ctx.reference_definitions().len(), 1);
+    assert_eq!(ctx.reference_definitions()[0].title, None);
     let para = content.find("ordinary").unwrap();
     assert!(
         !ctx.is_in_reference_def(para),
@@ -344,8 +656,8 @@ fn test_ref_def_inline_title_unaffected_by_lookahead() {
     // unchanged; the next line is not pulled in.
     let content = "[ref]: https://example.com \"inline\"\n\"separate\"\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.reference_defs.len(), 1);
-    assert_eq!(ctx.reference_defs[0].title.as_deref(), Some("inline"));
+    assert_eq!(ctx.reference_definitions().len(), 1);
+    assert_eq!(ctx.reference_definitions()[0].title.as_deref(), Some("inline"));
     let sep = content.find("\"separate\"").unwrap();
     assert!(
         !ctx.is_in_reference_def(sep),
@@ -359,8 +671,8 @@ fn test_ref_def_multiline_title_in_blockquote() {
     // the following (still blockquoted) line.
     let content = "> [ref]: https://example.com\n>  \"the title\"\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.reference_defs.len(), 1);
-    assert_eq!(ctx.reference_defs[0].title.as_deref(), Some("the title"));
+    assert_eq!(ctx.reference_definitions().len(), 1);
+    assert_eq!(ctx.reference_definitions()[0].title.as_deref(), Some("the title"));
 }
 
 #[test]
@@ -371,10 +683,10 @@ fn test_ref_def_paren_title_with_escaped_parens() {
     // see the same value regardless of which path produced it.
     let content = "[docs]: https://example.com (title \\(x\\))\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.reference_defs.len(), 1);
-    assert_eq!(ctx.reference_defs[0].url, "https://example.com");
+    assert_eq!(ctx.reference_definitions().len(), 1);
+    assert_eq!(ctx.reference_definitions()[0].url, "https://example.com");
     assert_eq!(
-        ctx.reference_defs[0].title.as_deref(),
+        ctx.reference_definitions()[0].title.as_deref(),
         Some("title (x)"),
         "title must be unescaped to match pulldown-cmark's parsed value"
     );
@@ -391,7 +703,7 @@ fn test_mkdocs_admonition_link_with_paren_title() {
     let content = "!!! note\n    See [doc](https://example.com (paren title)) here.\n";
     let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
     let link = ctx
-        .links
+        .links()
         .iter()
         .find(|l| l.url == "https://example.com")
         .expect("MkDocs fallback must surface the link");
@@ -408,7 +720,7 @@ fn test_mkdocs_admonition_image_with_paren_title() {
     let content = "!!! note\n    See ![alt](https://example.com/x.png (paren title)) here.\n";
     let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
     let img = ctx
-        .images
+        .images()
         .iter()
         .find(|i| i.url == "https://example.com/x.png")
         .expect("MkDocs fallback must surface the image");
@@ -416,6 +728,84 @@ fn test_mkdocs_admonition_image_with_paren_title() {
         img.title.as_deref(),
         Some("paren title"),
         "paren-form title must be captured by the MkDocs image fallback"
+    );
+}
+
+#[test]
+fn parsed_link_queries_preserve_document_order_and_half_open_ranges() {
+    let content = "[one](a)\n![pic](b) and [two](c)\n\n[Docs]: ./guide.md\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    assert_eq!(
+        ctx.links_on_line(1)
+            .iter()
+            .map(|link| link.text.as_ref())
+            .collect::<Vec<_>>(),
+        ["one"]
+    );
+    assert_eq!(
+        ctx.links_on_line(2)
+            .iter()
+            .map(|link| link.text.as_ref())
+            .collect::<Vec<_>>(),
+        ["two"]
+    );
+    assert!(ctx.links_on_line(3).is_empty());
+    assert_eq!(
+        ctx.images_on_line(2)
+            .iter()
+            .map(|image| image.alt_text.as_ref())
+            .collect::<Vec<_>>(),
+        ["pic"]
+    );
+
+    let first_link_start = content.find("[one]").unwrap();
+    let second_link_start = content.find("[two]").unwrap();
+    let image_start = content.find("![pic]").unwrap();
+
+    let first_link = ctx.link_starting_at(first_link_start).unwrap();
+    assert!(std::ptr::eq(ctx.link_containing(first_link_start).unwrap(), first_link));
+    assert!(std::ptr::eq(
+        ctx.link_containing(first_link.byte_end - 1).unwrap(),
+        first_link
+    ));
+    assert!(ctx.link_containing(first_link.byte_end).is_none());
+    assert_eq!(ctx.links_starting_before_or_at(second_link_start).len(), 2);
+
+    let image = ctx.image_starting_at(image_start).unwrap();
+    assert!(std::ptr::eq(ctx.image_containing(image_start).unwrap(), image));
+    assert!(std::ptr::eq(ctx.image_containing(image.byte_end - 1).unwrap(), image));
+    assert!(ctx.image_containing(image.byte_end).is_none());
+
+    let definition = ctx.reference_definition("DOCS").unwrap();
+    assert_eq!(definition.url, "./guide.md");
+    assert_eq!(ctx.get_reference_url("docs"), Some("./guide.md"));
+}
+
+#[test]
+fn parsed_links_remain_ordered_after_regex_fallbacks() {
+    // Undefined reference links are appended after the pulldown-cmark pass.
+    // Queries rely on the final collections being restored to document order.
+    let content = "\
+# Document
+
+See [undefined-ref] for details.
+
+Some text with [another-undef-ref] here.
+
+Short text [link](https://example.com/a-very-long-destination).
+";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    assert!(
+        ctx.links()
+            .windows(2)
+            .all(|pair| { (pair[0].line, pair[0].byte_offset) <= (pair[1].line, pair[1].byte_offset) })
+    );
+    assert!(
+        ctx.images()
+            .windows(2)
+            .all(|pair| { (pair[0].line, pair[0].byte_offset) <= (pair[1].line, pair[1].byte_offset) })
     );
 }
 
@@ -433,10 +823,11 @@ fn test_wiki_embed_has_no_alt_text() {
     ] {
         for flavor in [MarkdownFlavor::Obsidian, MarkdownFlavor::Standard] {
             let ctx = LintContext::new(content, flavor, None);
-            assert_eq!(ctx.images.len(), 1, "{flavor:?}: {content:?}");
-            assert_eq!(ctx.images[0].url, url, "{flavor:?}: {content:?}");
+            assert_eq!(ctx.images().len(), 1, "{flavor:?}: {content:?}");
+            assert_eq!(ctx.images()[0].url, url, "{flavor:?}: {content:?}");
             assert_eq!(
-                ctx.images[0].alt_text, "",
+                ctx.images()[0].alt_text,
+                "",
                 "{flavor:?}: {content:?} has no alt-text slot"
             );
         }
@@ -451,7 +842,7 @@ fn test_wikilink_text_survives_a_nested_image() {
     let content = "[[Target|Display ![alt](x.png) more]]\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Obsidian, None);
     let link = ctx
-        .links
+        .links()
         .iter()
         .find(|l| l.url == "Target")
         .expect("the wikilink must be parsed");
@@ -463,16 +854,16 @@ fn test_ref_def_angle_bracket_destination_with_escaped_brackets() {
     // CommonMark §6.6 angle-bracket destinations admit `\<` and `\>` so the
     // round-trip from `format_url_destination` (which emits `<a\<b\>c>` when
     // a URL contains `<` or `>`) is recovered on the next parse instead of
-    // silently dropping the def out of `ctx.reference_defs`.
+    // silently dropping the def out of `ctx.reference_definitions()`.
     let content = "[id]: <a\\<b\\>c>\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
     assert_eq!(
-        ctx.reference_defs.len(),
+        ctx.reference_definitions().len(),
         1,
         "escaped angle-bracket destination must round-trip through the regex"
     );
-    assert_eq!(ctx.reference_defs[0].id, "id");
-    assert_eq!(ctx.reference_defs[0].title, None);
+    assert_eq!(ctx.reference_definitions()[0].id, "id");
+    assert_eq!(ctx.reference_definitions()[0].title, None);
 }
 
 #[test]
@@ -484,10 +875,10 @@ fn test_ref_def_double_quoted_title_with_escaped_quote() {
     // unescaped (CommonMark §6.1) so it matches pulldown-cmark's parsed value.
     let content = "[id]: https://example.com \"he said \\\"hi\\\"\"\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.reference_defs.len(), 1);
-    assert_eq!(ctx.reference_defs[0].url, "https://example.com");
+    assert_eq!(ctx.reference_definitions().len(), 1);
+    assert_eq!(ctx.reference_definitions()[0].url, "https://example.com");
     assert_eq!(
-        ctx.reference_defs[0].title.as_deref(),
+        ctx.reference_definitions()[0].title.as_deref(),
         Some("he said \"hi\""),
         "title must be unescaped to match pulldown-cmark's parsed value"
     );
@@ -497,10 +888,10 @@ fn test_ref_def_double_quoted_title_with_escaped_quote() {
 fn test_ref_def_single_quoted_title_with_escaped_quote() {
     let content = "[id]: https://example.com 'it\\'s fine'\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.reference_defs.len(), 1);
-    assert_eq!(ctx.reference_defs[0].url, "https://example.com");
+    assert_eq!(ctx.reference_definitions().len(), 1);
+    assert_eq!(ctx.reference_definitions()[0].url, "https://example.com");
     assert_eq!(
-        ctx.reference_defs[0].title.as_deref(),
+        ctx.reference_definitions()[0].title.as_deref(),
         Some("it's fine"),
         "title must be unescaped to match pulldown-cmark's parsed value"
     );
@@ -510,16 +901,17 @@ fn test_ref_def_single_quoted_title_with_escaped_quote() {
 fn test_ref_def_url_unescapes_backslash_escapes() {
     // CommonMark §6.1: a backslash before any ASCII punctuation character
     // produces the literal character; the backslash itself is removed. The
-    // rumdl regex fallback must apply this transform so `ctx.reference_defs[i].url`
+    // rumdl regex fallback must apply this transform so `ctx.reference_definitions()[i].url`
     // matches what pulldown-cmark exposes via `Tag::Link`/`Tag::Image`. Without
     // this, MD053/MD054/MD057 would see `https://e.com/path\(1\)` while the
     // parser sees `https://e.com/path(1)`, and any rule that copies the value
     // back into the document would corrupt it.
     let content = "[id]: https://e.com/path\\(1\\)\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.reference_defs.len(), 1);
+    assert_eq!(ctx.reference_definitions().len(), 1);
     assert_eq!(
-        ctx.reference_defs[0].url, "https://e.com/path(1)",
+        ctx.reference_definitions()[0].url,
+        "https://e.com/path(1)",
         "URL must be unescaped per CommonMark §6.1"
     );
 }
@@ -533,13 +925,14 @@ fn test_ref_def_unescape_preserves_non_punctuation_backslash() {
     // from URL paths and titles.
     let content = "[id]: https://e.com/p\\ath \"a\\b c\"\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.reference_defs.len(), 1);
+    assert_eq!(ctx.reference_definitions().len(), 1);
     assert_eq!(
-        ctx.reference_defs[0].url, "https://e.com/p\\ath",
+        ctx.reference_definitions()[0].url,
+        "https://e.com/p\\ath",
         "backslash before non-punctuation must remain in URL"
     );
     assert_eq!(
-        ctx.reference_defs[0].title.as_deref(),
+        ctx.reference_definitions()[0].title.as_deref(),
         Some("a\\b c"),
         "backslash before non-punctuation must remain in title"
     );
@@ -562,16 +955,16 @@ A footnote[^1].
 
     // Should only have one reference definition (the regular one)
     assert_eq!(
-        ctx.reference_defs.len(),
+        ctx.reference_definitions().len(),
         1,
         "Footnotes should not be parsed as reference definitions"
     );
 
     // The only reference def should be the regular one
-    assert_eq!(ctx.reference_defs[0].id, "regular");
-    assert_eq!(ctx.reference_defs[0].url, "./path.md");
+    assert_eq!(ctx.reference_definitions()[0].id, "regular");
+    assert_eq!(ctx.reference_definitions()[0].url, "./path.md");
     assert_eq!(
-        ctx.reference_defs[0].title,
+        ctx.reference_definitions()[0].title,
         Some("A real reference definition".to_string())
     );
 }
@@ -590,7 +983,7 @@ A footnote[^1].
 
     // Should have no reference definitions
     assert!(
-        ctx.reference_defs.is_empty(),
+        ctx.reference_definitions().is_empty(),
         "Footnote with inline link should not create a reference definition"
     );
 }
@@ -611,12 +1004,12 @@ fn test_various_footnote_formats_excluded() {
 
     // Should only have the two regular reference definitions
     assert_eq!(
-        ctx.reference_defs.len(),
+        ctx.reference_definitions().len(),
         2,
         "Only regular reference definitions should be parsed"
     );
 
-    let ids: Vec<&str> = ctx.reference_defs.iter().map(|r| r.id.as_str()).collect();
+    let ids: Vec<&str> = ctx.reference_definitions().iter().map(|r| r.id.as_str()).collect();
     assert!(ids.contains(&"ref1"));
     assert!(ids.contains(&"ref2"));
     assert!(!ids.iter().any(|id| id.starts_with('^')));
@@ -957,8 +1350,8 @@ Some content."#;
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
 
     // Verify we have a reference def with title
-    assert_eq!(ctx.reference_defs.len(), 1);
-    let def = &ctx.reference_defs[0];
+    assert_eq!(ctx.reference_definitions().len(), 1);
+    let def = &ctx.reference_definitions()[0];
     assert!(def.title_byte_start.is_some());
     assert!(def.title_byte_end.is_some());
 
@@ -989,8 +1382,8 @@ fn test_is_in_link_title_without_title() {
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
 
     // Reference def without title
-    assert_eq!(ctx.reference_defs.len(), 1);
-    let def = &ctx.reference_defs[0];
+    assert_eq!(ctx.reference_definitions().len(), 1);
+    let def = &ctx.reference_definitions()[0];
     assert!(def.title_byte_start.is_none());
     assert!(def.title_byte_end.is_none());
 
@@ -1009,18 +1402,18 @@ fn test_is_in_link_title_multiple_refs() {
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
 
     // Should have 3 reference defs
-    assert_eq!(ctx.reference_defs.len(), 3);
+    assert_eq!(ctx.reference_definitions().len(), 3);
 
     // ref1 has title
-    let ref1 = ctx.reference_defs.iter().find(|r| r.id == "ref1").unwrap();
+    let ref1 = ctx.reference_definitions().iter().find(|r| r.id == "ref1").unwrap();
     assert!(ref1.title_byte_start.is_some());
 
     // ref2 has no title
-    let ref2 = ctx.reference_defs.iter().find(|r| r.id == "ref2").unwrap();
+    let ref2 = ctx.reference_definitions().iter().find(|r| r.id == "ref2").unwrap();
     assert!(ref2.title_byte_start.is_none());
 
     // ref3 has title
-    let ref3 = ctx.reference_defs.iter().find(|r| r.id == "ref3").unwrap();
+    let ref3 = ctx.reference_definitions().iter().find(|r| r.id == "ref3").unwrap();
     assert!(ref3.title_byte_start.is_some());
 
     // Check positions in ref1's title
@@ -1040,8 +1433,8 @@ fn test_is_in_link_title_single_quotes() {
     let content = "[ref]: /url 'Single quoted title'\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
 
-    assert_eq!(ctx.reference_defs.len(), 1);
-    let def = &ctx.reference_defs[0];
+    assert_eq!(ctx.reference_definitions().len(), 1);
+    let def = &ctx.reference_definitions()[0];
 
     if let (Some(start), Some(end)) = (def.title_byte_start, def.title_byte_end) {
         assert!(ctx.is_in_link_title(start));
@@ -1059,13 +1452,13 @@ fn test_is_in_link_title_parentheses() {
 
     // Parser behavior: may or may not parse parenthesized titles
     // We test that is_in_link_title correctly reflects whatever was parsed
-    if ctx.reference_defs.is_empty() {
+    if ctx.reference_definitions().is_empty() {
         // Parser didn't recognize this as a reference def
         for i in 0..content.len() {
             assert!(!ctx.is_in_link_title(i));
         }
     } else {
-        let def = &ctx.reference_defs[0];
+        let def = &ctx.reference_definitions()[0];
         if let (Some(start), Some(end)) = (def.title_byte_start, def.title_byte_end) {
             assert!(ctx.is_in_link_title(start));
             assert!(ctx.is_in_link_title(start + 5));
@@ -1084,7 +1477,7 @@ fn test_is_in_link_title_no_refs() {
     let content = "Just plain text without any reference definitions.";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
 
-    assert!(ctx.reference_defs.is_empty());
+    assert!(ctx.reference_definitions().is_empty());
 
     for i in 0..content.len() {
         assert!(!ctx.is_in_link_title(i));
@@ -1305,7 +1698,7 @@ Use [link][ref1] and [link][REF2]."#;
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
 
     // Verify we have 3 reference defs
-    assert_eq!(ctx.reference_defs.len(), 3);
+    assert_eq!(ctx.reference_definitions().len(), 3);
 
     // Test get_reference_url with various cases
     assert_eq!(ctx.get_reference_url("ref1"), Some("/url1"));
@@ -1322,7 +1715,7 @@ fn test_reference_lookup_o1_empty_content() {
     let content = "No references here.";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
 
-    assert!(ctx.reference_defs.is_empty());
+    assert!(ctx.reference_definitions().is_empty());
     assert_eq!(ctx.get_reference_url("anything"), None);
 }
 
@@ -1356,12 +1749,12 @@ fn test_is_in_link_title_multiple_ranges_binary_search() {
     // Three reference defs with titles — verifies binary search works across all three
     let content = "[a]: /url1 \"Title A\"\n[b]: /url2 \"Title B\"\n[c]: /url3 \"Title C\"\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.reference_defs.len(), 3, "Should have 3 reference defs");
+    assert_eq!(ctx.reference_definitions().len(), 3, "Should have 3 reference defs");
 
     // Position inside first title should return true
     if let (Some(start), Some(end)) = (
-        ctx.reference_defs[0].title_byte_start,
-        ctx.reference_defs[0].title_byte_end,
+        ctx.reference_definitions()[0].title_byte_start,
+        ctx.reference_definitions()[0].title_byte_end,
     ) {
         assert!(ctx.is_in_link_title(start + 1), "Inside first title should return true");
         // Position at exclusive end should return false
@@ -1370,15 +1763,15 @@ fn test_is_in_link_title_multiple_ranges_binary_search() {
 
     // Position between titles (in URL area of def B, before its title) should return false
     if let (Some(end_a), Some(start_b)) = (
-        ctx.reference_defs[0].title_byte_end,
-        ctx.reference_defs[1].title_byte_start,
+        ctx.reference_definitions()[0].title_byte_end,
+        ctx.reference_definitions()[1].title_byte_start,
     ) && end_a + 1 < start_b
     {
         assert!(!ctx.is_in_link_title(end_a + 1), "Between titles should return false");
     }
 
     // Position inside third title should return true
-    if let Some(start) = ctx.reference_defs[2].title_byte_start {
+    if let Some(start) = ctx.reference_definitions()[2].title_byte_start {
         assert!(ctx.is_in_link_title(start + 1), "Inside third title should return true");
     }
 }
@@ -1577,16 +1970,16 @@ fn test_html_block_nested_pre_does_not_outlive_a_type_6_parent() {
 #[test]
 fn test_link_no_title_yields_none() {
     let ctx = LintContext::new("[t](https://x.com)\n", MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.links.len(), 1);
-    assert!(ctx.links[0].title.is_none(), "no title delimiter must be None");
+    assert_eq!(ctx.links().len(), 1);
+    assert!(ctx.links()[0].title.is_none(), "no title delimiter must be None");
 }
 
 #[test]
 fn test_link_explicit_empty_double_quote_title_yields_some_empty() {
     let ctx = LintContext::new(r#"[t](https://x.com "")"#, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.links.len(), 1);
+    assert_eq!(ctx.links().len(), 1);
     assert_eq!(
-        ctx.links[0].title.as_deref(),
+        ctx.links()[0].title.as_deref(),
         Some(""),
         "`\"\"` must be preserved as Some(\"\"), not collapsed to None"
     );
@@ -1595,29 +1988,29 @@ fn test_link_explicit_empty_double_quote_title_yields_some_empty() {
 #[test]
 fn test_link_explicit_empty_single_quote_title_yields_some_empty() {
     let ctx = LintContext::new("[t](https://x.com '')\n", MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.links.len(), 1);
-    assert_eq!(ctx.links[0].title.as_deref(), Some(""));
+    assert_eq!(ctx.links().len(), 1);
+    assert_eq!(ctx.links()[0].title.as_deref(), Some(""));
 }
 
 #[test]
 fn test_link_explicit_empty_paren_title_yields_some_empty() {
     let ctx = LintContext::new("[t](https://x.com ())\n", MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.links.len(), 1);
-    assert_eq!(ctx.links[0].title.as_deref(), Some(""));
+    assert_eq!(ctx.links().len(), 1);
+    assert_eq!(ctx.links()[0].title.as_deref(), Some(""));
 }
 
 #[test]
 fn test_image_explicit_empty_title_yields_some_empty() {
     let ctx = LintContext::new(r#"![alt](https://x.com/img.png "")"#, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.images.len(), 1);
-    assert_eq!(ctx.images[0].title.as_deref(), Some(""));
+    assert_eq!(ctx.images().len(), 1);
+    assert_eq!(ctx.images()[0].title.as_deref(), Some(""));
 }
 
 #[test]
 fn test_link_non_empty_title_is_unaffected() {
     let ctx = LintContext::new(r#"[t](https://x.com "real")"#, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.links.len(), 1);
-    assert_eq!(ctx.links[0].title.as_deref(), Some("real"));
+    assert_eq!(ctx.links().len(), 1);
+    assert_eq!(ctx.links()[0].title.as_deref(), Some("real"));
 }
 
 #[test]
@@ -1626,8 +2019,8 @@ fn test_link_title_with_trailing_whitespace_inside_parens() {
     // the link's closing `)`. The detector must skip that whitespace so it
     // still recognizes the explicit-empty-title pair.
     let ctx = LintContext::new(r#"[t](https://x.com ""    )"#, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.links.len(), 1);
-    assert_eq!(ctx.links[0].title.as_deref(), Some(""));
+    assert_eq!(ctx.links().len(), 1);
+    assert_eq!(ctx.links()[0].title.as_deref(), Some(""));
 }
 
 #[test]
@@ -1637,8 +2030,8 @@ fn test_reference_link_empty_title_in_definition() {
     // `None` via `cap.get(...)`); make sure that path keeps working.
     let content = "[t][r]\n\n[r]: https://x.com \"\"\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.reference_defs.len(), 1);
-    assert_eq!(ctx.reference_defs[0].title.as_deref(), Some(""));
+    assert_eq!(ctx.reference_definitions().len(), 1);
+    assert_eq!(ctx.reference_definitions()[0].title.as_deref(), Some(""));
 }
 
 // ---------------------------------------------------------------------------
@@ -1654,9 +2047,9 @@ fn test_reference_link_in_an_html_block_is_not_parsed() {
     let content = "<details>\n<summary>[link][ref]</summary>\n</details>\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
     assert!(
-        ctx.links.is_empty(),
+        ctx.links().is_empty(),
         "a reference link inside an HTML block renders literally, so it is not a link: {:?}",
-        ctx.links
+        ctx.links()
     );
 }
 
@@ -1666,7 +2059,7 @@ fn test_inline_link_in_an_html_block_is_not_parsed() {
     // and this half was already correct.
     let content = "<details>\n<summary>[link](https://example.com)</summary>\n</details>\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
-    assert!(ctx.links.is_empty(), "unexpected links: {:?}", ctx.links);
+    assert!(ctx.links().is_empty(), "unexpected links: {:?}", ctx.links());
 }
 
 #[test]
@@ -1674,9 +2067,9 @@ fn test_reference_image_in_an_html_block_is_not_parsed() {
     let content = "<details>\n<summary>![alt][img]</summary>\n</details>\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
     assert!(
-        ctx.images.is_empty(),
+        ctx.images().is_empty(),
         "a reference image inside an HTML block renders literally: {:?}",
-        ctx.images
+        ctx.images()
     );
 }
 
@@ -1688,13 +2081,13 @@ fn test_reference_link_in_a_markdown_attribute_block_is_still_parsed() {
     let content = "<div class=\"note\" markdown=\"1\">\n[link][ref]\n</div>\n\n[ref]: https://example.com\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
     assert_eq!(
-        ctx.links.len(),
+        ctx.links().len(),
         1,
         "the body of a markdown=\"1\" block holds real markdown: {:?}",
-        ctx.links
+        ctx.links()
     );
-    assert_eq!(ctx.links[0].line, 2);
-    assert!(ctx.links[0].is_reference);
+    assert_eq!(ctx.links()[0].line, 2);
+    assert!(ctx.links()[0].is_reference);
 }
 
 #[test]
@@ -1702,12 +2095,12 @@ fn test_reference_image_in_a_markdown_attribute_block_is_still_parsed() {
     let content = "<div class=\"note\" markdown=\"1\">\n![alt][img]\n</div>\n\n[img]: https://example.com/i.png\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
     assert_eq!(
-        ctx.images.len(),
+        ctx.images().len(),
         1,
         "the body of a markdown=\"1\" block holds real markdown: {:?}",
-        ctx.images
+        ctx.images()
     );
-    assert_eq!(ctx.images[0].line, 2);
+    assert_eq!(ctx.images()[0].line, 2);
 }
 
 #[test]
@@ -1715,8 +2108,8 @@ fn test_reference_link_after_an_html_block_is_still_parsed() {
     // The suppression is per line, not "everything below the first tag".
     let content = "<details>\n<summary>[dead][ref]</summary>\n</details>\n\n[live][ref]\n";
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
-    assert_eq!(ctx.links.len(), 1, "unexpected links: {:?}", ctx.links);
-    assert_eq!(ctx.links[0].text, "live");
+    assert_eq!(ctx.links().len(), 1, "unexpected links: {:?}", ctx.links());
+    assert_eq!(ctx.links()[0].text, "live");
 }
 
 #[test]

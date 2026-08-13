@@ -26,8 +26,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     StorageUnitAntiRansomwareSuspect(
         {
             "storage_unit": {
-                "name": "lun_1",
                 "uuid": "f48bc3b3-e9e7-11ef-8d5b-005056ae4d2e",
+                "name": "lun_1",
             },
             "_links": {
                 "self": {
@@ -39,8 +39,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     StorageUnitAntiRansomwareSuspect(
         {
             "storage_unit": {
-                "name": "lun_2",
                 "uuid": "f48bc74f-e9e7-11ef-8d5b-005056ae4d2e",
+                "name": "lun_2",
             },
             "_links": {
                 "self": {

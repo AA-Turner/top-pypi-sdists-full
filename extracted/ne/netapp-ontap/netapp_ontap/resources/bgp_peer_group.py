@@ -33,8 +33,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <div id="example0_result" class="try_it_out_content">
 ```
 [
-    BgpPeerGroup({"name": "pg1", "uuid": "5f22ae9d-87b2-11e9-a3a6-005056bb81a4"}),
-    BgpPeerGroup({"name": "pg2", "uuid": "5fd08be3-87b2-11e9-952f-005056bb2170"}),
+    BgpPeerGroup({"uuid": "5f22ae9d-87b2-11e9-a3a6-005056bb81a4", "name": "pg1"}),
+    BgpPeerGroup({"uuid": "5fd08be3-87b2-11e9-952f-005056bb2170", "name": "pg2"}),
 ]
 
 ```
@@ -63,8 +63,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 BgpPeerGroup(
     {
-        "peer": {"asn": 65501, "address": "10.10.10.1"},
-        "state": "up",
+        "uuid": "5fd08be3-87b2-11e9-952f-005056bb2170",
         "name": "pg2",
         "ipspace": {
             "_links": {
@@ -72,22 +71,23 @@ BgpPeerGroup(
                     "href": "/api/network/ipspaces/84fd3375-879a-11e9-a3a6-005056bb81a4"
                 }
             },
-            "name": "Default",
             "uuid": "84fd3375-879a-11e9-a3a6-005056bb81a4",
+            "name": "Default",
         },
+        "state": "up",
+        "peer": {"address": "10.10.10.1", "asn": 65501},
         "local": {
             "port": {
-                "name": "e0h",
-                "node": {"name": "node1"},
                 "uuid": "f8ff73de-879a-11e9-952f-005056bb2170",
+                "node": {"name": "node1"},
+                "name": "e0h",
             },
             "interface": {
+                "uuid": "5e76a305-87b2-11e9-952f-005056bb2170",
                 "ip": {"address": "10.10.10.2"},
                 "name": "bgp2",
-                "uuid": "5e76a305-87b2-11e9-952f-005056bb2170",
             },
         },
-        "uuid": "5fd08be3-87b2-11e9-952f-005056bb2170",
     }
 )
 
@@ -122,13 +122,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     BgpPeerGroup(
         {
-            "peer": {"asn": 65501, "address": "10.10.10.2"},
+            "uuid": "5f22ae9d-87b2-11e9-a3a6-005056bb81a4",
             "name": "pg1",
+            "peer": {"address": "10.10.10.2", "asn": 65501},
             "local": {
                 "port": {"node": {"name": "node1"}},
                 "interface": {"ip": {"address": "10.10.10.1"}},
             },
-            "uuid": "5f22ae9d-87b2-11e9-a3a6-005056bb81a4",
         }
     )
 ]
@@ -168,11 +168,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 BgpPeerGroup(
     {
-        "peer": {"address": "10.10.10.10"},
+        "uuid": "e3faacc6-87cb-11e9-a3a6-005056bb81a4",
         "name": "newPg",
         "ipspace": {"name": "Default"},
+        "peer": {"address": "10.10.10.10"},
         "local": {"interface": {"name": "bgp1"}},
-        "uuid": "e3faacc6-87cb-11e9-a3a6-005056bb81a4",
     }
 )
 
@@ -210,14 +210,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 BgpPeerGroup(
     {
-        "peer": {"address": "10.10.10.10"},
+        "uuid": "c292f069-8872-11e9-a3a6-005056bb81a4",
         "name": "newPg1",
         "ipspace": {"name": "Default"},
+        "peer": {"address": "10.10.10.10"},
         "local": {
-            "port": {"name": "e0f", "node": {"name": "node1"}},
+            "port": {"node": {"name": "node1"}, "name": "e0f"},
             "interface": {"name": "newlif"},
         },
-        "uuid": "c292f069-8872-11e9-a3a6-005056bb81a4",
     }
 )
 

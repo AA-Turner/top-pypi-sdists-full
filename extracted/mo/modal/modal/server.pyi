@@ -4,6 +4,7 @@ import modal.app
 import modal.client
 import modal.functions
 import modal.partial_function
+import modal.types
 import typing
 import typing_extensions
 
@@ -80,13 +81,13 @@ class Server:
             self,
             /,
             *,
-            target_concurrency: typing.Optional[int] = None,
+            target_concurrency: typing.Optional[float] = None,
             min_containers: typing.Optional[int] = None,
             max_containers: typing.Optional[int] = None,
             buffer_containers: typing.Optional[int] = None,
             scaleup_window: typing.Optional[int] = None,
             scaledown_window: typing.Optional[int] = None,
-        ) -> None:
+        ) -> modal.types.ServerAutoscalerSettings:
             """Override the current autoscaler behavior for this Server.
 
             Unspecified parameters will retain their current value, i.e. either the static value
@@ -96,12 +97,18 @@ class Server:
             its static configuration.
 
             Args:
-                target_concurrency: Target number of concurrent requests per container.
+                target_concurrency:
+                    Target number of concurrent requests per container. May be fractional, e.g. 1.5 to
+                    target three concurrent requests per two containers.
                 min_containers: Minimum number of containers to keep running regardless of demand.
                 max_containers: Limit on the number of containers that can be concurrently running.
                 buffer_containers: Extra containers to scale up beyond current demand.
                 scaleup_window: Seconds of sustained demand required before scaling up new containers.
                 scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
+
+            Returns:
+                A `ServerAutoscalerSettings` dataclass which contains the current autoscaler settings of
+                this Server after the call.
 
             Examples:
                 ```python notest
@@ -118,6 +125,9 @@ class Server:
 
                 # Adjust Server autoscaling to target 20 concurrent requests per replica
                 server.update_autoscaler(target_concurrency=20)
+
+                # Target three concurrent requests for every two containers
+                server.update_autoscaler(target_concurrency=1.5)
 
                 # Disable the Server autoscaling by setting target_concurrency to 0
                 server.update_autoscaler(target_concurrency=0)
@@ -129,13 +139,13 @@ class Server:
             self,
             /,
             *,
-            target_concurrency: typing.Optional[int] = None,
+            target_concurrency: typing.Optional[float] = None,
             min_containers: typing.Optional[int] = None,
             max_containers: typing.Optional[int] = None,
             buffer_containers: typing.Optional[int] = None,
             scaleup_window: typing.Optional[int] = None,
             scaledown_window: typing.Optional[int] = None,
-        ) -> None:
+        ) -> modal.types.ServerAutoscalerSettings:
             """Override the current autoscaler behavior for this Server.
 
             Unspecified parameters will retain their current value, i.e. either the static value
@@ -145,12 +155,18 @@ class Server:
             its static configuration.
 
             Args:
-                target_concurrency: Target number of concurrent requests per container.
+                target_concurrency:
+                    Target number of concurrent requests per container. May be fractional, e.g. 1.5 to
+                    target three concurrent requests per two containers.
                 min_containers: Minimum number of containers to keep running regardless of demand.
                 max_containers: Limit on the number of containers that can be concurrently running.
                 buffer_containers: Extra containers to scale up beyond current demand.
                 scaleup_window: Seconds of sustained demand required before scaling up new containers.
                 scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
+
+            Returns:
+                A `ServerAutoscalerSettings` dataclass which contains the current autoscaler settings of
+                this Server after the call.
 
             Examples:
                 ```python notest
@@ -167,6 +183,9 @@ class Server:
 
                 # Adjust Server autoscaling to target 20 concurrent requests per replica
                 server.update_autoscaler(target_concurrency=20)
+
+                # Target three concurrent requests for every two containers
+                server.update_autoscaler(target_concurrency=1.5)
 
                 # Disable the Server autoscaling by setting target_concurrency to 0
                 server.update_autoscaler(target_concurrency=0)

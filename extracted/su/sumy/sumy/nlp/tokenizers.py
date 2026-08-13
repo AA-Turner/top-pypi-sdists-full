@@ -1,19 +1,17 @@
-# -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-from __future__ import division, print_function, unicode_literals
 
 import re
 import string
 import zipfile
+from typing import ClassVar
 
 import nltk
 
-from .._compat import to_string, to_unicode, unicode
+from .._compat import to_unicode, unicode
 from ..utils import normalize_language
 
 
-class DefaultWordTokenizer(object):
+class DefaultWordTokenizer:
     """NLTK tokenizer"""
     @staticmethod
     def tokenize(text):
@@ -143,18 +141,18 @@ class ThaiSentencesTokenizer:
         return sent_tokenize(text)
 
 
-class Tokenizer(object):
+class Tokenizer:
     """Language dependent tokenizer of text document."""
 
     _WORD_PATTERN = re.compile(r"^[^\W\d_](?:[^\W\d_]|['-])*$", re.UNICODE)
     # feel free to contribute if you have better tokenizer for any of these languages :)
-    LANGUAGE_ALIASES = {
+    LANGUAGE_ALIASES: ClassVar[dict] = {
         "slovak": "czech",
     }
 
     # improve tokenizer by adding specific abbreviations it has issues with
     # note the final point in these items must not be included
-    LANGUAGE_EXTRA_ABREVS = {
+    LANGUAGE_EXTRA_ABREVS: ClassVar[dict] = {
         "english": ["e.g", "al", "i.e"],
         "german": ["al", "z.B", "Inc", "engl", "z. B", "vgl", "lat", "bzw", "S"],
         "ukrainian": ["ім.", "о.", "вул.", "просп.", "бул.", "пров.", "пл.", "г.", "р.", "див.", "п.", "с.", "м."],
@@ -162,7 +160,7 @@ class Tokenizer(object):
                   "μ.Χ", "π.μ", "μ.μ", "δηλ", "βλ", "κ.ο.κ", "σελ", "κεφ", "χιλ", "αρ"],
     }
 
-    SPECIAL_SENTENCE_TOKENIZERS = {
+    SPECIAL_SENTENCE_TOKENIZERS: ClassVar[dict] = {
         'ukrainian': nltk.RegexpTokenizer(r'[.!?…»]', gaps=True),
         'hebrew': nltk.RegexpTokenizer(r'\.\s+', gaps=True),
         'japanese': nltk.RegexpTokenizer('[^　！？。]*[！？。]'),
@@ -173,7 +171,7 @@ class Tokenizer(object):
         'thai': ThaiSentencesTokenizer(),
     }
 
-    SPECIAL_WORD_TOKENIZERS = {
+    SPECIAL_WORD_TOKENIZERS: ClassVar[dict] = {
         'hebrew': HebrewWordTokenizer(),
         'japanese': JapaneseWordTokenizer(),
         'chinese': ChineseWordTokenizer(),
@@ -199,12 +197,11 @@ class Tokenizer(object):
         if language in self.SPECIAL_SENTENCE_TOKENIZERS:
             return self.SPECIAL_SENTENCE_TOKENIZERS[language]
         try:
-            path = to_string("tokenizers/punkt/%s.pickle") % to_string(language)
-            return nltk.data.load(path)
+            return nltk.tokenize.PunktTokenizer(language)
         except (LookupError, zipfile.BadZipfile) as e:
             raise LookupError(
                 "NLTK tokenizers are missing or the language is not supported.\n"
-                """Download them by following command: python -c "import nltk; nltk.download('punkt')"\n"""
+                """Download them by following command: python -c "import nltk; nltk.download('punkt_tab')"\n"""
                 "Original error was:\n" + str(e)
             )
 

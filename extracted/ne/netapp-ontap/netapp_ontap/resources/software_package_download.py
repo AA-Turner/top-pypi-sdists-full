@@ -30,7 +30,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <div id="example0_result" class="try_it_out_content">
 ```
 SoftwarePackageDownload(
-    {"password": "*********", "username": "admin", "url": "http://server/package"}
+    {"password": "*********", "url": "http://server/package", "username": "admin"}
 )
 
 ```
@@ -58,13 +58,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Job(
     {
         "message": "success",
+        "uuid": "f587d316-5feb-11e8-b0e0-005056956dfc",
+        "description": "POST /api/cluster/software/download",
         "_links": {
             "self": {"href": "/api/cluster/jobs/f587d316-5feb-11e8-b0e0-005056956dfc"}
         },
         "code": 0,
         "state": "success",
-        "uuid": "f587d316-5feb-11e8-b0e0-005056956dfc",
-        "description": "POST /api/cluster/software/download",
     }
 )
 
@@ -93,7 +93,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <div id="example2_result" class="try_it_out_content">
 ```
 SoftwarePackageDownload(
-    {"message": "Package download in progress", "state": "running", "code": 10551382}
+    {"message": "Package download in progress", "code": 10551382, "state": "running"}
 )
 
 ```

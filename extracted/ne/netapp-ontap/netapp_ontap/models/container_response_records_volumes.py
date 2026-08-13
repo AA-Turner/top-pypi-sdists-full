@@ -19,6 +19,17 @@ __pdoc__ = {
 class ContainerResponseRecordsVolumesSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ContainerResponseRecordsVolumes object"""
 
+    comment = marshmallow_fields.Str(data_key="comment", allow_none=True)
+    r""" A comment for the container volume. """
+
+    encryption = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.container_volumes_encryption", "ContainerVolumesEncryptionSchema"),
+                unknown=EXCLUDE,
+                data_key="encryption",
+                allow_none=True
+            )
+    r""" The encryption field of the container_response_records_volumes. """
+
     exclude_aggregates = marshmallow_fields.List(
                 marshmallow_fields.Nested(
                     lambda: lazy_import_schema("netapp_ontap.models.container_volumes_exclude_aggregates", "ContainerVolumesExcludeAggregatesSchema"),
@@ -37,6 +48,17 @@ class ContainerResponseRecordsVolumesSchema(ResourceSchema, metaclass=ResourceSc
                 allow_none=True
             )
     r""" The FlexCache origin volume. """
+
+    guarantee = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.container_volumes_guarantee", "ContainerVolumesGuaranteeSchema"),
+                unknown=EXCLUDE,
+                data_key="guarantee",
+                allow_none=True
+            )
+    r""" The guarantee field of the container_response_records_volumes. """
+
+    is_s3_arbitrary_part_size_enabled = marshmallow_fields.Boolean(data_key="is_s3_arbitrary_part_size_enabled", allow_none=True)
+    r""" Specifies whether the volume should allow Amazon S3 multipart uploads with arbitrary part lengths. This is only supported for FlexGroup volumes with advanced granular data. The default value is `false`. When set to `true`, it cannot be reverted to `false`. Clusters with any volumes where this is `true` cannot be reverted to a release that does not support this feature. """
 
     name = marshmallow_fields.Str(data_key="name", allow_none=True)
     r""" Volume name. The name of volume must start with an alphabetic character (a to z or A to Z) or an underscore (_). The name must be 197 or fewer characters in length for FlexGroup volumes, and 203 or fewer characters in length for all other types of volumes. Volume names must be unique within an SVM. Required on POST.
@@ -70,6 +92,14 @@ Example: vol_cs_dept """
     scale_out = marshmallow_fields.Boolean(data_key="scale_out", allow_none=True)
     r""" Denotes a Flexgroup. """
 
+    smas_protection = marshmallow_fields.Str(data_key="smas_protection", allow_none=True)
+    r""" Specifies whether the volume should be protected by SnapMirror active sync for NAS.
+
+Valid choices:
+
+* protected
+* unprotected """
+
     snaplock = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.models.container_volume_snaplock", "ContainerVolumeSnaplockSchema"),
                 unknown=EXCLUDE,
@@ -77,6 +107,9 @@ Example: vol_cs_dept """
                 allow_none=True
             )
     r""" The snaplock field of the container_response_records_volumes. """
+
+    snapshot_directory_access_enabled = marshmallow_fields.Boolean(data_key="snapshot_directory_access_enabled", allow_none=True)
+    r""" If set to true, this field enables the visible ".snapshot" directory from the client. The ".snapshot" directory will be available in every directory on the volume. """
 
     snapshot_locking_enabled = marshmallow_fields.Boolean(data_key="snapshot_locking_enabled", allow_none=True)
     r""" Specifies whether or not snapshot copy locking is enabled on the volume. """
@@ -106,12 +139,20 @@ Example: vol_cs_dept """
     r""" Determines the placement of the volume that is to be provisioned. """
 
     tiering = marshmallow_fields.Nested(
-                lambda: lazy_import_schema("netapp_ontap.models.consistency_group_tiering", "ConsistencyGroupTieringSchema"),
+                lambda: lazy_import_schema("netapp_ontap.models.container_tiering", "ContainerTieringSchema"),
                 unknown=EXCLUDE,
                 data_key="tiering",
                 allow_none=True
             )
     r""" The tiering field of the container_response_records_volumes. """
+
+    type = marshmallow_fields.Str(data_key="type", allow_none=True)
+    r""" Type of the volume.<br>rw &dash; read-write volume.<br>dp &dash; data-protection volume.<br>
+
+Valid choices:
+
+* rw
+* dp """
 
     use_mirrored_aggregates = marshmallow_fields.Boolean(data_key="use_mirrored_aggregates", allow_none=True)
     r""" Specifies whether mirrored aggregates are selected when provisioning the volume. Only mirrored aggregates are used if this parameter is set to _true_ and only unmirrored aggregates are used if this parameter is set to _false_. The default value is _true_ for a MetroCluster configuration and is _false_ for a non-MetroCluster configuration. """
@@ -121,54 +162,68 @@ Example: vol_cs_dept """
         return ContainerResponseRecordsVolumes
 
     gettable_fields = [
+        "encryption",
         "exclude_aggregates.links",
         "exclude_aggregates.name",
         "exclude_aggregates.uuid",
         "flexcache",
+        "is_s3_arbitrary_part_size_enabled",
         "name",
         "nas",
         "s3_bucket",
+        "snapshot_directory_access_enabled",
         "snapshot_locking_enabled",
         "snapshot_policy.links",
         "snapshot_policy.name",
         "snapshot_policy.uuid",
         "storage_service",
+        "type",
     ]
-    """exclude_aggregates.links,exclude_aggregates.name,exclude_aggregates.uuid,flexcache,name,nas,s3_bucket,snapshot_locking_enabled,snapshot_policy.links,snapshot_policy.name,snapshot_policy.uuid,storage_service,"""
+    """encryption,exclude_aggregates.links,exclude_aggregates.name,exclude_aggregates.uuid,flexcache,is_s3_arbitrary_part_size_enabled,name,nas,s3_bucket,snapshot_directory_access_enabled,snapshot_locking_enabled,snapshot_policy.links,snapshot_policy.name,snapshot_policy.uuid,storage_service,type,"""
 
     patchable_fields = [
+        "encryption",
         "exclude_aggregates.name",
         "exclude_aggregates.uuid",
         "flexcache",
+        "is_s3_arbitrary_part_size_enabled",
         "name",
         "nas",
         "s3_bucket",
+        "snapshot_directory_access_enabled",
         "snapshot_locking_enabled",
         "snapshot_policy.name",
         "snapshot_policy.uuid",
         "storage_service",
     ]
-    """exclude_aggregates.name,exclude_aggregates.uuid,flexcache,name,nas,s3_bucket,snapshot_locking_enabled,snapshot_policy.name,snapshot_policy.uuid,storage_service,"""
+    """encryption,exclude_aggregates.name,exclude_aggregates.uuid,flexcache,is_s3_arbitrary_part_size_enabled,name,nas,s3_bucket,snapshot_directory_access_enabled,snapshot_locking_enabled,snapshot_policy.name,snapshot_policy.uuid,storage_service,"""
 
     postable_fields = [
+        "comment",
+        "encryption",
         "exclude_aggregates.name",
         "exclude_aggregates.uuid",
         "flexcache",
+        "guarantee",
+        "is_s3_arbitrary_part_size_enabled",
         "name",
         "nas",
         "qos",
         "s3_bucket",
         "scale_out",
+        "smas_protection",
         "snaplock",
+        "snapshot_directory_access_enabled",
         "snapshot_locking_enabled",
         "snapshot_policy.name",
         "snapshot_policy.uuid",
         "space",
         "storage_service",
         "tiering",
+        "type",
         "use_mirrored_aggregates",
     ]
-    """exclude_aggregates.name,exclude_aggregates.uuid,flexcache,name,nas,qos,s3_bucket,scale_out,snaplock,snapshot_locking_enabled,snapshot_policy.name,snapshot_policy.uuid,space,storage_service,tiering,use_mirrored_aggregates,"""
+    """comment,encryption,exclude_aggregates.name,exclude_aggregates.uuid,flexcache,guarantee,is_s3_arbitrary_part_size_enabled,name,nas,qos,s3_bucket,scale_out,smas_protection,snaplock,snapshot_directory_access_enabled,snapshot_locking_enabled,snapshot_policy.name,snapshot_policy.uuid,space,storage_service,tiering,type,use_mirrored_aggregates,"""
 
 
 class ContainerResponseRecordsVolumes(Resource):

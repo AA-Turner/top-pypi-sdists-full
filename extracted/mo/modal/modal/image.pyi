@@ -1,6 +1,8 @@
 import collections.abc
 import google.protobuf.message
 import modal._image
+import modal._logs_manager
+import modal._supports_logs
 import modal.app
 import modal.client
 import modal.cloud_bucket_mount
@@ -31,6 +33,8 @@ class Image(modal.object.Object):
     _added_python_source_set: frozenset[str]
     _metadata: typing.Optional[modal_proto.api_pb2.ImageMetadata]
     _is_empty: bool
+    _build_steps: typing.Optional[list[modal_proto.api_pb2.ImageBuildStep]]
+    _failed_build_attempt: typing.Optional[modal._image._FailedBuildAttempt]
 
     def __init__(self, *args, **kwargs):
         """mdmd:hidden"""
@@ -1362,8 +1366,8 @@ class Image(modal.object.Object):
     ) -> Image:
         """Reference a named Image that was previously published with `.publish()`.
 
-        Names can contain an optional `:tag` part - if no tag part is included `":latest"` is used,
-        matching Docker conventions.
+        Names can contain an optional `:tag` part. If no tag part is included, `":latest"` is used, matching
+        Docker conventions.
 
         ```python notest
         image = modal.Image.from_name("my-image")     # references my-image:latest
@@ -1383,13 +1387,14 @@ class Image(modal.object.Object):
             name: str,
             *,
             environment_name: typing.Optional[str] = None,
+            experimental_options: typing.Optional[dict[str, typing.Any]] = None,
             client: typing.Optional[modal.client.Client] = None,
         ) -> None:
             """Publish this image under the given name
 
             The Image must already be created (typically by calling `image.build()` or `sandbox.snapshot_filesystem()`).
 
-            Image names can contain an explicit tag designation (using the `name:tag`). If no tag is included in the name,
+            Image names can contain an explicit tag designation using `name:tag`. If no tag is included in the name,
             `":latest"` is used, matching Docker conventions. To publish multiple tags, call `.publish()` once per tag.
 
             ```python notest
@@ -1407,13 +1412,14 @@ class Image(modal.object.Object):
             name: str,
             *,
             environment_name: typing.Optional[str] = None,
+            experimental_options: typing.Optional[dict[str, typing.Any]] = None,
             client: typing.Optional[modal.client.Client] = None,
         ) -> None:
             """Publish this image under the given name
 
             The Image must already be created (typically by calling `image.build()` or `sandbox.snapshot_filesystem()`).
 
-            Image names can contain an explicit tag designation (using the `name:tag`). If no tag is included in the name,
+            Image names can contain an explicit tag designation using `name:tag`. If no tag is included in the name,
             `":latest"` is used, matching Docker conventions. To publish multiple tags, call `.publish()` once per tag.
 
             ```python notest
@@ -1437,3 +1443,29 @@ class Image(modal.object.Object):
             ...
 
     hydrate: __hydrate_spec[typing_extensions.Self]
+
+    class ___resolve_image_id_client_for_logs_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> tuple[str, modal.client.Client]: ...
+        async def aio(self, /) -> tuple[str, modal.client.Client]: ...
+
+    _resolve_image_id_client_for_logs: ___resolve_image_id_client_for_logs_spec
+
+    class ___get_log_query_data_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> modal._supports_logs._ImageLogQueryData: ...
+        async def aio(self, /) -> modal._supports_logs._ImageLogQueryData: ...
+
+    _get_log_query_data: ___get_log_query_data_spec
+
+    @property
+    def logs(self) -> modal._logs_manager.ImageLogsManager:
+        """Access logs for an `Image`.
+
+        Use [`fetch()`](#logsfetch)
+        to read logs for individual build layers and [`tail()`](#logstail)
+        to read the most recent logs.
+
+        See also:
+            - [`modal app logs`](https://modal.com/docs/cli/latest/app#modal-app-logs):
+              CLI access to logs for an App.
+        """
+        ...

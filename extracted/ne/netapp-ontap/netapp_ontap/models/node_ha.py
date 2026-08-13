@@ -39,6 +39,17 @@ class NodeHaSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
             )
     r""" Represents the state of the node that is giving storage back to its HA partner. """
 
+    giveback_of = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_ha_giveback_of", "ClusterNodesHaGivebackOfSchema"),
+                unknown=EXCLUDE,
+                data_key="giveback_of",
+                allow_none=True
+            )
+    r""" Represents the state of storage being given back to the node. """
+
+    giveback_of_possible = marshmallow_fields.Boolean(data_key="giveback_of_possible", allow_none=True)
+    r""" Specifies whether or not storage giveback is possible. """
+
     interconnect = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_ha_interconnect", "ClusterNodesHaInterconnectSchema"),
                 unknown=EXCLUDE,
@@ -56,7 +67,20 @@ class NodeHaSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
                 data_key="partners",
                 allow_none=True
                 )
-    r""" Nodes in this node's High Availability (HA) group. """
+    r""" <personalities supports=unified,asar2>
+Nodes in this node's High Availability (HA) group.
+</personalities>
+<personalities supports=aiml>
+Nodes that are failover destinations for this node.
+</personalities> """
+
+    peering = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_ha_peering", "ClusterNodesHaPeeringSchema"),
+                unknown=EXCLUDE,
+                data_key="peering",
+                allow_none=True
+            )
+    r""" The peering field of the node_ha. """
 
     ports = marshmallow_fields.List(
                 marshmallow_fields.Nested(
@@ -85,6 +109,17 @@ class NodeHaSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
             )
     r""" The takeover check response. """
 
+    takeover_of = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_nodes_ha_takeover_of", "ClusterNodesHaTakeoverOfSchema"),
+                unknown=EXCLUDE,
+                data_key="takeover_of",
+                allow_none=True
+            )
+    r""" This represents the storage takeover state of the node. """
+
+    takeover_of_possible = marshmallow_fields.Boolean(data_key="takeover_of_possible", allow_none=True)
+    r""" Specifies whether or not storage takeover is possible. """
+
     type = marshmallow_fields.Str(data_key="type", allow_none=True)
     r""" Type of storage.
 
@@ -103,16 +138,21 @@ Valid choices:
         "enable_takeover_of",
         "enabled",
         "giveback",
+        "giveback_of",
+        "giveback_of_possible",
         "interconnect",
         "partners.links",
         "partners.name",
         "partners.uuid",
+        "peering",
         "ports",
         "takeover",
         "takeover_check",
+        "takeover_of",
+        "takeover_of_possible",
         "type",
     ]
-    """auto_giveback,auto_giveback_of,enable_takeover_of,enabled,giveback,interconnect,partners.links,partners.name,partners.uuid,ports,takeover,takeover_check,type,"""
+    """auto_giveback,auto_giveback_of,enable_takeover_of,enabled,giveback,giveback_of,giveback_of_possible,interconnect,partners.links,partners.name,partners.uuid,peering,ports,takeover,takeover_check,takeover_of,takeover_of_possible,type,"""
 
     patchable_fields = [
         "auto_giveback",

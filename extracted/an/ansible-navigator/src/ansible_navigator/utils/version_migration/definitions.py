@@ -23,10 +23,13 @@ if TYPE_CHECKING:
 
 
 class MigrationType(Enum):
-    """Enum for the type of migration."""
+    """Enum for the type of migration.
+
+    Attributes:
+        SETTINGS_FILE: Migration of the settings file.
+    """
 
     SETTINGS_FILE = "settings"
-    """Migration of the settings file."""
 
 
 T = TypeVar("T")
@@ -102,10 +105,13 @@ class MigrationStep(Generic[T]):
 
 
 class Migration:
-    """Data class for a migration."""
+    """Data class for a migration.
+
+    Attributes:
+        name: The name of the migration.
+    """
 
     name = "Migration base class"
-    """The name of the migration."""
 
     def __init__(self) -> None:
         """Initialize the migration."""
@@ -189,7 +195,6 @@ class Migration:
             step.print_failed()
         else:
             step.print_updated()
-        return
 
     def run_steps(self, *args: Any, **kwargs: Any) -> None:
         """Run all registered migration steps.

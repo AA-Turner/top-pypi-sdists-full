@@ -11,8 +11,8 @@ from datetime import datetime, timezone
 
 from grpclib.exceptions import StreamTerminatedError
 
-from modal._logs import fetch_logs, tail_logs
-from modal._supports_logs import _LogQueryData, _SupportsLogs
+from modal._logs import LogsFilters, fetch_logs, tail_logs
+from modal._supports_logs import _LogQueryData, _SupportsImageLogs, _SupportsLogs
 from modal._utils.async_utils import synchronize_api
 from modal._utils.grpc_utils import RETRYABLE_GRPC_STATUS_CODES as _RETRYABLE_STREAM_STATUSES
 from modal._utils.time_utils import locale_tz
@@ -38,6 +38,77 @@ class _StreamStopReason(enum.Enum):
     STOP_STREAM = "stop_stream"
 
 
+def _normalize_utc_datetime(value: datetime, name: str) -> datetime:
+    if not isinstance(value, datetime):
+        raise TypeError(f"{name} must be a datetime")
+    if value.tzinfo is None:
+        return value.replace(tzinfo=locale_tz()).astimezone(timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _entry_source(file_descriptor: api_pb2.FileDescriptor.ValueType) -> LogSource:
+    match file_descriptor:
+        case api_pb2.FILE_DESCRIPTOR_STDOUT:
+            return "stdout"
+        case api_pb2.FILE_DESCRIPTOR_STDERR:
+            return "stderr"
+        case _:
+            return "system"
+
+
+def _entry_timestamp(item: api_pb2.TaskLogs) -> datetime:
+    if item.timestamp_ns:
+        return datetime.fromtimestamp(item.timestamp_ns / 1_000_000_000, timezone.utc)
+    return datetime.fromtimestamp(item.timestamp, timezone.utc)
+
+
+def _resolve_source(source: LogSource | None) -> api_pb2.FileDescriptor.ValueType:
+    match source:
+        case "stderr":
+            return api_pb2.FILE_DESCRIPTOR_STDERR
+        case "stdout":
+            return api_pb2.FILE_DESCRIPTOR_STDOUT
+        case "system":
+            return api_pb2.FILE_DESCRIPTOR_INFO
+        case None:
+            return api_pb2.FILE_DESCRIPTOR_UNSPECIFIED
+        case _:
+            raise ValueError("source must be one of 'stdout', 'stderr', 'system', or None")
+
+
+def _entry_context_ids(object_id: str, item: api_pb2.TaskLogs, batch: api_pb2.TaskLogsBatch) -> list[str]:
+    match object_id[:2]:
+        case "ap":
+            context_ids = [
+                batch.function_id,
+                item.function_call_id,
+                item.input_id or batch.input_id,
+                item.container_id or batch.task_id,
+            ]
+        case "fu":
+            context_ids = [
+                item.function_call_id,
+                item.input_id or batch.input_id,
+                item.container_id or batch.task_id,
+            ]
+        case "fc":
+            context_ids = [item.input_id or batch.input_id, item.container_id or batch.task_id]
+        case _:
+            context_ids = []
+    # filter for empty strings, can happen for Server which have function_ids but no input/container
+    return [c for c in context_ids if c]
+
+
+def _entry_from_item(object_id: str, item: api_pb2.TaskLogs, batch: api_pb2.TaskLogsBatch) -> LogEntry:
+    return LogEntry(
+        message=item.data,
+        timestamp=_entry_timestamp(item),
+        source=_entry_source(item.file_descriptor),
+        object_id=object_id,
+        context_ids=_entry_context_ids(object_id, item, batch),
+    )
+
+
 class _LogsManager:
     """mdmd:namespace"""
 
@@ -52,68 +123,6 @@ class _LogsManager:
             self._query_params = await self._source._get_log_query_data()
         return self._query_params
 
-    @staticmethod
-    def _resolve_source(source: LogSource | None) -> api_pb2.FileDescriptor.ValueType:
-        match source:
-            case "stderr":
-                return api_pb2.FILE_DESCRIPTOR_STDERR
-            case "stdout":
-                return api_pb2.FILE_DESCRIPTOR_STDOUT
-            case "system":
-                return api_pb2.FILE_DESCRIPTOR_INFO
-            case None:
-                return api_pb2.FILE_DESCRIPTOR_UNSPECIFIED
-            case _:
-                raise ValueError("source must be one of 'stdout', 'stderr', 'system', or None")
-
-    @staticmethod
-    def _normalize_utc_datetime(value: datetime, name: str) -> datetime:
-        if not isinstance(value, datetime):
-            raise TypeError(f"{name} must be a datetime")
-        if value.tzinfo is None:
-            return value.replace(tzinfo=locale_tz()).astimezone(timezone.utc)
-        return value.astimezone(timezone.utc)
-
-    @staticmethod
-    def _entry_source(file_descriptor: api_pb2.FileDescriptor.ValueType) -> LogSource:
-        match file_descriptor:
-            case api_pb2.FILE_DESCRIPTOR_STDOUT:
-                return "stdout"
-            case api_pb2.FILE_DESCRIPTOR_STDERR:
-                return "stderr"
-            case _:
-                return "system"
-
-    @staticmethod
-    def _entry_timestamp(item: api_pb2.TaskLogs) -> datetime:
-        if item.timestamp_ns:
-            return datetime.fromtimestamp(item.timestamp_ns / 1_000_000_000, timezone.utc)
-        return datetime.fromtimestamp(item.timestamp, timezone.utc)
-
-    def _entry_context_ids(self, item: api_pb2.TaskLogs, batch: api_pb2.TaskLogsBatch) -> list[str]:
-        match self._source.object_id[:2]:
-            case "fu":
-                context_ids = [
-                    item.function_call_id,
-                    item.input_id or batch.input_id,
-                    item.container_id or batch.task_id,
-                ]
-            case "fc":
-                context_ids = [item.input_id or batch.input_id, item.container_id or batch.task_id]
-            case _:
-                context_ids = []
-        # filter for empty strings, can happen for Server which have function_ids but no input/container
-        return [c for c in context_ids if c]
-
-    def _entry_from_item(self, item: api_pb2.TaskLogs, batch: api_pb2.TaskLogsBatch) -> LogEntry:
-        return LogEntry(
-            message=item.data,
-            timestamp=self._entry_timestamp(item),
-            source=self._entry_source(item.file_descriptor),
-            object_id=self._source.object_id,
-            context_ids=self._entry_context_ids(item, batch),
-        )
-
     async def _watch_stream_stop(self, deadline: _Deadline) -> _StreamStopReason | None:
         while True:
             if deadline.value is not None and time.monotonic() >= deadline.value:
@@ -121,7 +130,7 @@ class _LogsManager:
             if self._stop_stream is not None and await self._stop_stream():
                 return _StreamStopReason.STOP_STREAM
 
-            sleep_time = _STREAM_POLL_INTERVAL_SECONDS
+            sleep_time: float = _STREAM_POLL_INTERVAL_SECONDS
             if deadline.value is not None:
                 sleep_time = min(sleep_time, max(0.0, deadline.value - time.monotonic()))
             await asyncio.sleep(sleep_time)
@@ -135,13 +144,17 @@ class _LogsManager:
         search_text: str = "",
     ) -> AsyncGenerator[LogEntry, None]:
         """Fetch all associated logs corresponding to the date range and filters."""
-        since = self._normalize_utc_datetime(since, "since")
-        until = self._normalize_utc_datetime(until or datetime.now(timezone.utc), "until")
+        since = _normalize_utc_datetime(since, "since")
+        until = _normalize_utc_datetime(until or datetime.now(timezone.utc), "until")
         target = await self._params()
-        filters = dataclasses.replace(target.filters, source=self._resolve_source(source), search_text=search_text)
+        filters = dataclasses.replace(
+            target.filters,
+            source=_resolve_source(source),
+            search_text=search_text,
+        )
         async for batch in fetch_logs(target.client, target.app_id, since=since, until=until, filters=filters):
             for item in batch.items:
-                yield self._entry_from_item(item, batch)
+                yield _entry_from_item(target.source_object_id, item, batch)
 
     async def tail(
         self,
@@ -151,7 +164,7 @@ class _LogsManager:
     ) -> AsyncGenerator[LogEntry, None]:
         """Fetch the most recent logs."""
         params = await self._params()
-        filters = dataclasses.replace(params.filters, source=self._resolve_source(source))
+        filters = dataclasses.replace(params.filters, source=_resolve_source(source))
         async for batch in tail_logs(
             params.client,
             params.app_id,
@@ -159,7 +172,7 @@ class _LogsManager:
             filters=filters,
         ):
             for item in batch.items:
-                yield self._entry_from_item(item, batch)
+                yield _entry_from_item(params.source_object_id, item, batch)
 
     def _create_log_stream(
         self, params: _LogQueryData, last_entry_id: str, timeout: float
@@ -177,10 +190,10 @@ class _LogsManager:
         )
         return params.client.stub.AppGetLogs.unary_stream(request)
 
-    def _stream_entries(self, batch: api_pb2.TaskLogsBatch):
+    def _stream_entries(self, batch: api_pb2.TaskLogsBatch, source_object_id: str):
         for item in batch.items:
             if item.data:
-                yield self._entry_from_item(item, batch)
+                yield _entry_from_item(source_object_id, item, batch)
 
     @staticmethod
     def _advance_batch(batch: api_pb2.TaskLogsBatch, last_entry_id: str) -> tuple[str, bool]:
@@ -203,7 +216,7 @@ class _LogsManager:
         log_stream = self._create_log_stream(params, last_entry_id, timeout)
         try:
             async for batch in log_stream:
-                for entry in self._stream_entries(batch):
+                for entry in self._stream_entries(batch, params.source_object_id):
                     yield entry
                 if batch.app_done:
                     return
@@ -241,7 +254,7 @@ class _LogsManager:
                             except StopAsyncIteration:
                                 break
                             last_entry_id, app_done = self._advance_batch(batch, last_entry_id)
-                            for log_entry in self._stream_entries(batch):
+                            for log_entry in self._stream_entries(batch, params.source_object_id):
                                 deadline.reset(timeout)
                                 yield log_entry
                             if app_done:
@@ -260,7 +273,7 @@ class _LogsManager:
                                 except StopAsyncIteration:
                                     break
                                 last_entry_id, app_done = self._advance_batch(batch, last_entry_id)
-                                for log_entry in self._stream_entries(batch):
+                                for log_entry in self._stream_entries(batch, params.source_object_id):
                                     deadline.reset(timeout)
                                     yield log_entry
                                 if app_done:
@@ -317,15 +330,12 @@ class _LogsManager:
             pass
 
 
-LogsManager = synchronize_api(_LogsManager, target_module=__name__)
-
-
-class _FunctionLogsManager(_LogsManager):
+class _FunctionLogsManager:
     """mdmd:namespace"""
 
     def __init__(self, source: _SupportsLogs):
         """mdmd:hidden"""
-        super().__init__(source)
+        self._manager = _LogsManager(source)
 
     async def fetch(
         self,
@@ -338,7 +348,8 @@ class _FunctionLogsManager(_LogsManager):
         """Fetch Function logs corresponding to the date range and filters.
 
         Args:
-            since: Start date to fetch logs from. Must be in UTC or timezone-naive, which is interpreted as local time.
+            since: Start date to fetch logs from. Must be in UTC or timezone-naive,
+                which is interpreted as local time.
             until: Defaults to current date if None. Must be in UTC or timezone-naive, which is interpreted
                 as local time.
             source: Filter by source: 'stdout', 'stderr', or 'system'.
@@ -359,7 +370,7 @@ class _FunctionLogsManager(_LogsManager):
                 print(entry.message, end="")
             ```
         """
-        async for log_entry in super().fetch(since=since, until=until, source=source, search_text=search_text):
+        async for log_entry in self._manager.fetch(since=since, until=until, source=source, search_text=search_text):
             yield log_entry
 
     async def tail(
@@ -386,7 +397,7 @@ class _FunctionLogsManager(_LogsManager):
                 print(entry.message, end="")
             ```
         """
-        async for log_entry in super().tail(entries, source=source):
+        async for log_entry in self._manager.tail(entries, source=source):
             yield log_entry
 
     async def stream(self, timeout: float | None = None) -> AsyncGenerator[LogEntry, None]:
@@ -408,19 +419,19 @@ class _FunctionLogsManager(_LogsManager):
                 print(entry.message, end="")
             ```
         """
-        async for log_entry in super().stream(timeout=timeout):
+        async for log_entry in self._manager.stream(timeout=timeout):
             yield log_entry
 
 
 FunctionLogsManager = synchronize_api(_FunctionLogsManager, target_module=__name__)
 
 
-class _ServerLogsManager(_LogsManager):
+class _ServerLogsManager:
     """mdmd:namespace"""
 
     def __init__(self, source: _SupportsLogs):
         """mdmd:hidden"""
-        super().__init__(source)
+        self._manager = _LogsManager(source)
 
     async def fetch(
         self,
@@ -433,7 +444,8 @@ class _ServerLogsManager(_LogsManager):
         """Fetch Server logs corresponding to the date range and filters.
 
         Args:
-            since: Start date to fetch logs from. Must be in UTC or timezone-naive, which is interpreted as local time.
+            since: Start date to fetch logs from. Must be in UTC or timezone-naive,
+                which is interpreted as local time.
             until: Defaults to current date if None. Must be in UTC or timezone-naive, which is interpreted
                 as local time.
             source: Filter by source: 'stdout', 'stderr', or 'system'.
@@ -454,7 +466,7 @@ class _ServerLogsManager(_LogsManager):
                 print(entry.message, end="")
             ```
         """
-        async for log_entry in super().fetch(since=since, until=until, source=source, search_text=search_text):
+        async for log_entry in self._manager.fetch(since=since, until=until, source=source, search_text=search_text):
             yield log_entry
 
     async def tail(
@@ -481,7 +493,7 @@ class _ServerLogsManager(_LogsManager):
                 print(entry.message, end="")
             ```
         """
-        async for log_entry in super().tail(entries, source=source):
+        async for log_entry in self._manager.tail(entries, source=source):
             yield log_entry
 
     async def stream(self, timeout: float | None = None) -> AsyncGenerator[LogEntry, None]:
@@ -503,34 +515,29 @@ class _ServerLogsManager(_LogsManager):
                 print(entry.message, end="")
             ```
         """
-        async for log_entry in super().stream(timeout=timeout):
+        async for log_entry in self._manager.stream(timeout=timeout):
             yield log_entry
 
 
 ServerLogsManager = synchronize_api(_ServerLogsManager, target_module=__name__)
 
 
-class _FunctionCallLogsManager(_LogsManager):
+class _FunctionCallLogsManager:
     """mdmd:namespace"""
 
     def __init__(self, source: _SupportsLogs):
         """mdmd:hidden"""
-        super().__init__(source, stop_stream=self._determine_function_call_stop)
+        self._source = source
         self._function_id: str | None = None
-
-    async def _params(self) -> _LogQueryData:
-        params = await super()._params()
-        if self._function_id is None:
-            self._function_id = getattr(self._source, "_function_id", None)
-        return params
+        self._manager = _LogsManager(source, stop_stream=self._determine_function_call_stop)
 
     async def _get_function_call_info(self) -> api_pb2.FunctionCallInfo:
         for i in range(5):
             try:
-                params = await self._params()
-                assert hasattr(self, "_function_id") and self._function_id is not None, (
-                    "Function ID should be set during hydration"
-                )
+                params = await self._manager._params()
+                if self._function_id is None:
+                    self._function_id = getattr(self._source, "_function_id", None)
+                assert self._function_id is not None, "Function ID should be set during hydration"
                 request = api_pb2.FunctionCallGetInfoRequest(
                     function_id=self._function_id,
                     function_call_id=params.filters.function_call_id,
@@ -542,6 +549,7 @@ class _FunctionCallLogsManager(_LogsManager):
                     await asyncio.sleep(1)
                     continue
                 raise
+        raise AssertionError("unreachable")
 
     async def _determine_function_call_stop(self) -> bool:
         try:
@@ -553,7 +561,7 @@ class _FunctionCallLogsManager(_LogsManager):
         except NotFoundError:
             return False
         except (ServiceError, InternalError, StreamTerminatedError, socket.gaierror, AttributeError) as exc:
-            if self._is_transient_stream_error(exc):
+            if self._manager._is_transient_stream_error(exc):
                 logger.debug("Function call status check interrupted. Retrying ...")
                 return False
             raise
@@ -592,7 +600,7 @@ class _FunctionCallLogsManager(_LogsManager):
                 print(entry.message, end="")
             ```
         """
-        async for log_entry in super().stream(timeout=timeout):
+        async for log_entry in self._manager.stream(timeout=timeout):
             yield log_entry
 
     async def tail(
@@ -620,7 +628,7 @@ class _FunctionCallLogsManager(_LogsManager):
                 print(entry.timestamp, entry.message, end="")
             ```
         """
-        async for log_entry in super().tail(entries, source=source):
+        async for log_entry in self._manager.tail(entries, source=source):
             yield log_entry
 
     async def fetch(
@@ -634,7 +642,8 @@ class _FunctionCallLogsManager(_LogsManager):
         """Fetch all associated logs corresponding to the date range and filters.
 
         Args:
-            since: Start date to fetch logs from. Must be in UTC or timezone-naive, which is interpreted as local time.
+            since: Start date to fetch logs from. Must be in UTC or timezone-naive,
+                which is interpreted as local time.
                 By default, this will fetch logs from the start of the function call.
             until: Defaults to current date if None. Must be in UTC or timezone-naive, which is interpreted
                 as local time.
@@ -667,8 +676,231 @@ class _FunctionCallLogsManager(_LogsManager):
         if since_was_defaulted and until_was_defaulted and since > until:
             until = since
 
-        async for log_entry in super().fetch(since=since, until=until, source=source, search_text=search_text):
+        async for log_entry in self._manager.fetch(since=since, until=until, source=source, search_text=search_text):
             yield log_entry
 
 
 FunctionCallLogsManager = synchronize_api(_FunctionCallLogsManager, target_module=__name__)
+
+
+class _ImageLogsManager:
+    """mdmd:namespace"""
+
+    _MAX_CONCURRENT_FETCHES = 10
+
+    def __init__(self, source: _SupportsImageLogs):
+        """mdmd:hidden"""
+        self._source = source
+
+    async def fetch(
+        self,
+        layers: int | None = 1,
+    ) -> AsyncGenerator[LogEntry, None]:
+        """Fetch logs for the most recent Image build steps.
+
+        Args:
+            layers: The number of build layers to fetch, counting backward
+                from the final Image. If None, logs are fetched for all build steps.
+        """
+        params = await self._source._get_log_query_data()
+        if layers is None:
+            layer_count = len(params.build_steps)
+        elif layers < 1:
+            raise ValueError("layers must be at least 1")
+        else:
+            layer_count = min(layers, len(params.build_steps))
+
+        selected_layers = params.build_steps[-layer_count:]
+
+        semaphore = asyncio.Semaphore(self._MAX_CONCURRENT_FETCHES)
+        queues = [asyncio.Queue(maxsize=100) for _ in selected_layers]
+        DONE = object()
+
+        async def _bounded_fetch(step: api_pb2.ImageBuildStep, queue: asyncio.Queue[LogEntry | object]) -> None:
+            cancelled = False
+            # Awkward but intentional double try/except to track whether the task was cancelled.
+            # In Python 3.11+ we can use Task.cancelling().
+            try:
+                try:
+                    async with semaphore:
+                        async for batch in fetch_logs(
+                            params.client,
+                            step.builder_app_id,
+                            # Protobuf timestamps represent UTC time.
+                            since=step.started_at.ToDatetime(tzinfo=timezone.utc),
+                            until=step.finished_at.ToDatetime(tzinfo=timezone.utc),
+                            filters=LogsFilters(
+                                task_id=step.builder_task_id,
+                            ),
+                        ):
+                            for item in batch.items:
+                                await queue.put(_entry_from_item(params.object_id, item, batch))
+                except Exception as e:
+                    await queue.put(e)
+            except asyncio.CancelledError:
+                cancelled = True
+                raise
+            finally:
+                if not cancelled:
+                    await queue.put(DONE)
+
+        tasks = [asyncio.create_task(_bounded_fetch(s, q)) for s, q in zip(selected_layers, queues)]
+
+        try:
+            for q in queues:
+                while (item := await q.get()) is not DONE:
+                    if isinstance(item, Exception):
+                        raise item
+                    yield item
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def tail(
+        self,
+        entries: int = 100,
+    ) -> AsyncGenerator[LogEntry, None]:
+        """Fetch the most recent Image logs.
+
+        Args:
+            entries: The number of log entries to return.
+        """
+        params = await self._source._get_log_query_data()
+        remaining_entries = entries
+        entries_by_step: list[list[LogEntry]] = []
+
+        for step in reversed(params.build_steps):
+            if remaining_entries <= 0:
+                break
+
+            step_entries: list[LogEntry] = []
+            async for batch in tail_logs(
+                params.client,
+                step.builder_app_id,
+                remaining_entries,
+                since=step.started_at.ToDatetime(tzinfo=timezone.utc),
+                until=step.finished_at.ToDatetime(tzinfo=timezone.utc),
+                filters=LogsFilters(task_id=step.builder_task_id),
+            ):
+                for item in batch.items:
+                    if len(step_entries) >= remaining_entries:
+                        break
+                    step_entries.append(_entry_from_item(params.object_id, item, batch))
+
+            if step_entries:
+                entries_by_step.append(step_entries)
+                remaining_entries -= len(step_entries)
+
+        # Steps are queried newest-to-oldest so we can stop as soon as we have
+        # enough entries, but results are exposed in chronological build order.
+        for step_entries in reversed(entries_by_step):
+            for entry in step_entries:
+                yield entry
+
+
+ImageLogsManager = synchronize_api(_ImageLogsManager, target_module=__name__)
+
+
+class _AppLogsManager:
+    """mdmd:namespace"""
+
+    def __init__(self, source: _SupportsLogs):
+        """mdmd:hidden"""
+        self._manager = _LogsManager(source)
+
+    async def fetch(
+        self,
+        *,
+        since: datetime,
+        until: datetime | None = None,
+        source: LogSource | None = None,
+        search_text: str = "",
+    ) -> AsyncGenerator[LogEntry, None]:
+        """Fetch App logs corresponding to the date range and filters.
+
+        Args:
+            since: Start date to fetch logs from. Must be in UTC or timezone-naive,
+                which is interpreted as local time.
+            until: Defaults to current date if None. Must be in UTC or timezone-naive, which is interpreted
+                as local time.
+            source: Filter by source: 'stdout', 'stderr', or 'system'.
+            search_text: Filter by search text.
+
+        Yields:
+            `LogEntry` objects in chronological order.
+
+        Examples:
+
+            ```python notest
+            app = modal.App.lookup("my-app")
+
+            for entry in app.logs.fetch(
+                since=datetime.now() - timedelta(hours=4),
+                source="stdout",
+            ):
+                print(entry.message, end="")
+            ```
+        """
+        async for log_entry in self._manager.fetch(
+            since=since,
+            until=until,
+            source=source,
+            search_text=search_text,
+        ):
+            yield log_entry
+
+    async def tail(
+        self,
+        entries: int = 100,
+        *,
+        source: LogSource | None = None,
+    ) -> AsyncGenerator[LogEntry, None]:
+        """Fetch the most recent App logs.
+
+        Args:
+            entries: The number of log entries to return.
+            source: Filter by source: 'stdout', 'stderr', or 'system'.
+
+        Yields:
+            `LogEntry` objects in chronological order.
+
+        Examples:
+
+            ```python notest
+            app = modal.App.lookup("my-app")
+
+            for entry in app.logs.tail(20):
+                print(entry.message, end="")
+            ```
+        """
+        async for log_entry in self._manager.tail(
+            entries,
+            source=source,
+        ):
+            yield log_entry
+
+    async def stream(self, timeout: float | None = None) -> AsyncGenerator[LogEntry, None]:
+        """Stream new App logs until the timeout is reached.
+
+        Args:
+            timeout: Number of seconds to wait between log entries before terminating the stream.
+                By default, this will block until it is interrupted.
+
+        Yields:
+            `LogEntry` objects as they arrive.
+
+        Examples:
+
+            ```python notest
+            app = modal.App.lookup("my-app")
+
+            for entry in app.logs.stream(timeout=60):
+                print(entry.message, end="")
+            ```
+        """
+        async for log_entry in self._manager.stream(timeout=timeout):
+            yield log_entry
+
+
+AppLogsManager = synchronize_api(_AppLogsManager, target_module=__name__)

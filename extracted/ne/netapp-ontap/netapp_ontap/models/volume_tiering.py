@@ -26,7 +26,18 @@ class VolumeTieringSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     r""" This parameter specifies tags of a volume for objects stored on a FabricPool-enabled aggregate. Each tag is a key,value pair and should be in the format "key=value". """
 
     policy = marshmallow_fields.Str(data_key="policy", allow_none=True)
-    r""" Policy that determines whether the user data blocks of a volume in a FabricPool will be tiered to the cloud store when they become cold. FabricPool combines flash (performance tier) with a cloud store into a single aggregate. Temperature of a volume block increases if it is accessed frequently and decreases when it is not. Valid in POST or PATCH.<br>all &dash; This policy allows tiering of both snapshots and active file system user data to the cloud store as soon as possible by ignoring the temperature on the volume blocks.<br>auto &dash; This policy allows tiering of both snapshot and active file system user data to the cloud store<br>none &dash; Volume blocks will not be tiered to the cloud store.<br>snapshot_only &dash; This policy allows tiering of only the volume snapshots not associated with the active file system. The default tiering policy is "snapshot-only" for a FlexVol volume and "none" for a FlexGroup volume. The default minimum cooling period for the "snapshot-only" tiering policy is 2 days and for the "auto" tiering policy is 31 days.
+    r""" Policy that determines whether the user data blocks of a volume in a FabricPool will be tiered to the cloud store when they become cold.
+FabricPool combines flash (performance tier) with a cloud store into a single aggregate.
+Temperature of a volume block increases if it is accessed frequently and decreases when it is not.
+Valid in POST or PATCH.
+<br>all &dash; This policy allows tiering of both snapshots and active file system user data to the cloud store as soon as possible by ignoring the temperature on the volume blocks.
+<br>auto &dash; This policy allows tiering of both snapshot and active file system user data to the cloud store
+<br>none &dash; Volume blocks will not be tiered to the cloud store.
+<br>snapshot_only &dash; This policy allows tiering of only the volume snapshots not associated with the active file system.
+<personalities supports=unified>The default tiering policy is "snapshot-only" for a FlexVol volume and "none" for a FlexGroup volume. </personalities>
+<personalities supports=aiml>The default tiering policy is "none".</personalities>
+The default minimum cooling period for the "snapshot-only" tiering policy is 2 days and for the "auto" tiering policy is 31 days.
+
 
 Valid choices:
 

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: chatlas
-Version: 0.21.0
+Version: 0.21.1
 Summary: A simple and consistent interface for chatting with LLMs
 Project-URL: Homepage, https://posit-dev.github.io/chatlas
 Project-URL: Documentation, https://posit-dev.github.io/chatlas
@@ -19,6 +19,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
+Requires-Dist: httpx
+Requires-Dist: httpx2
 Requires-Dist: jinja2
 Requires-Dist: openai
 Requires-Dist: opentelemetry-api>=1.0

@@ -27,16 +27,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 SnmpTraphost(
     {
         "user": {
+            "name": "public",
             "_links": {
                 "self": {
                     "href": "/api/support/snmp/users/800003150558b57e8dbd9ce9119d82005056a7b4e5/public"
                 }
             },
-            "name": "public",
         },
-        "ip_address": "10.235.36.62",
-        "_links": {"self": {"href": "/api/support/snmp/traphosts/10.235.36.62"}},
         "host": "example_host_name",
+        "_links": {"self": {"href": "/api/support/snmp/traphosts/10.235.36.62"}},
+        "ip_address": "10.235.36.62",
     }
 )
 

@@ -2,64 +2,54 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import csv
 import json
 import logging
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Literal, Protocol
+from typing import Any, Final, Literal, Protocol
 
-from omnimalloc.common.directories import PROJECT_DIR
-
+from ..utils import tqdm  # noqa: TID252
 from .campaign import BenchmarkCampaign
 from .report import BenchmarkReport
-from .result import BenchmarkResult
 from .visualize import plot_benchmark
+
+logger = logging.getLogger(__name__)
+
+# Stable, self-explanatory schema: cross-run regression tracking joins on it
+RESULTS_CSV_COLUMNS: Final[tuple[str, ...]] = (
+    "source",
+    "allocator",
+    "variant",
+    "num_allocations",
+    "iterations",
+    "mean_seconds",
+    "median_seconds",
+    "stdev_seconds",
+    "min_seconds",
+    "max_seconds",
+    "mean_peak_size",
+    "lower_bound",
+    "mean_efficiency",
+    "known_optimum",
+    "optimum_ratio",
+)
 
 
 class ProgressBar(Protocol):
-    """Protocol for progress bar objects."""
+    """Update-only view of a tqdm(-like) progress bar."""
 
-    def update(self, n: int = 1) -> None:
-        """Update the progress bar."""
-        ...
-
-
-try:
-    from tqdm.auto import tqdm
-
-    HAS_TQDM = True
-except ImportError:
-    HAS_TQDM = False
-
-    # Fallback: tqdm without progress bars (just returns iterable)
-    def tqdm(iterable: Any = None, **kwargs: Any) -> Any:  # noqa: ARG001, ANN401
-        """No-op tqdm fallback when tqdm is not installed."""
-        if iterable is None:
-            # When called with total= instead of an iterable
-            class DummyProgressBar:
-                def __enter__(self) -> "DummyProgressBar":
-                    return self
-
-                def __exit__(self, *args: object) -> None:
-                    pass
-
-                def update(self, n: int = 1) -> None:
-                    pass
-
-            return DummyProgressBar()
-        return iterable
-
-
-logger = logging.getLogger(__name__)
+    def update(self, n: int = 1) -> None: ...
 
 
 def _prepare_base_dir(output_path: Path, output_format: str, overwrite: bool) -> Path:
     if output_format == "dir":
         output_path.mkdir(parents=True, exist_ok=overwrite)
         return output_path
-    temp_dir = tempfile.mkdtemp(prefix="omnimalloc_dump_")
-    return Path(temp_dir)
+    base_dir = Path(tempfile.mkdtemp(prefix="omnimalloc_dump_")) / output_path.stem
+    base_dir.mkdir()
+    return base_dir
 
 
 def _write_metadata(base_dir: Path, campaign: BenchmarkCampaign) -> None:
@@ -68,19 +58,44 @@ def _write_metadata(base_dir: Path, campaign: BenchmarkCampaign) -> None:
         json.dump(campaign.metadata, f, indent=2, default=str)
 
 
-def _write_campaign_visualization(base_dir: Path, campaign: BenchmarkCampaign) -> None:
-    campaign_viz_file = base_dir / "campaign_overview.pdf"
-    plot_benchmark(campaign, file_path=campaign_viz_file, show_inline=False)
+def _report_row(report: BenchmarkReport) -> dict[str, Any]:
+    return {
+        "source": report.source_name,
+        "allocator": report.allocator_name,
+        "variant": report.variant_label,
+        "num_allocations": report.num_allocations,
+        "iterations": report.num_results,
+        "mean_seconds": report.mean_seconds,
+        "median_seconds": report.median_seconds,
+        "stdev_seconds": report.stdev_seconds,
+        "min_seconds": report.min_seconds,
+        "max_seconds": report.max_seconds,
+        "mean_peak_size": report.mean_peak_size,
+        "lower_bound": report.lower_bound,
+        "mean_efficiency": report.mean_allocation_efficiency,
+        "known_optimum": report.known_optimum,
+        "optimum_ratio": report.optimum_ratio,
+    }
 
 
-def _create_zip_archive(output_path: Path, base_dir: Path, final_path: Path) -> None:
+def _write_results_csv(base_dir: Path, campaign: BenchmarkCampaign) -> None:
+    """Write one flat row per report, the machine-readable campaign summary."""
+    with (base_dir / "results.csv").open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=RESULTS_CSV_COLUMNS)
+        writer.writeheader()
+        writer.writerows(_report_row(report) for report in campaign.reports)
+
+
+def _create_zip_archive(base_dir: Path, final_path: Path) -> Path:
     if final_path.exists():
         final_path.unlink()
-    shutil.make_archive(
-        str(output_path),
-        "zip",
-        root_dir=base_dir.parent,
-        base_dir=base_dir.name,
+    return Path(
+        shutil.make_archive(
+            str(final_path.with_suffix("")),
+            "zip",
+            root_dir=base_dir.parent,
+            base_dir=base_dir.name,
+        )
     )
 
 
@@ -94,7 +109,7 @@ def _write_iterations(
 
     for i, result in enumerate(report.results):
         iteration_file = iterations_dir / f"iteration_{i}.pdf"
-        result.visualize(file_path=iteration_file, show_inline=False)
+        result.visualize(iteration_file)
         pbar.update(1)
 
 
@@ -176,24 +191,23 @@ def _write_nested_reports(
             )
 
 
-# TODO(fpedd): Add time stamp to campaign name optionally, to avoid overwriting
-# existing campaigns.
+# TODO(fpedd): Optionally timestamp the campaign name so saves cannot collide
 
 
 def save_benchmark(
-    campaign: BenchmarkCampaign | BenchmarkReport | BenchmarkResult,
+    campaign: BenchmarkCampaign,
     output_path: Path | str | None = None,
     output_format: Literal["dir", "zip"] = "dir",
     visualize_iterations: bool = True,
     overwrite: bool = True,
 ) -> Path:
-    """Save benchmark campaign with optional visualization."""
+    """Save a campaign, defaulting to `artifacts/campaign_<id>` under the cwd."""
 
     if not isinstance(campaign, BenchmarkCampaign):
-        raise TypeError("save_benchmark only supports BenchmarkCampaign currently.")
+        raise TypeError(f"Expected a BenchmarkCampaign, got {type(campaign)!r}")
 
     if output_path is None:
-        output_path = PROJECT_DIR / "artifacts" / f"campaign_{campaign.id}"
+        output_path = Path.cwd() / "artifacts" / f"campaign_{campaign.id}"
 
     output_path = Path(output_path)
 
@@ -216,11 +230,12 @@ def save_benchmark(
 
     try:
         _write_metadata(base_dir, campaign)
-        _write_campaign_visualization(base_dir, campaign)
+        _write_results_csv(base_dir, campaign)
+        plot_benchmark(campaign, base_dir / "campaign_overview.pdf")
         _write_nested_reports(base_dir, campaign, visualize_iterations)
 
         if output_format == "zip":
-            _create_zip_archive(output_path, base_dir, final_path)
+            final_path = _create_zip_archive(base_dir, final_path)
             logger.info(f"Campaign dumped to zip: {final_path}")
         else:
             logger.info(f"Campaign dumped to directory: {final_path}")
@@ -229,4 +244,4 @@ def save_benchmark(
 
     finally:
         if output_format == "zip":
-            shutil.rmtree(base_dir, ignore_errors=True)
+            shutil.rmtree(base_dir.parent, ignore_errors=True)

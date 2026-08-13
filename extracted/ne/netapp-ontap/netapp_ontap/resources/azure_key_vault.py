@@ -36,17 +36,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AzureKeyVault(
     {
-        "tenant_id": "tenant1",
-        "name": "https:://mykeyvault.vault.azure.net/",
-        "client_id": "client1",
+        "uuid": "024cd3cf-9a08-11ea-8d52-005056bbeba5",
         "_links": {
             "self": {
                 "href": "/api/security/azure-key-vaults/024cd3cf-9a08-11ea-8d52-005056bbeba5"
             }
         },
+        "client_id": "client1",
         "key_id": "https://keyvault-test.vault.azure.net/keys/key1/a8e619fd8f234db3b0b95c59540e2a74",
-        "uuid": "024cd3cf-9a08-11ea-8d52-005056bbeba5",
-        "svm": {"name": "vs0", "uuid": "4f7abf4c-9a07-11ea-8d52-005056bbeba5"},
+        "tenant_id": "tenant1",
+        "name": "https:://mykeyvault.vault.azure.net/",
+        "svm": {"uuid": "4f7abf4c-9a07-11ea-8d52-005056bbeba5", "name": "vs0"},
     }
 )
 
@@ -83,17 +83,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AzureKeyVault(
     {
-        "tenant_id": "tenant1",
-        "configuration": {"name": "myConfiguration"},
-        "name": "https:://mykeyvault.vault.azure.net/",
-        "client_id": "client1",
+        "uuid": "85619643-9a06-11ea-8d52-005056bbeba5",
         "_links": {
             "self": {
                 "href": "/api/security/azure-key-vaults/85619643-9a06-11ea-8d52-005056bbeba5"
             }
         },
+        "configuration": {"name": "myConfiguration"},
+        "client_id": "client1",
         "key_id": "https://keyvault-test.vault.azure.net/keys/key1/a8e619fd8f234db3b0b95c59540e2a74",
-        "uuid": "85619643-9a06-11ea-8d52-005056bbeba5",
+        "tenant_id": "tenant1",
+        "name": "https:://mykeyvault.vault.azure.net/",
     }
 )
 
@@ -120,45 +120,45 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     AzureKeyVault(
         {
-            "tenant_id": "tenant1",
-            "authentication_method": "client_secret",
-            "configuration": {
-                "name": "default",
-                "uuid": "024cd3cf-9a08-11ea-8d52-005056bbeba5",
-            },
-            "name": "https:://mykeyvault.vault.azure.net/",
-            "client_id": "client1",
+            "uuid": "024cd3cf-9a08-11ea-8d52-005056bbeba5",
             "enabled": True,
+            "authentication_method": "client_secret",
             "_links": {
                 "self": {
                     "href": "/api/security/azure-key-vaults/024cd3cf-9a08-11ea-8d52-005056bbeba5"
                 }
             },
-            "key_id": "https://keyvault-test.vault.azure.net/keys/key1/a8e619fd8f234db3b0b95c59540e2a74",
-            "uuid": "024cd3cf-9a08-11ea-8d52-005056bbeba5",
+            "configuration": {
+                "uuid": "024cd3cf-9a08-11ea-8d52-005056bbeba5",
+                "name": "default",
+            },
             "scope": "svm",
-            "svm": {"name": "vs0", "uuid": "4f7abf4c-9a07-11ea-8d52-005056bbeba5"},
+            "client_id": "client1",
+            "key_id": "https://keyvault-test.vault.azure.net/keys/key1/a8e619fd8f234db3b0b95c59540e2a74",
+            "tenant_id": "tenant1",
+            "name": "https:://mykeyvault.vault.azure.net/",
+            "svm": {"uuid": "4f7abf4c-9a07-11ea-8d52-005056bbeba5", "name": "vs0"},
         }
     ),
     AzureKeyVault(
         {
-            "tenant_id": "tenant1",
-            "authentication_method": "certificate",
-            "configuration": {
-                "name": "new-config",
-                "uuid": "85619643-9a06-11ea-8d52-005056bbeba5",
-            },
-            "name": "https:://mykeyvault.vault.azure.net/",
-            "client_id": "client1",
+            "uuid": "85619643-9a06-11ea-8d52-005056bbeba5",
             "enabled": False,
+            "authentication_method": "certificate",
             "_links": {
                 "self": {
                     "href": "/api/security/azure-key-vaults/85619643-9a06-11ea-8d52-005056bbeba5"
                 }
             },
-            "key_id": "https://keyvault-test.vault.azure.net/keys/key1/a8e619fd8f234db3b0b95c59540e2a74",
-            "uuid": "85619643-9a06-11ea-8d52-005056bbeba5",
+            "configuration": {
+                "uuid": "85619643-9a06-11ea-8d52-005056bbeba5",
+                "name": "new-config",
+            },
             "scope": "cluster",
+            "client_id": "client1",
+            "key_id": "https://keyvault-test.vault.azure.net/keys/key1/a8e619fd8f234db3b0b95c59540e2a74",
+            "tenant_id": "tenant1",
+            "name": "https:://mykeyvault.vault.azure.net/",
         }
     ),
 ]
@@ -187,23 +187,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AzureKeyVault(
     {
-        "tenant_id": "tenant1",
-        "authentication_method": "client_secret",
-        "configuration": {
-            "name": "default",
-            "uuid": "85619643-9a06-11ea-8d52-005056bbeba5",
-        },
-        "name": "https:://mykeyvault.vault.azure.net/",
-        "client_id": "client1",
+        "uuid": "85619643-9a06-11ea-8d52-005056bbeba5",
         "enabled": True,
+        "authentication_method": "client_secret",
         "_links": {
             "self": {
                 "href": "/api/security/azure-key-vaults/85619643-9a06-11ea-8d52-005056bbeba5"
             }
         },
-        "key_id": "https://keyvault-test.vault.azure.net/keys/key1/a8e619fd8f234db3b0b95c59540e2a74",
-        "uuid": "85619643-9a06-11ea-8d52-005056bbeba5",
+        "configuration": {
+            "uuid": "85619643-9a06-11ea-8d52-005056bbeba5",
+            "name": "default",
+        },
         "scope": "cluster",
+        "client_id": "client1",
+        "key_id": "https://keyvault-test.vault.azure.net/keys/key1/a8e619fd8f234db3b0b95c59540e2a74",
+        "tenant_id": "tenant1",
+        "name": "https:://mykeyvault.vault.azure.net/",
     }
 )
 
@@ -775,7 +775,8 @@ class AzureKeyVault(Resource):
 ### Optional parameters:
 * `create_inactive` - Create an AKV configuration without enabling it. This flag is set to "false" by default.
 ### Related ONTAP commands
-* `security key-manager external azure enable`
+* `security key-manager external azure enable (DEPRECATED)`
+* `security key-manager keystore enable`
 * `security key-manager external azure create-config`
 * `security key-manager external azure update-config`
 
@@ -802,7 +803,9 @@ class AzureKeyVault(Resource):
     ) -> NetAppResponse:
         r"""Deletes an AKV configuration.
 ### Related ONTAP commands
-* `security key-manager external azure disable`
+* `security key-manager external azure disable (DEPRECATED)`
+* `security key-manager keystore disable`
+* `security key-manager keystore delete`
 
 ### Learn more
 * [`DOC /security/azure-key-vaults`](#docs-security-security_azure-key-vaults)"""
@@ -867,7 +870,8 @@ class AzureKeyVault(Resource):
 ### Optional parameters:
 * `create_inactive` - Create an AKV configuration without enabling it. This flag is set to "false" by default.
 ### Related ONTAP commands
-* `security key-manager external azure enable`
+* `security key-manager external azure enable (DEPRECATED)`
+* `security key-manager keystore enable`
 * `security key-manager external azure create-config`
 * `security key-manager external azure update-config`
 
@@ -928,7 +932,9 @@ class AzureKeyVault(Resource):
     ) -> NetAppResponse:
         r"""Deletes an AKV configuration.
 ### Related ONTAP commands
-* `security key-manager external azure disable`
+* `security key-manager external azure disable (DEPRECATED)`
+* `security key-manager keystore disable`
+* `security key-manager keystore delete`
 
 ### Learn more
 * [`DOC /security/azure-key-vaults`](#docs-security-security_azure-key-vaults)"""

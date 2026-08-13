@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cyclonedx-python-lib
-Version: 11.11.1
+Version: 11.11.2
 Summary: Python library for CycloneDX
 License: Apache-2.0
 License-File: LICENSE

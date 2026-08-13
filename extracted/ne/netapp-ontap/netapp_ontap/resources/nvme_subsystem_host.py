@@ -159,9 +159,6 @@ class NvmeSubsystemHost(Resource):
         **kwargs
     ) -> Iterable["Resource"]:
         r"""Retrieves the NVMe subsystem hosts of an NVMe subsystem.
-### Expensive properties
-There is an added computational cost to retrieving values for these properties. They are not included by default in GET results and must be explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
-* `subsystem_maps.*`
 ### Related ONTAP commands
 * `vserver nvme subsystem map show`
 * `vserver nvme subsystem show`
@@ -241,6 +238,8 @@ There is an added computational cost to retrieving values for these properties. 
         r"""Adds NVMe subsystem host(s) to an NVMe subsystem.
 ### Required properties
 * `nqn` or `records.nqn` - NVMe host(s) NQN(s) to add to the NVMe subsystem.
+* `hosts.dh_hmac_chap.host_secret_key` - Authentication Host Secret Key must be provided if the TLS Key type is "generated".
+Note: The `hosts.dh_hmac_chap.group_size` property should not be set to "None". If the `hosts.dh_hmac_chap.group_size` property is not provided, then DH Group size of 2048-bit is considered by default.
 ### Related ONTAP commands
 * `vserver nvme subsystem host add`
 ### Learn more
@@ -281,9 +280,6 @@ There is an added computational cost to retrieving values for these properties. 
     @classmethod
     def find(cls, *args, connection: HostConnection = None, **kwargs) -> Resource:
         r"""Retrieves the NVMe subsystem hosts of an NVMe subsystem.
-### Expensive properties
-There is an added computational cost to retrieving values for these properties. They are not included by default in GET results and must be explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
-* `subsystem_maps.*`
 ### Related ONTAP commands
 * `vserver nvme subsystem map show`
 * `vserver nvme subsystem show`
@@ -316,6 +312,8 @@ There is an added computational cost to retrieving values for these properties. 
         r"""Adds NVMe subsystem host(s) to an NVMe subsystem.
 ### Required properties
 * `nqn` or `records.nqn` - NVMe host(s) NQN(s) to add to the NVMe subsystem.
+* `hosts.dh_hmac_chap.host_secret_key` - Authentication Host Secret Key must be provided if the TLS Key type is "generated".
+Note: The `hosts.dh_hmac_chap.group_size` property should not be set to "None". If the `hosts.dh_hmac_chap.group_size` property is not provided, then DH Group size of 2048-bit is considered by default.
 ### Related ONTAP commands
 * `vserver nvme subsystem host add`
 ### Learn more

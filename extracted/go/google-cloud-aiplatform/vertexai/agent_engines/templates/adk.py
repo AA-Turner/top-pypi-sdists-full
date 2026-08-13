@@ -220,6 +220,11 @@ class _StreamRunRequest:
         )
         # The session ID.
 
+        self.labels: Optional[Dict[str, str]] = kwargs.get("labels")
+        # Per-request user labels (e.g. for billing/attribution) to attach to
+        # the RunConfig for this invocation, so they are propagated onto the
+        # downstream Vertex API requests.
+
 
 class _StreamingRunResponse:
     """Response object for `streaming_agent_run_with_events` method.
@@ -1087,6 +1092,7 @@ class AdkApp:
             session_service=self._tmpl_attrs.get("session_service"),
             artifact_service=self._tmpl_attrs.get("artifact_service"),
             memory_service=self._tmpl_attrs.get("memory_service"),
+            auto_create_session=True,
         )
         self._tmpl_attrs["in_memory_session_service"] = InMemorySessionService()
         self._tmpl_attrs["in_memory_artifact_service"] = InMemoryArtifactService()
@@ -1374,12 +1380,23 @@ class AdkApp:
 
         # Run the agent
         message_for_agent = types.Content(**request.message)
+        # Propagate per-request user labels (e.g. billing/attribution) onto a
+        # RunConfig so the ADK flow forwards them to downstream Vertex requests.
+        # Only attach them if the installed google-adk RunConfig supports the
+        # `labels` field; older versions forbid unknown fields.
+        run_config = None
+        if request.labels:
+            from google.adk.agents.run_config import RunConfig
+
+            if "labels" in RunConfig.model_fields:
+                run_config = RunConfig(labels=request.labels)
         try:
             async for event in runner.run_async(
                 user_id=request.user_id,
                 session_id=session.id,
                 new_message=message_for_agent,
                 state_delta=state_delta,
+                run_config=run_config,
             ):
                 converted_event = await self._convert_response_events(
                     user_id=request.user_id,

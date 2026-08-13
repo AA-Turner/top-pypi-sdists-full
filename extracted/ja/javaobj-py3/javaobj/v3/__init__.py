@@ -7,7 +7,7 @@ serializing of the Java Object Serialization stream format.
 
 :authors: Thomas Calmant
 :license: Apache License 2.0
-:version: 0.5.0
+:version: 0.6.1
 :status: Alpha
 
 ..
@@ -108,7 +108,7 @@ __all__ = [
 # ------------------------------------------------------------------------------
 
 # Module version
-__version_info__ = (0, 5, 0)
+__version_info__ = (0, 6, 1)
 __version__ = ".".join(str(x) for x in __version_info__)
 
 # Documentation strings format
@@ -117,6 +117,27 @@ __docformat__ = "restructuredtext en"
 # ------------------------------------------------------------------------------
 # Public API
 # ------------------------------------------------------------------------------
+
+
+def _check_transformers(transformers: list[ObjectTransformer]) -> None:
+    """
+    Ensures that the given transformers are instances, not classes.
+
+    Giving a class instead of an instance is a common mistake: the parser
+    would then call ``create_instance()`` on the class itself, and the class
+    description would be given as the ``self`` argument, which ends in a
+    confusing error deep in the parser.
+
+    :param transformers: The transformers given by the caller
+    :raises TypeError: If a transformer is a class instead of an instance
+    """
+    for transformer in transformers:
+        if isinstance(transformer, type):
+            raise TypeError(
+                f"Transformers must be given as instances, not as classes: "
+                f"got the class {transformer.__name__}, "
+                f"did you mean {transformer.__name__}() ?"
+            )
 
 
 def load(
@@ -143,6 +164,7 @@ def load(
     :return: The parsed object if the stream contains exactly one top-level
              object, or a list of objects if there are several.
              Returns ``None`` for an empty stream.
+    :raises TypeError: If a transformer class is given instead of an instance.
     :raises ParseError: If the stream is malformed.
     :raises SecurityError: If a safety limit is exceeded.
     :raises UnsupportedFeatureError: If an unsupported protocol feature is
@@ -153,6 +175,7 @@ def load(
 
     # Build transformer list, ensuring DefaultObjectTransformer is present
     all_transformers: list[ObjectTransformer] = list(transformers)
+    _check_transformers(all_transformers)
     if not any(isinstance(t, DefaultObjectTransformer) for t in all_transformers):
         all_transformers.append(DefaultObjectTransformer())
 
@@ -190,6 +213,7 @@ def loads(
     :param max_array_size: See :func:`load`.
     :param max_depth: See :func:`load`.
     :return: Parsed object or list of objects (see :func:`load`).
+    :raises TypeError: If a transformer class is given instead of an instance.
     """
     return load(
         BytesIO(data),

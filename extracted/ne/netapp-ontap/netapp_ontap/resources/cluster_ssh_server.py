@@ -72,19 +72,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterSshServer(
     {
-        "per_source_limit": 5,
-        "_links": {"self": {"href": "/api/security/ssh"}},
         "ciphers": ["aes256_ctr", "aes192_ctr"],
-        "connections_per_second": 8,
         "login_grace_time": 30,
-        "max_instances": 10,
-        "mac_algorithms": ["hmac_sha2_512_etm", "umac_128_etm"],
         "max_authentication_retry_count": 3,
+        "per_source_limit": 5,
         "key_exchange_algorithms": [
             "diffie_hellman_group_exchange_sha256",
             "ecdh_sha2_nistp256",
             "diffie_hellman_group18_sha512",
         ],
+        "max_instances": 10,
+        "_links": {"self": {"href": "/api/security/ssh"}},
+        "mac_algorithms": ["hmac_sha2_512_etm", "umac_128_etm"],
+        "connections_per_second": 8,
         "is_rsa_in_publickey_algorithms_enabled": True,
         "host_key_algorithms": [
             "ecdsa_sha2_nistp256",

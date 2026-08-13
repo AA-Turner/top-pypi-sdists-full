@@ -17,7 +17,7 @@ long_description = (this_directory / "netapp_ontap" / "README.md").read_text(
 
 setuptools.setup(
     name=os.getenv("PACKAGE_NAME", "netapp-ontap"),
-    version="9.18.1.0",
+    version="9.19.1.0",
     author="NetApp",
     author_email="ng-ontap-rest-python-lib@netapp.com",
     description="A library for working with ONTAP's REST APIs simply in Python",
@@ -25,7 +25,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://www.netapp.com/developer/",
     project_urls={
-        "Documentation": "https://library.netapp.com/ecmdocs/ECMLP3364865/html/index.html",
+        "Documentation": "https://library.netapp.com/ecmdocs/ECMLP3383665/html/index.html",
     },
     keywords="NetApp ONTAP REST API development",
     packages=setuptools.find_packages(),
@@ -41,7 +41,7 @@ setuptools.setup(
         "marshmallow>=3.21.3,<4.0.0",
         "requests>=2.32.4,<3.0.0",
         "requests-toolbelt>=1.0.0,<2.0.0",
-        "urllib3>=1.26.7,<3.0.0",
+        "urllib3>=2.7.0,<3.0.0",
         "certifi>2022.12.7",
         "apipkg>=3.0.2,<4.0.0",
     ],

@@ -40,10 +40,11 @@ A PATCH request on this API using the parameter "fips.enabled" switches the syst
 ## "tls" object
 Contains TLS configuration information.<br/>
 A PATCH request on this API using the parameter "tls.cipher_suites" and/or "tls.protocol_versions" configures the permissible cipher suites and/or protocol versions for all TLS-enabled applications in the system. All protocol versions at or above the lowest version level specified are enabled, including those that are not explicitly specified.
+A PATCH request on this API using the parameter "tls.offload_enabled" configures the use of hardware (NIC) offload where it is supported.
 
 * GET    /api/security
 * GET    /api/security?fields=tls
-* PATCH  /api/security -d '{ "tls" : { "protocol_versions" : ["TLSv1.3", "TLSv1.2"], "cipher_suites" : ["TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384", "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"] } }'
+* PATCH  /api/security -d '{ "tls" : { "protocol_versions" : ["TLSv1.3", "TLSv1.2"], "cipher_suites" : ["TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384", "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"], "offload_enabled" : false } }'
 ## "management_protocols" object
 Contains Security Protocols information.<br/>
 This security protocols endpoint is used to retrieve and configure security protocols.
@@ -76,6 +77,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 SecurityConfig(
     {
         "tls": {
+            "protocol_versions": ["TLSv1.3", "TLSv1.2"],
+            "offload_enabled": False,
             "cipher_suites": [
                 "TLS_RSA_WITH_AES_128_CCM",
                 "TLS_RSA_WITH_AES_128_CCM_8",
@@ -206,20 +209,19 @@ SecurityConfig(
                 "TLS_AES_256_GCM_SHA384",
                 "TLS_CHACHA20_POLY1305_SHA256",
             ],
-            "protocol_versions": ["TLSv1.3", "TLSv1.2"],
         },
-        "fips": {"enabled": False},
+        "management_protocols": {"rsh_enabled": False, "telnet_enabled": False},
+        "onboard_key_manager_configurable_status": {
+            "message": "Onboard Key Manager cannot be configured on the cluster. There are no self-encrypting disks in the cluster, and the following nodes do not support volume granular encryption: ntap-vsim2.",
+            "code": 65537300,
+            "supported": False,
+        },
         "software_data_encryption": {
             "disabled_by_default": False,
             "conversion_enabled": False,
             "encryption_state": "unencrypted",
         },
-        "onboard_key_manager_configurable_status": {
-            "message": "Onboard Key Manager cannot be configured on the cluster. There are no self-encrypting disks in the cluster, and the following nodes do not support volume granular encryption: ntap-vsim2.",
-            "supported": False,
-            "code": 65537300,
-        },
-        "management_protocols": {"telnet_enabled": False, "rsh_enabled": False},
+        "fips": {"enabled": False},
     }
 )
 
@@ -260,16 +262,16 @@ with HostConnection("<mgmt_ip>", username="admin", password="password", verify=F
 ```
 Job(
     {
+        "start_time": "2019-12-12T06:45:40-05:00",
         "message": "success",
+        "uuid": "ebcbd82d-1cd4-11ea-8f75-005056ac4adc",
+        "description": "PATCH /api/security",
         "_links": {
             "self": {"href": "/api/cluster/jobs/ebcbd82d-1cd4-11ea-8f75-005056ac4adc"}
         },
         "code": 0,
-        "start_time": "2019-12-12T06:45:40-05:00",
-        "state": "success",
-        "uuid": "ebcbd82d-1cd4-11ea-8f75-005056ac4adc",
         "end_time": "2019-12-12T06:45:40-05:00",
-        "description": "PATCH /api/security",
+        "state": "success",
     }
 )
 
@@ -309,16 +311,16 @@ with HostConnection("<mgmt_ip>", username="admin", password="password", verify=F
 ```
 Job(
     {
+        "start_time": "2019-12-12T06:45:40-05:00",
         "message": "success",
+        "uuid": "ebcbd82d-1cd4-11ea-8f75-005056ac4adc",
+        "description": "PATCH /api/security",
         "_links": {
             "self": {"href": "/api/cluster/jobs/ebcbd82d-1cd4-11ea-8f75-005056ac4adc"}
         },
         "code": 0,
-        "start_time": "2019-12-12T06:45:40-05:00",
-        "state": "success",
-        "uuid": "ebcbd82d-1cd4-11ea-8f75-005056ac4adc",
         "end_time": "2019-12-12T06:45:40-05:00",
-        "description": "PATCH /api/security",
+        "state": "success",
     }
 )
 
@@ -358,16 +360,16 @@ with HostConnection("<mgmt_ip>", username="admin", password="password", verify=F
 ```
 Job(
     {
+        "start_time": "2020-04-28T06:55:40-05:00",
         "message": "success",
+        "uuid": "8e7f59ee-a9c4-4faa-9513-bef689bbf2c2",
+        "description": "PATCH /api/security",
         "_links": {
             "self": {"href": "/api/cluster/jobs/8e7f59ee-a9c4-4faa-9513-bef689bbf2c2"}
         },
         "code": 0,
-        "start_time": "2020-04-28T06:55:40-05:00",
-        "state": "success",
-        "uuid": "8e7f59ee-a9c4-4faa-9513-bef689bbf2c2",
         "end_time": "2020-04-28T06:55:41-05:00",
-        "description": "PATCH /api/security",
+        "state": "success",
     }
 )
 
@@ -412,16 +414,16 @@ with HostConnection("<mgmt_ip>", username="admin", password="password", verify=F
 ```
 Job(
     {
+        "start_time": "2021-03-22T08:52:50-05:00",
         "message": "success",
+        "uuid": "b45b6290-f4f2-442a-aa0e-4d3ffefe5e0d",
+        "description": "PATCH /api/security",
         "_links": {
             "self": {"href": "/api/cluster/jobs/b45b6290-f4f2-442a-aa0e-4d3ffefe5e0d"}
         },
         "code": 0,
-        "start_time": "2021-03-22T08:52:50-05:00",
-        "state": "success",
-        "uuid": "b45b6290-f4f2-442a-aa0e-4d3ffefe5e0d",
         "end_time": "2021-03-22T08:52:51-05:00",
-        "description": "PATCH /api/security",
+        "state": "success",
     }
 )
 

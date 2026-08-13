@@ -21,7 +21,7 @@ A function is UNSERVEABLE only when a genuine incompatibility bars it (compute
 capability / required quant library / a stored flavor outside its SM window)
 OR the author opted out of the CPU-touching rungs with
 ``Resources(strict_vram=True)`` (a binding that cannot tolerate CPU-resident
-weights — compiled fixed-shape graphs, TRT engines — and would rather refuse
+weights — compiled fixed-shape graphs — and would rather refuse
 than serve slowly). It is never refused on hardware inadequacy alone: gen
 workers don't offload to CPU because we want them to, they do it out of
 necessity — better to run degraded than not run at all (Paul's ruling,
@@ -111,13 +111,14 @@ class ServePlan:
 
 
 def _wanted(binding: Any) -> str:
-    """The precision the (post-resolution) binding plans to run: its stored
-    flavor, else its cast directive (storage_dtype — a hub pick folds in as
-    one, gw#491), else base bf16. Counting the cast here makes a SUCCESSFUL
-    cast visible (wanted=fp8 ran=fp8) instead of masquerading as bf16."""
-    flavor = str(getattr(binding, "flavor", "") or "").strip().lower()
-    if flavor:
-        return flavor
+    """The precision the (post-resolution) binding plans to run: its cast
+    directive (storage_dtype — a hub pick folds in as one, gw#491), else base
+    bf16. Counting the cast here makes a SUCCESSFUL cast visible (wanted=fp8
+    ran=fp8) instead of masquerading as bf16.
+
+    pgw#1148 dropped the STORED half: it read `binding.flavor`, and §1.32(d)
+    deleted that field. What the stored bytes are is the checkpoint's
+    tensor-layout contract, not a token on the binding."""
     storage = str(getattr(binding, "storage_dtype", "") or "").strip().lower()
     return storage or "bf16"
 

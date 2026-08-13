@@ -57,6 +57,7 @@ class GetLogStoreResponse(LogResponse):
         self.ttl = int(resp["ttl"])
         self.shard_count = int(resp["shardCount"])
         self.enable_tracking = bool(resp["enable_tracking"])
+        self.enable_modify = bool(resp.get("enableModify", False))
         self.append_meta = bool(resp["appendMeta"])
         self.auto_split = bool(resp["autoSplit"])
         self.max_split_shard = int(resp["maxSplitShard"])
@@ -99,6 +100,10 @@ class GetLogStoreResponse(LogResponse):
         :return:
         """
         return self.enable_tracking
+
+    def get_enable_modify(self):
+        """Return whether log modification and deletion are enabled."""
+        return self.enable_modify
 
     def get_encrypt_conf(self):
         """

@@ -1,4 +1,4 @@
-use tombi_config::{DateTimeDelimiter, FormatOptions, IndentStyle, StringQuoteStyle};
+use tombi_config::{CommentStyle, DateTimeDelimiter, FormatOptions, IndentStyle, StringQuoteStyle};
 
 /// FormatDefinitions provides the definition of the format that does not have the freedom set by [`FormatOptions`][crate::FormatOptions].
 ///
@@ -9,7 +9,7 @@ use tombi_config::{DateTimeDelimiter, FormatOptions, IndentStyle, StringQuoteSty
 #[cfg_attr(feature = "jsonschema", derive(schemars::JsonSchema))]
 #[derive(Debug, Default, Clone)]
 pub struct FormatDefinitions {
-    pub line_width: u8,
+    pub line_width: Option<u8>,
     pub line_ending: tombi_config::LineEnding,
     pub group_blank_lines_limit: u8,
     pub table_blank_lines: u8,
@@ -26,6 +26,7 @@ pub struct FormatDefinitions {
     pub date_time_delimiter: Option<&'static str>,
     pub array_bracket_space: String,
     pub array_comma_space: String,
+    pub comment_style: CommentStyle,
     pub inline_table_brace_space: String,
     pub inline_table_comma_space: String,
 }
@@ -37,8 +38,7 @@ impl FormatDefinitions {
                 .rules
                 .as_ref()
                 .and_then(|rules| rules.line_width)
-                .unwrap_or_default()
-                .value(),
+                .map(|line_width| line_width.value()),
             line_ending: options
                 .rules
                 .as_ref()
@@ -139,6 +139,11 @@ impl FormatDefinitions {
                     .unwrap_or_default()
                     .value() as usize,
             ),
+            comment_style: options
+                .rules
+                .as_ref()
+                .and_then(|rules| rules.comment_style)
+                .unwrap_or_default(),
             inline_table_brace_space: " ".repeat(
                 options
                     .rules

@@ -24,10 +24,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     EmsMessage(
         {
+            "name": "CR.Data.File.Inaccessible",
             "_links": {
                 "self": {"href": "/api/support/ems/messages/CR.Data.File.Inaccessible"}
             },
-            "name": "CR.Data.File.Inaccessible",
         }
     )
 ]

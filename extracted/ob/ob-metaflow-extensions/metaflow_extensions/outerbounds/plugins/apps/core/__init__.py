@@ -19,5 +19,6 @@ from .config.typed_configs import (
     AuthConfigDict,
     DependencyConfigDict,
     PackageConfigDict,
+    ProxyConfigDict,
 )
 from ._state_machine import _build_readiness_failure_reason

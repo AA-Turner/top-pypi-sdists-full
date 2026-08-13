@@ -42,15 +42,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VolumeEfficiencyPolicy(
     {
-        "svm": {"name": "vs1"},
-        "name": "new_policy",
-        "uuid": "a69d8173-450c-11e9-aa44-005056bbc848",
-        "schedule": {"name": "daily"},
-        "comment": "schedule-policy",
-        "duration": 2,
         "type": "scheduled",
-        "qos_policy": "best_effort",
+        "comment": "schedule-policy",
+        "uuid": "a69d8173-450c-11e9-aa44-005056bbc848",
+        "name": "new_policy",
+        "duration": 2,
+        "schedule": {"name": "daily"},
+        "svm": {"name": "vs1"},
         "enabled": True,
+        "qos_policy": "best_effort",
     }
 )
 
@@ -76,35 +76,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     VolumeEfficiencyPolicy(
         {
+            "uuid": "3c112527-2fe8-11e9-b55e-005056bbf1c8",
+            "name": "default",
             "_links": {
                 "self": {
                     "href": "/api/storage/volume-efficiency-policies/3c112527-2fe8-11e9-b55e-005056bbf1c8"
                 }
             },
-            "name": "default",
-            "uuid": "3c112527-2fe8-11e9-b55e-005056bbf1c8",
         }
     ),
     VolumeEfficiencyPolicy(
         {
+            "uuid": "3c1c1656-2fe8-11e9-b55e-005056bbf1c8",
+            "name": "default-1weekly",
             "_links": {
                 "self": {
                     "href": "/api/storage/volume-efficiency-policies/3c1c1656-2fe8-11e9-b55e-005056bbf1c8"
                 }
             },
-            "name": "default-1weekly",
-            "uuid": "3c1c1656-2fe8-11e9-b55e-005056bbf1c8",
         }
     ),
     VolumeEfficiencyPolicy(
         {
+            "uuid": "3c228b82-2fe8-11e9-b55e-005056bbf1c8",
+            "name": "none",
             "_links": {
                 "self": {
                     "href": "/api/storage/volume-efficiency-policies/3c228b82-2fe8-11e9-b55e-005056bbf1c8"
                 }
             },
-            "name": "none",
-            "uuid": "3c228b82-2fe8-11e9-b55e-005056bbf1c8",
         }
     ),
 ]
@@ -115,39 +115,44 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ### Retrieving the attributes of a specific volume efficiency policy
 The GET operation is used to retrieve the attributes of a specific volume efficiency policy.
-# The API:
-/api/storage/volume-efficiency-policies/{uuid}
-# The call:
-curl -X GET "https://<mgmt-ip>/api/storage/volume-efficiency-policies/3c112527-2fe8-11e9-b55e-005056bbf1c8" -H "accept: application/hal+json"
-# The response:
-HTTP/1.1 200 OK
-Date: Tue, 12 Mar 2019 21:24:48 GMT
-Server: libzapid-httpd
-X-Content-Type-Options: nosniff
-Cache-Control: no-cache,no-store,must-revalidate
-Content-Length: 381
-Content-Type: application/json
-{
-  "uuid": "3c112527-2fe8-11e9-b55e-005056bbf1c8",
-  "name": "new_policy",
-  "type": "scheduled",
-  "schedule": {
-    "name": "daily"
-  }
-  "duration": "2",
-  "qos_policy": "best_effort",
-  "enabled": "true",
-  "comment": "schedule-policy",
-  "svm": {
-        "name": "vs1"
-  }
-  "_links": {
-    "self": {
-      "href": "/api/storage/volume-efficiency-policies/3c112527-2fe8-11e9-b55e-005056bbf1c8"
-    }
-  }
-}
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import VolumeEfficiencyPolicy
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = VolumeEfficiencyPolicy(uuid="3c112527-2fe8-11e9-b55e-005056bbf1c8")
+    resource.get()
+    print(resource)
+
 ```
+<div class="try_it_out">
+<input id="example2_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example2_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example2_result" class="try_it_out_content">
+```
+VolumeEfficiencyPolicy(
+    {
+        "type": "scheduled",
+        "comment": "schedule-policy",
+        "uuid": "3c112527-2fe8-11e9-b55e-005056bbf1c8",
+        "name": "new_policy",
+        "duration": 2,
+        "schedule": {"name": "daily"},
+        "_links": {
+            "self": {
+                "href": "/api/storage/volume-efficiency-policies/3c112527-2fe8-11e9-b55e-005056bbf1c8"
+            }
+        },
+        "svm": {"name": "vs1"},
+        "enabled": True,
+        "qos_policy": "best_effort",
+    }
+)
+
+```
+</div>
+</div>
+
 ### Updating a volume efficiency policy
 The PATCH operation is used to update the specific attributes of a volume efficiency policy.
 ```python

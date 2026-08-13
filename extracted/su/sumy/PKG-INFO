@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: sumy
-Version: 0.12.0
+Version: 0.13.0
 Summary: Module for automatic summarization of text documents and HTML pages.
 Project-URL: Homepage, https://github.com/miso-belica/sumy
 Project-URL: Repository, https://github.com/miso-belica/sumy
@@ -49,32 +49,33 @@ Classifier: Topic :: Text Processing :: Linguistic
 Classifier: Topic :: Text Processing :: Markup :: HTML
 Requires-Python: >=3.8
 Requires-Dist: breadability>=0.1.20
-Requires-Dist: docopt-ng>=0.6.1
-Requires-Dist: lxml-html-clean
-Requires-Dist: nltk>=3.0.2
+Requires-Dist: docopt-ng>=0.6.3
+Requires-Dist: lxml-html-clean>=0.1.0
+Requires-Dist: nltk!=3.10.1,>=3.9.1
 Requires-Dist: pycountry>=18.2.23
-Requires-Dist: requests>=2.7.0
-Requires-Dist: setuptools>=65.0.0
+Requires-Dist: requests>=2.32.4
+Requires-Dist: setuptools<82,>=70.0.0
+Requires-Dist: setuptools<82,>=78.1.1; python_version >= '3.9'
 Provides-Extra: arabic
-Requires-Dist: pyarabic; extra == 'arabic'
+Requires-Dist: pyarabic>=0.6.14; extra == 'arabic'
 Provides-Extra: chinese
-Requires-Dist: jieba; extra == 'chinese'
+Requires-Dist: jieba>=0.39; extra == 'chinese'
 Provides-Extra: greek
-Requires-Dist: greek-stemmer-pos; extra == 'greek'
+Requires-Dist: greek-stemmer-pos>=1.1.2; extra == 'greek'
 Provides-Extra: hebrew
-Requires-Dist: hebrew-tokenizer; extra == 'hebrew'
+Requires-Dist: hebrew-tokenizer>=2.3.0; extra == 'hebrew'
 Provides-Extra: japanese
-Requires-Dist: tinysegmenter; extra == 'japanese'
+Requires-Dist: tinysegmenter>=0.3; extra == 'japanese'
 Provides-Extra: korean
-Requires-Dist: konlpy; extra == 'korean'
+Requires-Dist: konlpy>=0.6.0; extra == 'korean'
 Provides-Extra: lexrank
-Requires-Dist: numpy; extra == 'lexrank'
+Requires-Dist: numpy>=1.17.3; extra == 'lexrank'
 Provides-Extra: lsa
-Requires-Dist: numpy; extra == 'lsa'
+Requires-Dist: numpy>=1.17.3; extra == 'lsa'
 Provides-Extra: polish
-Requires-Dist: pystempel; extra == 'polish'
+Requires-Dist: pystempel>=2.0.0; extra == 'polish'
 Provides-Extra: thai
-Requires-Dist: pythainlp; extra == 'thai'
+Requires-Dist: pythainlp>=5.0.0; extra == 'thai'
 Description-Content-Type: text/markdown
 
 # Automatic text summarizer
@@ -117,7 +118,7 @@ If you want to contribute or modify the code:
 ```sh
 $ git clone https://github.com/miso-belica/sumy.git
 $ cd sumy
-$ uv sync               # Install dependencies (dev group included automatically)
+$ uv sync --all-extras  # Install dependencies (dev group included automatically)
 $ uv run pytest         # Run tests
 $ uv run sumy --help    # Run sumy using uv
 ```

@@ -1,24 +1,13 @@
-from collections.abc import Iterable
-
 from simplemma import (
-    BaseTokenSampler,
     MostCommonTokenSampler,
     RelaxedMostCommonTokenSampler,
 )
 
-
-class CustomTokenSampler(BaseTokenSampler):
-    def __init__(self, skip_tokens: int) -> None:
-        super().__init__()
-        self.skip_tokens: int = skip_tokens
-
-    def sample_tokens(self, tokens: Iterable[str]) -> list[str]:
-        return list(tokens)[self.skip_tokens :]
+from .conftest import CustomTokenSampler
 
 
-def test_token_sampler():
+def test_token_sampler() -> None:
     sampler = MostCommonTokenSampler()
-    assert sampler.sample_text("ABCD Efgh ijkl mn") == ["ijkl"]
     assert sampler.sample_text("Abcd_E Abcde") == ["Abcd", "Abcde"]
 
     sampler = MostCommonTokenSampler(capitalized_threshold=0)
@@ -32,6 +21,12 @@ def test_token_sampler():
 
     custom = CustomTokenSampler(3)
     assert custom.sample_text("ABCD Efgh ijkl mn") == []
+
+
+def test_sample_tokens_empty_token() -> None:
+    # an empty string in the iterable must not crash the capitalization filter
+    sampler = MostCommonTokenSampler()
+    assert sampler.sample_tokens(["hello", "", "World", "hello"]) == ["hello", ""]
 
 
 def test_capitalized_threshold() -> None:

@@ -26,44 +26,46 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SecurityKeystore(
         {
-            "configuration": {
-                "name": "default",
-                "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
-            },
-            "state": "active",
-            "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
-            "location": "onboard",
             "type": "okm",
-            "scope": "cluster",
+            "location": "onboard",
+            "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
+            "configuration": {
+                "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
+                "name": "default",
+            },
             "enabled": True,
-        }
-    ),
-    SecurityKeystore(
-        {
-            "configuration": {
-                "name": "default",
-                "uuid": "d81f43cd-4e9f-11ef-b477-005056bb677e",
-            },
-            "uuid": "d81f43cd-4e9f-11ef-b477-005056bb677e",
-            "location": "external",
-            "type": "kmip",
-            "scope": "cluster",
-            "enabled": False,
-        }
-    ),
-    SecurityKeystore(
-        {
-            "svm": {"name": "vs0", "uuid": "3cbe691b-4ea0-11ef-b477-005056bb677e"},
-            "configuration": {
-                "name": "default",
-                "uuid": "7da22185-4ea0-11ef-b477-005056bb677e",
-            },
             "state": "active",
-            "uuid": "7da22185-4ea0-11ef-b477-005056bb677e",
-            "location": "external",
+            "is_svm_kek": False,
+            "scope": "cluster",
+        }
+    ),
+    SecurityKeystore(
+        {
             "type": "kmip",
-            "scope": "svm",
+            "location": "external",
+            "uuid": "d81f43cd-4e9f-11ef-b477-005056bb677e",
+            "configuration": {
+                "uuid": "d81f43cd-4e9f-11ef-b477-005056bb677e",
+                "name": "default",
+            },
+            "enabled": False,
+            "scope": "cluster",
+        }
+    ),
+    SecurityKeystore(
+        {
+            "type": "kmip",
+            "location": "external",
+            "uuid": "7da22185-4ea0-11ef-b477-005056bb677e",
+            "svm": {"uuid": "3cbe691b-4ea0-11ef-b477-005056bb677e", "name": "vs0"},
+            "configuration": {
+                "uuid": "7da22185-4ea0-11ef-b477-005056bb677e",
+                "name": "default",
+            },
             "enabled": True,
+            "state": "active",
+            "is_svm_kek": False,
+            "scope": "svm",
         }
     ),
 ]
@@ -92,16 +94,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SecurityKeystore(
     {
-        "configuration": {
-            "name": "default",
-            "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
-        },
-        "state": "active",
-        "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
-        "location": "onboard",
         "type": "okm",
-        "scope": "cluster",
+        "location": "onboard",
+        "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
+        "configuration": {
+            "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
+            "name": "default",
+        },
         "enabled": True,
+        "state": "active",
+        "is_svm_kek": False,
+        "scope": "cluster",
     }
 )
 
@@ -175,6 +178,12 @@ class SecurityKeystoreSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
         allow_none=True,
     )
     r""" Indicates whether the configuration is enabled."""
+
+    is_svm_kek = marshmallow_fields.Boolean(
+        data_key="is_svm_kek",
+        allow_none=True,
+    )
+    r""" Indicates whether the keystore is SVM-KEK based."""
 
     location = marshmallow_fields.Str(
         data_key="location",
@@ -252,6 +261,7 @@ Valid choices:
     gettable_fields = [
         "configuration",
         "enabled",
+        "is_svm_kek",
         "location",
         "scope",
         "state",
@@ -261,7 +271,7 @@ Valid choices:
         "type",
         "uuid",
     ]
-    """configuration,enabled,location,scope,state,svm.links,svm.name,svm.uuid,type,uuid,"""
+    """configuration,enabled,is_svm_kek,location,scope,state,svm.links,svm.name,svm.uuid,type,uuid,"""
 
     patchable_fields = [
         "enabled",

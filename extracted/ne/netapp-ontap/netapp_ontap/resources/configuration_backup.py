@@ -25,7 +25,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example0_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example0_result" class="try_it_out_content">
 ```
-ConfigurationBackup({"username": "me", "url": "http://10.224.65.198/backups"})
+ConfigurationBackup({"url": "http://10.224.65.198/backups", "username": "me"})
 
 ```
 </div>

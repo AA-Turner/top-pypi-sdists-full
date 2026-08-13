@@ -47,6 +47,7 @@ from .writer import (
 )
 from .convert import run_inline_conversion
 from .dtype_pins import (
+    DTYPE_BITS as _DTYPE_STORAGE_BITS,
     cast_exempt_components,
     check_explicit_pin_conflict,
     verify_produced_tree,
@@ -54,7 +55,7 @@ from .dtype_pins import (
 from .layout import canonical_model_family_from_variant, infer_model_family_variant_from_hint
 from .registry import repackage_family
 from ..api.slot import OBJECTIVES
-from gen_worker.models.refs import flavor_token
+from .hub import _dtype_token
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +94,7 @@ class OutputSpec:
     @property
     def label(self) -> str:
 
-        return flavor_token(f"{self.dtype}-{self.file_layout}-{self.file_type}")
+        return _dtype_token(f"{self.dtype}-{self.file_layout}-{self.file_type}")
 
 
 @dataclass
@@ -412,18 +413,8 @@ _CAST_ELIGIBLE_PUBLISH_AS_IS_STRATEGIES = frozenset({
     "diffusers_component",
 })
 _DIRECT_GGUF_ENCODINGS = frozenset({"f32", "f16", "bf16", "q8_0"})
-_DTYPE_STORAGE_BITS = {
-    "fp32": 32, "f32": 32, "float32": 32,
-    "bf16": 16, "fp16": 16, "f16": 16, "float16": 16,
-    "fp8": 8, "fp8:e5m2": 8, "q8_0": 8,
-    "q6_k": 6,
-    "q5_k_m": 5, "q5_k_s": 5,
-    "nvfp4": 4, "int4": 4, "int4:nf4": 4, "int4:fp4": 4,
-    "nf4": 4, "fp4": 4, "q4_k_m": 4, "q4_k_s": 4, "q4_0": 4,
-    "q4_1": 4,
-    "q3_k_m": 3, "q3_k_s": 3,
-    "q2_k": 2,
-}
+# Storage widths live in dtype_pins.DTYPE_BITS (one table, one fact —
+# clone.py carried a drifting duplicate until pgw#1180).
 # pgw#1121. The source's dtype is READ at plan time from the safetensors
 # headers (`ingest.stamp_plan_source_dtype`), so this fires only when no
 # header could be read at all. It is 32 — the widest DENSE width — and the
@@ -885,7 +876,7 @@ def run_clone(
         publish_as_is = strategy in _PUBLISH_AS_IS_STRATEGIES or no_repackager
 
         for i, spec in enumerate(specs):
-            flavor_label = spec.dtype
+            dtype_label = spec.dtype
             try:
                 if publish_as_is:
                     source_dtype = str(source.attrs.get("dtype") or "").strip().lower()
@@ -898,7 +889,7 @@ def run_clone(
                         # requested.
                         tree = source.dir
                         attrs = dict(source.attrs)
-                        flavor_label = source_dtype or spec.dtype
+                        dtype_label = source_dtype or spec.dtype
                         # th#1362: this passthrough bypasses build_flavor_tree
                         # entirely (every one of ITS branches de-shards), so
                         # de-shard it here too — the ruling is EXPLICIT that
@@ -955,7 +946,7 @@ def run_clone(
                             objective=objective_fact,
                             distilled=distilled_fact,
                         )
-                        flavor_label = str(attrs.get("dtype") or spec.dtype)
+                        dtype_label = str(attrs.get("dtype") or spec.dtype)
                     else:
                         # Only the source's own flavor is published for
                         # classes this worker cannot cast in-line (quant/gguf
@@ -988,13 +979,10 @@ def run_clone(
                             distilled=distilled_fact,
                         )
                     # dtype="source" resolves to the detected on-disk dtype.
-                    flavor_label = str(attrs.get("dtype") or spec.dtype)
-                # Hub flavor tokens are [a-z0-9][a-z0-9._-]{0,63}: the gguf
-                # dtype-axis label ("gguf:q4_k_m") publishes as "gguf-q4_k_m"
-                # (the th#611 flavor convention).
-                from gen_worker.models.refs import flavor_token
-
-                flavor_label = flavor_token(flavor_label)
+                    dtype_label = str(attrs.get("dtype") or spec.dtype)
+                # The gguf dtype-axis label ("gguf:q4_k_m") publishes as
+                # "gguf-q4_k_m"; the hub's dtype column takes the dash form.
+                dtype_label = _dtype_token(dtype_label)
             except InlineConversionNotPossible as exc:
                 entry: dict[str, Any] = {
                     "spec_label": spec.label, "dtype": spec.dtype,
@@ -1018,7 +1006,7 @@ def run_clone(
             # gw#522: EVERY publish path emits canonical filenames — this
             # seam also covers the publish-as-is lane build_flavor_tree
             # never touches. Idempotent on already-normalized trees.
-            if spec.file_type != "gguf" and flavor_label in _CAST_NORMALIZE_DTYPES:
+            if spec.file_type != "gguf" and dtype_label in _CAST_NORMALIZE_DTYPES:
                 _normalize_variant_filenames(Path(tree))
 
             files = files_from_tree(tree)
@@ -1088,12 +1076,11 @@ def run_clone(
                 files=files,
                 tags=tags,
                 mode=mode if i == 0 else "merge",
-                flavor=flavor_label,
-                # gw#419: the PRIMARY output also owns the bare selector row —
-                # tensorhub (th#597 C1) never moves flavor='' for an
-                # explicit-flavor publish unless default_flavor names it, and
-                # every serve/convert flow references mirrors bare (repo:tag).
-                default_flavor=flavor_label if i == 0 else "",
+                # gw#419, re-keyed by pgw#1159: the PRIMARY output owns the
+                # bare row. th#1803 replaced `default_flavor` with `head` —
+                # a variant publish joins the tag group, and the head is
+                # stated, not inferred from a flavor token.
+                head=(i == 0),
                 dtype=str(attrs.get("dtype") or spec.dtype),
                 file_layout=str(attrs.get("file_layout") or spec.file_layout),
                 file_type=str(attrs.get("file_type") or spec.file_type),
@@ -1124,7 +1111,10 @@ def run_clone(
                 },
             )
             result.published.append({
-                "flavor": flavor_label,
+                # pgw#1159: the report states the DTYPE it published, not a
+                # flavor token — the token names nothing catalog-side.
+                "dtype": dtype_label,
+                "head": i == 0,
                 "spec_label": spec.label,
                 "revision_id": commit.revision_id,
                 "checkpoint_id": commit.checkpoint_id,

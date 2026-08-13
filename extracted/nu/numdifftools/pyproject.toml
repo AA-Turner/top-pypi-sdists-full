@@ -10,7 +10,7 @@ maintainers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "numpy>=1.21.2",
+    "numpy>=2.0",
     "scipy>=1.7.3",
 ]
 readme = "README.rst"
@@ -34,7 +34,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Mathematics",
     "Topic :: Scientific/Engineering :: GIS",
 ]
-version = "0.9.42"
+version = "0.10.1"
 
 [project.license]
 text = "new BSD"
@@ -42,6 +42,10 @@ text = "new BSD"
 [project.optional-dependencies]
 plot = [
     "matplotlib>=3.8.0",
+]
+tools = [
+    "algopy>=0.4",
+    "statsmodels>=0.6",
 ]
 
 [project.urls]
@@ -65,10 +69,11 @@ source = "file"
 path = "src/numdifftools/__init__.py"
 
 [tool.pdm.scripts]
-docs-html = "sphinx-build -b html docs docs/_build/html -d docs/_build/doctrees"
-docs-latex = "sphinx-build -b latex docs docs/_build/latex -d docs/_build/doctrees"
-docs-pdf = "sphinx-build -b latexpdf docs docs/_build/latex -d docs/_build/doctrees"
-docs-doctest = "sphinx-build -b doctest docs docs/_build/doctest -d docs/_build/doctrees"
+docs-html = "python -m sphinx -b html docs docs/_build/html -d docs/_build/doctrees"
+docs-latex = "python -m sphinx -b latex docs docs/_build/latex -d docs/_build/doctrees"
+docs-pdf = "python -m sphinx -b latexpdf docs docs/_build/latex -d docs/_build/doctrees"
+docs-doctest = "python -m sphinx -b doctest docs docs/_build/doctest -d docs/_build/doctrees"
+lock = "pdm lock -dG all"
 lock-py314 = "pdm lock -L pdm.lock314 --python 3.14 --strategy no_direct_minimal_versions -dG all"
 lock-win64 = "pdm lock -L pdm_windows.lock --python 3.13 --strategy no_direct_minimal_versions --platform windows -dG all"
 lock-linux = "pdm lock -L pdm_linux.lock --python 3.13 --strategy no_direct_minimal_versions --platform linux -dG all"
@@ -76,11 +81,21 @@ lock-macos = "pdm lock -L pdm_macos.lock --python 3.13 --strategy no_direct_mini
 format = "ruff format ./src/"
 check-style = "ruff check ./src/"
 check-types = "mypy ./src/"
+show-version = "python -c \"from numdifftools import __version__; print(__version__)\""
 show-next-version = "git-cliff --bumped-version"
 show-next-changelog = "git-cliff"
 append-changelog = "git-cliff --unreleased --prepend CHANGELOG.md"
 update-license = "python build_package.py update-license"
 update-readme = "python build_package.py update-readme"
+
+[tool.pdm.scripts.docs-generate-api]
+cmd = "sphinx-apidoc -f -o docs/api src/numdifftools"
+
+[tool.pdm.scripts.lock-all]
+composite = [
+    "lock",
+    "lock-py314",
+]
 
 [tool.pdm.scripts.tests]
 cmd = "pytest"
@@ -92,8 +107,9 @@ MPLBACKEND = "Agg"
 composite = [
     "format",
     "check-style",
-    "test",
-    "doctest",
+    "check-types",
+    "tests",
+    "docs-doctest",
 ]
 
 [tool.pdm.scripts.prepare-release]
@@ -103,47 +119,29 @@ composite = [
     "append-changelog",
 ]
 
-[tool.pdm.dev-dependencies]
-build = [
-    "setuptools>=39.2",
-    "spyder-kernels",
-    "git-cliff>=2.6.1",
-    "pdm-bump>=0.9.8",
-    "click>=8.3.1",
+[tool.coverage.run]
+source = [
+    "src/numdifftools",
 ]
-test = [
-    "nox",
-    "pytest",
-    "pytest-cov",
-    "pytest-pep8",
-    "algopy>=0.4",
-    "statsmodels>=0.6",
-    "line_profiler",
-    "hypothesis>=3.6",
-    "matplotlib>=3.8.0",
-    "pytest-ruff>=0.4.1",
-    "ruff>=0.0.47",
-    "pytest-mypy>=0.10.3",
-    "mypy>=1.11.2",
-]
-sphinx = [
-    "sphinx>=1.3.1",
-    "sphinx_rtd_theme>=0.1.7",
-    "sphinxcontrib-napoleon",
-    "sphinxcontrib-bibtex",
-    "myst_parser",
-]
-all = [
-    "numdifftools[build,plot,test,sphinx]",
-]
+
+[tool.coverage.report]
+xml_report = true
 
 [tool.mypy]
 strict = true
 explicit_package_bases = false
 no_namespace_packages = true
 warn_return_any = false
-disable_error_code = "import-untyped"
-plugins = "numpy.typing.mypy_plugin"
+warn_unused_ignores = true
+disable_error_code = [
+    "import-untyped",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "numdifftools.*",
+]
+disallow_untyped_calls = false
 
 [[tool.mypy.overrides]]
 module = [
@@ -178,6 +176,7 @@ select = [
     "F",
     "I",
     "Q",
+    "UP",
 ]
 ignore = [
     "D417",
@@ -199,7 +198,41 @@ doctest_optionflags = [
     "IGNORE_EXCEPTION_DETAIL",
     "ELLIPSIS",
 ]
-addopts = "-rsxXf --doctest-modules --cov=numdifftools --cov-report=xml"
+addopts = "-rsxXf"
 testpaths = [
     "src",
+]
+
+[dependency-groups]
+build = [
+    "setuptools>=39.2",
+    "spyder-kernels",
+    "click>=8.3.1",
+]
+release = [
+    "git-cliff>=2.6.1",
+    "pdm-bump>=0.9.8",
+]
+test = [
+    "nox",
+    "pytest",
+    "pytest-cov",
+    "line_profiler",
+    "hypothesis>=3.6",
+    "ruff>=0.0.47",
+    "mypy>=1.11.2",
+    "numdifftools[plot,tools]",
+]
+sphinx = [
+    "sphinx>=1.3.1",
+    "sphinx_rtd_theme>=0.1.7",
+    "sphinxcontrib-napoleon",
+    "sphinxcontrib-bibtex",
+    "myst_parser",
+]
+develop = [
+    "numdifftools[tools,build,test,sphinx]",
+]
+all = [
+    "numdifftools[plot,tools,build,release,test,sphinx]",
 ]

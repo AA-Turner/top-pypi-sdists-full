@@ -32,14 +32,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     UnixGroupUsers(
         {
+            "unix_group": {"name": "pcuser"},
+            "name": "user1",
             "_links": {
                 "self": {
                     "href": "/api/name-services/unix-groups/f06686a2-c901-11eb-94b4-0050568e9f2c/pcuser/users/user1"
                 }
             },
-            "name": "user1",
-            "unix_group": {"name": "pcuser"},
-            "svm": {"name": "svm1", "uuid": "f06686a2-c901-11eb-94b4-0050568e9f2c"},
+            "svm": {"uuid": "f06686a2-c901-11eb-94b4-0050568e9f2c", "name": "svm1"},
         }
     )
 ]
@@ -68,14 +68,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 UnixGroupUsers(
     {
+        "unix_group": {"name": "pcuser"},
+        "name": "user1",
         "_links": {
             "self": {
                 "href": "/api/name-services/unix-groups/f06686a2-c901-11eb-94b4-0050568e9f2c/pcuser/users/user1"
             }
         },
-        "name": "user1",
-        "unix_group": {"name": "pcuser"},
-        "svm": {"name": "svm1", "uuid": "f06686a2-c901-11eb-94b4-0050568e9f2c"},
+        "svm": {"uuid": "f06686a2-c901-11eb-94b4-0050568e9f2c", "name": "svm1"},
     }
 )
 

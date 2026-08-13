@@ -31,56 +31,56 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FpolicyConnection(
         {
-            "policy": {"name": "p1"},
             "disconnected_reason": {
                 "message": "No local lif present to connect to FPolicy server.",
                 "code": 9305,
             },
-            "state": "disconnected",
-            "update_time": "2021-06-17T16:05:15+05:30",
             "type": "primary",
             "server": "192.168.137.78",
+            "svm": {"uuid": "9f738ac5-c502-11eb-b82c-0050568e5902", "name": "vs1"},
             "node": {
-                "name": "user-vsim4",
                 "uuid": "8ca36b68-c501-11eb-b82c-0050568e5902",
+                "name": "user-vsim4",
             },
-            "svm": {"name": "vs1", "uuid": "9f738ac5-c502-11eb-b82c-0050568e5902"},
+            "update_time": "2021-06-17T16:05:15+05:30",
+            "policy": {"name": "p1"},
+            "state": "disconnected",
         }
     ),
     FpolicyConnection(
         {
-            "policy": {"name": "p2"},
             "disconnected_reason": {
                 "message": "No local lif present to connect to FPolicy server.",
                 "code": 9305,
             },
-            "state": "disconnected",
-            "update_time": "2021-06-17T16:05:15+05:30",
             "type": "primary",
             "server": "192.168.136.38",
+            "svm": {"uuid": "9f738ac5-c502-11eb-b82c-0050568e5902", "name": "vs1"},
             "node": {
-                "name": "user-vsim4",
                 "uuid": "8ca36b68-c501-11eb-b82c-0050568e5902",
+                "name": "user-vsim4",
             },
-            "svm": {"name": "vs1", "uuid": "9f738ac5-c502-11eb-b82c-0050568e5902"},
+            "update_time": "2021-06-17T16:05:15+05:30",
+            "policy": {"name": "p2"},
+            "state": "disconnected",
         }
     ),
     FpolicyConnection(
         {
-            "policy": {"name": "pol1"},
             "disconnected_reason": {
                 "message": "No local lif present to connect to FPolicy server.",
                 "code": 9305,
             },
-            "state": "disconnected",
-            "update_time": "2021-06-17T16:05:15+05:30",
             "type": "primary",
             "server": "192.168.129.146",
+            "svm": {"uuid": "b6df362b-c502-11eb-b82c-0050568e5902", "name": "vs2"},
             "node": {
-                "name": "user-vsim4",
                 "uuid": "8ca36b68-c501-11eb-b82c-0050568e5902",
+                "name": "user-vsim4",
             },
-            "svm": {"name": "vs2", "uuid": "b6df362b-c502-11eb-b82c-0050568e5902"},
+            "update_time": "2021-06-17T16:05:15+05:30",
+            "policy": {"name": "pol1"},
+            "state": "disconnected",
         }
     ),
 ]
@@ -114,28 +114,28 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FpolicyConnection(
         {
+            "server": "192.168.129.146",
+            "svm": {"uuid": "a69e938d-c7ca-11eb-a07a-0050568ebc01", "name": "vs2"},
+            "node": {
+                "uuid": "55693090-c7c8-11eb-a07a-0050568ebc01",
+                "name": "user-vsim3",
+            },
             "policy": {"name": "pol1"},
             "state": "connected",
             "session_uuid": "2410d348-c7cb-11eb-a07a-0050568ebc01",
-            "server": "192.168.129.146",
-            "node": {
-                "name": "user-vsim3",
-                "uuid": "55693090-c7c8-11eb-a07a-0050568ebc01",
-            },
-            "svm": {"name": "vs2", "uuid": "a69e938d-c7ca-11eb-a07a-0050568ebc01"},
         }
     ),
     FpolicyConnection(
         {
+            "server": "192.168.129.146",
+            "svm": {"uuid": "a69e938d-c7ca-11eb-a07a-0050568ebc01", "name": "vs2"},
+            "node": {
+                "uuid": "55693090-c7c8-11eb-a07a-0050568ebc01",
+                "name": "user-vsim3",
+            },
             "policy": {"name": "pol2"},
             "state": "connected",
             "session_uuid": "288f7002-c7cb-11eb-a07a-0050568ebc01",
-            "server": "192.168.129.146",
-            "node": {
-                "name": "user-vsim3",
-                "uuid": "55693090-c7c8-11eb-a07a-0050568ebc01",
-            },
-            "svm": {"name": "vs2", "uuid": "a69e938d-c7ca-11eb-a07a-0050568ebc01"},
         }
     ),
 ]
@@ -171,38 +171,38 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FpolicyConnection(
         {
-            "policy": {"name": "p1"},
             "disconnected_reason": {
                 "message": "No local lif present to connect to FPolicy server.",
                 "code": 9305,
             },
-            "state": "disconnected",
-            "update_time": "2021-06-17T16:05:15+05:30",
             "type": "primary",
             "server": "192.168.137.78",
+            "svm": {"uuid": "9f738ac5-c502-11eb-b82c-0050568e5902", "name": "vs1"},
             "node": {
-                "name": "user-vsim4",
                 "uuid": "8ca36b68-c501-11eb-b82c-0050568e5902",
+                "name": "user-vsim4",
             },
-            "svm": {"name": "vs1", "uuid": "9f738ac5-c502-11eb-b82c-0050568e5902"},
+            "update_time": "2021-06-17T16:05:15+05:30",
+            "policy": {"name": "p1"},
+            "state": "disconnected",
         }
     ),
     FpolicyConnection(
         {
-            "policy": {"name": "p2"},
             "disconnected_reason": {
                 "message": "No local lif present to connect to FPolicy server.",
                 "code": 9305,
             },
-            "state": "disconnected",
-            "update_time": "2021-06-17T16:05:15+05:30",
             "type": "primary",
             "server": "192.168.136.38",
+            "svm": {"uuid": "9f738ac5-c502-11eb-b82c-0050568e5902", "name": "vs1"},
             "node": {
-                "name": "user-vsim4",
                 "uuid": "8ca36b68-c501-11eb-b82c-0050568e5902",
+                "name": "user-vsim4",
             },
-            "svm": {"name": "vs1", "uuid": "9f738ac5-c502-11eb-b82c-0050568e5902"},
+            "update_time": "2021-06-17T16:05:15+05:30",
+            "policy": {"name": "p2"},
+            "state": "disconnected",
         }
     ),
 ]
@@ -235,17 +235,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyConnection(
     {
-        "policy": {"name": "p1"},
         "disconnected_reason": {
             "message": "No local lif present to connect to FPolicy server.",
             "code": 9305,
         },
-        "state": "disconnected",
-        "update_time": "2021-06-17T16:05:15+05:30",
         "type": "primary",
         "server": "192.168.137.78",
-        "node": {"name": "user-vsim4", "uuid": "8ca36b68-c501-11eb-b82c-0050568e5902"},
-        "svm": {"name": "vs1", "uuid": "9f738ac5-c502-11eb-b82c-0050568e5902"},
+        "svm": {"uuid": "9f738ac5-c502-11eb-b82c-0050568e5902", "name": "vs1"},
+        "node": {"uuid": "8ca36b68-c501-11eb-b82c-0050568e5902", "name": "user-vsim4"},
+        "update_time": "2021-06-17T16:05:15+05:30",
+        "policy": {"name": "p1"},
+        "state": "disconnected",
     }
 )
 

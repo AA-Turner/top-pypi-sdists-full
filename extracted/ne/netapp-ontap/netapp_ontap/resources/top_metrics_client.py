@@ -16,7 +16,6 @@ The API can sometimes fail to return the list of clients with the most I/O activ
 * The NFS/CIFS client operations are being served by the client-side filesystem cache.
 * The NFS/CIFS client operations are being buffered by the client operating system.
 * On rare occasions, the incoming traffic pattern is not suitable to obtain the list of clients with the most I/O activity.
-* NFSv4 client read operations using Multi-Processor I/O (MPIO) are not tracked.
 ## Retrieve a list of the clients with the most I/O activity
 For a report on the clients with the most I/O activity returned in descending order, specify the I/O activity type you want to filter for by passing the `iops` or `throughput` I/O activity type into the top_metric parameter. If the I/O activity type is not specified, by default the API returns a list of clients with the greatest number of average read operations per second. The current maximum number of clients returned by the API for an I/O activity type is 25.
 
@@ -41,56 +40,56 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsClient(
         {
-            "volume": {"name": "vol1"},
             "iops": {
-                "error": {"lower_bound": 1495, "upper_bound": 1505},
                 "write": 1495,
+                "error": {"lower_bound": 1495, "upper_bound": 1505},
+            },
+            "volume": {"name": "vol1"},
+            "svm": {
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
+                    }
+                },
+                "name": "vs1",
             },
             "client_ip": "172.28.71.128",
+        }
+    ),
+    TopMetricsClient(
+        {
+            "iops": {
+                "write": 1022,
+                "error": {"lower_bound": 1022, "upper_bound": 1032},
+            },
+            "volume": {"name": "vol1"},
             "svm": {
-                "name": "vs1",
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
                     }
                 },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
-            },
-        }
-    ),
-    TopMetricsClient(
-        {
-            "volume": {"name": "vol1"},
-            "iops": {
-                "error": {"lower_bound": 1022, "upper_bound": 1032},
-                "write": 1022,
+                "name": "vs1",
             },
             "client_ip": "172.28.71.179",
-            "svm": {
-                "name": "vs1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
-                    }
-                },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
-            },
         }
     ),
     TopMetricsClient(
         {
+            "iops": {"write": 345, "error": {"lower_bound": 345, "upper_bound": 355}},
             "volume": {"name": "vol1"},
-            "iops": {"error": {"lower_bound": 345, "upper_bound": 355}, "write": 345},
-            "client_ip": "172.28.51.62",
             "svm": {
-                "name": "vs1",
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
                     }
                 },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
+                "name": "vs1",
             },
+            "client_ip": "172.28.51.62",
         }
     ),
 ]
@@ -182,6 +181,22 @@ Example: 192.168.185.170"""
             )
     r""" The throughput field of the top_metrics_client."""
 
+    total_ops = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.top_metrics_client_total_ops", "TopMetricsClientTotalOpsSchema"),
+                data_key="total_ops",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" The total_ops field of the top_metrics_client."""
+
+    total_throughput = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.top_metrics_client_total_throughput", "TopMetricsClientTotalThroughputSchema"),
+                data_key="total_throughput",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" The total_throughput field of the top_metrics_client."""
+
     volume = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.resources.volume", "VolumeSchema"),
                 data_key="volume",
@@ -201,23 +216,29 @@ Example: 192.168.185.170"""
         "svm.name",
         "svm.uuid",
         "throughput",
+        "total_ops",
+        "total_throughput",
         "volume.links",
         "volume.name",
         "volume.uuid",
     ]
-    """client_ip,iops,svm.links,svm.name,svm.uuid,throughput,volume.links,volume.name,volume.uuid,"""
+    """client_ip,iops,svm.links,svm.name,svm.uuid,throughput,total_ops,total_throughput,volume.links,volume.name,volume.uuid,"""
 
     patchable_fields = [
         "iops",
         "throughput",
+        "total_ops",
+        "total_throughput",
     ]
-    """iops,throughput,"""
+    """iops,throughput,total_ops,total_throughput,"""
 
     postable_fields = [
         "iops",
         "throughput",
+        "total_ops",
+        "total_throughput",
     ]
-    """iops,throughput,"""
+    """iops,throughput,total_ops,total_throughput,"""
 
 class TopMetricsClient(Resource):
     r""" Information about a client's IO activity. """

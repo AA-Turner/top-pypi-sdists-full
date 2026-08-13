@@ -1,1 +1,0 @@
-import{t as e}from"./flowGraphAsyncExecutionBlock-Bog9ai_0.js";var t=class extends e{constructor(){super(...arguments),this.initPriority=0,this.type=`NoTrigger`}_execute(e){e._notifyExecuteNode(this),this.done._activateSignal(e)}};export{t};

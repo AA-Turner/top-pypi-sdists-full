@@ -2,15 +2,19 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from functools import cache, cached_property
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from omnimalloc.allocators import BaseAllocator
 
+from omnimalloc.analysis._pressure import antichain_pressure as _pressure
+from omnimalloc.common.validation import ensure_non_negative
+
 from .allocation import Allocation, IdType
-from .utils import get_pressure
+from .utils import ensure_allocations, ensure_unique_ids
 
 
 @dataclass(frozen=True)
@@ -22,35 +26,27 @@ class Pool:
     offset: int | None = None
 
     def __post_init__(self) -> None:
-        if len({alloc.id for alloc in self.allocations}) != len(self.allocations):
-            raise ValueError("allocation ids must be unique")
-        if self.offset is not None and self.offset < 0:
-            raise ValueError(f"offset must be non-negative, got {self.offset}")
+        object.__setattr__(self, "allocations", ensure_allocations(self.allocations))
+        ensure_unique_ids(self.allocations, "allocation")
+        if self.offset is not None:
+            ensure_non_negative(self.offset, "offset")
+
+    @classmethod
+    def from_allocations(cls, allocations: Sequence[Allocation]) -> "Pool":
+        """Wrap a raw sequence of allocations in an anonymous pool."""
+        return cls(id=0, allocations=ensure_allocations(allocations))
 
     @cached_property
     def size(self) -> int:
-        """Actual memory used (max - min of allocated offsets)."""
+        """Extent from the pool base (offset 0) to the highest allocated end."""
         if not self.is_allocated:
             raise ValueError("cannot compute size of unallocated pool")
-        offsets = [
-            alloc.offset for alloc in self.allocations if alloc.offset is not None
-        ]
-        ends = [
-            alloc.offset + alloc.size
-            for alloc in self.allocations
-            if alloc.offset is not None
-        ]
-        return max(ends, default=0) - min(offsets, default=0)
-
-    @cached_property
-    def total_size(self) -> int:
-        """Sum of all allocation sizes (ignoring temporal overlap)."""
-        return sum(alloc.size for alloc in self.allocations)
+        return max((alloc.height or 0 for alloc in self.allocations), default=0)
 
     @cached_property
     def pressure(self) -> int:
         """Peak memory pressure (max cut through all buffer lifetimes)."""
-        return get_pressure(self.allocations)
+        return _pressure(self.allocations)
 
     @cached_property
     def efficiency(self) -> float:
@@ -66,7 +62,11 @@ class Pool:
         """True if all allocations have been assigned memory offsets."""
         return all(alloc.offset is not None for alloc in self.allocations)
 
-    @cache
+    @cached_property
+    def any_allocated(self) -> bool:
+        """True if any allocation has been assigned a memory offset."""
+        return any(alloc.offset is not None for alloc in self.allocations)
+
     def overlaps(self, other: "Pool") -> bool:
         """True if pools overlap in memory space."""
         if self.offset is None or other.offset is None:
@@ -76,11 +76,16 @@ class Pool:
             and other.offset < self.offset + self.size
         )
 
-    @cache
     def with_allocations(self, allocations: tuple[Allocation, ...]) -> "Pool":
         """Return new Pool with specified allocations."""
         return Pool(id=self.id, offset=self.offset, allocations=allocations)
 
     def allocate(self, allocator: "BaseAllocator") -> "Pool":
-        """Apply allocator to assign memory offsets to all allocations."""
-        return self.with_allocations(allocator.allocate(self.allocations))
+        """Assign offsets to the unpinned allocations, preserving input order."""
+        allocated = allocator.allocate(self.allocations)
+        # Allocators may reorder internally; restore the pool's input order so
+        # positions in the returned tuple keep corresponding to the request
+        placed_by_id = {a.id: a for a in allocated}
+        return self.with_allocations(
+            tuple(placed_by_id[a.id] for a in self.allocations)
+        )

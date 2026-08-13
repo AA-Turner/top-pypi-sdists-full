@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-odb
-Version: 1.43.56
-Summary: Type annotations for boto3 Odb 1.43.56 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.70
+Summary: Type annotations for boto3 Odb 1.43.70 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 Odb 1.43.56](https://pypi.org/project/boto3/)
+Type annotations for [boto3 Odb 1.43.70](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -104,7 +104,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.56' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.70' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `Odb` service.
 4. Use provided commands to install generated packages.
@@ -350,6 +350,9 @@ from mypy_boto3_odb.paginator import (
     ListDbNodesPaginator,
     ListDbServersPaginator,
     ListDbSystemShapesPaginator,
+    ListExadbVmClustersPaginator,
+    ListExascaleDbStorageVaultsPaginator,
+    ListGiMinorVersionsPaginator,
     ListGiVersionsPaginator,
     ListOdbNetworksPaginator,
     ListOdbPeeringConnectionsPaginator,
@@ -394,6 +397,15 @@ list_db_nodes_paginator: ListDbNodesPaginator = client.get_paginator("list_db_no
 list_db_servers_paginator: ListDbServersPaginator = client.get_paginator("list_db_servers")
 list_db_system_shapes_paginator: ListDbSystemShapesPaginator = client.get_paginator(
     "list_db_system_shapes"
+)
+list_exadb_vm_clusters_paginator: ListExadbVmClustersPaginator = client.get_paginator(
+    "list_exadb_vm_clusters"
+)
+list_exascale_db_storage_vaults_paginator: ListExascaleDbStorageVaultsPaginator = (
+    client.get_paginator("list_exascale_db_storage_vaults")
+)
+list_gi_minor_versions_paginator: ListGiMinorVersionsPaginator = client.get_paginator(
+    "list_gi_minor_versions"
 )
 list_gi_versions_paginator: ListGiVersionsPaginator = client.get_paginator("list_gi_versions")
 list_odb_networks_paginator: ListOdbNetworksPaginator = client.get_paginator("list_odb_networks")

@@ -27,21 +27,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     NetgroupsSettings(
         {
             "ttl_byhost": "P1D",
-            "enabled": True,
             "negative_cache_enabled_byhost": True,
             "ttl_for_members": "PT30M",
             "negative_ttl_byhost": "PT30M",
-            "svm": {"name": "vs43", "uuid": "8a1a8730-2036-11ec-8457-005056bbcfdb"},
+            "svm": {"uuid": "8a1a8730-2036-11ec-8457-005056bbcfdb", "name": "vs43"},
+            "enabled": True,
         }
     ),
     NetgroupsSettings(
         {
             "ttl_byhost": "PT2H",
-            "enabled": True,
             "negative_cache_enabled_byhost": True,
             "ttl_for_members": "PT30M",
             "negative_ttl_byhost": "PT30M",
-            "svm": {"name": "vs34", "uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef"},
+            "svm": {"uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef", "name": "vs34"},
+            "enabled": True,
         }
     ),
 ]
@@ -72,11 +72,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 NetgroupsSettings(
     {
         "ttl_byhost": "P1D",
-        "enabled": True,
         "negative_cache_enabled_byhost": True,
         "ttl_for_members": "PT30M",
         "negative_ttl_byhost": "PT30M",
-        "svm": {"name": "vs34", "uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef"},
+        "svm": {"uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef", "name": "vs34"},
+        "enabled": True,
     }
 )
 

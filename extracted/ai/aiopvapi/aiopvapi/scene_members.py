@@ -21,7 +21,7 @@ _LOGGER = logging.getLogger(__name__)
 class SceneMembers(ApiEntryPoint):
     """A scene member is a device, like a shade, being a member of a specific scene."""
 
-    api_endpoint = "sceneMembers"
+    api_endpoint = "scenemembers"
 
     def __init__(self, request: AioRequest) -> None:
         """Initialize SceneMembers."""
@@ -65,6 +65,7 @@ class SceneMembers(ApiEntryPoint):
 
         :raises PvApiError when an error occurs.
         """
+
         resources = await self.get_resources(**kwargs)
         if self.api_version < 3:
             resources = resources[SCENE_MEMBER_DATA]

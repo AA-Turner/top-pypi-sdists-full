@@ -123,8 +123,6 @@ scipy.misc.derivative
 Documentation and code
 ======================
 
-Numdifftools works on Python 2.7+ and Python 3.0+.
-
 Official releases available at: http://pypi.python.org/pypi/numdifftools |pkg_img|
 
 Official documentation available at: http://numdifftools.readthedocs.io/en/latest/ |docs_img|
@@ -163,7 +161,7 @@ Later the package was extended with some of the functionality
 found in the statsmodels.tools.numdiff module written by Josef Perktold
 [JPerktold14]_ which is based on [Rid09]_.
 The implementation of bicomplex numbers is based on the matlab implementation
-described in the project report of [Ver14]_ which is based on [GLD12].
+described in the project report of [Ver14]_ which is based on [GLD12]_.
 For completeness the [For98]_  method for computing the weights and points in general
 finite difference formulas as well as the [For81]_ method for cumputing the
 taylor coefficients of complex analytic function using FFT, was added.
@@ -232,8 +230,8 @@ References
     .. |tests_img| image:: https://github.com/pbrod/numdifftools/actions/workflows/test.yml/badge.svg
        :target: https://github.com/pbrod/numdifftools/actions/workflows/test.yml
 
-    .. |health_img| image:: https://api.codeclimate.com/v1/badges/698996d1ec94028ec223/maintainability.svg
-       :target: https://codeclimate.com/github/pbrod/numdifftools/maintainability
+    .. |health_img| image:: https://qlty.sh/gh/pbrod/projects/numdifftools/maintainability.svg
+       :target: https://qlty.sh/gh/pbrod/projects/numdifftools
        :alt: Maintainability
 
     .. |coverage_img| image:: https://codecov.io/gh/pbrod/numdifftools/branch/master/graph/badge.svg

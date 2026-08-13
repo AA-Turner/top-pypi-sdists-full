@@ -811,3 +811,646 @@ class CodeBundleExecutionApi:
             _request_auth=_params.get("_request_auth"),
             _deserialize_response_fn=self.deserialize,
         )
+
+    @overload
+    def list_code_bundle_executions(
+        self,
+        bundle_name: Annotated[
+            Optional[StrictStr],
+            Field(
+                description='Filter by code bundle name. To match a case-sensitive or special-character identifier, wrap the value in double quotes (for example "0303_replace_test"). Combine with database and schema to scope to a fully qualified bundle.'
+            ),
+        ] = None,
+        database: Annotated[
+            Optional[StrictStr],
+            Field(description="Filter by the database supplied when the code bundle was created or executed."),
+        ] = None,
+        var_schema: Annotated[
+            Optional[StrictStr],
+            Field(description="Filter by the schema supplied when the code bundle was created or executed."),
+        ] = None,
+        entrypoint: Annotated[
+            Optional[StrictStr], Field(description="Exact match on the executed entrypoint file path.")
+        ] = None,
+        start_time_range_start: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Inclusive lower bound on the execution start time, interpreted as TIMESTAMP_LTZ. Accepts any timestamp literal (for example 2026-07-07 or 2026-07-07T00:00:00)."
+            ),
+        ] = None,
+        start_time_range_end: Annotated[
+            Optional[StrictStr],
+            Field(description="Inclusive upper bound on the execution start time, interpreted as TIMESTAMP_LTZ."),
+        ] = None,
+        bundle_types: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Comma-separated, case-insensitive list of bundle types to include. Allowed values: custom, ml, spark."
+            ),
+        ] = None,
+        compute_types: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Comma-separated, case-insensitive list of compute types to include. Allowed values: warehouse, compute_pool, serverless."
+            ),
+        ] = None,
+        language_types: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Comma-separated, case-insensitive list of language types to include. Allowed values: python, java, scala."
+            ),
+        ] = None,
+        status: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Filter by a single execution status (case-insensitive). Allowed values: pending, running, done (succeeded), failed, cancelled (canceled), deleted."
+            ),
+        ] = None,
+        execution_name: Annotated[
+            Optional[StrictStr], Field(description="Exact match on the caller-supplied execution name.")
+        ] = None,
+        query_id: Annotated[
+            Optional[StrictStr],
+            Field(description="Query id of the execute-code-bundle statement, to scope history to a single execution."),
+        ] = None,
+        result_limit: Annotated[
+            Optional[Annotated[int, Field(strict=True, ge=1)]],
+            Field(
+                description="Maximum number of rows to return. Clamped to [1, CODE_BUNDLE_HISTORY_MAX_RESULT_LIMIT] (default 100)."
+            ),
+        ] = None,
+        async_req: Literal[False] = False,
+        **kwargs,
+    ) -> Iterable[CodeBundleExecution]: ...
+
+    @overload
+    def list_code_bundle_executions(
+        self,
+        bundle_name: Annotated[
+            Optional[StrictStr],
+            Field(
+                description='Filter by code bundle name. To match a case-sensitive or special-character identifier, wrap the value in double quotes (for example "0303_replace_test"). Combine with database and schema to scope to a fully qualified bundle.'
+            ),
+        ] = None,
+        database: Annotated[
+            Optional[StrictStr],
+            Field(description="Filter by the database supplied when the code bundle was created or executed."),
+        ] = None,
+        var_schema: Annotated[
+            Optional[StrictStr],
+            Field(description="Filter by the schema supplied when the code bundle was created or executed."),
+        ] = None,
+        entrypoint: Annotated[
+            Optional[StrictStr], Field(description="Exact match on the executed entrypoint file path.")
+        ] = None,
+        start_time_range_start: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Inclusive lower bound on the execution start time, interpreted as TIMESTAMP_LTZ. Accepts any timestamp literal (for example 2026-07-07 or 2026-07-07T00:00:00)."
+            ),
+        ] = None,
+        start_time_range_end: Annotated[
+            Optional[StrictStr],
+            Field(description="Inclusive upper bound on the execution start time, interpreted as TIMESTAMP_LTZ."),
+        ] = None,
+        bundle_types: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Comma-separated, case-insensitive list of bundle types to include. Allowed values: custom, ml, spark."
+            ),
+        ] = None,
+        compute_types: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Comma-separated, case-insensitive list of compute types to include. Allowed values: warehouse, compute_pool, serverless."
+            ),
+        ] = None,
+        language_types: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Comma-separated, case-insensitive list of language types to include. Allowed values: python, java, scala."
+            ),
+        ] = None,
+        status: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Filter by a single execution status (case-insensitive). Allowed values: pending, running, done (succeeded), failed, cancelled (canceled), deleted."
+            ),
+        ] = None,
+        execution_name: Annotated[
+            Optional[StrictStr], Field(description="Exact match on the caller-supplied execution name.")
+        ] = None,
+        query_id: Annotated[
+            Optional[StrictStr],
+            Field(description="Query id of the execute-code-bundle statement, to scope history to a single execution."),
+        ] = None,
+        result_limit: Annotated[
+            Optional[Annotated[int, Field(strict=True, ge=1)]],
+            Field(
+                description="Maximum number of rows to return. Clamped to [1, CODE_BUNDLE_HISTORY_MAX_RESULT_LIMIT] (default 100)."
+            ),
+        ] = None,
+        async_req: Literal[True] = True,
+        **kwargs,
+    ) -> Future[Iterable[CodeBundleExecution]]: ...
+
+    @overload
+    def list_code_bundle_executions(
+        self,
+        bundle_name: Annotated[
+            Optional[StrictStr],
+            Field(
+                description='Filter by code bundle name. To match a case-sensitive or special-character identifier, wrap the value in double quotes (for example "0303_replace_test"). Combine with database and schema to scope to a fully qualified bundle.'
+            ),
+        ] = None,
+        database: Annotated[
+            Optional[StrictStr],
+            Field(description="Filter by the database supplied when the code bundle was created or executed."),
+        ] = None,
+        var_schema: Annotated[
+            Optional[StrictStr],
+            Field(description="Filter by the schema supplied when the code bundle was created or executed."),
+        ] = None,
+        entrypoint: Annotated[
+            Optional[StrictStr], Field(description="Exact match on the executed entrypoint file path.")
+        ] = None,
+        start_time_range_start: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Inclusive lower bound on the execution start time, interpreted as TIMESTAMP_LTZ. Accepts any timestamp literal (for example 2026-07-07 or 2026-07-07T00:00:00)."
+            ),
+        ] = None,
+        start_time_range_end: Annotated[
+            Optional[StrictStr],
+            Field(description="Inclusive upper bound on the execution start time, interpreted as TIMESTAMP_LTZ."),
+        ] = None,
+        bundle_types: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Comma-separated, case-insensitive list of bundle types to include. Allowed values: custom, ml, spark."
+            ),
+        ] = None,
+        compute_types: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Comma-separated, case-insensitive list of compute types to include. Allowed values: warehouse, compute_pool, serverless."
+            ),
+        ] = None,
+        language_types: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Comma-separated, case-insensitive list of language types to include. Allowed values: python, java, scala."
+            ),
+        ] = None,
+        status: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Filter by a single execution status (case-insensitive). Allowed values: pending, running, done (succeeded), failed, cancelled (canceled), deleted."
+            ),
+        ] = None,
+        execution_name: Annotated[
+            Optional[StrictStr], Field(description="Exact match on the caller-supplied execution name.")
+        ] = None,
+        query_id: Annotated[
+            Optional[StrictStr],
+            Field(description="Query id of the execute-code-bundle statement, to scope history to a single execution."),
+        ] = None,
+        result_limit: Annotated[
+            Optional[Annotated[int, Field(strict=True, ge=1)]],
+            Field(
+                description="Maximum number of rows to return. Clamped to [1, CODE_BUNDLE_HISTORY_MAX_RESULT_LIMIT] (default 100)."
+            ),
+        ] = None,
+        async_req: bool = False,
+        **kwargs,
+    ) -> Union[Iterable[CodeBundleExecution], Future[Iterable[CodeBundleExecution]]]: ...
+
+    @validate_call
+    def list_code_bundle_executions(
+        self,
+        bundle_name: Annotated[
+            Optional[StrictStr],
+            Field(
+                description='Filter by code bundle name. To match a case-sensitive or special-character identifier, wrap the value in double quotes (for example "0303_replace_test"). Combine with database and schema to scope to a fully qualified bundle.'
+            ),
+        ] = None,
+        database: Annotated[
+            Optional[StrictStr],
+            Field(description="Filter by the database supplied when the code bundle was created or executed."),
+        ] = None,
+        var_schema: Annotated[
+            Optional[StrictStr],
+            Field(description="Filter by the schema supplied when the code bundle was created or executed."),
+        ] = None,
+        entrypoint: Annotated[
+            Optional[StrictStr], Field(description="Exact match on the executed entrypoint file path.")
+        ] = None,
+        start_time_range_start: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Inclusive lower bound on the execution start time, interpreted as TIMESTAMP_LTZ. Accepts any timestamp literal (for example 2026-07-07 or 2026-07-07T00:00:00)."
+            ),
+        ] = None,
+        start_time_range_end: Annotated[
+            Optional[StrictStr],
+            Field(description="Inclusive upper bound on the execution start time, interpreted as TIMESTAMP_LTZ."),
+        ] = None,
+        bundle_types: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Comma-separated, case-insensitive list of bundle types to include. Allowed values: custom, ml, spark."
+            ),
+        ] = None,
+        compute_types: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Comma-separated, case-insensitive list of compute types to include. Allowed values: warehouse, compute_pool, serverless."
+            ),
+        ] = None,
+        language_types: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Comma-separated, case-insensitive list of language types to include. Allowed values: python, java, scala."
+            ),
+        ] = None,
+        status: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Filter by a single execution status (case-insensitive). Allowed values: pending, running, done (succeeded), failed, cancelled (canceled), deleted."
+            ),
+        ] = None,
+        execution_name: Annotated[
+            Optional[StrictStr], Field(description="Exact match on the caller-supplied execution name.")
+        ] = None,
+        query_id: Annotated[
+            Optional[StrictStr],
+            Field(description="Query id of the execute-code-bundle statement, to scope history to a single execution."),
+        ] = None,
+        result_limit: Annotated[
+            Optional[Annotated[int, Field(strict=True, ge=1)]],
+            Field(
+                description="Maximum number of rows to return. Clamped to [1, CODE_BUNDLE_HISTORY_MAX_RESULT_LIMIT] (default 100)."
+            ),
+        ] = None,
+        **kwargs,
+    ) -> Union[Iterable[CodeBundleExecution], Future[Iterable[CodeBundleExecution]]]:
+        r"""List code bundle executions  # noqa: E501
+
+        List code bundle executions in the account, optionally filtered by bundle, entrypoint, time range, type, status, execution name, or query id. All query parameters are optional; with none supplied, recent executions are returned (up to the result limit).  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> future = api.list_code_bundle_executions(
+        ...     bundle_name,
+        ...     database,
+        ...     var_schema,
+        ...     entrypoint,
+        ...     start_time_range_start,
+        ...     start_time_range_end,
+        ...     bundle_types,
+        ...     compute_types,
+        ...     language_types,
+        ...     status,
+        ...     execution_name,
+        ...     query_id,
+        ...     result_limit,
+        ...     async_req=True,
+        ... )
+        >>> result = future.result()
+        :param bundle_name: Filter by code bundle name. To match a case-sensitive or special-character identifier, wrap the value in double quotes (for example \"0303_replace_test\"). Combine with database and schema to scope to a fully qualified bundle.
+        :type bundle_name: str
+        :param database: Filter by the database supplied when the code bundle was created or executed.
+        :type database: str
+        :param var_schema: Filter by the schema supplied when the code bundle was created or executed.
+        :type var_schema: str
+        :param entrypoint: Exact match on the executed entrypoint file path.
+        :type entrypoint: str
+        :param start_time_range_start: Inclusive lower bound on the execution start time, interpreted as TIMESTAMP_LTZ. Accepts any timestamp literal (for example 2026-07-07 or 2026-07-07T00:00:00).
+        :type start_time_range_start: str
+        :param start_time_range_end: Inclusive upper bound on the execution start time, interpreted as TIMESTAMP_LTZ.
+        :type start_time_range_end: str
+        :param bundle_types: Comma-separated, case-insensitive list of bundle types to include. Allowed values: custom, ml, spark.
+        :type bundle_types: str
+        :param compute_types: Comma-separated, case-insensitive list of compute types to include. Allowed values: warehouse, compute_pool, serverless.
+        :type compute_types: str
+        :param language_types: Comma-separated, case-insensitive list of language types to include. Allowed values: python, java, scala.
+        :type language_types: str
+        :param status: Filter by a single execution status (case-insensitive). Allowed values: pending, running, done (succeeded), failed, cancelled (canceled), deleted.
+        :type status: str
+        :param execution_name: Exact match on the caller-supplied execution name.
+        :type execution_name: str
+        :param query_id: Query id of the execute-code-bundle statement, to scope history to a single execution.
+        :type query_id: str
+        :param result_limit: Maximum number of rows to return. Clamped to [1, CODE_BUNDLE_HISTORY_MAX_RESULT_LIMIT] (default 100).
+        :type result_limit: int
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :type _preload_content: bool, optional
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns a Future object representing the execution of the method.
+        :rtype: Union[Iterable[CodeBundleExecution], Future[Iterable[CodeBundleExecution]]]
+        """
+        kwargs["_return_http_data_only"] = True
+        return self.list_code_bundle_executions_with_http_info(
+            bundle_name,
+            database,
+            var_schema,
+            entrypoint,
+            start_time_range_start,
+            start_time_range_end,
+            bundle_types,
+            compute_types,
+            language_types,
+            status,
+            execution_name,
+            query_id,
+            result_limit,
+            **kwargs,
+        )
+
+    @validate_call
+    def list_code_bundle_executions_with_http_info(
+        self,
+        bundle_name: Annotated[
+            Optional[StrictStr],
+            Field(
+                description='Filter by code bundle name. To match a case-sensitive or special-character identifier, wrap the value in double quotes (for example "0303_replace_test"). Combine with database and schema to scope to a fully qualified bundle.'
+            ),
+        ] = None,
+        database: Annotated[
+            Optional[StrictStr],
+            Field(description="Filter by the database supplied when the code bundle was created or executed."),
+        ] = None,
+        var_schema: Annotated[
+            Optional[StrictStr],
+            Field(description="Filter by the schema supplied when the code bundle was created or executed."),
+        ] = None,
+        entrypoint: Annotated[
+            Optional[StrictStr], Field(description="Exact match on the executed entrypoint file path.")
+        ] = None,
+        start_time_range_start: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Inclusive lower bound on the execution start time, interpreted as TIMESTAMP_LTZ. Accepts any timestamp literal (for example 2026-07-07 or 2026-07-07T00:00:00)."
+            ),
+        ] = None,
+        start_time_range_end: Annotated[
+            Optional[StrictStr],
+            Field(description="Inclusive upper bound on the execution start time, interpreted as TIMESTAMP_LTZ."),
+        ] = None,
+        bundle_types: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Comma-separated, case-insensitive list of bundle types to include. Allowed values: custom, ml, spark."
+            ),
+        ] = None,
+        compute_types: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Comma-separated, case-insensitive list of compute types to include. Allowed values: warehouse, compute_pool, serverless."
+            ),
+        ] = None,
+        language_types: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Comma-separated, case-insensitive list of language types to include. Allowed values: python, java, scala."
+            ),
+        ] = None,
+        status: Annotated[
+            Optional[StrictStr],
+            Field(
+                description="Filter by a single execution status (case-insensitive). Allowed values: pending, running, done (succeeded), failed, cancelled (canceled), deleted."
+            ),
+        ] = None,
+        execution_name: Annotated[
+            Optional[StrictStr], Field(description="Exact match on the caller-supplied execution name.")
+        ] = None,
+        query_id: Annotated[
+            Optional[StrictStr],
+            Field(description="Query id of the execute-code-bundle statement, to scope history to a single execution."),
+        ] = None,
+        result_limit: Annotated[
+            Optional[Annotated[int, Field(strict=True, ge=1)]],
+            Field(
+                description="Maximum number of rows to return. Clamped to [1, CODE_BUNDLE_HISTORY_MAX_RESULT_LIMIT] (default 100)."
+            ),
+        ] = None,
+        **kwargs,
+    ):
+        r"""List code bundle executions  # noqa: E501
+
+        List code bundle executions in the account, optionally filtered by bundle, entrypoint, time range, type, status, execution name, or query id. All query parameters are optional; with none supplied, recent executions are returned (up to the result limit).  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> future = api.list_code_bundle_executions_with_http_info(
+        ...     bundle_name,
+        ...     database,
+        ...     var_schema,
+        ...     entrypoint,
+        ...     start_time_range_start,
+        ...     start_time_range_end,
+        ...     bundle_types,
+        ...     compute_types,
+        ...     language_types,
+        ...     status,
+        ...     execution_name,
+        ...     query_id,
+        ...     result_limit,
+        ...     async_req=True,
+        ... )
+        >>> result = future.result()
+        :param bundle_name: Filter by code bundle name. To match a case-sensitive or special-character identifier, wrap the value in double quotes (for example \"0303_replace_test\"). Combine with database and schema to scope to a fully qualified bundle.
+        :type bundle_name: str
+        :param database: Filter by the database supplied when the code bundle was created or executed.
+        :type database: str
+        :param var_schema: Filter by the schema supplied when the code bundle was created or executed.
+        :type var_schema: str
+        :param entrypoint: Exact match on the executed entrypoint file path.
+        :type entrypoint: str
+        :param start_time_range_start: Inclusive lower bound on the execution start time, interpreted as TIMESTAMP_LTZ. Accepts any timestamp literal (for example 2026-07-07 or 2026-07-07T00:00:00).
+        :type start_time_range_start: str
+        :param start_time_range_end: Inclusive upper bound on the execution start time, interpreted as TIMESTAMP_LTZ.
+        :type start_time_range_end: str
+        :param bundle_types: Comma-separated, case-insensitive list of bundle types to include. Allowed values: custom, ml, spark.
+        :type bundle_types: str
+        :param compute_types: Comma-separated, case-insensitive list of compute types to include. Allowed values: warehouse, compute_pool, serverless.
+        :type compute_types: str
+        :param language_types: Comma-separated, case-insensitive list of language types to include. Allowed values: python, java, scala.
+        :type language_types: str
+        :param status: Filter by a single execution status (case-insensitive). Allowed values: pending, running, done (succeeded), failed, cancelled (canceled), deleted.
+        :type status: str
+        :param execution_name: Exact match on the caller-supplied execution name.
+        :type execution_name: str
+        :param query_id: Query id of the execute-code-bundle statement, to scope history to a single execution.
+        :type query_id: str
+        :param result_limit: Maximum number of rows to return. Clamped to [1, CODE_BUNDLE_HISTORY_MAX_RESULT_LIMIT] (default 100).
+        :type result_limit: int
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :type _return_http_data_only: bool, optional
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :type _preload_content: bool, optional
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns a Future object representing the execution of the method.
+        :rtype: tuple(Union[Iterable[CodeBundleExecution], Future[Iterable[CodeBundleExecution]]], status_code(int), headers(HTTPHeaderDict))
+        """
+        _params = locals()
+
+        _all_params = [
+            "bundle_name",
+            "database",
+            "var_schema",
+            "entrypoint",
+            "start_time_range_start",
+            "start_time_range_end",
+            "bundle_types",
+            "compute_types",
+            "language_types",
+            "status",
+            "execution_name",
+            "query_id",
+            "result_limit",
+        ]
+        _all_params.extend(
+            [
+                "async_req",
+                "_return_http_data_only",
+                "_preload_content",
+                "_request_timeout",
+                "_request_auth",
+                "_content_type",
+                "_headers",
+            ]
+        )
+
+        # validate the arguments
+        for _key, _val in _params["kwargs"].items():
+            if _key not in _all_params:
+                raise _APITypeError(
+                    f"Got an unexpected keyword argument '{_key}' to method list_code_bundle_executions"
+                )
+            _params[_key] = _val
+        del _params["kwargs"]
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+
+        # process the query parameters
+        _query_params = []
+
+        if _params.get("bundle_name") is not None:
+            _query_params.append(("bundleName", _params["bundle_name"]))
+
+        if _params.get("database") is not None:
+            _query_params.append(("database", _params["database"]))
+
+        if _params.get("var_schema") is not None:
+            _query_params.append(("schema", _params["var_schema"]))
+
+        if _params.get("entrypoint") is not None:
+            _query_params.append(("entrypoint", _params["entrypoint"]))
+
+        if _params.get("start_time_range_start") is not None:
+            _query_params.append(("startTimeRangeStart", _params["start_time_range_start"]))
+
+        if _params.get("start_time_range_end") is not None:
+            _query_params.append(("startTimeRangeEnd", _params["start_time_range_end"]))
+
+        if _params.get("bundle_types") is not None:
+            _query_params.append(("bundleTypes", _params["bundle_types"]))
+
+        if _params.get("compute_types") is not None:
+            _query_params.append(("computeTypes", _params["compute_types"]))
+
+        if _params.get("language_types") is not None:
+            _query_params.append(("languageTypes", _params["language_types"]))
+
+        if _params.get("status") is not None:
+            _query_params.append(("status", _params["status"]))
+
+        if _params.get("execution_name") is not None:
+            _query_params.append(("executionName", _params["execution_name"]))
+
+        if _params.get("query_id") is not None:
+            _query_params.append(("queryId", _params["query_id"]))
+
+        if _params.get("result_limit") is not None:
+            _query_params.append(("resultLimit", _params["result_limit"]))
+
+        # process the header parameters
+        _header_params = dict(_params.get("_headers", {}))
+
+        # process the form parameters
+        _form_params = []
+        _files = {}
+
+        # process the body parameter
+        _body_params = None
+
+        # set the HTTP header `Accept`
+        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+
+        # authentication setting
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
+
+        _response_types_map = {
+            "200": "Iterable[CodeBundleExecution]",
+            "202": "SuccessAcceptedResponse",
+            "400": "ErrorResponse",
+            "401": "ErrorResponse",
+            "403": "ErrorResponse",
+            "404": "ErrorResponse",
+            "405": "ErrorResponse",
+            "429": "ErrorResponse",
+            "500": "ErrorResponse",
+            "503": "ErrorResponse",
+            "504": "ErrorResponse",
+        }
+
+        return self.api_client.call_api(
+            self._root,
+            "/api/v2/code-bundle-executions",
+            "GET",
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get("async_req"),
+            _return_http_data_only=_params.get("_return_http_data_only"),
+            _preload_content=_params.get("_preload_content", True),
+            _request_timeout=_params.get("_request_timeout"),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get("_request_auth"),
+            _deserialize_response_fn=self.deserialize,
+        )

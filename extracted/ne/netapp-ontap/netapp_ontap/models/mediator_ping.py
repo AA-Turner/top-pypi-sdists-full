@@ -5,7 +5,7 @@ All rights reserved.
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 ## Overview
-You can use this API to ping the BlueXP cloud service. The POST operation retrieves the details about service reachability, configurability, and ping latency.
+You can use this API to ping the NetApp Console cloud service. The POST operation retrieves the details about service reachability, configurability, and ping latency.
 ## Performing a ping operation
 You can perform a ping operation by issuing a POST request on /cluster/mediator-ping. Parameters are provided in the body of the POST request. There is only one required parameter.
 ### Required configuration fields
@@ -15,7 +15,7 @@ These fields are always required for any POST /cluster/mediator-ping request.
 <br/>
 ---
 ## Examples
-POST request body for a ping to the BlueXP cloud service.
+POST request body for a ping to the NetApp Console cloud service.
 ```
 # API
 /api/cluster/mediator-ping
@@ -72,12 +72,12 @@ class MediatorPingSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the MediatorPing object"""
 
     configurable = marshmallow_fields.Boolean(data_key="configurable", allow_none=True)
-    r""" Indicates if the BlueXP cloud mediator is configurable. This depends on whether the ping latency is within a threshold.
+    r""" Indicates if the ONTAP cloud mediator is configurable. This depends on whether the ping latency is within a threshold.
 
 Example: true """
 
     high_latency = marshmallow_fields.Boolean(data_key="high_latency", allow_none=True)
-    r""" Indicates if the ping latency of the BlueXP cloud server is greater than a threshold.
+    r""" Indicates if the ping latency of the NetApp Console cloud server is greater than a threshold.
 
 Example: false """
 
@@ -87,22 +87,22 @@ Example: false """
 Example: 150 """
 
     proxy_configured = marshmallow_fields.Boolean(data_key="proxy_configured", allow_none=True)
-    r""" Indicates if the HTTP proxy is configured on the cluster for the REST API calls to the BlueXP cloud server.
+    r""" Indicates if the HTTP proxy is configured on the cluster for the REST API calls to the NetApp Console cloud server.
 
 Example: true """
 
     proxy_used = marshmallow_fields.Boolean(data_key="proxy_used", allow_none=True)
-    r""" Indicates if the HTTP proxy is used for the ping to the BlueXP cloud server.
+    r""" Indicates if the HTTP proxy is used for the ping to the NetApp Console cloud server.
 
 Example: true """
 
     reachable = marshmallow_fields.Boolean(data_key="reachable", allow_none=True)
-    r""" Ping status of the BlueXP cloud service.
+    r""" Ping status of the NetApp Console cloud service.
 
 Example: true """
 
     timeout_occurred = marshmallow_fields.Boolean(data_key="timeout_occurred", allow_none=True)
-    r""" Indicates if the ping to the BlueXP cloud server failed due to a timeout.
+    r""" Indicates if the ping to the NetApp Console cloud server failed due to a timeout.
 
 Example: false """
 

@@ -373,15 +373,18 @@ def main(
         str,
         typer.Option("--release-prefix", envvar="RELEASE_RELEASE_BRANCH"),
     ] = "release/",
+    # Deliberately no envvar, unlike the branch options above: a CI variable lets a job
+    # relax the check while its repo declares nothing, so the two disagree and the repo
+    # is the one that looks wrong. What a release owes comes from .pysae-ai-tools.yaml.
     check_release_notes: Annotated[
         bool,
         typer.Option(
             "--check-release-notes/--no-check-release-notes",
-            envvar="RELEASE_CHECK_RELEASE_NOTES",
             help=(
-                "Require docs/release-notes/ entries for the version (set false only for repos "
-                "that keep release notes on but don't follow the docs/release-notes/ convention). "
-                "A repo with release.notes.enabled: false skips them already, without this flag."
+                "Require docs/release-notes/ entries for the version. Local escape hatch only, "
+                "for a repo that keeps release notes on but doesn't follow the docs/release-notes/ "
+                "convention — no CI variable drives it, and a repo with release.notes.enabled: false "
+                "skips the checks already, without this flag."
             ),
         ),
     ] = True,
@@ -393,6 +396,17 @@ def main(
     after the CHANGELOG merge and before the release commit. Each script
     gets the tag as ``argv[1]`` and ``$RELEASE_TAG`` in its environment.
     """
+    # A job that sets this variable believes it has relaxed the release-notes check.
+    # Nothing else would tell it otherwise: what it gets is a verification failure
+    # naming the missing files, which points nowhere near the variable it trusts.
+    if "RELEASE_CHECK_RELEASE_NOTES" in os.environ:
+        typer.secho(
+            "⚠ RELEASE_CHECK_RELEASE_NOTES is not read — set release.notes.enabled "
+            "in .pysae-ai-tools.yaml to exempt a repo from release notes.",
+            fg=typer.colors.YELLOW,
+            err=True,
+        )
+
     release(
         tag,
         root=root.resolve(),

@@ -2,13 +2,15 @@
 
   POST /api/v1/repos/{org}/{name}/publishes
       {files: [{path, size_bytes, digest:"sha256:<hex>", chunks?}], mode,
-       tags, flavor/dtype/file_layout/file_type, metadata, provenance, ...}
+       tags: [{tag, head?}], dtype/file_layout/file_type, artifact_contract,
+       metadata, provenance, ...}
   → {publish_id, have: [...], need: [{digest, put_url, headers, ...}]}
 
 Then PUT every `need` grant VERBATIM (the sha256 is signed into the presigned
 URL, so the store itself refuses bytes that do not hash to the key), re-plan
-`.../grants` to resume, and POST `.../complete`. One publish == one checkpoint
-== one flavor.
+`.../grants` to resume, and POST `.../complete`. One publish == one
+checkpoint; N artifacts are N publishes joining one tag group, and exactly
+one of them is `head=True`.
 
 THE v1 (blake3) `/commits` PROTOCOL IS GONE FROM THIS CLIENT (pgw#807). It was
 frozen hub-side (th#1303 phase 3.5 — every new v1 commit answers 410
@@ -33,10 +35,7 @@ from typing import Any, Callable, Dict, Mapping, Optional
 
 import requests
 import socket
-from ..api.errors import AuthError
-from ..request_context._helpers import _parse_owner_repo
 from ..stall import SilenceWindow
-from gen_worker.models.refs import flavor_token as _token
 from .. import activity as _activity
 from ..http_origin import is_definite_hub_answer
 from ..models import chunk_upload as _cu
@@ -87,6 +86,18 @@ _COMPLETE_TIMEOUT_S = 600.0
 # re-downloading costs — and unlike the re-download it cannot fail the same
 # way twice. Waiting stays observable: the loop beats liveness every pass.
 _COMPLETE_SILENCE_WINDOW_S = 6.0 * _COMPLETE_TIMEOUT_S
+
+def _dtype_token(v: str) -> str:
+    """Publish-body dtype hygiene (gw#488): the internal dtype-axis colon
+    forms (``gguf:q4_k_m``, ``int8:awq``) publish as ``-`` forms.
+
+    pgw#1159 narrowed this to `dtype`, the one field it normalizes that the
+    hub still reads. `flavor`/`flavors`/`default_flavor` are GONE from the
+    publish body — th#1803 deleted the flavor as an address, and this surface
+    kept sending fields the hub decoded and never read.
+    """
+    return str(v or "").replace(":", "-")
+
 
 _SESSION: Optional[requests.Session] = None
 
@@ -297,12 +308,10 @@ class HubClient:
         *,
         base_url: str,
         token: str,
-        owner: str,
         timeout_s: float = 120.0,
     ) -> None:
         self.base_url = str(base_url or "").strip().rstrip("/")
         self.token = str(token or "").strip()
-        self.owner = str(owner or "").strip()
         self.timeout_s = timeout_s
         if not self.base_url or not self.token:
             raise HubPublishError("missing tensorhub base URL or capability token")
@@ -312,16 +321,12 @@ class HubClient:
         """Build from a gen_worker RequestContext (cap-token identity)."""
         base = str(getattr(ctx, "_file_api_base_url", "") or "").strip()
         token = str(getattr(ctx, "_worker_capability_token", "") or "").strip()
-        owner = str(getattr(ctx, "owner", "") or getattr(ctx, "_owner", "") or "").strip()
-        return cls(base_url=base, token=token, owner=owner)
+        return cls(base_url=base, token=token)
 
     # ---- internals ----
 
     def _headers(self) -> dict[str, str]:
-        h = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
-        if self.owner:
-            h["X-Cozy-Owner"] = self.owner
-        return h
+        return {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
 
     def _repo_path(self, destination_repo: str) -> str:
         owner, _, name = str(destination_repo).partition("/")
@@ -433,9 +438,15 @@ class HubClient:
         # what it is for: assembling ONE checkpoint across several commits
         # (clone.py's chunked full-clone, _stream.py's streamed output).
         mode: str = "replace",
-        flavor: str = "",
-        flavors: list[str] | None = None,
-        default_flavor: str = "",
+        # th#1803/pgw#1159: HEAD, not `default_flavor`. A variant publish
+        # (one carrying quant provenance) JOINS the tag group without moving
+        # the tag; `head=True` says this publish owns the bare row.
+        head: bool = False,
+        # th#1580: `ns.name@N` — what the bytes ARE. PROVEN at tier 1 against
+        # the safetensors header, so an unprovable claim refuses the publish
+        # instead of being stored as a maybe. This replaces the `flavor`
+        # token, which stated the same thing and was never read.
+        artifact_contract: str = "",
         dtype: str = "",
         file_layout: str = "",
         file_type: str = "",
@@ -541,20 +552,16 @@ class HubClient:
         # the wire (the classification gate refuses an OMITTED tags field on
         # repos that carry tag rows); only None omits the field.
         if tags is not None:
-            df = _token(default_flavor)
             body["tags"] = [
-                {"tag": t, **({"default_flavor": df} if df else {})} for t in tags
+                {"tag": t, **({"head": True} if head else {})} for t in tags
             ]
         for key, val in (
-            ("flavor", _token(flavor)), ("default_flavor", _token(default_flavor)),
-            ("dtype", _token(dtype)), ("file_layout", file_layout),
+            ("dtype", _dtype_token(dtype)), ("file_layout", file_layout),
             ("file_type", file_type), ("display_label", display_label),
-            ("objective", objective),
+            ("objective", objective), ("artifact_contract", artifact_contract),
         ):
             if val:
                 body[key] = val
-        if flavors:
-            body["flavors"] = [_token(f) for f in flavors]
         if distilled is not None:
             body["distilled"] = bool(distilled)
         if required_paths:
@@ -829,191 +836,6 @@ class HubClient:
         )
 
 
-_DATASET_PAGE_LIMIT = 200  # tensorhub's cap; a larger value is clamped there.
-_DATASET_PAGE_CEILING = 1000  # pages, i.e. 200k datasets — a runaway guard.
-
-
-def _find_dataset_id(
-    base: str, headers: dict[str, str], owner: str, name: str,
-) -> str:
-    """dataset_id of ``owner/name``, or "" when it genuinely does not exist.
-
-    Raises ``AuthError``/``RuntimeError`` rather than returning "" on any
-    response it cannot READ — the caller creates on "", so a swallowed error
-    is a duplicate dataset (pgw#656).
-    """
-    wanted = name.lower()
-    cursor = ""
-    seen_pages = 0
-    while True:
-        query = {"org": owner, "limit": str(_DATASET_PAGE_LIMIT)}
-        if cursor:
-            query["cursor"] = cursor
-        resp = requests.get(
-            f"{base}/api/v1/datasets?{urllib.parse.urlencode(query)}",
-            headers=headers,
-            timeout=30,
-        )
-        if resp.status_code in (401, 403):
-            raise AuthError(f"dataset list unauthorized ({resp.status_code})")
-        if resp.status_code < 200 or resp.status_code >= 300:
-            raise RuntimeError(
-                f"dataset list failed ({resp.status_code}): {resp.text[:256]}"
-            )
-        try:
-            body = resp.json() if resp.text else {}
-            items = list(body.get("items") or [])
-        except (ValueError, AttributeError) as exc:
-            raise RuntimeError(
-                f"dataset list returned unreadable JSON: {exc}"
-            ) from exc
-        for it in items:
-            if str(it.get("name") or "").lower() == wanted:
-                return str(it.get("dataset_id") or "")
-        next_cursor = str(body.get("next_cursor") or "").strip()
-        seen_pages += 1
-        # No cursor, no movement, or a server that ignores paging: stop. Never
-        # spin — but never silently truncate the search either.
-        if not next_cursor or next_cursor == cursor or not items:
-            return ""
-        if seen_pages >= _DATASET_PAGE_CEILING:
-            raise RuntimeError(
-                f"dataset list did not terminate after {seen_pages} pages "
-                f"(org={owner}); refusing to create a possible duplicate"
-            )
-        cursor = next_cursor
-
-
-def publish_dataset_revision(
-    *,
-    base_url: str,
-    token: str,
-    destination_dataset: str,
-    features_json: dict[str, Any],
-    row_artifacts_json: Optional[dict[str, Any]] = None,
-    snapshot_manifest: Optional[list[dict[str, Any]]] = None,
-    visibility: str = "private",
-    kind: str = "",
-    dataset_info: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
-    """Publish a dataset revision into ``tensorhub.datasets``.
-
-    Hub-API plumbing for ``DatasetContext.publish_dataset_revision`` (which
-    documents the tenant-facing contract). The flow:
-
-    1. Resolve ``destination_dataset`` (owner/name) against tensorhub — the
-       FULL cursor-paginated listing, and any unreadable response raises
-       rather than reading as "no such dataset" (pgw#656: every silent miss
-       here becomes a duplicate dataset in step 2).
-    2. If the dataset row doesn't exist: ``POST /api/v1/datasets`` with
-       ``{tenant, name, visibility, schema: features_json}``.
-    3. Otherwise: ``PATCH /api/v1/datasets/:id`` to update the schema
-       (+ row_artifacts / visibility).
-
-    ``kind`` / ``dataset_info`` / ``snapshot_manifest`` ride inside
-    ``features_json`` under reserved ``__cozy_*__`` keys until tensorhub
-    grows dedicated columns (th#1162). Raises ``AuthError`` on 401/403 and
-    ``RuntimeError`` on any other HTTP failure.
-    """
-
-    owner, name = _parse_owner_repo(destination_dataset)
-    base = (base_url or "").strip().rstrip("/")
-    if not base:
-        raise RuntimeError("publish_dataset_revision: no file_api_base_url")
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-        "X-Cozy-Owner": owner,
-    }
-
-    # Stash the kind (+ dataset_info if provided) inside features_json
-    # using a reserved `__cozy_*__` key so it survives through the
-    # server's features_json passthrough. Once tensorhub adds a
-    # dedicated `kind` column, migrate these to top-level fields.
-    raw_schema = dict(features_json or {})
-    if isinstance(raw_schema.get("features"), dict):
-        features_payload = dict(raw_schema)
-    else:
-        features_payload = {"features": raw_schema}
-    if kind:
-        features_payload["__cozy_kind__"] = kind
-    if dataset_info:
-        features_payload["__cozy_dataset_info__"] = dataset_info
-    if snapshot_manifest:
-        features_payload["__cozy_snapshot_manifest__"] = snapshot_manifest
-
-    # Step 1: look up any existing dataset by (owner, name).
-    #
-    # pgw#656: every way this lookup can fail to SEE an existing row ends in
-    # step 2a — CREATE — i.e. a duplicate dataset, silently. So it fails loud
-    # instead of falling through, and it walks the whole listing:
-    #   * a non-2xx / unparseable response now raises (it used to be
-    #     indistinguishable from "no such dataset");
-    #   * the listing is CURSOR-paginated (tensorhub caps `limit` at 200 and
-    #     returns `next_cursor`), where it used to read one default page of 50
-    #     and call that the org's whole dataset set;
-    #   * the filter is `?org=`, which is the parameter the handler actually
-    #     reads — `?tenant=` was silently ignored and the result only
-    #     happened to be right because the token's own org was the default.
-    existing_id = _find_dataset_id(base, headers, owner, name)
-
-    if not existing_id:
-        # Step 2a: create.
-        create_body = {
-            "tenant": owner,
-            "name": name,
-            "visibility": visibility,
-            "schema": features_payload,
-        }
-        resp = requests.post(
-            f"{base}/api/v1/datasets",
-            headers=headers,
-            data=json.dumps(create_body).encode("utf-8"),
-            timeout=30,
-        )
-        if resp.status_code in (401, 403):
-            raise AuthError(f"dataset create unauthorized ({resp.status_code})")
-        if resp.status_code < 200 or resp.status_code >= 300:
-            raise RuntimeError(
-                f"dataset create failed ({resp.status_code}): {resp.text[:256]}"
-            )
-        data = resp.json() if resp.text else {}
-        return {
-            "ok": True,
-            "dataset_id": str(data.get("dataset_id") or ""),
-            "owner": owner,
-            "name": name,
-            "existed": False,
-        }
-
-    # Step 2b: update via PATCH.
-    patch_url = f"{base}/api/v1/datasets/{urllib.parse.quote(existing_id, safe='')}"
-    patch_body: dict[str, Any] = {"schema": features_payload}
-    if row_artifacts_json is not None:
-        patch_body["row_artifacts"] = row_artifacts_json
-    if visibility in ("private", "public"):
-        patch_body["visibility"] = visibility
-    resp = requests.patch(
-        patch_url,
-        headers=headers,
-        data=json.dumps(patch_body).encode("utf-8"),
-        timeout=30,
-    )
-    if resp.status_code in (401, 403):
-        raise AuthError(f"dataset patch unauthorized ({resp.status_code})")
-    if resp.status_code < 200 or resp.status_code >= 300:
-        raise RuntimeError(
-            f"dataset patch failed ({resp.status_code}): {resp.text[:256]}"
-        )
-    return {
-        "ok": True,
-        "dataset_id": existing_id,
-        "owner": owner,
-        "name": name,
-        "existed": True,
-    }
-
-
 def files_from_tree(tree: Path, *, prefix: str = "") -> list[CommitFile]:
     """Build CommitFile entries for every regular file under ``tree``.
 
@@ -1043,5 +865,4 @@ __all__ = [
     "CommitFile",
     "CommitResult",
     "files_from_tree",
-    "publish_dataset_revision",
 ]

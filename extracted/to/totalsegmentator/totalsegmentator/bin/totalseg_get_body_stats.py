@@ -7,7 +7,6 @@ import json
 import pickle
 import tempfile
 import subprocess
-from pprint import pprint
 import importlib.resources
 import importlib.metadata
 
@@ -67,7 +66,7 @@ def load_xgboost_model(clf, model_path):
     clf.load_model(bytearray(Path(model_path).read_bytes()))
 
 
-def load_models(classifier_path, target, fold=0):
+def load_models(classifier_path, target, fold="all"):
     try:
         import xgboost as xgb
     except ImportError as exc:
@@ -77,7 +76,7 @@ def load_models(classifier_path, target, fold=0):
 
     clfs = {}
     if fold is None:
-        fold = 0
+        fold = "all"
     fold_indices = range(5) if fold == "all" else [int(fold)]
     
     # Load the specified fold(s)
@@ -275,7 +274,7 @@ def get_tissue_types_slices(ct_img, vertebrae_img, tissue_types_img, body_img, v
 def get_body_stats(img, modality: str, f_type: str = "niigz", model_file: Path = None,
                    quiet: bool = False, device: str = "cpu", 
                    existing_stats: dict = None, existing_seg_img: nib.Nifti1Image = None,
-                   fold: int | str = 0, license_number: str = None, use_border: bool = False,
+                   fold: int | str = "all", license_number: str = None, use_border: bool = False,
                    call_via_subprocess: bool = False, model_type: str = "cnn",
                    only_weight: bool = False, skip_canonical: bool = False,
                    test_time_augmentation: bool = False, debug: bool = False):
@@ -294,7 +293,7 @@ def get_body_stats(img, modality: str, f_type: str = "niigz", model_file: Path =
         device: str, optional
         existing_stats: dict, optional
         existing_seg_img: nib.Nifti1Image, optional
-        fold: int | "all", optional - default 0. Use "all" to ensemble all 5 folds.
+        fold: int | "all", optional - default "all" (ensemble all 5 folds). Use 0-4 for a single fold.
         license_number: str, optional
         use_border: bool, optional
         call_via_subprocess: bool, optional - if True, run TotalSegmentator via subprocess
@@ -352,7 +351,7 @@ def get_body_stats(img, modality: str, f_type: str = "niigz", model_file: Path =
 
     needs_default_xgboost_models = model_type == "xgboost" and model_file is None
     if needs_default_xgboost_models and not check_body_stats_models_exist():
-        download_pretrained_weights("body_stats")
+        download_pretrained_weights("body_stats_xgb")
 
     if model_type == "cnn":
         yield {
@@ -554,6 +553,16 @@ def get_body_stats(img, modality: str, f_type: str = "niigz", model_file: Path =
     yield {"id": 8, "progress": 100, "status": "Done", "result": result}
 
 
+def print_body_stats_result(result: dict):
+    """Pretty-print body stats results as aligned key/value lines."""
+    label_width = max(len(str(key)) for key in result) + 1
+    for key, entry in result.items():
+        value = entry["value"]
+        unit = entry.get("unit")
+        value_str = f"{value} {unit}" if unit else str(value)
+        print(f"{key + ':':<{label_width}}  {value_str}")
+
+
 def main():
     """
     Predicts the body weight and size based on a CT or MR scan. Results are a lot better if the field of view 
@@ -605,8 +614,8 @@ def main():
     parser.add_argument("-d",'--device', type=str, default="cpu",
                         help="Device type: 'gpu', 'cpu', 'mps', or 'gpu:X' where X is an integer representing the GPU device ID.")
     
-    parser.add_argument("-f", "--fold", type=str, default="0",
-                        help="Fold number (0-4) to use for prediction, or 'all' to ensemble all 5 folds. Default: 0.")
+    parser.add_argument("-f", "--fold", type=str, default="all",
+                        help="Fold number (0-4) to use for prediction, or 'all' to ensemble all 5 folds. Default: all.")
     
     parser.add_argument("-q", dest="quiet", action="store_true",
                         help="Print no output to stdout", default=False)
@@ -629,6 +638,7 @@ def main():
 
     existing_stats = None
 
+    st = time.time()
     res_gen = get_body_stats(args.input_file, args.modality, f_type=f_type,
                              model_file=args.model_file, quiet=args.quiet, device=args.device,
                              existing_stats=existing_stats, fold=args.fold,
@@ -643,14 +653,16 @@ def main():
     for r in res_gen:
         if not args.quiet:
             print(r['status'])
+            if r["progress"] == 100:
+                print(f"took {time.time() - st:.1f}s")
+                print()
         if r["progress"] == 100:
             final_result = r
 
     res = final_result["result"]
 
     if not args.quiet:
-        print("Result:")
-        pprint(res)
+        print_body_stats_result(res)
 
     if args.output_file is not None:
         with open(args.output_file, "w") as f:

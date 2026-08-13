@@ -206,6 +206,8 @@ from datadog_api_client.v2.model.active_billing_dimensions_response import Activ
 from datadog_api_client.v2.model.active_billing_dimensions_type import ActiveBillingDimensionsType
 from datadog_api_client.v2.model.add_member_team_request import AddMemberTeamRequest
 from datadog_api_client.v2.model.advisory import Advisory
+from datadog_api_client.v2.model.agent_trigger import AgentTrigger
+from datadog_api_client.v2.model.agent_trigger_wrapper import AgentTriggerWrapper
 from datadog_api_client.v2.model.aggregated_high_frozen_frame_rate import AggregatedHighFrozenFrameRate
 from datadog_api_client.v2.model.aggregated_high_script_eval import AggregatedHighScriptEval
 from datadog_api_client.v2.model.aggregated_long_tasks_by_invoker_type import AggregatedLongTasksByInvokerType
@@ -926,6 +928,20 @@ from datadog_api_client.v2.model.ci_app_create_pipeline_event_request_data_type 
     CIAppCreatePipelineEventRequestDataType,
 )
 from datadog_api_client.v2.model.ci_app_event_attributes import CIAppEventAttributes
+from datadog_api_client.v2.model.ci_app_git_hub_account_attributes import CIAppGitHubAccountAttributes
+from datadog_api_client.v2.model.ci_app_git_hub_account_data import CIAppGitHubAccountData
+from datadog_api_client.v2.model.ci_app_git_hub_account_repository import CIAppGitHubAccountRepository
+from datadog_api_client.v2.model.ci_app_git_hub_account_response import CIAppGitHubAccountResponse
+from datadog_api_client.v2.model.ci_app_git_hub_account_type import CIAppGitHubAccountType
+from datadog_api_client.v2.model.ci_app_git_hub_account_update_request import CIAppGitHubAccountUpdateRequest
+from datadog_api_client.v2.model.ci_app_git_hub_account_update_request_attributes import (
+    CIAppGitHubAccountUpdateRequestAttributes,
+)
+from datadog_api_client.v2.model.ci_app_git_hub_account_update_request_data import CIAppGitHubAccountUpdateRequestData
+from datadog_api_client.v2.model.ci_app_git_hub_account_update_request_repository import (
+    CIAppGitHubAccountUpdateRequestRepository,
+)
+from datadog_api_client.v2.model.ci_app_git_hub_accounts_response import CIAppGitHubAccountsResponse
 from datadog_api_client.v2.model.ci_app_git_info import CIAppGitInfo
 from datadog_api_client.v2.model.ci_app_group_by_histogram import CIAppGroupByHistogram
 from datadog_api_client.v2.model.ci_app_group_by_missing import CIAppGroupByMissing
@@ -2229,6 +2245,22 @@ from datadog_api_client.v2.model.cyclone_dx_vulnerability_reference_source impor
 from datadog_api_client.v2.model.dora_deployment_fetch_response import DORADeploymentFetchResponse
 from datadog_api_client.v2.model.dora_deployment_object import DORADeploymentObject
 from datadog_api_client.v2.model.dora_deployment_object_attributes import DORADeploymentObjectAttributes
+from datadog_api_client.v2.model.dora_deployment_patch_by_version_remediation import (
+    DORADeploymentPatchByVersionRemediation,
+)
+from datadog_api_client.v2.model.dora_deployment_patch_by_version_remediation_by_id import (
+    DORADeploymentPatchByVersionRemediationByID,
+)
+from datadog_api_client.v2.model.dora_deployment_patch_by_version_remediation_by_version import (
+    DORADeploymentPatchByVersionRemediationByVersion,
+)
+from datadog_api_client.v2.model.dora_deployment_patch_by_version_request import DORADeploymentPatchByVersionRequest
+from datadog_api_client.v2.model.dora_deployment_patch_by_version_request_attributes import (
+    DORADeploymentPatchByVersionRequestAttributes,
+)
+from datadog_api_client.v2.model.dora_deployment_patch_by_version_request_data import (
+    DORADeploymentPatchByVersionRequestData,
+)
 from datadog_api_client.v2.model.dora_deployment_patch_remediation import DORADeploymentPatchRemediation
 from datadog_api_client.v2.model.dora_deployment_patch_remediation_type import DORADeploymentPatchRemediationType
 from datadog_api_client.v2.model.dora_deployment_patch_request import DORADeploymentPatchRequest
@@ -2389,6 +2421,7 @@ from datadog_api_client.v2.model.degradation_data_relationships_template_data im
     DegradationDataRelationshipsTemplateData,
 )
 from datadog_api_client.v2.model.degradation_included import DegradationIncluded
+from datadog_api_client.v2.model.degradation_request_meta import DegradationRequestMeta
 from datadog_api_client.v2.model.degradation_template import DegradationTemplate
 from datadog_api_client.v2.model.degradation_template_array import DegradationTemplateArray
 from datadog_api_client.v2.model.degradation_template_data import DegradationTemplateData
@@ -5112,6 +5145,23 @@ from datadog_api_client.v2.model.maintenance_template_data_relationships_status_
 from datadog_api_client.v2.model.maintenance_template_data_relationships_status_page_data import (
     MaintenanceTemplateDataRelationshipsStatusPageData,
 )
+from datadog_api_client.v2.model.maintenance_update import MaintenanceUpdate
+from datadog_api_client.v2.model.maintenance_update_data import MaintenanceUpdateData
+from datadog_api_client.v2.model.maintenance_update_data_attributes import MaintenanceUpdateDataAttributes
+from datadog_api_client.v2.model.maintenance_update_data_attributes_status import MaintenanceUpdateDataAttributesStatus
+from datadog_api_client.v2.model.maintenance_update_data_relationships import MaintenanceUpdateDataRelationships
+from datadog_api_client.v2.model.maintenance_update_data_relationships_maintenance import (
+    MaintenanceUpdateDataRelationshipsMaintenance,
+)
+from datadog_api_client.v2.model.maintenance_update_data_relationships_maintenance_data import (
+    MaintenanceUpdateDataRelationshipsMaintenanceData,
+)
+from datadog_api_client.v2.model.maintenance_update_data_relationships_user import (
+    MaintenanceUpdateDataRelationshipsUser,
+)
+from datadog_api_client.v2.model.maintenance_update_data_relationships_user_data import (
+    MaintenanceUpdateDataRelationshipsUserData,
+)
 from datadog_api_client.v2.model.maintenance_window import MaintenanceWindow
 from datadog_api_client.v2.model.maintenance_window_attributes import MaintenanceWindowAttributes
 from datadog_api_client.v2.model.maintenance_window_create import MaintenanceWindowCreate
@@ -6914,6 +6964,12 @@ from datadog_api_client.v2.model.patch_maintenance_template_request_data_attribu
 from datadog_api_client.v2.model.patch_maintenance_template_request_data_type import (
     PatchMaintenanceTemplateRequestDataType,
 )
+from datadog_api_client.v2.model.patch_maintenance_update_request import PatchMaintenanceUpdateRequest
+from datadog_api_client.v2.model.patch_maintenance_update_request_data import PatchMaintenanceUpdateRequestData
+from datadog_api_client.v2.model.patch_maintenance_update_request_data_attributes import (
+    PatchMaintenanceUpdateRequestDataAttributes,
+)
+from datadog_api_client.v2.model.patch_maintenance_update_request_data_type import PatchMaintenanceUpdateRequestDataType
 from datadog_api_client.v2.model.patch_notification_rule_parameters import PatchNotificationRuleParameters
 from datadog_api_client.v2.model.patch_notification_rule_parameters_data import PatchNotificationRuleParametersData
 from datadog_api_client.v2.model.patch_notification_rule_parameters_data_attributes import (
@@ -7664,19 +7720,6 @@ from datadog_api_client.v2.model.rum_permanent_retention_filter_update_request i
     RumPermanentRetentionFilterUpdateRequest,
 )
 from datadog_api_client.v2.model.rum_permanent_retention_filters_response import RumPermanentRetentionFiltersResponse
-from datadog_api_client.v2.model.rum_rate_limit_adaptive_config import RumRateLimitAdaptiveConfig
-from datadog_api_client.v2.model.rum_rate_limit_config_attributes import RumRateLimitConfigAttributes
-from datadog_api_client.v2.model.rum_rate_limit_config_data import RumRateLimitConfigData
-from datadog_api_client.v2.model.rum_rate_limit_config_response import RumRateLimitConfigResponse
-from datadog_api_client.v2.model.rum_rate_limit_config_type import RumRateLimitConfigType
-from datadog_api_client.v2.model.rum_rate_limit_config_update_attributes import RumRateLimitConfigUpdateAttributes
-from datadog_api_client.v2.model.rum_rate_limit_config_update_data import RumRateLimitConfigUpdateData
-from datadog_api_client.v2.model.rum_rate_limit_config_update_request import RumRateLimitConfigUpdateRequest
-from datadog_api_client.v2.model.rum_rate_limit_custom_config import RumRateLimitCustomConfig
-from datadog_api_client.v2.model.rum_rate_limit_mode import RumRateLimitMode
-from datadog_api_client.v2.model.rum_rate_limit_quota_reached_action import RumRateLimitQuotaReachedAction
-from datadog_api_client.v2.model.rum_rate_limit_scope_type import RumRateLimitScopeType
-from datadog_api_client.v2.model.rum_rate_limit_window_type import RumRateLimitWindowType
 from datadog_api_client.v2.model.rum_retention_filter_attributes import RumRetentionFilterAttributes
 from datadog_api_client.v2.model.rum_retention_filter_create_attributes import RumRetentionFilterCreateAttributes
 from datadog_api_client.v2.model.rum_retention_filter_create_data import RumRetentionFilterCreateData
@@ -10721,6 +10764,8 @@ __all__ = [
     "ActiveBillingDimensionsType",
     "AddMemberTeamRequest",
     "Advisory",
+    "AgentTrigger",
+    "AgentTriggerWrapper",
     "AggregatedHighFrozenFrameRate",
     "AggregatedHighScriptEval",
     "AggregatedLongTasksByInvokerType",
@@ -11255,6 +11300,16 @@ __all__ = [
     "CIAppCreatePipelineEventRequestDataSingleOrArray",
     "CIAppCreatePipelineEventRequestDataType",
     "CIAppEventAttributes",
+    "CIAppGitHubAccountAttributes",
+    "CIAppGitHubAccountData",
+    "CIAppGitHubAccountRepository",
+    "CIAppGitHubAccountResponse",
+    "CIAppGitHubAccountType",
+    "CIAppGitHubAccountUpdateRequest",
+    "CIAppGitHubAccountUpdateRequestAttributes",
+    "CIAppGitHubAccountUpdateRequestData",
+    "CIAppGitHubAccountUpdateRequestRepository",
+    "CIAppGitHubAccountsResponse",
     "CIAppGitInfo",
     "CIAppGroupByHistogram",
     "CIAppGroupByMissing",
@@ -12202,6 +12257,12 @@ __all__ = [
     "DORADeploymentFetchResponse",
     "DORADeploymentObject",
     "DORADeploymentObjectAttributes",
+    "DORADeploymentPatchByVersionRemediation",
+    "DORADeploymentPatchByVersionRemediationByID",
+    "DORADeploymentPatchByVersionRemediationByVersion",
+    "DORADeploymentPatchByVersionRequest",
+    "DORADeploymentPatchByVersionRequestAttributes",
+    "DORADeploymentPatchByVersionRequestData",
     "DORADeploymentPatchRemediation",
     "DORADeploymentPatchRemediationType",
     "DORADeploymentPatchRequest",
@@ -12338,6 +12399,7 @@ __all__ = [
     "DegradationDataRelationshipsTemplate",
     "DegradationDataRelationshipsTemplateData",
     "DegradationIncluded",
+    "DegradationRequestMeta",
     "DegradationTemplate",
     "DegradationTemplateArray",
     "DegradationTemplateData",
@@ -14369,6 +14431,15 @@ __all__ = [
     "MaintenanceTemplateDataRelationshipsLastModifiedByUserData",
     "MaintenanceTemplateDataRelationshipsStatusPage",
     "MaintenanceTemplateDataRelationshipsStatusPageData",
+    "MaintenanceUpdate",
+    "MaintenanceUpdateData",
+    "MaintenanceUpdateDataAttributes",
+    "MaintenanceUpdateDataAttributesStatus",
+    "MaintenanceUpdateDataRelationships",
+    "MaintenanceUpdateDataRelationshipsMaintenance",
+    "MaintenanceUpdateDataRelationshipsMaintenanceData",
+    "MaintenanceUpdateDataRelationshipsUser",
+    "MaintenanceUpdateDataRelationshipsUserData",
     "MaintenanceWindow",
     "MaintenanceWindowAttributes",
     "MaintenanceWindowCreate",
@@ -15399,6 +15470,10 @@ __all__ = [
     "PatchMaintenanceTemplateRequestData",
     "PatchMaintenanceTemplateRequestDataAttributes",
     "PatchMaintenanceTemplateRequestDataType",
+    "PatchMaintenanceUpdateRequest",
+    "PatchMaintenanceUpdateRequestData",
+    "PatchMaintenanceUpdateRequestDataAttributes",
+    "PatchMaintenanceUpdateRequestDataType",
     "PatchNotificationRuleParameters",
     "PatchNotificationRuleParametersData",
     "PatchNotificationRuleParametersDataAttributes",
@@ -16007,19 +16082,6 @@ __all__ = [
     "RumPermanentRetentionFilterUpdateData",
     "RumPermanentRetentionFilterUpdateRequest",
     "RumPermanentRetentionFiltersResponse",
-    "RumRateLimitAdaptiveConfig",
-    "RumRateLimitConfigAttributes",
-    "RumRateLimitConfigData",
-    "RumRateLimitConfigResponse",
-    "RumRateLimitConfigType",
-    "RumRateLimitConfigUpdateAttributes",
-    "RumRateLimitConfigUpdateData",
-    "RumRateLimitConfigUpdateRequest",
-    "RumRateLimitCustomConfig",
-    "RumRateLimitMode",
-    "RumRateLimitQuotaReachedAction",
-    "RumRateLimitScopeType",
-    "RumRateLimitWindowType",
     "RumRetentionFilterAttributes",
     "RumRetentionFilterCreateAttributes",
     "RumRetentionFilterCreateData",

@@ -24,6 +24,9 @@ Usage::
         ListDbNodesPaginator,
         ListDbServersPaginator,
         ListDbSystemShapesPaginator,
+        ListExadbVmClustersPaginator,
+        ListExascaleDbStorageVaultsPaginator,
+        ListGiMinorVersionsPaginator,
         ListGiVersionsPaginator,
         ListOdbNetworksPaginator,
         ListOdbPeeringConnectionsPaginator,
@@ -47,6 +50,9 @@ Usage::
     list_db_nodes_paginator: ListDbNodesPaginator = client.get_paginator("list_db_nodes")
     list_db_servers_paginator: ListDbServersPaginator = client.get_paginator("list_db_servers")
     list_db_system_shapes_paginator: ListDbSystemShapesPaginator = client.get_paginator("list_db_system_shapes")
+    list_exadb_vm_clusters_paginator: ListExadbVmClustersPaginator = client.get_paginator("list_exadb_vm_clusters")
+    list_exascale_db_storage_vaults_paginator: ListExascaleDbStorageVaultsPaginator = client.get_paginator("list_exascale_db_storage_vaults")
+    list_gi_minor_versions_paginator: ListGiMinorVersionsPaginator = client.get_paginator("list_gi_minor_versions")
     list_gi_versions_paginator: ListGiVersionsPaginator = client.get_paginator("list_gi_versions")
     list_odb_networks_paginator: ListOdbNetworksPaginator = client.get_paginator("list_odb_networks")
     list_odb_peering_connections_paginator: ListOdbPeeringConnectionsPaginator = client.get_paginator("list_odb_peering_connections")
@@ -69,6 +75,9 @@ from .paginator import (
     ListDbNodesPaginator,
     ListDbServersPaginator,
     ListDbSystemShapesPaginator,
+    ListExadbVmClustersPaginator,
+    ListExascaleDbStorageVaultsPaginator,
+    ListGiMinorVersionsPaginator,
     ListGiVersionsPaginator,
     ListOdbNetworksPaginator,
     ListOdbPeeringConnectionsPaginator,
@@ -93,6 +102,9 @@ __all__ = (
     "ListDbNodesPaginator",
     "ListDbServersPaginator",
     "ListDbSystemShapesPaginator",
+    "ListExadbVmClustersPaginator",
+    "ListExascaleDbStorageVaultsPaginator",
+    "ListGiMinorVersionsPaginator",
     "ListGiVersionsPaginator",
     "ListOdbNetworksPaginator",
     "ListOdbPeeringConnectionsPaginator",

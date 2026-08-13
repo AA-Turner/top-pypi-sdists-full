@@ -153,12 +153,12 @@ class PaymentOrderUtilities(PaymentOrder):
         :param value: oktmo модели PaymentOrderUtilities.
         :type value: str
         """
-        if value is not None and len(value) > 8:
-            raise ValueError("Invalid value for `oktmo`, length must be less than or equal to `8`")  # noqa: E501
+        if value is not None and len(value) > 11:
+            raise ValueError("Invalid value for `oktmo`, length must be less than or equal to `11`")  # noqa: E501
         if value is not None and len(value) < 1:
             raise ValueError("Invalid value for `oktmo`, length must be greater than or equal to `1`")  # noqa: E501
-        if value is not None and not re.search(r'^(\d{8})|(0)$', value):  # noqa: E501
-            raise ValueError(r"Invalid value for `oktmo`, must be a follow pattern or equal to `/(\d{8})|(0)/`")  # noqa: E501
+        if value is not None and not re.search(r'^(\d{11})|(\d{8})|(0)$', value):  # noqa: E501
+            raise ValueError(r"Invalid value for `oktmo`, must be a follow pattern or equal to `/(\d{11})|(\d{8})|(0)/`")  # noqa: E501
         self.__oktmo = value
 
     @property

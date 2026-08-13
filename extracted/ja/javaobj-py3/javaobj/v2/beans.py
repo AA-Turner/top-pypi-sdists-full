@@ -4,7 +4,7 @@ Definition of the beans used to represent the parsed objects
 
 :authors: Thomas Calmant
 :license: Apache License 2.0
-:version: 0.5.0
+:version: 0.6.1
 :status: Alpha
 
 ..
@@ -37,7 +37,7 @@ from ..utils import UNICODE_TYPE
 # ------------------------------------------------------------------------------
 
 # Module version
-__version_info__ = (0, 4, 4)
+__version_info__ = (0, 6, 1)
 __version__ = ".".join(str(x) for x in __version_info__)
 
 # Documentation strings format
@@ -258,7 +258,7 @@ class JavaClassDesc(ParsedJavaContent):
         self.inner_classes = []  # type: List[JavaClassDesc]
 
         # List of annotations objects
-        self.annotations = []  # type: List[ParsedJavaContent]
+        self.annotations = []  # type: List[Optional[ParsedJavaContent]]
 
         # The super class of this one, if any
         self.super_class = None  # type: Optional[JavaClassDesc]
@@ -409,7 +409,7 @@ class JavaInstance(ParsedJavaContent):
         self.field_data = {}  # type: Dict[JavaClassDesc, Dict[JavaField, Any]]
         self.annotations = (
             {}
-        )  # type: Dict[JavaClassDesc, List[ParsedJavaContent]]
+        )  # type: Dict[JavaClassDesc, List[Optional[ParsedJavaContent]]]
         self.is_external_instance = False
 
     def __str__(self):

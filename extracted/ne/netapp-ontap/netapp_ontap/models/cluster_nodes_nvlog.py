@@ -25,7 +25,8 @@ class ClusterNodesNvlogSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 Valid choices:
 
 * ephemeral_memory
-* ephemeral_disk """
+* ephemeral_disk
+* disk """
 
     swap_mode = marshmallow_fields.Str(data_key="swap_mode", allow_none=True)
     r""" Indicates the current NVLog journal swap mode.

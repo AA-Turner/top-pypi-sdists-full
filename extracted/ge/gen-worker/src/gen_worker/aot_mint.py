@@ -16,8 +16,9 @@ S1 / #723 S1: ONE source of truth, imported by both lanes, never re-declared)
 ``.pt2`` (per entry) and holds the B1 gate. ``lora_lifted`` owns the
 no-baked-adapter gate. This module drives PRODUCTION and nothing else.
 Deliberately NOT folded into ``compile_cache``:
-``trt_engine`` already established that a compiled-lane backend is its own
-module riding the compile-cache rails, and the dynamo mint stays live and
+a compiled-lane backend is its own module riding the compile-cache rails
+(``trt_engine`` established the pattern before TensorRT was deleted in
+pgw#1187), and the dynamo mint stays live and
 fully-forced in parallel during rollout (#722: nothing retires before sdxl AOT
 is live in prod).
 
@@ -111,7 +112,7 @@ from .aot_contract import (  # re-exported: the declaration layer's vocabulary
     ExportSpec,
     MintRefused,
 )
-from .aot_preconditions import LIFTED_LORA_TORCH_FLOOR, torch_version_gap
+from .aot_preconditions import LIFTED_LORA_TORCH_FLOOR
 from .compile_cache import (
     _resolve_target,
     cxx_toolchain_present,
@@ -237,32 +238,16 @@ def raise_if_device_oom(exc: BaseException, where: str) -> None:
         peak = 0
     raise MintResourceExhausted(
         f"{where}: OUT OF DEVICE MEMORY ({type(exc).__name__}: {exc}). "
-        f"This process peaked at {peak / (1 << 30):.2f} GiB against the cap "
-        f"the parent set from `mint_budget.co_residency`; it is a resource "
+        f"This process peaked at {peak / (1 << 30):.2f} GiB. It is a resource "
         f"shortfall to be retried with more room, NOT a deterministic "
-        f"refusal", peak_rss_bytes=0) from exc
+        f"refusal — and it is the ONLY VRAM signal this mint produces "
+        f"(§4.33: the attempt is the measurement, nothing predicts it)",
+        peak_rss_bytes=0) from exc
 
 
 # ---------------------------------------------------------------------------
 # The declared export contract
 # ---------------------------------------------------------------------------
-
-
-def lifted_torch_gap(spec: ExportSpec) -> str:
-    """'' when torch meets the lifted-LoRA floor (or the spec has no lifted
-    fork declared), else the named refusal reason.
-
-    pgw#996: the floor arithmetic lives in ``aot_preconditions`` because the
-    BUILD gate asks the same question of the same image — a second spelling
-    here is how a build proves one thing and a pod discovers another. This
-    wrapper survives for the mint-request CLI, which can be handed a spec the
-    build gate never saw.
-    """
-    if not (spec.lora_bucket or spec.lifted_inputs or spec.lora_fqns):
-        return ""
-    import torch
-
-    return torch_version_gap(str(getattr(torch, "__version__", "") or ""))
 
 
 # ---------------------------------------------------------------------------
@@ -1709,6 +1694,91 @@ class MintProgress:
             logger.debug("aot-mint progress callback failed", exc_info=True)
 
 
+#: pgw#1167 verdicts. UNRECONCILED is a FIRST-CLASS state, not a silent pass:
+#: the whole point is that a gate which cannot fire is indistinguishable from
+#: one that passed, so the two are named apart and both are reported.
+LATENT_RECONCILED = "latent_basis_reconciled"
+LATENT_UNRECONCILED_UNDECLARED = "latent_basis_unreconciled_no_declared_basis"
+LATENT_UNRECONCILED_NO_VAE = "latent_basis_unreconciled_no_vae"
+
+
+def observed_latent_basis(pipeline: Any) -> Optional[int]:
+    """The pipeline's REAL latent divisor, or ``None`` when unobservable.
+
+    diffusers computes it as ``2 ** (len(vae.config.block_out_channels) - 1)
+    if vae else 8`` — so a pipeline with NO vae reports **8**, a default nobody
+    chose and indistinguishable from a real observation of 8. Believing the
+    attribute alone would reproduce pgw#1058's silent-dtype-default defect one
+    field over, so the vae is required before the number is believed.
+    """
+    if getattr(pipeline, "vae", None) is None:
+        return None
+    value = getattr(pipeline, "vae_scale_factor", None)
+    try:
+        basis = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return basis if basis > 0 else None
+
+
+def reconcile_latent_basis(pipeline: Any, spec: ExportSpec) -> str:
+    """Refuse a mint whose declared latent divisor is not the pipeline's.
+
+    pgw#1167. The class rows are derived by dividing declared PIXEL shapes by a
+    latent divisor the author passes to ``derive.cfg_image_classes``. Nothing
+    checked that divisor against the checkpoint, so a wrong one produced a
+    whole cell of correctly-shaped, permanently unusable artifacts — silent,
+    and paid for at full mint price.
+
+    It is checked HERE because here is the first place both facts exist and the
+    last place before the export is paid for: ``mint()`` is reached by the
+    production child (``mint_child``) AND the operator CLI, whereas
+    ``aot_export_spec`` is on the pod route only and would have exempted the
+    operator entirely.
+
+    The divisor cannot be VALIDATED at declaration time (no pipeline) nor
+    DERIVED from one (§4.27/pgw#1089 requires ``ck1`` to derive from code alone,
+    before any weight is resident, and the class rows feed the key). So it is
+    declared once, carried, and reconciled — and when either side is missing
+    the verdict is UNRECONCILED, never a pass.
+    """
+    # This gate must never be the thing that kills a mint. Its only two
+    # outcomes are a NAMED refusal for a proven mismatch and an explicit
+    # UNRECONCILED; anything it cannot read is the latter, so a caller with no
+    # spec (the telemetry paths hand `mint` placeholder arguments) degrades
+    # instead of raising an AttributeError from inside a correctness check.
+    family = str(getattr(spec, "family", "") or "")
+    declaration = export_declaration(family) if family else None
+    declared = getattr(declaration, "latent_basis", None) if declaration else None
+    if declared is None:
+        logger.info(
+            "aot-mint: %s — the class rows carry no derived latent basis, so "
+            "the pipeline's divisor is not reconciled against anything",
+            LATENT_UNRECONCILED_UNDECLARED)
+        return LATENT_UNRECONCILED_UNDECLARED
+
+    observed = observed_latent_basis(pipeline)
+    if observed is None:
+        logger.info(
+            "aot-mint: %s — this pipeline exposes no vae, and diffusers' "
+            "`else 8` fallback is a default nobody chose; declared basis %d is "
+            "left unreconciled rather than compared against it",
+            LATENT_UNRECONCILED_NO_VAE, declared)
+        return LATENT_UNRECONCILED_NO_VAE
+
+    if declared != observed:
+        raise MintRefused(
+            f"latent_basis_mismatch: the declaration derived its graph classes "
+            f"at a latent divisor of {declared}, and the composed pipeline's "
+            f"vae divides by {observed}. Every declared latent extent is "
+            f"therefore wrong for THIS composition, and the cell would mint "
+            f"correctly-shaped artifacts that serve nothing. This declaration "
+            f"does not match this composition — check the `latent_scale=` "
+            f"passed to the class deriver, and any component override that "
+            f"swaps the vae for one of a different architecture")
+    return LATENT_RECONCILED
+
+
 def mint(
     pipeline: Any,
     spec: ExportSpec,
@@ -1717,7 +1787,6 @@ def mint(
     inductor_configs: Optional[Mapping[str, Any]] = None,
     entry_workers: int = 0,
     entry_peak_rss_bytes: int = 0,
-    entry_device_peak_bytes: int = 0,
     on_progress: Optional[Callable[[str, int, int, str], None]] = None,
     phase_snapshot: Optional[Path] = None,
     execution_lane_verdict: Optional[kernel_path.Verdict] = None,
@@ -1757,6 +1826,9 @@ def mint(
     # refuse by name here; they can no longer move the (declaration-derived)
     # seal, so this is the only place ambient mutation can surface.
     env_seal.assert_seal_unchanged("aot_mint")
+    # pgw#1167: before ANY export, while a wrong latent divisor still costs
+    # seconds instead of a whole cell of unusable artifacts.
+    reconcile_latent_basis(pipeline, spec)
     progress = MintProgress(
         inductor_configs=inductor_configs, on_progress=on_progress)
     if phase_snapshot is not None:
@@ -1786,7 +1858,6 @@ def mint(
             inductor_configs=inductor_configs,
             entry_workers=entry_workers,
             entry_peak_rss_bytes=entry_peak_rss_bytes,
-            entry_device_peak_bytes=entry_device_peak_bytes,
             execution_lane_verdict=execution_lane_verdict,
             release_residents=release_residents,
             progress=progress)
@@ -1845,8 +1916,8 @@ def _touch_pod_progress(note: str) -> None:
     SCOPE, stated because it is narrower than it looks. `PODGUARD_STATE` is
     injected by `podguard.arm()`, which runs only when PODGUARD creates the
     pod. A HUB-created pod never passes through it, carries no watchdog and no
-    state dir, and this call is therefore a no-op there — which is most pods,
-    and will include th#1359 forge pods. So this makes lane-rented pods
+    state dir, and this call is therefore a no-op there — which is most pods.
+    So this makes lane-rented pods
     progress-keyed and leaves hub-created pods on renter-liveness plus a fixed
     1800 s grace (`lease_seconds` 900 x `REAP_LEASE_MULTIPLE` 2.0).
 
@@ -1992,39 +2063,28 @@ class _ExportFootprint:
     when it cannot be read is still a refusal to widen.
 
     Reported both ways, because they answer different questions and conflating
-    them is the defect: ``per_export_device_bytes`` (the MAX row delta — sizes
-    a pool) and ``export_peak_device_bytes`` (the phase high-water — sizes the
-    mint child itself, and is what pgw#992's CardCensus already prices).
+    them is the defect: ``per_export_device_bytes`` (the MAX row delta) and
+    ``export_peak_device_bytes`` (the phase high-water). pgw#1175: both are
+    TELEMETRY. Nothing divides a card by either.
     """
 
-    __slots__ = ("baseline", "rows", "readable", "census")
+    __slots__ = ("baseline", "rows", "readable")
 
-    def __init__(self, baseline: int, readable: bool,
-                 census: Optional[Any] = None) -> None:
+    def __init__(self, baseline: int, readable: bool) -> None:
         self.baseline = baseline
         self.rows: List[int] = []
         self.readable = readable
-        #: pgw#992's card census, taken HERE — before the first row traces.
-        #: The budget it feeds is `total - co-tenant - own high-water`, and
-        #: that only bounds anything if the census predates the growth it is
-        #: meant to price. Taken at `decide()` time instead it would read the
-        #: mint child's own grown footprint as the baseline and hand the
-        #: export pool back everything the phase had already consumed.
-        self.census = census
 
     @classmethod
     def open(cls) -> "_ExportFootprint":
-        from . import aot_compile_pool
-
-        census = aot_compile_pool.card_census()
         try:
             import torch as _t
 
             if not _t.cuda.is_available():
-                return cls(0, False, census)
-            return cls(int(_t.cuda.memory_reserved()), True, census)
+                return cls(0, False)
+            return cls(int(_t.cuda.memory_reserved()), True)
         except Exception:  # noqa: BLE001 — a probe never changes an outcome
-            return cls(0, False, census)
+            return cls(0, False)
 
     @contextlib.contextmanager
     def row(self) -> Iterator[None]:
@@ -2057,8 +2117,7 @@ class _ExportFootprint:
 
     def facts(self) -> Dict[str, float]:
         """Flat scalars for ``timings``. Absent keys where nothing was read —
-        a measured zero and an unread card are different facts, and the width
-        rule must be able to tell them apart."""
+        a measured zero and an unread card are different facts."""
         if not self.readable or not self.rows:
             return {}
         return {
@@ -2076,7 +2135,6 @@ def _mint_cell(
     inductor_configs: Optional[Mapping[str, Any]] = None,
     entry_workers: int = 0,
     entry_peak_rss_bytes: int = 0,
-    entry_device_peak_bytes: int = 0,
     execution_lane_verdict: Optional[kernel_path.Verdict] = None,
     release_residents: bool = False,
     progress: Optional[MintProgress] = None,
@@ -2113,9 +2171,6 @@ def _mint_cell(
     hub credentials.
     """
 
-    refusal = lifted_torch_gap(spec)
-    if refusal:
-        raise MintRefused(refusal)
     decl = export_declaration(spec.family)
     if decl is None:
         raise MintRefused(
@@ -2167,15 +2222,8 @@ def _mint_cell(
     # constant. K=1 IS the pre-#809 serial in-process path, which is the
     # honest answer on a narrow pod.
     entry_count = len(rows)
-    # pgw#877: the DEVICE ask now has the same shape the HOST ask got in
-    # pgw#848 — a measurement made on this pod by a previous mint of this
-    # (family, lane), banked by the serving parent and handed down on the
-    # request. 0 keeps the estimate, and keeps saying so.
-    device_bytes, device_basis = _entry_device_bytes(
-        spec, int(entry_device_peak_bytes or 0))
     width = aot_compile_pool.entry_workers(
         entry_count, limit=int(entry_workers or 0),
-        device_bytes=device_bytes, device_basis=device_basis,
         # pgw#848: the HOST ask, measured on this pod by a previous mint of
         # this (family, lane) and banked by the serving parent. Until this
         # existed the argument was never passed at ALL, so `mem_workers`
@@ -2183,25 +2231,20 @@ def _mint_cell(
         # has run and `per_entry_rss_basis` said "default" forever. 0 keeps
         # the constant, and keeps saying so.
         peak_rss_bytes=int(entry_peak_rss_bytes or 0))
+    # pgw#1111: a structure-only mint used to DISCARD this width and run K=1.
+    # `fc77b923` made every production mint weight-free, so that override made
+    # the pool dead code fleet-wide — and because `progress.width` is recorded
+    # below either way, the hub's `pool` row went on reporting the width that
+    # was thrown away. That is how the sdxl A40 mint (release
+    # 6ee9b4d4df2697a53da6f43a, pod bgmdxhazxsugmk) came to be read as
+    # "entry_workers=3" when it ran serially: its `pool` block carries the
+    # width facts and NO ledger, and export_s + compile_s summed to within
+    # 0.6 % of total_s, which is what zero overlap looks like.
+    # The pool now carries a weight-free program as META
+    # (`structure_only.as_meta_for_save` in the parent's stage,
+    # `revirtualize_from_meta` in `aot_compile_child.load_program`), so the
+    # width this pod computed is the width it runs.
     parallel = width.workers > 1
-    if parallel and structure_only.is_structure_only(pipeline):
-        # pgw#1080, MEASURED on the micro-lora gauntlet member: the pool hands
-        # each entry to a compile CHILD by saving the ExportedProgram to
-        # `program.pt2`. A program whose parameters are fake tensors has no
-        # storage to serialize, and the child dies deserializing it
-        # ("We ran into an error when deserializing the saved file"). So a
-        # weightless mint compiles SERIALLY, in this process, which is the
-        # pre-pgw#809 path and is correct — just narrower.
-        #
-        # OWED, not hidden (pgw#1080 follow-up): the pool could carry a
-        # weightless program by saving it with META parameters and
-        # re-virtualizing them onto the device inside the child. That is a
-        # real change to the pool's contract and it is not this slice.
-        logger.warning(
-            "aot-mint: structure-only mint compiles SERIALLY — the entry pool "
-            "serializes the exported program and a fake-parameter program "
-            "cannot round-trip (pgw#1080). Width %d discarded.", width.workers)
-        parallel = False
     logger.info("aot-mint: entry compile width — %s", width.reason)
     if width.underwidth:
         # pgw#842: a pool narrower than the cell could use is a COST, and it
@@ -2307,9 +2350,6 @@ def _mint_cell(
         # is handed to it AS IT EXPORTS — producer ~113 s/row against a pool
         # consuming ~127 s/row at K=2 (attempt 30), so the two phases shadow
         # each other and the wall collapses toward max(export, compile).
-        # The census inside the pool is still taken before any child exists
-        # (pgw#992's requirement); the export phase's own growth after that
-        # reading is priced per spawn by `_spawn_admitted`.
         #
         # pgw#917 runs TWICE, deliberately: an arriving row that duplicates an
         # earlier row's ingress+identity is aliased at arrival (no compile
@@ -2346,7 +2386,6 @@ def _mint_cell(
                 timings.update(_release_mint_residents(pipeline, minted))
                 timings["residents_release_s"] = round(
                     time.monotonic() - t0, 2)
-                pool.note_residents_released()
 
         progress.beat(
             PHASE_INDUCTOR_COMPILE, 0, len(rows),
@@ -2356,6 +2395,10 @@ def _mint_cell(
         try:
             by_entry = _drive_pool(
                 pool, source, expected_total=len(rows), progress=progress,
+                # pgw#1189: `kept` is the live list the producer appends to,
+                # so an entry that exports after this closure is built is
+                # still folded. This is the ONLY path a fleet mint takes.
+                on_entry_complete=_entry_timing_folder(kept, pool),
                 on_entry=lambda name, done, total: progress.beat(
                     PHASE_INDUCTOR_COMPILE, done, total, name))
         finally:
@@ -2492,54 +2535,13 @@ def _mint_cell(
     return MintResult(artifact=artifact, metadata=meta, timings=timings)
 
 
-def _entry_device_bytes(
-    spec: ExportSpec, banked_device_peak: int = 0,
-) -> Tuple[int, str]:
-    """One entry child's DEVICE ask, and the PROVENANCE of that number.
-
-    pgw#877 #1/#2. Two sources, ranked, because they are not the same kind of
-    thing:
-
-    * ``banked_device_peak`` — what an entry child on THIS pod, for this
-      (family, lane), was actually measured to peak at
-      (``EntryReport.peak_device_reserved_bytes``), banked by the serving
-      parent and handed down on ``MintRequest.entry_device_peak_bytes``. It
-      travels on the WIRE and not through ``mint_budget``'s module globals,
-      which is the entire fix: those globals are written in the serving parent
-      and this function runs in the MINT CHILD, where they are empty by
-      construction. Basis ``"measured"``.
-    * ``mint_budget.co_residency().need_bytes`` — the fallback, and an
-      ESTIMATE of a different process: the mint child's whole co-residency
-      footprint (a full pipeline), used as one entry child's (one exported
-      program plus inductor). ~56 % of it was never observed. Basis
-      ``"estimated"``, which is what it used to call ``"measured"``.
-
-    ``(0, "unmeasured")`` means unprobeable, and the width policy refuses to
-    license concurrency on a card it cannot size against.
-    """
-    if banked_device_peak > 0:
-        from . import mint_budget
-
-        return mint_budget.entry_device_ask(int(banked_device_peak)), "measured"
-    try:
-        from . import mint_budget
-
-        budget = mint_budget.co_residency(
-            family=str(spec.family or ""),
-            weight_lane=str(spec.execution_lane_label() or ""))
-    except Exception:  # noqa: BLE001
-        return 0, "unmeasured"
-    if not budget.probed:
-        return 0, "unmeasured"
-    return int(budget.need_bytes), "estimated"
-
-
 def _drive_pool(
     pool: aot_compile_pool.EntryCompilePool,
     entries: Any,
     *,
     expected_total: int = 0,
     on_entry: Optional[Callable[[str, int, int], None]] = None,
+    on_entry_complete: Optional[Callable[[str], None]] = None,
     progress: Optional["MintProgress"] = None,
 ) -> Dict[str, List[str]]:
     """Run one :class:`~gen_worker.aot_compile_pool.EntryCompilePool` and map
@@ -2547,9 +2549,25 @@ def _drive_pool(
 
     ``entries`` is either the fully-exported list (the serial-export shape the
     pgw#848 tests drive) or pgw#1052's live producer iterator.
+
+    ``on_entry_complete`` (pgw#1189) folds one finished entry's measurement
+    onto the row that will be reported — see :func:`_entry_timing_folder`. It
+    fires per entry rather than at the end, so an abandoned mint keeps the
+    numbers of every entry that finished.
     """
 
     def _tick(name: str, done: int, total: int) -> None:
+        # pgw#1189: fold THIS entry's spans FIRST, for the reason pgw#848
+        # wrote one line below and applied only to the ledger. An entry that
+        # has finished has really spent its seconds, and until this ran the
+        # per-entry partition was assembled only by `_fold_pool_results` —
+        # which is reached only if `pool.compile` RETURNS. Every sdxl mint on
+        # record was abandoned mid-pool, so the child spans and pgw#832's seal
+        # split have never reached a reader; th#1834's P0-E answered "what is
+        # the ~39 s residual" by inference against rows that structurally
+        # could not carry the answer.
+        if on_entry_complete is not None:
+            on_entry_complete(name)
         # pgw#848: refresh the ledger BEFORE the beat, so the snapshot the
         # beat writes carries this entry's numbers. A mint killed at entry 30
         # of 36 then leaves 30 entries' worth of measurement on disk instead
@@ -2602,21 +2620,56 @@ def _fold_pool_results(
             f"cell whose declared class set is a lie")
     for row in minted:
         row.files = list(by_entry[row.name])
-        row.timings["compile_s"] = pool.entry_seconds.get(row.name, 0.0)
-        # Measured in the child; folded in here so the roll-up reads the same
-        # whether a cell was minted serially or K-wide.
-        phases = pool.entry_phases.get(row.name) or {}
-        if phases:
-            row.timings["phases"] = dict(phases)
-        # pgw#842: the overlays travel too. `child_seal_s` is a partition
-        # member and its SPLIT is an overlay — and the split is the whole
-        # answer to "what is the seal still costing": pgw#832 cut the library
-        # hash to ~0.07 s (measured), while the child's `import torch`, which
-        # the torch imposition owns, is the rest. Without the overlay a reader
-        # sees only the sum and re-opens a closed question.
-        overlays = pool.entry_overlays.get(row.name) or {}
-        if overlays:
-            row.timings["overlays"] = dict(overlays)
+        _fold_entry_timings(row, pool)
+
+
+def _fold_entry_timings(
+    row: "_MintedEntry", pool: aot_compile_pool.EntryCompilePool,
+) -> bool:
+    """Fold ONE finished entry's measurement onto the row a reader will see.
+
+    ``True`` when the pool had anything for this entry. Assignments only, never
+    accumulations, so the per-entry pass (pgw#1189) and the final
+    :func:`_fold_pool_results` pass can both run over the same row.
+
+    Measured in the child; folded here so the roll-up reads the same whether a
+    cell was minted serially or K-wide. pgw#842: the OVERLAYS travel too —
+    ``child_seal_s`` is a partition member and its SPLIT is an overlay, and the
+    split is the whole answer to "what is the seal still costing" (pgw#832 cut
+    the library hash to ~0.07 s measured; the child's ``import torch``, which
+    the torch imposition owns, is the rest). Without it a reader sees only the
+    sum and re-opens a closed question — which is exactly what happened.
+    """
+    phases = pool.entry_phases.get(row.name) or {}
+    overlays = pool.entry_overlays.get(row.name) or {}
+    if not phases and not overlays and row.name not in pool.entry_seconds:
+        # Nothing finished for this entry. Absence stays absence: a fold that
+        # wrote zeros here would invent a measurement for a compile that never
+        # ran, which is the failure mode this issue exists to end.
+        return False
+    row.timings["compile_s"] = pool.entry_seconds.get(row.name, 0.0)
+    if phases:
+        row.timings["phases"] = dict(phases)
+    if overlays:
+        row.timings["overlays"] = dict(overlays)
+    return True
+
+
+def _entry_timing_folder(
+    rows: Sequence["_MintedEntry"], pool: aot_compile_pool.EntryCompilePool,
+) -> Callable[[str], None]:
+    """A per-entry fold bound to ``rows`` (pgw#1189), for ``_drive_pool``.
+
+    ``rows`` is read live — under pgw#1052's overlapped shape it is the list
+    the producer is still appending to, so an entry that exports and compiles
+    after this is built is still found.
+    """
+    def _fold(name: str) -> None:
+        for row in rows:
+            if row.name == name:
+                _fold_entry_timings(row, pool)
+                return
+    return _fold
 
 
 def _compile_entries_parallel(
@@ -2644,7 +2697,8 @@ def _compile_entries_parallel(
     t0 = time.monotonic()
     by_entry = _drive_pool(
         pool, [(row.name, row.program) for row in minted],
-        on_entry=on_entry, progress=progress)
+        on_entry=on_entry, progress=progress,
+        on_entry_complete=_entry_timing_folder(minted, pool))
     wall = time.monotonic() - t0
     _fold_pool_results(minted, pool, by_entry)
     logger.info(
@@ -3066,9 +3120,9 @@ def _release_mint_residents(
     — measured at 16.2 GiB held through the entire 97-minute compile phase on
     the L40S (attempt 30), which with the pgw#992 budget is most of what held
     K at 2. This is the MINT PARENT'S OWN copy: the serving worker's eager
-    pipeline lives in a different process and is untouched here (its
-    forge-pod release is ``mint_delegate``'s, and a serving pod keeps eager
-    resident per Paul's ruling — GPU hot, eager minimally disrupted).
+    pipeline lives in a different process and is untouched here — a serving pod
+    keeps eager resident per Paul's ruling (GPU hot, eager minimally
+    disrupted), and after §4.28 every pod is a serving pod.
 
     Projection, not deletion. Every retained ``ExportedProgram`` keeps its
     graph, signature, placeholders and LITERAL values (a literal ships inside
@@ -3084,11 +3138,10 @@ def _release_mint_residents(
 
     Best-effort in every direction: a tensor or module that refuses the
     projection is skipped, and the release reports what it actually freed. A
-    partially released card still widens by what came back. Superseded by
-    construction once pgw#1056's fake-weight mint lands (there is then no
-    resident to release); the pool-side regrant it feeds
-    (``note_residents_released``) is exactly what that mint's verification
-    load will use too.
+    partially released card still hands back what came back. Superseded by
+    construction once pgw#1056's fake-weight mint lands — there is then no
+    resident to release. pgw#1175 deleted the pool-side regrant it used to
+    feed; what remains is a genuine release of memory to the tenant.
     """
     facts: Dict[str, float] = {}
     try:
@@ -3156,13 +3209,12 @@ def _release_mint_residents(
             torch.cuda.empty_cache()
             after = int(torch.cuda.memory_reserved())
             facts["residents_released_bytes"] = float(max(0, before - after))
-            # The TRUE mint peak, banked before the reset erases it: the
-            # parent's `record_child_peak` loop must keep learning what this
-            # process really held, not what it held after surrendering.
+            # The TRUE mint peak, reported before the reset erases it. §4.33
+            # target for a full sdxl mint is ~8 GiB; this is the figure that
+            # says whether we are there. It is telemetry — nothing sizes
+            # anything from it.
             facts["peak_vram_before_release_bytes"] = float(
                 torch.cuda.max_memory_allocated())
-            # Load-bearing: the pool's own high-water must restart from the
-            # released level or `note_residents_released` can regrant nothing.
             torch.cuda.reset_peak_memory_stats()
         except Exception:  # noqa: BLE001 — a probe never changes an outcome
             pass
@@ -4335,7 +4387,6 @@ __all__ = [
     "shared_identity_blocks",
     "LIFTED_LORA_TORCH_FLOOR",
     "lifted_input_gaps",
-    "lifted_torch_gap",
     "main",
     "mint",
     "package_cell",

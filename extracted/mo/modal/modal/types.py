@@ -59,10 +59,11 @@ LogSource = Literal["stdout", "stderr", "system"]
 
 @dataclass(frozen=True, slots=True)
 class LogEntry:
-    """A log entry emitted by a Modal object.
+    """A log entry queried through a Modal object or App.
 
-    The context_ids field contains a list of IDs corresponding to the context in which the log entry was emitted.
-    For example, for a function log entry, this will contain the function call ID, the input ID, and the container ID.
+    The object_id field identifies the object or App whose log manager produced the entry. The context_ids field
+    contains progressively narrower IDs corresponding to the context in which the log entry was emitted. For example,
+    for a function log entry, this will contain the function call ID, the input ID, and the container ID.
     """
 
     message: str
@@ -366,4 +367,49 @@ class EnvironmentBillingSummary:
             end=pb_item.end_timestamp.ToDatetime(timezone.utc),
             metered_cost=Decimal(pb_item.metered_cost),
             metered_cost_breakdown=metered_cost_breakdown,
+        )
+
+
+@dataclass(slots=True, frozen=True)
+class FunctionAutoscalerSettings:
+    min_containers: int | None
+    max_containers: int | None
+    scaledown_window: int | None
+    buffer_containers: int | None
+
+    @classmethod
+    def _from_proto(cls, pb_item: api_pb2.AutoscalerSettings) -> "FunctionAutoscalerSettings":
+        return cls(
+            min_containers=pb_item.min_containers if pb_item.HasField("min_containers") else None,
+            max_containers=pb_item.max_containers if pb_item.HasField("max_containers") else None,
+            scaledown_window=pb_item.scaledown_window if pb_item.HasField("scaledown_window") else None,
+            buffer_containers=pb_item.buffer_containers if pb_item.HasField("buffer_containers") else None,
+        )
+
+
+@dataclass(slots=True, frozen=True)
+class ServerAutoscalerSettings:
+    target_concurrency: int | float | None
+    min_containers: int | None
+    max_containers: int | None
+    buffer_containers: int | None
+    scaleup_window: int | None
+    scaledown_window: int | None
+
+    @classmethod
+    def _from_proto(cls, pb_item: api_pb2.AutoscalerSettings) -> "ServerAutoscalerSettings":
+        if pb_item.HasField("target_concurrency_float"):
+            target_concurrency = pb_item.target_concurrency_float
+        elif pb_item.HasField("target_concurrency"):
+            target_concurrency = pb_item.target_concurrency
+        else:
+            target_concurrency = None
+
+        return cls(
+            min_containers=pb_item.min_containers if pb_item.HasField("min_containers") else None,
+            max_containers=pb_item.max_containers if pb_item.HasField("max_containers") else None,
+            buffer_containers=pb_item.buffer_containers if pb_item.HasField("buffer_containers") else None,
+            scaleup_window=pb_item.scaleup_window if pb_item.HasField("scaleup_window") else None,
+            scaledown_window=pb_item.scaledown_window if pb_item.HasField("scaledown_window") else None,
+            target_concurrency=target_concurrency,
         )

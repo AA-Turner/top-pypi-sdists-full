@@ -33,46 +33,46 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroup(
         {
-            "name": "vol1",
+            "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f"
                 }
             },
-            "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
+            "name": "vol1",
         }
     ),
     ConsistencyGroup(
         {
-            "name": "parent_cg",
+            "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
                 }
             },
-            "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
+            "name": "parent_cg",
         }
     ),
     ConsistencyGroup(
         {
-            "name": "child_1",
+            "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/c1b270b1-0a82-11ec-a449-005056bbcf9f"
                 }
             },
-            "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
+            "name": "child_1",
         }
     ),
     ConsistencyGroup(
         {
-            "name": "child_2",
+            "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/c1b270c3-0a82-11ec-a449-005056bbcf9f"
                 }
             },
-            "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
+            "name": "child_2",
         }
     ),
 ]
@@ -105,154 +105,154 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroup(
         {
-            "name": "vol1",
+            "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
+            "space": {"size": 108003328, "available": 107704320, "used": 299008},
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f"
                 }
             },
-            "space": {"available": 107704320, "size": 108003328, "used": 299008},
-            "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
             "replicated": False,
+            "name": "vol1",
             "svm": {
-                "name": "vs1",
+                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"
                     }
                 },
-                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
+                "name": "vs1",
             },
         }
     ),
     ConsistencyGroup(
         {
-            "name": "parent_cg",
-            "snapshot_policy": {
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/snapshot-policies/a30bd0fe-067d-11ec-a449-005056bbcf9f"
-                    }
-                },
-                "name": "default-1weekly",
-                "uuid": "a30bd0fe-067d-11ec-a449-005056bbcf9f",
-            },
-            "_links": {
-                "self": {
-                    "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
-                }
-            },
-            "space": {"available": 78696448, "size": 83886080, "used": 995328},
             "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
+            "space": {"size": 83886080, "available": 78696448, "used": 995328},
             "consistency_groups": [
                 {
+                    "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
+                    "name": "child_1",
                     "_links": {
                         "self": {
                             "href": "/api/application/consistency-groups/c1b270b1-0a82-11ec-a449-005056bbcf9f"
                         }
                     },
-                    "space": {"available": 39346176, "size": 41943040, "used": 499712},
-                    "name": "child_1",
-                    "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
+                    "space": {"size": 41943040, "available": 39346176, "used": 499712},
                 },
                 {
+                    "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
+                    "name": "child_2",
                     "_links": {
                         "self": {
                             "href": "/api/application/consistency-groups/c1b270c3-0a82-11ec-a449-005056bbcf9f"
                         }
                     },
-                    "space": {"available": 39350272, "size": 41943040, "used": 495616},
-                    "name": "child_2",
-                    "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
+                    "space": {"size": 41943040, "available": 39350272, "used": 495616},
                 },
             ],
+            "_links": {
+                "self": {
+                    "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
+                }
+            },
+            "snapshot_policy": {
+                "uuid": "a30bd0fe-067d-11ec-a449-005056bbcf9f",
+                "name": "default-1weekly",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/snapshot-policies/a30bd0fe-067d-11ec-a449-005056bbcf9f"
+                    }
+                },
+            },
             "replicated": False,
+            "name": "parent_cg",
             "svm": {
-                "name": "vs1",
+                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"
                     }
                 },
-                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
+                "name": "vs1",
             },
         }
     ),
     ConsistencyGroup(
         {
-            "name": "child_1",
-            "snapshot_policy": {
+            "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
+            "parent_consistency_group": {
+                "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
                 "_links": {
                     "self": {
-                        "href": "/api/storage/snapshot-policies/a30b60a4-067d-11ec-a449-005056bbcf9f"
+                        "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
                     }
                 },
-                "name": "default",
-                "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
+                "name": "parent_cg",
             },
+            "space": {"size": 41943040, "available": 39346176, "used": 499712},
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/c1b270b1-0a82-11ec-a449-005056bbcf9f"
                 }
             },
-            "space": {"available": 39346176, "size": 41943040, "used": 499712},
-            "parent_consistency_group": {
-                "name": "parent_cg",
-                "_links": {
-                    "self": {
-                        "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
-                    }
-                },
-                "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
-            },
-            "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
-            "svm": {
-                "name": "vs1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"
-                    }
-                },
-                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
-            },
-        }
-    ),
-    ConsistencyGroup(
-        {
-            "name": "child_2",
             "snapshot_policy": {
+                "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
+                "name": "default",
                 "_links": {
                     "self": {
                         "href": "/api/storage/snapshot-policies/a30b60a4-067d-11ec-a449-005056bbcf9f"
                     }
                 },
-                "name": "default",
-                "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
             },
-            "_links": {
-                "self": {
-                    "href": "/api/application/consistency-groups/c1b270c3-0a82-11ec-a449-005056bbcf9f"
-                }
-            },
-            "space": {"available": 39350272, "size": 41943040, "used": 495616},
-            "parent_consistency_group": {
-                "name": "parent_cg",
-                "_links": {
-                    "self": {
-                        "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
-                    }
-                },
-                "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
-            },
-            "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
+            "name": "child_1",
             "svm": {
-                "name": "vs1",
+                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"
                     }
                 },
+                "name": "vs1",
+            },
+        }
+    ),
+    ConsistencyGroup(
+        {
+            "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
+            "parent_consistency_group": {
+                "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
+                "_links": {
+                    "self": {
+                        "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
+                    }
+                },
+                "name": "parent_cg",
+            },
+            "space": {"size": 41943040, "available": 39350272, "used": 495616},
+            "_links": {
+                "self": {
+                    "href": "/api/application/consistency-groups/c1b270c3-0a82-11ec-a449-005056bbcf9f"
+                }
+            },
+            "snapshot_policy": {
+                "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
+                "name": "default",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/snapshot-policies/a30b60a4-067d-11ec-a449-005056bbcf9f"
+                    }
+                },
+            },
+            "name": "child_2",
+            "svm": {
                 "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"
+                    }
+                },
+                "name": "vs1",
             },
         }
     ),
@@ -286,25 +286,25 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroup(
         {
-            "name": "vol1",
+            "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f"
                 }
             },
-            "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
+            "name": "vol1",
             "svm": {"name": "vs1"},
         }
     ),
     ConsistencyGroup(
         {
-            "name": "parent_cg",
+            "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
                 }
             },
-            "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
+            "name": "parent_cg",
             "svm": {"name": "vs1"},
         }
     ),
@@ -350,9 +350,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
-        "name": "vol1",
+        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
         "luns": [
             {
+                "name": "/vol/vol1/lun1",
                 "lun_maps": [
                     {
                         "igroup": {
@@ -361,18 +362,17 @@ ConsistencyGroup(
                         }
                     }
                 ],
-                "space": {"size": 104857600},
-                "name": "/vol/vol1/lun1",
                 "os_type": "linux",
+                "space": {"size": 104857600},
             }
         ],
-        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
+        "name": "vol1",
         "svm": {
-            "name": "vs1",
+            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
             "_links": {
                 "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
             },
-            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
+            "name": "vs1",
         },
     }
 )
@@ -421,29 +421,29 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
-        "name": "parent_cg",
-        "snapshot_policy": {"name": "default-1weekly"},
         "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
         "consistency_groups": [
             {
+                "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
                 "snapshot_policy": {"name": "default"},
                 "name": "child_1",
-                "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
                 "volumes": [{"name": "existing_vol1"}, {"name": "existing_vol2"}],
             },
             {
+                "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
                 "snapshot_policy": {"name": "default"},
                 "name": "child_2",
-                "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
                 "volumes": [{"name": "existing_vol3"}, {"name": "existing_vol4"}],
             },
         ],
+        "snapshot_policy": {"name": "default-1weekly"},
+        "name": "parent_cg",
         "svm": {
-            "name": "vs1",
+            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
             "_links": {
                 "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
             },
-            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
+            "name": "vs1",
         },
     }
 )
@@ -472,21 +472,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
-        "name": "vol1",
+        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
+        "space": {"size": 108003328, "available": 107724800, "used": 278528},
         "_links": {
             "self": {
                 "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f"
             }
         },
-        "space": {"available": 107724800, "size": 108003328, "used": 278528},
-        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
         "replicated": False,
+        "name": "vol1",
         "svm": {
-            "name": "vs1",
+            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
             "_links": {
                 "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
             },
-            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
+            "name": "vs1",
         },
     }
 )
@@ -515,54 +515,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
-        "name": "vol1",
-        "tiering": {"policy": "none"},
-        "luns": [
-            {
-                "serial_number": "wIqM6]RfQK3t",
-                "lun_maps": [
-                    {
-                        "igroup": {
-                            "protocol": "mixed",
-                            "name": "igroup1",
-                            "initiators": [{"name": "example_name"}],
-                            "os_type": "linux",
-                            "uuid": "6f4a4b86-0a7f-11ec-a449-005056bbcf9f",
-                        },
-                        "logical_unit_number": 0,
-                    }
-                ],
-                "space": {
-                    "size": 104857600,
-                    "used": 0,
-                    "guarantee": {"reserved": False, "requested": False},
-                },
-                "name": "/vol/vol1/lun1",
-                "os_type": "linux",
-                "uuid": "6f51748a-0a7f-11ec-a449-005056bbcf9f",
-                "create_time": "2021-08-31T13:18:24-04:00",
-            }
-        ],
-        "_links": {
-            "self": {
-                "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f?fields=**"
-            }
-        },
-        "qos": {
-            "policy": {
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/qos/policies/b7189398-e572-48ab-8f69-82cd46580812"
-                    }
-                },
-                "name": "extreme-fixed",
-                "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
-            }
-        },
-        "space": {"available": 107569152, "size": 108003328, "used": 434176},
         "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
         "volumes": [
             {
+                "comment": "",
+                "uuid": "6f516c6c-0a7f-11ec-a449-005056bbcf9f",
+                "snapshot_policy": {
+                    "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
+                    "name": "default",
+                },
+                "name": "vol1",
+                "tiering": {"policy": "none"},
+                "space": {"size": 108003328, "available": 107569152, "used": 434176},
                 "qos": {
                     "policy": {
                         "_links": {
@@ -570,28 +534,64 @@ ConsistencyGroup(
                                 "href": "/api/storage/qos/policies/b7189398-e572-48ab-8f69-82cd46580812"
                             }
                         },
-                        "name": "extreme-fixed",
                         "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
+                        "name": "extreme-fixed",
                     }
                 },
-                "snapshot_policy": {
-                    "name": "default",
-                    "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
-                },
-                "space": {"available": 107569152, "size": 108003328, "used": 434176},
-                "name": "vol1",
-                "uuid": "6f516c6c-0a7f-11ec-a449-005056bbcf9f",
-                "comment": "",
-                "tiering": {"policy": "none"},
             }
         ],
+        "space": {"size": 108003328, "available": 107569152, "used": 434176},
+        "tiering": {"policy": "none"},
+        "_links": {
+            "self": {
+                "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f?fields=**"
+            }
+        },
+        "luns": [
+            {
+                "serial_number": "wIqM6]RfQK3t",
+                "uuid": "6f51748a-0a7f-11ec-a449-005056bbcf9f",
+                "create_time": "2021-08-31T13:18:24-04:00",
+                "name": "/vol/vol1/lun1",
+                "lun_maps": [
+                    {
+                        "logical_unit_number": 0,
+                        "igroup": {
+                            "uuid": "6f4a4b86-0a7f-11ec-a449-005056bbcf9f",
+                            "protocol": "mixed",
+                            "name": "igroup1",
+                            "os_type": "linux",
+                            "initiators": [{"name": "example_name"}],
+                        },
+                    }
+                ],
+                "os_type": "linux",
+                "space": {
+                    "guarantee": {"requested": False, "reserved": False},
+                    "size": 104857600,
+                    "used": 0,
+                },
+            }
+        ],
+        "qos": {
+            "policy": {
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/qos/policies/b7189398-e572-48ab-8f69-82cd46580812"
+                    }
+                },
+                "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
+                "name": "extreme-fixed",
+            }
+        },
         "replicated": False,
+        "name": "vol1",
         "svm": {
-            "name": "vs1",
+            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
             "_links": {
                 "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
             },
-            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
+            "name": "vs1",
         },
     }
 )
@@ -621,7 +621,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
-        "name": "vol1",
+        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
+        "volumes": [
+            {
+                "comment": "",
+                "uuid": "6f516c6c-0a7f-11ec-a449-005056bbcf9f",
+                "snapshot_policy": {
+                    "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
+                    "name": "default",
+                },
+                "name": "vol1",
+                "tiering": {"policy": "none"},
+                "space": {"size": 108003328, "available": 107569152, "used": 434176},
+                "qos": {
+                    "policy": {
+                        "_links": {
+                            "self": {
+                                "href": "/api/storage/qos/policies/b7189398-e572-48ab-8f69-82cd46580812"
+                            }
+                        },
+                        "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
+                        "name": "extreme-fixed",
+                    }
+                },
+            }
+        ],
+        "space": {"size": 108003328, "available": 107569152, "used": 434176},
         "tiering": {"policy": "none"},
         "_links": {
             "self": {
@@ -635,43 +660,18 @@ ConsistencyGroup(
                         "href": "/api/storage/qos/policies/b7189398-e572-48ab-8f69-82cd46580812"
                     }
                 },
-                "name": "extreme-fixed",
                 "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
+                "name": "extreme-fixed",
             }
         },
-        "space": {"available": 107569152, "size": 108003328, "used": 434176},
-        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
-        "volumes": [
-            {
-                "qos": {
-                    "policy": {
-                        "_links": {
-                            "self": {
-                                "href": "/api/storage/qos/policies/b7189398-e572-48ab-8f69-82cd46580812"
-                            }
-                        },
-                        "name": "extreme-fixed",
-                        "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
-                    }
-                },
-                "snapshot_policy": {
-                    "name": "default",
-                    "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
-                },
-                "space": {"available": 107569152, "size": 108003328, "used": 434176},
-                "name": "vol1",
-                "uuid": "6f516c6c-0a7f-11ec-a449-005056bbcf9f",
-                "comment": "",
-                "tiering": {"policy": "none"},
-            }
-        ],
         "replicated": False,
+        "name": "vol1",
         "svm": {
-            "name": "vs1",
+            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
             "_links": {
                 "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
             },
-            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
+            "name": "vs1",
         },
     }
 )
@@ -766,16 +766,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
-        "name": "clone01_of_cg01",
         "clone": {
-            "split_initiated": True,
-            "volume": {"suffix": "my_clone_sfx", "prefix": "my_clone_pfx"},
             "guarantee": {"type": "none"},
             "parent_consistency_group": {
-                "name": "cg01",
                 "uuid": "ca5e76fb-98c0-11ec-855a-005056a7693b",
+                "name": "cg01",
             },
+            "volume": {"prefix": "my_clone_pfx", "suffix": "my_clone_sfx"},
+            "split_initiated": True,
         },
+        "name": "clone01_of_cg01",
         "svm": {"name": "vs_0"},
     }
 )
@@ -815,17 +815,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
-        "name": "clone01_of_cg01",
         "clone": {
-            "split_initiated": True,
-            "volume": {"suffix": "my_clone_sfx", "prefix": "my_clone_pfx"},
             "guarantee": {"type": "none"},
             "parent_consistency_group": {
-                "name": "cg01",
                 "uuid": "ca5e76fb-98c0-11ec-855a-005056a7693b",
+                "name": "cg01",
             },
+            "volume": {"prefix": "my_clone_pfx", "suffix": "my_clone_sfx"},
             "parent_snapshot": {"name": "snap01_of_cg01"},
+            "split_initiated": True,
         },
+        "name": "clone01_of_cg01",
         "svm": {"name": "vs_0"},
     }
 )
@@ -862,6 +862,28 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     ],
                 }
             },
+        }
+    ]
+    resource.patch()
+
+```
+
+</personalities>
+<personalities supports=aiml,unified>
+### Assign a QoS policy when adding a new volume to a consistency group
+The following example adds a single new volume with a QoS policy to an existing consistency group.
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import ConsistencyGroup
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = ConsistencyGroup(uuid="6f51748a-0a7f-11ec-a449-005056bbcf9f")
+    resource.volumes = [
+        {
+            "name": "new_cg_vol",
+            "provisioning_options": {"action": "create"},
+            "space": {"size": "500MB"},
+            "qos": {"policy": {"name": "value-fixed"}},
         }
     ]
     resource.patch()
@@ -994,17 +1016,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example20_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example20_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example20_result" class="try_it_out_content">
+<input id="example21_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example21_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example21_result" class="try_it_out_content">
 ```
 ConsistencyGroup(
     {
-        "name": "cg_parent2",
         "consistency_groups": [
-            {"provisioning_options": {"action": "add"}, "name": "cg_large"},
-            {"provisioning_options": {"action": "add"}, "name": "cg_standalone2"},
+            {"name": "cg_large", "provisioning_options": {"action": "add"}},
+            {"name": "cg_standalone2", "provisioning_options": {"action": "add"}},
         ],
+        "name": "cg_parent2",
         "svm": {"name": "vs1"},
     }
 )
@@ -1461,6 +1483,7 @@ There is an added computational cost to retrieving values for these properties. 
         r"""Updates a consistency group.
 <br>Note that this operation will never delete storage elements. You can specify only elements that should be added to the consistency group regardless of existing storage objects.
 <personalities supports=unified>Mapping or unmapping a consistency group from igroups or subsystems is not supported.</personalities>
+<personalities supports=aiml,unified>The QoS policy can be set using a consistency group PATCH operation only when provisioning new objects (for example, a new volume on an existing consistency group or a new volume on a new child consistency group).</personalities>
 ## Related ONTAP commands
 * `vserver consistency-group modify`
 
@@ -1662,6 +1685,7 @@ There is an added computational cost to retrieving values for these properties. 
         r"""Updates a consistency group.
 <br>Note that this operation will never delete storage elements. You can specify only elements that should be added to the consistency group regardless of existing storage objects.
 <personalities supports=unified>Mapping or unmapping a consistency group from igroups or subsystems is not supported.</personalities>
+<personalities supports=aiml,unified>The QoS policy can be set using a consistency group PATCH operation only when provisioning new objects (for example, a new volume on an existing consistency group or a new volume on a new child consistency group).</personalities>
 ## Related ONTAP commands
 * `vserver consistency-group modify`
 

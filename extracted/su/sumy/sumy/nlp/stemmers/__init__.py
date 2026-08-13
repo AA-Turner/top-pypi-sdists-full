@@ -1,17 +1,15 @@
-# -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-from __future__ import division, print_function, unicode_literals
+
+from typing import ClassVar
 
 import nltk.stem.snowball as nltk_stemmers_module
 
-from .czech import stem_word as czech_stemmer
-from .ukrainian import stem_word as ukrainian_stemmer
-from .greek import stem_word as greek_stemmer
-from .polish import stem_word as polish_stemmer
-
 from ..._compat import to_unicode
 from ...utils import normalize_language
+from .czech import stem_word as czech_stemmer
+from .greek import stem_word as greek_stemmer
+from .polish import stem_word as polish_stemmer
+from .ukrainian import stem_word as ukrainian_stemmer
 
 
 def null_stemmer(object):
@@ -19,8 +17,8 @@ def null_stemmer(object):
     return to_unicode(object).lower()
 
 
-class Stemmer(object):
-    SPECIAL_STEMMERS = {
+class Stemmer:
+    SPECIAL_STEMMERS: ClassVar[dict] = {
         'czech': czech_stemmer,
         'slovak': czech_stemmer,
         'hebrew': null_stemmer,
@@ -42,7 +40,7 @@ class Stemmer(object):
         try:
             stemmer_class = getattr(nltk_stemmers_module, stemmer_classname)
         except AttributeError:
-            raise LookupError("Stemmer is not available for language %s." % language)
+            raise LookupError(f"Stemmer is not available for language {language}.")
         self._stemmer = stemmer_class().stem
 
     def __call__(self, word):

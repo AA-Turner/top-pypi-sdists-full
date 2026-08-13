@@ -140,7 +140,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example3_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example3_result" class="try_it_out_content">
 ```
-FileInfo({"unix_permissions": 644, "path": "dir1", "type": "directory"})
+FileInfo({"path": "dir1", "type": "directory", "unix_permissions": 644})
 
 ```
 </div>
@@ -189,7 +189,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FileInfo(
         {
-            "name": ".",
             "path": "d1/d2/d3",
             "_links": {
                 "self": {
@@ -200,11 +199,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 },
             },
             "type": "directory",
+            "name": ".",
         }
     ),
     FileInfo(
         {
-            "name": "..",
             "path": "d1/d2/d3",
             "_links": {
                 "self": {
@@ -215,11 +214,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 },
             },
             "type": "directory",
+            "name": "..",
         }
     ),
     FileInfo(
         {
-            "name": "f1",
             "path": "d1/d2/d3",
             "_links": {
                 "metadata": {
@@ -227,11 +226,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "type": "file",
+            "name": "f1",
         }
     ),
     FileInfo(
         {
-            "name": "d5",
             "path": "d1/d2/d3",
             "_links": {
                 "self": {
@@ -242,6 +241,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 },
             },
             "type": "directory",
+            "name": "d5",
         }
     ),
 ]
@@ -270,7 +270,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FileInfo(
         {
-            "name": ".",
             "path": "d1/d2/d3",
             "_links": {
                 "self": {
@@ -281,11 +280,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 },
             },
             "type": "directory",
+            "name": ".",
         }
     ),
     FileInfo(
         {
-            "name": "..",
             "path": "d1/d2/d3",
             "_links": {
                 "self": {
@@ -296,11 +295,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 },
             },
             "type": "directory",
+            "name": "..",
         }
     ),
     FileInfo(
         {
-            "name": "f1",
             "path": "d1/d2/d3",
             "_links": {
                 "metadata": {
@@ -308,11 +307,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "type": "file",
+            "name": "f1",
         }
     ),
     FileInfo(
         {
-            "name": "d5",
             "path": "d1/d2/d3",
             "_links": {
                 "self": {
@@ -323,6 +322,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 },
             },
             "type": "directory",
+            "name": "d5",
         }
     ),
 ]
@@ -350,23 +350,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FileInfo(
         {
-            "inode_number": 1233,
-            "name": "",
-            "group_id": 30,
-            "creation_time": "2019-06-12T21:27:28-04:00",
-            "inode_generation": 214488325,
-            "bytes_used": 4096,
-            "size": 200,
-            "modified_time": "2019-06-12T21:27:28-04:00",
-            "unix_permissions": 644,
             "path": "d1/d2/d3/f1",
-            "changed_time": "2019-06-12T21:27:28-04:00",
-            "owner_id": 54738,
-            "accessed_time": "2019-06-12T21:27:28-04:00",
+            "creation_time": "2019-06-12T21:27:28-04:00",
+            "inode_number": 1233,
+            "modified_time": "2019-06-12T21:27:28-04:00",
+            "group_id": 30,
+            "bytes_used": 4096,
             "type": "file",
-            "is_junction": False,
             "hard_links_count": 1,
+            "changed_time": "2019-06-12T21:27:28-04:00",
+            "accessed_time": "2019-06-12T21:27:28-04:00",
+            "inode_generation": 214488325,
             "is_vm_aligned": False,
+            "is_junction": False,
+            "name": "",
+            "size": 200,
+            "unix_permissions": 644,
+            "owner_id": 54738,
         }
     )
 ]
@@ -393,7 +393,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example8_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example8_result" class="try_it_out_content">
 ```
-FileInfo({"target": "d1/f1", "path": "symlink1"})
+FileInfo({"path": "symlink1", "target": "d1/f1"})
 
 ```
 </div>
@@ -416,7 +416,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example9_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example9_result" class="try_it_out_content">
 ```
-[FileInfo({"target": "d1/f1", "path": "symlink1"})]
+[FileInfo({"path": "symlink1", "target": "d1/f1"})]
 
 ```
 </div>
@@ -442,22 +442,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FileInfo(
         {
-            "inode_number": 1233,
-            "group_id": 30,
-            "creation_time": "2019-06-12T21:27:28-04:00",
-            "inode_generation": 214488325,
-            "bytes_used": 4096,
-            "size": 200,
-            "modified_time": "2019-06-12T21:27:28-04:00",
-            "unix_permissions": 644,
             "path": "d1/d2/d3/f1",
-            "changed_time": "2019-06-12T21:27:28-04:00",
-            "owner_id": 54738,
-            "accessed_time": "2019-06-12T21:27:28-04:00",
+            "creation_time": "2019-06-12T21:27:28-04:00",
+            "inode_number": 1233,
+            "modified_time": "2019-06-12T21:27:28-04:00",
+            "group_id": 30,
+            "bytes_used": 4096,
             "type": "file",
-            "is_junction": False,
             "hard_links_count": 1,
+            "changed_time": "2019-06-12T21:27:28-04:00",
+            "accessed_time": "2019-06-12T21:27:28-04:00",
+            "inode_generation": 214488325,
             "is_vm_aligned": False,
+            "is_junction": False,
+            "size": 200,
+            "unix_permissions": 644,
+            "owner_id": 54738,
         }
     )
 ]
@@ -485,42 +485,43 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FileInfo(
         {
-            "inode_number": 96,
+            "is_empty": False,
+            "path": "d1",
             "volume": {
+                "uuid": "1ef5d1b2-f9d7-11e9-8043-00505682f860",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/1ef5d1b2-f9d7-11e9-8043-00505682f860"
                     }
                 },
-                "uuid": "1ef5d1b2-f9d7-11e9-8043-00505682f860",
             },
-            "group_id": 65533,
             "creation_time": "2019-10-28T23:04:13+00:00",
-            "inode_generation": 214514951,
-            "bytes_used": 4096,
-            "size": 4096,
+            "inode_number": 96,
+            "modified_time": "2019-10-28T23:10:30+00:00",
+            "group_id": 65533,
             "analytics": {
+                "file_count": 668,
                 "by_accessed_time": {
                     "bytes_used": {
-                        "labels": [
-                            "2019-W42",
-                            "2019-W41",
-                            "2019-W40",
-                            "2019-W39",
-                            "2019-W38",
-                            "2019-10",
-                            "2019-09",
-                            "2019-08",
-                            "2019-Q4",
-                            "2019-Q3",
-                            "2019-Q2",
-                            "2019-Q1",
-                            "2019",
-                            "2018",
-                            "2017",
-                            "2016",
-                            "--2015",
-                            "unknown",
+                        "values": [
+                            102760448,
+                            1867776,
+                            1245184,
+                            2179072,
+                            1556480,
+                            105873408,
+                            9027584,
+                            8093696,
+                            105873408,
+                            23969792,
+                            32382976,
+                            26460160,
+                            188686336,
+                            0,
+                            0,
+                            0,
+                            20971520,
+                            0,
                         ],
                         "percentages": [
                             49.01,
@@ -542,33 +543,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                             10.0,
                             0.0,
                         ],
-                        "values": [
-                            102760448,
-                            1867776,
-                            1245184,
-                            2179072,
-                            1556480,
-                            105873408,
-                            9027584,
-                            8093696,
-                            105873408,
-                            23969792,
-                            32382976,
-                            26460160,
-                            188686336,
-                            0,
-                            0,
-                            0,
-                            20971520,
-                            0,
-                        ],
-                    }
-                },
-                "subdir_count": 18,
-                "bytes_used": 209657856,
-                "file_count": 668,
-                "by_modified_time": {
-                    "bytes_used": {
                         "labels": [
                             "2019-W42",
                             "2019-W41",
@@ -588,6 +562,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                             "2016",
                             "--2015",
                             "unknown",
+                        ],
+                    }
+                },
+                "bytes_used": 209657856,
+                "subdir_count": 18,
+                "by_modified_time": {
+                    "bytes_used": {
+                        "values": [
+                            0,
+                            0,
+                            0,
+                            0,
+                            3112960,
+                            0,
+                            14041088,
+                            20545536,
+                            0,
+                            57933824,
+                            61947904,
+                            68804608,
+                            188686336,
+                            0,
+                            0,
+                            0,
+                            20971520,
+                            0,
                         ],
                         "percentages": [
                             0.0,
@@ -609,40 +609,40 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                             10.0,
                             0.0,
                         ],
-                        "values": [
-                            0,
-                            0,
-                            0,
-                            0,
-                            3112960,
-                            0,
-                            14041088,
-                            20545536,
-                            0,
-                            57933824,
-                            61947904,
-                            68804608,
-                            188686336,
-                            0,
-                            0,
-                            0,
-                            20971520,
-                            0,
+                        "labels": [
+                            "2019-W42",
+                            "2019-W41",
+                            "2019-W40",
+                            "2019-W39",
+                            "2019-W38",
+                            "2019-10",
+                            "2019-09",
+                            "2019-08",
+                            "2019-Q4",
+                            "2019-Q3",
+                            "2019-Q2",
+                            "2019-Q1",
+                            "2019",
+                            "2018",
+                            "2017",
+                            "2016",
+                            "--2015",
+                            "unknown",
                         ],
                     }
                 },
             },
-            "modified_time": "2019-10-28T23:10:30+00:00",
-            "unix_permissions": 755,
-            "path": "d1",
-            "changed_time": "2019-10-28T23:10:30+00:00",
-            "owner_id": 1002,
-            "accessed_time": "2019-10-28T23:10:38+00:00",
+            "bytes_used": 4096,
             "type": "directory",
-            "is_junction": False,
             "hard_links_count": 5,
+            "changed_time": "2019-10-28T23:10:30+00:00",
+            "accessed_time": "2019-10-28T23:10:38+00:00",
+            "inode_generation": 214514951,
             "is_vm_aligned": False,
-            "is_empty": False,
+            "is_junction": False,
+            "size": 4096,
+            "unix_permissions": 755,
+            "owner_id": 1002,
         }
     )
 ]
@@ -680,24 +680,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FileInfo(
         {
-            "name": ".",
-            "analytics": {
-                "by_accessed_time": {
-                    "bytes_used": {
-                        "percentages": [0.03, 99.97, 0.0, 0.0],
-                        "values": [69632, 244170752, 0, 0],
-                    }
-                },
-                "subdir_count": 14,
-                "bytes_used": 244240384,
-                "file_count": 44,
-                "by_modified_time": {
-                    "bytes_used": {
-                        "percentages": [0.02, 12.17, 80.31, 0.02],
-                        "values": [57344, 29720576, 196141056, 57344],
-                    }
-                },
-            },
             "path": "d3",
             "_links": {
                 "self": {
@@ -707,29 +689,29 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/storage/volumes/cb6b1b39-8d21-11e9-b926-005056aca658/files/d3%2F%2E?return_metadata=true"
                 },
             },
+            "analytics": {
+                "file_count": 44,
+                "by_accessed_time": {
+                    "bytes_used": {
+                        "values": [69632, 244170752, 0, 0],
+                        "percentages": [0.03, 99.97, 0.0, 0.0],
+                    }
+                },
+                "bytes_used": 244240384,
+                "subdir_count": 14,
+                "by_modified_time": {
+                    "bytes_used": {
+                        "values": [57344, 29720576, 196141056, 57344],
+                        "percentages": [0.02, 12.17, 80.31, 0.02],
+                    }
+                },
+            },
             "type": "directory",
+            "name": ".",
         }
     ),
     FileInfo(
         {
-            "name": "..",
-            "analytics": {
-                "by_accessed_time": {
-                    "bytes_used": {
-                        "percentages": [0.01, 99.99, 0.0, 0.0],
-                        "values": [282624, 3034292224, 0, 0],
-                    }
-                },
-                "subdir_count": 23,
-                "bytes_used": 3034574848,
-                "file_count": 515,
-                "by_modified_time": {
-                    "bytes_used": {
-                        "percentages": [0.0, 57.88, 7.07, 0.04],
-                        "values": [61440, 1756479488, 214622208, 1191936],
-                    }
-                },
-            },
             "path": "d3",
             "_links": {
                 "self": {
@@ -739,29 +721,29 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/storage/volumes/cb6b1b39-8d21-11e9-b926-005056aca658/files/d3%2F%2E%2E?return_metadata=true"
                 },
             },
+            "analytics": {
+                "file_count": 515,
+                "by_accessed_time": {
+                    "bytes_used": {
+                        "values": [282624, 3034292224, 0, 0],
+                        "percentages": [0.01, 99.99, 0.0, 0.0],
+                    }
+                },
+                "bytes_used": 3034574848,
+                "subdir_count": 23,
+                "by_modified_time": {
+                    "bytes_used": {
+                        "values": [61440, 1756479488, 214622208, 1191936],
+                        "percentages": [0.0, 57.88, 7.07, 0.04],
+                    }
+                },
+            },
             "type": "directory",
+            "name": "..",
         }
     ),
     FileInfo(
         {
-            "name": "d5",
-            "analytics": {
-                "by_accessed_time": {
-                    "bytes_used": {
-                        "percentages": [0.0, 100.0, 0.0, 0.0],
-                        "values": [0, 47648768, 0, 0],
-                    }
-                },
-                "subdir_count": 4,
-                "bytes_used": 47648768,
-                "file_count": 10,
-                "by_modified_time": {
-                    "bytes_used": {
-                        "percentages": [0.0, 62.2, 0.0, 0.0],
-                        "values": [0, 29638656, 0, 0],
-                    }
-                },
-            },
             "path": "d3",
             "_links": {
                 "self": {
@@ -771,7 +753,25 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/storage/volumes/cb6b1b39-8d21-11e9-b926-005056aca658/files/d3%2Fd5?return_metadata=true"
                 },
             },
+            "analytics": {
+                "file_count": 10,
+                "by_accessed_time": {
+                    "bytes_used": {
+                        "values": [0, 47648768, 0, 0],
+                        "percentages": [0.0, 100.0, 0.0, 0.0],
+                    }
+                },
+                "bytes_used": 47648768,
+                "subdir_count": 4,
+                "by_modified_time": {
+                    "bytes_used": {
+                        "values": [0, 29638656, 0, 0],
+                        "percentages": [0.0, 62.2, 0.0, 0.0],
+                    }
+                },
+            },
             "type": "directory",
+            "name": "d5",
         }
     ),
 ]
@@ -807,42 +807,42 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FileInfo(
         {
-            "name": "..",
+            "path": "d1",
             "analytics": {"bytes_used": 56623104},
-            "path": "d1",
             "type": "directory",
+            "name": "..",
         }
     ),
     FileInfo(
         {
-            "name": ".",
+            "path": "d1",
             "analytics": {"bytes_used": 35651584},
-            "path": "d1",
             "type": "directory",
+            "name": ".",
         }
     ),
     FileInfo(
         {
-            "name": "biggest",
+            "path": "d1",
             "analytics": {"bytes_used": 17825792},
-            "path": "d1",
             "type": "directory",
+            "name": "biggest",
         }
     ),
     FileInfo(
         {
-            "name": "bigger",
+            "path": "d1",
             "analytics": {"bytes_used": 10485760},
-            "path": "d1",
             "type": "directory",
+            "name": "bigger",
         }
     ),
     FileInfo(
         {
-            "name": "big",
-            "analytics": {"bytes_used": 5242880},
             "path": "d1",
+            "analytics": {"bytes_used": 5242880},
             "type": "directory",
+            "name": "big",
         }
     ),
 ]
@@ -884,28 +884,28 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FileInfo(
         {
-            "inode_number": 96,
-            "volume": {"uuid": "c05eb66a-685f-11ea-8508-005056a7b8ac"},
-            "group_id": 0,
-            "creation_time": "2020-03-17T10:58:40-04:00",
-            "inode_generation": 219748425,
-            "bytes_used": 1056768,
-            "size": 1048576,
-            "qos_policy": {
-                "name": "pg1",
-                "uuid": "00725264-688f-11ea-8f10-005056a7b8ac",
-            },
-            "modified_time": "2020-03-24T18:15:40-04:00",
-            "unix_permissions": 644,
-            "is_snapshot": False,
             "path": "file",
-            "changed_time": "2020-03-24T18:15:40-04:00",
-            "owner_id": 0,
-            "accessed_time": "2020-03-24T18:15:40-04:00",
+            "volume": {"uuid": "c05eb66a-685f-11ea-8508-005056a7b8ac"},
+            "creation_time": "2020-03-17T10:58:40-04:00",
+            "inode_number": 96,
+            "modified_time": "2020-03-24T18:15:40-04:00",
+            "group_id": 0,
+            "bytes_used": 1056768,
             "type": "lun",
-            "is_junction": False,
             "hard_links_count": 2,
+            "changed_time": "2020-03-24T18:15:40-04:00",
+            "accessed_time": "2020-03-24T18:15:40-04:00",
+            "qos_policy": {
+                "uuid": "00725264-688f-11ea-8f10-005056a7b8ac",
+                "name": "pg1",
+            },
+            "inode_generation": 219748425,
+            "is_snapshot": False,
             "is_vm_aligned": False,
+            "is_junction": False,
+            "size": 1048576,
+            "unix_permissions": 644,
+            "owner_id": 0,
         }
     )
 ]

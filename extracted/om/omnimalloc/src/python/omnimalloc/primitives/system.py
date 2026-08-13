@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 from .allocation import IdType
 from .memory import Memory
+from .utils import ensure_items, ensure_unique_ids
 
 
 @dataclass(frozen=True)
@@ -21,13 +22,20 @@ class System:
     memories: tuple[Memory, ...]
 
     def __post_init__(self) -> None:
-        if len({memory.id for memory in self.memories}) != len(self.memories):
-            raise ValueError("memory ids must be unique")
+        object.__setattr__(
+            self, "memories", ensure_items(self.memories, Memory, "memories")
+        )
+        ensure_unique_ids(self.memories, "memory")
 
     @property
     def is_allocated(self) -> bool:
         """True if all memories have been allocated."""
         return all(memory.is_allocated for memory in self.memories)
+
+    @property
+    def any_allocated(self) -> bool:
+        """True if any memory has a placed allocation."""
+        return any(memory.any_allocated for memory in self.memories)
 
     def with_memories(self, memories: tuple[Memory, ...]) -> "System":
         """Return new System with specified memories."""

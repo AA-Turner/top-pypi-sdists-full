@@ -119,13 +119,60 @@ struct LoginRequest {
     password: String,
 }
 
+/// **The ONE shape every authenticated session is handed back in** — and the one
+/// place a session is minted (CIRISServer#393).
+///
+/// The agent's `LoginResponse` / `NativeTokenResponse` are this shape, and we had
+/// grown four copies of it: password login, the two native token exchanges, and
+/// the OAuth hand-off. A fifth was about to appear on the first-run claim, which
+/// is what made the duplication worth naming rather than tolerating.
+///
+/// Four structs is not merely repetitive — it is four places a session can be
+/// minted with a different lifetime, a different token shape, or without the
+/// bookkeeping the others do. The token type and the TTL are policy; policy in
+/// four places is policy that will disagree. [`SessionGrant::issue`] is now the
+/// only thing that calls [`issue_session_token`] outside this module's own tests.
 #[derive(Debug, Serialize)]
-struct LoginResponse {
-    access_token: String,
-    token_type: &'static str,
-    expires_in: u64,
-    role: String,
-    user_id: String,
+pub(crate) struct SessionGrant {
+    pub access_token: String,
+    pub token_type: &'static str,
+    pub expires_in: u64,
+    pub role: String,
+    pub user_id: String,
+}
+
+/// How long a fabric session lives. One constant, because a TTL that differs by
+/// door is a door with a different security posture nobody chose.
+pub(crate) const SESSION_TTL_SECS: u64 = 86_400;
+
+impl SessionGrant {
+    /// Mint a session for `wa_id`. THE issuance point.
+    pub(crate) fn issue(wa_id: &str, role: &UserRole) -> Self {
+        Self::issue_with_ttl(wa_id, role, SESSION_TTL_SECS)
+    }
+
+    /// Mint with an explicit lifetime.
+    ///
+    /// Exists for ONE caller: `/v1/auth/refresh`, which ports the agent's refresh
+    /// policy (SYSTEM_ADMIN gets a short window, everyone else a long one). That
+    /// is a deliberate difference, so it stays a visible argument rather than
+    /// being folded into [`issue`] where it would silently change what a plain
+    /// login hands out.
+    ///
+    /// Worth recording rather than quietly unifying: login and refresh already
+    /// DISAGREE about a non-admin's lifetime — login gives a day, refresh gives
+    /// thirty. Both were correct in isolation, which is how four copies of one
+    /// shape drift. Reconciling them is a policy call, not a refactor, so this
+    /// keeps them explicit instead of picking a winner here.
+    pub(crate) fn issue_with_ttl(wa_id: &str, role: &UserRole, expires_in: u64) -> Self {
+        Self {
+            access_token: issue_session_token(wa_id),
+            token_type: "Bearer",
+            expires_in,
+            role: role.as_str().to_string(),
+            user_id: wa_id.to_string(),
+        }
+    }
 }
 
 /// Issue an opaque session token bound to `wa_id`.
@@ -133,16 +180,128 @@ struct LoginResponse {
 /// `pub(crate)` so the OAuth front door mints the SAME kind of session the
 /// password path does — before this, a completed OAuth sign-in returned an
 /// identity and no bearer, so there was nothing for a client to hold.
+/// The per-node secret that makes a session token's random half LOAD-BEARING.
+///
+/// Generated once and held for the process. A restart mints a new one, which
+/// invalidates outstanding sessions — the fail-SAFE direction, and the same
+/// posture CIRISServer#125 chose for the client (memory-only, re-login on a
+/// fresh launch).
+static SESSION_SECRET: std::sync::OnceLock<[u8; 32]> = std::sync::OnceLock::new();
+
+fn session_secret() -> &'static [u8; 32] {
+    SESSION_SECRET.get_or_init(|| {
+        let mut k = [0u8; 32];
+        ciris_crypto::random::fill(&mut k).expect("CSPRNG for the session secret");
+        k
+    })
+}
+
+/// `HMAC-SHA256(secret, wa_id || 0x1f || nonce)`, base64url.
+fn session_mac(wa_id: &str, nonce: &str) -> String {
+    use base64::Engine as _;
+    use hmac::Mac as _;
+    let mut mac = <hmac::Hmac<sha2::Sha256> as hmac::Mac>::new_from_slice(session_secret())
+        .expect("HMAC accepts a 32-byte key");
+    mac.update(wa_id.as_bytes());
+    mac.update(&[0x1f]);
+    mac.update(nonce.as_bytes());
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(mac.finalize().into_bytes())
+}
+
+/// Issue an opaque session token bound to `wa_id`.
+///
+/// # The random half is now VERIFIED (CIRISServer#394)
+///
+/// This minted `sess:<wa_id>:<random>` and [`resolve_bearer`] parsed the
+/// `wa_id` back out, loaded the cert, and authenticated — **without ever looking
+/// at the random half**. Any string in that position worked, so the token was a
+/// bearer credential whose secret was decorative:
+///
+/// ```text
+/// Authorization: Bearer sess:wa-root-<owner>:FORGEDXXXXXX
+///   GET  /v1/auth/me       200   role: SYSTEM_ADMIN
+///   POST /v1/admin/preview 200
+/// ```
+///
+/// And the `wa_id` is not a secret either: `GET /v1/auth/owner-hint` is
+/// unauthenticated and returns the owner's name, which IS the `wa_id` minus its
+/// `wa-` prefix. So an unauthenticated GET yielded a SYSTEM_ADMIN session on a
+/// node that binds `0.0.0.0`.
+///
+/// The lesson is the agent's, which had it right: `_get_key_id` is an INDEX and
+/// `bcrypt.checkpw` is the GATE. We had the index and no gate. Here the gate is
+/// an HMAC over `(wa_id, nonce)` under a per-process secret, compared in
+/// constant time — self-verifying, so it needs no store and cannot be replayed
+/// against a different `wa_id`.
 pub(crate) fn issue_session_token(wa_id: &str) -> String {
     use base64::Engine as _;
     let mut raw = [0u8; 24];
     ciris_crypto::random::fill(&mut raw).expect("CSPRNG for session token");
-    let r = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(raw);
-    format!("sess:{wa_id}:{r}")
+    let nonce = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(raw);
+    let mac = session_mac(wa_id, &nonce);
+    format!("sess:{wa_id}:{nonce}.{mac}")
 }
 
-/// Parse the `wa_id` out of an opaque session token (`sess:<wa_id>:<rand>`).
+/// Test seam: mint a real token (`tests/session_token_is_verified.rs`).
+#[doc(hidden)]
+pub fn test_support_issue_session_token(wa_id: &str) -> String {
+    issue_session_token(wa_id)
+}
+
+/// Verify a session token's MAC. `false` for anything not minted by this process.
+fn session_token_is_authentic(token: &str) -> bool {
+    use subtle::ConstantTimeEq as _;
+    let Some(rest) = token.strip_prefix("sess:") else {
+        return false;
+    };
+    // `wa_id` may itself contain ':' (it does not today, but the parse must not
+    // depend on that), so split the SECRET off the right-hand end.
+    let Some((wa_id, secret)) = rest.rsplit_once(':') else {
+        return false;
+    };
+    let Some((nonce, mac)) = secret.split_once('.') else {
+        // A pre-#394 token (no MAC). Rejected: accepting it would preserve the
+        // forgery, and the whole point is that the secret is now checked.
+        return false;
+    };
+    let expected = session_mac(wa_id, nonce);
+    expected.as_bytes().ct_eq(mac.as_bytes()).into()
+}
+
+/// The `wa_id` an **authentic** session token names (`sess:<wa_id>:<nonce>.<mac>`).
+///
+/// # The parse IS the verification (CIRISServer#398)
+///
+/// This used to be a pure string split, and #394 put the MAC check inside
+/// [`resolve_bearer`] alone. That left the other two callers reading a `wa_id`
+/// out of an unverified string and acting on it:
+///
+/// - `POST /v1/auth/refresh` — minted a REAL, MAC'd session for that `wa_id`.
+///   Forge `sess:<owner>:junk`, call refresh, receive a genuine owner token. The
+///   forgery was closed at one door and left open one hop away.
+/// - `POST /v1/auth/logout` — DEACTIVATED that `wa_id`'s cert. Unauthenticated
+///   account lockout: anyone who could read `owner-hint` could disable the
+///   owner.
+///
+/// Fixing three call sites would invite a fourth, so the unsafe operation is
+/// gone instead: there is no way to obtain a `wa_id` from a token without the
+/// MAC having verified. A caller cannot forget a check it cannot skip.
+///
+/// Found in review by Codex on the 0.5.168 PR — the refresh half. The logout
+/// half came from asking what ELSE shared the shape.
 pub fn wa_id_from_token(token: &str) -> Option<&str> {
+    if !session_token_is_authentic(token) {
+        return None;
+    }
+    wa_id_from_token_unverified(token)
+}
+
+/// The `wa_id` a token CLAIMS, with no authenticity check.
+///
+/// For logging and diagnostics only — never for a decision. Deliberately
+/// separate and deliberately named, so that using it where the verified form
+/// belongs is a visible choice rather than an accident.
+fn wa_id_from_token_unverified(token: &str) -> Option<&str> {
     token
         .strip_prefix("sess:")?
         .rsplit_once(':')
@@ -499,6 +658,16 @@ pub async fn resolve_bearer(
     let Some(wa_id) = wa_id_from_token(bearer_token) else {
         return Ok(None); // not a session token — let other auth modes handle it.
     };
+    // THE GATE (CIRISServer#394). Everything below this line trusts `wa_id`, and
+    // `wa_id` comes out of the token the caller supplied — so the token must be
+    // proven to be one we minted BEFORE it is used to look anything up.
+    if !session_token_is_authentic(bearer_token) {
+        tracing::info!(
+            "rejected a session token whose MAC does not verify — forged, tampered, or minted \
+             before this process started"
+        );
+        return Ok(None);
+    }
     let Some(cert) = store::get(engine, wa_id).await? else {
         return Ok(None);
     };
@@ -526,33 +695,103 @@ async fn login(State(st): State<SessionState>, body: axum::body::Bytes) -> Respo
     // did (multi-key): `wa_id`, OAuth `"<provider>:<external_id>"`, OR the human
     // `name` (the friendly username the wizard stamps on the owner ROOT). The
     // session is still issued against the resolved `cert.wa_id`.
-    let cert = match store::resolve_login(&st.engine, &req.username).await {
-        Ok(Some(c)) => c,
-        Ok(None) => return err(StatusCode::UNAUTHORIZED, "invalid credentials"),
-        Err(e) => return err(StatusCode::SERVICE_UNAVAILABLE, format!("store: {e}")),
+    // EVERY BRANCH IS LOGGED — CIRISServer#389.
+    //
+    // The wire responses below are deliberately unchanged: two branches share
+    // "invalid credentials" so a caller cannot probe whether an account exists,
+    // and that is correct. But nothing distinguished them ANYWHERE, so a failed
+    // login was a guess between "the node has never heard of this user" and
+    // "the stored hash did not match" — two causes with opposite fixes. That
+    // cost CIRISAgent the adoption of #1028: they could not tell which.
+    //
+    // The log is node-side and never reaches the client, so it can be specific.
+    // wa_id at INFO (an internal id, and the thing an operator greps); human
+    // NAMES only at DEBUG, because a name is the user's, not the operator's.
+    let (cert, matched) = match store::resolve_login_detailed(&st.engine, &req.username).await {
+        Ok(Ok(hit)) => hit,
+        Ok(Err(miss)) => {
+            tracing::info!(
+                identifier = %req.username,
+                certs_scanned = miss.scanned,
+                "login failed: no cert resolved for identifier — tried wa_id, \
+                 \"<provider>:<external_id>\", then exact human name"
+            );
+            // The distinct zeroes, kept distinct: ZERO certs scanned means this
+            // node's wa_cert store is EMPTY (it is reading a different database
+            // than whatever created the account); a NON-zero count means the
+            // certs are present and none is named that. Saying which turns a
+            // guess into a lookup.
+            if miss.scanned == 0 {
+                tracing::info!(
+                    "login failed: the wa_cert store holds NO certs at all — this node is not \
+                     reading the database the account was created in"
+                );
+            } else {
+                tracing::debug!(
+                    names = ?miss.names,
+                    "login failed: the names this node CAN match (login uses the WHOLE name, \
+                     exactly; owner-hint shows only its first token, which is why a first name \
+                     alone is refused)"
+                );
+            }
+            return err(StatusCode::UNAUTHORIZED, "invalid credentials");
+        }
+        // An ambiguous NAME is not a store outage and must not read as one — the
+        // store is fine, the graph is not. It is also not "invalid credentials":
+        // the credential may be perfectly correct and simply belong to the other
+        // cert, which is exactly how CIRISAgent#1029 presented — an eternal
+        // `password mismatch` against a password that worked in Python.
+        //
+        // 409 CONFLICT, and the message names both wa_ids: this is the one login
+        // failure an operator can actually FIX, and only if they are told what
+        // collided. Leaking the wa_ids here is safe — resolution already failed,
+        // so this says nothing about whether any credential is valid.
+        Err(e @ store::StoreError::AmbiguousLoginName { .. }) => {
+            tracing::error!(
+                identifier = %req.username, error = %e,
+                "login REFUSED: this name resolves to more than one active cert. Choosing one \
+                 would authenticate the caller as whichever the node ordered first."
+            );
+            return err(StatusCode::CONFLICT, e.to_string());
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "login failed: identity store unavailable");
+            return err(StatusCode::SERVICE_UNAVAILABLE, format!("store: {e}"));
+        }
     };
     if !cert.active {
+        tracing::info!(wa_id = %cert.wa_id, "login failed: account is inactive");
         return err(StatusCode::FORBIDDEN, "account is inactive");
     }
     let Some(hash) = cert.password_hash.as_deref() else {
+        tracing::info!(
+            wa_id = %cert.wa_id, matched_on = matched.as_str(),
+            "login failed: cert resolved but has NO password_hash (an OAuth-only or \
+             not-yet-provisioned identity)"
+        );
         return err(StatusCode::UNAUTHORIZED, "no password set for this account");
     };
     if !verify_password(&req.password, hash) {
+        tracing::info!(
+            wa_id = %cert.wa_id, matched_on = matched.as_str(),
+            "login failed: password mismatch — the cert WAS resolved, so this is the credential, \
+             not the identifier (PBKDF2-HMAC-SHA256, 100k iters, base64(salt32||key32))"
+        );
         return err(StatusCode::UNAUTHORIZED, "invalid credentials");
     }
 
     let _ = store::touch_login(&st.engine, &cert.wa_id).await;
     let role = UserRole::from_wa_role(cert.role);
-    let token = issue_session_token(&cert.wa_id);
+    // The success path logs in the SAME place as the failures, so "it worked"
+    // and "it did not" are one grep. A log that only records failures cannot
+    // tell an operator whether the request arrived at all.
+    tracing::info!(
+        wa_id = %cert.wa_id, role = role.as_str(), matched_on = matched.as_str(),
+        "login ok"
+    );
     (
         StatusCode::OK,
-        Json(LoginResponse {
-            access_token: token,
-            token_type: "Bearer",
-            expires_in: 86_400,
-            role: role.as_str().to_string(),
-            user_id: cert.wa_id,
-        }),
+        Json(SessionGrant::issue(&cert.wa_id, &role)),
     )
         .into_response()
 }
@@ -634,13 +873,7 @@ async fn refresh(State(st): State<SessionState>, headers: HeaderMap) -> Response
             };
             (
                 StatusCode::OK,
-                Json(LoginResponse {
-                    access_token: issue_session_token(&c.wa_id),
-                    token_type: "Bearer",
-                    expires_in,
-                    role: role.as_str().to_string(),
-                    user_id: c.wa_id,
-                }),
+                Json(SessionGrant::issue_with_ttl(&c.wa_id, &role, expires_in)),
             )
                 .into_response()
         }

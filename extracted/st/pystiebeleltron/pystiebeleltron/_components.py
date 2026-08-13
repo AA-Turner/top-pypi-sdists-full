@@ -5,15 +5,10 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable
 
-from modbus_connection import BlockReadError, ModbusUnit
+from modbus_connection import IllegalDataAddressError, ModbusUnit
 from modbus_connection.model import Component, ComponentGroup
 
 _LOGGER = logging.getLogger(__package__)
-
-# The Modbus exception code for illegal data address: the controller has no such
-# register. It is the only answer that means "not built in" - device failure or
-# device busy say the registers are there and the read went wrong.
-_ILLEGAL_DATA_ADDRESS = 2
 
 
 class ControllerComponents:
@@ -56,9 +51,7 @@ class ControllerComponents:
         """Pool ``required`` into one read; read each of ``optional`` on its own."""
         self._required = list(required)
         self._group = ComponentGroup(unit, self._required)
-        # A group of one, rather than the component itself: ``Component`` always
-        # notifies when it updates, a group can be told not to.
-        self._optional = [(component, ComponentGroup(unit, [component])) for component in optional]
+        self._optional = list(optional)
 
     async def async_update(self) -> None:
         """Read the required components, then the optional ones still in play.
@@ -77,14 +70,14 @@ class ControllerComponents:
         """
         await self._group.async_update(notify=False)
         updated = []
-        for entry in list(self._optional):
-            component, group = entry
+        for component in list(self._optional):
             try:
-                await group.async_update(notify=False)
-            except BlockReadError as err:
-                if err.exception_code != _ILLEGAL_DATA_ADDRESS:
-                    raise
-                self._optional.remove(entry)
+                await component.async_update(notify=False)
+            # The only answer that means "not built in": device failure and
+            # device busy both say the registers are there and the read went
+            # wrong, so they stay uncaught and fail the poll.
+            except IllegalDataAddressError as err:
+                self._optional.remove(component)
                 _LOGGER.info(
                     "The controller does not serve the registers of %s, so they stay unavailable and are not read again: %s",
                     type(component).__name__,

@@ -1,14 +1,9 @@
-# -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-from __future__ import division, print_function, unicode_literals
 
-from io import open
-
-from .parser import DocumentParser
 from .._compat import to_unicode
 from ..models.dom import ObjectDocumentModel, Paragraph, Sentence
 from ..utils import cached_property
+from .parser import DocumentParser
 
 
 class PlaintextParser(DocumentParser):
@@ -37,7 +32,7 @@ class PlaintextParser(DocumentParser):
             return cls(file.read(), tokenizer)
 
     def __init__(self, text, tokenizer):
-        super(PlaintextParser, self).__init__(tokenizer)
+        super().__init__(tokenizer)
         self._text = to_unicode(text).strip()
 
     @cached_property
@@ -62,7 +57,7 @@ class PlaintextParser(DocumentParser):
         paragraphs = []
         for line in self._text.splitlines():
             line = line.strip()
-            if line.isupper():
+            if self._is_heading(line):
                 heading = Sentence(line, self._tokenizer, is_heading=True)
                 current_paragraph.append(heading)
             elif not line and current_paragraph:
@@ -76,6 +71,17 @@ class PlaintextParser(DocumentParser):
         paragraphs.append(Paragraph(sentences))
 
         return ObjectDocumentModel(paragraphs)
+
+    @staticmethod
+    def _is_heading(line):
+        """
+        Tells whether the line is a heading, which is a line all in upper case.
+
+        Characters of caseless scripts, such as Chinese, are neither upper nor lower case,
+        so `str.isupper()` alone is true for an ordinary sentence as soon as it contains
+        a single upper case letter from a cased script.
+        """
+        return line.isupper() and all(not c.isalpha() or c.isupper() for c in line)
 
     def _to_sentences(self, lines):
         text = ""

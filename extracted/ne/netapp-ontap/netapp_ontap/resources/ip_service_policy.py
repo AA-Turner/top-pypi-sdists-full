@@ -34,46 +34,46 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     IpServicePolicy(
         {
+            "uuid": "e4e2f193-c1a3-11e8-bb9d-005056bb88c8",
+            "name": "net-intercluster",
             "_links": {
                 "self": {
                     "href": "/api/network/ip/service-policies/e4e2f193-c1a3-11e8-bb9d-005056bb88c8"
                 }
             },
-            "name": "net-intercluster",
-            "uuid": "e4e2f193-c1a3-11e8-bb9d-005056bb88c8",
         }
     ),
     IpServicePolicy(
         {
+            "uuid": "e4e3f6da-c1a3-11e8-bb9d-005056bb88c8",
+            "name": "net-route-announce",
             "_links": {
                 "self": {
                     "href": "/api/network/ip/service-policies/e4e3f6da-c1a3-11e8-bb9d-005056bb88c8"
                 }
             },
-            "name": "net-route-announce",
-            "uuid": "e4e3f6da-c1a3-11e8-bb9d-005056bb88c8",
         }
     ),
     IpServicePolicy(
         {
+            "uuid": "e5111111-c1a3-11e8-bb9d-005056bb88c8",
+            "name": "vserver-route-announce",
             "_links": {
                 "self": {
                     "href": "/api/network/ip/service-policies/e5111111-c1a3-11e8-bb9d-005056bb88c8"
                 }
             },
-            "name": "vserver-route-announce",
-            "uuid": "e5111111-c1a3-11e8-bb9d-005056bb88c8",
         }
     ),
     IpServicePolicy(
         {
+            "uuid": "e6111111-c1a3-11e8-bb9d-005056bb88c8",
+            "name": "data-route-announce",
             "_links": {
                 "self": {
                     "href": "/api/network/ip/service-policies/e6111111-c1a3-11e8-bb9d-005056bb88c8"
                 }
             },
-            "name": "data-route-announce",
-            "uuid": "e6111111-c1a3-11e8-bb9d-005056bb88c8",
         }
     ),
 ]
@@ -104,32 +104,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpServicePolicy(
     {
+        "uuid": "dad323ff-4ce0-11e9-9372-005056bb91a8",
+        "name": "default-data-files",
+        "services": ["data_core", "data_nfs", "data_cifs", "data_flexcache"],
         "_links": {
             "self": {
                 "href": "/api/network/ip/service-policies/dad323ff-4ce0-11e9-9372-005056bb91a8"
             }
         },
-        "is_built_in": True,
-        "services": ["data_core", "data_nfs", "data_cifs", "data_flexcache"],
-        "name": "default-data-files",
-        "uuid": "dad323ff-4ce0-11e9-9372-005056bb91a8",
+        "svm": {
+            "uuid": "d9060680-4ce0-11e9-9372-005056bb91a8",
+            "_links": {
+                "self": {"href": "/api/svm/svms/d9060680-4ce0-11e9-9372-005056bb91a8"}
+            },
+            "name": "vs0",
+        },
         "ipspace": {
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/45ec2dee-4ce0-11e9-9372-005056bb91a8"
                 }
             },
-            "name": "Default",
             "uuid": "45ec2dee-4ce0-11e9-9372-005056bb91a8",
+            "name": "Default",
         },
+        "is_built_in": True,
         "scope": "svm",
-        "svm": {
-            "name": "vs0",
-            "_links": {
-                "self": {"href": "/api/svm/svms/d9060680-4ce0-11e9-9372-005056bb91a8"}
-            },
-            "uuid": "d9060680-4ce0-11e9-9372-005056bb91a8",
-        },
     }
 )
 
@@ -159,16 +159,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpServicePolicy(
     {
+        "uuid": "e0889ce6-1e6a-11e9-89d6-005056bbdc04",
+        "name": "test_policy",
         "_links": {
             "self": {
                 "href": "/api/network/ip/service-policies/e0889ce6-1e6a-11e9-89d6-005056bbdc04"
             }
         },
-        "name": "test_policy",
-        "uuid": "e0889ce6-1e6a-11e9-89d6-005056bbdc04",
+        "svm": {"name": "vs0"},
         "ipspace": {"name": "Default"},
         "scope": "svm",
-        "svm": {"name": "vs0"},
     }
 )
 
@@ -198,24 +198,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpServicePolicy(
     {
+        "uuid": "4c6b72b9-0f6c-11e9-875d-005056bb21b8",
+        "name": "net-intercluster",
+        "services": ["intercluster_core"],
         "_links": {
             "self": {
                 "href": "/api/network/ip/service-policies/4c6b72b9-0f6c-11e9-875d-005056bb21b8"
             }
         },
-        "is_built_in": False,
-        "services": ["intercluster_core"],
-        "name": "net-intercluster",
-        "uuid": "4c6b72b9-0f6c-11e9-875d-005056bb21b8",
         "ipspace": {
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/4051f13e-0f6c-11e9-875d-005056bb21b8"
                 }
             },
-            "name": "Default",
             "uuid": "4051f13e-0f6c-11e9-875d-005056bb21b8",
+            "name": "Default",
         },
+        "is_built_in": False,
         "scope": "cluster",
     }
 )
@@ -246,14 +246,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpServicePolicy(
     {
+        "uuid": "4c6b72b9-0f6c-11e9-875d-005056bb21b8",
+        "name": "net-intercluster",
+        "services": ["intercluster_core"],
         "_links": {
             "self": {
                 "href": "/api/network/ip/service-policies/4c6b72b9-0f6c-11e9-875d-005056bb21b8"
             }
         },
-        "services": ["intercluster_core"],
-        "name": "net-intercluster",
-        "uuid": "4c6b72b9-0f6c-11e9-875d-005056bb21b8",
         "ipspace": {"name": "Default"},
         "scope": "cluster",
     }
@@ -293,24 +293,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpServicePolicy(
     {
+        "uuid": "74139267-f1aa-11e9-b5d7-005056a73e2e",
+        "name": "new-policy",
+        "services": ["intercluster_core"],
         "_links": {
             "self": {
                 "href": "/api/network/ip/service-policies/74139267-f1aa-11e9-b5d7-005056a73e2e"
             }
         },
-        "is_built_in": False,
-        "services": ["intercluster_core"],
-        "name": "new-policy",
-        "uuid": "74139267-f1aa-11e9-b5d7-005056a73e2e",
         "ipspace": {
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/ba556295-e912-11e9-a1c8-005056a7080e"
                 }
             },
-            "name": "Default",
             "uuid": "ba556295-e912-11e9-a1c8-005056a7080e",
+            "name": "Default",
         },
+        "is_built_in": False,
         "scope": "cluster",
     }
 )
@@ -344,24 +344,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpServicePolicy(
     {
+        "uuid": "74139267-f1aa-11e9-b5d7-005056a73e2e",
+        "name": "new-policy",
+        "services": ["intercluster_core"],
         "_links": {
             "self": {
                 "href": "/api/network/ip/service-policies/74139267-f1aa-11e9-b5d7-005056a73e2e"
             }
         },
-        "is_built_in": False,
-        "services": ["intercluster_core"],
-        "name": "new-policy",
-        "uuid": "74139267-f1aa-11e9-b5d7-005056a73e2e",
         "ipspace": {
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/ba556295-e912-11e9-a1c8-005056a7080e"
                 }
             },
-            "name": "Default",
             "uuid": "ba556295-e912-11e9-a1c8-005056a7080e",
+            "name": "Default",
         },
+        "is_built_in": False,
         "scope": "cluster",
     }
 )
@@ -395,24 +395,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpServicePolicy(
     {
+        "uuid": "59439267-f1aa-11e9-b5d7-005056a73e2e",
+        "name": "new-policy2",
+        "services": ["intercluster_core"],
         "_links": {
             "self": {
                 "href": "/api/network/ip/service-policies/74139267-f1aa-11e9-b5d7-005056a73e2e"
             }
         },
-        "is_built_in": False,
-        "services": ["intercluster_core"],
-        "name": "new-policy2",
-        "uuid": "59439267-f1aa-11e9-b5d7-005056a73e2e",
         "ipspace": {
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/ba556295-e912-11e9-a1c8-005056a7080e"
                 }
             },
-            "name": "Default",
             "uuid": "ba556295-e912-11e9-a1c8-005056a7080e",
+            "name": "Default",
         },
+        "is_built_in": False,
         "scope": "cluster",
     }
 )
@@ -447,32 +447,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpServicePolicy(
     {
+        "uuid": "f3901097-f2c4-11e9-b5d7-005056a73e2e",
+        "name": "new-policy",
+        "services": ["data_nfs", "data_cifs"],
         "_links": {
             "self": {
                 "href": "/api/network/ip/service-policies/f3901097-f2c4-11e9-b5d7-005056a73e2e"
             }
         },
-        "is_built_in": False,
-        "services": ["data_nfs", "data_cifs"],
-        "name": "new-policy",
-        "uuid": "f3901097-f2c4-11e9-b5d7-005056a73e2e",
+        "svm": {
+            "uuid": "07df9cee-e912-11e9-a13a-005056a73e2e",
+            "_links": {
+                "self": {"href": "/api/svm/svms/07df9cee-e912-11e9-a13a-005056a73e2e"}
+            },
+            "name": "vs0",
+        },
         "ipspace": {
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/1d3199d2-e906-11e9-a13a-005056a73e2e"
                 }
             },
-            "name": "Default",
             "uuid": "1d3199d2-e906-11e9-a13a-005056a73e2e",
+            "name": "Default",
         },
+        "is_built_in": False,
         "scope": "svm",
-        "svm": {
-            "name": "vs0",
-            "_links": {
-                "self": {"href": "/api/svm/svms/07df9cee-e912-11e9-a13a-005056a73e2e"}
-            },
-            "uuid": "07df9cee-e912-11e9-a13a-005056a73e2e",
-        },
     }
 )
 
@@ -505,32 +505,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpServicePolicy(
     {
+        "uuid": "f3901097-f2c4-11e9-b5d7-005056a73e2e",
+        "name": "new-policy",
+        "services": ["data_nfs", "data_cifs"],
         "_links": {
             "self": {
                 "href": "/api/network/ip/service-policies/f3901097-f2c4-11e9-b5d7-005056a73e2e"
             }
         },
-        "is_built_in": False,
-        "services": ["data_nfs", "data_cifs"],
-        "name": "new-policy",
-        "uuid": "f3901097-f2c4-11e9-b5d7-005056a73e2e",
+        "svm": {
+            "uuid": "07df9cee-e912-11e9-a13a-005056a73e2e",
+            "_links": {
+                "self": {"href": "/api/svm/svms/07df9cee-e912-11e9-a13a-005056a73e2e"}
+            },
+            "name": "vs0",
+        },
         "ipspace": {
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/1d3199d2-e906-11e9-a13a-005056a73e2e"
                 }
             },
-            "name": "Default",
             "uuid": "1d3199d2-e906-11e9-a13a-005056a73e2e",
+            "name": "Default",
         },
+        "is_built_in": False,
         "scope": "svm",
-        "svm": {
-            "name": "vs0",
-            "_links": {
-                "self": {"href": "/api/svm/svms/07df9cee-e912-11e9-a13a-005056a73e2e"}
-            },
-            "uuid": "07df9cee-e912-11e9-a13a-005056a73e2e",
-        },
     }
 )
 

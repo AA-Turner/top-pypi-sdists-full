@@ -30,8 +30,8 @@ ActiveDirectory(
         "fqdn": "EXAMPLE.COM",
         "name": "ACCOUNT1",
         "security": {"advertised_kdc_encryptions": ["des"]},
+        "svm": {"uuid": "6dd78167-c907-11eb-b2bf-0050568e7324", "name": "vs1"},
         "organizational_unit": "CN=Computers",
-        "svm": {"name": "vs1", "uuid": "6dd78167-c907-11eb-b2bf-0050568e7324"},
     }
 )
 

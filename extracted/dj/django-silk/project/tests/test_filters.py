@@ -4,13 +4,14 @@ from datetime import datetime, timedelta, timezone
 from itertools import groupby
 from math import floor
 
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from django.utils import timezone as django_timezone
 
 from silk import models
 from silk.request_filters import (
     AfterDateFilter,
     BeforeDateFilter,
+    FiltersManager,
     FunctionNameFilter,
     MethodFilter,
     NameFilter,
@@ -21,12 +22,27 @@ from silk.request_filters import (
     StatusCodeFilter,
     TimeSpentOnQueriesFilter,
     ViewNameFilter,
+    filters_from_request,
 )
 
 from .test_lib.mock_suite import MockSuite
 from .util import delete_all_models
 
 mock_suite = MockSuite()
+
+
+class TestFiltersFromRequest(TestCase):
+    def test_clear_filters_ignores_submitted_values(self):
+        request = RequestFactory().post(
+            '/',
+            {
+                'clear_filters': '1',
+                'filter-viewname-typ': 'ViewNameFilter',
+                'filter-viewname-value': 'view1',
+            },
+        )
+
+        self.assertEqual(filters_from_request(request), {})
 
 
 class TestRequestFilters(TestCase):
@@ -150,6 +166,14 @@ class TestRequestAfterDateFilter(TestCase):
         new_dt = django_timezone.make_aware(new_dt, timezone.utc)
         self.assertFilter(new_dt, f)
 
+    def test_str_today(self):
+        dt = django_timezone.now().replace(hour=13, minute=45, second=30, microsecond=123456)
+        self.assertEqual(str(AfterDateFilter(dt)), '>13:45:30.123')
+
+    def test_str_other_day(self):
+        f = AfterDateFilter('2020/01/02 13:45')
+        self.assertEqual(str(f), '>2020.01.02 13:45.000')
+
 
 class TestRequestBeforeDateFilter(TestCase):
     def assertFilter(self, dt, f):
@@ -178,6 +202,14 @@ class TestRequestBeforeDateFilter(TestCase):
         new_dt = datetime.strptime(dt_str, fmt)
         new_dt = django_timezone.make_aware(new_dt, timezone.utc)
         self.assertFilter(new_dt, f)
+
+    def test_str_today(self):
+        dt = django_timezone.now().replace(hour=13, minute=45, second=30, microsecond=123456)
+        self.assertEqual(str(BeforeDateFilter(dt)), '<13:45:30.123')
+
+    def test_str_other_day(self):
+        f = BeforeDateFilter('2020/01/02 13:45')
+        self.assertEqual(str(f), '<2020.01.02 13:45.000')
 
 
 class TestProfileFilters(TestCase):
@@ -232,3 +264,30 @@ class TestProfileFilters(TestCase):
         filtered = query_set.filter(time_taken_filter)
         for f in filtered:
             self.assertGreaterEqual(f.time_taken, c)
+
+
+class TestFiltersManager(TestCase):
+    """
+    Regression tests for
+    https://github.com/jazzband/django-silk/issues/361
+    """
+    class BareRequest:
+        pass
+
+    def test_get_without_session_or_prior_save_returns_empty_dict(self):
+        """
+        get() must never raise, even for a request that has neither a
+        .session attribute nor a previously-set .silk_filters
+        attribute (i.e. save() was never called for this request) --
+        matching the safe default already used by the session-based
+        branch.
+        """
+        manager = FiltersManager("summary_filters")
+        result = manager.get(TestFiltersManager.BareRequest())
+        self.assertEqual(result, {})
+
+    def test_save_then_get_without_session_round_trips(self):
+        manager = FiltersManager("summary_filters")
+        request = TestFiltersManager.BareRequest()
+        manager.save(request, {"show": "all"})
+        self.assertEqual(manager.get(request), {"show": "all"})

@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from datadog_api_client.v2.model.output_schema import OutputSchema
     from datadog_api_client.v2.model.step import Step
     from datadog_api_client.v2.model.trigger import Trigger
+    from datadog_api_client.v2.model.agent_trigger_wrapper import AgentTriggerWrapper
     from datadog_api_client.v2.model.api_trigger_wrapper import APITriggerWrapper
     from datadog_api_client.v2.model.app_trigger_wrapper import AppTriggerWrapper
     from datadog_api_client.v2.model.case_trigger_wrapper import CaseTriggerWrapper
@@ -83,6 +84,7 @@ class Spec(ModelNormal):
             List[
                 Union[
                     Trigger,
+                    AgentTriggerWrapper,
                     APITriggerWrapper,
                     AppTriggerWrapper,
                     CaseTriggerWrapper,
@@ -109,7 +111,7 @@ class Spec(ModelNormal):
         **kwargs,
     ):
         """
-        The spec defines what the workflow does.
+        A complete Workflow Automation definition, including its triggers, steps, and connections.
 
         :param annotations: A list of annotations used in the workflow. These are like sticky notes for your workflow!
         :type annotations: [Annotation], optional

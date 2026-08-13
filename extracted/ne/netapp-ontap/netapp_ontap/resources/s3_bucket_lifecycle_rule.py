@@ -30,10 +30,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 ```
 S3BucketLifecycleRule(
     {
-        "object_filter": {"size_greater_than": 1000, "prefix": "obj1*/"},
         "name": "rule1",
-        "abort_incomplete_multipart_upload": {"after_initiation_days": 200},
         "expiration": {"object_age_days": 1000},
+        "object_filter": {"size_greater_than": 1000, "prefix": "obj1*/"},
+        "abort_incomplete_multipart_upload": {"after_initiation_days": 200},
     }
 )
 

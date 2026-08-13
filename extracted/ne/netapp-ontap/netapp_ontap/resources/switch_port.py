@@ -27,136 +27,136 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SwitchPort(
         {
+            "vlan_id": [1, 17, 18],
             "mac_address": "00:be:75:ae:2a:d4",
-            "speed": 100000,
-            "_links": {
-                "self": {
-                    "href": "/api/network/ethernet/switch/ports/RTP-CS01-510R11%28FOC22092K12%29/Ethernet1%2F1/436207616"
-                }
-            },
-            "identity": {"name": "Ethernet1/1", "number": 1, "index": 436207616},
-            "roles": [{"zone": 1, "type": "cluster"}],
-            "switch": {
-                "_links": {
-                    "self": {
-                        "href": "/api/network/ethernet/switches/RTP-CS01-510R11(FOC22092K12)"
-                    }
-                },
-                "name": "RTP-CS01-510R11(FOC22092K12)",
-            },
             "remote_port": {
                 "mtu": 9000,
-                "name": "e3a",
                 "device": {
+                    "discovered_name": "stiA400-311",
                     "node": {
-                        "name": "stiA400-311",
+                        "uuid": "54c0f036-8a3a-11ea-893d-00a098fd726d",
                         "_links": {
                             "self": {
                                 "href": "/api/cluster/nodes/54c0f036-8a3a-11ea-893d-00a098fd726d"
                             }
                         },
-                        "uuid": "54c0f036-8a3a-11ea-893d-00a098fd726d",
+                        "name": "stiA400-311",
                     },
-                    "discovered_name": "stiA400-311",
                 },
                 "functional_roles": ["cluster", "ha"],
+                "name": "e3a",
             },
-            "state": "up",
-            "statistics": {
-                "transmit_raw": {"errors": 0, "packets": 206717534, "discards": 0},
-                "receive_raw": {"errors": 0, "packets": 1616467751, "discards": 0},
-                "timestamp": "2024-11-08T19:51:12+00:00",
-            },
-            "isl": False,
-            "vlan_id": [1, 17, 18],
-            "configured": "up",
-            "mtu": 9216,
             "vpc_peer_link": False,
-            "duplex_type": "full_duplex",
-        }
-    ),
-    SwitchPort(
-        {
-            "mac_address": "00be75ae2afc",
             "speed": 100000,
+            "identity": {"number": 1, "name": "Ethernet1/1", "index": 436207616},
+            "configured": "up",
+            "roles": [{"type": "cluster", "zone": 1}],
             "_links": {
                 "self": {
-                    "href": "/api/network/ethernet/switch/ports/RTP-CS01-510R11%28FOC22092K12%29/Ethernet1%2F11/436212736"
+                    "href": "/api/network/ethernet/switch/ports/RTP-CS01-510R11%28FOC22092K12%29/Ethernet1%2F1/436207616"
                 }
             },
-            "identity": {"name": "Ethernet1/11", "number": 11, "index": 436212736},
-            "roles": [{"zone": 1, "type": "cluster"}],
+            "mtu": 9216,
+            "statistics": {
+                "transmit_raw": {"discards": 0, "packets": 206717534, "errors": 0},
+                "timestamp": "2024-11-08T19:51:12+00:00",
+                "receive_raw": {"discards": 0, "packets": 1616467751, "errors": 0},
+            },
             "switch": {
+                "name": "RTP-CS01-510R11(FOC22092K12)",
                 "_links": {
                     "self": {
                         "href": "/api/network/ethernet/switches/RTP-CS01-510R11(FOC22092K12)"
                     }
                 },
-                "name": "RTP-CS01-510R11(FOC22092K12)",
             },
-            "state": "down",
-            "statistics": {
-                "transmit_raw": {"errors": 0, "packets": 0, "discards": 0},
-                "receive_raw": {"errors": 0, "packets": 0, "discards": 0},
-                "timestamp": "2024-11-08T19:51:12+00:00",
-            },
+            "state": "up",
+            "duplex_type": "full_duplex",
             "isl": False,
-            "vlan_id": [1, 17, 18],
-            "configured": "up",
-            "mtu": 9216,
-            "vpc_peer_link": False,
-            "duplex_type": "unknown",
         }
     ),
     SwitchPort(
         {
-            "mac_address": "00fcbaead548",
+            "vlan_id": [1, 17, 18],
+            "mac_address": "00be75ae2afc",
+            "vpc_peer_link": False,
             "speed": 100000,
+            "identity": {"number": 11, "name": "Ethernet1/11", "index": 436212736},
+            "configured": "up",
+            "roles": [{"type": "cluster", "zone": 1}],
             "_links": {
                 "self": {
-                    "href": "/api/network/ethernet/switch/ports/RTP-SS01-510R10%28FOC22170DFR%29/Ethernet1%2F10/436212224"
+                    "href": "/api/network/ethernet/switch/ports/RTP-CS01-510R11%28FOC22092K12%29/Ethernet1%2F11/436212736"
                 }
             },
-            "identity": {"name": "Ethernet1/10", "number": 10, "index": 436212224},
-            "roles": [{"zone": 1, "type": "storage"}],
+            "mtu": 9216,
+            "statistics": {
+                "transmit_raw": {"discards": 0, "packets": 0, "errors": 0},
+                "timestamp": "2024-11-08T19:51:12+00:00",
+                "receive_raw": {"discards": 0, "packets": 0, "errors": 0},
+            },
             "switch": {
+                "name": "RTP-CS01-510R11(FOC22092K12)",
                 "_links": {
                     "self": {
-                        "href": "/api/network/ethernet/switches/RTP-SS01-510R10(FOC22170DFR)"
+                        "href": "/api/network/ethernet/switches/RTP-CS01-510R11(FOC22092K12)"
                     }
                 },
-                "name": "RTP-SS01-510R10(FOC22170DFR)",
             },
+            "state": "down",
+            "duplex_type": "unknown",
+            "isl": False,
+        }
+    ),
+    SwitchPort(
+        {
+            "vlan_id": [1, 30],
+            "mac_address": "00fcbaead548",
             "remote_port": {
                 "mtu": 9000,
-                "name": "e0a",
                 "device": {
+                    "discovered_name": "1.1",
                     "shelf": {
                         "module": "B",
-                        "uid": "12439000444923584512",
                         "_links": {
                             "self": {
                                 "href": "/api/storage/shelves/12439000444923584512"
                             }
                         },
+                        "uid": "12439000444923584512",
                         "name": "1.1",
                     },
-                    "discovered_name": "1.1",
                 },
                 "functional_roles": ["storage_shelf"],
+                "name": "e0a",
+            },
+            "vpc_peer_link": False,
+            "speed": 100000,
+            "identity": {"number": 10, "name": "Ethernet1/10", "index": 436212224},
+            "configured": "up",
+            "roles": [{"type": "storage", "zone": 1}],
+            "_links": {
+                "self": {
+                    "href": "/api/network/ethernet/switch/ports/RTP-SS01-510R10%28FOC22170DFR%29/Ethernet1%2F10/436212224"
+                }
+            },
+            "mtu": 9216,
+            "statistics": {
+                "transmit_raw": {"discards": 0, "packets": 2429595607, "errors": 0},
+                "timestamp": "2024-11-08T19:51:12+00:00",
+                "receive_raw": {"discards": 0, "packets": 332013844, "errors": 0},
+            },
+            "switch": {
+                "name": "RTP-SS01-510R10(FOC22170DFR)",
+                "_links": {
+                    "self": {
+                        "href": "/api/network/ethernet/switches/RTP-SS01-510R10(FOC22170DFR)"
+                    }
+                },
             },
             "state": "up",
-            "statistics": {
-                "transmit_raw": {"errors": 0, "packets": 2429595607, "discards": 0},
-                "receive_raw": {"errors": 0, "packets": 332013844, "discards": 0},
-                "timestamp": "2024-11-08T19:51:12+00:00",
-            },
-            "isl": False,
-            "vlan_id": [1, 30],
-            "configured": "up",
-            "mtu": 9216,
-            "vpc_peer_link": False,
             "duplex_type": "full_duplex",
+            "isl": False,
         }
     ),
 ]
@@ -187,51 +187,51 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SwitchPort(
     {
+        "vlan_id": [1, 30],
         "mac_address": "00fcbaea7228",
+        "remote_port": {
+            "mtu": 9000,
+            "device": {
+                "discovered_name": "SHFFG1234567890:A",
+                "shelf": {
+                    "module": "A",
+                    "_links": {
+                        "self": {"href": "/api/storage/shelves/12439000444923584512"}
+                    },
+                    "uid": "12439000444923584512",
+                    "name": "1.1",
+                },
+            },
+            "functional_roles": ["storage_shelf"],
+            "name": "e0a",
+        },
+        "vpc_peer_link": False,
         "speed": 100000,
+        "identity": {"number": 9, "name": "Ethernet1/9", "index": 436211712},
+        "configured": "up",
+        "roles": [{"type": "storage", "zone": 1}],
         "_links": {
             "self": {
                 "href": "/api/network/ethernet/switch/ports/RTP-SS02-510R10%28FOC22131U6T%29/Ethernet1%2F9/436211712"
             }
         },
-        "identity": {"name": "Ethernet1/9", "number": 9, "index": 436211712},
-        "roles": [{"zone": 1, "type": "storage"}],
+        "mtu": 9216,
+        "statistics": {
+            "transmit_raw": {"discards": 0, "packets": 337898026, "errors": 0},
+            "timestamp": "2024-11-08T19:51:12+00:00",
+            "receive_raw": {"discards": 0, "packets": 4012559315, "errors": 0},
+        },
         "switch": {
+            "name": "RTP-SS02-510R10(FOC22131U6T)",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/switches/RTP-SS02-510R10(FOC22131U6T)"
                 }
             },
-            "name": "RTP-SS02-510R10(FOC22131U6T)",
-        },
-        "remote_port": {
-            "mtu": 9000,
-            "name": "e0a",
-            "device": {
-                "shelf": {
-                    "module": "A",
-                    "uid": "12439000444923584512",
-                    "_links": {
-                        "self": {"href": "/api/storage/shelves/12439000444923584512"}
-                    },
-                    "name": "1.1",
-                },
-                "discovered_name": "SHFFG1234567890:A",
-            },
-            "functional_roles": ["storage_shelf"],
         },
         "state": "up",
-        "statistics": {
-            "transmit_raw": {"errors": 0, "packets": 337898026, "discards": 0},
-            "receive_raw": {"errors": 0, "packets": 4012559315, "discards": 0},
-            "timestamp": "2024-11-08T19:51:12+00:00",
-        },
-        "isl": False,
-        "vlan_id": [1, 30],
-        "configured": "up",
-        "mtu": 9216,
-        "vpc_peer_link": False,
         "duplex_type": "full_duplex",
+        "isl": False,
     }
 )
 

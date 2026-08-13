@@ -13,6 +13,7 @@ import modal.object
 import modal.partial_function
 import modal.retries
 import modal.secret
+import modal.types
 import modal.volume
 import modal_proto.api_pb2
 import pathlib
@@ -67,7 +68,7 @@ class _Obj:
         max_containers: typing.Optional[int] = None,
         scaledown_window: typing.Optional[int] = None,
         buffer_containers: typing.Optional[int] = None,
-    ) -> None:
+    ) -> modal.types.FunctionAutoscalerSettings:
         """Override the current autoscaler behavior for this Cls instance.
 
         Unspecified parameters will retain their current value, i.e. either the static value
@@ -84,6 +85,10 @@ class _Obj:
             max_containers: Maximum concurrent containers; omit to leave unchanged.
             scaledown_window: Idle seconds before scaling down a container; omit to leave unchanged.
             buffer_containers: Extra idle containers under load; omit to leave unchanged.
+
+        Returns:
+            An `FunctionAutoscalerSettings` dataclass which contains the current autoscaler settings
+            of this Cls instance after the call.
 
         Examples:
             ```python notest
@@ -150,7 +155,7 @@ class Obj:
             max_containers: typing.Optional[int] = None,
             scaledown_window: typing.Optional[int] = None,
             buffer_containers: typing.Optional[int] = None,
-        ) -> None:
+        ) -> modal.types.FunctionAutoscalerSettings:
             """Override the current autoscaler behavior for this Cls instance.
 
             Unspecified parameters will retain their current value, i.e. either the static value
@@ -167,6 +172,10 @@ class Obj:
                 max_containers: Maximum concurrent containers; omit to leave unchanged.
                 scaledown_window: Idle seconds before scaling down a container; omit to leave unchanged.
                 buffer_containers: Extra idle containers under load; omit to leave unchanged.
+
+            Returns:
+                An `FunctionAutoscalerSettings` dataclass which contains the current autoscaler settings
+                of this Cls instance after the call.
 
             Examples:
                 ```python notest
@@ -190,7 +199,7 @@ class Obj:
             max_containers: typing.Optional[int] = None,
             scaledown_window: typing.Optional[int] = None,
             buffer_containers: typing.Optional[int] = None,
-        ) -> None:
+        ) -> modal.types.FunctionAutoscalerSettings:
             """Override the current autoscaler behavior for this Cls instance.
 
             Unspecified parameters will retain their current value, i.e. either the static value
@@ -207,6 +216,10 @@ class Obj:
                 max_containers: Maximum concurrent containers; omit to leave unchanged.
                 scaledown_window: Idle seconds before scaling down a container; omit to leave unchanged.
                 buffer_containers: Extra idle containers under load; omit to leave unchanged.
+
+            Returns:
+                An `FunctionAutoscalerSettings` dataclass which contains the current autoscaler settings
+                of this Cls instance after the call.
 
             Examples:
                 ```python notest

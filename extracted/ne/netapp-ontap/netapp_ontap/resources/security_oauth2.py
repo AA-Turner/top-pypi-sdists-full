@@ -30,27 +30,27 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SecurityOauth2(
     {
-        "jwks": {
-            "provider_uri": "https://examplelab.customer.com/pf/JWKS",
-            "refresh_interval": "PT1H",
-        },
+        "outgoing_proxy": "https://johndoe:secretpass@proxy.example.com:8080",
         "application": "http",
-        "_links": {
-            "self": {"href": "/api/security/authentication/cluster/oauth2/clients"}
-        },
-        "hashed_client_secret": "<HASHED-CLIENT-SECRET>",
         "remote_user_claim": "user_claim",
-        "audience": "aud",
-        "name": "auth0",
-        "use_mutual_tls": "required",
-        "issuer": "https://examplelab.customer.com",
-        "client_id": "client_id",
-        "use_local_roles_if_present": False,
+        "hashed_client_secret": "<HASHED-CLIENT-SECRET>",
         "introspection": {
             "endpoint_uri": "https://examplelab.customer.com/server/endpoint",
             "interval": "PT1H",
         },
-        "outgoing_proxy": "https://johndoe:secretpass@proxy.example.com:8080",
+        "name": "auth0",
+        "issuer": "https://examplelab.customer.com",
+        "_links": {
+            "self": {"href": "/api/security/authentication/cluster/oauth2/clients"}
+        },
+        "use_local_roles_if_present": False,
+        "use_mutual_tls": "required",
+        "jwks": {
+            "refresh_interval": "PT1H",
+            "provider_uri": "https://examplelab.customer.com/pf/JWKS",
+        },
+        "audience": "aud",
+        "client_id": "client_id",
     }
 )
 

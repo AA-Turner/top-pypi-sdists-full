@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum
 
 from modbus_connection import ModbusUnit
-from modbus_connection.model import Component, gauge, integer
+from modbus_connection.model import Component, boolean, gauge, integer
 
 from . import UNAVAILABLE, in_range, scaled_sum
 from ._components import ControllerComponents
@@ -90,8 +90,8 @@ class LwzSystemParameters(Component):
     low_end_hk1 = gauge(1008, 0.1, nan=UNAVAILABLE, unit="°C", writable=in_range(0, 20))
     gradient_hk2 = gauge(1009, 0.01, nan=UNAVAILABLE, writable=in_range(0, 5))
     low_end_hk2 = gauge(1010, 0.1, nan=UNAVAILABLE, unit="°C", writable=in_range(0, 20))
-    dhw_set_day = gauge(1011, 0.1, nan=UNAVAILABLE, unit="°C", writable=in_range(10, 55))
-    dhw_set_night = gauge(1012, 0.1, nan=UNAVAILABLE, unit="°C", writable=in_range(10, 55))
+    dhw_set_day = gauge(1011, 0.1, nan=UNAVAILABLE, unit="°C", writable=in_range(10, 65))
+    dhw_set_night = gauge(1012, 0.1, nan=UNAVAILABLE, unit="°C", writable=in_range(10, 65))
     dhw_set_manual = gauge(1013, 0.1, nan=UNAVAILABLE, unit="°C", writable=in_range(10, 65))
     mwm_set_day = integer(1014, signed=False, nan=UNAVAILABLE, unit="l", writable=in_range(50, 288))
     mwm_set_night = integer(1015, signed=False, nan=UNAVAILABLE, unit="l", writable=in_range(50, 288))
@@ -104,7 +104,7 @@ class LwzSystemParameters(Component):
     room_temperature_night_hk1_cooling = gauge(1022, 0.1, nan=UNAVAILABLE, unit="°C", writable=in_range(10, 30))
     room_temperature_day_hk2_cooling = gauge(1023, 0.1, nan=UNAVAILABLE, unit="°C", writable=in_range(10, 30))
     room_temperature_night_hk2_cooling = gauge(1024, 0.1, nan=UNAVAILABLE, unit="°C", writable=in_range(10, 30))
-    reset = integer(1025, signed=False, nan=UNAVAILABLE, writable=in_range(0, 1))
+    reset = boolean(1025, nan=UNAVAILABLE, writable=True)
     restart_isg = integer(1026, signed=False, nan=UNAVAILABLE, writable=in_range(0, 2))
 
 
@@ -113,9 +113,9 @@ class LwzSystemState(Component):
     register_ranges = LWZ_INPUT_RANGES
 
     operating_status = integer(2000, signed=False, nan=UNAVAILABLE)
-    fault_status = integer(2001, signed=False, nan=UNAVAILABLE)
+    fault_status = boolean(2001, nan=UNAVAILABLE)
     bus_status = integer(2002, signed=False, nan=UNAVAILABLE)
-    defrost_initiated = integer(2003, signed=False, nan=UNAVAILABLE)
+    defrost_initiated = boolean(2003, nan=UNAVAILABLE)
     operating_status_2 = integer(2004, signed=False, nan=UNAVAILABLE)
 
 
@@ -204,9 +204,9 @@ class LwzEnergyManagementSettings(Component):
     register_space = "holding"
     register_ranges = LWZ_HOLDING_RANGES
 
-    switch_sg_ready_on_and_off = integer(4000, signed=False, nan=UNAVAILABLE, writable=in_range(0, 1))
-    sg_ready_input_1 = integer(4001, signed=False, nan=UNAVAILABLE, writable=in_range(0, 1))
-    sg_ready_input_2 = integer(4002, signed=False, nan=UNAVAILABLE, writable=in_range(0, 1))
+    switch_sg_ready_on_and_off = boolean(4000, nan=UNAVAILABLE, writable=True)
+    sg_ready_input_1 = boolean(4001, nan=UNAVAILABLE, writable=True)
+    sg_ready_input_2 = boolean(4002, nan=UNAVAILABLE, writable=True)
 
 
 class LwzEnergySystemInformation(Component):
@@ -259,7 +259,7 @@ class LwzExtendedEnergyManagementSettings(Component):
     load_temperature_hc1 = gauge(4253, 0.1, nan=UNAVAILABLE, unit="°C", writable=True)
     load_temperature_hc2 = gauge(4254, 0.1, nan=UNAVAILABLE, unit="°C", writable=True)
     load_temperature_dhw = gauge(4255, 0.1, nan=UNAVAILABLE, unit="°C", writable=True)
-    power_consumption_control = integer(4256, signed=False, nan=UNAVAILABLE)
+    power_consumption_control = boolean(4256, nan=UNAVAILABLE)
     input_mode = integer(4257, signed=False, nan=UNAVAILABLE, writable=True)
     power_limit = integer(4258, signed=False, nan=UNAVAILABLE, writable=True)
     load_temperature_hc1_2 = gauge(4271, 0.1, nan=UNAVAILABLE, unit="°C", writable=True)

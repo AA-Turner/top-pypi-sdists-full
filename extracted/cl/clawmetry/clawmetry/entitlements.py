@@ -6914,6 +6914,161 @@ def has_node_count_batch(counts) -> list[dict]:
     return out
 
 
+def has_node_count_at_batch(perspective_tier: str, counts) -> list[dict] | None:
+    """Hypothetical-perspective per-value boolean-gate rows on the
+    ``nodes`` capacity axis in ONE round-trip. Perspective-shaped
+    sibling of :func:`has_node_count_at` (singular) and node-axis twin
+    of :func:`has_channel_count_at_batch` / :func:`has_retention_window_at_batch`
+    on the capacity-axis ``_at_batch`` matrix.
+
+    Fills the last ``_at_batch`` slot on the ``nodes`` capacity axis
+    alongside :func:`min_tier_for_node_count_at_batch` (the perspective-
+    tier variant of the reverse-lookup batch on the same axis). A
+    pricing-matrix walkthrough comparing several hypothetical node
+    counts from a fixed perspective ("at OSS -- does 1 / 5 / 25 / 100
+    nodes fit?") renders off ONE URL per perspective instead of ``N``
+    calls to :func:`has_node_count_at` + client-side row assembly.
+
+    Row shape is byte-parity with :func:`has_channel_count_at_batch`
+    and :func:`has_node_count_batch` so a UI already wired for either
+    sibling batch can rebind without reshaping::
+
+        {
+          "key":                "<normalised int as str>",
+          "kind":               "nodes",
+          "has":                <bool>,       # perspective's static cap admits count
+          "unknown":            <bool>,       # True iff non-int input
+          "required_tier":      "<tier id>" | None,   # min_tier_for_node_count(count)
+          "required_tier_label":"<label>"   | None,
+          "required_tier_rank": <int>,        # -1 when required_tier None
+        }
+
+    Perspective-shaped (grace-independent by design): unlike the live
+    :func:`has_node_count_batch` sibling (which will report
+    ``has=True`` for every finite count while ``ent.grace`` is
+    ``True``), each row here reflects the STATIC per-tier cap in
+    :data:`_TIER_NODE_LIMIT` -- ``has_node_count_at_batch("oss", [5])``
+    returns ``has=False`` even in grace, which is the whole point of
+    the ``_at`` slot (render the would-be-locked state alongside the
+    live grant). The perspective-independent ``required_tier`` slot is
+    delegated to :func:`min_tier_for_node_count` so it stays byte-
+    parity with the sibling ``has_node_count_batch`` /
+    ``has_node_count`` / ``min_tier_for_node_count`` scalars for the
+    same count.
+
+    Contract:
+
+    * ``perspective_tier`` is validated against :data:`_TIER_ORDER`
+      (including :data:`TIER_TRIAL`). Empty / non-string / unknown ->
+      ``None`` (caller renders "unknown tier" / 404). Matches the
+      ``None`` posture the rest of the ``_at_batch`` family uses for
+      the perspective-validation failure mode (see
+      :func:`has_channel_count_at_batch` and
+      :func:`min_tier_for_node_count_at_batch`).
+    * ``counts`` is any iterable. ``None`` or non-iterable -> ``[]``
+      (mirrors :func:`has_node_count_batch`).
+    * Per-value dedup by ``str(int(raw))`` when parseable, else
+      ``str(raw)``. First-seen order preserved.
+    * Non-int items surface as one row with ``unknown=True`` /
+      ``has=False`` (strict callsite-typo fail-closed posture matching
+      :func:`has_node_count_at`).
+    * ``count <= 0`` -- ``has=True`` (trivially satisfied by the free
+      floor on every perspective, mirrors :func:`has_node_count_at`'s
+      zero contract); ``required_tier="oss"`` per
+      :func:`min_tier_for_node_count`.
+    * Positive int -- ``has`` reflects the perspective's cap in
+      :data:`_TIER_NODE_LIMIT` (``None`` there means unlimited, any
+      integer is the hard cap); ``required_tier`` is the cheapest tier
+      admitting ``count`` per :func:`min_tier_for_node_count`.
+
+    Never raises: any per-row failure short-circuits to the fail-
+    closed row shape so the paywall matrix keeps rendering.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        if counts is None:
+            return []
+        items = list(counts)
+    except TypeError:
+        return []
+    try:
+        cap = _TIER_NODE_LIMIT.get(p, _FREE_NODE_LIMIT)
+    except Exception as exc:
+        logger.warning(
+            "entitlements: has_node_count_at_batch(%r) cap lookup failed: %s",
+            perspective_tier,
+            exc,
+        )
+        return None
+    out: list[dict] = []
+    seen: set[str] = set()
+    for raw in items:
+        try:
+            n = int(raw)
+            key = str(n)
+            parsed_ok = True
+        except (TypeError, ValueError):
+            key = str(raw)
+            n = None
+            parsed_ok = False
+        if key in seen:
+            continue
+        seen.add(key)
+        if not parsed_ok:
+            out.append(
+                {
+                    "key": key,
+                    "kind": "nodes",
+                    "has": False,
+                    "unknown": True,
+                    "required_tier": None,
+                    "required_tier_label": None,
+                    "required_tier_rank": -1,
+                }
+            )
+            continue
+        try:
+            if n <= 0:
+                has_flag = True
+            else:
+                has_flag = cap is None or n <= int(cap)
+            req = min_tier_for_node_count(n)
+            out.append(
+                {
+                    "key": key,
+                    "kind": "nodes",
+                    "has": bool(has_flag),
+                    "unknown": False,
+                    "required_tier": req,
+                    "required_tier_label": tier_label(req) if req else None,
+                    "required_tier_rank": tier_rank(req) if req else -1,
+                }
+            )
+        except Exception as exc:
+            logger.warning(
+                "entitlements: has_node_count_at_batch row(%r) failed: %s",
+                raw,
+                exc,
+            )
+            out.append(
+                {
+                    "key": key,
+                    "kind": "nodes",
+                    "has": False,
+                    "unknown": True,
+                    "required_tier": None,
+                    "required_tier_label": None,
+                    "required_tier_rank": -1,
+                }
+            )
+    return out
+
+
 def has_features(features) -> bool:
     """Boolean-gate scalar: does the CURRENT install allow **all** ``features``?
 
@@ -7269,6 +7424,279 @@ def has_runtimes_at_batch(perspective_tiers, runtimes) -> dict:
             }
         )
     return {"tiers": rows, "unknown": unknown}
+
+
+def _has_features_bundle_row(bundle) -> dict:
+    """Per-bundle row shape for :func:`has_features_bundle_batch`.
+
+    Normalises the bundle exactly the way the singular
+    ``/api/entitlement/has-features`` endpoint does (whitespace stripped,
+    lowercased, deduplicated preserving first-seen order; unknown ids
+    bucketed into ``unknown`` instead of collapsing the whole fold
+    silently) then folds it through :func:`has_features` for the scalar
+    boolean answer.
+
+    Row keys mirror the reverse-lookup sibling
+    :func:`_min_tier_for_features_bundle_row` on every axis but the fold
+    slot: ``features``, ``unknown``, ``kind``, ``count`` are byte-
+    identical so a caller can pair the two bundle-batch rows on the
+    same input; the fold slot swaps ``min_tier*`` for ``has_features``
+    (bool) matching :func:`has_features` -- the singular scalar in the
+    same relationship :func:`min_tier_for_features` has on the reverse-
+    lookup slot.
+
+    An unknown / non-string token echoes into ``unknown`` but ALSO
+    collapses ``has_features`` to ``False`` (inherits :func:`has_features`
+    fold semantics: a typo fails the fold instead of silently granting
+    the bundle even in grace). An empty / all-unknown bundle surfaces as
+    a stable row with ``has_features=False`` so the batch keeps building.
+    Never raises: a per-bundle failure returns the empty row shape with
+    the fold ``False``.
+    """
+    known: list[str] = []
+    unknown: list[str] = []
+    seen: set[str] = set()
+    try:
+        raw_items = list(bundle) if bundle is not None else []
+    except TypeError:
+        raw_items = []
+    for token in raw_items:
+        try:
+            fid = str(token).strip().lower()
+        except Exception:
+            continue
+        if not fid or fid in seen:
+            continue
+        seen.add(fid)
+        if fid in ALL_FEATURES:
+            known.append(fid)
+        else:
+            unknown.append(fid)
+    # Fold rule matches has_features: unknown -> False; empty bundle ->
+    # False (vacuous-truth refused so a caller who forgot the bundle does
+    # not silently render "granted"). Delegates to has_features on the
+    # KNOWN list only after enforcing "no unknown items" so the singular
+    # has_features(known)=True answer cannot mask a typo the row surfaces
+    # via ``unknown``.
+    try:
+        if unknown or not known:
+            allowed = False
+        else:
+            allowed = bool(has_features(known))
+    except Exception as exc:
+        logger.warning(
+            "entitlements: _has_features_bundle_row fold failed: %s", exc
+        )
+        allowed = False
+    return {
+        "features": known,
+        "unknown": unknown,
+        "kind": "features",
+        "count": len(known),
+        "has_features": allowed,
+    }
+
+
+def _has_runtimes_bundle_row(bundle) -> dict:
+    """Runtime-axis twin of :func:`_has_features_bundle_row`.
+
+    Applies :func:`canonical_runtime` before the :data:`ALL_RUNTIMES`
+    membership check so aliases (``claude-code`` -> ``claude_code``)
+    resolve the same way they do on the singular endpoint; duplicates
+    that collapse after canonicalisation only contribute one row.
+    Unknown runtime tokens are echoed into ``unknown`` using the raw
+    lowercased id (matching :func:`_min_tier_for_runtimes_bundle_row`
+    fallback shape). Same fold semantics as
+    :func:`_has_features_bundle_row`: unknown or empty collapses
+    ``has_runtimes`` to ``False``. Never raises.
+    """
+    known: list[str] = []
+    unknown: list[str] = []
+    seen: set[str] = set()
+    try:
+        raw_items = list(bundle) if bundle is not None else []
+    except TypeError:
+        raw_items = []
+    for token in raw_items:
+        try:
+            raw = str(token).strip().lower()
+        except Exception:
+            continue
+        if not raw:
+            continue
+        canon = canonical_runtime(raw)
+        if canon and canon in ALL_RUNTIMES:
+            if canon in seen:
+                continue
+            seen.add(canon)
+            known.append(canon)
+        else:
+            if raw in seen:
+                continue
+            seen.add(raw)
+            unknown.append(raw)
+    try:
+        if unknown or not known:
+            allowed = False
+        else:
+            allowed = bool(has_runtimes(known))
+    except Exception as exc:
+        logger.warning(
+            "entitlements: _has_runtimes_bundle_row fold failed: %s", exc
+        )
+        allowed = False
+    return {
+        "runtimes": known,
+        "unknown": unknown,
+        "kind": "runtimes",
+        "count": len(known),
+        "has_runtimes": allowed,
+    }
+
+
+def has_features_bundle_batch(bundles) -> list[dict]:
+    """Per-bundle boolean-fold "does the CURRENT install grant this whole
+    bundle?" for N caller-supplied feature bundles in ONE round-trip.
+
+    Bundle-axis batch sibling of :func:`has_features` (which folds ONE
+    bundle to ONE boolean) in the same relationship
+    :func:`min_tier_for_features_batch` has to
+    :func:`min_tier_for_features` on the reverse-lookup slot. Where the
+    singular scalar answers "does the CURRENT install allow all these
+    features?" this batches the same question for N distinct feature
+    bundles at once so a paywall matrix or upgrade-walkthrough surface
+    comparing several hypothetical feature sets ("starter add-ons vs
+    pro add-ons vs enterprise add-ons") reads the LIVE grant answer off
+    ONE call instead of N calls to :func:`has_features`.
+
+    Distinct from :func:`has_features_at_batch` (which fixes ONE feature
+    bundle and sweeps N perspective tiers): this fixes N bundles and
+    reads the LIVE per-install grant. Boolean-fold sibling of
+    :func:`min_tier_for_features_batch` on the same input; the two rows
+    pair on the same ``features`` / ``unknown`` / ``kind`` / ``count``
+    axes so a UI can render "granted here? / cheapest tier that grants
+    it?" side by side per bundle.
+
+    Row shape (5 keys) mirrors the reverse-lookup sibling row minus the
+    tier slots plus the boolean-fold slot::
+
+        {
+          "features":     ["fleet", "sso"],
+          "unknown":      ["bogus"],
+          "kind":         "features",
+          "count":        2,
+          "has_features": <bool>,
+        }
+
+    Per-bundle normalisation matches :func:`has_features` /
+    :func:`_min_tier_for_features_bundle_row`: whitespace stripped,
+    lowercased, deduplicated preserving first-seen order; unknown ids
+    bucketed into ``unknown`` instead of silently collapsing the fold
+    without surfacing the typo. Any unknown token collapses the row's
+    ``has_features`` to ``False`` (inherits :func:`has_features` typo-
+    catches-at-callsite posture: ``has_features(["fleet", "Fleeet"])``
+    is ``False`` even in grace). Empty / all-unknown bundles surface as
+    a stable row with ``has_features=False``.
+
+    Argument handling:
+
+    * ``bundles is None`` or non-iterable -- returns ``[]``.
+    * Each bundle may itself be ``None``, non-iterable, or empty -- the
+      helper emits the empty row shape rather than raising.
+    * Non-string tokens inside a bundle are coerced via ``str(...)``
+      (matches the singular endpoint's silent-drop posture for garbage).
+
+    Grace pass-through: while ``ent.grace`` is ``True`` and every item
+    is a known id, the per-row fold reports ``True`` (each
+    :func:`has_feature` reports ``True`` in grace), so wiring this into
+    a paywall matrix today changes NO current behavior. Diverges
+    deliberately from :func:`_min_tier_for_features_bundle_row` (which
+    is grace-independent by construction, backed by the static per-tier
+    grant map); the LIVE row here reflects the running install so the
+    matrix can pair "cheapest tier" and "granted right now" per bundle.
+
+    Never raises: per-bundle failures short-circuit to the empty row
+    shape (``has_features=False``) so the batch keeps building.
+    """
+    try:
+        if bundles is None:
+            return []
+        items = list(bundles)
+    except TypeError:
+        return []
+    out: list[dict] = []
+    for bundle in items:
+        try:
+            out.append(_has_features_bundle_row(bundle))
+        except Exception as exc:
+            logger.warning(
+                "entitlements: has_features_bundle_batch row failed: %s",
+                exc,
+            )
+            out.append(
+                {
+                    "features": [],
+                    "unknown": [],
+                    "kind": "features",
+                    "count": 0,
+                    "has_features": False,
+                }
+            )
+    return out
+
+
+def has_runtimes_bundle_batch(bundles) -> list[dict]:
+    """Runtime-axis twin of :func:`has_features_bundle_batch`: per-bundle
+    boolean-fold "does the CURRENT install grant this whole bundle?" for
+    N caller-supplied runtime bundles in ONE round-trip.
+
+    Same relationship to :func:`has_runtimes` that
+    :func:`has_features_bundle_batch` has to :func:`has_features` and
+    that :func:`min_tier_for_runtimes_batch` has to
+    :func:`min_tier_for_runtimes` on the reverse-lookup slot. Pairs
+    with :func:`has_features_bundle_batch` the same way
+    :func:`min_tier_for_runtimes_batch` pairs with
+    :func:`min_tier_for_features_batch`: together the two boolean-fold
+    bundle-batch helpers let a pricing matrix column ("does the LIVE
+    install admit {claude_code, cursor}? {openclaw}? {aider, goose}?")
+    hydrate every bundle off ONE call per axis instead of N calls to
+    :func:`has_runtimes`.
+
+    Row shape (5 keys) mirrors :func:`has_features_bundle_batch` with
+    ``runtimes`` in the axis slot and ``has_runtimes`` in the fold slot;
+    runtime-alias posture is inherited from
+    :func:`_has_runtimes_bundle_row` -- aliases canonicalise before the
+    :data:`ALL_RUNTIMES` membership check so a caller does not need to
+    normalise before calling.
+
+    Never raises. Contract otherwise mirrors
+    :func:`has_features_bundle_batch` byte-for-byte.
+    """
+    try:
+        if bundles is None:
+            return []
+        items = list(bundles)
+    except TypeError:
+        return []
+    out: list[dict] = []
+    for bundle in items:
+        try:
+            out.append(_has_runtimes_bundle_row(bundle))
+        except Exception as exc:
+            logger.warning(
+                "entitlements: has_runtimes_bundle_batch row failed: %s",
+                exc,
+            )
+            out.append(
+                {
+                    "runtimes": [],
+                    "unknown": [],
+                    "kind": "runtimes",
+                    "count": 0,
+                    "has_runtimes": False,
+                }
+            )
+    return out
 
 
 def missing_features(features) -> list:
@@ -9250,6 +9678,152 @@ def has_all(
         return False
 
 
+def missing_all(
+    *,
+    features=None,
+    runtimes=None,
+    channels: int | None = None,
+    retention_days: int | None = None,
+    nodes: int | None = None,
+) -> dict:
+    """Row-detail complement of :func:`has_all`: return WHAT is missing on
+    each supplied axis of a mixed bundle instead of folding the answer to
+    ONE boolean.
+
+    Rollup twin of :func:`missing_features` / :func:`missing_runtimes` at
+    the aggregate axis (same relationship :func:`has_all` has to the
+    singular ``has_*`` scalars). A paywall diagnostics tile that gates on
+    the FULL subscription state ("fleet + claude_code + 100 channels +
+    90-day retention + 100 nodes -- what's blocking the upgrade?") binds
+    the per-axis denial detail directly off this scalar's dict instead of
+    walking the five singular ``missing_*`` complements + capacity
+    scalars + client-side stitching.
+
+    Return shape (5 keys, byte-stable across every input branch)::
+
+        {
+          "features":       ["fleet", "sso"],   # from missing_features()
+          "runtimes":       ["claude_code"],    # from missing_runtimes()
+          "channels":       100 | None,         # requested int if denied
+          "retention_days": 90 | None,
+          "nodes":          100 | None,
+        }
+
+    Per-axis rules:
+
+    * Grant axes (``features`` / ``runtimes``): delegate to
+      :func:`missing_features` / :func:`missing_runtimes` so unknown
+      tokens, dedup, empty-``[]`` posture, and grace pass-through match
+      those scalars byte-for-byte. ``features=None`` / ``runtimes=None``
+      (axis unsupplied) -> ``[]`` in that slot.
+    * Capacity axes (``channels`` / ``retention_days`` / ``nodes``):
+      returns the SUPPLIED int if the current entitlement's
+      per-axis scalar (:func:`has_channel_count` /
+      :func:`has_retention_window` / :func:`has_node_count`) denies it,
+      otherwise ``None``. Axis unsupplied (``None``) -> ``None`` in
+      that slot. Non-int (str, list, ``None``-substitute) collapses to
+      ``None`` too -- the strict-``False`` singular scalar reports the
+      denial via ``has_all=False`` on the caller's paired ``has_all``
+      call; this scalar deliberately does NOT surface the raw non-int
+      here (matches :func:`missing_features` swallowing typos on the
+      grant axes -- callers who want typo-detail should use the paired
+      capacity scalar directly).
+
+    Grace pass-through: while ``ent.grace`` is ``True`` (the current
+    rollout state) every singular ``has_*`` scalar returns ``True`` for
+    its fully-known input, so this scalar reports empty lists / ``None``
+    on every axis for every fully-known mixed bundle. Wiring this into a
+    diagnostics tile today surfaces NOTHING (matches the
+    ``has_all=True`` grace answer on the same bundle).
+
+    Post-enforcement: for every supplied grant axis, the returned list
+    contains the exact ids denied by the resolved entitlement's live
+    grant; for every supplied capacity axis, the requested int is
+    surfaced iff the resolved tier's cap denies it. Symmetric to
+    :func:`has_all` at row level in the same way :func:`missing_features`
+    is symmetric to :func:`has_features`.
+
+    Never raises: any delegate failure logs a warning and collapses that
+    axis to its empty seat (``[]`` for grant axes, ``None`` for capacity
+    axes) so a caller can bind this into a diagnostics dict without a
+    try/except.
+    """
+    out: dict = {
+        "features": [],
+        "runtimes": [],
+        "channels": None,
+        "retention_days": None,
+        "nodes": None,
+    }
+    try:
+        if features is not None:
+            try:
+                out["features"] = missing_features(features)
+            except Exception as exc:
+                logger.warning(
+                    "entitlements: missing_all features leg failed: %s", exc
+                )
+                out["features"] = []
+        if runtimes is not None:
+            try:
+                out["runtimes"] = missing_runtimes(runtimes)
+            except Exception as exc:
+                logger.warning(
+                    "entitlements: missing_all runtimes leg failed: %s", exc
+                )
+                out["runtimes"] = []
+        if channels is not None:
+            try:
+                n = int(channels)
+                if not has_channel_count(n):
+                    out["channels"] = n
+            except (TypeError, ValueError):
+                # Strict typo posture on the capacity axes: a non-int
+                # channels= would fail-closed on has_channel_count and
+                # so has_all would report False; we deliberately do NOT
+                # surface the raw non-int here (matches the missing_*
+                # grant-axis scalars swallowing non-string tokens as
+                # ``""`` rather than raising).
+                pass
+            except Exception as exc:
+                logger.warning(
+                    "entitlements: missing_all channels leg failed: %s", exc
+                )
+        if retention_days is not None:
+            try:
+                n = int(retention_days)
+                if not has_retention_window(n):
+                    out["retention_days"] = n
+            except (TypeError, ValueError):
+                pass
+            except Exception as exc:
+                logger.warning(
+                    "entitlements: missing_all retention_days leg failed: %s",
+                    exc,
+                )
+        if nodes is not None:
+            try:
+                n = int(nodes)
+                if not has_node_count(n):
+                    out["nodes"] = n
+            except (TypeError, ValueError):
+                pass
+            except Exception as exc:
+                logger.warning(
+                    "entitlements: missing_all nodes leg failed: %s", exc
+                )
+        return out
+    except Exception as exc:
+        logger.warning("entitlements: missing_all failed: %s", exc)
+        return {
+            "features": [],
+            "runtimes": [],
+            "channels": None,
+            "retention_days": None,
+            "nodes": None,
+        }
+
+
 def _tier_row(tier: str) -> dict:
     return {
         "id": tier,
@@ -10960,6 +11534,263 @@ def min_tier_for_runtimes_batch(bundles) -> list[dict]:
     return out
 
 
+def _missing_features_bundle_row(bundle) -> dict:
+    """Per-bundle row shape for :func:`missing_features_bundle_batch`.
+
+    Normalises one feature bundle exactly the way
+    :func:`_min_tier_for_features_bundle_row` does (whitespace stripped,
+    lowercased, deduplicated preserving first-seen order; unknown ids
+    bucketed into ``unknown`` instead of leaking into the ``missing``
+    walk), then folds the KNOWN slice through :func:`missing_features`
+    for the row-detail complement.
+
+    Row keys mirror :func:`_min_tier_for_features_bundle_row` on the
+    axis-echo slots (``features``, ``unknown``, ``kind``, ``count``) so
+    a UI that unions the two batches sees a consistent per-bundle
+    shape; the fold slot is ``missing`` instead of ``min_tier`` to
+    match the singular :func:`missing_features` return-slot name.
+
+    Grace posture mirrors :func:`missing_features` byte-for-byte:
+    while ``ent.grace`` is ``True`` (the current rollout state) every
+    fully-known bundle reports ``missing=[]``; post-enforcement each
+    row reflects the underlying :func:`has_feature` per-item answer.
+    Empty / all-unknown bundles surface as a stable row with
+    ``missing=[]`` (nothing known to check, nothing missing --
+    matches :func:`missing_features` empty-``[]`` posture).
+
+    Never raises: a per-bundle failure returns the empty row shape so
+    the batch keeps building.
+    """
+    known: list[str] = []
+    unknown: list[str] = []
+    seen: set[str] = set()
+    try:
+        raw_items = list(bundle) if bundle is not None else []
+    except TypeError:
+        raw_items = []
+    for token in raw_items:
+        try:
+            fid = str(token).strip().lower()
+        except Exception:
+            continue
+        if not fid or fid in seen:
+            continue
+        seen.add(fid)
+        if fid in ALL_FEATURES:
+            known.append(fid)
+        else:
+            unknown.append(fid)
+    try:
+        missing = list(missing_features(known)) if known else []
+    except Exception as exc:
+        logger.warning(
+            "entitlements: _missing_features_bundle_row fold failed: %s", exc
+        )
+        missing = []
+    return {
+        "features": known,
+        "unknown": unknown,
+        "kind": "features",
+        "count": len(known),
+        "missing": missing,
+    }
+
+
+def _missing_runtimes_bundle_row(bundle) -> dict:
+    """Runtime-axis twin of :func:`_missing_features_bundle_row`.
+
+    Applies :func:`canonical_runtime` before the :data:`ALL_RUNTIMES`
+    membership check so aliases (``claude-code`` -> ``claude_code``)
+    resolve the same way they do on the singular endpoint; duplicates
+    that collapse after canonicalisation only contribute one row.
+    Unknown runtime tokens are echoed into ``unknown`` using the raw
+    lowercased id (matches :func:`_min_tier_for_runtimes_bundle_row`
+    posture) and never leak into the ``missing`` walk.
+
+    Grace posture mirrors :func:`missing_runtimes` byte-for-byte;
+    :data:`FREE_RUNTIMES` (``openclaw``) reports ``missing=[]`` on the
+    LIVE install regardless of rollout state. Never raises.
+    """
+    known: list[str] = []
+    unknown: list[str] = []
+    seen: set[str] = set()
+    try:
+        raw_items = list(bundle) if bundle is not None else []
+    except TypeError:
+        raw_items = []
+    for token in raw_items:
+        try:
+            raw = str(token).strip().lower()
+        except Exception:
+            continue
+        if not raw:
+            continue
+        canon = canonical_runtime(raw)
+        if canon and canon in ALL_RUNTIMES:
+            if canon in seen:
+                continue
+            seen.add(canon)
+            known.append(canon)
+        else:
+            if raw in seen:
+                continue
+            seen.add(raw)
+            unknown.append(raw)
+    try:
+        missing = list(missing_runtimes(known)) if known else []
+    except Exception as exc:
+        logger.warning(
+            "entitlements: _missing_runtimes_bundle_row fold failed: %s", exc
+        )
+        missing = []
+    return {
+        "runtimes": known,
+        "unknown": unknown,
+        "kind": "runtimes",
+        "count": len(known),
+        "missing": missing,
+    }
+
+
+def missing_features_bundle_batch(bundles) -> list[dict]:
+    """Per-bundle row-detail complement grant for N caller-supplied
+    feature bundles in ONE round-trip.
+
+    Row-detail sibling of :func:`missing_features` (which folds ONE
+    bundle to ONE ``missing`` list) on the LIVE per-install slot, in
+    the same relationship :func:`min_tier_for_features_batch` has to
+    :func:`min_tier_for_features` on the reverse-lookup slot. Where
+    the singular scalar answers "which subset of THIS bundle isn't
+    granted on the CURRENT install?", this answers the same question
+    for N distinct bundles at once so a paywall diagnostics matrix or
+    upgrade-walkthrough surface comparing several hypothetical
+    feature sets ("starter add-ons vs pro add-ons vs enterprise
+    add-ons -- which items each is still missing on the LIVE grant?")
+    hydrates the whole column off ONE call instead of N calls to
+    :func:`missing_features`.
+
+    Row shape mirrors :func:`_min_tier_for_features_bundle_row` on the
+    axis-echo slots (byte-parity so a UI that unions the two batches
+    sees a consistent shape) with the fold slot renamed ``missing`` to
+    match :func:`missing_features` return-slot name::
+
+        {
+          "features": ["fleet", "sso"],
+          "unknown":  ["bogus"],
+          "kind":     "features",
+          "count":    2,
+          "missing":  [<subset not granted on LIVE>],
+        }
+
+    Per-bundle normalisation matches the singular endpoint: whitespace
+    stripped, lowercased, deduplicated preserving first-seen order;
+    unknown ids bucketed into the per-bundle ``unknown`` list instead
+    of leaking into the ``missing`` walk (a typo does NOT silently
+    render as "denied"; it surfaces via ``unknown[]``, matching
+    :func:`_min_tier_for_features_bundle_row` posture). Empty /
+    all-unknown bundles surface as a stable row with ``missing=[]``
+    (nothing known to check, nothing missing -- matches
+    :func:`missing_features` empty-``[]`` posture).
+
+    Grace posture per-row mirrors :func:`missing_features` byte-for-
+    byte: while ``ent.grace`` is ``True`` every fully-known bundle
+    reports ``missing=[]``; post-enforcement each row reflects the
+    underlying :meth:`Entitlement.allows_feature` answer per item.
+
+    Distinct from :func:`missing_features_at_batch` (which fixes ONE
+    bundle and sweeps N perspective tiers): this fixes N bundles and
+    reads the LIVE per-install grant.
+
+    Argument handling:
+
+    * ``bundles is None`` or non-iterable -- returns ``[]``.
+    * Each bundle may itself be ``None``, non-iterable, or empty --
+      the helper emits the empty row shape rather than raising.
+    * Non-string tokens inside a bundle are coerced via ``str(...)``
+      (matches :func:`_min_tier_for_features_bundle_row` silent-drop
+      posture for garbage).
+
+    Never raises: per-bundle failures short-circuit to the empty row
+    shape so the batch keeps building.
+    """
+    try:
+        if bundles is None:
+            return []
+        items = list(bundles)
+    except TypeError:
+        return []
+    out: list[dict] = []
+    for bundle in items:
+        try:
+            out.append(_missing_features_bundle_row(bundle))
+        except Exception as exc:
+            logger.warning(
+                "entitlements: missing_features_bundle_batch row failed: %s",
+                exc,
+            )
+            out.append(
+                {
+                    "features": [],
+                    "unknown": [],
+                    "kind": "features",
+                    "count": 0,
+                    "missing": [],
+                }
+            )
+    return out
+
+
+def missing_runtimes_bundle_batch(bundles) -> list[dict]:
+    """Runtime-axis twin of :func:`missing_features_bundle_batch`.
+
+    Same per-bundle grouping (each row folds one whole bundle rather
+    than one item), same never-5xx posture, same partial-unknown
+    bucketing. Runtime aliases (``claude-code`` -> ``claude_code``)
+    canonicalise per bundle through :func:`canonical_runtime` before
+    intersection with :data:`ALL_RUNTIMES`, matching the singular
+    ``/api/entitlement/missing-runtimes`` endpoint; unknown tokens are
+    echoed into the per-bundle ``unknown`` using the raw lowercased id
+    and drop from the ``missing`` walk (a typo does NOT silently
+    render as "denied").
+
+    :data:`FREE_RUNTIMES` (``openclaw``) reports ``missing=[]`` on
+    every row on the LIVE install regardless of rollout state (the
+    LIVE resolver always grants free runtimes).
+
+    Row shape mirrors :func:`_min_tier_for_runtimes_bundle_row` on the
+    axis-echo slots, with ``kind="runtimes"`` and a ``runtimes`` list
+    in place of ``features``; the fold slot is ``missing`` (byte-
+    parity with :func:`missing_features_bundle_batch`).
+
+    Never raises.
+    """
+    try:
+        if bundles is None:
+            return []
+        items = list(bundles)
+    except TypeError:
+        return []
+    out: list[dict] = []
+    for bundle in items:
+        try:
+            out.append(_missing_runtimes_bundle_row(bundle))
+        except Exception as exc:
+            logger.warning(
+                "entitlements: missing_runtimes_bundle_batch row failed: %s",
+                exc,
+            )
+            out.append(
+                {
+                    "runtimes": [],
+                    "unknown": [],
+                    "kind": "runtimes",
+                    "count": 0,
+                    "missing": [],
+                }
+            )
+    return out
+
+
 def min_tier_for_features_at_batch(
     perspective_tier: str, bundles
 ) -> list[dict] | None:
@@ -11453,6 +12284,1935 @@ def min_tier_for_all_at(
     except Exception as exc:
         logger.warning("entitlements: min_tier_for_all_at failed: %s", exc)
         return None
+
+
+def has_all_at(
+    perspective_tier: str,
+    *,
+    features=None,
+    runtimes=None,
+    channels: int | None = None,
+    retention_days: int | None = None,
+    nodes: int | None = None,
+) -> bool:
+    """Hypothetical-perspective sibling of :func:`has_all`: would tier
+    ``perspective_tier`` grant **every** supplied axis in ONE mixed-bundle
+    fold?
+
+    Same relationship to :func:`has_all` that the singular ``_at`` scalars
+    (:func:`has_feature_at` / :func:`has_runtime_at` /
+    :func:`has_channel_count_at` / :func:`has_retention_window_at` /
+    :func:`has_node_count_at`) have to their current-perspective siblings:
+    the ``perspective_tier`` argument tells the fold which STATIC per-tier
+    grant to reason from, so a pricing-matrix cell can answer "would Pro
+    admit this whole bundle?" off ONE call instead of five singular
+    ``_at`` round-trips + a client-side AND-chain.
+
+    Fold rule: returns ``True`` iff every SUPPLIED axis' per-item ``_at``
+    gate returns ``True`` against ``perspective_tier``. Delegates per axis
+    to :func:`has_features_at` / :func:`has_runtimes_at` /
+    :func:`has_channel_count_at` / :func:`has_retention_window_at` /
+    :func:`has_node_count_at` so each axis inherits that scalar's typo /
+    empty / non-int / unknown-perspective posture without a divergent code
+    path here. **Grace-independent by construction**: every delegate is
+    backed by the static per-tier grant tables (via
+    :func:`_hypothetical_entitlement` on the feature / runtime axes and by
+    the static ``_TIER_CHANNEL_LIMIT`` / ``_TIER_RETENTION_DAYS`` /
+    ``_TIER_NODE_LIMIT`` tables on the capacity axes), so the answer is
+    identical under grace vs enforce for the same
+    (perspective, bundle) pair -- diverges deliberately from
+    :func:`has_all` (which grants every fully-known bundle in grace via
+    the live resolver's grace pass-through). Whole point of the ``_at``
+    slot is to render the would-be-locked state alongside the live grant.
+
+    Kwarg semantics mirror :func:`has_all` exactly (same signature so a
+    caller can pass identical kwargs to both helpers without a
+    re-normalise):
+
+    * ``features=None`` / ``runtimes=None`` -- axis unsupplied, skipped
+      entirely (contributes ``True`` to the fold).
+    * ``features=[]`` / ``runtimes=[]`` -- axis supplied but empty. This
+      COLLAPSES the fold to ``False`` for the same callsite-typo posture
+      :func:`has_features_at` / :func:`has_runtimes_at` carry on their
+      empty inputs.
+    * ``channels=None`` / ``retention_days=None`` / ``nodes=None`` --
+      axis unsupplied, skipped. Critically ``retention_days=None`` here
+      means *unset*, NOT *unlimited* -- matches :func:`has_all`.
+    * Non-int capacity value (str, list, ...) on ``channels`` / ``nodes``
+      / ``retention_days`` -- collapses the fold to ``False`` (mirrors
+      the singular ``_at`` capacity scalars' strict-``False`` typo
+      posture).
+    * No axes supplied at all -- returns ``False``. Matches
+      :func:`has_all` empty-``False`` posture so a caller who forgot to
+      pass any of the five kwargs sees the typo at the callsite instead
+      of a silent grant. Distinct from :func:`min_tier_for_all_at`
+      (returns ``None`` on the same input -- nothing-to-compute); here
+      the boolean seat collapses to strict ``False``.
+    * Unknown / empty / non-string ``perspective_tier`` -- returns
+      ``False``. Perspective validation lives on the OUTER helper (once
+      per call) rather than folding into per-item ``_at`` calls, so a
+      bogus perspective fails-closed in one place. Same fail-closed
+      posture as :func:`has_features_at` on an unknown perspective.
+    * Unknown / typo'd feature or runtime id in an otherwise-known
+      bundle -- collapses the whole fold to ``False`` via the singular
+      :func:`has_features_at` / :func:`has_runtimes_at` typo posture. A
+      UI wanting to distinguish "denied by tier" from "typo" should call
+      the per-axis singular ``_at`` scalars (or
+      :func:`min_tier_for_all_at`) for the per-axis story.
+
+    Never raises: any delegate failure logs a warning and returns
+    ``False`` so a caller can bind this into a boolean AND-chain without
+    a try/except.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return False
+    if not p or p not in _TIER_ORDER:
+        return False
+    try:
+        supplied_any = False
+        if features is not None:
+            supplied_any = True
+            if not has_features_at(p, features):
+                return False
+        if runtimes is not None:
+            supplied_any = True
+            if not has_runtimes_at(p, runtimes):
+                return False
+        if channels is not None:
+            supplied_any = True
+            if not has_channel_count_at(p, channels):
+                return False
+        if retention_days is not None:
+            supplied_any = True
+            if not has_retention_window_at(p, retention_days):
+                return False
+        if nodes is not None:
+            supplied_any = True
+            if not has_node_count_at(p, nodes):
+                return False
+        return supplied_any
+    except Exception as exc:
+        logger.warning(
+            "entitlements: has_all_at(%r, ...) failed: %s",
+            perspective_tier,
+            exc,
+        )
+        return False
+
+
+def missing_all_at(
+    perspective_tier: str,
+    *,
+    features=None,
+    runtimes=None,
+    channels: int | None = None,
+    retention_days: int | None = None,
+    nodes: int | None = None,
+) -> dict:
+    """Hypothetical-perspective sibling of :func:`missing_all`: which subset of
+    the supplied mixed-axis bundle would tier ``perspective_tier`` NOT grant,
+    in ONE row-detail rollup?
+
+    Same relationship to :func:`missing_all` that :func:`has_all_at` has to
+    :func:`has_all`: the ``perspective_tier`` argument tells the fold which
+    STATIC per-tier grant to reason from, so a pricing-matrix denial tile
+    can bind every per-axis slot ("if you were on OSS, you'd still be
+    missing fleet + claude_code + 100 channels + 90d retention + 99 nodes")
+    off ONE call per (perspective, bundle) cell instead of five singular
+    ``_at`` round-trips + a client-side per-axis stitch. Fills the ``_at``
+    slot on the mixed-axis row-detail complement family alongside
+    :func:`has_all_at` (boolean-fold sibling) and the singular row-detail
+    ``_at`` scalars :func:`missing_features_at` / :func:`missing_runtimes_at`
+    for the two grant axes.
+
+    Returns a 5-key dict::
+
+        {
+          "features":       [<subset denied via missing_features_at>],
+          "runtimes":       [<subset denied via missing_runtimes_at>],
+          "channels":       <supplied int if has_channel_count_at is False, else None>,
+          "retention_days": <supplied int if has_retention_window_at is False, else None>,
+          "nodes":          <supplied int if has_node_count_at is False, else None>,
+        }
+
+    Per-axis rules:
+
+    * Grant axes (``features`` / ``runtimes``) delegate to
+      :func:`missing_features_at` / :func:`missing_runtimes_at` byte-for-byte
+      so the ``_at`` typo posture, dedup, and canonicalisation surface here
+      unchanged. Empty / ``None`` / non-iterable bundle -> ``[]`` on that
+      axis (nothing to check, nothing missing).
+    * Capacity axes (``channels`` / ``retention_days`` / ``nodes``) return
+      the SUPPLIED int when :func:`has_channel_count_at` /
+      :func:`has_retention_window_at` / :func:`has_node_count_at` returns
+      ``False`` under ``perspective_tier``, ``None`` otherwise (or when the
+      axis is unsupplied). Non-int capacity swallows to ``None`` on this
+      scalar; the paired :func:`has_all_at` fold reports ``False`` via the
+      strict singular scalar so the denial is coherently surfaced through
+      the paired call. ``retention_days=None`` means *unset*, NOT
+      *unlimited* -- matches :func:`has_all_at` / :func:`min_tier_for_all_at`.
+
+    **Grace-independent by construction**: every axis delegate reads the
+    static per-tier grant tables (via :func:`_hypothetical_entitlement` on
+    the grant axes and the static ``_TIER_CHANNEL_LIMIT`` /
+    ``_TIER_RETENTION_DAYS`` / ``_TIER_NODE_LIMIT`` tables on the capacity
+    axes), so the returned dict is IDENTICAL under grace vs enforce for
+    the same (perspective, bundle) pair -- diverges deliberately from
+    :func:`missing_all` (which reports every per-axis slot empty for a
+    fully-known bundle in grace via the live resolver's grace pass-through).
+    The whole point of the ``_at`` slot: ``missing_all_at("oss",
+    features=["fleet"])["features"]`` returns ``["fleet"]`` even in grace
+    (because OSS statically does not grant ``fleet``), whereas the LIVE
+    :func:`missing_all` reports ``[]`` for it via
+    :attr:`Entitlement.grace` pass-through.
+
+    Complement invariant with :func:`has_all_at`: for every fully-parseable
+    bundle, ``any(missing_all_at(p, **b).values())`` is the strict negation
+    of ``has_all_at(p, **b)`` -- pins the row-detail seat as the exact
+    perspective-shaped negation of the boolean fold. (Non-int capacity is
+    the one deliberate divergence: the row-detail slot swallows to ``None``
+    while the boolean fold collapses to ``False`` via the strict singular
+    scalar; a UI wanting a coherent "supplied but denied" story on that
+    branch should call the paired :func:`has_all_at`.)
+
+    Returns the empty per-axis shape for empty / unknown / non-string
+    ``perspective_tier`` (matches :func:`missing_features_at` /
+    :func:`missing_runtimes_at` fail-open perspective posture); the paired
+    endpoint returns 400 / 404 in that branch so callers wanting a
+    validity gate can read it there.
+
+    Never raises: any delegate failure logs a warning and collapses that
+    axis to its empty seat so a paywall diagnostics tile stays mute
+    instead of breaking.
+    """
+    empty: dict = {
+        "features": [],
+        "runtimes": [],
+        "channels": None,
+        "retention_days": None,
+        "nodes": None,
+    }
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return dict(empty)
+    if not p or p not in _TIER_ORDER:
+        return dict(empty)
+    out = dict(empty)
+    try:
+        if features is not None:
+            out["features"] = list(missing_features_at(p, features))
+    except Exception as exc:
+        logger.warning(
+            "entitlements: missing_all_at(%r, ...) features axis failed: %s",
+            perspective_tier,
+            exc,
+        )
+        out["features"] = []
+    try:
+        if runtimes is not None:
+            out["runtimes"] = list(missing_runtimes_at(p, runtimes))
+    except Exception as exc:
+        logger.warning(
+            "entitlements: missing_all_at(%r, ...) runtimes axis failed: %s",
+            perspective_tier,
+            exc,
+        )
+        out["runtimes"] = []
+    try:
+        if channels is not None and isinstance(channels, int) and not isinstance(
+            channels, bool
+        ):
+            if not has_channel_count_at(p, channels):
+                out["channels"] = channels
+    except Exception as exc:
+        logger.warning(
+            "entitlements: missing_all_at(%r, ...) channels axis failed: %s",
+            perspective_tier,
+            exc,
+        )
+        out["channels"] = None
+    try:
+        if retention_days is not None and isinstance(
+            retention_days, int
+        ) and not isinstance(retention_days, bool):
+            if not has_retention_window_at(p, retention_days):
+                out["retention_days"] = retention_days
+    except Exception as exc:
+        logger.warning(
+            "entitlements: missing_all_at(%r, ...) retention_days axis failed: %s",
+            perspective_tier,
+            exc,
+        )
+        out["retention_days"] = None
+    try:
+        if nodes is not None and isinstance(nodes, int) and not isinstance(
+            nodes, bool
+        ):
+            if not has_node_count_at(p, nodes):
+                out["nodes"] = nodes
+    except Exception as exc:
+        logger.warning(
+            "entitlements: missing_all_at(%r, ...) nodes axis failed: %s",
+            perspective_tier,
+            exc,
+        )
+        out["nodes"] = None
+    return out
+
+
+def missing_all_at_path(
+    from_tier: str,
+    to_tier: str,
+    *,
+    features=None,
+    runtimes=None,
+    channels: int | None = None,
+    retention_days: int | None = None,
+    nodes: int | None = None,
+) -> list[dict] | None:
+    """Arbitrary-endpoint stepwise :func:`missing_all_at` walk between two
+    tiers -- fixes ONE 5-axis mixed bundle and sweeps across every rung
+    between ``from_tier`` and ``to_tier``, returning one row per rung
+    with the per-axis missing rollup at that rung.
+
+    Aggregate mixed-axis row-detail sibling of
+    :func:`missing_features_at_path` / :func:`missing_runtimes_at_path`
+    (per-axis path walkers) and path-shaped complement of the boolean-
+    fold path helper :func:`has_all_at_path` in the same relationship
+    :func:`missing_all_at` has to :func:`missing_features_at` /
+    :func:`missing_runtimes_at`. Lets an upgrade-walkthrough tooltip
+    render "at which rung does each per-axis slot in this 5-axis bundle
+    clear?" off ONE call instead of first calling :func:`tier_path` and
+    then N calls to :func:`missing_all_at`, or 5 * N calls fanned out
+    across the per-axis path walkers plus a client-side per-axis stitch
+    per rung.
+
+    Per-rung row shape byte-equals the per-axis path helpers plus the
+    aggregate :func:`missing_all_at` slot::
+
+        {
+          "tier":       "<id>",
+          "tier_label": "...",
+          "tier_rank":  <int>,
+          "missing":    {
+            "features":       [<subset of features denied at rung>],
+            "runtimes":       [<subset of runtimes denied at rung>],
+            "channels":       <int if denied at rung, else None>,
+            "retention_days": <int if denied at rung, else None>,
+            "nodes":          <int if denied at rung, else None>,
+          },
+        }
+
+    Each rung's ``missing`` dict byte-equals :func:`missing_all_at` for
+    the same (rung, bundle) pair -- a parity test pins this so the
+    scalar, batch and path what-if row-detail helpers cannot drift.
+
+    Walk semantics mirror :func:`has_all_at_path` /
+    :func:`missing_features_at_path` / :func:`missing_runtimes_at_path`
+    byte-for-byte (same :data:`_PURCHASABLE_TIERS` filter + same sort
+    key + same destination-sibling exclusion) so the rung ``tier`` ids
+    from this helper line up rung-for-rung against the per-axis path
+    walkers and the rest of the ``_path`` family. Same-rank siblings
+    strictly between the endpoints are both included; same-rank
+    siblings of the destination are excluded so the path terminates
+    exactly at ``to_tier``.
+
+    Direction semantics (all rows share the same shape; only the
+    sequence changes):
+
+    * ``upgrade`` (ascending) -- rows climb rung by rung from the rung
+      above ``from_tier`` toward ``to_tier``; each rung's per-axis
+      missing dict shrinks or stays equal as grants accumulate (each
+      per-axis slot only flips populated -> empty, never the reverse).
+    * ``downgrade`` (descending) -- rows shrink rung by rung; the
+      cancellation-walkthrough counterpart; each rung's per-axis
+      missing dict grows or stays equal.
+    * ``lateral`` (same rank, different id) -- single-row path; row
+      carries the ``missing`` at ``to_tier``.
+    * ``identity`` (``from == to``) -- empty path; no rungs to walk.
+
+    Endpoint semantics match :func:`has_all_at_path` /
+    :func:`missing_features_at_path` /
+    :func:`missing_runtimes_at_path`: both ids accept any entry in
+    :data:`_TIER_FEATURES` (including :data:`TIER_TRIAL`, which is not
+    purchasable -- it is excluded from the walked intermediate rungs
+    but is a valid endpoint via the lateral branch). Unknown ids on
+    either side short-circuit to ``None``.
+
+    Bundle-fold semantics per rung inherit :func:`missing_all_at`
+    byte-for-byte:
+
+    * ``features=None`` / ``runtimes=None`` -- axis unsupplied, per-rung
+      ``missing["features"]`` / ``missing["runtimes"]`` empty on every
+      rung.
+    * ``features=[]`` / ``runtimes=[]`` -- axis supplied but empty:
+      per-rung ``missing["features"]`` / ``missing["runtimes"]`` empty
+      (nothing to check, nothing missing).
+    * ``channels=None`` / ``retention_days=None`` / ``nodes=None`` --
+      axis unsupplied, per-rung capacity slot ``None`` on every rung.
+      Critically ``retention_days=None`` here means *unset*, NOT
+      *unlimited* -- matches :func:`missing_all_at`.
+    * Non-int capacity value (str, list, ...) on ``channels`` /
+      ``nodes`` / ``retention_days`` -- swallows to ``None`` on every
+      rung's per-axis capacity slot (matches :func:`missing_all_at`
+      row-detail typo posture). The paired :func:`has_all_at_path`
+      reports ``False`` via the strict singular scalar so the denial is
+      coherently surfaced through the paired call.
+    * Unknown / typo'd feature or runtime id in an otherwise-known
+      bundle -- INCLUDED in every rung's per-axis missing list in
+      canonicalised form (matches :func:`missing_features_at` /
+      :func:`missing_runtimes_at` typo posture inherited through
+      :func:`missing_all_at`).
+
+    Complement invariant with :func:`has_all_at_path`: for every fully-
+    parseable bundle, per rung
+    ``any(missing_all_at_path(f, t, **b)[i]["missing"].values())`` is
+    the strict negation of the corresponding rung's
+    ``has_all_at_path(f, t, **b)[i]["has_all_at"]`` -- pins the row-
+    detail path seat as the exact per-rung negation of the boolean-fold
+    path. (Non-int capacity is the one deliberate divergence: the row-
+    detail slot swallows to ``None`` while the boolean-fold slot
+    collapses to ``False`` via the strict singular scalar; a UI wanting
+    a coherent "supplied but denied" story on that branch should call
+    the paired :func:`has_all_at_path`.)
+
+    Grace-independent by construction: delegates per-rung to
+    :func:`missing_all_at`, which reads the static per-tier grant
+    tables (via :func:`_hypothetical_entitlement` on the feature /
+    runtime axes and by the static ``_TIER_CHANNEL_LIMIT`` /
+    ``_TIER_RETENTION_DAYS`` / ``_TIER_NODE_LIMIT`` tables on the
+    capacity axes), so the answer is byte-identical under grace vs
+    enforce for the same (endpoints, bundle) pair -- same property the
+    rest of the ``_path`` family guarantees.
+
+    Never raises: any per-rung delegate failure logs a warning and
+    returns ``None`` so a pricing-page surface keeps rendering instead
+    of breaking; matches the sibling :func:`missing_features_at_path`
+    contract.
+    """
+    try:
+        f = (from_tier or "").strip().lower()
+        t = (to_tier or "").strip().lower()
+        if f not in _TIER_FEATURES or t not in _TIER_FEATURES:
+            return None
+
+        # Canonicalise iterables ONCE so a generator / one-shot iterable
+        # is reused across rungs. Non-iterables collapse to [] on the
+        # grant-axis inputs, matching :func:`missing_all_at` typo posture.
+        def _snap(items):
+            if items is None:
+                return None
+            try:
+                return list(items)
+            except TypeError:
+                return []
+
+        feat_items = _snap(features)
+        rt_items = _snap(runtimes)
+
+        def _row(rung: str) -> dict:
+            return {
+                "tier": rung,
+                "tier_label": tier_label(rung),
+                "tier_rank": _TIER_RANK.get(rung, -1),
+                "missing": missing_all_at(
+                    rung,
+                    features=feat_items,
+                    runtimes=rt_items,
+                    channels=channels,
+                    retention_days=retention_days,
+                    nodes=nodes,
+                ),
+            }
+
+        if f == t:
+            return []
+        from_rank = _TIER_RANK.get(f, -1)
+        to_rank = _TIER_RANK.get(t, -1)
+        if from_rank == to_rank:
+            return [_row(t)]
+        ascending = to_rank > from_rank
+        if ascending:
+            ordered = sorted(
+                _PURCHASABLE_TIERS,
+                key=lambda x: (_TIER_RANK.get(x, -1), x),
+            )
+        else:
+            ordered = sorted(
+                _PURCHASABLE_TIERS,
+                key=lambda x: (-_TIER_RANK.get(x, -1), x),
+            )
+        path: list[dict] = []
+        for tid in ordered:
+            r = _TIER_RANK.get(tid, -1)
+            if ascending:
+                if r <= from_rank or r > to_rank:
+                    continue
+            else:
+                if r >= from_rank or r < to_rank:
+                    continue
+            if r == to_rank and tid != t:
+                continue
+            path.append(_row(tid))
+        return path
+    except Exception as exc:
+        logger.warning(
+            "entitlements: missing_all_at_path(%r, %r, ...) failed: %s",
+            from_tier,
+            to_tier,
+            exc,
+        )
+        return None
+
+
+def has_all_at_batch(
+    perspective_tiers,
+    *,
+    features=None,
+    runtimes=None,
+    channels: int | None = None,
+    retention_days: int | None = None,
+    nodes: int | None = None,
+) -> dict:
+    """Batch what-if sibling of :func:`has_all_at`: would each caller-supplied
+    hypothetical tier grant the WHOLE mixed-axis bundle, in ONE round-trip.
+
+    Fixes ONE 5-axis bundle and sweeps across N perspective tiers, returning
+    one row per tier with the aggregate fold boolean plus the surrounding
+    tier envelope. Mixed-axis extension of :func:`has_features_at_batch` /
+    :func:`has_runtimes_at_batch` (which fold one axis at a time): where the
+    single-axis batch helpers answer "does each tier admit this feature/
+    runtime bundle?", this one answers "does each tier admit the whole
+    subscription state?" so a pricing-matrix column can hydrate the mixed-
+    axis grant off ONE call instead of five ``_at_batch`` round-trips + a
+    client-side AND-chain.
+
+    Fold rule per row: delegates to :func:`has_all_at` for that
+    ``(perspective_tier, bundle)`` pair -- inherits every axis's typo /
+    empty / non-int posture without a divergent code path here. **Grace-
+    independent by construction**: every per-row delegate is backed by the
+    static per-tier grant tables (via :func:`_hypothetical_entitlement` on
+    the feature / runtime axes and the static ``_TIER_CHANNEL_LIMIT`` /
+    ``_TIER_RETENTION_DAYS`` / ``_TIER_NODE_LIMIT`` tables on the capacity
+    axes), so the per-row answer is identical under grace vs enforce for
+    the same ``(perspective, bundle)`` pair. Whole point of the ``_at``
+    slot: ``has_all_at_batch(["oss", "cloud_pro"], features=["fleet"])``
+    reports ``has_all_at=False`` for the ``oss`` row even in grace
+    (because OSS statically does not grant ``fleet``).
+
+    Per-tier row shape mirrors :func:`has_features_at_batch` with
+    ``has_all_at`` in the fold slot::
+
+        {
+          "tier":         "<id>",
+          "tier_label":   "...",
+          "tier_rank":    <int>,
+          "has_all_at":   <bool>,
+        }
+
+    Envelope mirrors :func:`has_features_at_batch` byte-for-byte::
+
+        {
+          "tiers":   [<row>, ...],
+          "unknown": [<tier tokens dropped as unknown>, ...],
+        }
+
+    Each ``has_all_at`` byte-equals :func:`has_all_at` for the same
+    ``(tier, bundle)`` pair -- a parity test pins this so the scalar and
+    batch what-if aggregate helpers cannot drift.
+
+    Kwarg semantics mirror :func:`has_all_at` / :func:`has_all` exactly
+    (same 5-axis signature so a caller can pass identical kwargs to any of
+    the three helpers without a re-normalise):
+
+    * ``features=None`` / ``runtimes=None`` -- axis unsupplied, skipped
+      per-row (contributes ``True`` to each row's fold).
+    * ``features=[]`` / ``runtimes=[]`` -- axis supplied but empty. This
+      COLLAPSES every row's fold to ``False`` for the same callsite-typo
+      posture :func:`has_all_at` carries on its empty inputs.
+    * ``channels=None`` / ``retention_days=None`` / ``nodes=None`` --
+      axis unsupplied, skipped. Critically, ``retention_days=None``
+      means *unset*, NOT *unlimited*.
+    * Non-int capacity value (str, list, ...) on ``channels`` / ``nodes``
+      / ``retention_days`` -- collapses EVERY row's fold to ``False``
+      (mirrors :func:`has_all_at`'s strict-``False`` typo posture on the
+      same axis).
+    * No axes supplied at all -- every row's fold reports ``False``
+      (matches :func:`has_all_at` / :func:`has_all` empty-``False``
+      posture; a caller who forgot to pass any kwarg sees the typo at the
+      callsite instead of a silent grant on every tier column).
+    * Unknown / typo'd feature or runtime id in an otherwise-known bundle
+      -- collapses every row's fold to ``False`` via the singular
+      :func:`has_features_at` / :func:`has_runtimes_at` typo posture. A
+      UI wanting to distinguish "denied by tier" from "typo" should call
+      :func:`min_tier_for_all_batch` (per-bundle aggregate floor) or the
+      singular ``_at`` scalars for the per-axis story.
+
+    Tier normalisation is delegated to :func:`_normalise_csv` (whitespace
+    stripped, lowercased, dedup preserving first-seen; ``trial`` IS
+    accepted -- it lives in :data:`_TIER_ORDER`). Unknown tier ids are
+    echoed in ``unknown[]`` instead of short-circuiting so a partially-
+    bad caller still gets rows for the valid tiers alongside a list of
+    what was dropped -- matches :func:`has_features_at_batch` /
+    :func:`missing_features_at_batch` posture byte-for-byte.
+
+    Runtime-alias posture is inherited from :func:`has_runtimes_at`: no
+    scalar-level canonicalisation -- a raw ``"claude-code"`` surfaces as
+    ``False`` on every row because the strict scalar sees it as an
+    unknown id. Alias tolerance belongs to the paired
+    ``/api/entitlement/has-all-at-batch`` endpoint, which canonicalises
+    per-token upstream before delegating -- matches the sibling
+    :func:`has_runtimes_at_batch` /
+    ``/api/entitlement/has-runtimes-at-batch`` split exactly.
+
+    Empty / ``None`` / non-iterable ``perspective_tiers`` returns
+    ``{"tiers": [], "unknown": []}``.
+
+    Never raises: a per-tier delegate failure short-circuits that id into
+    ``unknown[]`` and the rest of the batch keeps building.
+    """
+    ids = _normalise_csv(perspective_tiers)
+    rows: list[dict] = []
+    unknown: list[str] = []
+    for tid in ids:
+        if tid not in _TIER_ORDER:
+            unknown.append(tid)
+            continue
+        try:
+            allowed = has_all_at(
+                tid,
+                features=features,
+                runtimes=runtimes,
+                channels=channels,
+                retention_days=retention_days,
+                nodes=nodes,
+            )
+        except Exception as exc:
+            logger.warning(
+                "entitlements: has_all_at_batch row %r failed: %s",
+                tid,
+                exc,
+            )
+            unknown.append(tid)
+            continue
+        rows.append(
+            {
+                "tier": tid,
+                "tier_label": tier_label(tid),
+                "tier_rank": _TIER_RANK.get(tid, -1),
+                "has_all_at": bool(allowed),
+            }
+        )
+    return {"tiers": rows, "unknown": unknown}
+
+
+def has_all_at_path(
+    from_tier: str,
+    to_tier: str,
+    *,
+    features=None,
+    runtimes=None,
+    channels: int | None = None,
+    retention_days: int | None = None,
+    nodes: int | None = None,
+) -> list[dict] | None:
+    """Arbitrary-endpoint stepwise :func:`has_all_at` walk between two
+    tiers -- fixes ONE 5-axis mixed bundle and sweeps across every rung
+    between ``from_tier`` and ``to_tier``, returning one row per rung
+    with the aggregate fold boolean at that rung.
+
+    Aggregate mixed-axis sibling of :func:`has_features_at_path` /
+    :func:`has_runtimes_at_path` (per-axis path walkers) and path-shaped
+    complement of :func:`has_all_at_batch` (fixes ONE bundle and sweeps
+    across N caller-supplied perspective tiers) in the same relationship
+    :func:`has_all_at` has to :func:`has_features_at` /
+    :func:`has_runtimes_at`. Lets an upgrade-walkthrough tooltip render
+    "at which rung does this WHOLE 5-axis bundle unlock?" off ONE call
+    instead of first calling :func:`tier_path` and then N calls to
+    :func:`has_all_at`, or 5 * N calls fanned out across the per-axis
+    path walkers plus a client-side AND-chain per rung.
+
+    Per-rung row shape byte-equals the single-axis path helpers with
+    the aggregate ``has_all_at`` slot::
+
+        {
+          "tier":       "<id>",
+          "tier_label": "...",
+          "tier_rank":  <int>,
+          "has_all_at": <bool>,
+        }
+
+    Each ``has_all_at`` byte-equals :func:`has_all_at` for the same
+    (rung, bundle) pair -- a parity test pins this so the scalar,
+    batch and path what-if boolean-fold helpers cannot drift.
+
+    Walk semantics mirror :func:`has_features_at_path` /
+    :func:`has_runtimes_at_path` byte-for-byte (same
+    :data:`_PURCHASABLE_TIERS` filter + same sort key + same
+    destination-sibling exclusion) so the rung ``tier`` ids from this
+    helper line up rung-for-rung against the per-axis path walkers as
+    well as the rest of the ``_path`` family. Same-rank siblings
+    strictly between the endpoints are both included; same-rank
+    siblings of the destination are excluded so the path terminates
+    exactly at ``to_tier``.
+
+    Direction semantics (all rows share the same shape; only the
+    sequence changes):
+
+    * ``upgrade`` (ascending) -- rows climb rung by rung from the rung
+      above ``from_tier`` toward ``to_tier``; each rung's ``has_all_at``
+      only flips ``False -> True`` as grants accumulate (never the
+      reverse).
+    * ``downgrade`` (descending) -- rows shrink rung by rung; the
+      cancellation-walkthrough counterpart; each rung's ``has_all_at``
+      only flips ``True -> False`` (never the reverse).
+    * ``lateral`` (same rank, different id) -- single-row path; row
+      carries the ``has_all_at`` at ``to_tier``.
+    * ``identity`` (``from == to``) -- empty path; no rungs to walk.
+
+    Endpoint semantics match :func:`has_features_at_path` /
+    :func:`has_runtimes_at_path` / :func:`feature_catalog_path` /
+    :func:`tier_path` / :func:`tier_diff`: both ids accept any entry in
+    :data:`_TIER_FEATURES` (including :data:`TIER_TRIAL`, which is not
+    purchasable -- it is excluded from the walked intermediate rungs
+    but is a valid endpoint via the lateral branch). Unknown ids on
+    either side short-circuit to ``None``.
+
+    Bundle-fold semantics per rung inherit :func:`has_all_at` byte-for-
+    byte (fail-closed on empty / unknown / typo -- the same posture the
+    singular helper carries so a bundle typo never silently renders
+    "granted" on any rung):
+
+    * ``features=None`` / ``runtimes=None`` -- axis unsupplied, skipped
+      entirely (contributes ``True`` to the per-rung fold).
+    * ``features=[]`` / ``runtimes=[]`` -- axis supplied but empty:
+      collapses every rung's ``has_all_at`` to ``False`` (matches
+      :func:`has_features_at` / :func:`has_runtimes_at` empty-``False``
+      typo posture).
+    * ``channels=None`` / ``retention_days=None`` / ``nodes=None`` --
+      axis unsupplied, skipped. Critically ``retention_days=None`` here
+      means *unset*, NOT *unlimited* -- matches :func:`has_all_at`.
+    * Non-int capacity value (str, list, ...) on ``channels`` /
+      ``nodes`` / ``retention_days`` -- collapses every rung's
+      ``has_all_at`` to ``False`` (mirrors :func:`has_all_at` strict-
+      ``False`` typo posture on the same axis).
+    * No axes supplied at all -- every rung's ``has_all_at`` reports
+      ``False`` (matches :func:`has_all_at` empty-``False`` posture; a
+      caller who forgot to pass any kwarg sees the typo at the callsite
+      instead of a silent grant on every rung).
+    * Unknown / typo'd feature or runtime id in an otherwise-known
+      bundle -- collapses every rung's ``has_all_at`` to ``False`` via
+      the singular :func:`has_features_at` / :func:`has_runtimes_at`
+      typo posture inherited through :func:`has_all_at`. A UI wanting
+      to distinguish "denied by tier" from "typo" should call the
+      per-axis singular ``_at`` scalars for the per-axis story.
+
+    Grace-independent by construction: delegates per-rung to
+    :func:`has_all_at`, which reads the static per-tier grant tables
+    (via :func:`_hypothetical_entitlement` on the feature / runtime
+    axes and by the static ``_TIER_CHANNEL_LIMIT`` /
+    ``_TIER_RETENTION_DAYS`` / ``_TIER_NODE_LIMIT`` tables on the
+    capacity axes), so the answer is byte-identical under grace vs
+    enforce for the same (perspective, bundle) pair -- same property
+    the rest of the ``_path`` family guarantees.
+
+    Never raises: any per-rung delegate failure logs a warning and
+    returns ``None`` so a pricing-page surface keeps rendering instead
+    of breaking; matches the sibling :func:`has_features_at_path`
+    contract.
+    """
+    try:
+        f = (from_tier or "").strip().lower()
+        t = (to_tier or "").strip().lower()
+        if f not in _TIER_FEATURES or t not in _TIER_FEATURES:
+            return None
+
+        # Canonicalise iterables ONCE so a generator / one-shot iterable
+        # is reused across rungs. Non-iterables collapse to [], matching
+        # the singular scalars' typo posture (fold to False on the rung).
+        def _snap(items):
+            if items is None:
+                return None
+            try:
+                return list(items)
+            except TypeError:
+                return []
+
+        feat_items = _snap(features)
+        rt_items = _snap(runtimes)
+
+        def _row(rung: str) -> dict:
+            return {
+                "tier": rung,
+                "tier_label": tier_label(rung),
+                "tier_rank": _TIER_RANK.get(rung, -1),
+                "has_all_at": bool(
+                    has_all_at(
+                        rung,
+                        features=feat_items,
+                        runtimes=rt_items,
+                        channels=channels,
+                        retention_days=retention_days,
+                        nodes=nodes,
+                    )
+                ),
+            }
+
+        if f == t:
+            return []
+        from_rank = _TIER_RANK.get(f, -1)
+        to_rank = _TIER_RANK.get(t, -1)
+        if from_rank == to_rank:
+            return [_row(t)]
+        ascending = to_rank > from_rank
+        if ascending:
+            ordered = sorted(
+                _PURCHASABLE_TIERS,
+                key=lambda x: (_TIER_RANK.get(x, -1), x),
+            )
+        else:
+            ordered = sorted(
+                _PURCHASABLE_TIERS,
+                key=lambda x: (-_TIER_RANK.get(x, -1), x),
+            )
+        path: list[dict] = []
+        for tid in ordered:
+            r = _TIER_RANK.get(tid, -1)
+            if ascending:
+                if r <= from_rank or r > to_rank:
+                    continue
+            else:
+                if r >= from_rank or r < to_rank:
+                    continue
+            if r == to_rank and tid != t:
+                continue
+            path.append(_row(tid))
+        return path
+    except Exception as exc:
+        logger.warning(
+            "entitlements: has_all_at_path(%r, %r, ...) failed: %s",
+            from_tier,
+            to_tier,
+            exc,
+        )
+        return None
+
+
+
+def missing_all_at_batch(
+    perspective_tiers,
+    *,
+    features=None,
+    runtimes=None,
+    channels: int | None = None,
+    retention_days: int | None = None,
+    nodes: int | None = None,
+) -> dict:
+    """Batch what-if row-detail complement of :func:`has_all_at_batch`:
+    which subset of the supplied mixed-axis bundle would each caller-
+    supplied hypothetical tier NOT grant, in ONE round-trip.
+
+    Row-detail sibling of :func:`has_all_at_batch` on the aggregate
+    what-if seat, in the same relationship :func:`missing_features_at_batch`
+    / :func:`missing_runtimes_at_batch` have to :func:`has_features_at_batch`
+    / :func:`has_runtimes_at_batch` on the single-axis seat. Where the
+    paired boolean-fold sibling collapses each ``(perspective_tier, bundle)``
+    pair to a single ``has_all_at`` bool, this returns WHAT is missing
+    on each supplied axis of the bundle for the same N perspectives so
+    a paywall diagnostics matrix ("out of {fleet, sso, claude_code,
+    100 channels, 90d retention, 100 nodes}, which axes are still
+    blocked at OSS vs Cloud Starter vs Cloud Pro vs Enterprise?")
+    hydrates the per-axis denial column off ONE call instead of N
+    calls to :func:`missing_all_at`.
+
+    Fixes ONE 5-axis bundle and sweeps across N perspective tiers,
+    returning one row per tier with the aggregate 5-axis row-detail
+    dict plus the surrounding tier envelope. Mixed-axis extension of
+    :func:`missing_features_at_batch` / :func:`missing_runtimes_at_batch`
+    (which fold one axis at a time).
+
+    Per-tier row shape mirrors :func:`missing_features_at_batch` with
+    the ``missing`` slot swapped from a single-axis list to a 5-key
+    per-axis dict matching :func:`missing_all_at`'s return shape::
+
+        {
+          "tier":       "<id>",
+          "tier_label": "...",
+          "tier_rank":  <int>,
+          "missing": {
+              "features":       [<subset denied via missing_features_at>],
+              "runtimes":       [<subset denied via missing_runtimes_at>],
+              "channels":       <supplied int if denied, else None>,
+              "retention_days": <supplied int if denied, else None>,
+              "nodes":          <supplied int if denied, else None>,
+          },
+        }
+
+    Envelope mirrors :func:`missing_features_at_batch` /
+    :func:`has_all_at_batch` byte-for-byte::
+
+        {
+          "tiers":   [<row>, ...],
+          "unknown": [<tier tokens dropped as unknown>, ...],
+        }
+
+    Each per-row ``missing`` byte-equals :func:`missing_all_at` for
+    the same ``(tier, bundle)`` pair -- a parity test pins this so
+    the scalar and batch what-if row-detail helpers cannot drift.
+
+    Kwarg semantics mirror :func:`missing_all_at` / :func:`has_all_at`
+    exactly (same 5-axis signature so a caller can pass identical
+    kwargs to any of the three helpers without a re-normalise):
+
+    * ``features=None`` / ``runtimes=None`` -- axis unsupplied, skipped
+      per-row (``missing.features`` / ``missing.runtimes`` -> ``[]``).
+    * ``features=[]`` / ``runtimes=[]`` -- axis supplied but empty. The
+      per-row delegate :func:`missing_features_at` /
+      :func:`missing_runtimes_at` returns ``[]`` on that axis (nothing
+      to check, nothing missing). Distinct from the paired
+      :func:`has_all_at_batch` which COLLAPSES every row's fold to
+      ``False`` on the same input -- the row-detail seat surfaces the
+      empty-input as "nothing denied" rather than "all denied" since a
+      typo at the callsite would surface either as an empty axis (no
+      row-detail change) or as a per-axis unknown token (which never
+      reaches the singular ``_at`` scalar). Callers wanting the strict
+      typo-``False`` posture should read the paired boolean fold.
+    * ``channels=None`` / ``retention_days=None`` / ``nodes=None`` --
+      axis unsupplied, skipped. Critically, ``retention_days=None``
+      means *unset*, NOT *unlimited*.
+    * Non-int capacity value (str, list, ...) on ``channels`` / ``nodes``
+      / ``retention_days`` -- swallows to ``None`` on every row's
+      ``missing`` slot (mirrors :func:`missing_all_at`'s non-int
+      swallow posture on the same axis); the paired
+      :func:`has_all_at_batch` collapses every row's fold to ``False``
+      via the strict singular scalar so the denial is coherently
+      surfaced through the paired call.
+    * No axes supplied at all -- every row's ``missing`` reports the
+      empty 5-key seat (nothing supplied -> nothing missing on any
+      axis). Distinct from the paired :func:`has_all_at_batch` which
+      collapses every row's fold to ``False`` on the same input for
+      typo-posture reasons -- see the paired doc.
+    * Unknown / typo'd feature or runtime id in an otherwise-known
+      bundle -- the singular ``_at`` scalars fail-open on unknowns per-
+      axis (a raw unknown feature id is not in the per-tier grant
+      table so it's not "denied", just unknown). The endpoint layer
+      surfaces those in ``unknown_features`` / ``unknown_runtimes``
+      for the paywall tooltip and folds ``any_missing`` on the OR of
+      row-level denials + endpoint-level unknowns -- matches the
+      sibling :func:`missing_features_at_batch` posture byte-for-byte.
+
+    Tier normalisation is delegated to :func:`_normalise_csv`
+    (whitespace stripped, lowercased, dedup preserving first-seen;
+    ``trial`` IS accepted -- it lives in :data:`_TIER_ORDER`). Unknown
+    tier ids are echoed in ``unknown[]`` instead of short-circuiting
+    so a partially-bad caller still gets rows for the valid tiers
+    alongside a list of what was dropped -- matches
+    :func:`has_all_at_batch` / :func:`missing_features_at_batch`
+    posture byte-for-byte.
+
+    Runtime-alias posture is inherited from :func:`missing_runtimes_at`:
+    no scalar-level canonicalisation -- a raw ``"claude-code"`` surfaces
+    in each row's ``missing.runtimes`` in its ``.strip().lower()`` form
+    (matches :func:`has_all_at_batch` / :func:`missing_features_at_batch`
+    strict-scalar posture). Alias tolerance belongs to the paired
+    ``/api/entitlement/missing-all-at-batch`` endpoint, which
+    canonicalises per-token upstream before delegating -- matches the
+    sibling :func:`missing_runtimes_at_batch` /
+    ``/api/entitlement/missing-runtimes-at-batch`` split exactly.
+
+    **Grace-independent by construction**: every per-row delegate is
+    backed by the static per-tier grant tables (via
+    :func:`missing_features_at` / :func:`missing_runtimes_at` on the
+    feature / runtime axes and the static ``_TIER_CHANNEL_LIMIT`` /
+    ``_TIER_RETENTION_DAYS`` / ``_TIER_NODE_LIMIT`` tables on the
+    capacity axes), so the per-row answer is IDENTICAL under grace vs
+    enforce for the same ``(perspective, bundle)`` pair. Whole point
+    of the ``_at`` slot: ``missing_all_at_batch(["oss", "cloud_pro"],
+    features=["fleet"])`` reports ``missing.features=["fleet"]`` for
+    the ``oss`` row even in grace (because OSS statically does not
+    grant ``fleet``), whereas the LIVE :func:`missing_all` reports
+    every axis empty for the same bundle in grace via
+    :attr:`Entitlement.grace` pass-through.
+
+    Complement invariant with :func:`has_all_at_batch`: for every
+    fully-parseable bundle and every perspective row,
+    ``any(row.missing.values())`` is the strict negation of the paired
+    row's ``has_all_at`` bit -- pins the row-detail seat as the exact
+    perspective-shaped negation of the boolean fold. (Non-int capacity
+    is the one deliberate divergence, matching the singular
+    :func:`missing_all_at` / :func:`has_all_at` divergence: the row-
+    detail slot swallows to ``None`` while the boolean fold collapses
+    to ``False`` via the strict singular scalar.)
+
+    Empty / ``None`` / non-iterable ``perspective_tiers`` returns
+    ``{"tiers": [], "unknown": []}``.
+
+    Never raises: a per-tier delegate failure short-circuits that id
+    into ``unknown[]`` and the rest of the batch keeps building.
+    """
+    ids = _normalise_csv(perspective_tiers)
+    rows: list[dict] = []
+    unknown: list[str] = []
+    for tid in ids:
+        if tid not in _TIER_ORDER:
+            unknown.append(tid)
+            continue
+        try:
+            missing = missing_all_at(
+                tid,
+                features=features,
+                runtimes=runtimes,
+                channels=channels,
+                retention_days=retention_days,
+                nodes=nodes,
+            )
+        except Exception as exc:
+            logger.warning(
+                "entitlements: missing_all_at_batch row %r failed: %s",
+                tid,
+                exc,
+            )
+            unknown.append(tid)
+            continue
+        rows.append(
+            {
+                "tier": tid,
+                "tier_label": tier_label(tid),
+                "tier_rank": _TIER_RANK.get(tid, -1),
+                "missing": {
+                    "features": list(missing.get("features") or []),
+                    "runtimes": list(missing.get("runtimes") or []),
+                    "channels": missing.get("channels"),
+                    "retention_days": missing.get("retention_days"),
+                    "nodes": missing.get("nodes"),
+                },
+            }
+        )
+    return {"tiers": rows, "unknown": unknown}
+
+
+def _normalise_all_bundle(bundle) -> tuple:
+    """Shared per-bundle normalisation for the aggregate 5-axis bundle
+    batches (:func:`has_all_bundle_batch` /
+    :func:`has_all_bundle_batch_at` and the reverse-lookup twin
+    :func:`_min_tier_for_all_bundle_row`).
+
+    Returns ``(features, runtimes, channels, retention_days, nodes)``
+    with the same normalisation posture the singular scalars and the
+    ``/required-tier-batch`` GET endpoint use so a caller can pass an
+    unnormalised bundle dict without a re-normalise step:
+
+    * ``features`` / ``runtimes`` -- CSV-normalised via
+      :func:`_normalise_csv` (whitespace stripped, lowercased, dedup
+      preserving first-seen order). Runtime tokens additionally
+      canonicalise via :func:`canonical_runtime` so aliases
+      (``claude-code`` -> ``claude_code``) resolve the same way as the
+      singular scalars, and duplicates that collapse after
+      canonicalisation only contribute once.
+    * ``channels`` / ``retention_days`` / ``nodes`` -- coerced through
+      ``int(str(v).strip())`` with a blank / non-int collapsing to
+      ``None`` so a typo cannot silently mis-route the aggregate. This
+      is DIFFERENT from :func:`has_all`, which treats a non-int on a
+      supplied axis as a strict typo (fold collapses to ``False``); at
+      the batch layer we prefer the "unset" reading because the paired
+      endpoint echoes the normalised value back so a caller can see the
+      dropped input on the row.
+
+    Non-dict bundles collapse to the empty tuple (matches
+    :func:`_min_tier_for_all_bundle_row` never-crash posture). Never
+    raises.
+    """
+    features: list[str] = []
+    runtimes: list[str] = []
+    channels: int | None = None
+    retention_days: int | None = None
+    nodes: int | None = None
+    try:
+        raw = bundle if isinstance(bundle, dict) else {}
+        features = _normalise_csv(raw.get("features"))
+        raw_rts = _normalise_csv(raw.get("runtimes"))
+        seen: set[str] = set()
+        for rt in raw_rts:
+            canon = canonical_runtime(rt)
+            key = canon if canon and canon in ALL_RUNTIMES else rt
+            if key in seen:
+                continue
+            seen.add(key)
+            runtimes.append(key)
+
+        def _coerce_int(val):
+            if val is None:
+                return None
+            try:
+                return int(str(val).strip())
+            except (TypeError, ValueError):
+                return None
+
+        channels = _coerce_int(raw.get("channels"))
+        retention_days = _coerce_int(raw.get("retention_days"))
+        nodes = _coerce_int(raw.get("nodes"))
+    except Exception as exc:
+        logger.warning(
+            "entitlements: _normalise_all_bundle failed: %s", exc
+        )
+    return (features, runtimes, channels, retention_days, nodes)
+
+
+def _has_all_bundle_row(bundle) -> dict:
+    """Per-bundle row shape for :func:`has_all_bundle_batch`.
+
+    Normalises one aggregate 5-axis bundle via
+    :func:`_normalise_all_bundle` (feature / runtime CSV + alias
+    canonicalisation, capacity int coercion with a blank / non-int
+    collapsing to ``None``), then folds it through :func:`has_all` for
+    the LIVE aggregate boolean.
+
+    Grace posture mirrors :func:`has_all` byte-for-byte: while
+    ``ent.grace`` is ``True`` (the current rollout state) every fully-
+    known bundle reports ``has_all=True``; post-enforcement each row
+    reflects the underlying :meth:`Entitlement.allows_*` answer.
+
+    Row keys mirror the paired ``/api/entitlement/has-all-bundle-batch``
+    endpoint body minus the resolver envelope (``features``,
+    ``runtimes``, ``channels``, ``retention_days``, ``nodes``,
+    ``has_all``). Empty / all-``None`` axes (empty bundle) surface as a
+    stable row with ``has_all=False`` -- distinguishes "caller asked for
+    nothing" from "caller asked and every axis was a typo" and matches
+    the singular :func:`has_all` empty-``False`` posture.
+
+    Never raises: a per-bundle failure returns the empty row shape so
+    the batch keeps building.
+    """
+    features, runtimes, channels, retention_days, nodes = _normalise_all_bundle(
+        bundle
+    )
+    try:
+        allowed = has_all(
+            features=features or None,
+            runtimes=runtimes or None,
+            channels=channels,
+            retention_days=retention_days,
+            nodes=nodes,
+        )
+    except Exception as exc:
+        logger.warning(
+            "entitlements: _has_all_bundle_row fold failed: %s", exc
+        )
+        allowed = False
+    return {
+        "features": features,
+        "runtimes": runtimes,
+        "channels": channels,
+        "retention_days": retention_days,
+        "nodes": nodes,
+        "has_all": bool(allowed),
+    }
+
+
+def has_all_bundle(bundle) -> dict:
+    """Row-detail scalar sibling of :func:`has_all_bundle_batch` for ONE
+    aggregate 5-axis bundle.
+
+    Folds ONE ``{features, runtimes, channels, retention_days, nodes}``
+    bundle to the canonical batch-row shape at the LIVE resolver.
+    A caller that already holds a bundle in batch-row shape (from an
+    upstream :func:`has_all_bundle_batch` echo, a paywall matrix cell,
+    or an upgrade-walkthrough tile that renders one bundle at a time)
+    can re-fold it here without wrapping in a length-one list and
+    unwrapping ``[0]``.
+
+    Distinct from :func:`has_all` (whose diagnostic envelope carries
+    unknown-token splits, ``required_tier`` resolution, and the
+    ``upgrade_required`` rollup): this returns the stripped six-key row
+    shape the bundle-batch family emits so a UI wiring the singular and
+    the batch off the same helper sees byte-identical rows.
+
+    Delegates row construction to :func:`_has_all_bundle_row` so the
+    scalar cannot drift from the batch row helper. Grace posture
+    mirrors :func:`has_all` byte-for-byte: while ``ent.grace`` is
+    ``True`` every fully-known bundle reports ``has_all=True``.
+
+    Never raises: a delegate failure returns the empty row shape
+    (``has_all=False``) so a caller wiring the scalar into a gate
+    cannot 500 on a malformed bundle.
+    """
+    try:
+        return _has_all_bundle_row(bundle)
+    except Exception as exc:
+        logger.warning("entitlements: has_all_bundle fold failed: %s", exc)
+        return {
+            "features": [],
+            "runtimes": [],
+            "channels": None,
+            "retention_days": None,
+            "nodes": None,
+            "has_all": False,
+        }
+
+
+def has_all_bundle_batch(bundles) -> list[dict]:
+    """Per-bundle aggregate boolean-fold grant for N caller-supplied
+    5-axis bundles in ONE round-trip.
+
+    Bundle-axis batch sibling of :func:`has_all` (which folds ONE
+    aggregate bundle to ONE boolean) on the boolean-fold slot, in the
+    same relationship :func:`min_tier_for_all_batch` has to
+    :func:`min_tier_for_all` on the reverse-lookup slot. Where the
+    singular helper answers "does the CURRENT install grant THIS whole
+    5-axis subscription state?", this answers the same question for N
+    distinct bundles at once so a paywall matrix or upgrade-walkthrough
+    surface comparing several hypothetical whole configs
+    (e.g. "Starter-shaped install vs Pro-shaped install vs Enterprise-
+    shaped install") renders off ONE call instead of N calls to
+    :func:`has_all`.
+
+    Distinct from :func:`has_features_batch` / :func:`has_runtimes_batch`
+    (which batch N *single-axis* bundles) and from :func:`has_batch`
+    (per-*item* rows for one flat bundle -- rows are individual
+    feature / runtime / capacity ids). This helper preserves the per-
+    bundle grouping AND the cross-axis aggregation: each row is the
+    aggregate fold-answer for that whole 5-axis bundle, not a fold-
+    answer per item or per single axis.
+
+    Also distinct from :func:`has_all_at_batch` (which fixes ONE bundle
+    and sweeps N perspective tiers): this fixes N bundles and reads the
+    LIVE per-install grant.
+
+    Row shape mirrors :func:`min_tier_for_all_batch` on the axis echo
+    slots (byte-parity so a UI that unions the two batches sees a
+    consistent shape) with the fold slot swapped from ``required_tier``
+    to ``has_all``::
+
+        {
+          "features":       ["fleet"],
+          "runtimes":       ["claude_code"],
+          "channels":       5 | None,
+          "retention_days": 30 | None,
+          "nodes":          2 | None,
+          "has_all":        <bool>,
+        }
+
+    Per-bundle normalisation is delegated to
+    :func:`_normalise_all_bundle`, which matches the singular endpoint
+    exactly: CSV normalisation on features / runtimes; runtime aliases
+    (``claude-code`` -> ``claude_code``) canonicalised; capacity axes
+    coerced through ``int(...)`` with a blank / non-int collapsing to
+    ``None``. Empty bundles / all-``None`` axes surface as a stable row
+    with ``has_all=False`` (matches :func:`has_all` empty-``False``
+    posture; a caller who forgot to pass any kwarg in one row of the
+    batch sees the typo at that row instead of a silent grant).
+
+    Grace posture per-row mirrors :func:`has_all` byte-for-byte: while
+    ``ent.grace`` is ``True`` every fully-known bundle reports
+    ``has_all=True``; post-enforcement each row reflects the underlying
+    :meth:`Entitlement.allows_*` answer.
+
+    Argument handling:
+
+    * ``bundles is None`` or non-iterable -- returns ``[]``.
+    * Each bundle may itself be ``None``, non-dict, or empty -- the
+      helper emits a stable row (``has_all=False`` on empty / non-dict).
+    * Non-dict bundle rows (e.g. a bare list) collapse to the empty row
+      shape (matches the never-crash posture of every other bundle
+      helper).
+
+    Critically, ``retention_days=None`` inside a bundle means *unset* --
+    NOT *unlimited*. Same posture as :func:`min_tier_for_all_batch` /
+    :func:`has_all`: asking about the unlimited-retention grant is the
+    singular :meth:`Entitlement.allows_retention_window` (``days=None``)
+    call's job and would collapse the row's kwarg-branch to "not
+    supplied" otherwise.
+
+    Never raises: per-bundle failures short-circuit to the empty row
+    shape (``has_all=False``) so the batch keeps building.
+    """
+    try:
+        if bundles is None:
+            return []
+        items = list(bundles)
+    except TypeError:
+        return []
+    out: list[dict] = []
+    for bundle in items:
+        try:
+            out.append(_has_all_bundle_row(bundle))
+        except Exception as exc:
+            logger.warning(
+                "entitlements: has_all_bundle_batch row failed: %s", exc
+            )
+            out.append(
+                {
+                    "features": [],
+                    "runtimes": [],
+                    "channels": None,
+                    "retention_days": None,
+                    "nodes": None,
+                    "has_all": False,
+                }
+            )
+    return out
+
+
+def _has_all_bundle_row_at(perspective_tier: str, bundle) -> dict:
+    """Perspective-shaped sibling of :func:`_has_all_bundle_row`.
+
+    Normalises one aggregate 5-axis bundle via
+    :func:`_normalise_all_bundle` (identical to the LIVE row helper),
+    then folds it through :func:`has_all_at` against
+    ``perspective_tier`` so the row reflects the STATIC per-tier grant
+    for that hypothetical tier instead of the LIVE resolver.
+
+    **Grace-independent by construction**: every axis in
+    :func:`has_all_at` is backed by the static per-tier grant tables
+    (via :func:`_hypothetical_entitlement` on the feature / runtime axes
+    and by :data:`_TIER_CHANNEL_LIMIT` / :data:`_TIER_RETENTION_DAYS` /
+    :data:`_TIER_NODE_LIMIT` on the capacity axes), so the per-row
+    ``has_all_at`` is identical under grace vs enforce for the same
+    ``(perspective, bundle)`` pair. Whole point of the ``_at`` slot: a
+    paywall walkthrough at OSS ("if I were on OSS today, would this
+    whole bundle land granted?") sees the would-be-locked state even
+    while the LIVE :func:`has_all_bundle_batch` reports every fully-
+    known bundle granted via grace pass-through.
+
+    Row keys mirror :func:`_has_all_bundle_row` byte-for-byte with the
+    fold slot renamed ``has_all_at`` so a UI wiring both the LIVE and
+    the perspective batches can distinguish the two answers on the same
+    ``(bundle,)`` cell. Never raises: a delegate failure returns the
+    empty row shape with ``has_all_at=False``.
+    """
+    features, runtimes, channels, retention_days, nodes = _normalise_all_bundle(
+        bundle
+    )
+    try:
+        allowed = has_all_at(
+            perspective_tier,
+            features=features or None,
+            runtimes=runtimes or None,
+            channels=channels,
+            retention_days=retention_days,
+            nodes=nodes,
+        )
+    except Exception as exc:
+        logger.warning(
+            "entitlements: _has_all_bundle_row_at(%r) fold failed: %s",
+            perspective_tier,
+            exc,
+        )
+        allowed = False
+    return {
+        "features": features,
+        "runtimes": runtimes,
+        "channels": channels,
+        "retention_days": retention_days,
+        "nodes": nodes,
+        "has_all_at": bool(allowed),
+    }
+
+
+def has_all_bundle_at(perspective_tier: str, bundle) -> dict | None:
+    """Perspective-shaped row-detail scalar sibling of
+    :func:`has_all_bundle_batch_at` for ONE aggregate 5-axis bundle.
+
+    Folds ONE ``{features, runtimes, channels, retention_days, nodes}``
+    bundle to the canonical batch-row shape against the STATIC
+    per-tier grant tables for ``perspective_tier`` (the ``_at`` slot).
+    Grace-independent by construction: the delegate
+    :func:`_has_all_bundle_row_at` reads from
+    :func:`_hypothetical_entitlement` on the feature / runtime axes
+    and :data:`_TIER_CHANNEL_LIMIT` / :data:`_TIER_RETENTION_DAYS` /
+    :data:`_TIER_NODE_LIMIT` on the capacity axes, so the row body is
+    byte-identical under grace vs enforce for the same
+    ``(perspective, bundle)`` pair.
+
+    Fills the singular-row slot alongside :func:`has_all_bundle` so a
+    paywall walkthrough tile rendering one hypothetical cell at a time
+    ("from Starter, would this whole bundle land granted?") reads the
+    perspective answer without wrapping in a length-one list and
+    unwrapping ``[0]`` from :func:`has_all_bundle_batch_at`.
+
+    Returns ``None`` for an empty / blank / non-string / unknown
+    ``perspective_tier`` -- matches the ``None``-on-unknown posture of
+    :func:`has_all_bundle_batch_at`, :func:`has_all_at`,
+    :func:`min_tier_for_all_at`, and the paired
+    ``/api/entitlement/has-all-bundle-at?tier=`` endpoint (which 400s
+    on missing / blank and 404s on unknown).
+
+    Never raises on the bundle side: a delegate failure on a valid
+    perspective returns the empty row shape (``has_all_at=False``) so a
+    caller wiring the scalar into a gate cannot 500 on a malformed
+    bundle.
+    """
+    if not isinstance(perspective_tier, str):
+        return None
+    tier_key = perspective_tier.strip().lower()
+    if not tier_key or tier_key not in _TIER_ORDER:
+        return None
+    try:
+        return _has_all_bundle_row_at(tier_key, bundle)
+    except Exception as exc:
+        logger.warning(
+            "entitlements: has_all_bundle_at(%r) fold failed: %s",
+            perspective_tier,
+            exc,
+        )
+        return {
+            "features": [],
+            "runtimes": [],
+            "channels": None,
+            "retention_days": None,
+            "nodes": None,
+            "has_all_at": False,
+        }
+
+
+def has_all_bundle_batch_at(
+    perspective_tier: str, bundles
+) -> list[dict] | None:
+    """Hypothetical-perspective sibling of :func:`has_all_bundle_batch`:
+    per-bundle aggregate boolean-fold grant for N 5-axis bundles in one
+    round-trip, scoped by a caller-supplied ``perspective_tier``.
+
+    Same relationship to :func:`has_all_bundle_batch` that
+    :func:`has_all_at` has to :func:`has_all` and
+    :func:`min_tier_for_all_at_batch` has to
+    :func:`min_tier_for_all_batch`: the ``perspective_tier`` argument
+    tells the fold which STATIC per-tier grant to reason from so a
+    pricing-matrix walkthrough can hydrate the per-bundle "would <tier>
+    admit this whole config?" boolean off ONE call per (perspective,
+    bundles) cell instead of N calls to :func:`has_all_at`.
+
+    **Perspective-shaped (grace-independent by design)**: unlike the
+    reverse-lookup :func:`min_tier_for_all_at_batch` (which is
+    inherently perspective-independent because the required tier is a
+    property of the bundle, not the caller), the boolean-fold answer
+    DOES depend on ``perspective_tier`` -- each row's ``has_all_at``
+    delegates to :func:`has_all_at` (backed by the static per-tier
+    tables), so the row IS shaped by the hypothetical perspective.
+    ``has_all_bundle_batch_at("oss", [{"features": ["fleet"]}])``
+    reports ``has_all_at=False`` for the fleet row even in grace --
+    that's the whole point of the ``_at`` slot.
+
+    Row shape mirrors :func:`has_all_bundle_batch` byte-for-byte on the
+    axis echo slots (byte-parity so a UI wiring both the LIVE and the
+    perspective batches sees a consistent shape) with the fold slot
+    renamed ``has_all_at``::
+
+        {
+          "features":       ["fleet"],
+          "runtimes":       ["claude_code"],
+          "channels":       5 | None,
+          "retention_days": 30 | None,
+          "nodes":          2 | None,
+          "has_all_at":     <bool>,
+        }
+
+    Perspective is validated against :data:`_TIER_ORDER` (including
+    :data:`TIER_TRIAL`); returns ``None`` for empty / unknown /
+    non-string ``perspective_tier`` (caller renders "unknown tier" /
+    404). Matches the ``None`` posture the rest of the ``_at`` mixed-
+    axis family uses (see :func:`min_tier_batch_at` /
+    :func:`min_tier_for_all_at_batch`).
+
+    Argument handling on ``bundles`` mirrors
+    :func:`has_all_bundle_batch`:
+
+    * ``bundles is None`` or non-iterable -- returns ``[]`` (perspective
+      valid but nothing to fold).
+    * Each bundle may itself be ``None``, non-dict, or empty -- the
+      helper emits a stable row (``has_all_at=False`` on empty /
+      non-dict).
+
+    Never raises: a delegate failure logs a warning and short-circuits
+    to the empty row shape so the batch keeps building. A perspective-
+    validation failure returns ``None`` so the paired endpoint can
+    surface a 404 with ``which=tier``.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        if bundles is None:
+            return []
+        items = list(bundles)
+    except TypeError:
+        return []
+    out: list[dict] = []
+    for bundle in items:
+        try:
+            out.append(_has_all_bundle_row_at(p, bundle))
+        except Exception as exc:
+            logger.warning(
+                "entitlements: has_all_bundle_batch_at row failed: %s", exc
+            )
+            out.append(
+                {
+                    "features": [],
+                    "runtimes": [],
+                    "channels": None,
+                    "retention_days": None,
+                    "nodes": None,
+                    "has_all_at": False,
+                }
+            )
+    return out
+
+
+def _missing_all_bundle_row(bundle) -> dict:
+    """Per-bundle row shape for :func:`missing_all_bundle_batch`.
+
+    Normalises one aggregate 5-axis bundle via
+    :func:`_normalise_all_bundle` (feature / runtime CSV + alias
+    canonicalisation, capacity int coercion with a blank / non-int
+    collapsing to ``None``) so the axis-echo slots byte-parity match
+    :func:`_has_all_bundle_row` / :func:`_min_tier_for_all_bundle_row`,
+    then folds it through :func:`missing_all` for the per-axis row-
+    detail complement.
+
+    Row keys mirror :func:`_has_all_bundle_row` on the axis-echo slots
+    (byte-parity so a UI wiring the LIVE boolean-fold and the row-
+    detail batches together sees a consistent per-bundle shape) with
+    the fold slot swapped from a single ``has_all`` bool to a per-axis
+    ``missing`` dict matching :func:`missing_all`'s return shape::
+
+        {
+          "features":       ["fleet", "sso"],
+          "runtimes":       ["claude_code"],
+          "channels":       5 | None,
+          "retention_days": 30 | None,
+          "nodes":          2 | None,
+          "missing": {
+              "features":       ["fleet", "sso"],  # from missing_features
+              "runtimes":       ["claude_code"],   # from missing_runtimes
+              "channels":       5 | None,          # requested int if denied
+              "retention_days": 30 | None,
+              "nodes":          2 | None,
+          },
+        }
+
+    Grace posture mirrors :func:`missing_all` byte-for-byte: while
+    ``ent.grace`` is ``True`` (the current rollout state) every
+    supplied grant axis' delegate returns ``[]`` and every supplied
+    capacity axis' delegate keeps ``None`` (fully-known bundle grants
+    every axis), so this row reports the empty ``missing`` shape.
+    Post-enforcement each slot reflects the underlying denial.
+
+    Grant-axis pass-through:
+
+    * ``features`` list is passed to :func:`missing_all` as
+      ``features or None``, meaning an empty CSV collapses to *unset*
+      (matches :func:`_has_all_bundle_row` and
+      :func:`_min_tier_for_all_bundle_row` posture -- an empty CSV
+      contributes nothing to the fold at the batch layer, distinct
+      from :func:`has_all` where ``features=[]`` collapses to
+      ``False``). :data:`FREE_FEATURES` never appear in
+      ``missing.features``.
+
+    * ``runtimes`` normalisation drops raw unknown tokens (they never
+      reach the fold) so a typo does NOT silently render as denied on
+      ``missing.runtimes`` -- the row surfaces the typo via the empty
+      ``runtimes`` echo instead (matches the sibling boolean-fold
+      row's silent-``False`` posture on the same input).
+      :data:`FREE_RUNTIMES` (``openclaw``) never appear in
+      ``missing.runtimes``.
+
+    Capacity-axis pass-through matches :func:`missing_all`: the
+    requested int is surfaced in ``missing`` iff the resolved
+    entitlement's per-axis scalar denies it, otherwise ``None``. A
+    blank / non-int capacity on the bundle collapses to ``None`` on
+    the echo slot AND drops from the fold entirely (matches the
+    ``_normalise_all_bundle`` convention).
+
+    Empty bundles / all-``None`` axes surface as a stable row with an
+    empty ``missing`` dict (nothing supplied -> nothing missing on
+    any axis). Distinguishes "caller asked for nothing" from "caller
+    asked and every axis was denied".
+
+    Never raises: a per-bundle failure returns the empty row shape so
+    the batch keeps building.
+    """
+    features, runtimes, channels, retention_days, nodes = _normalise_all_bundle(
+        bundle
+    )
+    try:
+        missing = missing_all(
+            features=features or None,
+            runtimes=runtimes or None,
+            channels=channels,
+            retention_days=retention_days,
+            nodes=nodes,
+        )
+    except Exception as exc:
+        logger.warning(
+            "entitlements: _missing_all_bundle_row fold failed: %s", exc
+        )
+        missing = {
+            "features": [],
+            "runtimes": [],
+            "channels": None,
+            "retention_days": None,
+            "nodes": None,
+        }
+    return {
+        "features": features,
+        "runtimes": runtimes,
+        "channels": channels,
+        "retention_days": retention_days,
+        "nodes": nodes,
+        "missing": {
+            "features": list(missing.get("features") or []),
+            "runtimes": list(missing.get("runtimes") or []),
+            "channels": missing.get("channels"),
+            "retention_days": missing.get("retention_days"),
+            "nodes": missing.get("nodes"),
+        },
+    }
+
+
+def missing_all_bundle_batch(bundles) -> list[dict]:
+    """Per-bundle aggregate row-detail complement for N caller-supplied
+    5-axis bundles in ONE round-trip.
+
+    Row-detail complement of :func:`has_all_bundle_batch` on the LIVE
+    aggregate seat, in the same relationship
+    :func:`missing_features_bundle_batch` has to
+    :func:`has_features_bundle_batch` on the single-axis seat. Where
+    the paired boolean-fold sibling collapses each bundle to a single
+    ``has_all`` bool, this returns WHAT is missing on each supplied
+    axis of each bundle so a paywall diagnostics matrix or upgrade-
+    walkthrough surface comparing several hypothetical *whole* configs
+    ("Starter-shaped install vs Pro-shaped install vs Enterprise-
+    shaped install -- for each, which axes are still blocked on the
+    LIVE grant?") hydrates the per-axis denial column off ONE call
+    instead of N calls to :func:`missing_all`.
+
+    Distinct from :func:`missing_features_bundle_batch` /
+    :func:`missing_runtimes_bundle_batch` (which batch N *single-axis*
+    bundles): each row here spans the same five axes
+    :func:`missing_all` folds, so the ``missing`` dict per row carries
+    the per-axis denial detail across features, runtimes, and the
+    three capacity scalars.
+
+    Row shape mirrors :func:`_has_all_bundle_row` byte-for-byte on the
+    axis-echo slots with the fold slot swapped from a single
+    ``has_all`` bool to a per-axis ``missing`` dict matching
+    :func:`missing_all`'s return shape::
+
+        {
+          "features":       ["fleet"],
+          "runtimes":       ["claude_code"],
+          "channels":       5 | None,
+          "retention_days": 30 | None,
+          "nodes":          2 | None,
+          "missing": {
+              "features":       [<subset not granted on LIVE>],
+              "runtimes":       [<subset not granted on LIVE>],
+              "channels":       <requested int if denied, else None>,
+              "retention_days": <requested int if denied, else None>,
+              "nodes":          <requested int if denied, else None>,
+          },
+        }
+
+    Per-bundle normalisation is delegated to
+    :func:`_normalise_all_bundle`, byte-identical to
+    :func:`_has_all_bundle_row` and :func:`_min_tier_for_all_bundle_row`:
+    CSV normalisation on features / runtimes; runtime aliases
+    (``claude-code`` -> ``claude_code``) canonicalised; capacity axes
+    coerced through ``int(...)`` with a blank / non-int collapsing to
+    ``None``. Empty bundles / all-``None`` axes surface as a stable
+    row with an empty ``missing`` dict (nothing supplied -> nothing
+    missing on any axis; distinguishes "caller asked for nothing"
+    from "caller asked and every axis was denied").
+
+    Grace posture per-row mirrors :func:`missing_all` byte-for-byte:
+    while ``ent.grace`` is ``True`` every fully-known bundle reports
+    every axis' ``missing`` slot empty (list ``[]`` / capacity
+    ``None``); post-enforcement each slot reflects the underlying
+    :meth:`Entitlement.allows_*` answer per axis.
+
+    Argument handling:
+
+    * ``bundles is None`` or non-iterable -- returns ``[]``.
+    * Each bundle may itself be ``None``, non-dict, or empty -- the
+      helper emits the empty row shape rather than raising.
+    * Non-dict bundle rows (e.g. a bare list) collapse to the empty
+      row shape (matches the never-crash posture of every other
+      bundle helper).
+
+    Critically, ``retention_days=None`` inside a bundle means *unset*
+    -- NOT *unlimited*. Same posture as :func:`min_tier_for_all_batch`
+    / :func:`has_all_bundle_batch`: asking about the unlimited-
+    retention grant is the singular :func:`has_retention_window`
+    (``days=None``) call's job and would mis-route the aggregate to
+    Enterprise-only via a wrong delegate otherwise.
+
+    Never raises: per-bundle failures short-circuit to the empty row
+    shape so the batch keeps building.
+    """
+    try:
+        if bundles is None:
+            return []
+        items = list(bundles)
+    except TypeError:
+        return []
+    out: list[dict] = []
+    for bundle in items:
+        try:
+            out.append(_missing_all_bundle_row(bundle))
+        except Exception as exc:
+            logger.warning(
+                "entitlements: missing_all_bundle_batch row failed: %s", exc
+            )
+            out.append(
+                {
+                    "features": [],
+                    "runtimes": [],
+                    "channels": None,
+                    "retention_days": None,
+                    "nodes": None,
+                    "missing": {
+                        "features": [],
+                        "runtimes": [],
+                        "channels": None,
+                        "retention_days": None,
+                        "nodes": None,
+                    },
+                }
+            )
+    return out
+
+
+
+
+def _missing_all_bundle_row_at(perspective_tier: str, bundle) -> dict:
+    """Perspective-shaped row-detail sibling of :func:`_has_all_bundle_row_at`.
+
+    Normalises one aggregate 5-axis bundle via
+    :func:`_normalise_all_bundle` (byte-identical to
+    :func:`_has_all_bundle_row_at` and :func:`_has_all_bundle_row` --
+    same axis-echo slots so a UI wiring the boolean-fold ``_at`` batch
+    and this row-detail ``_at`` batch together sees a consistent
+    per-bundle shape), then folds it through :func:`missing_all_at`
+    against ``perspective_tier`` for the STATIC per-tier per-axis
+    denial detail.
+
+    **Grace-independent by construction**: every axis in
+    :func:`missing_all_at` is backed by the static per-tier grant
+    tables (via :func:`_hypothetical_entitlement` on the feature /
+    runtime axes and by :data:`_TIER_CHANNEL_LIMIT` /
+    :data:`_TIER_RETENTION_DAYS` / :data:`_TIER_NODE_LIMIT` on the
+    capacity axes), so the returned ``missing`` sub-dict is
+    IDENTICAL under grace vs enforce for the same
+    ``(perspective, bundle)`` pair -- diverges deliberately from the
+    LIVE :func:`_missing_all_bundle_row` (which reports every per-axis
+    slot empty for a fully-known bundle in grace via the resolver's
+    grace pass-through). Whole point of the ``_at`` slot: a paywall
+    walkthrough at OSS ("if I were on OSS today, this whole bundle
+    would still be missing fleet + claude_code + 100 channels + 90d
+    retention + 99 nodes") sees the would-be-locked state even while
+    the LIVE :func:`missing_all_bundle_batch` reports every fully-
+    known bundle empty via grace pass-through.
+
+    Row keys mirror :func:`_has_all_bundle_row_at` byte-for-byte on
+    the axis-echo slots with the fold slot swapped from a single
+    ``has_all_at`` bool to a per-axis ``missing`` dict matching
+    :func:`missing_all_at`'s return shape::
+
+        {
+          "features":       ["fleet", "sso"],
+          "runtimes":       ["claude_code"],
+          "channels":       5 | None,
+          "retention_days": 30 | None,
+          "nodes":          2 | None,
+          "missing": {
+              "features":       ["fleet", "sso"],  # from missing_features_at
+              "runtimes":       ["claude_code"],   # from missing_runtimes_at
+              "channels":       5 | None,          # requested int if denied
+              "retention_days": 30 | None,
+              "nodes":          2 | None,
+          },
+        }
+
+    Complement invariant with :func:`_has_all_bundle_row_at`: for
+    every fully-parseable bundle on a valid perspective,
+    ``any(row["missing"].values())`` byte-equals ``not row["has_all_at"]``
+    -- pins the row-detail seat as the exact perspective-shaped
+    negation of the boolean-fold seat on the same
+    ``(perspective, bundle)`` pair.
+
+    Never raises: a delegate failure logs a warning and returns the
+    empty row shape with an empty ``missing`` dict.
+    """
+    features, runtimes, channels, retention_days, nodes = _normalise_all_bundle(
+        bundle
+    )
+    try:
+        missing = missing_all_at(
+            perspective_tier,
+            features=features or None,
+            runtimes=runtimes or None,
+            channels=channels,
+            retention_days=retention_days,
+            nodes=nodes,
+        )
+    except Exception as exc:
+        logger.warning(
+            "entitlements: _missing_all_bundle_row_at(%r) fold failed: %s",
+            perspective_tier,
+            exc,
+        )
+        missing = {
+            "features": [],
+            "runtimes": [],
+            "channels": None,
+            "retention_days": None,
+            "nodes": None,
+        }
+    return {
+        "features": features,
+        "runtimes": runtimes,
+        "channels": channels,
+        "retention_days": retention_days,
+        "nodes": nodes,
+        "missing": {
+            "features": list(missing.get("features") or []),
+            "runtimes": list(missing.get("runtimes") or []),
+            "channels": missing.get("channels"),
+            "retention_days": missing.get("retention_days"),
+            "nodes": missing.get("nodes"),
+        },
+    }
+
+
+def missing_all_bundle_batch_at(
+    perspective_tier: str, bundles
+) -> list[dict] | None:
+    """Hypothetical-perspective row-detail sibling of
+    :func:`has_all_bundle_batch_at`: per-bundle aggregate row-detail
+    denial for N 5-axis bundles in one round-trip, scoped by a
+    caller-supplied ``perspective_tier``.
+
+    Same relationship to :func:`has_all_bundle_batch_at` that
+    :func:`missing_all_at` has to :func:`has_all_at`: the paired
+    boolean-fold sibling collapses each bundle to a single
+    ``has_all_at`` bool at ``perspective_tier``, while this returns
+    WHAT is missing on each supplied axis of each bundle at that same
+    hypothetical perspective, in ONE round-trip. Fills the ``_at``
+    slot on the aggregate row-detail bundle-batch family alongside
+    :func:`has_all_bundle_batch_at` (boolean-fold sibling) and the
+    per-single-axis ``_bundle_batch`` siblings so a pricing-matrix
+    walkthrough can hydrate the per-axis denial detail column off ONE
+    call per (perspective, bundles) cell instead of N calls to
+    :func:`missing_all_at`.
+
+    **Perspective-shaped (grace-independent by design)**: delegates
+    per-row to :func:`_missing_all_bundle_row_at`, which folds through
+    :func:`missing_all_at` -- backed by the static per-tier tables via
+    :func:`_hypothetical_entitlement` on the feature / runtime axes
+    and by :data:`_TIER_CHANNEL_LIMIT` / :data:`_TIER_RETENTION_DAYS`
+    / :data:`_TIER_NODE_LIMIT` on the capacity axes, so grace vs
+    enforce yields byte-identical row bodies. Whole point of the
+    ``_at`` slot: at ``perspective_tier="oss"`` a paid-feature bundle
+    reports ``missing.features=["fleet"]`` even in grace, whereas the
+    LIVE :func:`missing_all_bundle_batch` reports ``missing.features=[]``
+    for the same bundle via grace pass-through.
+
+    Row shape mirrors :func:`has_all_bundle_batch_at` byte-for-byte on
+    the axis-echo slots (byte-parity so a UI wiring both the boolean-
+    fold and the row-detail ``_at`` batches sees a consistent shape)
+    with the fold slot swapped from a single ``has_all_at`` bool to a
+    per-axis ``missing`` dict matching :func:`missing_all_at`'s
+    return shape::
+
+        {
+          "features":       ["fleet"],
+          "runtimes":       ["claude_code"],
+          "channels":       5 | None,
+          "retention_days": 30 | None,
+          "nodes":          2 | None,
+          "missing": {
+              "features":       [<subset denied via missing_features_at>],
+              "runtimes":       [<subset denied via missing_runtimes_at>],
+              "channels":       <requested int if denied, else None>,
+              "retention_days": <requested int if denied, else None>,
+              "nodes":          <requested int if denied, else None>,
+          },
+        }
+
+    Perspective is validated against :data:`_TIER_ORDER` (including
+    :data:`TIER_TRIAL`); returns ``None`` for empty / unknown /
+    non-string ``perspective_tier`` (caller renders "unknown tier" /
+    404). Matches the ``None`` posture the rest of the ``_at`` mixed-
+    axis family uses (see :func:`has_all_bundle_batch_at` /
+    :func:`min_tier_batch_at`).
+
+    Argument handling on ``bundles`` mirrors
+    :func:`has_all_bundle_batch_at`:
+
+    * ``bundles is None`` or non-iterable -- returns ``[]``
+      (perspective valid but nothing to fold).
+    * Each bundle may itself be ``None``, non-dict, or empty -- the
+      helper emits a stable row (empty ``missing`` dict on empty /
+      non-dict; distinguishes "caller asked for nothing" from "caller
+      asked and every axis was denied").
+
+    Complement invariant with :func:`has_all_bundle_batch_at`: on a
+    valid perspective, for every fully-parseable bundle,
+    ``any(row["missing"].values())`` is the strict negation of the
+    paired ``has_all_at`` row -- pins the row-detail seat as the
+    exact perspective-shaped negation of the boolean-fold seat.
+    (Non-int capacity is the one deliberate divergence inherited from
+    :func:`missing_all_at`: the row-detail slot swallows to ``None``
+    while the boolean fold collapses to ``False`` via the strict
+    singular scalar.)
+
+    Never raises: a delegate failure logs a warning and short-circuits
+    to the empty row shape so the batch keeps building. A perspective-
+    validation failure returns ``None`` so the paired endpoint can
+    surface a 404 with ``which=tier``.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        if bundles is None:
+            return []
+        items = list(bundles)
+    except TypeError:
+        return []
+    out: list[dict] = []
+    for bundle in items:
+        try:
+            out.append(_missing_all_bundle_row_at(p, bundle))
+        except Exception as exc:
+            logger.warning(
+                "entitlements: missing_all_bundle_batch_at row failed: %s", exc
+            )
+            out.append(
+                {
+                    "features": [],
+                    "runtimes": [],
+                    "channels": None,
+                    "retention_days": None,
+                    "nodes": None,
+                    "missing": {
+                        "features": [],
+                        "runtimes": [],
+                        "channels": None,
+                        "retention_days": None,
+                        "nodes": None,
+                    },
+                }
+            )
+    return out
 
 
 def _min_tier_for_all_bundle_row(bundle) -> dict:
@@ -12849,6 +15609,249 @@ def has_batch(
         }
     except Exception as exc:
         logger.warning("entitlements: has_batch failed: %s", exc)
+        return {
+            "features": [],
+            "runtimes": [],
+            "channels": None,
+            "retention_days": None,
+            "nodes": None,
+        }
+
+
+def _has_row_capacity_at(
+    perspective_tier: str, key, kind: str
+) -> dict:
+    """Perspective-aware sibling of :func:`_has_row` for the three
+    capacity axes (``channels`` / ``retention_days`` / ``nodes``).
+
+    Row shape byte-parity with :func:`_has_row`; ``has`` reflects the
+    STATIC per-tier cap for ``perspective_tier`` -- matches the singular
+    :func:`has_channel_count_at` / :func:`has_retention_window_at` /
+    :func:`has_node_count_at` scalars and the batch
+    :func:`has_channel_count_at_batch` / :func:`has_retention_window_at_batch`
+    siblings on the same axes.
+
+    Deliberately does NOT route through :func:`_hypothetical_entitlement`:
+    that helper hard-codes ``node_limit=1`` regardless of tier and would
+    misreport ``allowed=False`` for e.g. ``nodes=100`` at
+    ``perspective_tier="cloud_pro"`` (which admits unlimited nodes on the
+    static cap table). Reads the static ``_TIER_*_LIMIT`` tables directly
+    so per-row ``has`` matches the singular ``_at`` scalars byte-for-byte.
+
+    ``required_tier`` is perspective-independent (delegates to
+    :func:`min_tier_for_channel_count` / :func:`min_tier_for_retention_window`
+    / :func:`min_tier_for_node_count`), matching every other ``_at`` row
+    on the capacity axes.
+
+    Never raises: any failure short-circuits to the fail-closed row shape
+    so the paywall matrix keeps rendering.
+    """
+    try:
+        n = int(key)
+    except (TypeError, ValueError):
+        return {
+            "key": str(key),
+            "kind": kind,
+            "has": False,
+            "unknown": True,
+            "required_tier": None,
+            "required_tier_label": None,
+            "required_tier_rank": -1,
+        }
+    try:
+        if kind == "channels":
+            cap = _TIER_CHANNEL_LIMIT.get(
+                perspective_tier, _FREE_CHANNEL_LIMIT
+            )
+            req = min_tier_for_channel_count(n)
+        elif kind == "retention_days":
+            cap = _TIER_RETENTION_DAYS.get(
+                perspective_tier, _TIER_RETENTION_DAYS[TIER_OSS]
+            )
+            req = min_tier_for_retention_window(n)
+        elif kind == "nodes":
+            cap = _TIER_NODE_LIMIT.get(
+                perspective_tier, _FREE_NODE_LIMIT
+            )
+            req = min_tier_for_node_count(n)
+        else:
+            return {
+                "key": str(key),
+                "kind": kind,
+                "has": False,
+                "unknown": True,
+                "required_tier": None,
+                "required_tier_label": None,
+                "required_tier_rank": -1,
+            }
+        if n <= 0:
+            has_flag = True
+        else:
+            has_flag = cap is None or n <= int(cap)
+        return {
+            "key": str(n),
+            "kind": kind,
+            "has": bool(has_flag),
+            "unknown": False,
+            "required_tier": req,
+            "required_tier_label": tier_label(req) if req else None,
+            "required_tier_rank": tier_rank(req) if req else -1,
+        }
+    except Exception as exc:
+        logger.warning(
+            "entitlements: _has_row_capacity_at(%r, %r, %r) failed: %s",
+            perspective_tier,
+            key,
+            kind,
+            exc,
+        )
+        return {
+            "key": str(key),
+            "kind": kind,
+            "has": False,
+            "unknown": True,
+            "required_tier": None,
+            "required_tier_label": None,
+            "required_tier_rank": -1,
+        }
+
+
+def has_batch_at(
+    perspective_tier: str,
+    *,
+    features=None,
+    runtimes=None,
+    channels: int | None = None,
+    retention_days: int | None = None,
+    nodes: int | None = None,
+) -> dict | None:
+    """Hypothetical-perspective sibling of :func:`has_batch`: per-item
+    boolean-gate rows for every supplied item across all five axes in
+    one pass, scoped by a caller-supplied ``perspective_tier``.
+
+    Fills the missing ``_at`` slot on the ``has_batch`` mixed-axis batch
+    family alongside :func:`min_tier_batch_at` (the perspective sibling
+    of :func:`min_tier_batch` on the reverse-lookup axis) and
+    :func:`has_feature_at` / :func:`has_runtime_at` /
+    :func:`has_channel_count_at` / :func:`has_retention_window_at` /
+    :func:`has_node_count_at` (the per-axis singular scalars). A paywall
+    matrix walkthrough at a hypothetical perspective ("if I were on
+    Starter, does this bundle of feature + runtime + capacity rows land
+    granted or locked?") renders off ONE round-trip instead of N calls
+    to the singular ``_at`` scalars + client-side row assembly.
+
+    Envelope shape mirrors :func:`has_batch` exactly (same five-axis
+    kwargs, same per-axis ``None`` "not supplied" sentinel, same
+    never-raise contract)::
+
+        {
+          "features":       [<row>, ...],
+          "runtimes":       [<row>, ...],
+          "channels":       <row> | None,
+          "retention_days": <row> | None,
+          "nodes":          <row> | None,
+        }
+
+    Each ``<row>`` carries ``key``, ``kind``, ``has`` (bool),
+    ``unknown``, ``required_tier``, ``required_tier_label`` and
+    ``required_tier_rank`` (``-1`` when ``required_tier`` is ``None``).
+
+    Perspective-shaped (grace-independent by design): unlike the LIVE
+    :func:`has_batch` sibling (which reports ``has=True`` for every
+    known row while ``ent.grace`` is ``True``), each row here reflects
+    the STATIC per-tier grant for ``perspective_tier``. Features /
+    runtimes are resolved against :func:`_hypothetical_entitlement`
+    (grace forced off, feature / runtime grants pulled from
+    :data:`_TIER_FEATURES` / :data:`_TIER_PAID_RUNTIMES`); the three
+    capacity axes read the static caps in :data:`_TIER_CHANNEL_LIMIT` /
+    :data:`_TIER_RETENTION_DAYS` / :data:`_TIER_NODE_LIMIT` directly
+    (matches the singular :func:`has_channel_count_at` / ...retention /
+    ...node scalars). ``has_batch_at("oss", features=["fleet"])``
+    returns ``has=False`` for the fleet row even in grace -- the whole
+    point of a what-if batch.
+
+    ``required_tier`` on every row is perspective-independent (delegates
+    to the singular :func:`min_tier_for_*` helpers) so a UI wiring both
+    the LIVE :func:`has_batch` and this perspective sibling sees byte-
+    identical reverse-lookup answers across the two batches.
+
+    Contract:
+
+    * ``perspective_tier`` is validated against :data:`_TIER_ORDER`
+      (including :data:`TIER_TRIAL`). Empty / non-string / unknown ->
+      ``None`` (caller renders "unknown tier" / 404). Matches the
+      ``None`` posture the rest of the ``_at`` mixed-axis family uses
+      (see :func:`min_tier_batch_at`).
+    * Feature ids normalised via :func:`_normalise_csv` (whitespace
+      stripped, lowercased, duplicates dropped preserving first-seen
+      order). Runtime ids additionally canonicalise via
+      :func:`canonical_runtime` (matches :func:`has_batch`).
+    * ``channels`` / ``retention_days`` / ``nodes`` are single ints;
+      ``None`` means "not supplied" (row slot collapses to ``None``).
+      Same posture as :func:`has_batch`: ``retention_days=None`` is
+      *unset* -- NOT *unlimited*.
+    * Unknown / non-canonical feature or runtime ids surface as one row
+      with ``unknown=True`` / ``has=False`` (strict callsite-typo fail-
+      closed posture matching the singular :func:`has_feature_at` /
+      :func:`has_runtime_at` scalars).
+
+    Never raises: a per-row failure short-circuits to the fail-closed
+    row shape so the paywall matrix keeps rendering; a perspective /
+    hypothetical build failure returns ``None`` so the caller can render
+    "unknown tier" / 404 without a stack trace.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        hypo = _hypothetical_entitlement(p)
+    except Exception as exc:
+        logger.warning(
+            "entitlements: has_batch_at hypo build failed for %r: %s",
+            perspective_tier,
+            exc,
+        )
+        return None
+    try:
+        feats = _normalise_csv(features)
+        raw_rts = _normalise_csv(runtimes)
+        seen: set[str] = set()
+        rt_rows: list[dict] = []
+        for raw in raw_rts:
+            rt = canonical_runtime(raw)
+            key = rt if rt else raw
+            if key in seen:
+                continue
+            seen.add(key)
+            rt_rows.append(_has_row(hypo, raw, "runtime"))
+        return {
+            "features": [_has_row(hypo, f, "feature") for f in feats],
+            "runtimes": rt_rows,
+            "channels": (
+                _has_row_capacity_at(p, channels, "channels")
+                if channels is not None
+                else None
+            ),
+            "retention_days": (
+                _has_row_capacity_at(p, retention_days, "retention_days")
+                if retention_days is not None
+                else None
+            ),
+            "nodes": (
+                _has_row_capacity_at(p, nodes, "nodes")
+                if nodes is not None
+                else None
+            ),
+        }
+    except Exception as exc:
+        logger.warning(
+            "entitlements: has_batch_at failed for %r: %s",
+            perspective_tier,
+            exc,
+        )
         return {
             "features": [],
             "runtimes": [],

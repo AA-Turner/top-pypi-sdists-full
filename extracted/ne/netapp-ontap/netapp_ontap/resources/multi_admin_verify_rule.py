@@ -37,19 +37,19 @@ with HostConnection(
 ```
 MultiAdminVerifyRule(
     {
-        "required_approvers": 1,
-        "query": "-vserver vs0",
-        "system_defined": False,
         "owner": {
             "_links": {
                 "self": {"href": "/api/svm/svms/52b75787-7011-11ec-a23d-005056a78fd5"}
             },
-            "name": "cluster1",
             "uuid": "52b75787-7011-11ec-a23d-005056a78fd5",
+            "name": "cluster1",
         },
+        "system_defined": False,
         "create_time": "2022-01-07T22:14:03-05:00",
-        "auto_request_create": True,
+        "required_approvers": 1,
         "operation": "volume delete",
+        "auto_request_create": True,
+        "query": "-vserver vs0",
     }
 )
 

@@ -882,9 +882,8 @@ impl Rule for MD057ExistingRelativeLinks {
         // The file under check, as the filesystem sees it. Links are compared
         // against it to find the ones that point back at their own document.
         let self_path: Option<PathBuf> = ctx
-            .source_file
-            .as_ref()
-            .map(|source_file| source_file.canonicalize().unwrap_or_else(|_| source_file.clone()));
+            .source_file()
+            .map(|source_file| source_file.canonicalize().unwrap_or_else(|_| source_file.to_path_buf()));
 
         // Determine base path for resolving relative links.
         // ALWAYS compute from ctx.source_file for each file - do not reuse cached base_path
@@ -912,22 +911,20 @@ impl Rule for MD057ExistingRelativeLinks {
         };
 
         // Compute additional search paths for fallback link resolution
-        let extra_search_paths =
-            self.compute_search_paths(ctx.flavor, ctx.source_file.as_deref(), &base_path, &project_root);
+        let extra_search_paths = self.compute_search_paths(ctx.flavor, ctx.source_file(), &base_path, &project_root);
 
         // Use LintContext links instead of expensive regex parsing
-        if !ctx.links.is_empty() {
-            // Use LineIndex for correct position calculation across all line ending types
-            let line_index = &ctx.line_index;
+        if !ctx.links().is_empty() {
+            // Document source locations preserve offsets across all line ending types.
 
             // Pre-collected lines from context
             let lines = ctx.raw_lines();
 
             // Track which lines we've already processed to avoid duplicates
-            // (ctx.links may have multiple entries for the same line, especially with malformed markdown)
+            // (ctx.links() may have multiple entries for the same line, especially with malformed markdown)
             let mut processed_lines = std::collections::HashSet::new();
 
-            for link in &ctx.links {
+            for link in ctx.links() {
                 let line_idx = link.line - 1;
                 if line_idx >= lines.len() {
                     continue;
@@ -953,7 +950,7 @@ impl Rule for MD057ExistingRelativeLinks {
                 // Find all links in this line using optimized regex
                 for link_match in LINK_START_REGEX.find_iter(line) {
                     // Skip image syntax (`![...]`) here, images are already fully
-                    // validated by the dedicated ctx.images loop below, and processing
+                    // validated by the dedicated ctx.images() loop below, and processing
                     // them again here would duplicate that warning. A bang preceded by
                     // an odd number of backslashes is escaped, literal text per
                     // CommonMark, making the bracket a normal link that the image loop
@@ -972,8 +969,8 @@ impl Rule for MD057ExistingRelativeLinks {
                     let start_pos = link_match.start();
                     let end_pos = link_match.end();
 
-                    // Calculate absolute position using LineIndex
-                    let line_start_byte = line_index.get_line_start_byte(line_idx + 1).unwrap_or(0);
+                    // Calculate the absolute position through the document context.
+                    let line_start_byte = ctx.line_start_byte(line_idx + 1).unwrap_or(0);
                     let absolute_start_pos = line_start_byte + start_pos;
 
                     // Skip if this link is in a code span
@@ -1129,7 +1126,7 @@ impl Rule for MD057ExistingRelativeLinks {
         }
 
         // Also process images - they have URLs already parsed
-        for image in &ctx.images {
+        for image in ctx.images() {
             // Skip images inside PyMdown blocks (MkDocs flavor)
             if ctx.line_info(image.line).is_some_and(|info| info.in_pymdown_block) {
                 continue;
@@ -1188,7 +1185,7 @@ impl Rule for MD057ExistingRelativeLinks {
                 });
 
                 let image_line = ctx.raw_lines().get(image.line - 1).copied().unwrap_or("");
-                let img_line_start_byte = ctx.line_index.get_line_start_byte(image.line).unwrap_or(0);
+                let img_line_start_byte = ctx.line_start_byte(image.line).unwrap_or(0);
                 // The fix range is a document byte offset; the displayed column is
                 // the corresponding character offset within the line.
                 let url_col = fix.as_ref().map_or(image.start_col + 1, |f| {
@@ -1225,7 +1222,7 @@ impl Rule for MD057ExistingRelativeLinks {
         }
 
         // Also process reference definitions: [ref]: ./path.md
-        for ref_def in &ctx.reference_defs {
+        for ref_def in ctx.reference_definitions() {
             let url = &ref_def.url;
 
             // Skip empty URLs

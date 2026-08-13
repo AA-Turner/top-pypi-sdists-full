@@ -1151,6 +1151,10 @@ class Generator:
         return f"{default}CHARACTER SET={self.sql(expression, 'this')}"
 
     def column_parts(self, expression: exp.Column) -> str:
+        if expression.args.get("shadow") and self.dialect.PROJECTION_ALIASES_SHADOW_SOURCE_NAMES:
+            # The qualifier would be captured by a colliding projection alias (see qualify_columns)
+            return self.sql(expression, "this")
+
         return ".".join(
             self.sql(part)
             for part in (
@@ -6317,6 +6321,22 @@ class Generator:
 
     def whileblock_sql(self, expression: exp.WhileBlock) -> str:
         self.unsupported("Unsupported While block syntax")
+        return ""
+
+    def loopblock_sql(self, expression: exp.LoopBlock) -> str:
+        self.unsupported("Unsupported Loop block syntax")
+        return ""
+
+    def repeatblock_sql(self, expression: exp.RepeatBlock) -> str:
+        self.unsupported("Unsupported Repeat block syntax")
+        return ""
+
+    def leave_sql(self, expression: exp.Leave) -> str:
+        self.unsupported("Unsupported Leave syntax")
+        return ""
+
+    def iterate_sql(self, expression: exp.Iterate) -> str:
+        self.unsupported("Unsupported Iterate syntax")
         return ""
 
     def execute_sql(self, expression: exp.Execute) -> str:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nltk
-Version: 3.10.2
+Version: 3.10.3
 Summary: Natural Language Toolkit
 Home-page: https://www.nltk.org/
 Author: NLTK Team
@@ -56,13 +56,13 @@ Requires-Dist: twython; extra == "twitter"
 Provides-Extra: corenlp
 Requires-Dist: requests; extra == "corenlp"
 Provides-Extra: all
-Requires-Dist: twython; extra == "all"
-Requires-Dist: python-crfsuite; extra == "all"
-Requires-Dist: scikit-learn; extra == "all"
-Requires-Dist: matplotlib; extra == "all"
-Requires-Dist: scipy; extra == "all"
 Requires-Dist: requests; extra == "all"
+Requires-Dist: scikit-learn; extra == "all"
+Requires-Dist: twython; extra == "all"
+Requires-Dist: scipy; extra == "all"
 Requires-Dist: numpy; extra == "all"
+Requires-Dist: matplotlib; extra == "all"
+Requires-Dist: python-crfsuite; extra == "all"
 Requires-Dist: pyparsing; extra == "all"
 Dynamic: author
 Dynamic: author-email

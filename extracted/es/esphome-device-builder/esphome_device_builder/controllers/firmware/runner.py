@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from ...controllers.remote_build.env_provisioner import EnvProvisionError
 from ...helpers.async_ import run_in_executor
-from ...helpers.subprocess import create_subprocess_exec, iter_lines_with_progress
+from ...helpers.subprocess import create_subprocess_exec
 from ...models import (
     FirmwareJob,
     JobFailureReason,
@@ -20,10 +20,12 @@ from ...models import (
     JobType,
 )
 from . import lifecycle, rename_flow
+from ._state import SpawnHandle
 from .constants import _ERROR_PATTERNS
 from .helpers import (
     _ingest_output_line,
     _is_no_module_named_esphome,
+    _pump_output_until_exit,
 )
 from .remote_runner import run_remote_job
 
@@ -181,35 +183,25 @@ async def execute_job(  # noqa: PLR0915, PLR0912, C901
             if job.job_id in controller.state.cancel_requested:
                 await controller._terminate_job_process(job)
 
-            assert proc.stdout is not None  # type narrowing
-
-            # ``iter_lines_with_progress`` splits on `\n` _or_ `\r`
-            # so carriage-return-based in-place updates (esptool's
-            # `Writing at 0x... (5%)\r`, PlatformIO's progress
-            # bars) survive the pipe instead of getting buffered
-            # until the next newline. Each chunk keeps its
-            # trailing terminator so the frontend can decide
-            # whether to append a new line or overwrite the last
-            # one.
-            async for line in iter_lines_with_progress(proc.stdout):
-                # Shared with the source-routed remote runner
-                # (``remote_runner._on_output``). The helper
-                # buffers + trims + fires ``JOB_OUTPUT`` and
-                # advances ``JOB_PROGRESS`` on a parseable
-                # percentage — same per-line bookkeeping
-                # whether the build's bytes come from this
-                # CPU or a paired receiver. ``_check_error``
-                # stays inline because it mutates the
-                # nonlocal ``has_error_in_output`` /
-                # ``saw_no_esphome_module`` flags the
-                # post-exit handler reads; remote builds
-                # surface a structured ``failed`` status from
-                # the receiver instead, so the stderr scrape
-                # only matters here.
+            # Shared with the source-routed remote runner
+            # (``remote_runner._on_output``). ``_ingest_output_line``
+            # buffers + trims + fires ``JOB_OUTPUT`` and advances
+            # ``JOB_PROGRESS`` on a parseable percentage — same
+            # per-line bookkeeping whether the build's bytes come
+            # from this CPU or a paired receiver. ``_check_error``
+            # stays inline because it mutates the nonlocal
+            # ``has_error_in_output`` / ``saw_no_esphome_module``
+            # flags the post-exit handler reads; remote builds
+            # surface a structured ``failed`` status from the
+            # receiver instead, so the stderr scrape only matters
+            # here.
+            def _on_line(line: str) -> None:
                 _ingest_output_line(job, controller._db.bus, line)
                 _check_error(line)
 
-            exit_code = await proc.wait()
+            exit_code = await _pump_output_until_exit(
+                job.job_id, proc, _on_line, controller.state.cancel_requested
+            )
             job.exit_code = exit_code
 
         # If the user cancelled this job mid-run, the subprocess
@@ -335,7 +327,7 @@ async def tracked_subprocess(
     Required for every ``create_subprocess_exec`` call in the
     runner path — both the main install/upload spawn in
     ``_execute_job`` and pre-flight probes like
-    ``_verify_chip``. Registering in ``state.processes`` is what
+    ``_verify_chip``. Registering in ``state.spawns`` is what
     lets a concurrent ``firmware/cancel`` actually land SIGTERM
     on the running spawn; a direct ``create_subprocess_exec``
     call without this registration silently regresses the
@@ -368,26 +360,19 @@ async def tracked_subprocess(
     # traceback in the streamed job output instead.
     kwargs.setdefault("stdin", asyncio.subprocess.DEVNULL)
     proc = await create_subprocess_exec(*args, **kwargs)
-    processes = controller.state.processes
-    prev = processes.get(job.job_id)
-    processes[job.job_id] = proc
-    try:
-        yield proc
-    except asyncio.CancelledError:
-        # Runner-shutdown cancellation: the runner task itself
-        # was cancelled (vs. a user-driven ``firmware/cancel``,
-        # which calls ``_terminate_job_process`` from the
-        # cancel handler directly). Reuse the same group-aware
-        # termination helper here so SIGTERM walks the whole
-        # process group (esphome → platformio → gcc / esptool).
-        # ``proc.terminate()`` would only signal the python
-        # parent — on POSIX with ``start_new_session=True``
-        # that orphans the child tree and the build keeps
-        # running until the children finish on their own.
-        await controller._terminate_job_process(job)
-        raise
-    finally:
-        if prev is None:
-            processes.pop(job.job_id, None)
-        else:
-            processes[job.job_id] = prev
+    with controller.state.spawns.register(job.job_id, SpawnHandle.track(proc)):
+        try:
+            yield proc
+        except asyncio.CancelledError:
+            # Runner-shutdown cancellation: the runner task itself
+            # was cancelled (vs. a user-driven ``firmware/cancel``,
+            # which calls ``_terminate_job_process`` from the
+            # cancel handler directly). Reuse the same group-aware
+            # termination helper here so SIGTERM walks the whole
+            # process group (esphome → platformio → gcc / esptool).
+            # ``proc.terminate()`` would only signal the python
+            # parent — on POSIX with ``start_new_session=True``
+            # that orphans the child tree and the build keeps
+            # running until the children finish on their own.
+            await controller._terminate_job_process(job)
+            raise

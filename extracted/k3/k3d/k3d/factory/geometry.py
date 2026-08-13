@@ -1,7 +1,6 @@
 """Factory functions for geometric objects."""
 
 import numpy as np
-import six
 from typing import Any
 from typing import Dict as TypingDict
 from typing import List as TypingList
@@ -214,6 +213,7 @@ def line(
             color_map=color_map,
             color_range=color_range,
             opacity=opacity,
+            shininess=shininess,
             name=name,
             group=group,
             custom_data=custom_data,
@@ -343,7 +343,7 @@ def mesh(
     color_map = (
         np.array(color_map, np.float32) if type(color_map) is not dict else color_map
     )
-    uvs = np.array(uvs, np.float32) if type(uvs) is not dict else color_map
+    uvs = np.array(uvs, np.float32) if type(uvs) is not dict else uvs
     attribute = (
         np.array(attribute, np.float32) if type(attribute) is not dict else attribute
     )
@@ -443,7 +443,7 @@ def stl(
     STL
         STL Drawable.
     """
-    plain = isinstance(stl, six.string_types)
+    plain = isinstance(stl, str)
 
     return process_transform_arguments(
         STL(
@@ -534,8 +534,12 @@ def surface(
 
     if color_map is None:
         color_map = default_colormap
-    color_map = np.array(color_map, np.float32)
-    attribute = np.array(attribute, np.float32)
+    color_map = (
+        np.array(color_map, np.float32) if type(color_map) is not dict else color_map
+    )
+    attribute = (
+        np.array(attribute, np.float32) if type(attribute) is not dict else attribute
+    )
     color_range = check_attribute_color_range(attribute, color_range)
 
     return process_transform_arguments(

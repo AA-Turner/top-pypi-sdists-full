@@ -6,7 +6,6 @@ Provides domain checking used by all credential helpers.
 """
 
 import logging
-import os
 
 from .custom_domains import get_custom_domains, get_format_domains
 
@@ -31,8 +30,7 @@ def extract_hostname(url):
     normalized = url.lower().strip()
 
     # Remove sparse+ prefix (Cargo)
-    if normalized.startswith("sparse+"):
-        normalized = normalized[7:]
+    normalized = normalized.removeprefix("sparse+")
 
     # Remove protocol
     if "://" in normalized:
@@ -49,7 +47,7 @@ def extract_hostname(url):
 
 
 def is_cloudsmith_domain(
-    url, api_key=None, auth_type="api_key", api_host=None, backend_kind=None
+    url, credential=None, api_host=None, backend_kind=None, org=None
 ):
     """
     Check if a URL points to a Cloudsmith service.
@@ -59,12 +57,13 @@ def is_cloudsmith_domain(
 
     Args:
         url: URL or hostname to check
-        api_key: API key/token for authenticating custom domain lookups
-        auth_type: "api_key" (X-Api-Key header) or "bearer" (Authorization: Bearer)
+        credential: Resolved CredentialResult for authenticating custom domain lookups
         api_host: Cloudsmith API host URL
         backend_kind: If given, custom domains only match when their backend_kind
             equals it (standard *.cloudsmith.io domains always match regardless).
             When None (default), any enabled+validated custom domain matches.
+        org: Organisation slug whose custom domains to match against, as the
+            CLI resolved it from --org, CLOUDSMITH_ORG or config.ini
 
     Returns:
         bool: True if this is a Cloudsmith domain
@@ -74,19 +73,16 @@ def is_cloudsmith_domain(
         return False
 
     # Standard Cloudsmith domains — no auth needed, always match regardless of backend_kind
-    if (
-        hostname in ("cloudsmith.io", "cloudsmith.com")
-        or hostname.endswith(".cloudsmith.io")
-        or hostname.endswith(".cloudsmith.com")
+    if hostname in ("cloudsmith.io", "cloudsmith.com") or hostname.endswith(
+        (".cloudsmith.io", ".cloudsmith.com")
     ):
         return True
 
     # Custom domains require org + auth
-    org = os.environ.get("CLOUDSMITH_ORG", "").strip()
     if not org:
         return False
 
-    if not api_key:
+    if not credential or not credential.api_key:
         return False
 
     if backend_kind is not None:
@@ -95,17 +91,14 @@ def is_cloudsmith_domain(
             for host in get_format_domains(
                 org,
                 backend_kind,
-                api_key=api_key,
-                auth_type=auth_type,
+                credential=credential,
                 api_host=api_host,
             )
         }
     else:
         hosts = {
             d.host.lower()
-            for d in get_custom_domains(
-                org, api_key=api_key, auth_type=auth_type, api_host=api_host
-            )
-            if d.enabled and d.validated
+            for d in get_custom_domains(org, credential=credential, api_host=api_host)
+            if d.is_active
         }
     return hostname in hosts

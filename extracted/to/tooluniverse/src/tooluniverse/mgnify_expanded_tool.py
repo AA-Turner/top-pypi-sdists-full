@@ -52,9 +52,26 @@ class MGnifyExpandedTool(BaseTool):
                 "error": "Failed to connect to MGnify API. Check network connectivity.",
             }
         except requests.exceptions.HTTPError as e:
+            status_code = e.response.status_code if e.response is not None else None
+            query_id = (
+                arguments.get("study_accession")
+                or arguments.get("analysis_id")
+                or arguments.get("genome_id")
+                or arguments.get("sample_accession")
+            )
+            if status_code == 404:
+                detail = f" for '{query_id}'" if query_id else ""
+                return {
+                    "status": "error",
+                    "error": (
+                        f"MGnify API returned 404 Not Found{detail}. Check that the "
+                        "accession/ID is correct (e.g. a typo, or an ID from a "
+                        "different record type)."
+                    ),
+                }
             return {
                 "status": "error",
-                "error": f"MGnify API HTTP error: {e.response.status_code}",
+                "error": f"MGnify API HTTP error: {status_code}",
             }
         except Exception as e:
             return {
@@ -146,11 +163,30 @@ class MGnifyExpandedTool(BaseTool):
         params["page"] = page
         params["page_size"] = page_size
 
-        if "taxonomy" in arguments:
-            params["lineage"] = arguments["taxonomy"]
+        # Fix-R4A-1: the /genomes endpoint filters on `taxon_lineage`, not
+        # `lineage`. MGnify drops unknown query params rather than erroring, so
+        # sending `lineage` returned the ENTIRE unfiltered catalogue as a
+        # success -- confirmed live that taxonomy="Bacteroides",
+        # taxonomy="COMPLETELY_BOGUS_XYZ" and no taxonomy at all all returned
+        # the same 56,782 genomes, while ?taxon_lineage=Bacteroides upstream
+        # returns the correct 136.
+        if arguments.get("taxonomy"):
+            params["taxon_lineage"] = arguments["taxonomy"]
 
-        if "genome_type" in arguments:
-            params["genome_type"] = arguments["genome_type"]
+        # ...and `genome_type` has no working equivalent on this endpoint at
+        # all: ?genome_type=, ?type= and ?genome-type= each return the full
+        # 56,782. Rather than accept the filter and ignore it, fail closed and
+        # point at the per-genome `type` field callers can filter on instead.
+        if arguments.get("genome_type"):
+            return {
+                "status": "error",
+                "error": (
+                    "The MGnify /genomes endpoint does not support filtering by "
+                    "genome_type; passing it would silently return the entire "
+                    "unfiltered catalogue. Omit genome_type and filter the "
+                    "returned records on their 'type' field instead."
+                ),
+            }
 
         url = f"{MGNIFY_BASE_URL}/genomes"
         response = requests.get(url, params=params, timeout=self.timeout)
@@ -247,16 +283,24 @@ class MGnifyExpandedTool(BaseTool):
         attrs = data.get("attributes", {})
         rels = data.get("relationships", {})
 
+        # The MGnify studies/{accession} endpoint exposes "is-private" (not
+        # "is-public"), and does not include analyses/downloads counts under
+        # relationships.*.meta.count (only a "related" link with no count) --
+        # confirmed live against the API. Invert is-private into is_public,
+        # and surface samples-count (which the API does return) instead of
+        # the two counts that could never be populated from this endpoint.
+        # Use MGnify_list_analyses / MGnify_list_analysis_downloads to get
+        # exact analyses/downloads counts for a study.
+        is_private = attrs.get("is-private")
         result = {
             "study_id": data.get("id"),
             "study_name": attrs.get("study-name"),
             "study_abstract": attrs.get("study-abstract"),
             "bioproject": attrs.get("bioproject"),
             "centre_name": attrs.get("centre-name"),
-            "is_public": attrs.get("is-public"),
+            "is_public": (not is_private) if is_private is not None else None,
             "last_update": attrs.get("last-update"),
-            "analyses_count": rels.get("analyses", {}).get("meta", {}).get("count"),
-            "downloads_count": rels.get("downloads", {}).get("meta", {}).get("count"),
+            "samples_count": attrs.get("samples-count"),
             "biomes": [b.get("id") for b in rels.get("biomes", {}).get("data", [])],
         }
 

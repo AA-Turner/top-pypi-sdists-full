@@ -30,69 +30,69 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterSpace(
     {
-        "efficiency_without_snapshots": {
-            "logical_used": 167936,
-            "savings": 0,
-            "ratio": 1.0,
-        },
-        "block_storage": {
-            "medias": [
-                {
-                    "efficiency_without_snapshots": {
-                        "logical_used": 0,
-                        "savings": 0,
-                        "ratio": 1.0,
-                    },
-                    "available": 3728039936,
-                    "used": 6163390464,
-                    "size": 9891430400,
-                    "efficiency": {"logical_used": 0, "savings": 0, "ratio": 1.0},
-                    "efficiency_without_snapshots_flexclones": {
-                        "logical_used": 0,
-                        "savings": 0,
-                        "ratio": 1.0,
-                    },
-                    "physical_used": 1832886272,
-                    "type": "ssd",
-                },
-                {
-                    "efficiency_without_snapshots": {
-                        "logical_used": 167936,
-                        "savings": 0,
-                        "ratio": 1.0,
-                    },
-                    "available": 46127759360,
-                    "used": 106422272,
-                    "size": 46234181632,
-                    "efficiency": {
-                        "logical_used": 1212416,
-                        "savings": 282624,
-                        "ratio": 1.303964757709251,
-                    },
-                    "efficiency_without_snapshots_flexclones": {
-                        "logical_used": 167936,
-                        "savings": 0,
-                        "ratio": 1.0,
-                    },
-                    "physical_used": 5398528,
-                    "type": "vmdisk",
-                },
-            ],
-            "available": 49855799296,
-            "used": 6269812736,
-            "inactive_data": 0,
-            "size": 56125612032,
-            "physical_used": 1838284800,
-        },
         "efficiency": {
             "logical_used": 1212416,
             "savings": 143360,
             "ratio": 1.134099616858238,
         },
+        "efficiency_without_snapshots": {
+            "logical_used": 167936,
+            "savings": 0,
+            "ratio": 1.0,
+        },
         "efficiency_without_snapshots_flexclones": {
             "logical_used": 167936,
             "savings": 0,
             "ratio": 1.0,
+        },
+        "block_storage": {
+            "inactive_data": 0,
+            "size": 56125612032,
+            "used": 6269812736,
+            "available": 49855799296,
+            "medias": [
+                {
+                    "type": "ssd",
+                    "size": 9891430400,
+                    "used": 6163390464,
+                    "efficiency": {"logical_used": 0, "savings": 0, "ratio": 1.0},
+                    "physical_used": 1832886272,
+                    "available": 3728039936,
+                    "efficiency_without_snapshots": {
+                        "logical_used": 0,
+                        "savings": 0,
+                        "ratio": 1.0,
+                    },
+                    "efficiency_without_snapshots_flexclones": {
+                        "logical_used": 0,
+                        "savings": 0,
+                        "ratio": 1.0,
+                    },
+                },
+                {
+                    "type": "vmdisk",
+                    "size": 46234181632,
+                    "used": 106422272,
+                    "efficiency": {
+                        "logical_used": 1212416,
+                        "savings": 282624,
+                        "ratio": 1.303964757709251,
+                    },
+                    "physical_used": 5398528,
+                    "available": 46127759360,
+                    "efficiency_without_snapshots": {
+                        "logical_used": 167936,
+                        "savings": 0,
+                        "ratio": 1.0,
+                    },
+                    "efficiency_without_snapshots_flexclones": {
+                        "logical_used": 167936,
+                        "savings": 0,
+                        "ratio": 1.0,
+                    },
+                },
+            ],
+            "physical_used": 1838284800,
         },
     }
 )
@@ -129,12 +129,12 @@ ClusterSpace(
             "ratio": 1.0,
         },
         "block_storage": {
-            "log_and_recovery_metadata": 58678050816,
-            "available": 66677788672,
-            "nearly_full_threshold_percent": 85,
             "physical_used_percent": 46,
+            "log_and_recovery_metadata": 58678050816,
             "size": 125357654016,
+            "nearly_full_threshold_percent": 85,
             "full_threshold_percent": 98,
+            "available": 66677788672,
             "physical_used": 58679865344,
             "delayed_frees": 57139200,
             "total_metadata_used": 58679865344,
@@ -274,6 +274,8 @@ class ClusterSpace(Resource):
         r"""Retrieves cluster-wide storage details across the different tiers. By default, this endpoint returns all fields.
 Storage details include storage efficiency, block storage and cloud storage information.
 Supports the following roles: admin, and readonly.
+### Related ONTAP commands
+* `cluster space show`
 
 ### Learn more
 * [`DOC /storage/cluster`](#docs-storage-storage_cluster)"""
@@ -291,6 +293,8 @@ Supports the following roles: admin, and readonly.
         **kwargs
     ) -> NetAppResponse:
         r"""Updates full_threshold_percent and nearly_full_threshold_percent for the complete cluster.
+### Related ONTAP commands
+* `cluster space modify`
 
 ### Learn more
 * [`DOC /storage/cluster`](#docs-storage-storage_cluster)"""

@@ -35,11 +35,11 @@ with HostConnection(
 ```
 MultiAdminVerifyConfig(
     {
-        "required_approvers": 1,
-        "approval_expiry": "PT1H",
-        "approval_groups": [],
         "execution_expiry": "PT1H",
         "enabled": False,
+        "required_approvers": 1,
+        "approval_groups": [],
+        "approval_expiry": "PT1H",
     }
 )
 

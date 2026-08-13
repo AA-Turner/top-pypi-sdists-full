@@ -36,6 +36,7 @@ __all__ = (
     "AnchorTypeType",
     "AnonymousUserDashboardEmbeddingConfigurationDisabledFeatureType",
     "AnonymousUserDashboardEmbeddingConfigurationEnabledFeatureType",
+    "ApplicableToTypeType",
     "ArcThicknessOptionsType",
     "ArcThicknessType",
     "AssetBundleExportFormatType",
@@ -47,9 +48,11 @@ __all__ = (
     "AssetBundleExportJobRefreshSchedulePropertyToOverrideType",
     "AssetBundleExportJobStatusType",
     "AssetBundleExportJobThemePropertyToOverrideType",
+    "AssetBundleExportJobTopicV2PropertyToOverrideType",
     "AssetBundleExportJobVPCConnectionPropertyToOverrideType",
     "AssetBundleImportFailureActionType",
     "AssetBundleImportJobStatusType",
+    "AssetTypeType",
     "AssignmentStatusType",
     "AudioExtractionStatusType",
     "AuthTypeType",
@@ -127,6 +130,9 @@ __all__ = (
     "DescribeFolderResolvedPermissionsPaginatorName",
     "DigitGroupingStyleType",
     "DisplayFormatType",
+    "DlpActionType",
+    "DlpProviderTypeType",
+    "DlpSettingStatusType",
     "EditionType",
     "EmbeddingIdentityTypeType",
     "FieldNameType",
@@ -150,6 +156,7 @@ __all__ = (
     "GeospatialLayerTypeType",
     "GeospatialMapNavigationType",
     "GeospatialSelectedPointStyleType",
+    "GovernedActionType",
     "GroupFilterAttributeType",
     "GroupFilterOperatorType",
     "HistogramBinTypeType",
@@ -179,12 +186,15 @@ __all__ = (
     "LayerCustomActionTriggerType",
     "LayoutElementTypeType",
     "LegendPositionType",
+    "LimitSourceType",
+    "LimitUnitType",
     "LineChartLineStyleType",
     "LineChartMarkerShapeType",
     "LineChartTypeType",
     "LineInterpolationType",
     "ListActionConnectorsPaginatorName",
     "ListAnalysesPaginatorName",
+    "ListApprovalPoliciesPaginatorName",
     "ListAssetBundleExportJobsPaginatorName",
     "ListAssetBundleImportJobsPaginatorName",
     "ListBrandsPaginatorName",
@@ -193,6 +203,7 @@ __all__ = (
     "ListDashboardsPaginatorName",
     "ListDataSetsPaginatorName",
     "ListDataSourcesPaginatorName",
+    "ListDlpSettingsPaginatorName",
     "ListFlowsPaginatorName",
     "ListFolderMembersPaginatorName",
     "ListFoldersForResourcePaginatorName",
@@ -203,6 +214,7 @@ __all__ = (
     "ListIAMPolicyAssignmentsPaginatorName",
     "ListIngestionsPaginatorName",
     "ListKnowledgeBasesPaginatorName",
+    "ListLimitsProfilesPaginatorName",
     "ListNamespacesPaginatorName",
     "ListOAuthClientApplicationsPaginatorName",
     "ListRoleMembershipsPaginatorName",
@@ -272,6 +284,7 @@ __all__ = (
     "ResizeOptionType",
     "ResourceServiceName",
     "ResourceStatusType",
+    "ResourceTypeType",
     "ReviewedAnswerErrorCodeType",
     "RoleType",
     "RowLevelPermissionFormatVersionType",
@@ -475,6 +488,7 @@ AnchorOptionType = Literal["NOW"]
 AnchorTypeType = Literal["TODAY"]
 AnonymousUserDashboardEmbeddingConfigurationDisabledFeatureType = Literal["SHARED_VIEW"]
 AnonymousUserDashboardEmbeddingConfigurationEnabledFeatureType = Literal["SHARED_VIEW"]
+ApplicableToTypeType = Literal["GROUP"]
 ArcThicknessOptionsType = Literal["LARGE", "MEDIUM", "SMALL"]
 ArcThicknessType = Literal["LARGE", "MEDIUM", "SMALL", "WHOLE"]
 AssetBundleExportFormatType = Literal["CLOUDFORMATION_JSON", "QUICKSIGHT_JSON"]
@@ -509,6 +523,7 @@ AssetBundleExportJobStatusType = Literal[
     "FAILED", "IN_PROGRESS", "QUEUED_FOR_IMMEDIATE_EXECUTION", "SUCCESSFUL"
 ]
 AssetBundleExportJobThemePropertyToOverrideType = Literal["Name"]
+AssetBundleExportJobTopicV2PropertyToOverrideType = Literal["Description", "Name"]
 AssetBundleExportJobVPCConnectionPropertyToOverrideType = Literal["DnsResolvers", "Name", "RoleArn"]
 AssetBundleImportFailureActionType = Literal["DO_NOTHING", "ROLLBACK"]
 AssetBundleImportJobStatusType = Literal[
@@ -520,6 +535,7 @@ AssetBundleImportJobStatusType = Literal[
     "QUEUED_FOR_IMMEDIATE_EXECUTION",
     "SUCCESSFUL",
 ]
+AssetTypeType = Literal["AGENT", "KNOWLEDGE_BASE", "SPACE"]
 AssignmentStatusType = Literal["DISABLED", "DRAFT", "ENABLED"]
 AudioExtractionStatusType = Literal["DISABLED", "ENABLED"]
 AuthTypeType = Literal["SERVICE_ACCOUNT", "THREE_LEGGED_OAUTH", "TWO_LEGGED_OAUTH"]
@@ -779,6 +795,9 @@ DescribeFolderPermissionsPaginatorName = Literal["describe_folder_permissions"]
 DescribeFolderResolvedPermissionsPaginatorName = Literal["describe_folder_resolved_permissions"]
 DigitGroupingStyleType = Literal["DEFAULT", "LAKHS"]
 DisplayFormatType = Literal["AUTO", "CURRENCY", "DATE", "NUMBER", "PERCENT", "STRING"]
+DlpActionType = Literal["ALLOW", "BLOCK", "WARN"]
+DlpProviderTypeType = Literal["MICROSOFT_PURVIEW"]
+DlpSettingStatusType = Literal["ACTIVE", "INACTIVE"]
 EditionType = Literal["ENTERPRISE", "ENTERPRISE_AND_Q", "STANDARD"]
 EmbeddingIdentityTypeType = Literal["ANONYMOUS", "IAM", "QUICKSIGHT"]
 FieldNameType = Literal[
@@ -829,6 +848,7 @@ GeospatialColorStateType = Literal["DISABLED", "ENABLED"]
 GeospatialLayerTypeType = Literal["LINE", "POINT", "POLYGON"]
 GeospatialMapNavigationType = Literal["DISABLED", "ENABLED"]
 GeospatialSelectedPointStyleType = Literal["CLUSTER", "HEATMAP", "POINT"]
+GovernedActionType = Literal["SHARE"]
 GroupFilterAttributeType = Literal["GROUP_NAME"]
 GroupFilterOperatorType = Literal["StartsWith"]
 HistogramBinTypeType = Literal["BIN_COUNT", "BIN_WIDTH"]
@@ -952,12 +972,15 @@ LayoutElementTypeType = Literal[
     "FILTER_CONTROL", "IMAGE", "PARAMETER_CONTROL", "TEXT_BOX", "VISUAL"
 ]
 LegendPositionType = Literal["AUTO", "BOTTOM", "RIGHT", "TOP"]
+LimitSourceType = Literal["ACCOUNT", "DIRECT_USER", "GROUP", "ROLE", "SYSTEM_DEFAULT"]
+LimitUnitType = Literal["DAYS", "GB", "HOURS", "MB"]
 LineChartLineStyleType = Literal["DASHED", "DOTTED", "SOLID"]
 LineChartMarkerShapeType = Literal["CIRCLE", "DIAMOND", "ROUNDED_SQUARE", "SQUARE", "TRIANGLE"]
 LineChartTypeType = Literal["AREA", "LINE", "STACKED_AREA"]
 LineInterpolationType = Literal["LINEAR", "SMOOTH", "STEPPED"]
 ListActionConnectorsPaginatorName = Literal["list_action_connectors"]
 ListAnalysesPaginatorName = Literal["list_analyses"]
+ListApprovalPoliciesPaginatorName = Literal["list_approval_policies"]
 ListAssetBundleExportJobsPaginatorName = Literal["list_asset_bundle_export_jobs"]
 ListAssetBundleImportJobsPaginatorName = Literal["list_asset_bundle_import_jobs"]
 ListBrandsPaginatorName = Literal["list_brands"]
@@ -966,6 +989,7 @@ ListDashboardVersionsPaginatorName = Literal["list_dashboard_versions"]
 ListDashboardsPaginatorName = Literal["list_dashboards"]
 ListDataSetsPaginatorName = Literal["list_data_sets"]
 ListDataSourcesPaginatorName = Literal["list_data_sources"]
+ListDlpSettingsPaginatorName = Literal["list_dlp_settings"]
 ListFlowsPaginatorName = Literal["list_flows"]
 ListFolderMembersPaginatorName = Literal["list_folder_members"]
 ListFoldersForResourcePaginatorName = Literal["list_folders_for_resource"]
@@ -976,6 +1000,7 @@ ListIAMPolicyAssignmentsForUserPaginatorName = Literal["list_iam_policy_assignme
 ListIAMPolicyAssignmentsPaginatorName = Literal["list_iam_policy_assignments"]
 ListIngestionsPaginatorName = Literal["list_ingestions"]
 ListKnowledgeBasesPaginatorName = Literal["list_knowledge_bases"]
+ListLimitsProfilesPaginatorName = Literal["list_limits_profiles"]
 ListNamespacesPaginatorName = Literal["list_namespaces"]
 ListOAuthClientApplicationsPaginatorName = Literal["list_o_auth_client_applications"]
 ListRoleMembershipsPaginatorName = Literal["list_role_memberships"]
@@ -1115,6 +1140,7 @@ ResourceStatusType = Literal[
     "UPDATE_IN_PROGRESS",
     "UPDATE_SUCCESSFUL",
 ]
+ResourceTypeType = Literal["AGENT_HOURS", "INDEX_STORAGE"]
 ReviewedAnswerErrorCodeType = Literal[
     "DATASET_DOES_NOT_EXIST",
     "DUPLICATED_ANSWER",
@@ -1753,6 +1779,7 @@ PaginatorName = Literal[
     "describe_folder_resolved_permissions",
     "list_action_connectors",
     "list_analyses",
+    "list_approval_policies",
     "list_asset_bundle_export_jobs",
     "list_asset_bundle_import_jobs",
     "list_brands",
@@ -1761,6 +1788,7 @@ PaginatorName = Literal[
     "list_dashboards",
     "list_data_sets",
     "list_data_sources",
+    "list_dlp_settings",
     "list_flows",
     "list_folder_members",
     "list_folders",
@@ -1771,6 +1799,7 @@ PaginatorName = Literal[
     "list_iam_policy_assignments_for_user",
     "list_ingestions",
     "list_knowledge_bases",
+    "list_limits_profiles",
     "list_namespaces",
     "list_o_auth_client_applications",
     "list_role_memberships",

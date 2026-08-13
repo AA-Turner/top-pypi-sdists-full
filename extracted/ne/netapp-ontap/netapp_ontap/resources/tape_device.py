@@ -29,13 +29,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     TapeDevice(
         {
             "node": {
-                "name": "st-8020-1-01",
+                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/4083be52-5315-11eb-a839-00a0985ebbe7"
                     }
                 },
-                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
+                "name": "st-8020-1-01",
             },
             "device_id": "2d.0",
         }
@@ -43,13 +43,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     TapeDevice(
         {
             "node": {
-                "name": "st-8020-1-01",
+                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/4083be52-5315-11eb-a839-00a0985ebbe7"
                     }
                 },
-                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
+                "name": "st-8020-1-01",
             },
             "device_id": "2d.0L1",
         }
@@ -57,13 +57,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     TapeDevice(
         {
             "node": {
-                "name": "st-8020-1-01",
+                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/4083be52-5315-11eb-a839-00a0985ebbe7"
                     }
                 },
-                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
+                "name": "st-8020-1-01",
             },
             "device_id": "qeg-tape-brocade2-8g:0.126",
         }
@@ -71,13 +71,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     TapeDevice(
         {
             "node": {
-                "name": "st-8020-1-01",
+                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/4083be52-5315-11eb-a839-00a0985ebbe7"
                     }
                 },
-                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
+                "name": "st-8020-1-01",
             },
             "device_id": "stsw-broc6510-01:11.126",
         }
@@ -85,13 +85,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     TapeDevice(
         {
             "node": {
-                "name": "st-8020-1-01",
+                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/4083be52-5315-11eb-a839-00a0985ebbe7"
                     }
                 },
-                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
+                "name": "st-8020-1-01",
             },
             "device_id": "stsw-broc6510-01:15.126",
         }
@@ -99,13 +99,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     TapeDevice(
         {
             "node": {
-                "name": "st-8020-1-01",
+                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/4083be52-5315-11eb-a839-00a0985ebbe7"
                     }
                 },
-                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
+                "name": "st-8020-1-01",
             },
             "device_id": "stsw-broc6510-01:15.126L1",
         }
@@ -113,13 +113,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     TapeDevice(
         {
             "node": {
-                "name": "st-8020-1-01",
+                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/4083be52-5315-11eb-a839-00a0985ebbe7"
                     }
                 },
-                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
+                "name": "st-8020-1-01",
             },
             "device_id": "stsw-broc6510-01:22.126",
         }
@@ -127,13 +127,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     TapeDevice(
         {
             "node": {
-                "name": "st-8020-1-01",
+                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/4083be52-5315-11eb-a839-00a0985ebbe7"
                     }
                 },
-                "uuid": "4083be52-5315-11eb-a839-00a0985ebbe7",
+                "name": "st-8020-1-01",
             },
             "device_id": "stsw-broc6510-01:23.126",
         }
@@ -168,58 +168,58 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 TapeDevice(
     {
         "serial_number": "1068000245",
-        "interface": "sas",
-        "alias": {"mapping": "SN[1068000245]", "name": "st7"},
-        "aliases": [{"mapping": "SN[1068000245]", "name": "st7"}],
-        "wwnn": "5001697722ee0010",
         "device_names": [
             {
                 "no_rewind_device": "nrst0l",
-                "unload_reload_device": "urst0l",
                 "rewind_device": "rst0l",
+                "unload_reload_device": "urst0l",
             },
             {
                 "no_rewind_device": "nrst0m",
-                "unload_reload_device": "urst0m",
                 "rewind_device": "rst0m",
+                "unload_reload_device": "urst0m",
             },
             {
                 "no_rewind_device": "nrst0h",
-                "unload_reload_device": "urst0h",
                 "rewind_device": "rst0h",
+                "unload_reload_device": "urst0h",
             },
             {
                 "no_rewind_device": "nrst0a",
-                "unload_reload_device": "urst0a",
                 "rewind_device": "rst0a",
+                "unload_reload_device": "urst0a",
             },
         ],
-        "node": {
-            "name": "st-8020-1-02",
-            "_links": {
-                "self": {
-                    "href": "/api/cluster/nodes/5f5275eb-5315-11eb-8ac4-00a0985e0dcf"
-                }
-            },
-            "uuid": "5f5275eb-5315-11eb-8ac4-00a0985e0dcf",
-        },
-        "block_number": -1,
-        "wwpn": "5001697722ee0011",
+        "wwnn": "5001697722ee0010",
+        "aliases": [{"mapping": "SN[1068000245]", "name": "st7"}],
+        "device_state": "offline",
         "formats": [
             "LTO-4/5 Native Density",
             "LTO-4/5 Compressed",
             "LTO-6 2.5TB",
             "LTO-6 6.25TB Compressed",
         ],
-        "file_number": -1,
         "residual_count": 0,
-        "storage_port": {"name": "2d"},
-        "type": "tape",
-        "density": "low",
-        "device_state": "offline",
-        "device_id": "2d.0",
-        "description": "IBM LTO-6 ULT3580",
+        "interface": "sas",
+        "node": {
+            "uuid": "5f5275eb-5315-11eb-8ac4-00a0985e0dcf",
+            "_links": {
+                "self": {
+                    "href": "/api/cluster/nodes/5f5275eb-5315-11eb-8ac4-00a0985e0dcf"
+                }
+            },
+            "name": "st-8020-1-02",
+        },
         "reservation_type": "off",
+        "type": "tape",
+        "alias": {"mapping": "SN[1068000245]", "name": "st7"},
+        "file_number": -1,
+        "device_id": "2d.0",
+        "density": "low",
+        "wwpn": "5001697722ee0011",
+        "block_number": -1,
+        "storage_port": {"name": "2d"},
+        "description": "IBM LTO-6 ULT3580",
     }
 )
 

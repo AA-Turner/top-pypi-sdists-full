@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dirsql
-Version: 0.4.18
+Version: 0.4.20
 Requires-Dist: tomli>=2 ; python_full_version < '3.11'
 Requires-Dist: bin-shim>=0.1
 Summary: Ephemeral SQL index over a local directory

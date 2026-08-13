@@ -44,9 +44,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Flexcache(
     {
+        "aggregates": [{"name": "aggr_1"}],
         "origins": [{"volume": {"name": "vol_o1"}, "svm": {"name": "vs_3"}}],
         "name": "fc_333",
-        "aggregates": [{"name": "aggr_1"}],
         "svm": {"name": "vs_1"},
     }
 )
@@ -78,11 +78,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Flexcache(
     {
-        "origins": [{"volume": {"name": "vol_o1"}, "svm": {"name": "vs_3"}}],
-        "name": "fc_333",
-        "aggregates": [{"name": "aggr_1"}],
         "path": "/fc_333",
         "prepopulate": {"dir_paths": ["/dir1"]},
+        "aggregates": [{"name": "aggr_1"}],
+        "origins": [{"volume": {"name": "vol_o1"}, "svm": {"name": "vs_3"}}],
+        "name": "fc_333",
         "svm": {"name": "vs_1"},
     }
 )
@@ -117,11 +117,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Flexcache(
     {
-        "origins": [{"volume": {"name": "vol_o1"}, "svm": {"name": "vs_3"}}],
-        "name": "fc_333",
-        "aggregates": [{"name": "aggr_1"}],
         "path": "/       fc_333",
         "prepopulate": {"dir_paths": ["/dir1"], "exclude_dir_paths": ["/dir1/dir11"]},
+        "aggregates": [{"name": "aggr_1"}],
+        "origins": [{"volume": {"name": "vol_o1"}, "svm": {"name": "vs_3"}}],
+        "name": "fc_333",
         "svm": {"name": "vs_1"},
     }
 )
@@ -154,12 +154,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Flexcache(
     {
+        "dr_cache": True,
+        "path": "/fc_333",
+        "prepopulate": {"dir_paths": ["/dir1"]},
+        "aggregates": [{"name": "aggr_1"}],
         "origins": [{"volume": {"name": "vol_o1"}, "svm": {"name": "vs_3"}}],
         "name": "fc_333",
-        "aggregates": [{"name": "aggr_1"}],
-        "path": "/fc_333",
-        "dr_cache": True,
-        "prepopulate": {"dir_paths": ["/dir1"]},
         "svm": {"name": "vs_1"},
     }
 )
@@ -186,57 +186,57 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Flexcache(
         {
-            "name": "fc_322",
+            "uuid": "04d5e07b-0ebe-11e9-8180-0050568e0b79",
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/flexcaches/04d5e07b-0ebe-11e9-8180-0050568e0b79"
                 }
             },
-            "uuid": "04d5e07b-0ebe-11e9-8180-0050568e0b79",
+            "name": "fc_322",
         }
     ),
     Flexcache(
         {
-            "name": "fc_321",
+            "uuid": "47902654-0ea4-11e9-8180-0050568e0b79",
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/flexcaches/47902654-0ea4-11e9-8180-0050568e0b79"
                 }
             },
-            "uuid": "47902654-0ea4-11e9-8180-0050568e0b79",
+            "name": "fc_321",
         }
     ),
     Flexcache(
         {
-            "name": "fc_323",
+            "uuid": "77e911ff-0ebe-11e9-8180-0050568e0b79",
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/flexcaches/77e911ff-0ebe-11e9-8180-0050568e0b79"
                 }
             },
-            "uuid": "77e911ff-0ebe-11e9-8180-0050568e0b79",
+            "name": "fc_323",
         }
     ),
     Flexcache(
         {
-            "name": "fc_32",
+            "uuid": "ddb42bbc-0e95-11e9-8180-0050568e0b79",
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/flexcaches/ddb42bbc-0e95-11e9-8180-0050568e0b79"
                 }
             },
-            "uuid": "ddb42bbc-0e95-11e9-8180-0050568e0b79",
+            "name": "fc_32",
         }
     ),
     Flexcache(
         {
-            "name": "fc_333",
+            "uuid": "ec774932-0f3c-11e9-8b2b-0050568e0b79",
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/flexcaches/ec774932-0f3c-11e9-8b2b-0050568e0b79"
                 }
             },
-            "uuid": "ec774932-0f3c-11e9-8b2b-0050568e0b79",
+            "name": "fc_333",
         }
     ),
 ]
@@ -264,37 +264,37 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Flexcache(
     {
-        "origins": [
-            {
-                "volume": {
-                    "name": "vol_o1",
-                    "uuid": "2bc957dd-2617-4afb-8d2f-66ac6070d313",
-                },
-                "state": "online",
-                "cluster": {
-                    "name": "node2",
-                    "uuid": "50733f81-0e90-11e9-b391-0050568e4115",
-                },
-                "size": 20971520,
-                "create_time": "2019-01-03T15:19:55+05:30",
-                "ip_address": "10.140.103.175",
-                "svm": {"name": "vs_3", "uuid": "8aa2cd28-0e92-11e9-b391-0050568e4115"},
-            }
-        ],
-        "name": "fc_333",
-        "guarantee": {"type": "volume"},
-        "size": 4294967296,
-        "aggregates": [
-            {"name": "aggr_1", "uuid": "26f34b76-88f8-4a47-b5e0-d8e901fb1114"}
-        ],
         "dr_cache": True,
+        "uuid": "ec774932-0f3c-11e9-8b2b-0050568e0b79",
+        "guarantee": {"type": "volume"},
         "_links": {
             "self": {
                 "href": "/api/storage/flexcache/flexcaches/ec774932-0f3c-11e9-8b2b-0050568e0b79"
             }
         },
-        "uuid": "ec774932-0f3c-11e9-8b2b-0050568e0b79",
-        "svm": {"name": "vs_1", "uuid": "e708fbe2-0e92-11e9-8180-0050568e0b79"},
+        "aggregates": [
+            {"uuid": "26f34b76-88f8-4a47-b5e0-d8e901fb1114", "name": "aggr_1"}
+        ],
+        "origins": [
+            {
+                "cluster": {
+                    "uuid": "50733f81-0e90-11e9-b391-0050568e4115",
+                    "name": "node2",
+                },
+                "volume": {
+                    "uuid": "2bc957dd-2617-4afb-8d2f-66ac6070d313",
+                    "name": "vol_o1",
+                },
+                "size": 20971520,
+                "create_time": "2019-01-03T15:19:55+05:30",
+                "svm": {"uuid": "8aa2cd28-0e92-11e9-b391-0050568e4115", "name": "vs_3"},
+                "state": "online",
+                "ip_address": "10.140.103.175",
+            }
+        ],
+        "size": 4294967296,
+        "name": "fc_333",
+        "svm": {"uuid": "e708fbe2-0e92-11e9-8180-0050568e0b79", "name": "vs_1"},
     }
 )
 
@@ -589,6 +589,14 @@ Example: 1"""
             )
     r""" The guarantee field of the flexcache."""
 
+    mtime_scrubber = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.flexcache_mtime_scrubber", "FlexcacheMtimeScrubberSchema"),
+                data_key="mtime_scrubber",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" The mtime_scrubber field of the flexcache."""
+
     name = marshmallow_fields.Str(
         data_key="name",
         validate=len_validation(minimum=1, maximum=203),
@@ -683,6 +691,14 @@ Example: /user/my_fc"""
 
 Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
 
+    write = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.flexcache_write", "FlexcacheWriteSchema"),
+                data_key="write",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" The write field of the flexcache."""
+
     writeback = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.models.flexcache_writeback", "FlexcacheWritebackSchema"),
                 data_key="writeback",
@@ -708,6 +724,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "dr_cache",
         "global_file_locking_enabled",
         "guarantee",
+        "mtime_scrubber",
         "name",
         "nfsv4",
         "origins",
@@ -721,21 +738,24 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "svm.uuid",
         "use_tiered_aggregate",
         "uuid",
+        "write",
         "writeback",
     ]
-    """links,aggregates.links,aggregates.name,aggregates.uuid,atime_scrub,cifs,cifs_change_notify,constituent_count,constituents_per_aggregate,dr_cache,global_file_locking_enabled,guarantee,name,nfsv4,origins,override_encryption,path,relative_size,s3,size,svm.links,svm.name,svm.uuid,use_tiered_aggregate,uuid,writeback,"""
+    """links,aggregates.links,aggregates.name,aggregates.uuid,atime_scrub,cifs,cifs_change_notify,constituent_count,constituents_per_aggregate,dr_cache,global_file_locking_enabled,guarantee,mtime_scrubber,name,nfsv4,origins,override_encryption,path,relative_size,s3,size,svm.links,svm.name,svm.uuid,use_tiered_aggregate,uuid,write,writeback,"""
 
     patchable_fields = [
         "atime_scrub",
         "cifs",
         "cifs_change_notify",
+        "mtime_scrubber",
         "nfsv4",
         "prepopulate",
         "relative_size",
         "s3",
+        "write",
         "writeback",
     ]
-    """atime_scrub,cifs,cifs_change_notify,nfsv4,prepopulate,relative_size,s3,writeback,"""
+    """atime_scrub,cifs,cifs_change_notify,mtime_scrubber,nfsv4,prepopulate,relative_size,s3,write,writeback,"""
 
     postable_fields = [
         "aggregates.name",
@@ -748,6 +768,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "dr_cache",
         "global_file_locking_enabled",
         "guarantee",
+        "mtime_scrubber",
         "name",
         "nfsv4",
         "origins",
@@ -760,9 +781,10 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "svm.name",
         "svm.uuid",
         "use_tiered_aggregate",
+        "write",
         "writeback",
     ]
-    """aggregates.name,aggregates.uuid,atime_scrub,cifs,cifs_change_notify,constituent_count,constituents_per_aggregate,dr_cache,global_file_locking_enabled,guarantee,name,nfsv4,origins,override_encryption,path,prepopulate,relative_size,s3,size,svm.name,svm.uuid,use_tiered_aggregate,writeback,"""
+    """aggregates.name,aggregates.uuid,atime_scrub,cifs,cifs_change_notify,constituent_count,constituents_per_aggregate,dr_cache,global_file_locking_enabled,guarantee,mtime_scrubber,name,nfsv4,origins,override_encryption,path,prepopulate,relative_size,s3,size,svm.name,svm.uuid,use_tiered_aggregate,write,writeback,"""
 
 class Flexcache(Resource):
     r""" Defines the cache endpoint of FlexCache. """
@@ -852,6 +874,9 @@ There is an added computational cost to retrieving values for these properties. 
 * `nfsv4.enabled` - This property specifies whether NFSv4 is enabled for the FlexCache volume.
 * `cifs.enabled` - This property specifies whether CIFS is enabled for the FlexCache volume.
 * `s3.enabled` - This property specifies whether S3 is enabled for the FlexCache volume.
+* `write.absorption_enabled` - false. This property specifies whether Write Absorption is enabled for the FlexCache volume.
+* `mtime_scrubber.enabled` - false. This property specifies whether the mtime-based scrubber is enabled for the FlexCache volume.
+* `mtime_scrubber.threshold` - 120. This property specifies the mtime threshold in seconds for the scrubber. Valid range is 5 seconds to 2592000 seconds (5 seconds to 30 days).
 ### Default property values
 If not specified in PATCH, the following default property value is assigned:
 * `prepopulate.recurse` - Default value is "true".
@@ -908,6 +933,9 @@ If not specified in POST, the following default property values are assigned:
 * `nfsv4.enabled` - false. This property specifies whether NFSv4 is enabled for the FlexCache volume.
 * `cifs.enabled` - false. This property specifies whether CIFS is enabled for the FlexCache volume.
 * `s3.enabled` - false. This property specifies whether S3 is enabled for the FlexCache volume.
+* `write.absorption_enabled` - false. This property specifies whether Write Absorption is enabled for the FlexCache volume.
+* `mtime_scrubber.enabled` - false. This property specifies whether the mtime-based scrubber is enabled for the FlexCache volume.
+* `mtime_scrubber.threshold` - 120. This property specifies the mtime threshold in seconds for the scrubber. Valid range is 5 to 2592000 seconds (5 seconds to 30 days).
 * `cifs_change_notify.enabled` - false. This property specifies whether a CIFS change notification is enabled for the FlexCache volume. <personalities supports=aiml>
 * `constituent_count` - 1. This property specifies the number of constituents in the FlexGroup volume upon Flexcache create. </personalities>
 ### Related ONTAP commands
@@ -1025,6 +1053,9 @@ If not specified in POST, the following default property values are assigned:
 * `nfsv4.enabled` - false. This property specifies whether NFSv4 is enabled for the FlexCache volume.
 * `cifs.enabled` - false. This property specifies whether CIFS is enabled for the FlexCache volume.
 * `s3.enabled` - false. This property specifies whether S3 is enabled for the FlexCache volume.
+* `write.absorption_enabled` - false. This property specifies whether Write Absorption is enabled for the FlexCache volume.
+* `mtime_scrubber.enabled` - false. This property specifies whether the mtime-based scrubber is enabled for the FlexCache volume.
+* `mtime_scrubber.threshold` - 120. This property specifies the mtime threshold in seconds for the scrubber. Valid range is 5 to 2592000 seconds (5 seconds to 30 days).
 * `cifs_change_notify.enabled` - false. This property specifies whether a CIFS change notification is enabled for the FlexCache volume. <personalities supports=aiml>
 * `constituent_count` - 1. This property specifies the number of constituents in the FlexGroup volume upon Flexcache create. </personalities>
 ### Related ONTAP commands
@@ -1062,6 +1093,9 @@ If not specified in POST, the following default property values are assigned:
 * `nfsv4.enabled` - This property specifies whether NFSv4 is enabled for the FlexCache volume.
 * `cifs.enabled` - This property specifies whether CIFS is enabled for the FlexCache volume.
 * `s3.enabled` - This property specifies whether S3 is enabled for the FlexCache volume.
+* `write.absorption_enabled` - false. This property specifies whether Write Absorption is enabled for the FlexCache volume.
+* `mtime_scrubber.enabled` - false. This property specifies whether the mtime-based scrubber is enabled for the FlexCache volume.
+* `mtime_scrubber.threshold` - 120. This property specifies the mtime threshold in seconds for the scrubber. Valid range is 5 seconds to 2592000 seconds (5 seconds to 30 days).
 ### Default property values
 If not specified in PATCH, the following default property value is assigned:
 * `prepopulate.recurse` - Default value is "true".

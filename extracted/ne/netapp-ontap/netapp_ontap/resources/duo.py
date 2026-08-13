@@ -26,17 +26,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Duo(
     {
-        "fail_mode": "safe",
-        "push_info": True,
-        "integration_key": "<INTEGRATION-KEY>",
-        "api_host": "api-******.duosecurity.com",
         "comment": "Duo profile for Cserver",
+        "owner": {"uuid": "f810005a-d908-11ed-a6e6-0050568e8ef2", "name": "cluster-1"},
         "is_enabled": True,
-        "owner": {"name": "cluster-1", "uuid": "f810005a-d908-11ed-a6e6-0050568e8ef2"},
+        "push_info": True,
         "auto_push": True,
-        "fingerprint": "<FINGERPRINT>",
-        "status": "Ok",
         "max_prompts": 1,
+        "api_host": "api-******.duosecurity.com",
+        "status": "Ok",
+        "fail_mode": "safe",
+        "integration_key": "<INTEGRATION-KEY>",
+        "fingerprint": "<FINGERPRINT>",
     }
 )
 

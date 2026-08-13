@@ -1,1 +1,0 @@
-import{Dt as e,Q as t,Y as n,at as r,et as i,tt as a,yt as o}from"./index-CStR8326.js";import"./core-D8ix4aqK.js";function s(s,c){var l=a(),u=e(l),d=e=>{var n=r();o(()=>t(n,c.title)),i(e,n)},f=e=>{var n=r();o(()=>t(n,`${c.x??``} x ${c.y??``}`)),i(e,n)};n(u,e=>{c.title?e(d):e(f,!1)}),i(s,l)}export{s as default};

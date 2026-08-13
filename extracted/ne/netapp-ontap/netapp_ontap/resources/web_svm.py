@@ -33,10 +33,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 WebSvm(
     {
+        "ocsp_enabled": False,
         "_links": {
             "self": {"href": "/api/svm/svms/3c1b259d-5789-a2eb-9301-10705682b34f/web"}
         },
-        "ocsp_enabled": False,
+        "svm": {
+            "uuid": "3c1b259d-5789-a2eb-9301-10705682b34f",
+            "_links": {
+                "self": {"href": "/api/svm/svms/3c1b259d-5789-a2eb-9301-10705682b34f"}
+            },
+            "name": "svm2",
+        },
         "client_enabled": False,
         "certificate": {
             "_links": {
@@ -44,15 +51,8 @@ WebSvm(
                     "href": "/api/security/certificates/a3bb219d-4382-1fe0-9c06-1070568ea23d"
                 }
             },
-            "name": "cert1",
             "uuid": "a3bb219d-4382-1fe0-9c06-1070568ea23d",
-        },
-        "svm": {
-            "name": "svm2",
-            "_links": {
-                "self": {"href": "/api/svm/svms/3c1b259d-5789-a2eb-9301-10705682b34f"}
-            },
-            "uuid": "3c1b259d-5789-a2eb-9301-10705682b34f",
+            "name": "cert1",
         },
     }
 )

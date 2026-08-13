@@ -37,6 +37,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AwsKms(
     {
+        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
         "_links": {
             "self": {
                 "href": "/api/security/aws-kms/f72098a2-e908-11ea-bd56-005056bb4222"
@@ -44,9 +45,8 @@ AwsKms(
         },
         "region": "us-east-1",
         "key_id": "kmip-aws",
-        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
         "access_key_id": "<AWS-ACCESS-KEY-ID>",
-        "svm": {"name": "vs0", "uuid": "f36ff553-e713-11ea-bd56-005056bb4222"},
+        "svm": {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222", "name": "vs0"},
     }
 )
 
@@ -73,9 +73,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     AwsKms(
         {
+            "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
             "service": "KMS",
             "polling_period": 60,
-            "timeout": 10,
             "default_domain": "amazonaws.com",
             "_links": {
                 "self": {
@@ -83,11 +83,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "region": "us-east-1",
-            "key_id": "kmip-aws",
-            "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-            "access_key_id": "<AWS-ACCESS-KEY-ID>",
             "scope": "svm",
-            "svm": {"name": "vs0", "uuid": "f36ff553-e713-11ea-bd56-005056bb4222"},
+            "timeout": 10,
+            "key_id": "kmip-aws",
+            "access_key_id": "<AWS-ACCESS-KEY-ID>",
+            "svm": {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222", "name": "vs0"},
         }
     )
 ]
@@ -116,9 +116,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AwsKms(
     {
+        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
         "service": "KMS",
         "polling_period": 60,
-        "timeout": 10,
         "default_domain": "amazonaws.com",
         "_links": {
             "self": {
@@ -126,11 +126,11 @@ AwsKms(
             }
         },
         "region": "us-east-1",
-        "key_id": "kmip-aws",
-        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-        "access_key_id": "<AWS-ACCESS-KEY-ID>",
         "scope": "svm",
-        "svm": {"name": "vs0", "uuid": "f36ff553-e713-11ea-bd56-005056bb4222"},
+        "timeout": 10,
+        "key_id": "kmip-aws",
+        "access_key_id": "<AWS-ACCESS-KEY-ID>",
+        "svm": {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222", "name": "vs0"},
     }
 )
 
@@ -159,44 +159,44 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AwsKms(
     {
-        "_links": {
-            "self": {
-                "href": "/api/security/aws-kms/d70efc34-aa13-11ec-a059-005056ac7c32"
-            }
-        },
-        "state": {"message": "", "code": "0", "cluster_state": True},
-        "amazon_reachability": {"message": "", "code": "0", "reachable": True},
         "uuid": "d70efc34-aa13-11ec-a059-005056ac7c32",
+        "amazon_reachability": {"message": "", "code": "0", "reachable": True},
         "ekmip_reachability": [
             {
                 "message": "",
+                "code": "0",
                 "node": {
-                    "name": "node1",
+                    "uuid": "817f544f-a98d-11ec-ae20-005056ac7c32",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/817f544f-a98d-11ec-ae20-005056ac7c32"
                         }
                     },
-                    "uuid": "817f544f-a98d-11ec-ae20-005056ac7c32",
+                    "name": "node1",
                 },
-                "code": "0",
                 "reachable": True,
             },
             {
                 "message": "",
+                "code": "0",
                 "node": {
-                    "name": "node2",
+                    "uuid": "84b3f5f3-a98d-11ec-9ff4-005056acfbfe",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/84b3f5f3-a98d-11ec-9ff4-005056acfbfe"
                         }
                     },
-                    "uuid": "84b3f5f3-a98d-11ec-9ff4-005056acfbfe",
+                    "name": "node2",
                 },
-                "code": "0",
                 "reachable": True,
             },
         ],
+        "_links": {
+            "self": {
+                "href": "/api/security/aws-kms/d70efc34-aa13-11ec-a059-005056ac7c32"
+            }
+        },
+        "state": {"cluster_state": True, "message": "", "code": "0"},
     }
 )
 

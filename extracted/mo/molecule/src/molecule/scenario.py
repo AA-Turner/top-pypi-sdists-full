@@ -109,7 +109,7 @@ class Scenario:
         Returns:
             The scenario's name.
         """
-        return self.config.config["scenario"]["name"]
+        return self.config.config_data["scenario"]["name"]
 
     @property
     def directory(self) -> str:
@@ -127,6 +127,9 @@ class Scenario:
     def ephemeral_directory(self) -> str:
         """Acquire the ephemeral directory.
 
+        When shared_state is enabled, returns the shared ephemeral directory
+        so all scenarios use the same working directory.
+
         Returns:
             The ephemeral directory for this scenario.
 
@@ -134,6 +137,7 @@ class Scenario:
             MoleculeError: If lock cannot be acquired before timeout.
         """
         path: Path
+
         if "MOLECULE_EPHEMERAL_DIRECTORY" not in os.environ:
             project_directory = Path(self.config.project_directory).name
 
@@ -143,6 +147,9 @@ class Scenario:
             safe_name = self.name.replace("/", "--")
             project_scenario_directory = f"molecule.{checksum(project_directory, 4)}.{safe_name}"
             path = self.config.runtime.cache_dir / "tmp" / project_scenario_directory
+
+            if self.config.shared_state:
+                path = Path(self.shared_ephemeral_directory)
         else:
             path = Path(os.getenv("MOLECULE_EPHEMERAL_DIRECTORY", ""))
         path.mkdir(parents=True, exist_ok=True)
@@ -204,7 +211,7 @@ class Scenario:
         Returns:
             A list of playbooks to run for 'check'.
         """
-        return self.config.config["scenario"]["check_sequence"]
+        return self.config.config_data["scenario"]["check_sequence"]
 
     @property
     def cleanup_sequence(self) -> list[str]:
@@ -213,7 +220,7 @@ class Scenario:
         Returns:
             A list of playbooks to run for 'cleanup'.
         """
-        return self.config.config["scenario"]["cleanup_sequence"]
+        return self.config.config_data["scenario"]["cleanup_sequence"]
 
     @property
     def converge_sequence(self) -> list[str]:
@@ -222,7 +229,7 @@ class Scenario:
         Returns:
             A list of playbooks to run for 'converge'.
         """
-        return self.config.config["scenario"]["converge_sequence"]
+        return self.config.config_data["scenario"]["converge_sequence"]
 
     @property
     def create_sequence(self) -> list[str]:
@@ -231,7 +238,7 @@ class Scenario:
         Returns:
             A list of playbooks to run for 'create'.
         """
-        return self.config.config["scenario"]["create_sequence"]
+        return self.config.config_data["scenario"]["create_sequence"]
 
     @property
     def dependency_sequence(self) -> list[str]:
@@ -249,7 +256,7 @@ class Scenario:
         Returns:
             A list of playbooks to run for 'destroy'.
         """
-        return self.config.config["scenario"]["destroy_sequence"]
+        return self.config.config_data["scenario"]["destroy_sequence"]
 
     @property
     def idempotence_sequence(self) -> list[str]:
@@ -294,7 +301,7 @@ class Scenario:
         Returns:
             A list of playbooks to run for 'test'.
         """
-        return self.config.config["scenario"]["test_sequence"]
+        return self.config.config_data["scenario"]["test_sequence"]
 
     @property
     def verify_sequence(self) -> list[str]:

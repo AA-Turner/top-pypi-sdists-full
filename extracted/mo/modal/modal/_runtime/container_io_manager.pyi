@@ -15,6 +15,10 @@ class Sentinel:
 
     ...
 
+def _resolve_output_size_limits(container_args: modal_proto.api_pb2.ContainerArguments) -> tuple[int, int]:
+    """Resolve the (sync, async) blob-upload thresholds for this function's outputs."""
+    ...
+
 class IOContext:
     """Context object for managing input, function calls, and function executions
     in a batched or single input context.
@@ -25,6 +29,7 @@ class IOContext:
     function_call_ids: list[str]
     attempt_tokens: list[str]
     function_inputs: list[modal_proto.api_pb2.FunctionInput]
+    function_call_invocation_types: list[int]
     finalized_function: modal._runtime.user_code_imports.FinalizedFunction
     _cancel_issued: bool
     _cancel_callback: typing.Optional[collections.abc.Callable[[], None]]
@@ -37,19 +42,25 @@ class IOContext:
         attempt_tokens: list[str],
         finalized_function: modal._runtime.user_code_imports.FinalizedFunction,
         function_inputs: list[modal_proto.api_pb2.FunctionInput],
+        function_call_invocation_types: list[int],
         is_batched: bool,
         client: modal.client._Client,
+        max_object_size_bytes: int,
+        max_async_object_size_bytes: int,
     ):
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
 
+    def _output_size_limit(self, invocation_type: int) -> int: ...
     @classmethod
     async def create(
         cls,
         client: modal.client._Client,
         finalized_functions: dict[str, modal._runtime.user_code_imports.FinalizedFunction],
-        inputs: list[tuple[str, int, str, str, modal_proto.api_pb2.FunctionInput]],
+        inputs: list[tuple[str, int, str, str, modal_proto.api_pb2.FunctionInput, int]],
         is_batched: bool,
+        max_object_size_bytes: int,
+        max_async_object_size_bytes: int,
     ) -> IOContext: ...
     def set_cancel_callback(self, cb: collections.abc.Callable[[], None]): ...
     def cancel(self): ...
@@ -113,7 +124,6 @@ class _ContainerIOManager:
     _heartbeat_condition: typing.Optional[asyncio.locks.Condition]
     _waiting_for_memory_snapshot: bool
     _is_interactivity_enabled: bool
-    _fetching_inputs: bool
     _singleton: typing.ClassVar[typing.Optional[_ContainerIOManager]]
 
     def _init(self, container_args: modal_proto.api_pb2.ContainerArguments, client: modal.client._Client): ...
@@ -185,7 +195,7 @@ class _ContainerIOManager:
 
     def _generate_inputs(
         self, batch_max_size: int, batch_wait_ms: int
-    ) -> collections.abc.AsyncIterator[list[tuple[str, int, str, str, modal_proto.api_pb2.FunctionInput]]]: ...
+    ) -> collections.abc.AsyncIterator[list[tuple[str, int, str, str, modal_proto.api_pb2.FunctionInput, int]]]: ...
     def run_inputs_outputs(
         self,
         finalized_functions: dict[str, modal._runtime.user_code_imports.FinalizedFunction],
@@ -230,7 +240,7 @@ class _ContainerIOManager:
         ...
 
     @classmethod
-    def stop_fetching_inputs(cls): ...
+    async def stop_fetching_inputs(cls): ...
 
 class ContainerIOManager:
     """Synchronizes all RPC calls and network operations for a running container.
@@ -255,7 +265,6 @@ class ContainerIOManager:
     _heartbeat_condition: typing.Optional[asyncio.locks.Condition]
     _waiting_for_memory_snapshot: bool
     _is_interactivity_enabled: bool
-    _fetching_inputs: bool
     _singleton: typing.ClassVar[typing.Optional[ContainerIOManager]]
 
     def __init__(self, /, *args, **kwargs):
@@ -410,10 +419,10 @@ class ContainerIOManager:
     class ___generate_inputs_spec(typing_extensions.Protocol):
         def __call__(
             self, /, batch_max_size: int, batch_wait_ms: int
-        ) -> typing.Iterator[list[tuple[str, int, str, str, modal_proto.api_pb2.FunctionInput]]]: ...
+        ) -> typing.Iterator[list[tuple[str, int, str, str, modal_proto.api_pb2.FunctionInput, int]]]: ...
         def aio(
             self, /, batch_max_size: int, batch_wait_ms: int
-        ) -> collections.abc.AsyncIterator[list[tuple[str, int, str, str, modal_proto.api_pb2.FunctionInput]]]: ...
+        ) -> collections.abc.AsyncIterator[list[tuple[str, int, str, str, modal_proto.api_pb2.FunctionInput, int]]]: ...
 
     _generate_inputs: ___generate_inputs_spec
 
@@ -504,7 +513,10 @@ class ContainerIOManager:
         """
         ...
 
-    @classmethod
-    def stop_fetching_inputs(cls): ...
+    class __stop_fetching_inputs_spec(typing_extensions.Protocol):
+        def __call__(self, /): ...
+        async def aio(self, /): ...
+
+    stop_fetching_inputs: typing.ClassVar[__stop_fetching_inputs_spec]
 
 MAX_OUTPUT_BATCH_SIZE: int

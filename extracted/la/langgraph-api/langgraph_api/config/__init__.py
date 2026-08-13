@@ -251,6 +251,17 @@ JSON_THREAD_POOL_MINIMUM_SIZE_BYTES = 100 * 1024  # 100 KB
 HTTP_CONFIG = env("LANGGRAPH_HTTP", cast=_parse.parse_schema(HttpConfig), default=None)
 MCP_ENABLED = HTTP_CONFIG is None or not HTTP_CONFIG.get("disable_mcp")
 A2A_ENABLED = HTTP_CONFIG is None or not HTTP_CONFIG.get("disable_a2a")
+
+
+def _parse_allowed_tool_call_results(value: str) -> frozenset[str]:
+    return frozenset(name.strip() for name in value.split(",") if name.strip())
+
+
+A2A_ALLOWED_TOOL_CALL_RESULTS = env(
+    "A2A_ALLOWED_TOOL_CALL_RESULTS",
+    cast=_parse_allowed_tool_call_results,
+    default=None,
+)
 WEBHOOKS_ENABLED = HTTP_CONFIG and HTTP_CONFIG.get("disable_webhooks")
 # Not in public docs: populated by langgraph.json config, not set as env var directly
 STORE_CONFIG = env(

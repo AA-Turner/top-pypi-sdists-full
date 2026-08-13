@@ -58,8 +58,10 @@ class TagAssignment(BaseModel):
 
         if v is None:
             return v
-        if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
-            raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
+        if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$|^[$][0-9]+$""", v):
+            raise ValueError(
+                r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$|^[$][0-9]+$/"""
+            )
         return v
 
     @field_validator("tag_schema")
@@ -67,15 +69,19 @@ class TagAssignment(BaseModel):
 
         if v is None:
             return v
-        if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
-            raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
+        if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$|^[$][0-9]+$""", v):
+            raise ValueError(
+                r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$|^[$][0-9]+$/"""
+            )
         return v
 
     @field_validator("tag_name")
     def tag_name_validate_regular_expression(cls, v):
 
-        if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
-            raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
+        if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$|^[$][0-9]+$""", v):
+            raise ValueError(
+                r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$|^[$][0-9]+$/"""
+            )
         return v
 
     model_config = ConfigDict(

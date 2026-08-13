@@ -86,8 +86,7 @@ def assert_code_bundle_execution_succeeded(code_bundle_execution, job_id):
     status = wait_for_code_bundle_execution(code_bundle_execution, job_id)
     assert status is not None, f"code bundle execution {job_id} never became visible"
     assert status.status and status.status.upper() in _SUCCESS_CODE_BUNDLE_EXECUTION_STATUSES, (
-        f"code bundle execution {job_id} did not succeed: status={status.status!r} "
-        f"error_code={status.error_code!r} error_message={status.error_message!r}"
+        f"code bundle execution {job_id} did not succeed: status={status.status!r}"
     )
     return status
 

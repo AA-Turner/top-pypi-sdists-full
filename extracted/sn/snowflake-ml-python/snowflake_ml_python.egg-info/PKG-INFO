@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-ml-python
-Version: 1.50.0
+Version: 1.51.0
 Summary: The machine learning client library that is used for interacting with Snowflake to build machine learning solutions.
 Author-email: "Snowflake, Inc" <support@snowflake.com>
 License: 
@@ -264,7 +264,7 @@ Requires-Dist: altair<7,>=5; extra == "all"
 Requires-Dist: catboost<2,>=1.2.0; extra == "all"
 Requires-Dist: keras<4,>=2.0.0; extra == "all"
 Requires-Dist: lightgbm<5,>=4.1.0; extra == "all"
-Requires-Dist: mlflow<3,>=2.16.0; extra == "all"
+Requires-Dist: mlflow<4,>=2.16.0; extra == "all"
 Requires-Dist: prophet<2,>=1.1.0; extra == "all"
 Requires-Dist: sentence-transformers<6,>=2.7.0; extra == "all"
 Requires-Dist: sentencepiece<0.3,>=0.1.95; extra == "all"
@@ -285,7 +285,7 @@ Requires-Dist: torch<3,>=2.0.1; extra == "keras"
 Provides-Extra: lightgbm
 Requires-Dist: lightgbm<5,>=4.1.0; extra == "lightgbm"
 Provides-Extra: llm
-Requires-Dist: mlflow<3,>=2.16.0; extra == "llm"
+Requires-Dist: mlflow<4,>=2.16.0; extra == "llm"
 Requires-Dist: sentence-transformers<6,>=2.7.0; extra == "llm"
 Requires-Dist: sentencepiece<0.3,>=0.1.95; extra == "llm"
 Requires-Dist: tokenizers<1,>=0.15.1; extra == "llm"
@@ -293,7 +293,7 @@ Requires-Dist: torch<3,>=2.0.1; extra == "llm"
 Requires-Dist: torchdata<1,>=0.4; extra == "llm"
 Requires-Dist: transformers!=4.51.3,<6,>=4.39.3; extra == "llm"
 Provides-Extra: mlflow
-Requires-Dist: mlflow<3,>=2.16.0; extra == "mlflow"
+Requires-Dist: mlflow<4,>=2.16.0; extra == "mlflow"
 Provides-Extra: prophet
 Requires-Dist: prophet<2,>=1.1.0; extra == "prophet"
 Provides-Extra: streamlit
@@ -416,7 +416,25 @@ NOTE: Version 1.7.0 is used as example here. Please choose the the latest versio
 
 # Release History
 
-## 1.50.0
+## 1.51.0
+
+### New Features
+
+* ML Jobs: `artifact_repositories` now accepts a list of repositories, allowing multiple artifact
+  repositories to be specified for a job.
+* Registry: Added support for logging and running MLflow 3.x models.
+
+### Bug Fixes
+
+* Registry: Fixed a bug where an MLflow model logged with
+  `target_platforms=["SNOWPARK_CONTAINER_SERVICES"]` could drop its pip dependencies, leaving the
+  deployed model missing required packages.
+
+### Behavior Changes
+
+### Deprecations
+
+## 1.50.0 (2026-08-03)
 
 ### New Features
 

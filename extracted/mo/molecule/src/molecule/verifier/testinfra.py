@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, cast
 
 from molecule import logger, util
 from molecule.api import Verifier
+from molecule.exceptions import ScenarioFailureError
 from molecule.reporting.definitions import CompletionState
 
 
@@ -99,7 +100,7 @@ class Testinfra(Verifier):
         Returns:
             The combined dictionary of default options and those specified in the config.
         """
-        o = self._config.config["verifier"]["options"]
+        o = self._config.config_data["verifier"]["options"]
         # NOTE(retr0h): Remove verbose options added by the user while in
         # debug.
         if self._config.debug:
@@ -129,7 +130,7 @@ class Testinfra(Verifier):
             List of files and directories to use with this verifier.
         """
         files_list = []
-        c = self._config.config
+        c = self._config.config_data
         for f in c["verifier"]["additional_files_or_dirs"]:
             escaped = glob.escape(self._config.verifier.directory)
             glob_path = os.path.join(escaped, f)  # noqa: PTH118
@@ -157,6 +158,9 @@ class Testinfra(Verifier):
 
         Args:
             action_args: list of arguments to be passed.
+
+        Raises:
+            ScenarioFailureError: when the verifier reports a non-zero return code.
         """
         if not self.enabled:
             msg = "Skipping, verifier is disabled."
@@ -190,7 +194,8 @@ class Testinfra(Verifier):
             self._log.info(msg)
         else:
             msg = "Verifier tests failed"
-            util.sysexit_with_message(msg, code=result.returncode)
+            self._config.scenario.results.add_completion(CompletionState.failed(note=msg))
+            raise ScenarioFailureError(message=msg, code=result.returncode)
 
     def _get_tests(self, action_args: list[str] | None = None) -> list[str]:
         """Walk the verifier's directory for tests.

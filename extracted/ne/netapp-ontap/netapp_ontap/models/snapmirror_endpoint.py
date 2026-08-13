@@ -36,7 +36,7 @@ class SnapmirrorEndpointSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
                 data_key="consistency_group_volumes",
                 allow_none=True
                 )
-    r""" This property specifies the list of FlexVol volumes or LUNs of a Consistency Group. Optional on the ASA r2 platform. Mandatory for all other platforms. """
+    r""" <personalities supports=asar2>Optional</personalities><personalities supports=unified,aiml>Mandatory</personalities> property to specify the list of FlexVol volumes or LUNs of a Consistency Group. """
 
     ipspace = marshmallow_fields.Str(data_key="ipspace", allow_none=True)
     r""" Optional property to specify the IPSpace of the SVM.

@@ -15,4 +15,3 @@ var e=`<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="ht
 </defs>
 </svg>
 `;export{e as default};
-//# sourceMappingURL=tripo-CCiyx_8c.js.map

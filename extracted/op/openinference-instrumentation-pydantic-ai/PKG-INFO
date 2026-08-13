@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: openinference-instrumentation-pydantic-ai
-Version: 0.1.19
+Version: 0.1.20
 Summary: OpenInference PydanticAI Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-pydantic-ai
 Author-email: OpenInference Authors <oss@arize.com>

@@ -52,19 +52,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SnapshotPolicy(
     {
-        "svm": {"name": "vs0"},
+        "comment": "This is a 5min schedule policy",
+        "uuid": "a69d8173-450c-11e9-aa44-005056bbc848",
         "name": "new_policy",
+        "svm": {"name": "vs0"},
+        "enabled": True,
         "copies": [
             {
                 "snapmirror_label": "-",
+                "schedule": {"name": "5min"},
                 "count": 5,
                 "retention_period": "PT20M",
-                "schedule": {"name": "5min"},
             }
         ],
-        "uuid": "a69d8173-450c-11e9-aa44-005056bbc848",
-        "comment": "This is a 5min schedule policy",
-        "enabled": True,
     }
 )
 
@@ -90,46 +90,46 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SnapshotPolicy(
         {
+            "uuid": "0fa7a554-348d-11e9-b55e-005056bbf1c8",
+            "name": "spsv0",
             "_links": {
                 "self": {
                     "href": "/api/storage/snapshot-policies/0fa7a554-348d-11e9-b55e-005056bbf1c8"
                 }
             },
-            "name": "spsv0",
-            "uuid": "0fa7a554-348d-11e9-b55e-005056bbf1c8",
         }
     ),
     SnapshotPolicy(
         {
+            "uuid": "3c112527-2fe8-11e9-b55e-005056bbf1c8",
+            "name": "default",
             "_links": {
                 "self": {
                     "href": "/api/storage/snapshot-policies/3c112527-2fe8-11e9-b55e-005056bbf1c8"
                 }
             },
-            "name": "default",
-            "uuid": "3c112527-2fe8-11e9-b55e-005056bbf1c8",
         }
     ),
     SnapshotPolicy(
         {
+            "uuid": "3c1c1656-2fe8-11e9-b55e-005056bbf1c8",
+            "name": "default-1weekly",
             "_links": {
                 "self": {
                     "href": "/api/storage/snapshot-policies/3c1c1656-2fe8-11e9-b55e-005056bbf1c8"
                 }
             },
-            "name": "default-1weekly",
-            "uuid": "3c1c1656-2fe8-11e9-b55e-005056bbf1c8",
         }
     ),
     SnapshotPolicy(
         {
+            "uuid": "3c228b82-2fe8-11e9-b55e-005056bbf1c8",
+            "name": "none",
             "_links": {
                 "self": {
                     "href": "/api/storage/snapshot-policies/3c228b82-2fe8-11e9-b55e-005056bbf1c8"
                 }
             },
-            "name": "none",
-            "uuid": "3c228b82-2fe8-11e9-b55e-005056bbf1c8",
         }
     ),
 ]
@@ -157,21 +157,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SnapshotPolicy(
     {
+        "comment": "Default policy with hourly, daily & weekly schedules.",
+        "uuid": "3c112527-2fe8-11e9-b55e-005056bbf1c8",
+        "name": "default",
         "_links": {
             "self": {
                 "href": "/api/storage/snapshot-policies/3c112527-2fe8-11e9-b55e-005056bbf1c8"
             }
         },
-        "name": "default",
-        "copies": [
-            {"count": 6, "schedule": {"name": "hourly"}, "prefix": "hourly"},
-            {"count": 2, "schedule": {"name": "daily"}, "prefix": "daily"},
-            {"count": 2, "schedule": {"name": "weekly"}, "prefix": "weekly"},
-        ],
-        "uuid": "3c112527-2fe8-11e9-b55e-005056bbf1c8",
-        "comment": "Default policy with hourly, daily & weekly schedules.",
-        "scope": "cluster",
         "enabled": True,
+        "copies": [
+            {"schedule": {"name": "hourly"}, "prefix": "hourly", "count": 6},
+            {"schedule": {"name": "daily"}, "prefix": "daily", "count": 2},
+            {"schedule": {"name": "weekly"}, "prefix": "weekly", "count": 2},
+        ],
+        "scope": "cluster",
     }
 )
 
@@ -434,6 +434,7 @@ class SnapshotPolicy(Resource):
 * `copies.prefix` - Prefix to use when creating snapshots at regular intervals.
 * `copies.snapmirror_label` - Label for SnapMirror operations.
 * `copies.retention_period` - Retention period for snapshot locking enabled volumes.The duration must be specified in ISO format or \"infinite\".
+* `copies.snapmirror_label` - Label for SnapMirror operations. Must be 1-31 characters.
 ### Default property values
 If not specified in POST, the following default property values are assigned:
 * `svm.uuid` or `svm.name` - If not specified, the snapshot policy will be created on the cluster admin SVM.
@@ -517,6 +518,7 @@ If not specified in POST, the following default property values are assigned:
 * `copies.prefix` - Prefix to use when creating snapshots at regular intervals.
 * `copies.snapmirror_label` - Label for SnapMirror operations.
 * `copies.retention_period` - Retention period for snapshot locking enabled volumes.The duration must be specified in ISO format or \"infinite\".
+* `copies.snapmirror_label` - Label for SnapMirror operations. Must be 1-31 characters.
 ### Default property values
 If not specified in POST, the following default property values are assigned:
 * `svm.uuid` or `svm.name` - If not specified, the snapshot policy will be created on the cluster admin SVM.

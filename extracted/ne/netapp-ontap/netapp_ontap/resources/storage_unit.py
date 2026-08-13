@@ -26,26 +26,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     StorageUnit(
         {
-            "name": "lun1",
+            "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
             "status": {"state": "online"},
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b"
                 }
             },
-            "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
+            "name": "lun1",
         }
     ),
     StorageUnit(
         {
-            "name": "ns1",
+            "uuid": "3d9c001f-227e-11ef-97b9-005056bbbc7b",
             "status": {"state": "online"},
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/3d9c001f-227e-11ef-97b9-005056bbbc7b"
                 }
             },
-            "uuid": "3d9c001f-227e-11ef-97b9-005056bbbc7b",
+            "name": "ns1",
         }
     ),
 ]
@@ -75,96 +75,96 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 StorageUnit(
     {
         "serial_number": "wqUc6?XQp8Cn",
-        "name": "lun1",
-        "os_type": "linux",
+        "uuid": "55150b5f-a365-11ef-be6a-005056a74d48",
+        "clone": {"is_flexclone": False},
+        "enabled": True,
         "status": {
-            "container_state": "online",
-            "mapped": False,
             "state": "online",
             "read_only": False,
+            "mapped": False,
+            "container_state": "online",
+        },
+        "space": {
+            "efficiency_ratio": 1.0,
+            "size": 31457280,
+            "used": 0,
+            "physical_used_by_snapshots": 3407872,
+            "physical_used": 40960,
         },
         "location": {
-            "node": {
-                "name": "sti40-vsim-ucs507f",
-                "_links": {
-                    "self": {
-                        "href": "/api/cluster/nodes/a5fd8f06-a2c9-11ef-aec3-005056a7f0ed"
-                    }
-                },
-                "uuid": "a5fd8f06-a2c9-11ef-aec3-005056a7f0ed",
-            },
-            "storage_availability_zone": {
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/availability-zones/2b52fd40-a2ca-11ef-be6a-005056a74d48"
-                    }
-                },
-                "name": "storage_availability_zone_0",
-                "uuid": "2b52fd40-a2ca-11ef-be6a-005056a74d48",
-            },
             "volume": {
-                "name": "lun1",
+                "uuid": "55cf6ff7-a365-11ef-be6a-005056a74d48",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/55cf6ff7-a365-11ef-be6a-005056a74d48"
                     }
                 },
-                "uuid": "55cf6ff7-a365-11ef-be6a-005056a74d48",
+                "name": "lun1",
+            },
+            "storage_availability_zone": {
+                "uuid": "2b52fd40-a2ca-11ef-be6a-005056a74d48",
+                "name": "storage_availability_zone_0",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/availability-zones/2b52fd40-a2ca-11ef-be6a-005056a74d48"
+                    }
+                },
+            },
+            "node": {
+                "uuid": "a5fd8f06-a2c9-11ef-aec3-005056a7f0ed",
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/a5fd8f06-a2c9-11ef-aec3-005056a7f0ed"
+                    }
+                },
+                "name": "sti40-vsim-ucs507f",
             },
         },
-        "clone": {"is_flexclone": False},
-        "movement": {
-            "source": {
-                "storage_availability_zone": {
-                    "_links": {
-                        "self": {
-                            "href": "/api/storage/availability-zones/c5a5d316-a2ca-11ef-a7d1-005056a77440"
-                        }
-                    },
-                    "name": "storage_availability_zone_1",
-                    "uuid": "c5a5d316-a2ca-11ef-a7d1-005056a77440",
-                }
-            },
-            "destination": {
-                "storage_availability_zone": {
-                    "_links": {
-                        "self": {
-                            "href": "/api/storage/availability-zones/2b52fd40-a2ca-11ef-be6a-005056a74d48"
-                        }
-                    },
-                    "name": "storage_availability_zone_0",
-                    "uuid": "2b52fd40-a2ca-11ef-be6a-005056a74d48",
-                }
-            },
-            "percent_complete": 100,
-            "state": "success",
-            "start_time": "2024-11-18T20:39:38+00:00",
-        },
-        "enabled": True,
         "_links": {
             "self": {
                 "href": "/api/storage/storage-units/55150b5f-a365-11ef-be6a-005056a74d48?fields=**"
             }
         },
-        "space": {
-            "efficiency_ratio": 1.0,
-            "used": 0,
-            "size": 31457280,
-            "physical_used": 40960,
-            "physical_used_by_snapshots": 3407872,
+        "os_type": "linux",
+        "movement": {
+            "start_time": "2024-11-18T20:39:38+00:00",
+            "source": {
+                "storage_availability_zone": {
+                    "uuid": "c5a5d316-a2ca-11ef-a7d1-005056a77440",
+                    "name": "storage_availability_zone_1",
+                    "_links": {
+                        "self": {
+                            "href": "/api/storage/availability-zones/c5a5d316-a2ca-11ef-a7d1-005056a77440"
+                        }
+                    },
+                }
+            },
+            "percent_complete": 100,
+            "destination": {
+                "storage_availability_zone": {
+                    "uuid": "2b52fd40-a2ca-11ef-be6a-005056a74d48",
+                    "name": "storage_availability_zone_0",
+                    "_links": {
+                        "self": {
+                            "href": "/api/storage/availability-zones/2b52fd40-a2ca-11ef-be6a-005056a74d48"
+                        }
+                    },
+                }
+            },
+            "state": "success",
         },
-        "create_time": "2024-11-15T10:22:00-05:00",
         "type": "lun",
-        "uuid": "55150b5f-a365-11ef-be6a-005056a74d48",
-        "encryption": {"state": "unencrypted"},
+        "create_time": "2024-11-15T10:22:00-05:00",
         "class": "regular",
+        "name": "lun1",
         "svm": {
-            "name": "svm1",
+            "uuid": "8b8bb0c5-a2ca-11ef-be6a-005056a74d48",
             "_links": {
                 "self": {"href": "/api/svm/svms/8b8bb0c5-a2ca-11ef-be6a-005056a74d48"}
             },
-            "uuid": "8b8bb0c5-a2ca-11ef-be6a-005056a74d48",
+            "name": "svm1",
         },
+        "encryption": {"state": "unencrypted"},
     }
 )
 
@@ -254,10 +254,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StorageUnit(
     {
-        "name": "lun1Clone1",
         "clone": {
             "source": {"storage_unit": {"name": "lun1"}, "svm": {"name": "svm1"}}
         },
+        "name": "lun1Clone1",
         "svm": {"name": "svm1"},
     }
 )
@@ -318,39 +318,39 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StorageUnit(
     {
-        "name": "lun1",
-        "movement": {
-            "source": {
-                "storage_availability_zone": {
-                    "_links": {
-                        "self": {
-                            "href": "/api/storage/availability-zones/2b52fd40-a2ca-11ef-be6a-005056a74d48"
-                        }
-                    },
-                    "name": "storage_availability_zone_0",
-                    "uuid": "2b52fd40-a2ca-11ef-be6a-005056a74d48",
-                }
-            },
-            "destination": {
-                "storage_availability_zone": {
-                    "_links": {
-                        "self": {
-                            "href": "/api/storage/availability-zones/c5a5d316-a2ca-11ef-a7d1-005056a77440"
-                        }
-                    },
-                    "name": "storage_availability_zone_1",
-                    "uuid": "c5a5d316-a2ca-11ef-a7d1-005056a77440",
-                }
-            },
-            "state": "replicating",
-            "start_time": "2024-11-18T20:35:13+00:00",
-        },
+        "uuid": "55150b5f-a365-11ef-be6a-005056a74d48",
         "_links": {
             "self": {
                 "href": "/api/storage/storage-units/55150b5f-a365-11ef-be6a-005056a74d48"
             }
         },
-        "uuid": "55150b5f-a365-11ef-be6a-005056a74d48",
+        "movement": {
+            "start_time": "2024-11-18T20:35:13+00:00",
+            "source": {
+                "storage_availability_zone": {
+                    "uuid": "2b52fd40-a2ca-11ef-be6a-005056a74d48",
+                    "name": "storage_availability_zone_0",
+                    "_links": {
+                        "self": {
+                            "href": "/api/storage/availability-zones/2b52fd40-a2ca-11ef-be6a-005056a74d48"
+                        }
+                    },
+                }
+            },
+            "destination": {
+                "storage_availability_zone": {
+                    "uuid": "c5a5d316-a2ca-11ef-a7d1-005056a77440",
+                    "name": "storage_availability_zone_1",
+                    "_links": {
+                        "self": {
+                            "href": "/api/storage/availability-zones/c5a5d316-a2ca-11ef-a7d1-005056a77440"
+                        }
+                    },
+                }
+            },
+            "state": "replicating",
+        },
+        "name": "lun1",
     }
 )
 
@@ -406,6 +406,24 @@ class StorageUnitSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
                 allow_none=True
             )
     r""" The links field of the storage_unit."""
+
+    access_mode = marshmallow_fields.Str(
+        data_key="access_mode",
+        validate=enum_validation(['global', 'local']),
+        allow_none=True,
+    )
+    r""" The `access_mode` property controls how SCSI task set management is handled for the LUN.
+This property is only supported on LUNs with the following `os_type`:
+
+* aix
+A value of _global_ is the default access mode, and indicates that task set operations impact all initiators accessing the LUN. In this mode, if an individual initiator encounters an I/O failure, its recovery can cascade the disruption to other initiators accessing the same LUN. Host operating systems not supported by this property are designed to avoid these cascading disruptions, so this property can be safely ignored.
+A value of _local_ indicates that task set operations only impact the initiator that requested the operation. When many hosts of a supported `os_type` are accessing the same LUN, the _local_ `access_mode` should be preferred.
+
+
+Valid choices:
+
+* global
+* local"""
 
     anti_ransomware = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.models.anti_ransomware_storage_unit", "AntiRansomwareStorageUnitSchema"),
@@ -624,6 +642,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
 
     gettable_fields = [
         "links",
+        "access_mode",
         "anti_ransomware",
         "class_",
         "clone",
@@ -654,7 +673,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "type",
         "uuid",
     ]
-    """links,anti_ransomware,class_,clone,comment,consistency_group,create_time,enabled,encryption,location,maps,metric,movement,name,os_type,qos_policy,serial_number,serial_number_hex,space,statistics.iops_raw,statistics.latency_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,status,svm.links,svm.name,svm.uuid,type,uuid,"""
+    """links,access_mode,anti_ransomware,class_,clone,comment,consistency_group,create_time,enabled,encryption,location,maps,metric,movement,name,os_type,qos_policy,serial_number,serial_number_hex,space,statistics.iops_raw,statistics.latency_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,status,svm.links,svm.name,svm.uuid,type,uuid,"""
 
     patchable_fields = [
         "anti_ransomware",

@@ -1,6 +1,6 @@
 [package]
 name = "tibs"
-version = "1.1.0"
+version = "2.0.1"
 edition = "2024"
 description = "A sleek Python library for binary data."
 license = "MIT"
@@ -14,18 +14,35 @@ name = "tibs"
 crate-type = ["cdylib"]
 
 [dependencies]
-hex = "~0.4"
-pyo3 = { version = "~0.29", features = ["extension-module", "abi3-py310"] }
+pyo3 = { version = "~0.29", features = ["extension-module", "abi3-py311"] }
 bitvec = "~1.1"
-bytemuck = "~1.25"
-lru = "~0.18"
-once_cell = "~1.21"
 rand = "~0.10"
 sha2 = "~0.11"
 half = "~2.7"
 zstd = "~0.13"
 memchr = "~2.8"
 
+# The bit kernels take a haystack, a needle, a mask, a start, an end, a count
+# and a direction, and threading those through a struct would only move the
+# argument list somewhere else.
+[lints.clippy]
+too_many_arguments = "allow"
+
 [profile.release]
 lto = "fat"
 codegen-units = 1
+
+# Optimised like release but without the link-time work, for the rebuild-and-run
+# loop. Roughly twice as fast to build, and every test passes on it just the
+# same.
+#
+# Never measure on this profile. Fat LTO with a single codegen unit is what
+# decides how the hot kernels inline, and several of them are written the way
+# they are because of it - see the comment on `count_pair_bits_with_wide`, where
+# one refactor that removed duplication cost `count_or` and `count_xor` a factor
+# of three. None of that is visible here, so timings taken on this profile look
+# plausible and mean nothing. Benchmarks, guards and releases all use `release`.
+[profile.fastdev]
+inherits = "release"
+lto = false
+codegen-units = 16

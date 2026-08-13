@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: jira2markdown
-Version: 0.5
+Version: 0.5.1
 Summary: Convert text from JIRA markup to Markdown using parsing expression grammars
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Keywords: jira,markdown
 Author: Evgeniy Krysanov
 Author-email: evgeniy.krysanov@gmail.com

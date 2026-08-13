@@ -29,98 +29,98 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LdapService(
         {
-            "netgroup_scope": "subtree",
-            "servers": ["10.10.10.10", "domainB.example.com"],
-            "bind_dn": "cn=Administrators,cn=users,dc=domainA,dc=example,dc=com",
-            "schema": "ad_idmu",
-            "user_scope": "subtree",
-            "try_channel_binding": True,
-            "base_scope": "subtree",
+            "base_dn": "dc=domainA,dc=example,dc=com",
             "referral_enabled": False,
+            "port": 389,
+            "group_scope": "subtree",
             "status": {
                 "message": "The LDAP configuration is invalid. Verify that the AD domain or servers are reachable and that the network configuration is correct",
+                "ipv4_state": "down",
+                "ipv6_state": "down",
                 "dn_message": ["No LDAP DN configured"],
                 "code": 4915258,
-                "ipv6_state": "down",
                 "state": "down",
-                "ipv4_state": "down",
             },
-            "bind_as_cifs_server": False,
-            "group_scope": "subtree",
+            "is_netgroup_byhost_enabled": False,
+            "netgroup_byhost_scope": "subtree",
+            "bind_dn": "cn=Administrators,cn=users,dc=domainA,dc=example,dc=com",
+            "base_scope": "subtree",
             "_links": {
                 "self": {
                     "href": "/api/name-services/ldap/179d3c85-7053-11e8-b9b8-005056b41bd1"
                 }
             },
-            "is_owner": True,
             "session_security": "none",
-            "base_dn": "dc=domainA,dc=example,dc=com",
-            "port": 389,
-            "group_membership_filter": "",
-            "is_netgroup_byhost_enabled": False,
-            "query_timeout": 3,
-            "ldaps_enabled": False,
-            "use_start_tls": True,
-            "restrict_discovery_to_site": False,
+            "servers": ["10.10.10.10", "domainB.example.com"],
+            "user_scope": "subtree",
             "min_bind_level": "anonymous",
-            "netgroup_byhost_scope": "subtree",
+            "try_channel_binding": True,
+            "schema": "ad_idmu",
+            "ldaps_enabled": False,
+            "group_membership_filter": "",
+            "query_timeout": 3,
+            "use_start_tls": True,
+            "netgroup_scope": "subtree",
+            "restrict_discovery_to_site": False,
             "svm": {
-                "name": "vs1",
+                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"
                     }
                 },
-                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
+                "name": "vs1",
             },
+            "is_owner": True,
+            "bind_as_cifs_server": False,
         }
     ),
     LdapService(
         {
-            "netgroup_scope": "subtree",
-            "bind_dn": "cn=Administrators,cn=users,dc=domainB,dc=example,dc=com",
-            "schema": "rfc_2307",
-            "ad_domain": "example.com",
-            "user_scope": "subtree",
-            "try_channel_binding": True,
-            "base_scope": "subtree",
+            "base_dn": "dc=domainB,dc=example,dc=com",
             "referral_enabled": False,
+            "port": 389,
+            "group_scope": "subtree",
             "status": {
                 "message": 'Successfully connected to LDAP server "172.20.192.44". Successfully connected to LDAP server "fd20:8b1e:b255:5056:999:d9:516c:bf69".',
+                "ipv4_state": "up",
+                "ipv6_state": "up",
                 "dn_message": ["All the configured DNs are available."],
                 "code": 0,
-                "ipv6_state": "up",
                 "state": "up",
-                "ipv4_state": "up",
             },
-            "bind_as_cifs_server": False,
-            "group_scope": "subtree",
+            "is_netgroup_byhost_enabled": False,
+            "netgroup_byhost_scope": "subtree",
+            "ad_domain": "example.com",
+            "bind_dn": "cn=Administrators,cn=users,dc=domainB,dc=example,dc=com",
+            "base_scope": "subtree",
             "_links": {
                 "self": {
                     "href": "/api/name-services/ldap/6a52023b-7066-11e8-b9b8-005056b41bd1"
                 }
             },
-            "is_owner": True,
             "session_security": "sign",
-            "base_dn": "dc=domainB,dc=example,dc=com",
-            "port": 389,
-            "group_membership_filter": "",
-            "is_netgroup_byhost_enabled": False,
-            "query_timeout": 0,
-            "ldaps_enabled": False,
-            "use_start_tls": True,
-            "restrict_discovery_to_site": True,
+            "user_scope": "subtree",
             "min_bind_level": "simple",
-            "netgroup_byhost_scope": "subtree",
+            "try_channel_binding": True,
+            "schema": "rfc_2307",
+            "ldaps_enabled": False,
+            "group_membership_filter": "",
+            "query_timeout": 0,
+            "use_start_tls": True,
+            "netgroup_scope": "subtree",
+            "restrict_discovery_to_site": True,
             "svm": {
-                "name": "vs2",
+                "uuid": "6a52023b-7066-11e8-b9b8-005056b41bd1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/6a52023b-7066-11e8-b9b8-005056b41bd1"
                     }
                 },
-                "uuid": "6a52023b-7066-11e8-b9b8-005056b41bd1",
+                "name": "vs2",
             },
+            "is_owner": True,
+            "bind_as_cifs_server": False,
         }
     ),
 ]
@@ -155,13 +155,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
             },
             "use_start_tls": True,
             "svm": {
-                "name": "vs2",
+                "uuid": "6a52023b-7066-11e8-b9b8-005056b41bd1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/6a52023b-7066-11e8-b9b8-005056b41bd1"
                     }
                 },
-                "uuid": "6a52023b-7066-11e8-b9b8-005056b41bd1",
+                "name": "vs2",
             },
         }
     )
@@ -191,34 +191,34 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LdapService(
     {
-        "servers": ["10.10.10.10", "domainB.example.com"],
-        "bind_dn": "cn=Administrators,cn=users,dc=domainA,dc=example,dc=com",
-        "schema": "ad_idmu",
-        "try_channel_binding": True,
-        "base_scope": "subtree",
+        "base_dn": "dc=domainA,dc=example,dc=com",
         "referral_enabled": False,
-        "bind_as_cifs_server": True,
+        "port": 389,
+        "bind_dn": "cn=Administrators,cn=users,dc=domainA,dc=example,dc=com",
+        "base_scope": "subtree",
         "_links": {
             "self": {
                 "href": "/api/name-services/ldap/179d3c85-7053-11e8-b9b8-005056b41bd1"
             }
         },
-        "is_owner": True,
         "session_security": "none",
-        "base_dn": "dc=domainA,dc=example,dc=com",
-        "port": 389,
-        "query_timeout": 3,
+        "servers": ["10.10.10.10", "domainB.example.com"],
+        "min_bind_level": "anonymous",
+        "try_channel_binding": True,
+        "schema": "ad_idmu",
         "ldaps_enabled": False,
+        "query_timeout": 3,
         "use_start_tls": True,
         "restrict_discovery_to_site": False,
-        "min_bind_level": "anonymous",
         "svm": {
-            "name": "vs1",
+            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
             "_links": {
                 "self": {"href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"}
             },
-            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
+            "name": "vs1",
         },
+        "is_owner": True,
+        "bind_as_cifs_server": True,
     }
 )
 
@@ -246,48 +246,48 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LdapService(
     {
-        "netgroup_scope": "subtree",
-        "servers": ["10.10.10.10", "domainB.example.com"],
-        "bind_dn": "cn=Administrators,cn=users,dc=domainA,dc=example,dc=com",
-        "schema": "ad_idmu",
-        "user_scope": "subtree",
-        "try_channel_binding": True,
-        "base_scope": "subtree",
+        "base_dn": "dc=domainA,dc=example,dc=com",
         "referral_enabled": False,
+        "port": 389,
+        "group_scope": "subtree",
         "status": {
             "message": "The LDAP configuration is invalid. Verify that the AD domain or servers are reachable and that the network configuration is correct",
+            "ipv4_state": "down",
+            "ipv6_state": "down",
             "dn_message": ["No LDAP DN configured"],
             "code": 4915258,
-            "ipv6_state": "down",
             "state": "down",
-            "ipv4_state": "down",
         },
-        "bind_as_cifs_server": True,
-        "group_scope": "subtree",
+        "is_netgroup_byhost_enabled": False,
+        "netgroup_byhost_scope": "subtree",
+        "bind_dn": "cn=Administrators,cn=users,dc=domainA,dc=example,dc=com",
+        "base_scope": "subtree",
         "_links": {
             "self": {
                 "href": "/api/name-services/ldap/179d3c85-7053-11e8-b9b8-005056b41bd1"
             }
         },
-        "is_owner": True,
         "session_security": "none",
-        "base_dn": "dc=domainA,dc=example,dc=com",
-        "port": 389,
-        "group_membership_filter": "",
-        "is_netgroup_byhost_enabled": False,
-        "query_timeout": 3,
-        "ldaps_enabled": False,
-        "use_start_tls": True,
-        "restrict_discovery_to_site": False,
+        "servers": ["10.10.10.10", "domainB.example.com"],
+        "user_scope": "subtree",
         "min_bind_level": "anonymous",
-        "netgroup_byhost_scope": "subtree",
+        "try_channel_binding": True,
+        "schema": "ad_idmu",
+        "ldaps_enabled": False,
+        "group_membership_filter": "",
+        "query_timeout": 3,
+        "use_start_tls": True,
+        "netgroup_scope": "subtree",
+        "restrict_discovery_to_site": False,
         "svm": {
-            "name": "vs1",
+            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
             "_links": {
                 "self": {"href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"}
             },
-            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
+            "name": "vs1",
         },
+        "is_owner": True,
+        "bind_as_cifs_server": True,
     }
 )
 
@@ -317,12 +317,12 @@ LdapService(
     {
         "status": {
             "message": 'Successfully connected to LDAP server "172.20.192.44". Successfully connected to LDAP server "fd20:8b1e:b255:5056:999:d9:516c:bf69".',
-            "code": 0,
-            "ipv6_state": "up",
-            "state": "up",
             "ipv4_state": "up",
+            "ipv6_state": "up",
+            "code": 0,
+            "state": "up",
         },
-        "svm": {"name": "vs2", "uuid": "9e4a2e3b-f66f-11ea-aec8-0050568e155c"},
+        "svm": {"uuid": "9e4a2e3b-f66f-11ea-aec8-0050568e155c", "name": "vs2"},
     }
 )
 
@@ -356,13 +356,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
             },
             "restrict_discovery_to_site": True,
             "svm": {
-                "name": "vs2",
+                "uuid": "6a52023b-7066-11e8-b9b8-005056b41bd1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/6a52023b-7066-11e8-b9b8-005056b41bd1"
                     }
                 },
-                "uuid": "6a52023b-7066-11e8-b9b8-005056b41bd1",
+                "name": "vs2",
             },
         }
     )

@@ -110,7 +110,7 @@ sentence-transformers = [
 
 # Direct scaling-group model calls via chalkcompute's native client.
 compute = [
-    "chalkcompute>=2.4.0; python_version >= '3.11'",
+    "chalkcompute>=2.6.0; python_version >= '3.11'",
 ]
 
 # SQL-specific

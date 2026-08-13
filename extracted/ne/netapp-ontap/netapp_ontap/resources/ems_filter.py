@@ -26,52 +26,52 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 EmsFilter(
     {
-        "_links": {"self": {"href": "/api/support/ems/filters/aggregate-events"}},
-        "name": "aggregate-events",
         "rules": [
             {
-                "parameter_criteria": [
-                    {"name_pattern": "type", "value_pattern": "aggregate"}
-                ],
-                "message_criteria": {
-                    "snmp_trap_types": "*",
-                    "_links": {
-                        "related": {
-                            "href": "/api/support/ems/messages?name=*&severity=emergency,alert,error,notice&snmp_trap_type=*"
-                        }
-                    },
-                    "name_pattern": "*",
-                    "severities": "emergency,alert,error,notice",
-                },
+                "type": "include",
                 "_links": {
                     "self": {
                         "href": "/api/support/ems/filters/aggregate-events/rules/1"
                     }
                 },
                 "index": 1,
-                "type": "include",
-            },
-            {
-                "parameter_criteria": [{"name_pattern": "*", "value_pattern": "*"}],
+                "parameter_criteria": [
+                    {"value_pattern": "aggregate", "name_pattern": "type"}
+                ],
                 "message_criteria": {
-                    "snmp_trap_types": "*",
                     "_links": {
                         "related": {
-                            "href": "/api/support/ems/messages?name=*&severity=*&snmp_trap_type=*"
+                            "href": "/api/support/ems/messages?name=*&severity=emergency,alert,error,notice&snmp_trap_type=*"
                         }
                     },
                     "name_pattern": "*",
-                    "severities": "*",
+                    "snmp_trap_types": "*",
+                    "severities": "emergency,alert,error,notice",
                 },
+            },
+            {
+                "type": "exclude",
                 "_links": {
                     "self": {
                         "href": "/api/support/ems/filters/aggregate-events/rules/2"
                     }
                 },
                 "index": 2,
-                "type": "exclude",
+                "parameter_criteria": [{"value_pattern": "*", "name_pattern": "*"}],
+                "message_criteria": {
+                    "_links": {
+                        "related": {
+                            "href": "/api/support/ems/messages?name=*&severity=*&snmp_trap_type=*"
+                        }
+                    },
+                    "name_pattern": "*",
+                    "snmp_trap_types": "*",
+                    "severities": "*",
+                },
             },
         ],
+        "name": "aggregate-events",
+        "_links": {"self": {"href": "/api/support/ems/filters/aggregate-events"}},
     }
 )
 

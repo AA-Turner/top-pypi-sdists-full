@@ -25,3 +25,5 @@ from yookassa.domain.request.payment_method_request import SavePaymentMethodData
     SavePaymentMethodDataBankCardRequest, SavePaymentMethodDataSbpRequest, \
     SavePaymentMethodRequestClassMap, SavePaymentMethodRequestFactory
 from yookassa.domain.request.payment_method_request_builder import PaymentMethodRequestBuilder
+from yookassa.domain.request.pos_link_request import CreatePosLinkRequest, RecipientPosLinkRequest
+from yookassa.domain.request.pos_link_request_builder import PosLinkRequestBuilder

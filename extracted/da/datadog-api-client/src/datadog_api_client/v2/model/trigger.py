@@ -15,11 +15,14 @@ class Trigger(ModelComposed):
         """
         One of the triggers that can start the execution of a workflow.
 
+        :param agent_trigger: Trigger a workflow from an agent via the MCP execute tool. Workflow can be executed from Bits Chat, Bits Agent Builder, Claude Code, Codex, Cursor, and any other coding agent using the Datadog MCP.
+        :type agent_trigger: AgentTrigger
+
+        :param start_step_names: Names of existing workflow steps that run first after a trigger fires.
+        :type start_step_names: [str], optional
+
         :param api_trigger: Trigger a workflow from an API request. The workflow must be published.
         :type api_trigger: APITrigger
-
-        :param start_step_names: A list of steps that run first after a trigger fires.
-        :type start_step_names: [str], optional
 
         :param app_trigger: Trigger a workflow from an App.
         :type app_trigger: dict
@@ -72,7 +75,7 @@ class Trigger(ModelComposed):
         :param software_catalog_trigger: Trigger a workflow from Software Catalog.
         :type software_catalog_trigger: dict
 
-        :param workflow_trigger: Trigger a workflow from the Datadog UI. Only required if no other trigger exists.
+        :param workflow_trigger: Trigger a workflow from the Datadog UI. When present, this must be the workflow's only trigger.
         :type workflow_trigger: dict
         """
         super().__init__(kwargs)
@@ -86,6 +89,7 @@ class Trigger(ModelComposed):
         # code would be run when this module is imported, and these composed
         # classes don't exist yet because their module has not finished
         # loading
+        from datadog_api_client.v2.model.agent_trigger_wrapper import AgentTriggerWrapper
         from datadog_api_client.v2.model.api_trigger_wrapper import APITriggerWrapper
         from datadog_api_client.v2.model.app_trigger_wrapper import AppTriggerWrapper
         from datadog_api_client.v2.model.case_trigger_wrapper import CaseTriggerWrapper
@@ -108,6 +112,7 @@ class Trigger(ModelComposed):
 
         return {
             "oneOf": [
+                AgentTriggerWrapper,
                 APITriggerWrapper,
                 AppTriggerWrapper,
                 CaseTriggerWrapper,

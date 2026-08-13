@@ -19,14 +19,6 @@ __pdoc__ = {
 class ContainerResponseRecordsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the ContainerResponseRecords object"""
 
-    provisioning_options = marshmallow_fields.Nested(
-                lambda: lazy_import_schema("netapp_ontap.models.container_provisioning_options", "ContainerProvisioningOptionsSchema"),
-                unknown=EXCLUDE,
-                data_key="provisioning_options",
-                allow_none=True
-            )
-    r""" Options that are applied to the operation. """
-
     svm = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
                 unknown=EXCLUDE,
@@ -34,9 +26,6 @@ class ContainerResponseRecordsSchema(ResourceSchema, metaclass=ResourceSchemaMet
                 allow_none=True
             )
     r""" The svm field of the container_response_records. """
-
-    use_mirrored_aggregates = marshmallow_fields.Boolean(data_key="use_mirrored_aggregates", allow_none=True)
-    r""" Specifies whether mirrored aggregates are selected when provisioning the volume. Only mirrored aggregates are used if this parameter is set to _true_ and only unmirrored aggregates are used if this parameter is set to _false_. The default value is _true_ for a MetroCluster configuration and is _false_ for a non-MetroCluster configuration. """
 
     volumes = marshmallow_fields.List(
                 marshmallow_fields.Nested(
@@ -64,13 +53,11 @@ class ContainerResponseRecordsSchema(ResourceSchema, metaclass=ResourceSchemaMet
     """volumes,"""
 
     postable_fields = [
-        "provisioning_options",
         "svm.name",
         "svm.uuid",
-        "use_mirrored_aggregates",
         "volumes",
     ]
-    """provisioning_options,svm.name,svm.uuid,use_mirrored_aggregates,volumes,"""
+    """svm.name,svm.uuid,volumes,"""
 
 
 class ContainerResponseRecords(Resource):

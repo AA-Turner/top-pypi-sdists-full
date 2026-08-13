@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pyoverkiz
-Version: 2.1.0
+Version: 2.1.1
 Summary: A fully asynchronous API client for interaction with smart devices connected to OverKiz, supporting multiple vendors such as Somfy TaHoma and Atlantic Cozytouch.
 Project-URL: homepage, https://github.com/iMicknl/python-overkiz-api
 Project-URL: repository, https://github.com/iMicknl/python-overkiz-api

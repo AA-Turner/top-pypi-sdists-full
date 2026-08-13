@@ -25,6 +25,7 @@ import inspect
 import os
 
 from abc import ABC, abstractmethod
+from functools import total_ordering
 from importlib.metadata import version
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -39,6 +40,7 @@ if TYPE_CHECKING:
     from molecule.types import DriverOptions
 
 
+@total_ordering
 class Driver(ABC):
     """Driver Class.
 
@@ -161,7 +163,7 @@ class Driver(ABC):
         Returns:
             Dictionary of driver options.
         """
-        return self._config.config["driver"]["options"]
+        return self._config.config_data["driver"]["options"]
 
     @property
     def instance_config(self) -> str:
@@ -184,8 +186,8 @@ class Driver(ABC):
         Returns:
             List of ssh connection options.
         """
-        if self._config.config["driver"]["ssh_connection_options"]:
-            return self._config.config["driver"]["ssh_connection_options"]
+        if self._config.config_data["driver"]["ssh_connection_options"]:
+            return self._config.config_data["driver"]["ssh_connection_options"]
         return self.default_ssh_connection_options
 
     @property
@@ -195,7 +197,7 @@ class Driver(ABC):
         Returns:
             List of safe files.
         """
-        return self.default_safe_files + self._config.config["driver"]["safe_files"]
+        return self.default_safe_files + self._config.config_data["driver"]["safe_files"]
 
     @property
     def delegated(self) -> bool:
@@ -214,6 +216,20 @@ class Driver(ABC):
             Whether the driver is managed.
         """
         return self.options["managed"]
+
+    def get_ansible_native_hosts(self) -> list[str]:
+        """List real host names for an ansible-native scenario (no `platforms` declared).
+
+        Base implementation returns an empty list - drivers that manage
+        instances off a real inventory (see Delegated) can override this to
+        report real host names instead of leaving callers with nothing to
+        work with.
+
+        Returns:
+            List of host names, or an empty list if this driver has no way
+            to determine one.
+        """
+        return []
 
     def status(self) -> list[Status]:
         """Collect the instances state and returns a list.
@@ -234,8 +250,11 @@ class Driver(ABC):
         instances = self._config.platforms.instances
 
         if not instances:
-            # an ansible-native scenario
-            instances.append({"name": ""})
+            # an ansible-native scenario - try to discover real host names
+            # from the configured inventory instead of a single blank
+            # placeholder.
+            inventory_hosts = self.get_ansible_native_hosts()
+            instances = [{"name": name} for name in inventory_hosts] or [{"name": ""}]
 
         for platform in instances:
             instance_name = platform["name"]
@@ -372,14 +391,13 @@ class Driver(ABC):
             return str(p)
         return None
 
-    def reset(self) -> None:
+    def reset(self) -> None:  # noqa: B027
         """Release all resources owned by molecule.
 
         This is a destructive operation that would affect all resources managed
         by molecule, regardless the scenario name.  Molecule will use metadata
         like labels or tags to annotate resources allocated by it.
         """
-        return
 
     @property
     def required_collections(self) -> dict[str, str]:

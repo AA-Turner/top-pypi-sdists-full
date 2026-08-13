@@ -15,8 +15,11 @@ Refer to :class:`snowflake.core.Root` to create the ``root``.
 
 from ._code_bundle_execution import CodeBundleExecutionCollection, CodeBundleExecutionResource
 from ._generated.models import (
+    BundleSpec,
     CodeBundleExecution,
+    CodeBundleSpecification,
     ExecuteCodeBundleRequest,
+    StageMount,
     SuccessAcceptedResponse,
     SuccessResponse,
 )
@@ -26,7 +29,10 @@ __all__ = [
     "CodeBundleExecution",
     "CodeBundleExecutionResource",
     "CodeBundleExecutionCollection",
+    "BundleSpec",
+    "CodeBundleSpecification",
     "ExecuteCodeBundleRequest",
+    "StageMount",
     "SuccessAcceptedResponse",
     "SuccessResponse",
 ]

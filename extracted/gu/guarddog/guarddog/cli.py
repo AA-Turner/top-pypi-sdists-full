@@ -22,6 +22,7 @@ from guarddog.ecosystems import ECOSYSTEM
 from guarddog.reporters.reporter_factory import ReporterFactory, ReporterType
 
 from guarddog.scanners import get_package_scanner, get_project_scanner
+import guarddog.scanners.npm_project_scanner as npm_project_scanner
 from guarddog.scanners.scanner import github_blob_to_raw_url
 from guarddog.utils.archives import safe_extract
 from guarddog.sandbox import (
@@ -109,7 +110,7 @@ def cli(log_level):
     """
     GuardDog cli tool to detect malware in package ecosystems
 
-    Supports PyPI, npm and Go modules.
+    Supports PyPI, npm, Go modules, Rust crates, and RubyGems.
 
     Example: guarddog pypi scan semantic-version
 
@@ -184,6 +185,15 @@ def _verify(
         exit_with_status_code([result["result"] for result in results])
 
     return return_value  # this is mostly for testing
+
+
+def _apply_archive_sandbox(tempdir: str, tmp_root: str) -> None:
+    """Apply the sandbox from the temporary root used for archive work."""
+    # tarsafe reads the current directory during extraction. Move to the
+    # persistent temp root, which the sandbox already allows, before locking
+    # down the process.
+    os.chdir(tmp_root)
+    apply_sandbox(scan_paths=[], writable_paths=[tempdir])
 
 
 def _scan(
@@ -275,7 +285,7 @@ def _scan(
                 sandboxed_archive = os.path.join(tempdir, os.path.basename(identifier))
                 shutil.copyfile(identifier, sandboxed_archive)
                 if sandbox:
-                    apply_sandbox(scan_paths=[], writable_paths=[tempdir])
+                    _apply_archive_sandbox(tempdir, tmp_root)
                 extract_dir = os.path.join(tempdir, "_extracted")
                 os.makedirs(extract_dir, exist_ok=True)
                 safe_extract(
@@ -306,7 +316,7 @@ def _scan(
                 with open(archive_path, "wb") as f:
                     f.write(response.raw.read())
                 if sandbox:
-                    apply_sandbox(scan_paths=[], writable_paths=[tempdir])
+                    _apply_archive_sandbox(tempdir, tmp_root)
                 extract_dir = os.path.join(tempdir, "_extracted")
                 os.makedirs(extract_dir, exist_ok=True)
                 safe_extract(archive_path, extract_dir, zip_password=zip_password_bytes)
@@ -337,7 +347,10 @@ def _scan(
                 # http/https branch).
                 kind, local_path = download_from_s3(identifier, download_root)
                 if sandbox:
-                    apply_sandbox(scan_paths=[], writable_paths=[tempdir])
+                    if kind == "archive":
+                        _apply_archive_sandbox(tempdir, tmp_root)
+                    else:
+                        apply_sandbox(scan_paths=[], writable_paths=[tempdir])
                 if kind == "archive":
                     extract_dir = os.path.join(tempdir, "_extracted")
                     os.makedirs(extract_dir, exist_ok=True)
@@ -533,21 +546,68 @@ class CliEcosystem(click.Group):
                 zip_password=zip_password,
             )
 
-        @click.command("verify", help=f"Verify a given {self.ecosystem.name} package")
-        @common_options
-        @verify_options
-        @rule_options
-        def verify_ecosystem(
-            target, rules, exclude_rules, output_format, exit_non_zero_on_finding
-        ):
-            return _verify(
+        def _build_verify_command():
+            @click.command(
+                "verify", help=f"Verify a given {self.ecosystem.name} package"
+            )
+            @common_options
+            @verify_options
+            @rule_options
+            def verify_ecosystem(
                 target,
                 rules,
                 exclude_rules,
                 output_format,
                 exit_non_zero_on_finding,
-                self.ecosystem,
-            )
+                **kwargs,
+            ):
+                # --include-dev-dependencies is npm-only. When passed it overrides
+                # the GUARDDOG_NPM_INCLUDE_DEV_DEPENDENCIES env var (default: false)
+                # so that devDependencies are scanned too. The override is scoped
+                # to this invocation: the prior value is restored afterwards so a
+                # flag in one call does not leak into subsequent ones (CliRunner,
+                # embedded use of the cli object, ...).
+                if kwargs.get("include_dev_dependencies"):
+                    prior = npm_project_scanner.NPM_INCLUDE_DEV_DEPENDENCIES
+                    npm_project_scanner.NPM_INCLUDE_DEV_DEPENDENCIES = True
+                    try:
+                        return _verify(
+                            target,
+                            rules,
+                            exclude_rules,
+                            output_format,
+                            exit_non_zero_on_finding,
+                            self.ecosystem,
+                        )
+                    finally:
+                        npm_project_scanner.NPM_INCLUDE_DEV_DEPENDENCIES = prior
+                return _verify(
+                    target,
+                    rules,
+                    exclude_rules,
+                    output_format,
+                    exit_non_zero_on_finding,
+                    self.ecosystem,
+                )
+
+            # --include-dev-dependencies is npm-only: devDependencies have no
+            # equivalent in other ecosystems (PyPI, Go, RubyGems, Rust, ...).
+            if self.ecosystem == ECOSYSTEM.NPM:
+                verify_ecosystem = click.option(
+                    "--include-dev-dependencies",
+                    is_flag=True,
+                    default=False,
+                    help=(
+                        "Include devDependencies in the scan (npm only). By "
+                        "default only production dependencies under the "
+                        "'dependencies' key are scanned; this can also be "
+                        "enabled via GUARDDOG_NPM_INCLUDE_DEV_DEPENDENCIES=true."
+                    ),
+                )(verify_ecosystem)
+
+            return verify_ecosystem
+
+        verify_ecosystem = _build_verify_command()
 
         @click.command(
             "list-rules", help=f"List available rules for {self.ecosystem.name}"

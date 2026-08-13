@@ -30,11 +30,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 HostRecord(
     {
-        "source": "Files",
-        "host": "127.0.0.1",
         "ipv4_addresses": ["127.0.0.1"],
+        "host": "127.0.0.1",
+        "source": "Files",
         "hostname": "localhost",
-        "svm": {"name": "svm1", "uuid": "77e23bd4-a8fe-11eb-99e0-0050568e14ff"},
+        "svm": {"uuid": "77e23bd4-a8fe-11eb-99e0-0050568e14ff", "name": "svm1"},
     }
 )
 
@@ -64,13 +64,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 HostRecord(
     {
-        "source": "Files",
-        "host": "localhost",
         "ipv4_addresses": ["127.0.0.1"],
-        "ipv6_addresses": ["::1"],
+        "host": "localhost",
         "canonical_name": "localhost",
+        "source": "Files",
         "hostname": "localhost",
-        "svm": {"name": "svm1", "uuid": "77e23bd4-a8fe-11eb-99e0-0050568e14ff"},
+        "svm": {"uuid": "77e23bd4-a8fe-11eb-99e0-0050568e14ff", "name": "svm1"},
+        "ipv6_addresses": ["::1"],
     }
 )
 

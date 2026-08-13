@@ -5,6 +5,7 @@ All rights reserved.
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 You can use this API to manage NDMP mode: SVM-scope or node-scope.
+NDMP node scope mode is Deprecated. It is not supported on AFX and FSx platforms.
 ### Examples
 Updates NDMP mode to SVM:
    <br/>

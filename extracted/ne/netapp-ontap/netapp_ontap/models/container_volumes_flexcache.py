@@ -22,6 +22,9 @@ class ContainerVolumesFlexcacheSchema(ResourceSchema, metaclass=ResourceSchemaMe
     dr_cache = marshmallow_fields.Boolean(data_key="dr_cache", allow_none=True)
     r""" If set to true, a DR cache is created. """
 
+    global_file_locking_enabled = marshmallow_fields.Boolean(data_key="global_file_locking_enabled", allow_none=True)
+    r""" Specifies whether a FlexCache volume has global file locking mode enabled. Global file locking mode is a mode where protocol read locking semantics are enforced across all FlexCaches and origins of a FlexCache volume. When global file locking mode is enabled, cache locks are honored when flexcaches are disconnected from the origin. """
+
     origins = marshmallow_fields.List(
                 marshmallow_fields.Nested(
                     lambda: lazy_import_schema("netapp_ontap.models.container_volume_flexcache_relationship", "ContainerVolumeFlexcacheRelationshipSchema"),
@@ -55,10 +58,11 @@ class ContainerVolumesFlexcacheSchema(ResourceSchema, metaclass=ResourceSchemaMe
 
     postable_fields = [
         "dr_cache",
+        "global_file_locking_enabled",
         "origins",
         "writeback",
     ]
-    """dr_cache,origins,writeback,"""
+    """dr_cache,global_file_locking_enabled,origins,writeback,"""
 
 
 class ContainerVolumesFlexcache(Resource):

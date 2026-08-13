@@ -23,10 +23,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AntiRansomwareAutoEnable(
     {
+        "warm_up_period_applicable": True,
         "_links": {"self": {"href": "/security/anti-ransomware/auto-enable"}},
         "warm_up_period_completed": False,
         "new_volume_auto_enable": True,
-        "warm_up_period_applicable": True,
     }
 )
 

@@ -26,9 +26,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Whoami(
     {
-        "privileges": [{"access": "all", "path": "/api"}],
-        "_links": {"self": {"href": "/api/security/login/whoami"}},
         "username": "admin",
+        "_links": {"self": {"href": "/api/security/login/whoami"}},
+        "privileges": [{"path": "/api", "access": "all"}],
     }
 )
 

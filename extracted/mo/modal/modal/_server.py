@@ -15,6 +15,7 @@ from ._supports_logs import _LogQueryData
 from .client import _Client
 from .cls import is_parameter
 from .exception import InvalidError
+from .types import ServerAutoscalerSettings
 
 if typing.TYPE_CHECKING:
     import modal.app
@@ -123,13 +124,13 @@ class _Server:
     async def update_autoscaler(
         self,
         *,
-        target_concurrency: int | None = None,
+        target_concurrency: float | None = None,
         min_containers: int | None = None,
         max_containers: int | None = None,
         buffer_containers: int | None = None,
         scaleup_window: int | None = None,
         scaledown_window: int | None = None,
-    ) -> None:
+    ) -> ServerAutoscalerSettings:
         """Override the current autoscaler behavior for this Server.
 
         Unspecified parameters will retain their current value, i.e. either the static value
@@ -139,12 +140,18 @@ class _Server:
         its static configuration.
 
         Args:
-            target_concurrency: Target number of concurrent requests per container.
+            target_concurrency:
+                Target number of concurrent requests per container. May be fractional, e.g. 1.5 to
+                target three concurrent requests per two containers.
             min_containers: Minimum number of containers to keep running regardless of demand.
             max_containers: Limit on the number of containers that can be concurrently running.
             buffer_containers: Extra containers to scale up beyond current demand.
             scaleup_window: Seconds of sustained demand required before scaling up new containers.
             scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
+
+        Returns:
+            A `ServerAutoscalerSettings` dataclass which contains the current autoscaler settings of
+            this Server after the call.
 
         Examples:
             ```python notest
@@ -162,12 +169,15 @@ class _Server:
             # Adjust Server autoscaling to target 20 concurrent requests per replica
             server.update_autoscaler(target_concurrency=20)
 
+            # Target three concurrent requests for every two containers
+            server.update_autoscaler(target_concurrency=1.5)
+
             # Disable the Server autoscaling by setting target_concurrency to 0
             server.update_autoscaler(target_concurrency=0)
             ```
 
         """
-        return await self._get_service_function()._update_autoscaler(
+        return await self._get_service_function()._update_autoscaler_server(
             min_containers=min_containers,
             max_containers=max_containers,
             scaleup_window=scaleup_window,

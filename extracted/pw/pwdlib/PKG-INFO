@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pwdlib
-Version: 0.3.0
+Version: 0.3.1
 Summary: Modern password hashing for Python
 Project-URL: Documentation, https://frankie567.github.io/pwdlib/
 Project-URL: Source, https://github.com/frankie567/pwdlib
@@ -18,13 +18,17 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Security
 Classifier: Topic :: Security :: Cryptography
 Requires-Python: >=3.10
+Requires-Dist: typing-extensions>=4.16.0; python_version < '3.11'
 Provides-Extra: argon2
-Requires-Dist: argon2-cffi<26,>=23.1.0; extra == 'argon2'
+Requires-Dist: argon2-cffi>=23.1.0; extra == 'argon2'
 Provides-Extra: bcrypt
-Requires-Dist: bcrypt<6,>=4.1.2; extra == 'bcrypt'
+Requires-Dist: bcrypt>=4.1.2; extra == 'bcrypt'
 Description-Content-Type: text/markdown
 
 # pwdlib
+<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+[![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors-)
+<!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 <p align="center">
     <em>Modern password hashing for Python</em>
@@ -128,3 +132,26 @@ It'll automatically watch for changes in your code.
 ## License
 
 This project is licensed under the terms of the MIT license.
+
+## Contributors ✨
+
+Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://hynek.me/about/"><img src="https://avatars.githubusercontent.com/u/41240?v=4?s=100" width="100px;" alt="Hynek Schlawack"/><br /><sub><b>Hynek Schlawack</b></sub></a><br /><a href="https://github.com/frankie567/pwdlib/commits?author=hynek" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/waketzheng"><img src="https://avatars.githubusercontent.com/u/35413830?v=4?s=100" width="100px;" alt="Waket Zheng"/><br /><sub><b>Waket Zheng</b></sub></a><br /><a href="https://github.com/frankie567/pwdlib/commits?author=waketzheng" title="Code">💻</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!

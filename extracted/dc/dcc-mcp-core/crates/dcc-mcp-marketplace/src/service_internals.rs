@@ -157,12 +157,23 @@ pub fn resolve_install_dcc(
 ) -> Result<String, MarketplaceError> {
     if let Some(dcc) = requested {
         let dcc_name = path_component("DCC name", dcc)?.to_lowercase();
+        if dcc_name == "any" {
+            return Err(MarketplaceError::AmbiguousDcc {
+                name: entry.name.clone(),
+            });
+        }
         if entry_targets_dcc(entry, &dcc_name) {
             return Ok(dcc_name);
         }
         return Err(MarketplaceError::DccMismatch {
             name: entry.name.clone(),
             dcc: dcc.to_string(),
+        });
+    }
+
+    if entry.dcc.iter().any(|dcc| dcc.eq_ignore_ascii_case("any")) {
+        return Err(MarketplaceError::AmbiguousDcc {
+            name: entry.name.clone(),
         });
     }
 
@@ -306,8 +317,12 @@ pub fn github_archive_url(install: &CatalogInstall) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .unwrap_or("HEAD");
+    // Fetch the archive directly from GitHub's archive host. The public
+    // github.com endpoint redirects here; avoiding that extra request prevents
+    // long downloads from being cut off when the redirect connection is
+    // closed before the response body completes.
     Some(format!(
-        "https://github.com/{owner}/{repo}/archive/{ref_}.zip"
+        "https://codeload.github.com/{owner}/{repo}/zip/{ref_}"
     ))
 }
 

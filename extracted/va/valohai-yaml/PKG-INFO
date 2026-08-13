@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: valohai-yaml
-Version: 0.57.0
+Version: 0.58.0
 Summary: Valohai.yaml validation and parsing
 Project-URL: Homepage, https://github.com/valohai/valohai-yaml
 Author-email: Valohai <info@valohai.com>

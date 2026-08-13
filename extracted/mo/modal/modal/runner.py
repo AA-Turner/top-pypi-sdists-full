@@ -280,9 +280,13 @@ async def _publish_app(
     commit_info: api_pb2.CommitInfo | None = None,  # Git commit information
     deployment_strategy: str = "rolling",
     environment_name: str | None = None,
+    staged: bool = False,
 ) -> tuple[str, list[api_pb2.Warning], float]:
     """Wrapper for AppPublish RPC."""
     deployment_strategy = _validate_deployment_strategy(deployment_strategy)
+
+    if staged and deployment_strategy == "recreate":
+        raise InvalidError("Cannot use `recreate` deployment strategy with a staged deployment")
 
     functions = app_local_state.functions
     definition_ids = {obj.object_id: obj._get_metadata().definition_id for obj in functions.values()}  # type: ignore
@@ -297,6 +301,7 @@ async def _publish_app(
         function_ids=running_app.function_ids,
         class_ids=running_app.class_ids,
         definition_ids=definition_ids,
+        staged=staged,
     )
     response = await client.stub.AppPublish(request)
     print_server_warnings(response.server_warnings)
@@ -315,7 +320,7 @@ async def _publish_app(
                 UserWarning,
             )
 
-    return response.url, response.server_warnings, response.deployed_at
+    return response.url, list(response.server_warnings), response.deployed_at
 
 
 async def _disconnect(
@@ -376,7 +381,7 @@ async def _run_app(
         client=client, environment_name=environment_name
     )
 
-    if modal._runtime.execution_context._is_currently_importing:
+    if modal._runtime.execution_context._in_import_context():
         raise InvalidError("Can not run an app in global scope within a container")
 
     if app._running_app:
@@ -577,8 +582,8 @@ class DeployResult:
     """Dataclass representing the result of deploying an app."""
 
     app_id: str
-    app_page_url: str
-    app_logs_url: str
+    app_page_url: str | None
+    app_logs_url: str | None
     warnings: list[str]
 
 
@@ -590,6 +595,7 @@ async def _deploy_app(
     tag: str = "",
     deployment_strategy: str = "rolling",
     client: _Client | None = None,
+    staged: bool = False,
 ) -> DeployResult:
     """Internal function for deploying an App.
 
@@ -665,6 +671,7 @@ async def _deploy_app(
                 commit_info=commit_info,
                 environment_name=root_load_context.environment_name,
                 deployment_strategy=deployment_strategy,
+                staged=staged,
             )
         except Exception as e:
             # Note that AppClientDisconnect only stops the app if it's still initializing, and is a no-op otherwise.
@@ -684,7 +691,7 @@ async def _deploy_app(
     return DeployResult(
         app_id=running_app.app_id,
         app_page_url=running_app.app_page_url,
-        app_logs_url=running_app.app_logs_url,  # type: ignore
+        app_logs_url=running_app.app_logs_url,
         warnings=[warning.message for warning in warnings],
     )
 
@@ -773,7 +780,7 @@ async def _interactive_shell(
                 await container_process.wait()
         except InteractiveTimeoutError:
             # Check on status of Sandbox. It may have crashed, causing connection failure.
-            req = api_pb2.SandboxWaitRequest(sandbox_id=sandbox._object_id, timeout=0)
+            req = api_pb2.SandboxWaitRequest(sandbox_id=sandbox.object_id, timeout=0)
             if v2:
                 assert sandbox._client._auth_token_manager
                 auth_token = await sandbox._client._auth_token_manager.get_token()

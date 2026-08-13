@@ -572,6 +572,7 @@ If not specified in POST, the following default property values are assigned:
 * `protocol.v4_grace_seconds` - 45
 * `protocol.v4_session_slots` - 180
 * `protocol.v4_session_slot_reply_cache_size` - 640
+* `protocol.v42_enabled` - _true_
 ### Related ONTAP commands
 * `vserver nfs create`
 * `export-policy access-cache config show`
@@ -756,6 +757,7 @@ If not specified in POST, the following default property values are assigned:
 * `protocol.v4_grace_seconds` - 45
 * `protocol.v4_session_slots` - 180
 * `protocol.v4_session_slot_reply_cache_size` - 640
+* `protocol.v42_enabled` - _true_
 ### Related ONTAP commands
 * `vserver nfs create`
 * `export-policy access-cache config show`

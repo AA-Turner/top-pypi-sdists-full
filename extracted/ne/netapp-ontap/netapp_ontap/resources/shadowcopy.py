@@ -23,30 +23,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ShadowcopySet(
         {
-            "keep_snapshots": True,
+            "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
             "uuid": "27ed1b79-97f6-11ec-8ad1-0050568e57be",
-            "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
-        }
-    ),
-    ShadowcopySet(
-        {
-            "keep_snapshots": False,
-            "uuid": "388be551-97f6-11ec-8ad1-0050568e57be",
-            "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
-        }
-    ),
-    ShadowcopySet(
-        {
-            "keep_snapshots": False,
-            "uuid": "525104ef-9f96-11ec-82fd-0050568e57be",
-            "svm": {"name": "vs2", "uuid": "fdb5bd8b-9498-11ec-9f9d-0050568e57be"},
-        }
-    ),
-    ShadowcopySet(
-        {
             "keep_snapshots": True,
+        }
+    ),
+    ShadowcopySet(
+        {
+            "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
+            "uuid": "388be551-97f6-11ec-8ad1-0050568e57be",
+            "keep_snapshots": False,
+        }
+    ),
+    ShadowcopySet(
+        {
+            "svm": {"uuid": "fdb5bd8b-9498-11ec-9f9d-0050568e57be", "name": "vs2"},
+            "uuid": "525104ef-9f96-11ec-82fd-0050568e57be",
+            "keep_snapshots": False,
+        }
+    ),
+    ShadowcopySet(
+        {
+            "svm": {"uuid": "fdb5bd8b-9498-11ec-9f9d-0050568e57be", "name": "vs2"},
             "uuid": "66f8f723-9f96-11ec-82fd-0050568e57be",
-            "svm": {"name": "vs2", "uuid": "fdb5bd8b-9498-11ec-9f9d-0050568e57be"},
+            "keep_snapshots": True,
         }
     ),
 ]
@@ -75,9 +75,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ShadowcopySet(
     {
-        "keep_snapshots": False,
+        "svm": {"uuid": "fdb5bd8b-9498-11ec-9f9d-0050568e57be", "name": "vs2"},
         "uuid": "525104ef-9f96-11ec-82fd-0050568e57be",
-        "svm": {"name": "vs2", "uuid": "fdb5bd8b-9498-11ec-9f9d-0050568e57be"},
+        "keep_snapshots": False,
     }
 )
 
@@ -118,42 +118,42 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Shadowcopy(
         {
-            "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
-            "client_uuid": "(uuid)",
-            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
-            "volume": {"name": "vol1", "uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be"},
             "uuid": "919fbc80-a421-11ec-b82e-0050568e57be",
             "share": {"name": "sh1"},
+            "client_uuid": "(uuid)",
+            "volume": {"uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be", "name": "vol1"},
+            "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
+            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
         }
     ),
     Shadowcopy(
         {
-            "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
-            "client_uuid": "(uuid)",
-            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
-            "volume": {"name": "vol1", "uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be"},
             "uuid": "91ac5a5f-a421-11ec-b82e-0050568e57be",
             "share": {"name": "sh2"},
+            "client_uuid": "(uuid)",
+            "volume": {"uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be", "name": "vol1"},
+            "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
+            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
         }
     ),
     Shadowcopy(
         {
-            "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
-            "client_uuid": "(uuid)",
-            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
-            "volume": {"name": "vol1", "uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be"},
             "uuid": "91b14098-a421-11ec-b82e-0050568e57be",
             "share": {"name": "sh3"},
+            "client_uuid": "(uuid)",
+            "volume": {"uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be", "name": "vol1"},
+            "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
+            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
         }
     ),
     Shadowcopy(
         {
-            "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
-            "client_uuid": "(uuid)",
-            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
-            "volume": {"name": "vol1", "uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be"},
             "uuid": "91b63309-a421-11ec-b82e-0050568e57be",
             "share": {"name": "sh4"},
+            "client_uuid": "(uuid)",
+            "volume": {"uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be", "name": "vol1"},
+            "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
+            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
         }
     ),
 ]
@@ -182,12 +182,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Shadowcopy(
     {
-        "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
-        "client_uuid": "(uuid)",
-        "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
-        "volume": {"name": "vol1", "uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be"},
         "uuid": "91b14098-a421-11ec-b82e-0050568e57be",
         "share": {"name": "sh3"},
+        "client_uuid": "(uuid)",
+        "volume": {"uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be", "name": "vol1"},
+        "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
+        "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
     }
 )
 

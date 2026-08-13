@@ -5,9 +5,9 @@ All rights reserved.
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 ## Overview
-NVMe interfaces are network interfaces configured to support an NVMe over Fabrics (NVMe-oF) protocol. The NVMe interfaces are Fibre Channel (FC) interfaces supporting an NVMe-oF data protocol. Regardless of the underlying physical and data protocol, NVMe interfaces are treated equally for host-side application configuration. This endpoint provides a consolidated view of all NVMe interfaces for the purpose of configuring host-side applications.<br/>
-The NVMe interfaces REST API provides NVMe-specific information about network interfaces configured to support an NVMe-oF protocol.<br/>
-NVMe interfaces must be created using the protocol-specific endpoints for FC interfaces. See [`POST /network/fc/interfaces`](#/networking/fc_interface_create). After creation, the interfaces are available via this interface.
+NVMe interfaces are network interfaces configured to support an NVMe over Fabrics (NVMe-oF) protocol. The NVMe interfaces can be Fibre Channel interfaces or IP (Internet Protocol) interfaces supporting any of the supported NVMe-oF data protocols. Regardless of the underlying physical and data protocol, NVMe interfaces are treated equally for host-side application configuration. This endpoint provides a consolidated view of all NVMe interfaces for the purpose of configuring host-side applications.<br/>
+The `interface_type` field discriminates which type of interface is being returned and an additional field with the same name as the `interface_type` contains additional type-specific information about the interface.<br/>
+NVMe interfaces must be created using the protocol-specific endpoints for Fibre Channel or IP interfaces. See [`POST /network/fc/interfaces`](#/networking/fc_interface_create) and [`POST /network/ip/interfaces`](#/networking/network_ip_interfaces_create). After creation, the interfaces are available via this interface.
 ## Examples
 ### Retrieving summary information for all NVMe interfaces
 ```python
@@ -26,42 +26,42 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NvmeInterface(
         {
+            "uuid": "74d69872-0d30-11e9-a684-005056bbdb14",
+            "name": "nvme1",
             "_links": {
                 "self": {
                     "href": "/api/protocols/nvme/interfaces/74d69872-0d30-11e9-a684-005056bbdb14"
                 }
             },
             "svm": {
-                "name": "svm1",
+                "uuid": "013e2c44-0d30-11e9-a684-005056bbdb14",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/013e2c44-0d30-11e9-a684-005056bbdb14"
                     }
                 },
-                "uuid": "013e2c44-0d30-11e9-a684-005056bbdb14",
+                "name": "svm1",
             },
-            "name": "nvme1",
-            "uuid": "74d69872-0d30-11e9-a684-005056bbdb14",
         }
     ),
     NvmeInterface(
         {
+            "uuid": "77ded991-0d30-11e9-a684-005056bbdb14",
+            "name": "nvme2",
             "_links": {
                 "self": {
                     "href": "/api/protocols/nvme/interfaces/77ded991-0d30-11e9-a684-005056bbdb14"
                 }
             },
             "svm": {
-                "name": "svm1",
+                "uuid": "013e2c44-0d30-11e9-a684-005056bbdb14",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/013e2c44-0d30-11e9-a684-005056bbdb14"
                     }
                 },
-                "uuid": "013e2c44-0d30-11e9-a684-005056bbdb14",
+                "name": "svm1",
             },
-            "name": "nvme2",
-            "uuid": "77ded991-0d30-11e9-a684-005056bbdb14",
         }
     ),
 ]
@@ -89,28 +89,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeInterface(
     {
-        "_links": {
-            "self": {
-                "href": "/api/protocols/nvme/interfaces/77ded991-0d30-11e9-a684-005056bbdb14"
-            }
-        },
-        "svm": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/013e2c44-0d30-11e9-a684-005056bbdb14"}
-            },
-            "uuid": "013e2c44-0d30-11e9-a684-005056bbdb14",
-        },
+        "uuid": "77ded991-0d30-11e9-a684-005056bbdb14",
         "fc_interface": {
-            "wwpn": "20:05:00:50:56:bb:db:14",
             "port": {
+                "uuid": "081ec491-0d2f-11e9-a684-005056bbdb14",
+                "name": "1a",
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/ports/081ec491-0d2f-11e9-a684-005056bbdb14"
                     }
                 },
-                "name": "1a",
-                "uuid": "081ec491-0d2f-11e9-a684-005056bbdb14",
                 "node": {"name": "node1"},
             },
             "_links": {
@@ -118,21 +106,33 @@ NvmeInterface(
                     "href": "/api/network/fc/interfaces/77ded991-0d30-11e9-a684-005056bbdb14"
                 }
             },
+            "wwpn": "20:05:00:50:56:bb:db:14",
             "wwnn": "20:03:00:50:56:bb:db:14",
         },
         "name": "nvme2",
-        "uuid": "77ded991-0d30-11e9-a684-005056bbdb14",
+        "transport_address": "nn-0x2003005056bbdb14:pn-0x2005005056bbdb14",
+        "_links": {
+            "self": {
+                "href": "/api/protocols/nvme/interfaces/77ded991-0d30-11e9-a684-005056bbdb14"
+            }
+        },
+        "enabled": True,
+        "svm": {
+            "uuid": "013e2c44-0d30-11e9-a684-005056bbdb14",
+            "_links": {
+                "self": {"href": "/api/svm/svms/013e2c44-0d30-11e9-a684-005056bbdb14"}
+            },
+            "name": "svm1",
+        },
         "node": {
-            "name": "node1",
+            "uuid": "cd4d47fd-0d2e-11e9-a684-005056bbdb14",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/cd4d47fd-0d2e-11e9-a684-005056bbdb14"
                 }
             },
-            "uuid": "cd4d47fd-0d2e-11e9-a684-005056bbdb14",
+            "name": "node1",
         },
-        "transport_address": "nn-0x2003005056bbdb14:pn-0x2005005056bbdb14",
-        "enabled": True,
     }
 )
 

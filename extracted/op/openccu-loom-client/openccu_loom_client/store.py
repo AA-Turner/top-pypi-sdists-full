@@ -28,13 +28,15 @@ component (the future ``LoomClient``) wires WS events → store
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 import logging
 from typing import TYPE_CHECKING, Any, Final, Protocol, runtime_checkable
 from urllib.parse import quote
 
 from openccu_loom_types.rest import (
+    AlarmMotionResetResult,
     AlarmPanelEntity,
+    AlarmTriggeredMotionSensor,
     CalculatedDPSummary,
     ChannelSummary,
     CustomDPSummary,
@@ -130,6 +132,14 @@ class LoomStore:
         # The HA-facing locale; read back by Device.config_provider for
         # locale-aware schedule names. Defaults to English.
         self._locale: str = "en"
+        # The daemon's entity-name catalogue (``GET /i18n/entities``), kept
+        # here rather than pushed onto each object because the objects that
+        # read it come and go: an alarm panel is rebuilt by a catalogue
+        # reconcile and seeded from a bare push, and either path would have
+        # to re-deliver the names. Empty until the compat layer fills it,
+        # and empty forever against a daemon too old to serve the route —
+        # a reader falls back to its own wording either way.
+        self._entity_names: dict[str, str] = {}
         self._calculated_factory: Callable[..., DataPoint] | None = None
         # The CCU serial suffix (last 10 chars, lower-cased). This is the
         # central-id slot of every canonical HA routing key for hub /
@@ -227,6 +237,21 @@ class LoomStore:
     def set_locale(self, *, locale: str | None) -> None:
         """Record the HA-facing locale (the integration's UI language)."""
         self._locale = locale or "en"
+
+    @property
+    def entity_names(self) -> Mapping[str, str]:
+        """
+        The daemon's entity-name catalogue, keyed as authored.
+
+        Values are templates as the daemon authored them — a placeholder
+        such as ``{iface}`` is the reader's to fill, because only the
+        reader knows which interface it is naming.
+        """
+        return self._entity_names
+
+    def set_entity_names(self, *, entries: Mapping[str, str]) -> None:
+        """Record the daemon's entity-name catalogue for the active locale."""
+        self._entity_names = dict(entries)
 
     @property
     def serial_suffix(self) -> str:
@@ -589,6 +614,26 @@ class LoomStore:
                 continue
             self._register_alarm_panel(panel=self._build_alarm_panel(summary=entity))
 
+    def apply_triggered_motion(self, *, sensors: list[AlarmTriggeredMotionSensor]) -> None:
+        """
+        Seed the per-panel latched-detector counts (``GET /alarm/triggered-motion``).
+
+        Pure mutation, no I/O: the caller does the read. Every panel is
+        written, so a zone that dropped to zero is cleared rather than
+        keeping a stale count, and the master panel receives the total
+        — which is the same scope the daemon's aggregate reset covers.
+
+        There is no ``alarm.*`` broadcast for a latch, so this is the
+        only way the counts move. :meth:`LoomClient.refresh_triggered_motion`
+        owns the read and the cadence.
+        """
+        per_zone: dict[str, int] = {}
+        for sensor in sensors:
+            per_zone[sensor.zone_id] = per_zone.get(sensor.zone_id, 0) + 1
+        for panel in self._alarm_panels.values():
+            count = len(sensors) if panel.is_master else per_zone.get(panel.zone_id, 0)
+            panel._set_triggered_motion_count(count=count)
+
     def attach_alarm_zone_statuses(self, *, statuses: list[AlarmZoneStatus]) -> None:
         """
         Seed the live zone detail (``GET /alarm/state``) onto the panels.
@@ -766,6 +811,38 @@ class LoomStore:
         """Silence every sounding output (break-glass). Wire: ``POST /alarm/silence-all``."""
         transport = self._require_transport()
         await transport.request(method="POST", path="/alarm/silence-all", allow_retry=False)
+
+    async def reset_alarm_zone_motion(self, *, zone_id: str) -> AlarmMotionResetResult:
+        """
+        Clear one zone's latched motion/presence detectors.
+
+        Wire: ``POST /alarm/zones/{id}/reset-motion`` (daemon ≥ 0.58.1).
+        Not retried — the reset writes to devices, so a blind replay is
+        real radio traffic.
+
+        Unlike the other alarm verbs this returns the daemon's result
+        instead of ``None``: the counters distinguish "nothing was
+        latched" (``reset == 0 and failed == 0``) from "detectors did
+        not answer" (``failed > 0``), and only the caller can decide
+        what that means for the user. There is no ``alarm.*`` broadcast
+        for a reset pass, so the return value is the only report.
+        """
+        transport = self._require_transport()
+        payload = await transport.request(
+            method="POST", path=f"/alarm/zones/{quote(zone_id, safe='')}/reset-motion", allow_retry=False
+        )
+        return AlarmMotionResetResult.model_validate(payload)
+
+    async def reset_all_alarm_motion(self) -> AlarmMotionResetResult:
+        """
+        Clear every latched motion/presence detector across all zones.
+
+        Wire: ``POST /alarm/reset-motion`` (daemon ≥ 0.58.1). Not
+        retried. Same counter semantics as :meth:`reset_alarm_zone_motion`.
+        """
+        transport = self._require_transport()
+        payload = await transport.request(method="POST", path="/alarm/reset-motion", allow_retry=False)
+        return AlarmMotionResetResult.model_validate(payload)
 
     # ---- CDP attach ----
 

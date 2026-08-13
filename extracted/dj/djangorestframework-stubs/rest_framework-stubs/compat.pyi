@@ -1,6 +1,6 @@
 from typing import Any, TypeAlias
 
-from django.db.models import Q, QuerySet
+from django.db.models import QuerySet
 from typing_extensions import override
 
 try:
@@ -8,17 +8,9 @@ try:
 except ImportError:
     postgres_fields: TypeAlias = None  # type: ignore[no-redef]
 try:
-    import coreapi  # type: ignore[import-untyped]
-except ImportError:
-    coreapi: TypeAlias = None  # type: ignore[no-redef]
-try:
     import uritemplate
 except ImportError:
     uritemplate: TypeAlias = None  # type: ignore[no-redef]
-try:
-    import coreschema  # type: ignore[import-untyped]
-except ImportError:
-    coreschema: TypeAlias = None  # type: ignore[no-redef]
 try:
     import yaml
 except ImportError:
@@ -55,7 +47,6 @@ def pygments_css(style: Any) -> str | None: ...
 def pygments_highlight(text: str, lang: str, style: Any) -> Any: ...
 def md_filter_add_syntax_highlight(md: Any) -> bool: ...
 def unicode_http_header(value: str | bytes) -> str: ...
-def get_referenced_base_fields_from_q(q: Q) -> set[str]: ...
 
 SHORT_SEPARATORS: tuple[str, str]
 LONG_SEPARATORS: tuple[str, str]
@@ -69,8 +60,6 @@ __all__ = [
     "Preprocessor",
     "QuerySet",
     "apply_markdown",
-    "coreapi",
-    "coreschema",
     "inflection",
     "markdown",
     "md_filter_add_syntax_highlight",

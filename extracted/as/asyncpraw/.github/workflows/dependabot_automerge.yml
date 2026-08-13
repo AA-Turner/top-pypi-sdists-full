@@ -1,0 +1,13 @@
+jobs:
+  dependabot_automerge:
+    name: Dependabot automerge
+    permissions:
+      pull-requests: read # required by fetch-metadata; the merge uses an app token
+    secrets:
+      APP_ID: ${{ secrets.APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+    uses: praw-dev/.github/.github/workflows/dependabot_automerge.yml@97050199f9773073e4360d798053b7fb342e4c1f # v1.11.0
+name: Dependabot automerge
+on:
+  pull_request:
+permissions: {}

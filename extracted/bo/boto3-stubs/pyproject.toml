@@ -4,10 +4,10 @@
 
 [project]
 name = "boto3-stubs"
-version = "1.43.69"
+version = "1.43.70"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 1.43.69 generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 1.43.70 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "boto3-stubs-full>=1.43.0, <1.44.0",
 ]
 boto3 = [
-    "boto3==1.43.69",
+    "boto3==1.43.70",
 ]
 all = [
     "mypy-boto3-accessanalyzer>=1.43.0, <1.44.0",

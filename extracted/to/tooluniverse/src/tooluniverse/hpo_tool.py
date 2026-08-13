@@ -213,7 +213,8 @@ class HPOTool(BaseTool):
         """Get genes or diseases annotated to an HPO phenotype term.
 
         Uses the JAX network-annotation endpoint, which returns the genes,
-        diseases, assays and medical actions linked to a phenotype.
+        diseases, assays and medical actions linked to a phenotype in a
+        single response (the endpoint itself has no server-side paging).
         """
         term_id = arguments.get("term_id", "")
         if not term_id:
@@ -229,6 +230,21 @@ class HPOTool(BaseTool):
             limit = 50
         limit = max(1, min(limit, 500))
 
+        # Fix-19C-1/19C-2: a phenotype term can be linked to thousands of
+        # genes/diseases (confirmed live: HP:0001263 "Global developmental
+        # delay" has 2077 genes), but `limit` is capped at 500 and this
+        # endpoint has no server-side paging -- previously the tool always
+        # sliced from position 0, so well-known genes/diseases sorted past
+        # position 500 by the API (e.g. SHANK3, MECP2 for that term) were
+        # permanently unreachable with no way to page further. The full list
+        # is already in memory from the one API call below, so paging is a
+        # free client-side slice -- no extra round-trip needed.
+        try:
+            offset = int(arguments.get("offset", 0) or 0)
+        except (TypeError, ValueError):
+            offset = 0
+        offset = max(0, offset)
+
         # The annotation endpoint lives under /api/network/, not /api/hp/.
         url = f"{HPO_ANNOTATION_URL}/{term_id}"
         response = requests.get(url, timeout=self.timeout)
@@ -238,7 +254,7 @@ class HPOTool(BaseTool):
         items = data.get(kind) or []
         total = len(items)
         trimmed = []
-        for it in items[:limit]:
+        for it in items[offset : offset + limit]:
             entry = {"id": it.get("id"), "name": it.get("name")}
             if kind == "diseases":
                 entry["mondo_id"] = it.get("mondoId")
@@ -251,7 +267,9 @@ class HPOTool(BaseTool):
                 "source": "HPO (JAX Ontology) network annotation",
                 "term_id": term_id,
                 "total": total,
+                "offset": offset,
                 "returned": len(trimmed),
+                "has_more": offset + len(trimmed) < total,
             },
         }
 
@@ -291,13 +309,34 @@ class HPOTool(BaseTool):
                 if t and t.get("name")
             ]
 
+        metadata = {
+            "source": "HPO (JAX Ontology)",
+            "term_id": term_id,
+        }
+        # The JAX ontology API silently resolves an obsolete/merged HPO ID to
+        # its replacement term's record -- with no obsolescence flag anywhere
+        # in the payload -- rather than 404ing or marking the response as a
+        # redirect. Detect the ID mismatch ourselves and surface it, so a
+        # caller doesn't mistake the replacement term's data for the term
+        # they actually asked about (confirmed live: querying an obsolete ID
+        # like HP:0006887 silently returns HP:0001249's full record).
+        resolved_id = result["id"]
+        if resolved_id and resolved_id != term_id:
+            metadata["requested_id"] = term_id
+            metadata["resolved_id"] = resolved_id
+            metadata["note"] = (
+                f"The requested term ID ({term_id}) differs from the "
+                f"returned term's ID ({resolved_id}). This usually means "
+                f"{term_id} is obsolete or was merged into {resolved_id} "
+                "upstream. Use get_phenotype_by_HPO_ID for an explicit "
+                "'deprecated' flag, or HPO_search_terms to find the "
+                "current preferred term."
+            )
+
         return {
             "status": "success",
             "data": result,
-            "metadata": {
-                "source": "HPO (JAX Ontology)",
-                "term_id": term_id,
-            },
+            "metadata": metadata,
         }
 
     def _search_terms(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -306,18 +345,29 @@ class HPOTool(BaseTool):
         if not query:
             return {"status": "error", "error": "query parameter is required"}
 
-        max_results = arguments.get("max_results", 10)
-        if max_results > 50:
-            max_results = 50
+        # Coerce max_results robustly: the schema allows integer|null, so a
+        # caller may omit it, pass null, or pass an out-of-range value. Using
+        # the raw value directly would crash on None (None > 50) and let
+        # negatives/zero through.
+        try:
+            max_results = int(arguments.get("max_results") or 10)
+        except (TypeError, ValueError):
+            max_results = 10
+        max_results = max(1, min(max_results, 50))
 
         url = f"{HPO_BASE_URL}/search"
-        params = {"q": query, "max": max_results}
+        # The JAX ontology search endpoint sizes the page with `limit`. The
+        # previous `max` key was silently ignored, capping every result set at
+        # the API default of 10 regardless of the requested count.
+        params = {"q": query, "limit": max_results}
 
         response = requests.get(url, params=params, timeout=self.timeout)
         response.raise_for_status()
         data = response.json()
 
-        terms = data.get("terms", [])
+        # Defensive truncation in case an upstream change ever returns more
+        # rows than requested.
+        terms = data.get("terms", [])[:max_results]
         results = []
         for term in terms:
             results.append(
@@ -337,6 +387,10 @@ class HPOTool(BaseTool):
                 "source": "HPO (JAX Ontology)",
                 "query": query,
                 "total_results": len(results),
+                # Total matches available across all pages (the API reports this
+                # as `totalCount`), so callers can see more terms exist beyond
+                # the returned page instead of assuming this page is exhaustive.
+                "total_available": data.get("totalCount", len(results)),
             },
         }
 

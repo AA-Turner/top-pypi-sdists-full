@@ -16,7 +16,8 @@ use crate::rules::front_matter_utils::FrontMatterUtils;
 use crate::utils::code_block_utils::{CodeBlockDetail, CodeBlockUtils};
 use crate::utils::range_utils::byte_to_char_count;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::ops::Range;
+use std::path::{Path, PathBuf};
 
 /// Macro for profiling sections - only active in non-WASM builds
 #[cfg(not(target_arch = "wasm32"))]
@@ -29,6 +30,38 @@ macro_rules! profile_section {
         }
         result
     }};
+}
+
+fn build_commonmark_ordered_lists(
+    lines: &[LineInfo],
+    line_to_list: &crate::utils::code_block_utils::LineToListMap,
+    list_start_values: &crate::utils::code_block_utils::ListStartValues,
+) -> Vec<CommonMarkOrderedListInfo> {
+    let mut grouped_lines: HashMap<usize, Vec<usize>> = HashMap::new();
+
+    for (&line_num, &list_id) in line_to_list {
+        let is_ordered_item = line_num
+            .checked_sub(1)
+            .and_then(|index| lines.get(index))
+            .and_then(|line| line.list_item.as_deref())
+            .is_some_and(|item| item.is_ordered);
+        if is_ordered_item {
+            grouped_lines.entry(list_id).or_default().push(line_num);
+        }
+    }
+
+    let mut lists: Vec<_> = grouped_lines
+        .into_iter()
+        .map(|(list_id, mut item_lines)| {
+            item_lines.sort_unstable();
+            CommonMarkOrderedListInfo {
+                start_value: list_start_values.get(&list_id).copied().unwrap_or(1),
+                item_lines,
+            }
+        })
+        .collect();
+    lists.sort_by_key(|list| list.item_lines.first().copied().unwrap_or(0));
+    lists
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -60,14 +93,16 @@ pub struct LintContext<'a> {
     pub code_blocks: Vec<(usize, usize)>, // Cached code block ranges (not including inline code spans)
     pub code_block_details: Vec<CodeBlockDetail>, // Per-block metadata (fenced/indented, info string)
     pub strong_spans: Vec<crate::utils::code_block_utils::StrongSpanDetail>, // Pre-computed strong emphasis spans
-    pub line_to_list: crate::utils::code_block_utils::LineToListMap, // Ordered list membership by line
-    pub list_start_values: crate::utils::code_block_utils::ListStartValues, // Start values per list ID
+    line_to_list: crate::utils::code_block_utils::LineToListMap, // Private CommonMark membership input
+    list_start_values: crate::utils::code_block_utils::ListStartValues, // Private CommonMark start-value input
+    commonmark_ordered_lists_cache: OnceLock<Vec<CommonMarkOrderedListInfo>>, // Lazy source-ordered view
     pub lines: Vec<LineInfo>,             // Pre-computed line information
-    pub links: Vec<ParsedLink<'a>>,       // Pre-parsed links
-    pub images: Vec<ParsedImage<'a>>,     // Pre-parsed images
-    pub broken_links: Vec<BrokenLinkInfo>, // Broken/undefined references
-    pub footnote_refs: Vec<FootnoteRef>,  // Pre-parsed footnote references
-    pub reference_defs: Vec<ReferenceDef>, // Reference definitions
+    blockquote_headings: Vec<Option<Box<HeadingInfo>>>, // Container headings, parallel to `lines`
+    links: Vec<ParsedLink<'a>>,           // Pre-parsed links
+    images: Vec<ParsedImage<'a>>,         // Pre-parsed images
+    broken_links: Vec<BrokenLinkInfo>,    // Broken/undefined references
+    footnote_refs: Vec<FootnoteRef>,      // Pre-parsed footnote references
+    reference_defs: Vec<ReferenceDef>,    // Reference definitions
     reference_defs_map: HashMap<String, usize>, // O(1) lookup by lowercase ID -> index in reference_defs
     code_spans_cache: OnceLock<Arc<Vec<CodeSpan>>>, // Lazy-loaded inline code spans
     math_spans_cache: OnceLock<Arc<Vec<MathSpan>>>, // Lazy-loaded math spans ($...$ and $$...$$)
@@ -81,10 +116,10 @@ pub struct LintContext<'a> {
     has_mixed_list_nesting_cache: OnceLock<bool>, // Cached result for mixed ordered/unordered list nesting detection
     html_comment_ranges: Vec<crate::utils::skip_context::ByteRange>, // Pre-computed HTML comment ranges
     pub table_blocks: Vec<crate::utils::table_utils::TableBlock>, // Pre-computed table blocks
-    pub line_index: crate::utils::range_utils::LineIndex<'a>, // Pre-computed line index for byte position calculations
+    line_index: crate::utils::range_utils::LineIndex<'a>, // Pre-computed source-location index
     jinja_ranges: Vec<(usize, usize)>,            // Pre-computed Jinja template ranges ({{ }}, {% %})
     pub flavor: MarkdownFlavor,                   // Markdown flavor being used
-    pub source_file: Option<PathBuf>,             // Source file path (for rules that need file context)
+    source_file: Option<PathBuf>,                 // Source file path (capability exposed through `source_file()`)
     jsx_expression_ranges: Vec<(usize, usize)>,   // Pre-computed JSX expression ranges (MDX: {expression})
     mdx_comment_ranges: Vec<(usize, usize)>,      // Pre-computed MDX comment ranges ({/* ... */})
     citation_ranges: Vec<crate::utils::skip_context::ByteRange>, // Pre-computed Pandoc/Quarto citation ranges (@key, [@key])
@@ -131,6 +166,14 @@ pub fn code_block_ranges(content: &str, flavor: MarkdownFlavor) -> Vec<(usize, u
 }
 
 impl<'a> LintContext<'a> {
+    /// The native source path available to filesystem-aware rules.
+    ///
+    /// Virtual adapters intentionally leave this unset even when they provide a
+    /// logical path for configuration matching.
+    pub fn source_file(&self) -> Option<&Path> {
+        self.source_file.as_deref()
+    }
+
     pub fn new(content: &'a str, flavor: MarkdownFlavor, source_file: Option<PathBuf>) -> Self {
         #[cfg(not(target_arch = "wasm32"))]
         let profile = std::env::var("RUMDL_PROFILE_QUADRATIC").is_ok();
@@ -663,7 +706,7 @@ impl<'a> LintContext<'a> {
         );
 
         // Now detect headings and blockquotes
-        profile_section!(
+        let mut blockquote_headings = profile_section!(
             "Headings & blockquotes",
             profile,
             heading_detection::detect_headings_and_blockquotes(
@@ -680,6 +723,11 @@ impl<'a> LintContext<'a> {
         for line in &mut lines {
             if line.in_kramdown_extension_block {
                 line.heading = None;
+            }
+        }
+        for (line, heading) in lines.iter().zip(&mut blockquote_headings) {
+            if line.in_kramdown_extension_block {
+                *heading = None;
             }
         }
 
@@ -1032,7 +1080,6 @@ impl<'a> LintContext<'a> {
         });
 
         let inline_config = InlineConfig::from_content_with_code_blocks(content, &code_blocks);
-
         Self {
             content,
             content_lines,
@@ -1042,7 +1089,9 @@ impl<'a> LintContext<'a> {
             strong_spans,
             line_to_list,
             list_start_values,
+            commonmark_ordered_lists_cache: OnceLock::new(),
             lines,
+            blockquote_headings,
             links,
             images,
             broken_links,
@@ -1122,15 +1171,7 @@ impl<'a> LintContext<'a> {
 
     /// Check if `pos` is inside any link byte range. O(log n).
     pub fn is_in_link(&self, pos: usize) -> bool {
-        let idx = self.links.partition_point(|link| link.byte_offset <= pos);
-        if idx > 0 && pos < self.links[idx - 1].byte_end {
-            return true;
-        }
-        let idx = self.images.partition_point(|img| img.byte_offset <= pos);
-        if idx > 0 && pos < self.images[idx - 1].byte_end {
-            return true;
-        }
-        self.is_in_reference_def(pos)
+        self.link_containing(pos).is_some() || self.image_containing(pos).is_some() || self.is_in_reference_def(pos)
     }
 
     /// Check if `pos`` is within a bare URL
@@ -1441,6 +1482,58 @@ impl<'a> LintContext<'a> {
         }
     }
 
+    /// Return the byte offset at which a 1-indexed source line starts.
+    ///
+    /// This is the inverse-facing half of [`Self::offset_to_line_col`]. Keeping
+    /// both conversions on the document prevents rules from depending on the
+    /// line-index representation or reconstructing it independently.
+    pub fn line_start_byte(&self, line_number: usize) -> Option<usize> {
+        self.line_index.get_line_start_byte(line_number)
+    }
+
+    /// Return an empty byte range at a 1-indexed line and character column.
+    ///
+    /// Columns are character offsets, not UTF-8 byte offsets. Positions past
+    /// the end of a line clamp to the end of its content; missing lines clamp to
+    /// the end of the document.
+    pub fn line_column_byte_range(&self, line_number: usize, column: usize) -> Range<usize> {
+        self.line_index.line_col_to_byte_range(line_number, column)
+    }
+
+    /// Return a byte range beginning at a 1-indexed line and character column.
+    ///
+    /// `length` is measured in characters. The result never crosses the line's
+    /// content boundary and excludes its line ending.
+    pub fn line_column_byte_range_with_length(&self, line_number: usize, column: usize, length: usize) -> Range<usize> {
+        self.line_index
+            .line_col_to_byte_range_with_length(line_number, column, length)
+    }
+
+    /// Return the byte range of a complete 1-indexed line, including its line
+    /// ending when one is present.
+    pub fn whole_line_byte_range(&self, line_number: usize) -> Range<usize> {
+        self.line_index.whole_line_range(line_number)
+    }
+
+    /// Return the byte range between two 1-indexed character columns on a line.
+    ///
+    /// The range excludes the line ending and clamps both columns to valid
+    /// character boundaries in the line content.
+    pub fn line_text_byte_range(&self, line_number: usize, start_column: usize, end_column: usize) -> Range<usize> {
+        self.line_index.line_text_range(line_number, start_column, end_column)
+    }
+
+    /// Return the byte range of a 1-indexed line's content, excluding its line
+    /// ending.
+    pub fn line_content_byte_range(&self, line_number: usize) -> Range<usize> {
+        self.line_index.line_content_range(line_number)
+    }
+
+    /// Return the byte range spanning complete 1-indexed lines, inclusive.
+    pub fn line_span_byte_range(&self, start_line: usize, end_line: usize) -> Range<usize> {
+        self.line_index.multi_line_range(start_line, end_line)
+    }
+
     /// Check if a position is within a code block or code span. O(log n).
     pub fn is_in_code_block_or_span(&self, pos: usize) -> bool {
         // Check code blocks first (already uses binary search internally)
@@ -1461,12 +1554,95 @@ impl<'a> LintContext<'a> {
         }
     }
 
-    /// Get URL for a reference link/image by its ID (O(1) lookup via HashMap)
-    pub fn get_reference_url(&self, ref_id: &str) -> Option<&str> {
+    /// Parsed links in document order.
+    pub fn links(&self) -> &[ParsedLink<'a>] {
+        &self.links
+    }
+
+    /// Parsed images in document order.
+    pub fn images(&self) -> &[ParsedImage<'a>] {
+        &self.images
+    }
+
+    /// Broken or undefined reference links in document order.
+    pub fn broken_links(&self) -> &[BrokenLinkInfo] {
+        &self.broken_links
+    }
+
+    /// Parsed footnote references in document order.
+    pub fn footnote_references(&self) -> &[FootnoteRef] {
+        &self.footnote_refs
+    }
+
+    /// Parsed reference definitions in document order.
+    pub fn reference_definitions(&self) -> &[ReferenceDef] {
+        &self.reference_defs
+    }
+
+    /// Links whose opening delimiter starts on `line_number` (1-indexed).
+    pub fn links_on_line(&self, line_number: usize) -> &[ParsedLink<'a>] {
+        let start = self.links.partition_point(|link| link.line < line_number);
+        let end = self.links.partition_point(|link| link.line <= line_number);
+        &self.links[start..end]
+    }
+
+    /// Images whose opening delimiter starts on `line_number` (1-indexed).
+    pub fn images_on_line(&self, line_number: usize) -> &[ParsedImage<'a>] {
+        let start = self.images.partition_point(|image| image.line < line_number);
+        let end = self.images.partition_point(|image| image.line <= line_number);
+        &self.images[start..end]
+    }
+
+    /// Find the link that starts at an exact byte offset. O(log n).
+    pub fn link_starting_at(&self, byte_offset: usize) -> Option<&ParsedLink<'a>> {
+        self.links
+            .binary_search_by_key(&byte_offset, |link| link.byte_offset)
+            .ok()
+            .map(|index| &self.links[index])
+    }
+
+    /// Find the image that starts at an exact byte offset. O(log n).
+    pub fn image_starting_at(&self, byte_offset: usize) -> Option<&ParsedImage<'a>> {
+        self.images
+            .binary_search_by_key(&byte_offset, |image| image.byte_offset)
+            .ok()
+            .map(|index| &self.images[index])
+    }
+
+    /// Find the parsed link containing `byte_offset`. O(log n).
+    pub fn link_containing(&self, byte_offset: usize) -> Option<&ParsedLink<'a>> {
+        let index = self.links.partition_point(|link| link.byte_offset <= byte_offset);
+        self.links
+            .get(index.checked_sub(1)?)
+            .filter(|link| byte_offset < link.byte_end)
+    }
+
+    /// Find the parsed image containing `byte_offset`. O(log n).
+    pub fn image_containing(&self, byte_offset: usize) -> Option<&ParsedImage<'a>> {
+        let index = self.images.partition_point(|image| image.byte_offset <= byte_offset);
+        self.images
+            .get(index.checked_sub(1)?)
+            .filter(|image| byte_offset < image.byte_end)
+    }
+
+    /// Links that start at or before `byte_offset`, in document order. O(log n).
+    pub fn links_starting_before_or_at(&self, byte_offset: usize) -> &[ParsedLink<'a>] {
+        let end = self.links.partition_point(|link| link.byte_offset <= byte_offset);
+        &self.links[..end]
+    }
+
+    /// Find a reference definition by its case-insensitive identifier.
+    pub fn reference_definition(&self, ref_id: &str) -> Option<&ReferenceDef> {
         let normalized_id = ref_id.to_lowercase();
         self.reference_defs_map
             .get(&normalized_id)
-            .map(|&idx| self.reference_defs[idx].url.as_str())
+            .map(|&index| &self.reference_defs[index])
+    }
+
+    /// Get URL for a reference link/image by its ID (O(1) lookup via HashMap)
+    pub fn get_reference_url(&self, ref_id: &str) -> Option<&str> {
+        self.reference_definition(ref_id)
+            .map(|definition| definition.url.as_str())
     }
 
     /// Check if a line is part of a list block
@@ -1918,6 +2094,84 @@ impl<'a> LintContext<'a> {
         self.lines
             .iter()
             .any(|line| line.heading.as_ref().is_some_and(|h| h.is_valid))
+    }
+
+    /// Iterate over every parsed list item in source order.
+    #[must_use]
+    pub fn list_items(&self) -> ParsedListItemsIter<'_> {
+        ParsedListItemsIter::new(&self.lines)
+    }
+
+    /// Return the parsed list item on a 1-indexed source line, if any.
+    #[must_use]
+    pub fn list_item_on_line(&self, line_num: usize) -> Option<ParsedListItem<'_>> {
+        let line_info = self.lines.get(line_num.checked_sub(1)?)?;
+        Some(ParsedListItem::new(
+            line_num,
+            line_info.list_item.as_deref()?,
+            line_info,
+        ))
+    }
+
+    /// Borrow the document's parsed list blocks and their item iterators.
+    #[must_use]
+    pub fn parsed_list_blocks(&self) -> ParsedListBlocks<'_> {
+        ParsedListBlocks::new(&self.list_blocks, &self.lines)
+    }
+
+    /// Whether the document contains any parsed list items.
+    #[must_use]
+    pub fn has_list_items(&self) -> bool {
+        self.lines.iter().any(|line| line.list_item.is_some())
+    }
+
+    /// Whether the document contains any parsed unordered-list items.
+    #[must_use]
+    pub fn has_unordered_list_items(&self) -> bool {
+        self.lines
+            .iter()
+            .any(|line| line.list_item.as_ref().is_some_and(|item| !item.is_ordered))
+    }
+
+    /// Borrow ordered lists using the membership and start values determined by CommonMark.
+    #[must_use]
+    pub fn commonmark_ordered_lists(&self) -> CommonMarkOrderedLists<'_> {
+        let lists = self
+            .commonmark_ordered_lists_cache
+            .get_or_init(|| build_commonmark_ordered_lists(&self.lines, &self.line_to_list, &self.list_start_values));
+        CommonMarkOrderedLists::new(lists, &self.lines)
+    }
+
+    /// Iterate over every heading recognized in the rendered document.
+    ///
+    /// This includes top-level ATX and Setext headings, ATX headings nested in
+    /// blockquotes, and malformed top-level ATX headings retained for
+    /// diagnostics. Code blocks, front matter, raw HTML blocks, and
+    /// flavor-specific non-Markdown regions are excluded during parsing;
+    /// explicitly Markdown-enabled HTML containers remain eligible.
+    #[must_use]
+    pub fn headings(&self) -> ParsedHeadingsIter<'_> {
+        ParsedHeadingsIter::new(&self.lines, &self.blockquote_headings)
+    }
+
+    /// Return the parsed heading on a 1-indexed source line, if any.
+    #[must_use]
+    pub fn heading_on_line(&self, line_num: usize) -> Option<ParsedHeading<'_>> {
+        let idx = line_num.checked_sub(1)?;
+        let line_info = self.lines.get(idx)?;
+        let (heading, blockquote_depth) = match line_info.heading.as_deref() {
+            Some(heading) => (heading, 0),
+            None => (
+                self.blockquote_headings.get(idx)?.as_deref()?,
+                line_info.blockquote.as_ref().map_or(0, |bq| bq.nesting_level),
+            ),
+        };
+        Some(ParsedHeading {
+            line_num,
+            heading,
+            line_info,
+            blockquote_depth,
+        })
     }
 }
 

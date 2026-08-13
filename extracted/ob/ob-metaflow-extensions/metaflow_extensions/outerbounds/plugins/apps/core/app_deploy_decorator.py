@@ -129,11 +129,16 @@ class app_deploy(FlowMutator):
         # Add exit_hook for cleanup if cleanup_policy is not "none"
         hook = None
         if self.cleanup_policy == "delete":
-            hook = delete_apps_on_exit
+            hook = delete_apps_on_exit.__name__
         elif self.cleanup_policy == "scale_down":
-            hook = scale_down_apps_on_exit
+            hook = scale_down_apps_on_exit.__name__
         if hook is None:
             return
+        # @exit_hook keeps only `fn.__name__` when handed a function object, and
+        # the runner then looks that name up in the flow file -- where these
+        # hooks do not live. A dotted import path is resolved by import instead,
+        # so it survives the round trip out of this module.
+        hook = "%s.%s" % (__name__, hook)
         mutable_flow.add_decorator(
             "exit_hook",
             deco_kwargs={

@@ -25,7 +25,7 @@ class NodeHaGivebackSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
                 data_key="failure",
                 allow_none=True
             )
-    r""" Indicates the failure code and message. This property is not supported on the ASA r2 platform. """
+    r""" Indicates the failure code and message. """
 
     state = marshmallow_fields.Str(data_key="state", allow_none=True)
     r""" The state field of the node_ha_giveback.
@@ -46,7 +46,7 @@ Valid choices:
                 data_key="status",
                 allow_none=True
                 )
-    r""" Giveback status of each aggregate. This property is not supported on the ASA r2 platform. """
+    r""" Giveback status of each aggregate. """
 
     @property
     def resource(self):

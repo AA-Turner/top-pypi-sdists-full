@@ -98,9 +98,7 @@ class SQLiteParser(parser.Parser):
     }
 
     def _parse_factor_operand(self) -> exp.Expr | None:
-        in_arithmetic_operand = (
-            self._prev is not None and self._prev.token_type in self.ARITHMETIC_TOKENS
-        )
+        in_arithmetic_operand = self._prev.token_type in self.ARITHMETIC_TOKENS
         this = self._parse_concat_operand()
         parsed_op = False
 
@@ -178,3 +176,29 @@ class SQLiteParser(parser.Parser):
             if is_attach
             else self.expression(exp.Detach(this=this))
         )
+
+    # https://www.sqlite.org/gencol.html
+    def _parse_generated_as_identity(
+        self,
+    ) -> (
+        exp.GeneratedAsIdentityColumnConstraint
+        | exp.ComputedColumnConstraint
+        | exp.GeneratedAsRowColumnConstraint
+    ):
+        this = super()._parse_generated_as_identity()
+
+        # Only expression-bearing GENERATED ALWAYS AS (expr) forms are computed
+        # columns. Match STORED/VIRTUAL inside this branch so true identity
+        # (AS IDENTITY) does not silently consume a trailing storage keyword.
+        if (
+            isinstance(this, exp.GeneratedAsIdentityColumnConstraint)
+            and this.expression is not None
+        ):
+            persisted = (
+                self._match_texts(("STORED", "VIRTUAL")) and self._prev.text.upper() == "STORED"
+            )
+            return self.expression(
+                exp.ComputedColumnConstraint(this=this.expression, persisted=persisted)
+            )
+
+        return this

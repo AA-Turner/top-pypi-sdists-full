@@ -29,17 +29,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterLdap(
     {
+        "base_dn": "dc=domainA,dc=example,dc=com",
+        "port": 389,
         "bind_dn": "cn=Administrators,cn=users,dc=domainA,dc=example,dc=com",
-        "schema": "ad_idmu",
-        "try_channel_binding": True,
         "base_scope": "subtree",
         "_links": {"self": {"href": "/api/security/authentication/cluster/ldap"}},
         "session_security": "none",
-        "base_dn": "dc=domainA,dc=example,dc=com",
-        "port": 389,
-        "use_start_tls": True,
         "servers": ["10.10.10.10", "domainB.example.com"],
         "min_bind_level": "anonymous",
+        "try_channel_binding": True,
+        "schema": "ad_idmu",
+        "use_start_tls": True,
     }
 )
 

@@ -44,18 +44,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 EmsDestination(
     {
+        "type": "snmp",
+        "name": "snmp-traphost",
         "_links": {"self": {"href": "/api/support/ems/destinations/snmp-traphost"}},
         "destination": "",
         "filters": [
             {
+                "name": "default-trap-events",
                 "_links": {
                     "self": {"href": "/api/support/ems/filters/default-trap-events"}
                 },
-                "name": "default-trap-events",
             }
         ],
-        "name": "snmp-traphost",
-        "type": "snmp",
     }
 )
 
@@ -81,7 +81,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 EmsDestination(
     {
+        "name": "rest-api-destination",
+        "_links": {
+            "self": {
+                "href": "/api/support/ems/destinations/rest-api-destination?fields=name,connectivity.*"
+            }
+        },
         "connectivity": {
+            "state": "fail",
             "errors": [
                 {
                     "message": {
@@ -90,19 +97,12 @@ EmsDestination(
                         "code": "4",
                     },
                     "node": {
-                        "name": "node1",
                         "uuid": "1cd8a442-86d1-11e0-ae1c-123478563412",
+                        "name": "node1",
                     },
                 }
             ],
-            "state": "fail",
         },
-        "_links": {
-            "self": {
-                "href": "/api/support/ems/destinations/rest-api-destination?fields=name,connectivity.*"
-            }
-        },
-        "name": "rest-api-destination",
     }
 )
 

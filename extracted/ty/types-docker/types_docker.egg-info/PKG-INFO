@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-docker
-Version: 7.2.0.20260811
+Version: 7.2.0.20260813
 Summary: Typing stubs for docker
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -43,4 +43,4 @@ This package was tested with the following type checkers:
 * [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`586480423286e6d008c5704d32149aca07a2543a`](https://github.com/python/typeshed/commit/586480423286e6d008c5704d32149aca07a2543a).
+[`b73f5c1a3b4a39ac7f1867e50a58c51c71cf0545`](https://github.com/python/typeshed/commit/b73f5c1a3b4a39ac7f1867e50a58c51c71cf0545).

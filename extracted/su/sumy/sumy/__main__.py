@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """
 Sumy - automatic text summarizer.
@@ -26,26 +25,25 @@ Options:
 
 """
 
-from __future__ import absolute_import
-from __future__ import division, print_function, unicode_literals
 
 import sys
 
 from docopt import docopt
+
 from . import __version__
-from .utils import ItemsCount, get_stop_words, read_stop_words, fetch_url
-from ._compat import to_string, to_unicode, to_bytes, PY3
+from ._compat import to_string, to_unicode
+from .nlp.stemmers import Stemmer
 from .nlp.tokenizers import Tokenizer
 from .parsers.html import HtmlParser
 from .parsers.plaintext import PlaintextParser
-from .summarizers.luhn import LuhnSummarizer
 from .summarizers.edmundson import EdmundsonSummarizer
-from .summarizers.lsa import LsaSummarizer
-from .summarizers.text_rank import TextRankSummarizer
-from .summarizers.lex_rank import LexRankSummarizer
-from .summarizers.sum_basic import SumBasicSummarizer
 from .summarizers.kl import KLSummarizer
-from .nlp.stemmers import Stemmer
+from .summarizers.lex_rank import LexRankSummarizer
+from .summarizers.lsa import LsaSummarizer
+from .summarizers.luhn import LuhnSummarizer
+from .summarizers.sum_basic import SumBasicSummarizer
+from .summarizers.text_rank import TextRankSummarizer
+from .utils import ItemsCount, fetch_url, get_stop_words, read_stop_words
 
 PARSERS = {
     "html": HtmlParser,
@@ -68,10 +66,7 @@ def main(args=None):
     summarizer, parser, items_count = handle_arguments(args)
 
     for sentence in summarizer(parser.document, items_count):
-        if PY3:
-            print(to_unicode(sentence))
-        else:
-            print(to_bytes(sentence))
+        print(to_unicode(sentence))
 
     return 0
 
@@ -79,7 +74,7 @@ def main(args=None):
 def handle_arguments(args, default_input_stream=sys.stdin):
     document_format = args['--format']
     if document_format is not None and document_format not in PARSERS:
-        raise ValueError("Unsupported format of input document. Possible values are: %s. Given: %s." % (
+        raise ValueError("Unsupported format of input document. Possible values are: {}. Given: {}.".format(
             ", ".join(PARSERS.keys()),
             document_format,
         ))
@@ -129,9 +124,9 @@ def build_summarizer(summarizer_class, stop_words, stemmer, parser):
 if __name__ == "__main__":
     try:
         exit_code = main()
-        exit(exit_code)
+        sys.exit(exit_code)
     except KeyboardInterrupt:
-        exit(1)
-    except Exception as e:
+        sys.exit(1)
+    except Exception as e:  # noqa: BLE001 -- top-level CLI handler must catch everything
         print(e)
-        exit(1)
+        sys.exit(1)

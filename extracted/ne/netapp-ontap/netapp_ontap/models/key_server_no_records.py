@@ -40,6 +40,11 @@ class KeyServerNoRecordsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: password """
 
+    port = Size(data_key="port", allow_none=True)
+    r""" TCP port number for the key server.
+
+Example: 5698 """
+
     server = marshmallow_fields.Str(data_key="server", allow_none=True)
     r""" External key server for key management. If no port is provided, a default port of 5696 is used. Not valid in POST if `records` is provided.
 
@@ -70,10 +75,11 @@ Example: username """
 
     patchable_fields = [
         "password",
+        "port",
         "timeout",
         "username",
     ]
-    """password,timeout,username,"""
+    """password,port,timeout,username,"""
 
     postable_fields = [
         "server",

@@ -226,6 +226,7 @@ class TaskContainerCreateRequest(google.protobuf.message.Message):
     SECRET_IDS_FIELD_NUMBER: builtins.int
     VOLUME_MOUNTS_FIELD_NUMBER: builtins.int
     NETWORK_ACCESS_FIELD_NUMBER: builtins.int
+    PTY_INFO_FIELD_NUMBER: builtins.int
     task_id: builtins.str
     container_name: builtins.str
     """Logical container name."""
@@ -247,6 +248,9 @@ class TaskContainerCreateRequest(google.protobuf.message.Message):
         container. When unset, defaults to open network access. BLOCKED is not
         accepted: a blocked sidecar has no IP and cannot reach the main container.
         """
+    @property
+    def pty_info(self) -> modal_proto.api_pb2.PTYInfo:
+        """Optional PTY info for sidecar."""
     def __init__(
         self,
         *,
@@ -259,10 +263,14 @@ class TaskContainerCreateRequest(google.protobuf.message.Message):
         secret_ids: collections.abc.Iterable[builtins.str] | None = ...,
         volume_mounts: collections.abc.Iterable[modal_proto.api_pb2.VolumeMount] | None = ...,
         network_access: modal_proto.api_pb2.NetworkAccess | None = ...,
+        pty_info: modal_proto.api_pb2.PTYInfo | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["_network_access", b"_network_access", "network_access", b"network_access"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_network_access", b"_network_access", "args", b"args", "container_name", b"container_name", "env", b"env", "image_id", b"image_id", "network_access", b"network_access", "secret_ids", b"secret_ids", "task_id", b"task_id", "volume_mounts", b"volume_mounts", "workdir", b"workdir"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_network_access", b"_network_access", "_pty_info", b"_pty_info", "network_access", b"network_access", "pty_info", b"pty_info"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_network_access", b"_network_access", "_pty_info", b"_pty_info", "args", b"args", "container_name", b"container_name", "env", b"env", "image_id", b"image_id", "network_access", b"network_access", "pty_info", b"pty_info", "secret_ids", b"secret_ids", "task_id", b"task_id", "volume_mounts", b"volume_mounts", "workdir", b"workdir"]) -> None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_network_access", b"_network_access"]) -> typing_extensions.Literal["network_access"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_pty_info", b"_pty_info"]) -> typing_extensions.Literal["pty_info"] | None: ...
 
 global___TaskContainerCreateRequest = TaskContainerCreateRequest
 

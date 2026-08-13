@@ -50,7 +50,7 @@ class Warehouse(SerializableModel):
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            **{"_metadata": {"name": self.name}},
+            "_metadata": {"name": self.name},
             **{f"table_{tbl.id}": tbl.to_dict() for tbl in self.tables.values()},
         }
 
@@ -79,12 +79,10 @@ class Table(SerializableModel):
         if self.checks:
             output = {
                 **output,
-                **{
-                    "quality_checks": [
-                        self.checks[check_id].to_dict()
-                        for check_id in sorted(self.checks.keys())
-                    ]
-                },
+                "quality_checks": [
+                    self.checks[check_id].to_dict()
+                    for check_id in sorted(self.checks.keys())
+                ],
             }
         return output
 
@@ -188,8 +186,8 @@ class TableConfiguration(ModelWithMetadata):
         )
 
     def to_dict(self) -> dict[str, Any]:
-        metadata = {**self.metadata, **{"full_name": self.name}}
-        return {**{"_metadata": metadata}, **self.config}
+        metadata = {**self.metadata, "full_name": self.name}
+        return {"_metadata": metadata, **self.config}
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, TableConfiguration):
@@ -216,15 +214,11 @@ class Check(ModelWithMetadata):
         metadata = cls._format_metadata(api_response)
         params = {
             **(api_response["config"].get("params") or {}),
-            **{
-                "check_static_id": api_response["check_static_id"],
-                "notification_channel": api_response[
-                    "additional_notification_channel_id"
-                ],
-                "notification_channels": api_response[
-                    "additional_notification_channel_ids"
-                ],
-            },
+            "check_static_id": api_response["check_static_id"],
+            "notification_channel": api_response["additional_notification_channel_id"],
+            "notification_channels": api_response[
+                "additional_notification_channel_ids"
+            ],
         }
         return cls(
             id=api_response["check_static_id"],

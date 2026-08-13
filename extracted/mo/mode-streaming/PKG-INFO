@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mode-streaming
-Version: 0.7.0
+Version: 0.7.1
 Summary: AsyncIO Service-based programming
 Author-email: Ask Solem Hoel <ask@robinhood.com>
 Maintainer-email: William Barnhart <williambbarnhart@gmail.com>
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

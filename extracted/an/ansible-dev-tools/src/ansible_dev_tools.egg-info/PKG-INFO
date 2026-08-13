@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansible-dev-tools
-Version: 26.7.2
+Version: 26.8.0
 Summary: Ansible Developtment Tools kit bundles all tools needed for content creation and testing.
 Author-email: "Bradley A. Thornton" <bthornto@redhat.com>
 Maintainer-email: Ansible by Red Hat <info@ansible.com>
@@ -41,7 +41,7 @@ Requires-Dist: ansible-pylibssh==1.4.0; platform_system == "Linux" and extra == 
 Provides-Extra: full
 Requires-Dist: ansible-dev-tools[server,test]; extra == "full"
 Provides-Extra: server
-Requires-Dist: django<6.0,>4.1; extra == "server"
+Requires-Dist: django<6.0,>=5.2.17; extra == "server"
 Requires-Dist: gunicorn>=23.0.0; extra == "server"
 Requires-Dist: openapi-core>=0.19.1; extra == "server"
 Provides-Extra: test

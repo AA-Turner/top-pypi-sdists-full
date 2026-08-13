@@ -8,15 +8,19 @@ This file has been automatically generated based on the ONTAP REST API documenta
 You can use this API to add, modify or remove a mediator in a MetroCluster IP configuration or a SnapMirror active sync configuration. You can also use this API to get the status and details of the existing mediator. The GET operation returns the status of the mediator along with the mediator details. The DELETE operation removes the mediator. The POST operation adds the mediator. The PATCH operation modifies the local and remote proxy options.
 SnapMirror active sync supports two types of mediators:
 1.  **ONTAP Mediator:**  This is the traditional mediator used in SnapMirror active sync, and is hosted on-premises. It requires deployment at a third, neutral site.
-2.  **ONTAP cloud mediator:**  This mediator is hosted in BlueXP SaaS and is primarily designed for SnapMirror active sync. It eliminates the need for a third site and provides enhanced scalability and availability.
+2.  **ONTAP cloud mediator:**  This mediator is hosted on the NetApp Console cloud server and is primarily designed for SnapMirror active sync. It eliminates the need for a third site and provides enhanced scalability and availability.
 ## Adding a mediator
-A mediator can be added by issuing a POST request on /cluster/mediators. Parameters are provided in the body of the POST request. There are no optional parameters for adding a mediator to a MetroCluster IP configuration.
+A mediator can be added by issuing a POST request on /cluster/mediators. Parameters are provided in the body of the POST request.
+The field `connection_type` is an optional parameter for adding a mediator to a MetroCluster IP configuration.
 ### Required configuration fields (MetroCluster)
 These fields are always required for any POST /cluster/mediators request.
 
 * `ip_address`         - Specifies the IP address of the mediator.
 * `user`               - Specifies a user name credential.
 * `password`           - Specifies a password credential.
+#### Required configuration fields (MetroCluster HTTPS mediator)
+
+* `connection_type` - Must be `https_mediator`. If `connection_type` is omitted from the POST body, ONTAP automatically defaults to `iscsi_mediator`.
 ### Required configuration fields (SnapMirror active sync: ONTAP Mediator, ONTAP cloud mediator)
 These fields are required for any POST /cluster/mediators request.
 
@@ -26,10 +30,12 @@ These fields are required for any POST /cluster/mediators request.
 * `user`                            - (only applicable to the ONTAP Mediator) Specifies the user name credential.
 * `password`                        - (only applicable to the ONTAP Mediator) Specifies a password credential.
 * `ca_certificate`                  - (optional if the certificate is already installed, only applicable to the ONTAP Mediator) Specifies the CA certificate for the ONTAP Mediator.
-* `bluexp_org_id`                   - (only applicable to the ONTAP cloud mediator) Specifies the BlueXP organization ID.
+* `bluexp_org_id`                   - (DEPRECATED) Specifies the BlueXP organization ID. This has been replaced by org_id. Support for this field will be removed in a future release.
+* `org_id`                          - (only applicable to the ONTAP cloud mediator) Specifies the NetApp Console organization ID.
 * `service_account_client_id`       - (only applicable to the ONTAP cloud mediator) Specifies the client ID of the service account.
 * `service_account_client_secret`   - (only applicable to the ONTAP cloud mediator) Specifies the client secret of the service account.
-* `bluexp_account_token`            - (only applicable to the ONTAP cloud mediator) Specifies the BlueXP service account token. This field is mutually exclusive with the `service_account_client_id` and `service_account_client_secret` pair, meaning either the token or the client-id and client-secret pair is allowed.
+* `bluexp_account_token`            - (DEPRECATED) Specifies the BlueXP service account token. This field is mutually exclusive with the `service_account_client_id` and `service_account_client_secret` pair, meaning either the token or the client-id and client-secret pair is allowed. This has been replaced by account_token. Support for this field will be removed in a future release.
+* `account_token`                   - (only applicable to the ONTAP cloud mediator) Specifies the NetApp Console service account token. This field is mutually exclusive with the `service_account_client_id` and `service_account_client_secret` pair, meaning either the token or the client-id and client-secret pair is allowed.
 * `use_http_proxy_local`            - (optional, defaults to false if omitted, only applicable for ONTAP cloud mediator) Specifies if a HTTP proxy should be used on the ONTAP cluster.
 * `use_http_proxy_remote`           - (optional, defaults to false if omitted, only applicable for ONTAP cloud mediator) Specifies if a HTTP proxy should be used on the peer ONTAP cluster.
 * `strict_cert_validation`          - (optional, defaults to false if omitted, only applicable for ONTAP cloud mediator) Specifies if strict validation of certificates is performed while making REST API calls to the ONTAP Cloud Mediator.
@@ -64,7 +70,7 @@ This example shows the POST body when setting up a mediator for a four-node Metr
 # API
 /api/cluster/mediators
 ```
-### POST body included from file (MetroCluster)
+### POST body included from file (MetroCluster: iSCSI Mediator)
 ```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import Mediator
@@ -74,6 +80,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource.ip_address = "1.1.1.1"
     resource.user = "username"
     resource.password = "password"
+    resource.post(hydrate=True)
+    print(resource)
+
+```
+
+### POST body included from file (MetroCluster: HTTPS Mediator)
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Mediator
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Mediator()
+    resource.ip_address = "1.1.1.1"
+    resource.user = "username"
+    resource.password = "password"
+    resource.connection_type = "https_mediator"
     resource.post(hydrate=True)
     print(resource)
 
@@ -104,7 +126,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource = Mediator()
     resource.peer_cluster.name = "C2_sti230-vsim-sr092w_cluster"
     resource.type = "cloud"
-    resource.bluexp_org_id = "your-bluexp-org-id"
+    resource.org_id = "your-netapp-console-org-id"
     resource.service_account_client_id = "your-account-client-id"
     resource.service_account_client_secret = "your-account-client-secret"
     resource.use_http_proxy_local = True
@@ -115,7 +137,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 
-### Inline POST body (MetroCluster)
+### Inline POST body (MetroCluster: iSCSI Mediator)
 ```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import Mediator
@@ -125,6 +147,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource.ip_address = "1.1.1.1"
     resource.user = "username"
     resource.password = "password"
+    resource.post(hydrate=True)
+    print(resource)
+
+```
+
+### Inline POST body (MetroCluster: HTTPS Mediator)
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Mediator
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Mediator()
+    resource.ip_address = "1.1.1.1"
+    resource.user = "username"
+    resource.password = "password"
+    resource.connection_type = "https_mediator"
     resource.post(hydrate=True)
     print(resource)
 
@@ -155,7 +193,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource = Mediator()
     resource.peer_cluster.name = "C2_sti230-vsim-sr092w_cluster"
     resource.type = "cloud"
-    resource.bluexp_org_id = "your-bluexp-org-id"
+    resource.org_id = "your-netapp-console-org-id"
     resource.service_account_client_id = "your-account-client-id"
     resource.service_account_client_secret = "your-account-client-secret"
     resource.use_http_proxy_local = True
@@ -597,23 +635,41 @@ __pdoc__ = {
 class MediatorSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Mediator object"""
 
+    account_token = marshmallow_fields.Str(
+        data_key="account_token",
+        allow_none=True,
+    )
+    r""" NetApp Console account token. This field is only applicable to the ONTAP cloud mediator."""
+
     bluexp_account_token = marshmallow_fields.Str(
         data_key="bluexp_account_token",
         allow_none=True,
     )
-    r""" BlueXP account token. This field is only applicable to the ONTAP cloud mediator."""
+    r""" BlueXP account token. This field is only applicable to the ONTAP cloud mediator. This has been replaced by account_token. Support for this field will be removed in a future release."""
 
     bluexp_org_id = marshmallow_fields.Str(
         data_key="bluexp_org_id",
         allow_none=True,
     )
-    r""" BlueXP organization ID. This field is only applicable to the ONTAP cloud mediator."""
+    r""" BlueXP organization ID. This field is only applicable to the ONTAP cloud mediator. This has been replaced by org_id. Support for this field will be removed in a future release."""
 
     ca_certificate = marshmallow_fields.Str(
         data_key="ca_certificate",
         allow_none=True,
     )
     r""" CA certificate for ONTAP Mediator. This is optional if the certificate is already installed."""
+
+    connection_type = marshmallow_fields.Str(
+        data_key="connection_type",
+        validate=enum_validation(['iscsi_mediator', 'https_mediator']),
+        allow_none=True,
+    )
+    r""" Connection type from ONTAP MetroCluster to mediator. Applicable only to on-prem mediator used in ONTAP MetroCluster configurations.
+
+Valid choices:
+
+* iscsi_mediator
+* https_mediator"""
 
     dr_group = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.resources.metrocluster_dr_group", "MetroclusterDrGroupSchema"),
@@ -638,6 +694,12 @@ Example: 10.10.10.7"""
     r""" Indicates the mediator connectivity status of the local cluster. Possible values are connected, unreachable, unusable and down-high-latency. This field is only applicable to the mediators in SnapMirror active sync configuration.
 
 Example: connected"""
+
+    org_id = marshmallow_fields.Str(
+        data_key="org_id",
+        allow_none=True,
+    )
+    r""" NetApp Console organization ID. This field is only applicable to the ONTAP cloud mediator."""
 
     password = marshmallow_fields.Str(
         data_key="password",
@@ -683,13 +745,13 @@ Example: true"""
         data_key="service_account_client_id",
         allow_none=True,
     )
-    r""" Client ID of the BlueXP service account. This field is only applicable to the ONTAP cloud mediator."""
+    r""" Client ID of the NetApp Console service account. This field is only applicable to the ONTAP cloud mediator."""
 
     service_account_client_secret = marshmallow_fields.Str(
         data_key="service_account_client_secret",
         allow_none=True,
     )
-    r""" Client secret token of the BlueXP service account. This field is only applicable to the ONTAP cloud mediator."""
+    r""" Client secret token of the NetApp Console service account. This field is only applicable to the ONTAP cloud mediator."""
 
     strict_cert_validation = marshmallow_fields.Boolean(
         data_key="strict_cert_validation",
@@ -746,6 +808,7 @@ Example: myusername"""
         return Mediator
 
     gettable_fields = [
+        "connection_type",
         "ip_address",
         "local_mediator_connectivity",
         "peer_cluster.links",
@@ -759,7 +822,7 @@ Example: myusername"""
         "use_http_proxy_local",
         "uuid",
     ]
-    """ip_address,local_mediator_connectivity,peer_cluster.links,peer_cluster.name,peer_cluster.uuid,peer_mediator_connectivity,port,reachable,strict_cert_validation,type,use_http_proxy_local,uuid,"""
+    """connection_type,ip_address,local_mediator_connectivity,peer_cluster.links,peer_cluster.name,peer_cluster.uuid,peer_mediator_connectivity,port,reachable,strict_cert_validation,type,use_http_proxy_local,uuid,"""
 
     patchable_fields = [
         "strict_cert_validation",
@@ -769,10 +832,13 @@ Example: myusername"""
     """strict_cert_validation,use_http_proxy_local,use_http_proxy_remote,"""
 
     postable_fields = [
+        "account_token",
         "bluexp_account_token",
         "bluexp_org_id",
         "ca_certificate",
+        "connection_type",
         "ip_address",
+        "org_id",
         "password",
         "peer_cluster.name",
         "peer_cluster.uuid",
@@ -785,7 +851,7 @@ Example: myusername"""
         "use_http_proxy_remote",
         "user",
     ]
-    """bluexp_account_token,bluexp_org_id,ca_certificate,ip_address,password,peer_cluster.name,peer_cluster.uuid,port,service_account_client_id,service_account_client_secret,strict_cert_validation,type,use_http_proxy_local,use_http_proxy_remote,user,"""
+    """account_token,bluexp_account_token,bluexp_org_id,ca_certificate,connection_type,ip_address,org_id,password,peer_cluster.name,peer_cluster.uuid,port,service_account_client_id,service_account_client_secret,strict_cert_validation,type,use_http_proxy_local,use_http_proxy_remote,user,"""
 
 class Mediator(Resource):
     r""" Mediator information """

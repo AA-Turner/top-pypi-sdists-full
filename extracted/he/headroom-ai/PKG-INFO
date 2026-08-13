@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: headroom-ai
-Version: 0.34.0
+Version: 0.35.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -36,7 +36,7 @@ Requires-Dist: crewai>=1.0 ; extra == 'crewai'
 Requires-Dist: pytest>=7.0.0 ; extra == 'dev'
 Requires-Dist: pytest-cov>=4.0.0 ; extra == 'dev'
 Requires-Dist: pytest-asyncio>=0.21.0 ; extra == 'dev'
-Requires-Dist: ruff==0.15.17 ; extra == 'dev'
+Requires-Dist: ruff==0.15.22 ; extra == 'dev'
 Requires-Dist: mypy>=1.0.0 ; extra == 'dev'
 Requires-Dist: pre-commit>=3.0.0 ; extra == 'dev'
 Requires-Dist: openai>=1.0.0 ; extra == 'dev'

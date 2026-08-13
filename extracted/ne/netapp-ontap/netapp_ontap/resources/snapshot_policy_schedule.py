@@ -45,10 +45,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SnapshotPolicySchedule(
     {
-        "count": 5,
         "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
         "schedule": {"uuid": "7c985d80-818a-11e9-b4f4-005056bbab9c"},
         "prefix": "new_monthly",
+        "count": 5,
     }
 )
 
@@ -82,8 +82,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
             "schedule": {
-                "name": "5min",
                 "uuid": "63d017dc-818a-11e9-b4f4-005056bbab9c",
+                "name": "5min",
             },
         }
     ),
@@ -91,8 +91,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
             "schedule": {
-                "name": "8hour",
                 "uuid": "64a5c5da-818a-11e9-b4f4-005056bbab9c",
+                "name": "8hour",
             },
         }
     ),
@@ -100,8 +100,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
             "schedule": {
-                "name": "daily",
                 "uuid": "63e21a3e-818a-11e9-b4f4-005056bbab9c",
+                "name": "daily",
             },
         }
     ),
@@ -109,8 +109,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
             "schedule": {
-                "name": "monthly",
                 "uuid": "7c985d80-818a-11e9-b4f4-005056bbab9c",
+                "name": "monthly",
             },
         }
     ),
@@ -143,11 +143,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 SnapshotPolicySchedule(
     {
         "snapmirror_label": "-",
-        "count": 5,
         "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
-        "retention_period": "PT20M",
-        "schedule": {"name": "monthly", "uuid": "7c985d80-818a-11e9-b4f4-005056bbab9c"},
+        "schedule": {"uuid": "7c985d80-818a-11e9-b4f4-005056bbab9c", "name": "monthly"},
         "prefix": "new_monthly",
+        "count": 5,
+        "retention_period": "PT20M",
     }
 )
 
@@ -247,6 +247,7 @@ class SnapshotPolicyScheduleSchema(ResourceSchema, metaclass=ResourceSchemaMeta)
 
     snapmirror_label = marshmallow_fields.Str(
         data_key="snapmirror_label",
+        validate=len_validation(minimum=1, maximum=31),
         allow_none=True,
     )
     r""" Label for SnapMirror operations"""

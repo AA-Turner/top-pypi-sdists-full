@@ -31,27 +31,27 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Totp(
     {
-        "account": {
+        "owner": {
+            "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
             "_links": {
-                "self": {
-                    "href": "/api/security/accounts/b009a9e7-4081-b576-7575-ada21efcaf16/pubuser2"
-                }
+                "self": {"href": "/api/svm/svms/b009a9e7-4081-b576-7575-ada21efcaf16"}
             },
-            "name": "pubuser2",
+            "name": "Default",
         },
+        "sha_fingerprint": "21364f5417600e3d9d6a7ac6c05dd244aed9f15dce6786a2c89399a41ff0fdb0",
         "_links": {
             "self": {
                 "href": "/api/security/login/totps/b009a9e7-4081-b576-7575-ada21efcaf16/pubuser2"
             }
         },
-        "owner": {
-            "name": "Default",
+        "account": {
+            "name": "pubuser2",
             "_links": {
-                "self": {"href": "/api/svm/svms/b009a9e7-4081-b576-7575-ada21efcaf16"}
+                "self": {
+                    "href": "/api/security/accounts/b009a9e7-4081-b576-7575-ada21efcaf16/pubuser2"
+                }
             },
-            "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
         },
-        "sha_fingerprint": "21364f5417600e3d9d6a7ac6c05dd244aed9f15dce6786a2c89399a41ff0fdb0",
         "scope": "cluster",
     }
 )
@@ -329,7 +329,9 @@ class Totp(Resource):
         connection: HostConnection = None,
         **kwargs
     ) -> NetAppResponse:
-        r"""Deletes the TOTP profile for a user account.
+        r"""The DELETE method is no longer supported for this API.
+Deletion of TOTP profiles now requires interactive confirmation using a one-time password or scratch code, which cannot be securely handled over REST.
+You can use the ONTAP CLI command \"security login totp delete\" to remove a TOTP profile. The CLI prompts you for verification and provides proper authentication.
 ### Related ONTAP commands
 * `security login totp delete`
 ### Learn more
@@ -423,7 +425,9 @@ class Totp(Resource):
         poll_timeout: Optional[int] = None,
         **kwargs
     ) -> NetAppResponse:
-        r"""Deletes the TOTP profile for a user account.
+        r"""The DELETE method is no longer supported for this API.
+Deletion of TOTP profiles now requires interactive confirmation using a one-time password or scratch code, which cannot be securely handled over REST.
+You can use the ONTAP CLI command \"security login totp delete\" to remove a TOTP profile. The CLI prompts you for verification and provides proper authentication.
 ### Related ONTAP commands
 * `security login totp delete`
 ### Learn more

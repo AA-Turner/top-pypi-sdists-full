@@ -61,18 +61,38 @@ Possible values for the node state are:
 * <i>taken_over</i> - Node is taken over by its HA partner. The state is reported by the node's HA partner.
 * <i>waiting_for_giveback</i> - Node is taken over by its HA partner and is now ready and waiting for giveback. To bring the node up, either issue the "giveback" command to the HA partner node or wait for auto-giveback, if enabled. The state is reported by the node's HA partner.
 * <i>degraded</i> - Node is known to be up but is not yet fully functional. The node can be reached through the cluster interconnect but one or more critical services are offline. Or, the node is not reachable but the node's HA partner can be reached and reports that the node is up with firmware state "SF_UP".
+* <i>is_takeover_in_progress</i> - Takeover of the node's storage by its peers is in progress.
+* <i>is_giveback_in_progress</i> - Giveback of the node's storage by its peers is in progress.
 * <i>unknown</i> - Node state cannot be determined.
 <br/>
 ---
 ## HA
 <personalities supports=aiml>
-The "ha" field in the /cluster/nodes API shows the takeover and giveback states of the node along with the current values of the HA fields "enable_takeover_of" and "auto_giveback_of".
+The "ha" field in the /cluster/nodes API shows the takeover_of and giveback_of states of the node along with the current values of the HA fields "enable_takeover_of", "auto_giveback_of", "takeover_of_possible" and "giveback_of_possible".
 You can modify the "auto_giveback_of" field.
+### Takeover Of
+The takeover_of "state" field shows the different takeover states of the node. When the state is "failed", the "code" and "message" fields display.
+Possible values for takeover states are:
+
+* <i>not_attempted</i> - Takeover operation is not started and takeover is possible.
+* <i>not_possible</i> - Takeover operation is not possible. Check the failure message.
+* <i>in_progress</i> - Takeover operation is in progress. The node is being taken over by its peers.
+* <i>taken_over</i> - Takeover operation is complete.
+* <i>failed</i> - Takeover operation failed. Check the failure message.
+### Giveback Of
+The giveback_of "state" field shows the different giveback states of the node. When the state is "failed", the "code" and "message" fields display.
+Possible values for giveback states are:
+
+* <i>nothing_to_giveback</i> - Node does not have aggregates to be given back.
+* <i>not_attempted</i> - Giveback operation is not started.
+* <i>in_progress</i> - Giveback operation is in progress.
+* <i>failed</i> - Giveback operation failed. Check the failure message.
+<br/>
+---
 </personalities>
 <personalities supports=unified,asar2>
 The "ha" field in the /cluster/nodes API shows the takeover and giveback states of the node along with the current values of the HA fields "enabled" and "auto_giveback".
 You can modify the HA fields "enabled" and "auto_giveback", which will change the HA states of the node.
-</personalities>
 ### Takeover
 The takeover "state" field shows the different takeover states of the node. When the state is "failed", the "code" and "message" fields display.
 Possible values for takeover states are:
@@ -101,6 +121,7 @@ Possible values for giveback failure codes and messages are:
 * <i>code</i>: 852126 <i>message</i>: Failed to initiate giveback. Run the \"storage failover show-giveback\" command for more information.
 <br/>
 ---
+</personalities>
 ## Performance monitoring
 Performance of a node can be monitored by observing the `metric.*` and `statistics.*` properties. These properties show the performance of a node in terms of cpu utilization. The `metric.*` properties denote an average whereas `statistics.*` properties denote a real-time monotonically increasing value aggregated across all nodes.
 <br/>
@@ -215,26 +236,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Node(
         {
-            "name": "node2",
+            "uuid": "54440ec3-6127-11e9-a959-005056bb76f9",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/54440ec3-6127-11e9-a959-005056bb76f9"
                 }
             },
             "state": "up",
-            "uuid": "54440ec3-6127-11e9-a959-005056bb76f9",
+            "name": "node2",
         }
     ),
     Node(
         {
-            "name": "node1",
+            "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/e02dbef1-6126-11e9-b8fb-005056bb9ce4"
                 }
             },
             "state": "up",
-            "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4",
+            "name": "node1",
         }
     ),
 ]
@@ -261,24 +282,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Node(
         {
-            "name": "node2",
+            "uuid": "54440ec3-6127-11e9-a959-005056bb76f9",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/54440ec3-6127-11e9-a959-005056bb76f9"
                 }
             },
-            "uuid": "54440ec3-6127-11e9-a959-005056bb76f9",
+            "name": "node2",
         }
     ),
     Node(
         {
-            "name": "node1",
+            "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/e02dbef1-6126-11e9-b8fb-005056bb9ce4"
                 }
             },
-            "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4",
+            "name": "node1",
         }
     ),
 ]
@@ -306,20 +327,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Node(
         {
-            "name": "example_node_name",
+            "uuid": "6b29327b-21ca-11ea-99aa-005056bb420b",
             "metric": {
-                "timestamp": "2019-12-19T15:50:45+00:00",
                 "processor_utilization": 3,
-                "status": "ok",
+                "timestamp": "2019-12-19T15:50:45+00:00",
                 "duration": "PT15S",
+                "status": "ok",
             },
             "statistics": {
-                "processor_utilization_base": 74330229886,
                 "status": "ok",
-                "timestamp": "2019-12-19T15:50:48+00:00",
+                "processor_utilization_base": 74330229886,
                 "processor_utilization_raw": 6409411622,
+                "timestamp": "2019-12-19T15:50:48+00:00",
             },
-            "uuid": "6b29327b-21ca-11ea-99aa-005056bb420b",
+            "name": "example_node_name",
         }
     )
 ]
@@ -346,13 +367,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Node(
         {
-            "name": "node2",
+            "uuid": "54440ec3-6127-11e9-a959-005056bb76f9",
             "ha": {
                 "giveback": {"state": "nothing_to_giveback"},
-                "auto_giveback": False,
-                "partners": [
-                    {"name": "node1", "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4"}
-                ],
+                "ports": [{}, {}],
                 "takeover": {
                     "failure": {
                         "message": "Takeover cannot be completed. Reason: disabled.",
@@ -360,26 +378,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     },
                     "state": "not_possible",
                 },
-                "ports": [{}, {}],
+                "auto_giveback": False,
                 "enabled": False,
+                "partners": [
+                    {"uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4", "name": "node1"}
+                ],
             },
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/54440ec3-6127-11e9-a959-005056bb76f9"
                 }
             },
-            "uuid": "54440ec3-6127-11e9-a959-005056bb76f9",
+            "name": "node2",
         }
     ),
     Node(
         {
-            "name": "node1",
+            "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4",
             "ha": {
                 "giveback": {"state": "nothing_to_giveback"},
-                "auto_giveback": False,
-                "partners": [
-                    {"name": "node2", "uuid": "54440ec3-6127-11e9-a959-005056bb76f9"}
-                ],
+                "ports": [{}, {}],
                 "takeover": {
                     "failure": {
                         "message": "Takeover cannot be completed. Reason: disabled.",
@@ -387,15 +405,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     },
                     "state": "not_possible",
                 },
-                "ports": [{}, {}],
+                "auto_giveback": False,
                 "enabled": False,
+                "partners": [
+                    {"uuid": "54440ec3-6127-11e9-a959-005056bb76f9", "name": "node2"}
+                ],
             },
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/e02dbef1-6126-11e9-b8fb-005056bb9ce4"
                 }
             },
-            "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4",
+            "name": "node1",
         }
     ),
 ]
@@ -423,36 +444,36 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Node(
         {
-            "name": "node2",
+            "uuid": "71af8235-bea9-11eb-874a-005056bbab13",
+            "external_cache": {
+                "is_hya_enabled": True,
+                "pcs_size": 256,
+                "is_enabled": False,
+                "is_rewarm_enabled": False,
+            },
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/71af8235-bea9-11eb-874a-005056bbab13"
                 }
             },
-            "uuid": "71af8235-bea9-11eb-874a-005056bbab13",
-            "external_cache": {
-                "pcs_size": 256,
-                "is_enabled": False,
-                "is_rewarm_enabled": False,
-                "is_hya_enabled": True,
-            },
+            "name": "node2",
         }
     ),
     Node(
         {
-            "name": "node1",
+            "uuid": "8c4cbf08-bea9-11eb-b8ae-005056bb16aa",
+            "external_cache": {
+                "is_hya_enabled": True,
+                "pcs_size": 256,
+                "is_enabled": False,
+                "is_rewarm_enabled": False,
+            },
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/8c4cbf08-bea9-11eb-b8ae-005056bb16aa"
                 }
             },
-            "uuid": "8c4cbf08-bea9-11eb-b8ae-005056bb16aa",
-            "external_cache": {
-                "pcs_size": 256,
-                "is_enabled": False,
-                "is_rewarm_enabled": False,
-                "is_hya_enabled": True,
-            },
+            "name": "node1",
         }
     ),
 ]
@@ -712,8 +733,17 @@ Example: 4048820-60-9"""
 * <i>up</i> - Node is up and operational.
 * <i>booting</i> - Node is booting up.
 * <i>down</i> - Node has stopped or is dumping core.
+<personalities supports=unified,asar2>
+
 * <i>taken_over</i> - Node has been taken over by its HA partner and is not yet waiting for giveback.
 * <i>waiting_for_giveback</i> - Node has been taken over by its HA partner and is waiting for the HA partner to giveback disks.
+</personalities>
+<personalities supports=aiml>
+
+* <i>takeover_of_in_progress</i> - Node has been taken over by one of its peer nodes and is not yet waiting for giveback.
+* <i>giveback_of_in_progress</i> - Node has been taken over by one of its peer nodes and is waiting for the peer to giveback disks.
+</personalities>
+
 * <i>degraded</i> - Node has one or more critical services offline.
 * <i>unknown</i> - Node or its HA partner cannot be contacted and there is no information on the node's state.
 

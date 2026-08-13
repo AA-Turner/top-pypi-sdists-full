@@ -27,141 +27,141 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FcPort(
         {
+            "uuid": "931b20f8-b047-11e8-9af3-005056bb838e",
+            "name": "0a",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/ports/931b20f8-b047-11e8-9af3-005056bb838e"
                 }
             },
-            "name": "0a",
-            "uuid": "931b20f8-b047-11e8-9af3-005056bb838e",
             "node": {
-                "name": "node1",
+                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/3c768e01-1abc-4b3b-b7c0-629ceb62a497"
                     }
                 },
-                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
+                "name": "node1",
             },
         }
     ),
     FcPort(
         {
+            "uuid": "931b23f7-b047-11e8-9af3-005056bb838e",
+            "name": "0b",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/ports/931b23f7-b047-11e8-9af3-005056bb838e"
                 }
             },
-            "name": "0b",
-            "uuid": "931b23f7-b047-11e8-9af3-005056bb838e",
             "node": {
-                "name": "node1",
+                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/3c768e01-1abc-4b3b-b7c0-629ceb62a497"
                     }
                 },
-                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
+                "name": "node1",
             },
         }
     ),
     FcPort(
         {
+            "uuid": "931b25ba-b047-11e8-9af3-005056bb838e",
+            "name": "0c",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/ports/931b25ba-b047-11e8-9af3-005056bb838e"
                 }
             },
-            "name": "0c",
-            "uuid": "931b25ba-b047-11e8-9af3-005056bb838e",
             "node": {
-                "name": "node1",
+                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/3c768e01-1abc-4b3b-b7c0-629ceb62a497"
                     }
                 },
-                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
+                "name": "node1",
             },
         }
     ),
     FcPort(
         {
+            "uuid": "931b2748-b047-11e8-9af3-005056bb838e",
+            "name": "0d",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/ports/931b2748-b047-11e8-9af3-005056bb838e"
                 }
             },
-            "name": "0d",
-            "uuid": "931b2748-b047-11e8-9af3-005056bb838e",
             "node": {
-                "name": "node1",
+                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/3c768e01-1abc-4b3b-b7c0-629ceb62a497"
                     }
                 },
-                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
+                "name": "node1",
             },
         }
     ),
     FcPort(
         {
+            "uuid": "931b28c2-b047-11e8-9af3-005056bb838e",
+            "name": "0e",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/ports/931b28c2-b047-11e8-9af3-005056bb838e"
                 }
             },
-            "name": "0e",
-            "uuid": "931b28c2-b047-11e8-9af3-005056bb838e",
             "node": {
-                "name": "node1",
+                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/3c768e01-1abc-4b3b-b7c0-629ceb62a497"
                     }
                 },
-                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
+                "name": "node1",
             },
         }
     ),
     FcPort(
         {
+            "uuid": "931b2a7b-b047-11e8-9af3-005056bb838e",
+            "name": "0f",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/ports/931b2a7b-b047-11e8-9af3-005056bb838e"
                 }
             },
-            "name": "0f",
-            "uuid": "931b2a7b-b047-11e8-9af3-005056bb838e",
             "node": {
-                "name": "node1",
+                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/3c768e01-1abc-4b3b-b7c0-629ceb62a497"
                     }
                 },
-                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
+                "name": "node1",
             },
         }
     ),
     FcPort(
         {
+            "uuid": "931b2e2b-b047-11e8-9af3-005056bb838e",
+            "name": "1b",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/ports/931b2e2b-b047-11e8-9af3-005056bb838e"
                 }
             },
-            "name": "1b",
-            "uuid": "931b2e2b-b047-11e8-9af3-005056bb838e",
             "node": {
-                "name": "node1",
+                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/3c768e01-1abc-4b3b-b7c0-629ceb62a497"
                     }
                 },
-                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
+                "name": "node1",
             },
         }
     ),
@@ -191,65 +191,65 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FcPort(
         {
+            "uuid": "931b20f8-b047-11e8-9af3-005056bb838e",
+            "name": "0a",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/ports/931b20f8-b047-11e8-9af3-005056bb838e"
                 }
             },
-            "name": "0a",
-            "state": "online",
-            "uuid": "931b20f8-b047-11e8-9af3-005056bb838e",
             "node": {
-                "name": "node1",
+                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/3c768e01-1abc-4b3b-b7c0-629ceb62a497"
                     }
                 },
-                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
+                "name": "node1",
             },
+            "state": "online",
         }
     ),
     FcPort(
         {
+            "uuid": "931b23f7-b047-11e8-9af3-005056bb838e",
+            "name": "0b",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/ports/931b23f7-b047-11e8-9af3-005056bb838e"
                 }
             },
-            "name": "0b",
-            "state": "online",
-            "uuid": "931b23f7-b047-11e8-9af3-005056bb838e",
             "node": {
-                "name": "node1",
+                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/3c768e01-1abc-4b3b-b7c0-629ceb62a497"
                     }
                 },
-                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
+                "name": "node1",
             },
+            "state": "online",
         }
     ),
     FcPort(
         {
+            "uuid": "931b25ba-b047-11e8-9af3-005056bb838e",
+            "name": "0c",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/ports/931b25ba-b047-11e8-9af3-005056bb838e"
                 }
             },
-            "name": "0c",
-            "state": "online",
-            "uuid": "931b25ba-b047-11e8-9af3-005056bb838e",
             "node": {
-                "name": "node1",
+                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/3c768e01-1abc-4b3b-b7c0-629ceb62a497"
                     }
                 },
-                "uuid": "3c768e01-1abc-4b3b-b7c0-629ceb62a497",
+                "name": "node1",
             },
+            "state": "online",
         }
     ),
 ]
@@ -277,58 +277,59 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FcPort(
     {
-        "speed": {"configured": "auto", "maximum": "8"},
+        "metric": {
+            "iops": {"read": 0, "write": 0, "other": 0, "total": 0},
+            "timestamp": "2019-04-09T05:50:15+00:00",
+            "duration": "PT15S",
+            "status": "ok",
+            "latency": {"read": 0, "write": 0, "other": 0, "total": 0},
+            "throughput": {"read": 0, "write": 0, "total": 0},
+        },
+        "uuid": "931b20f8-b047-11e8-9af3-005056bb838e",
+        "speed": {"maximum": "8", "configured": "auto"},
+        "supported_protocols": ["fcp"],
+        "wwpn": "50:0a:09:82:bb:83:8e:00",
+        "fabric": {
+            "switch_port": "ssan-g620-03:1",
+            "connected": True,
+            "name": "55:0e:b1:a0:20:40:80:00",
+            "connected_speed": 8,
+            "port_address": "52100",
+        },
+        "wwnn": "50:0a:09:80:bb:83:8e:00",
+        "name": "0a",
         "_links": {
             "self": {
                 "href": "/api/network/fc/ports/931b20f8-b047-11e8-9af3-005056bb838e"
             }
         },
-        "wwpn": "50:0a:09:82:bb:83:8e:00",
-        "metric": {
-            "latency": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "timestamp": "2019-04-09T05:50:15+00:00",
-            "iops": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "status": "ok",
-            "duration": "PT15S",
-            "throughput": {"write": 0, "total": 0, "read": 0},
-        },
-        "transceiver": {
-            "part_number": "1000",
-            "form_factor": "SFP",
-            "capabilities": [4, 8],
-            "manufacturer": "ACME",
-        },
-        "name": "0a",
-        "state": "online",
-        "statistics": {
-            "throughput_raw": {"write": 0, "total": 0, "read": 0},
-            "iops_raw": {"write": 0, "total": 3, "other": 3, "read": 0},
-            "timestamp": "2019-04-09T05:50:42+00:00",
-            "status": "ok",
-            "latency_raw": {"write": 0, "total": 38298, "other": 38298, "read": 0},
-        },
-        "uuid": "931b20f8-b047-11e8-9af3-005056bb838e",
-        "wwnn": "50:0a:09:80:bb:83:8e:00",
-        "description": "Fibre Channel Target Adapter 0a (ACME Fibre Channel Adapter, rev. 1.0.0, 8G)",
-        "fabric": {
-            "port_address": "52100",
-            "connected": True,
-            "name": "55:0e:b1:a0:20:40:80:00",
-            "switch_port": "ssan-g620-03:1",
-            "connected_speed": 8,
-        },
+        "topology": {"configured": "fabric", "supported": ["fabric", "direct"]},
+        "enabled": True,
+        "physical_protocol": "fibre_channel",
         "node": {
-            "name": "node1",
+            "uuid": "5a534a72-b047-11e8-9af3-005056bb838e",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/5a534a72-b047-11e8-9af3-005056bb838e"
                 }
             },
-            "uuid": "5a534a72-b047-11e8-9af3-005056bb838e",
+            "name": "node1",
         },
-        "supported_protocols": ["fcp"],
-        "physical_protocol": "fibre_channel",
-        "enabled": True,
+        "description": "Fibre Channel Target Adapter 0a (ACME Fibre Channel Adapter, rev. 1.0.0, 8G)",
+        "statistics": {
+            "throughput_raw": {"read": 0, "write": 0, "total": 0},
+            "latency_raw": {"read": 0, "write": 0, "other": 38298, "total": 38298},
+            "iops_raw": {"read": 0, "write": 0, "other": 3, "total": 3},
+            "timestamp": "2019-04-09T05:50:42+00:00",
+            "status": "ok",
+        },
+        "state": "online",
+        "transceiver": {
+            "part_number": "1000",
+            "manufacturer": "ACME",
+            "capabilities": [4, 8],
+            "form_factor": "SFP",
+        },
     }
 )
 
@@ -496,6 +497,14 @@ Valid choices:
     supported_protocols = marshmallow_fields.List(marshmallow_fields.Str, data_key="supported_protocols", allow_none=True)
     r""" The network protocols supported by the FC port."""
 
+    topology = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.fc_port_topology", "FcPortTopologySchema"),
+                data_key="topology",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" Properties of the topology of the FC port."""
+
     transceiver = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.models.fc_port_transceiver", "FcPortTransceiverSchema"),
                 data_key="transceiver",
@@ -551,22 +560,26 @@ Example: 20:00:00:50:56:b4:13:a8"""
         "state",
         "statistics",
         "supported_protocols",
+        "topology",
         "transceiver",
         "uuid",
         "wwnn",
         "wwpn",
     ]
-    """links,description,enabled,fabric,interface_count,metric,name,node.links,node.name,node.uuid,physical_protocol,speed,state,statistics,supported_protocols,transceiver,uuid,wwnn,wwpn,"""
+    """links,description,enabled,fabric,interface_count,metric,name,node.links,node.name,node.uuid,physical_protocol,speed,state,statistics,supported_protocols,topology,transceiver,uuid,wwnn,wwpn,"""
 
     patchable_fields = [
         "enabled",
+        "state",
+        "topology",
     ]
-    """enabled,"""
+    """enabled,state,topology,"""
 
     postable_fields = [
         "enabled",
+        "topology",
     ]
-    """enabled,"""
+    """enabled,topology,"""
 
 class FcPort(Resource):
     r""" A Fibre Channel (FC) port is the physical port of an FC adapter on an ONTAP cluster node that can be connected to an FC network to provide FC network connectivity. An FC port defines the location of an FC interface within the ONTAP cluster. """

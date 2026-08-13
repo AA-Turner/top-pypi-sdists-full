@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-silk
-Version: 5.5.0
+Version: 5.5.2
 Summary: Silky smooth profiling for the Django Framework
 Home-page: https://github.com/jazzband/django-silk
 Author: Michael Ford
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Requires-Python: >=3.10
@@ -77,7 +78,7 @@ Silk is a live profiling and inspection tool for the Django framework. Silk inte
 Silk has been tested with:
 
 * Django: 4.2, 5.1, 5.2, 6.0
-* Python: 3.10, 3.11, 3.12, 3.13, 3.14
+* Python: 3.10, 3.11, 3.12, 3.13, 3.14, 3.15
 
 ## Installation
 

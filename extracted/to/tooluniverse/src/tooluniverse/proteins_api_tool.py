@@ -19,6 +19,22 @@ _UNIPROT_ACCESSION_RE = re.compile(
 )
 
 
+def _numeric_organism_as_taxid(args: dict[str, Any]) -> str | None:
+    """Return the taxonomy id when ``organism`` was supplied as a bare number.
+
+    The Proteins API documents these as two distinct query parameters --
+    ``organism`` is "Organism name" and ``taxid`` is "Organism taxon ID"
+    (https://www.ebi.ac.uk/proteins/api/doc/) -- and matches nothing when a
+    taxon id is sent as ``organism=``. Since no organism name is all digits,
+    a purely numeric value is unambiguously a taxonomy id and is routed to
+    ``taxid=`` instead of silently returning an empty success.
+    """
+    if not isinstance(args, dict) or "organism" not in args:
+        return None
+    value = str(args["organism"]).strip()
+    return value if value.isdigit() else None
+
+
 @register_tool("ProteinsAPIRESTTool")
 class ProteinsAPIRESTTool(BaseTool):
     """
@@ -110,7 +126,15 @@ class ProteinsAPIRESTTool(BaseTool):
             if "reviewed" in args:
                 params["reviewed"] = str(args["reviewed"]).lower()
             if "organism" in args:
-                params["organism"] = args["organism"]
+                # A purely numeric organism is a taxonomy id, not a name; send
+                # it as taxid= so it actually filters instead of matching
+                # nothing (see _numeric_organism_as_taxid). run() discloses the
+                # correction via 'normalization_note'.
+                numeric_taxid = _numeric_organism_as_taxid(args)
+                if numeric_taxid:
+                    params["taxid"] = numeric_taxid
+                else:
+                    params["organism"] = args["organism"]
             elif "taxid" in args:
                 params["taxid"] = args["taxid"]
             elif "accession" not in params:
@@ -490,21 +514,42 @@ class ProteinsAPIRESTTool(BaseTool):
             ):
                 query = arguments.get("query", "")
                 used_gene = "gene" in params
+                used_protein = "protein" in params
 
                 def _retry_params(use_gene: bool, keep_human: bool) -> Dict[str, Any]:
-                    p = {"format": params.get("format", "json")}
-                    if "size" in params:
-                        p["size"] = params["size"]
+                    # Carry the original request forward and change only the
+                    # field being retried. Rebuilding from scratch dropped
+                    # every scoping parameter the caller had supplied
+                    # (organism=/taxid=), so a wheat query silently retried
+                    # against all of UniProt and answered with an insect.
+                    p = {
+                        k: v for k, v in params.items() if k not in ("gene", "protein")
+                    }
                     p["gene" if use_gene else "protein"] = query
-                    if keep_human and auto_human:
-                        p["taxid"] = "9606"
+                    if not keep_human and auto_human:
+                        # Only the human default this tool added itself may be
+                        # dropped; a caller-supplied taxid stays.
+                        p.pop("taxid", None)
                     return p
 
-                # Order: swap field but keep human; then drop the human filter
-                # (same field, then swapped field) so any-organism hits surface.
+                # Order: swap field but keep the caller's scoping; then drop the
+                # human filter (same field, then swapped field) so any-organism
+                # hits surface.
+                #
+                # The field swap must be symmetric. The _build_params routing
+                # heuristic sends anything longer than 10 characters to
+                # protein=, so realistic queries land there ('blaCTX-M-15', the
+                # most common ESBL gene worldwide, is 11 characters and only
+                # matches under gene=). Guarding this candidate on used_gene
+                # meant a protein=-routed query was never retried as gene=, and
+                # when the caller also supplied organism/taxid the auto_human
+                # branch below was skipped too -- leaving no retry at all and a
+                # silent empty success for data that exists upstream.
                 candidates = []
-                if used_gene:
-                    candidates.append(_retry_params(use_gene=False, keep_human=True))
+                if used_gene or used_protein:
+                    candidates.append(
+                        _retry_params(use_gene=not used_gene, keep_human=True)
+                    )
                 if auto_human:
                     candidates.append(
                         _retry_params(use_gene=used_gene, keep_human=False)
@@ -523,7 +568,7 @@ class ProteinsAPIRESTTool(BaseTool):
                     if isinstance(retry_data, list) and len(retry_data) > 0:
                         data = retry_data
                         response = retry_resp
-                        widened_organism = "taxid" not in cand
+                        widened_organism = auto_human and "taxid" not in cand
                         break
 
             # Cap features per entry to avoid 25MB+ responses for heavily-annotated proteins
@@ -560,6 +605,16 @@ class ProteinsAPIRESTTool(BaseTool):
                 "data": data,
                 "url": response.url,
             }
+            normalized_taxid = _numeric_organism_as_taxid(arguments)
+            if normalized_taxid:
+                # Silent input mutation is its own defect: say what was changed.
+                response_data["normalization_note"] = (
+                    f"Input auto-normalized: organism '{normalized_taxid}' is "
+                    "purely numeric, so it was sent as taxid="
+                    f"'{normalized_taxid}'. The Proteins API 'organism' "
+                    "parameter takes an organism name (e.g. 'Homo sapiens'); "
+                    "'taxid' takes an NCBI taxonomy id."
+                )
             if widened_organism:
                 response_data["note"] = (
                     "No human matches found; the search was automatically "

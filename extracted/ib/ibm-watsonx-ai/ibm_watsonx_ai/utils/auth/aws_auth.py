@@ -6,8 +6,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable
 
-from ibm_watsonx_ai.utils.auth.models import TokenInfo
-from ibm_watsonx_ai.utils.auth.refreshable_token_auth import RefreshableTokenAuth
+from ibm_watsonx_ai.utils.auth.base_auth import (
+    RefreshableTokenAuth,
+    TokenInfo,
+)
 from ibm_watsonx_ai.wml_client_error import (
     AuthenticationError,
     InvalidCredentialsError,
@@ -37,7 +39,9 @@ class AWSTokenAuth(RefreshableTokenAuth):
         on_token_creation: Callable[[], None] | None = None,
         on_token_refresh: Callable[[], None] | None = None,
     ) -> None:
-        super().__init__(api_client, on_token_creation, on_token_refresh)
+        RefreshableTokenAuth.__init__(
+            self, api_client, on_token_creation, on_token_refresh
+        )
 
         if not api_client._is_IAM():
             raise WMLClientError(

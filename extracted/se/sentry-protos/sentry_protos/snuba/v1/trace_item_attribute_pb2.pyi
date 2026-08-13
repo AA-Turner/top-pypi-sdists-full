@@ -41,6 +41,8 @@ class _FunctionEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumT
     FUNCTION_UNIQ: _Function.ValueType  # 11
     FUNCTION_ANY: _Function.ValueType  # 13
     FUNCTION_COLLECT_UNIQUE: _Function.ValueType  # 14
+    FUNCTION_FIRST: _Function.ValueType  # 15
+    FUNCTION_LAST: _Function.ValueType  # 16
 
 class Function(_Function, metaclass=_FunctionEnumTypeWrapper): ...
 
@@ -60,6 +62,8 @@ FUNCTION_MIN: Function.ValueType  # 10
 FUNCTION_UNIQ: Function.ValueType  # 11
 FUNCTION_ANY: Function.ValueType  # 13
 FUNCTION_COLLECT_UNIQUE: Function.ValueType  # 14
+FUNCTION_FIRST: Function.ValueType  # 15
+FUNCTION_LAST: Function.ValueType  # 16
 global___Function = Function
 
 class _ExtrapolationMode:
@@ -435,6 +439,56 @@ class AttributeValue(google.protobuf.message.Message):
 global___AttributeValue = AttributeValue
 
 @typing.final
+class RankedBy(google.protobuf.message.Message):
+    """Ranking key for order-dependent aggregates (e.g. FUNCTION_FIRST)."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    class _Sort:
+        ValueType = typing.NewType("ValueType", builtins.int)
+        V: typing_extensions.TypeAlias = ValueType
+
+    class _SortEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[RankedBy._Sort.ValueType], builtins.type):
+        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+        SORT_UNSPECIFIED: RankedBy._Sort.ValueType  # 0
+        """Defaults to SORT_DEFAULT (lexicographic)."""
+        SORT_DEFAULT: RankedBy._Sort.ValueType  # 1
+        """Default lexicographic ordering."""
+        SORT_NATURAL: RankedBy._Sort.ValueType  # 2
+        """embedded runs of digits are compared by their numeric value"""
+        SORT_SEMVER: RankedBy._Sort.ValueType  # 3
+        """Semantic-version ordering: "1.9.0" sorts before "1.10.0"."""
+
+    class Sort(_Sort, metaclass=_SortEnumTypeWrapper): ...
+    SORT_UNSPECIFIED: RankedBy.Sort.ValueType  # 0
+    """Defaults to SORT_DEFAULT (lexicographic)."""
+    SORT_DEFAULT: RankedBy.Sort.ValueType  # 1
+    """Default lexicographic ordering."""
+    SORT_NATURAL: RankedBy.Sort.ValueType  # 2
+    """embedded runs of digits are compared by their numeric value"""
+    SORT_SEMVER: RankedBy.Sort.ValueType  # 3
+    """Semantic-version ordering: "1.9.0" sorts before "1.10.0"."""
+
+    KEY_FIELD_NUMBER: builtins.int
+    SORT_FIELD_NUMBER: builtins.int
+    sort: global___RankedBy.Sort.ValueType
+    """The sort order to apply when sorting by a textual attribute"""
+    @property
+    def key(self) -> global___AttributeKey:
+        """The attribute to sort by (e.g. sentry.timestamp)."""
+
+    def __init__(
+        self,
+        *,
+        key: global___AttributeKey | None = ...,
+        sort: global___RankedBy.Sort.ValueType = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["key", b"key"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["key", b"key", "sort", b"sort"]) -> None: ...
+
+global___RankedBy = RankedBy
+
+@typing.final
 class AttributeAggregation(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -444,6 +498,7 @@ class AttributeAggregation(google.protobuf.message.Message):
     EXTRAPOLATION_MODE_FIELD_NUMBER: builtins.int
     DEFAULT_VALUE_DOUBLE_FIELD_NUMBER: builtins.int
     DEFAULT_VALUE_INT64_FIELD_NUMBER: builtins.int
+    RANKED_BY_FIELD_NUMBER: builtins.int
     aggregate: global___Function.ValueType
     label: builtins.str
     extrapolation_mode: global___ExtrapolationMode.ValueType
@@ -451,6 +506,8 @@ class AttributeAggregation(google.protobuf.message.Message):
     default_value_int64: builtins.int
     @property
     def key(self) -> global___AttributeKey: ...
+    @property
+    def ranked_by(self) -> global___RankedBy: ...
     def __init__(
         self,
         *,
@@ -460,9 +517,10 @@ class AttributeAggregation(google.protobuf.message.Message):
         extrapolation_mode: global___ExtrapolationMode.ValueType = ...,
         default_value_double: builtins.float = ...,
         default_value_int64: builtins.int = ...,
+        ranked_by: global___RankedBy | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["default_value", b"default_value", "default_value_double", b"default_value_double", "default_value_int64", b"default_value_int64", "key", b"key"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["aggregate", b"aggregate", "default_value", b"default_value", "default_value_double", b"default_value_double", "default_value_int64", b"default_value_int64", "extrapolation_mode", b"extrapolation_mode", "key", b"key", "label", b"label"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["default_value", b"default_value", "default_value_double", b"default_value_double", "default_value_int64", b"default_value_int64", "key", b"key", "ranked_by", b"ranked_by"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["aggregate", b"aggregate", "default_value", b"default_value", "default_value_double", b"default_value_double", "default_value_int64", b"default_value_int64", "extrapolation_mode", b"extrapolation_mode", "key", b"key", "label", b"label", "ranked_by", b"ranked_by"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["default_value", b"default_value"]) -> typing.Literal["default_value_double", "default_value_int64"] | None: ...
 
 global___AttributeAggregation = AttributeAggregation

@@ -1,36 +1,23 @@
 Metadata-Version: 2.4
 Name: fast_simplification
-Version: 0.1.13
+Version: 0.2.0
 Summary: Wrapper around the Fast-Quadric-Mesh-Simplification library.
-Home-page: https://github.com/pyvista/fast-simplification
-Author: Alex Kaszynski
-Author-email: akascap@gmail.com
-License: MIT
-Keywords: fast-simplification decimation
+Keywords: fast-simplification,decimation
+Author-Email: Alex Kaszynski <akascap@gmail.com>
+License-Expression: MIT
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Project-URL: Homepage, https://github.com/pyvista/fast-simplification
+Project-URL: Issues, https://github.com/pyvista/fast-simplification/issues
+Project-URL: Repository, https://github.com/pyvista/fast-simplification
 Requires-Python: >=3.9
-Description-Content-Type: text/x-rst
-License-File: LICENSE
 Requires-Dist: numpy
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Description-Content-Type: text/x-rst
 
 Python Fast-Quadric-Mesh-Simplification Wrapper
 ===============================================

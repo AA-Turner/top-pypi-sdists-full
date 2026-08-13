@@ -27,13 +27,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Job(
     {
         "message": "creating_node_backups",
+        "uuid": "b5145e1d-b53b-11e8-8252-005056bbd8f5",
+        "description": "Cluster Backup Job",
         "_links": {
             "self": {"href": "/api/cluster/jobs/b5145e1d-b53b-11e8-8252-005056bbd8f5"}
         },
         "code": 0,
         "state": "running",
-        "uuid": "b5145e1d-b53b-11e8-8252-005056bbd8f5",
-        "description": "Cluster Backup Job",
     }
 )
 

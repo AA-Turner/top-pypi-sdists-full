@@ -53,6 +53,7 @@ from pmd_pytcp import stack
 from pmd_pytcp.lib.logger import log
 from pmd_pytcp.protocols.udp.udp__plpmtud_adapter import UdpPlpmtudAdapter
 from pmd_pytcp.socket import (
+    SOCKET__DGRAM_RX_QUEUE__MAX_LEN,
     IP_OPTIONS,
     IP_RECVERR,
     IP_TOS,
@@ -608,6 +609,8 @@ class UdpSocket(socket):
         Read data from socket as a memoryview.
         """
 
+        self._raise_if_closed()
+
         if self._unreachable:
             self._unreachable = False
             raise ConnectionRefusedError(
@@ -625,6 +628,12 @@ class UdpSocket(socket):
             acquired = await _sem_acquire(self._packet_rx_md_ready, timeout=effective_timeout)
 
         if acquired:
+            if self._closed:
+                # close()'s wake permit, not data: cascade it to
+                # any other parked waiter, then report the dead
+                # socket.
+                self._packet_rx_md_ready.release()
+                self._raise_if_closed()
             data_rx = self._packet_rx_md.pop(0).udp__data
             # POSIX recv(2) on SOCK_DGRAM truncates the datagram to
             # 'bufsize' bytes and silently discards the remainder;
@@ -659,6 +668,8 @@ class UdpSocket(socket):
         Read data from socket as a memoryview.
         """
 
+        self._raise_if_closed()
+
         # Per-call 'timeout' wins; otherwise SO_RCVTIMEO (if set)
         # supplies the default; otherwise the blocking flag picks
         # blocking-forever vs non-blocking-EAGAIN.
@@ -669,6 +680,12 @@ class UdpSocket(socket):
             acquired = await _sem_acquire(self._packet_rx_md_ready, timeout=effective_timeout)
 
         if acquired:
+            if self._closed:
+                # close()'s wake permit, not data: cascade it to
+                # any other parked waiter, then report the dead
+                # socket.
+                self._packet_rx_md_ready.release()
+                self._raise_if_closed()
             packet_rx_md = self._packet_rx_md.pop(0)
             data_rx = packet_rx_md.udp__data
             if bufsize is not None:
@@ -724,6 +741,8 @@ class UdpSocket(socket):
         if flags & MSG_ERRQUEUE:
             return await self._recvmsg_errqueue(ancbufsize=ancbufsize, timeout=timeout)
 
+        self._raise_if_closed()
+
         # Per-call 'timeout' wins; otherwise SO_RCVTIMEO (if set)
         # supplies the default; otherwise the blocking flag picks
         # blocking-forever vs non-blocking-EAGAIN.
@@ -734,6 +753,12 @@ class UdpSocket(socket):
             acquired = await _sem_acquire(self._packet_rx_md_ready, timeout=effective_timeout)
 
         if acquired:
+            if self._closed:
+                # close()'s wake permit, not data: cascade it to
+                # any other parked waiter, then report the dead
+                # socket.
+                self._packet_rx_md_ready.release()
+                self._raise_if_closed()
             packet_rx_md = self._packet_rx_md.pop(0)
             data_rx = packet_rx_md.udp__data
             if bufsize is not None:
@@ -858,11 +883,16 @@ class UdpSocket(socket):
     @override
     def close(self) -> None:
         """
-        Close socket.
+        Close socket. Releases the rx semaphore once so a blocked
+        'recv()'-family waiter wakes with EBADF (each woken waiter
+        cascades the permit to the next); without the wake, nothing
+        would ever release a closed socket's semaphore again and
+        the waiter task would park for the loop's lifetime.
         """
 
         stack.sockets.unregister(self)
         self._mark_closed()
+        self._packet_rx_md_ready.release()
 
         log.enabled and log("socket", f"<g>[{self}]</> - Closed socket")
 
@@ -874,6 +904,11 @@ class UdpSocket(socket):
         """
 
         if self._closed:
+            return
+        if len(self._packet_rx_md) >= SOCKET__DGRAM_RX_QUEUE__MAX_LEN:
+            # Full receive buffer: drop the NEWEST datagram (POSIX
+            # udp(7) semantics) — an unread socket must not buffer
+            # inbound traffic without bound.
             return
         self._packet_rx_md.append(packet_rx_md)
         self._packet_rx_md_ready.release()
@@ -901,9 +936,15 @@ class UdpSocket(socket):
             return
         # deque(maxlen=...) silently drops the oldest entry on
         # overflow — matches the FIFO-drop semantics documented
-        # on 'ErrorQueueEntry'.
+        # on 'ErrorQueueEntry'. Release a permit only when the
+        # append actually grew the queue: an overflow append is
+        # net-zero (one dropped, one added), and an unconditional
+        # release would accumulate phantom permits that later let
+        # 'recvmsg(MSG_ERRQUEUE)' pop an empty deque (IndexError).
+        was_full = len(self._error_queue) == self._error_queue.maxlen
         self._error_queue.append(entry)
-        self._error_queue_ready.release()
+        if not was_full:
+            self._error_queue_ready.release()
 
     def notify_unreachable(
         self,

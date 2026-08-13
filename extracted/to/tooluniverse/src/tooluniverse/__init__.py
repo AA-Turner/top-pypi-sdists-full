@@ -1,18 +1,14 @@
 from importlib.metadata import version, PackageNotFoundError
+import importlib
 import os
 from typing import Any, Optional, List
 
-# Force CPU before torch is imported anywhere — prevents MPS (Metal) segfaults
-# in forked subprocesses (uvx MCP server, tu CLI, Claude Code plugin).
+# Configure MPS safeguards before torch is imported anywhere. Individual tools
+# select their own explicit device; changing PyTorch's process-wide default here
+# can break unrelated CPU/GPU tools sharing the same process.
 os.environ.setdefault("PYTORCH_MPS_HIGH_WATERMARK_RATIO", "0.0")
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
-try:
-    import torch
 
-    if hasattr(torch, "set_default_device"):
-        torch.set_default_device("cpu")
-except ImportError:
-    pass
 
 # Allow installed sub-packages (e.g. tooluniverse-circuit) to contribute
 # modules into the tooluniverse namespace even when the main package is

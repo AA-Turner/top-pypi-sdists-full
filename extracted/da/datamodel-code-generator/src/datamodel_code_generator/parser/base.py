@@ -3837,7 +3837,8 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         return overridden
 
     @staticmethod
-    def __disable_union_operator_for_forward_ref_parents(data_type: DataType) -> None:
+    def __disable_union_operator_for_forward_ref(data_type: DataType) -> None:
+        data_type.use_union_operator = False
         parent = data_type.parent
         while isinstance(parent, DataType):
             if parent.is_union:
@@ -3898,7 +3899,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                     source_index = model_index.get(name)
                     if source_index is not None and source_index >= i:
                         data_type.alias = f'"{name}"'
-                        cls.__disable_union_operator_for_forward_ref_parents(data_type)
+                        cls.__disable_union_operator_for_forward_ref(data_type)
                         has_aliased_forward_ref = True
 
             if has_aliased_forward_ref:
@@ -5026,6 +5027,47 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         all_module_fields = {field.name for model in models for field in model.fields if field.name is not None}
         scoped_model_resolver = ModelResolver(exclude_names=all_module_fields)
 
+        can_retain_cache = self.__prepare_module_models(
+            models,
+            all_module_fields=all_module_fields,
+            imports=imports,
+            scoped_model_resolver=scoped_model_resolver,
+            is_init=is_init,
+            internal_modules=internal_modules,
+            model_path_to_module_name=model_path_to_module_name,
+            can_retain_cache=can_retain_cache,
+        )
+        models = self.__process_module_models(
+            models,
+            unused_models=unused_models,
+            imports=imports,
+            scoped_model_resolver=scoped_model_resolver,
+            model_path_to_module_name=model_path_to_module_name,
+            require_update_action_models=require_update_action_models,
+            use_deferred_annotations=config.use_deferred_annotations,
+            can_retain_cache=can_retain_cache,
+        )
+        self.__finalize_module_models(
+            models,
+            use_deferred_annotations=config.use_deferred_annotations,
+            can_retain_cache=can_retain_cache,
+        )
+
+        return ModuleContext(module, module_, models, is_init, imports, scoped_model_resolver)
+
+    def __prepare_module_models(  # noqa: PLR0913
+        self,
+        models: list[DataModel],
+        *,
+        all_module_fields: set[str],
+        imports: Imports,
+        scoped_model_resolver: ModelResolver,
+        is_init: bool,
+        internal_modules: set[ModulePath],
+        model_path_to_module_name: dict[str, str],
+        can_retain_cache: bool,
+    ) -> bool:
+        """Prepare aliases, imports, and inherited enums before default processing."""
         self.__alias_shadowed_imports(models, all_module_fields, can_retain_cache=can_retain_cache)
         self.__override_required_field(models, can_retain_cache=can_retain_cache)
         self.__replace_unique_list_to_set(models, can_retain_cache=can_retain_cache)
@@ -5038,32 +5080,54 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             model_path_to_module_name=model_path_to_module_name,
         )
         self.__extract_inherited_enum(models)
-        can_retain_cache = can_retain_cache and _can_retain_model_imports_cache(
+        return can_retain_cache and _can_retain_model_imports_cache(
             models,
             configured_types_are_builtin=self._configured_generation_types_are_builtin,
         )
+
+    def __process_module_models(  # noqa: PLR0913
+        self,
+        models: list[DataModel],
+        *,
+        unused_models: list[DataModel],
+        imports: Imports,
+        scoped_model_resolver: ModelResolver,
+        model_path_to_module_name: dict[str, str],
+        require_update_action_models: list[str],
+        use_deferred_annotations: bool,
+        can_retain_cache: bool,
+    ) -> list[DataModel]:
+        """Apply defaults and model transforms before final type adjustments."""
         self.__set_reference_default_value_to_field(models, can_retain_cache=can_retain_cache)
         self.__reuse_model(models, require_update_action_models)
         self.__collapse_root_models(models, unused_models, imports, scoped_model_resolver, model_path_to_module_name)
         self.__set_default_enum_member(models, can_retain_cache=can_retain_cache)
-        self.__sort_models(models, imports, use_deferred_annotations=config.use_deferred_annotations)
+        self.__sort_models(models, imports, use_deferred_annotations=use_deferred_annotations)
         self.__change_field_name(models, can_retain_cache=can_retain_cache)
         self.__apply_discriminator_type(models, imports, can_retain_cache=can_retain_cache)
         self.__set_one_literal_on_default(models, can_retain_cache=can_retain_cache)
         self.__fix_constructor_field_ordering(models)
-        models = self.__remove_overridden_models(models)
+
+        return self.__remove_overridden_models(models)
+
+    def __finalize_module_models(
+        self,
+        models: list[DataModel],
+        *,
+        use_deferred_annotations: bool,
+        can_retain_cache: bool,
+    ) -> None:
+        """Apply final type metadata and invalidate imports only when required."""
         self.__apply_type_overrides(models)
         self.__update_type_aliases(
             models,
             self.pydantic_v2_root_model_type,
-            use_deferred_annotations=config.use_deferred_annotations,
+            use_deferred_annotations=use_deferred_annotations,
             can_retain_cache=can_retain_cache,
         )
         self.__set_validate_default_on_fields(models, can_retain_cache=can_retain_cache)
         if not can_retain_cache:
             _clear_model_imports_cache(models)
-
-        return ModuleContext(module, module_, models, is_init, imports, scoped_model_resolver)
 
     def _finalize_bound_python_type_imports(self, contexts: list[ModuleContext]) -> None:
         """Resolve aliases introduced after generic base classes are applied."""
@@ -5347,7 +5411,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
     def _report_parse_diagnostics(self) -> None:
         """Report diagnostics collected while parsing the input schema."""
 
-    def parse(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
+    def parse(  # noqa: PLR0913, PLR0917
         self,
         with_import: bool | None = True,  # noqa: FBT001, FBT002
         format_: bool | None = True,  # noqa: FBT001, FBT002
@@ -5359,6 +5423,30 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         collect_model_metadata: bool = False,  # noqa: FBT001, FBT002
     ) -> str | dict[tuple[str, ...], Result]:
         """Parse schema and generate code, returning single file or module dict."""
+        return self.__prepare_parse(
+            with_import=with_import,
+            format_=format_,
+            settings_path=settings_path,
+            disable_future_imports=disable_future_imports,
+            all_exports_scope=all_exports_scope,
+            all_exports_collision_strategy=all_exports_collision_strategy,
+            module_split_mode=module_split_mode,
+            collect_model_metadata=collect_model_metadata,
+        )
+
+    def __prepare_parse(  # noqa: PLR0913
+        self,
+        *,
+        with_import: bool | None,
+        format_: bool | None,
+        settings_path: Path | None,
+        disable_future_imports: bool,
+        all_exports_scope: AllExportsScope | None,
+        all_exports_collision_strategy: AllExportsCollisionStrategy | None,
+        module_split_mode: ModuleSplitMode | None,
+        collect_model_metadata: bool,
+    ) -> str | dict[tuple[str, ...], Result]:
+        """Prepare parsed models and formatting before processing output modules."""
         if (custom_template_dir := self.custom_template_dir) is not None:
             _refresh_custom_template_paths(custom_template_dir)
         self._set_typed_extra_annotation_mode(
@@ -5416,6 +5504,34 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                         ),
                     )
 
+        return self.__process_modules(
+            module_models,
+            internal_modules=internal_modules,
+            forwarder_map=forwarder_map,
+            model_to_module_models=model_to_module_models,
+            model_path_to_module_name=model_path_to_module_name,
+            require_update_action_models=require_update_action_models,
+            sorted_data_models=sorted_data_models,
+            source_reference_paths=source_reference_paths,
+            config=config,
+            collect_model_metadata=collect_model_metadata,
+        )
+
+    def __process_modules(  # noqa: PLR0913
+        self,
+        module_models: ModuleModels,
+        *,
+        internal_modules: set[ModulePath],
+        forwarder_map: ForwarderMap,
+        model_to_module_models: dict[DataModel, tuple[ModulePath, list[DataModel]]],
+        model_path_to_module_name: dict[str, str],
+        require_update_action_models: list[str],
+        sorted_data_models: SortedDataModels,
+        source_reference_paths: Mapping[DataModel, str],
+        config: ParseConfig,
+        collect_model_metadata: bool,
+    ) -> str | dict[tuple[str, ...], Result]:
+        """Process every module into one shared result mapping before rendering."""
         results: dict[ModulePath, Result] = {}
         unused_models: list[DataModel] = []
         module_to_import: dict[ModulePath, Imports] = {}
@@ -5445,6 +5561,30 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             if len(top_level_dirs) > 1:
                 results[root_init] = Result(body="")
 
+        return self.__render_modules(
+            results,
+            contexts=contexts,
+            sorted_data_models=sorted_data_models,
+            source_reference_paths=source_reference_paths,
+            config=config,
+            forwarder_map=forwarder_map,
+            require_update_action_models=require_update_action_models,
+            collect_model_metadata=collect_model_metadata,
+        )
+
+    def __render_modules(  # noqa: PLR0913
+        self,
+        results: dict[ModulePath, Result],
+        *,
+        contexts: list[ModuleContext],
+        sorted_data_models: SortedDataModels,
+        source_reference_paths: Mapping[DataModel, str],
+        config: ParseConfig,
+        forwarder_map: ForwarderMap,
+        require_update_action_models: list[str],
+        collect_model_metadata: bool,
+    ) -> str | dict[tuple[str, ...], Result]:
+        """Render the shared result mapping and apply final output-only transformations."""
         future_imports = self.imports.extract_future()
         future_imports_str = str(future_imports)
 

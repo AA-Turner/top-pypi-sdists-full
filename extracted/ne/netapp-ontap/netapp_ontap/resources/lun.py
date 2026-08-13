@@ -42,39 +42,39 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Lun(
     {
         "serial_number": "wf0Iq+N4uck3",
-        "name": "/vol/vol1/lun1",
-        "os_type": "linux",
-        "status": {"container_state": "online", "state": "online", "read_only": False},
+        "uuid": "5a24ae5b-28af-47fb-b129-5adf6cfba0a6",
+        "enabled": True,
+        "status": {"state": "online", "read_only": False, "container_state": "online"},
+        "space": {
+            "guarantee": {"requested": False, "reserved": False},
+            "scsi_thin_provisioning_support_enabled": True,
+            "size": 322163441664,
+            "used": 0,
+        },
         "location": {
             "logical_unit": "lun1",
             "volume": {
-                "name": "vol1",
+                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/71cd0dba-2a1c-11e9-b682-005056bbc17d"
                     }
                 },
-                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
+                "name": "vol1",
             },
         },
-        "enabled": True,
         "_links": {
             "self": {"href": "/api/storage/luns/5a24ae5b-28af-47fb-b129-5adf6cfba0a6"}
         },
-        "space": {
-            "scsi_thin_provisioning_support_enabled": True,
-            "used": 0,
-            "guarantee": {"reserved": False, "requested": False},
-            "size": 322163441664,
-        },
-        "uuid": "5a24ae5b-28af-47fb-b129-5adf6cfba0a6",
+        "os_type": "linux",
         "class": "regular",
+        "name": "/vol/vol1/lun1",
         "svm": {
-            "name": "svm1",
+            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
             "_links": {
                 "self": {"href": "/api/svm/svms/6bf967fd-2a1c-11e9-b682-005056bbc17d"}
             },
-            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
+            "name": "svm1",
         },
     }
 )
@@ -114,40 +114,40 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Lun(
         {
-            "name": "/vol/vol1/lun1",
+            "uuid": "5a24ae5b-28af-47fb-b129-5adf6cfba0a6",
             "status": {"state": "online"},
             "_links": {
                 "self": {
                     "href": "/api/storage/luns/5a24ae5b-28af-47fb-b129-5adf6cfba0a6"
                 }
             },
-            "uuid": "5a24ae5b-28af-47fb-b129-5adf6cfba0a6",
+            "name": "/vol/vol1/lun1",
             "svm": {"name": "svm1"},
         }
     ),
     Lun(
         {
-            "name": "/vol/vol1/lun2",
+            "uuid": "c903a978-9bac-4ce9-8237-4a3ba8b13f08",
             "status": {"state": "online"},
             "_links": {
                 "self": {
                     "href": "/api/storage/luns/c903a978-9bac-4ce9-8237-4a3ba8b13f08"
                 }
             },
-            "uuid": "c903a978-9bac-4ce9-8237-4a3ba8b13f08",
+            "name": "/vol/vol1/lun2",
             "svm": {"name": "svm1"},
         }
     ),
     Lun(
         {
-            "name": "/vol/vol2/lun3",
+            "uuid": "7faf0a9e-0a47-4876-8318-3638d5da16bf",
             "status": {"state": "online"},
             "_links": {
                 "self": {
                     "href": "/api/storage/luns/7faf0a9e-0a47-4876-8318-3638d5da16bf"
                 }
             },
-            "uuid": "7faf0a9e-0a47-4876-8318-3638d5da16bf",
+            "name": "/vol/vol2/lun3",
             "svm": {"name": "svm1"},
         }
     ),
@@ -177,14 +177,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Lun(
     {
         "serial_number": "wf0Iq+N4uck3",
-        "name": "/vol/vol1/lun1",
-        "os_type": "linux",
-        "auto_delete": False,
+        "uuid": "5a24ae5b-28af-47fb-b129-5adf6cfba0a6",
+        "enabled": True,
         "status": {
-            "container_state": "online",
-            "mapped": True,
             "state": "online",
             "read_only": False,
+            "mapped": True,
+            "container_state": "online",
         },
         "vvol": {
             "is_bound": True,
@@ -196,94 +195,95 @@ Lun(
                                 "href": "/api/storage/luns/353c7262-be4b-4176-acf3-f1021faa8b64"
                             }
                         },
-                        "name": "/vol/vol1/pelun1",
                         "uuid": "353c7262-be4b-4176-acf3-f1021faa8b64",
+                        "name": "/vol/vol1/pelun1",
                     },
+                    "id": 4304512,
                     "_links": {
                         "self": {
                             "href": "/api/protocols/san/vvol-bindings/353c7262-be4b-4176-acf3-f1021faa8b64/5a24ae5b-28af-47fb-b129-5adf6cfba0a6"
                         }
                     },
-                    "id": 4304512,
                 }
             ],
         },
-        "metric": {
-            "latency": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "timestamp": "2019-04-09T05:50:15+00:00",
-            "iops": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "status": "ok",
-            "duration": "PT15S",
-            "throughput": {"write": 0, "total": 0, "other": 0, "read": 0},
+        "space": {
+            "guarantee": {"requested": False, "reserved": False},
+            "scsi_thin_provisioning_support_enabled": True,
+            "size": 322163441664,
+            "used": 0,
         },
         "location": {
             "logical_unit": "lun1",
             "volume": {
-                "name": "vol1",
+                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/71cd0dba-2a1c-11e9-b682-005056bbc17d"
                     }
                 },
-                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
+                "name": "vol1",
             },
         },
-        "enabled": True,
-        "_links": {
-            "self": {
-                "href": "/api/storage/luns/5a24ae5b-28af-47fb-b129-5adf6cfba0a6?fields=**"
-            }
-        },
-        "space": {
-            "scsi_thin_provisioning_support_enabled": True,
-            "used": 0,
-            "guarantee": {"reserved": False, "requested": False},
-            "size": 322163441664,
-        },
-        "statistics": {
-            "throughput_raw": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "iops_raw": {"write": 0, "total": 3, "other": 3, "read": 0},
-            "timestamp": "2019-04-09T05:50:42+00:00",
+        "metric": {
+            "iops": {"read": 0, "write": 0, "other": 0, "total": 0},
+            "timestamp": "2019-04-09T05:50:15+00:00",
+            "duration": "PT15S",
             "status": "ok",
-            "latency_raw": {"write": 0, "total": 38298, "other": 38298, "read": 0},
+            "latency": {"read": 0, "write": 0, "other": 0, "total": 0},
+            "throughput": {"read": 0, "write": 0, "other": 0, "total": 0},
         },
-        "comment": "Data for the finance department.",
-        "uuid": "5a24ae5b-28af-47fb-b129-5adf6cfba0a6",
-        "lun_maps": [
-            {
-                "igroup": {
-                    "_links": {
-                        "self": {
-                            "href": "/api/protocols/san/igroups/2b9d57e1-2a66-11e9-b682-005056bbc17d"
-                        }
-                    },
-                    "name": "ig1",
-                    "uuid": "2b9d57e1-2a66-11e9-b682-005056bbc17d",
-                },
-                "_links": {
-                    "self": {
-                        "href": "/api/protocols/san/lun-maps/5a24ae5b-28af-47fb-b129-5adf6cfba0a6/2b9d57e1-2a66-11e9-b682-005056bbc17d"
-                    }
-                },
-                "logical_unit_number": 0,
-            }
-        ],
         "consistency_group": {
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/6d657aaf-b57a-5396-82ea-c01329e46c79"
                 }
             },
-            "name": "vol1",
             "uuid": "6d657aaf-b57a-5396-82ea-c01329e46c79",
+            "name": "vol1",
+        },
+        "auto_delete": False,
+        "_links": {
+            "self": {
+                "href": "/api/storage/luns/5a24ae5b-28af-47fb-b129-5adf6cfba0a6?fields=**"
+            }
+        },
+        "os_type": "linux",
+        "statistics": {
+            "throughput_raw": {"read": 0, "write": 0, "other": 0, "total": 0},
+            "latency_raw": {"read": 0, "write": 0, "other": 38298, "total": 38298},
+            "iops_raw": {"read": 0, "write": 0, "other": 3, "total": 3},
+            "timestamp": "2019-04-09T05:50:42+00:00",
+            "status": "ok",
         },
         "class": "vvol",
+        "comment": "Data for the finance department.",
+        "name": "/vol/vol1/lun1",
+        "lun_maps": [
+            {
+                "_links": {
+                    "self": {
+                        "href": "/api/protocols/san/lun-maps/5a24ae5b-28af-47fb-b129-5adf6cfba0a6/2b9d57e1-2a66-11e9-b682-005056bbc17d"
+                    }
+                },
+                "logical_unit_number": 0,
+                "igroup": {
+                    "uuid": "2b9d57e1-2a66-11e9-b682-005056bbc17d",
+                    "name": "ig1",
+                    "_links": {
+                        "self": {
+                            "href": "/api/protocols/san/igroups/2b9d57e1-2a66-11e9-b682-005056bbc17d"
+                        }
+                    },
+                },
+            }
+        ],
         "svm": {
-            "name": "svm1",
+            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
             "_links": {
                 "self": {"href": "/api/svm/svms/6bf967fd-2a1c-11e9-b682-005056bbc17d"}
             },
-            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
+            "name": "svm1",
         },
     }
 )
@@ -429,20 +429,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Lun(
     {
-        "name": "/vol/vol1/lun3",
-        "movement": {
-            "progress": {
-                "percent_complete": 0,
-                "state": "preparing",
-                "volume_snapshot_blocked": False,
-                "elapsed": 1,
-            },
-            "paths": {"source": "/vol/vol2/lun3", "destination": "/vol/vol1/lun3"},
-        },
+        "uuid": "7faf0a9e-0a47-4876-8318-3638d5da16bf",
         "_links": {
             "self": {"href": "/api/storage/luns/7faf0a9e-0a47-4876-8318-3638d5da16bf"}
         },
-        "uuid": "7faf0a9e-0a47-4876-8318-3638d5da16bf",
+        "movement": {
+            "paths": {"source": "/vol/vol2/lun3", "destination": "/vol/vol1/lun3"},
+            "progress": {
+                "volume_snapshot_blocked": False,
+                "percent_complete": 0,
+                "elapsed": 1,
+                "state": "preparing",
+            },
+        },
+        "name": "/vol/vol1/lun3",
     }
 )
 
@@ -483,6 +483,25 @@ class LunSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
                 allow_none=True
             )
     r""" The links field of the lun."""
+
+    access_mode = marshmallow_fields.Str(
+        data_key="access_mode",
+        validate=enum_validation(['global', 'local']),
+        allow_none=True,
+    )
+    r""" The `access_mode` property controls how SCSI task set management is handled for the LUN.
+This property is only supported on LUNs with the following `os_type`:
+
+* aix
+A value of _global_ is the default access mode, and indicates that task set operations impact all initiators accessing the LUN. In this mode, if an individual initiator encounters an I/O failure, its recovery can cascade the disruption to other initiators accessing the same LUN. Host operating systems not supported by this property are designed to avoid these cascading disruptions, so this property can be safely ignored.
+A value of _local_ indicates that task set operations only impact the initiator that requested the operation. When many hosts of a supported `os_type` are accessing the same LUN, the _local_ `access_mode` should be preferred.
+Modification of this property is only supported while the `status.state` of the LUN is _offline_. If a PATCH is performed while the LUN is _online_, the PATCH will automatically bring the LUN _offline_, perform the `access_mode` modification, and then bring the LUN back _online_. The host must perform a rescan to detect the new `access_mode`.
+
+
+Valid choices:
+
+* global
+* local"""
 
     attributes = marshmallow_fields.List(
                 marshmallow_fields.Nested(
@@ -789,9 +808,11 @@ There is an added computational cost to retrieving property values for `vvol`. T
 
     gettable_fields = [
         "links",
+        "access_mode",
         "attributes",
         "auto_delete",
         "class_",
+        "clone",
         "comment",
         "consistency_group",
         "copy",
@@ -820,9 +841,10 @@ There is an added computational cost to retrieving property values for `vvol`. T
         "uuid",
         "vvol",
     ]
-    """links,attributes,auto_delete,class_,comment,consistency_group,copy,create_time,enabled,encryption,location,lun_maps,metric,movement,name,os_type,qos_policy,serial_number,serial_number_hex,space,statistics.iops_raw,statistics.latency_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,status,svm.links,svm.name,svm.uuid,uuid,vvol,"""
+    """links,access_mode,attributes,auto_delete,class_,clone,comment,consistency_group,copy,create_time,enabled,encryption,location,lun_maps,metric,movement,name,os_type,qos_policy,serial_number,serial_number_hex,space,statistics.iops_raw,statistics.latency_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,status,svm.links,svm.name,svm.uuid,uuid,vvol,"""
 
     patchable_fields = [
+        "access_mode",
         "auto_delete",
         "clone",
         "comment",
@@ -834,9 +856,10 @@ There is an added computational cost to retrieving property values for `vvol`. T
         "qos_policy",
         "space",
     ]
-    """auto_delete,clone,comment,copy,enabled,location,movement,name,qos_policy,space,"""
+    """access_mode,auto_delete,clone,comment,copy,enabled,location,movement,name,qos_policy,space,"""
 
     postable_fields = [
+        "access_mode",
         "attributes",
         "auto_delete",
         "class_",
@@ -855,7 +878,7 @@ There is an added computational cost to retrieving property values for `vvol`. T
         "svm.name",
         "svm.uuid",
     ]
-    """attributes,auto_delete,class_,clone,comment,convert,copy,location,lun_maps,movement,name,os_type,provisioning_options,qos_policy,space,svm.name,svm.uuid,"""
+    """access_mode,attributes,auto_delete,class_,clone,comment,convert,copy,location,lun_maps,movement,name,os_type,provisioning_options,qos_policy,space,svm.name,svm.uuid,"""
 
 class Lun(Resource):
     r""" A LUN is the logical representation of storage in a storage area network (SAN).<br/>
@@ -956,6 +979,7 @@ There is an added computational cost to retrieving values for these properties. 
 - Overwrites the contents of a LUN as a clone of another.
 - Begins the movement of a LUN between volumes. PATCH can also pause and resume the movement of a LUN between volumes that is already in active.
 ### Related ONTAP commands
+<personalities supports=unified>
 * `lun copy modify`
 * `lun copy pause`
 * `lun copy resume`
@@ -967,6 +991,12 @@ There is an added computational cost to retrieving values for these properties. 
 * `lun move start`
 * `lun resize`
 * `volume file clone autodelete`
+</personalities>
+<personalities supports=asar2>
+* `lun modify`
+* `lun resize`
+* `lun rename`
+</personalities>
 <personalities supports=asar2>
 PATCH is asynchronous when modifying `name` or `qos_policy`.
 </personalities>
@@ -1007,9 +1037,11 @@ If not specified in POST, the follow default property values are assigned.
 ### Related ONTAP commands
 * `lun create`
 * `lun convert-from-namespace`
+<personalities supports=unified>
 * `lun copy start`
 * `volume file clone autodelete`
 * `volume file clone create`
+</personalities>
 <personalities supports=asar2>
 The `name` property is required when creating a new LUN. The name must start with an alphabetic character (a to z or A to Z) or an underscore (_). The name must be 203 characters or less in length. The `location` properties are not supported.
 </personalities>
@@ -1138,9 +1170,11 @@ If not specified in POST, the follow default property values are assigned.
 ### Related ONTAP commands
 * `lun create`
 * `lun convert-from-namespace`
+<personalities supports=unified>
 * `lun copy start`
 * `volume file clone autodelete`
 * `volume file clone create`
+</personalities>
 <personalities supports=asar2>
 The `name` property is required when creating a new LUN. The name must start with an alphabetic character (a to z or A to Z) or an underscore (_). The name must be 203 characters or less in length. The `location` properties are not supported.
 </personalities>
@@ -1169,6 +1203,7 @@ POST is asynchronous when creating a new LUN. It is synchronous when converting 
 - Overwrites the contents of a LUN as a clone of another.
 - Begins the movement of a LUN between volumes. PATCH can also pause and resume the movement of a LUN between volumes that is already in active.
 ### Related ONTAP commands
+<personalities supports=unified>
 * `lun copy modify`
 * `lun copy pause`
 * `lun copy resume`
@@ -1180,6 +1215,12 @@ POST is asynchronous when creating a new LUN. It is synchronous when converting 
 * `lun move start`
 * `lun resize`
 * `volume file clone autodelete`
+</personalities>
+<personalities supports=asar2>
+* `lun modify`
+* `lun resize`
+* `lun rename`
+</personalities>
 <personalities supports=asar2>
 PATCH is asynchronous when modifying `name` or `qos_policy`.
 </personalities>

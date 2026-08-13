@@ -352,19 +352,12 @@ def upload_model_to_volume(
     model_file_path: str,
     chalk_client: Any = None,
 ) -> None:
-    """Upload a model file to a versioned chalkfs volume."""
-    vol = _get_or_create_versioned_volume(volume_name, chalk_client=chalk_client)
-    vol.put_file_from_path(model_filename, model_file_path)
+    """Upload a model file to a Chalk volume."""
+    from chalkcompute import ConnectClient, Volume, VolumeClient  # pyright: ignore[reportMissingImports]
 
-
-def _get_or_create_versioned_volume(volume_name: str, chalk_client: Any = None):
-    """Return a VersionedVolumeClient volume, creating it if it doesn't exist."""
-    from chalkcompute import ConnectClient, VersionedVolumeClient  # pyright: ignore[reportMissingImports]
-
-    vol_client = VersionedVolumeClient.from_connect(ConnectClient(chalk_client=chalk_client))
-    if vol_client.exists(volume_name):
-        return vol_client.from_name(volume_name)
-    return vol_client.create(volume_name)
+    client = VolumeClient.from_connect(ConnectClient(chalk_client=chalk_client))
+    with Volume(volume_name, client=client) as volume:
+        volume.put_file_from_path(model_filename, model_file_path)
 
 
 def model_artifact_volume_name(model_name: str, model_artifact_id: str) -> str:
@@ -769,22 +762,30 @@ def _collect_chalk_handler_artifacts(
     )
 
 
-def upload_chalk_handler_artifacts(volume_name: str, uploads: List[Tuple[str, str]], chalk_client: Any = None) -> None:
+def upload_chalk_handler_artifacts(
+    volume_name: str,
+    uploads: List[Tuple[str, str]],
+    chalk_client: Any = None,
+    mount_path: str = CHALK_HANDLER_ARTIFACT_PATH,
+) -> Dict[str, Any]:
     """Upload artifact files to a managed volume the deployed container will mount.
 
     Each entry in ``uploads`` is ``(local_path, container_basename)``. The
-    container will see the file at ``{CHALK_HANDLER_ARTIFACT_PATH}/{basename}``
-    after the volume is mounted.
+    returned mount uses ``mount_path`` and contains all files in one version.
     """
     try:
-        vol = _get_or_create_versioned_volume(volume_name, chalk_client=chalk_client)
+        from chalkcompute import ConnectClient, Volume, VolumeClient  # pyright: ignore[reportMissingImports]
+
+        client = VolumeClient.from_connect(ConnectClient(chalk_client=chalk_client))
     except ImportError:
         raise ImportError("Please install `chalkcompute` to upload model artifacts.")
 
-    # Batch all files into a single commit (one version) instead of one commit per file.
-    with vol.batch_upload() as batch:
-        for local_path, basename in uploads:
-            batch.put_file(basename, local_path)
+    with Volume(volume_name, client=client) as volume:
+        # Batch all files into a single commit (one version) instead of one commit per file.
+        with volume.batch_upload() as batch:
+            for local_path, basename in uploads:
+                batch.put_file(basename, local_path)
+        return volume.mount(mount_path).to_spec_dict()
 
 
 _CHALKPY_DEV_PLACEHOLDER_VERSION = "0.0.0"

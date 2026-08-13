@@ -40,12 +40,15 @@ from edgar.httprequests import download_json
 from edgar.storage import get_edgar_data_directory, is_using_local_storage
 
 
-class NoCompanyFactsFound(Exception):
-    """Exception raised when no company facts are found for a given CIK."""
+# NoCompanyFactsFound is now CompanyFactsNotFoundError in edgar.exceptions
+# (bead edgartools-07lk.10). Its __init__ called super().__init__() with no
+# arguments and set self.message instead, so str(exc) was '' and the message
+# never reached a traceback or a log. The canonical class builds the message
+# and passes it up. Old name kept as a deprecated alias below.
+from edgar._compat import deprecated_alias
+from edgar.exceptions import CompanyFactsNotFoundError, TransportError, http_status
 
-    def __init__(self, cik: int):
-        super().__init__()
-        self.message = f"""No Company facts found for cik {cik}"""
+__getattr__ = deprecated_alias(NoCompanyFactsFound=CompanyFactsNotFoundError)
 
 
 def download_company_facts_from_sec(cik: int) -> Dict[str, Any]:
@@ -56,10 +59,14 @@ def download_company_facts_from_sec(cik: int) -> Dict[str, Any]:
     company_facts_url = build_company_facts_url(cik)
     try:
         return download_json(company_facts_url)
-    except httpx.HTTPStatusError as err:
-        if err.response.status_code == 404:
+    except (httpx.HTTPStatusError, TransportError) as err:
+        # The model for domain translation across both error eras: a 404 is
+        # something this layer understands, so it becomes the domain's own
+        # NotFoundError. Everything else propagates as a transport failure,
+        # because nobody here knows better than "we could not get an answer".
+        if http_status(err) == 404:
             log.warning(f"No company facts found on url {company_facts_url}")
-            raise NoCompanyFactsFound(cik=cik) from None
+            raise CompanyFactsNotFoundError(cik=cik) from None
         else:
             raise
 
@@ -70,11 +77,11 @@ def load_company_facts_from_local(cik: int) -> Dict[str, Any]:
     """
     company_facts_dir = get_edgar_data_directory() / "companyfacts"
     if not company_facts_dir.exists():
-        raise NoCompanyFactsFound(cik=cik)
+        raise CompanyFactsNotFoundError(cik=cik)
     cik_int = int(cik) if isinstance(cik, str) else cik
     company_facts_file = company_facts_dir / f"CIK{cik_int:010}.json"
     if not company_facts_file.exists():
-        raise NoCompanyFactsFound(cik=cik)
+        raise CompanyFactsNotFoundError(cik=cik)
 
     return json.loads(company_facts_file.read_text())
 
@@ -105,7 +112,7 @@ def get_company_facts(cik: int):
         CompanyFacts: The company facts
 
     Raises:
-        NoCompanyFactsFound: If no facts are found for the given CIK
+        CompanyFactsNotFoundError: If no facts are found for the given CIK
     """
     cached = _company_facts_cache.get(cik)
     if cached is not None:

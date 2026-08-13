@@ -36,6 +36,9 @@ class SwitchPortIdentitySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     number = Size(data_key="number", allow_none=True)
     r""" Interface Number. """
 
+    slot = Size(data_key="slot", allow_none=True)
+    r""" Interface slot. """
+
     @property
     def resource(self):
         return SwitchPortIdentity
@@ -45,8 +48,9 @@ class SwitchPortIdentitySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
         "index",
         "name",
         "number",
+        "slot",
     ]
-    """breakout,index,name,number,"""
+    """breakout,index,name,number,slot,"""
 
     patchable_fields = [
         "breakout",

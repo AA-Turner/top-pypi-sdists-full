@@ -21,6 +21,10 @@ from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict, StrictBool, StrictInt, StrictStr, field_validator
 
+from snowflake.core.dynamic_table._generated.models.data_metric_schedule import (
+    DataMetricSchedule,
+    DataMetricScheduleModel,
+)
 from snowflake.core.dynamic_table._generated.models.dynamic_table_column import (
     DynamicTableColumn,
     DynamicTableColumnModel,
@@ -51,14 +55,32 @@ class DynamicTable(BaseModel):
         Specifies the refresh type for the dynamic table
     initialize : str, optional
         Specifies the behavior of the initial refresh of the dynamic table
+    initialization_warehouse : str, optional
+        Specifies the warehouse used for the initial (or re-initialization) refresh of the dynamic table. If unset, falls back to the regular warehouse.
     cluster_by : list[str], optional
         Specifies one or more columns or column expressions in the dynamic table as the clustering key
+    cluster_by_raw : str, optional
+        Raw clustering key string from the DDL statement — **Read-only:** *any user-provided value will be ignored.*
+    frozen_where : str, optional
+        The predicate of the dynamic table's frozen region — the expression inside the FROZEN WHERE ( ... ) clause (formerly IMMUTABLE WHERE). Rows matching this predicate are frozen and blocked from further changes. Null when the dynamic table has no frozen region.
+    backfill_from : str, optional
+        The source table the dynamic table backfills its frozen region from (the BACKFILL FROM <table> clause). Null when the dynamic table has no backfill source.
+    start_at : str, optional
+        The point from which the dynamic table began incremental processing — the resolved START AT ( ... ) clause (e.g. AT(STREAM => ...), AT(TIMESTAMP => ...), AT(OFFSET => ...)), stored as the unparsed clause text. Requires BACKFILL FROM on a custom-incremental dynamic table. Null when the dynamic table has no START AT clause — **Read-only:** *any user-provided value will be ignored.*
     data_retention_time_in_days : int, optional
         Specifies the retention period for the dynamic table so that Time Travel actions (SELECT, CLONE) can be performed on historical data in the dynamic table
     max_data_extension_time_in_days : int, optional
         Specifies the retention period for the dynamic table so that Time Travel actions (SELECT, CLONE) can be performed on historical data in the dynamic table
     comment : str, optional
         Specifies a comment for the dynamic table.
+    default_ddl_collation : str, optional
+        Specifies a default collation specification for the columns in the dynamic table, including columns added in the future.
+    data_metric_schedule : DataMetricSchedule, optional
+
+    log_level : str, optional
+        Severity level of messages emitted by the dynamic table that should be ingested and made available in the active event table.
+    row_timestamp : bool, optional
+        Whether ROW_TIMESTAMP is enabled on this dynamic table.
     created_on : datetime, optional
         Date and time when the dynamic table was created — **Read-only:** *any user-provided value will be ignored.*
     database_name : str, optional
@@ -97,15 +119,33 @@ class DynamicTable(BaseModel):
 
     warehouse: StrictStr
 
+    initialization_warehouse: Optional[StrictStr] = None
+
     cluster_by: Optional[List[StrictStr]] = None
 
+    cluster_by_raw: Optional[StrictStr] = None
+
     query: StrictStr
+
+    frozen_where: Optional[StrictStr] = None
+
+    backfill_from: Optional[StrictStr] = None
+
+    start_at: Optional[StrictStr] = None
 
     data_retention_time_in_days: Optional[StrictInt] = None
 
     max_data_extension_time_in_days: Optional[StrictInt] = None
 
     comment: Optional[StrictStr] = None
+
+    default_ddl_collation: Optional[StrictStr] = None
+
+    data_metric_schedule: Optional[DataMetricSchedule] = None
+
+    log_level: Optional[StrictStr] = None
+
+    row_timestamp: Optional[StrictBool] = None
 
     created_on: Optional[datetime] = None
 
@@ -137,11 +177,20 @@ class DynamicTable(BaseModel):
         "refresh_mode",
         "initialize",
         "warehouse",
+        "initialization_warehouse",
         "cluster_by",
+        "cluster_by_raw",
         "query",
+        "frozen_where",
+        "backfill_from",
+        "start_at",
         "data_retention_time_in_days",
         "max_data_extension_time_in_days",
         "comment",
+        "default_ddl_collation",
+        "data_metric_schedule",
+        "log_level",
+        "row_timestamp",
         "created_on",
         "database_name",
         "schema_name",
@@ -169,8 +218,10 @@ class DynamicTable(BaseModel):
 
         if v is None:
             return v
-        if v not in ("AUTO", "FULL", "INCREMENTAL"):
-            raise ValueError("must validate the enum values ('AUTO','FULL','INCREMENTAL')")
+        if v not in ("AUTO", "FULL", "INCREMENTAL", "ADAPTIVE", "CUSTOM_INCREMENTAL"):
+            raise ValueError(
+                "must validate the enum values ('AUTO','FULL','INCREMENTAL','ADAPTIVE','CUSTOM_INCREMENTAL')"
+            )
         return v
 
     @field_validator("initialize")
@@ -219,6 +270,8 @@ class DynamicTable(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update(
                 {
+                    "cluster_by_raw",
+                    "start_at",
                     "created_on",
                     "database_name",
                     "schema_name",
@@ -247,6 +300,42 @@ class DynamicTable(BaseModel):
         if self.target_lag:
             _dict["target_lag"] = self.target_lag.to_dict()
 
+        # override the default output from pydantic by calling `to_dict()` of data_metric_schedule
+        if self.data_metric_schedule:
+            _dict["data_metric_schedule"] = self.data_metric_schedule.to_dict()
+
+        # set to None if initialization_warehouse (nullable) is None
+        if self.initialization_warehouse is None:
+            _dict["initialization_warehouse"] = None
+
+        # set to None if cluster_by_raw (nullable) is None
+        if self.cluster_by_raw is None:
+            _dict["cluster_by_raw"] = None
+
+        # set to None if frozen_where (nullable) is None
+        if self.frozen_where is None:
+            _dict["frozen_where"] = None
+
+        # set to None if backfill_from (nullable) is None
+        if self.backfill_from is None:
+            _dict["backfill_from"] = None
+
+        # set to None if start_at (nullable) is None
+        if self.start_at is None:
+            _dict["start_at"] = None
+
+        # set to None if default_ddl_collation (nullable) is None
+        if self.default_ddl_collation is None:
+            _dict["default_ddl_collation"] = None
+
+        # set to None if log_level (nullable) is None
+        if self.log_level is None:
+            _dict["log_level"] = None
+
+        # set to None if row_timestamp (nullable) is None
+        if self.row_timestamp is None:
+            _dict["row_timestamp"] = None
+
         return _dict
 
     def to_dict_without_readonly_properties(self) -> dict[str, Any]:
@@ -273,11 +362,22 @@ class DynamicTable(BaseModel):
                 "refresh_mode": obj.get("refresh_mode"),
                 "initialize": obj.get("initialize"),
                 "warehouse": obj.get("warehouse"),
+                "initialization_warehouse": obj.get("initialization_warehouse"),
                 "cluster_by": obj.get("cluster_by"),
+                "cluster_by_raw": obj.get("cluster_by_raw"),
                 "query": obj.get("query"),
+                "frozen_where": obj.get("frozen_where"),
+                "backfill_from": obj.get("backfill_from"),
+                "start_at": obj.get("start_at"),
                 "data_retention_time_in_days": obj.get("data_retention_time_in_days"),
                 "max_data_extension_time_in_days": obj.get("max_data_extension_time_in_days"),
                 "comment": obj.get("comment"),
+                "default_ddl_collation": obj.get("default_ddl_collation"),
+                "data_metric_schedule": DataMetricSchedule.from_dict(obj.get("data_metric_schedule"))
+                if obj.get("data_metric_schedule") is not None
+                else None,
+                "log_level": obj.get("log_level"),
+                "row_timestamp": obj.get("row_timestamp"),
                 "created_on": obj.get("created_on"),
                 "database_name": obj.get("database_name"),
                 "schema_name": obj.get("schema_name"),
@@ -307,10 +407,19 @@ class DynamicTableModel:
         columns: Optional[list[DynamicTableColumn]] = None,
         refresh_mode: Optional[str] = None,
         initialize: Optional[str] = None,
+        initialization_warehouse: Optional[str] = None,
         cluster_by: Optional[list[str]] = None,
+        cluster_by_raw: Optional[str] = None,
+        frozen_where: Optional[str] = None,
+        backfill_from: Optional[str] = None,
+        start_at: Optional[str] = None,
         data_retention_time_in_days: Optional[int] = None,
         max_data_extension_time_in_days: Optional[int] = None,
         comment: Optional[str] = None,
+        default_ddl_collation: Optional[str] = None,
+        data_metric_schedule: Optional[DataMetricSchedule] = None,
+        log_level: Optional[str] = None,
+        row_timestamp: Optional[bool] = None,
         created_on: Optional[datetime] = None,
         database_name: Optional[str] = None,
         schema_name: Optional[str] = None,
@@ -345,14 +454,32 @@ class DynamicTableModel:
             Specifies the refresh type for the dynamic table
         initialize : str, optional
             Specifies the behavior of the initial refresh of the dynamic table
+        initialization_warehouse : str, optional
+            Specifies the warehouse used for the initial (or re-initialization) refresh of the dynamic table. If unset, falls back to the regular warehouse.
         cluster_by : list[str], optional
             Specifies one or more columns or column expressions in the dynamic table as the clustering key
+        cluster_by_raw : str, optional
+            Raw clustering key string from the DDL statement.
+        frozen_where : str, optional
+            The predicate of the dynamic table's frozen region — the expression inside the FROZEN WHERE ( ... ) clause (formerly IMMUTABLE WHERE). Rows matching this predicate are frozen and blocked from further changes. Null when the dynamic table has no frozen region.
+        backfill_from : str, optional
+            The source table the dynamic table backfills its frozen region from (the BACKFILL FROM <table> clause). Null when the dynamic table has no backfill source.
+        start_at : str, optional
+            The point from which the dynamic table began incremental processing — the resolved START AT ( ... ) clause (e.g. AT(STREAM => ...), AT(TIMESTAMP => ...), AT(OFFSET => ...)), stored as the unparsed clause text. Requires BACKFILL FROM on a custom-incremental dynamic table. Null when the dynamic table has no START AT clause.
         data_retention_time_in_days : int, optional
             Specifies the retention period for the dynamic table so that Time Travel actions (SELECT, CLONE) can be performed on historical data in the dynamic table
         max_data_extension_time_in_days : int, optional
             Specifies the retention period for the dynamic table so that Time Travel actions (SELECT, CLONE) can be performed on historical data in the dynamic table
         comment : str, optional
             Specifies a comment for the dynamic table.
+        default_ddl_collation : str, optional
+            Specifies a default collation specification for the columns in the dynamic table, including columns added in the future.
+        data_metric_schedule : DataMetricSchedule, optional
+
+        log_level : str, optional
+            Severity level of messages emitted by the dynamic table that should be ingested and made available in the active event table.
+        row_timestamp : bool, optional
+            Whether ROW_TIMESTAMP is enabled on this dynamic table.
         created_on : datetime, optional
             Date and time when the dynamic table was created.
         database_name : str, optional
@@ -383,11 +510,20 @@ class DynamicTableModel:
         self.refresh_mode = refresh_mode
         self.initialize = initialize
         self.warehouse = warehouse
+        self.initialization_warehouse = initialization_warehouse
         self.cluster_by = cluster_by
+        self.cluster_by_raw = cluster_by_raw
         self.query = query
+        self.frozen_where = frozen_where
+        self.backfill_from = backfill_from
+        self.start_at = start_at
         self.data_retention_time_in_days = data_retention_time_in_days
         self.max_data_extension_time_in_days = max_data_extension_time_in_days
         self.comment = comment
+        self.default_ddl_collation = default_ddl_collation
+        self.data_metric_schedule = data_metric_schedule
+        self.log_level = log_level
+        self.row_timestamp = row_timestamp
         self.created_on = created_on
         self.database_name = database_name
         self.schema_name = schema_name
@@ -408,11 +544,20 @@ class DynamicTableModel:
         "refresh_mode",
         "initialize",
         "warehouse",
+        "initialization_warehouse",
         "cluster_by",
+        "cluster_by_raw",
         "query",
+        "frozen_where",
+        "backfill_from",
+        "start_at",
         "data_retention_time_in_days",
         "max_data_extension_time_in_days",
         "comment",
+        "default_ddl_collation",
+        "data_metric_schedule",
+        "log_level",
+        "row_timestamp",
         "created_on",
         "database_name",
         "schema_name",
@@ -438,11 +583,22 @@ class DynamicTableModel:
             refresh_mode=self.refresh_mode,
             initialize=self.initialize,
             warehouse=self.warehouse,
+            initialization_warehouse=self.initialization_warehouse,
             cluster_by=self.cluster_by,
+            cluster_by_raw=self.cluster_by_raw,
             query=self.query,
+            frozen_where=self.frozen_where,
+            backfill_from=self.backfill_from,
+            start_at=self.start_at,
             data_retention_time_in_days=self.data_retention_time_in_days,
             max_data_extension_time_in_days=self.max_data_extension_time_in_days,
             comment=self.comment,
+            default_ddl_collation=self.default_ddl_collation,
+            data_metric_schedule=self.data_metric_schedule._to_model()
+            if self.data_metric_schedule is not None
+            else None,
+            log_level=self.log_level,
+            row_timestamp=self.row_timestamp,
             created_on=self.created_on,
             database_name=self.database_name,
             schema_name=self.schema_name,
@@ -466,11 +622,22 @@ class DynamicTableModel:
             refresh_mode=model.refresh_mode,
             initialize=model.initialize,
             warehouse=model.warehouse,
+            initialization_warehouse=model.initialization_warehouse,
             cluster_by=model.cluster_by,
+            cluster_by_raw=model.cluster_by_raw,
             query=model.query,
+            frozen_where=model.frozen_where,
+            backfill_from=model.backfill_from,
+            start_at=model.start_at,
             data_retention_time_in_days=model.data_retention_time_in_days,
             max_data_extension_time_in_days=model.max_data_extension_time_in_days,
             comment=model.comment,
+            default_ddl_collation=model.default_ddl_collation,
+            data_metric_schedule=DataMetricScheduleModel._from_model(model.data_metric_schedule)
+            if model.data_metric_schedule
+            else None,
+            log_level=model.log_level,
+            row_timestamp=model.row_timestamp,
             created_on=model.created_on,
             database_name=model.database_name,
             schema_name=model.schema_name,

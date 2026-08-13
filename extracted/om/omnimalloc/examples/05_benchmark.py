@@ -4,38 +4,55 @@
 
 from pathlib import Path
 
+from omnimalloc.allocators.minimalloc import HAS_MINIMALLOC
 from omnimalloc.benchmark import (
+    VariantSpec,
     plot_benchmark,
     run_benchmark,
     save_benchmark,
 )
 
-example_dir = Path("05_example_output")
 
-# Define allocators, sources, and variants to benchmark
-allocators = (
-    "greedy_by_size_allocator",
-    "greedy_by_size_allocator_cpp",
-    "greedy_by_conflict_allocator",
-    "minimalloc_allocator",
-)
-sources = (
-    "random_source",
-    "minimalloc_source",
-    "huggingface_source",
-)
-variants = (10, 50, 100, 250, 500)
+def main() -> None:
+    example_dir = Path("05_example_output")
 
-# Run benchmark campaign
-campaign = run_benchmark(
-    allocators=allocators,
-    sources=sources,
-    variants=variants,
-    validate=True,
-)
+    # Define allocators, sources, and variants to benchmark
+    allocators = (
+        "greedy_by_size",
+        "greedy_by_all",
+        "omni",
+        "best_fit",
+        "telamalloc",
+    )
+    # minimalloc is an optional dependency that only builds on some platforms
+    if HAS_MINIMALLOC:
+        allocators += ("minimalloc",)
+    sources = (
+        "random",
+        "minimalloc",
+        "huggingface",
+    )
+    # Counts for the parameterizable source, "first 5" for the fixed ones
+    variants: dict[str, VariantSpec] = {
+        "random": (10, 50, 100, 250, 500),
+        "minimalloc": 5,
+        "huggingface": 5,
+    }
 
-# Visualize
-plot_benchmark(campaign, example_dir / "benchmark_results.pdf")
+    # Run benchmark campaign
+    campaign = run_benchmark(
+        allocators=allocators,
+        sources=sources,
+        variants=variants,
+        validate=True,
+    )
 
-# Save results (contains overview and individual allocation plots)
-save_benchmark(campaign, example_dir / "benchmark_results")
+    # Visualize
+    plot_benchmark(campaign, example_dir / "benchmark_results.pdf")
+
+    # Save results (contains overview and individual allocation plots)
+    save_benchmark(campaign, example_dir / "benchmark_results")
+
+
+if __name__ == "__main__":
+    main()

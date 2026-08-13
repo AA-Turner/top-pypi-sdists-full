@@ -140,6 +140,14 @@ class QosPolicySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
             )
     r""" Adaptive QoS policy-groups define measurable service level objectives (SLOs) that adjust based on the storage object used space and the storage object allocated space."""
 
+    burst = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.qos_policy_burst", "QosPolicyBurstSchema"),
+                data_key="burst",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" Burst settings for the QoS policy."""
+
     fixed = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.models.qos_policy_fixed", "QosPolicyFixedSchema"),
                 data_key="fixed",
@@ -219,6 +227,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
     gettable_fields = [
         "links",
         "adaptive",
+        "burst",
         "fixed",
         "name",
         "object_count",
@@ -230,25 +239,27 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "svm.uuid",
         "uuid",
     ]
-    """links,adaptive,fixed,name,object_count,pgid,policy_class,scope,svm.links,svm.name,svm.uuid,uuid,"""
+    """links,adaptive,burst,fixed,name,object_count,pgid,policy_class,scope,svm.links,svm.name,svm.uuid,uuid,"""
 
     patchable_fields = [
         "adaptive",
+        "burst",
         "fixed",
         "name",
         "svm.name",
         "svm.uuid",
     ]
-    """adaptive,fixed,name,svm.name,svm.uuid,"""
+    """adaptive,burst,fixed,name,svm.name,svm.uuid,"""
 
     postable_fields = [
         "adaptive",
+        "burst",
         "fixed",
         "name",
         "svm.name",
         "svm.uuid",
     ]
-    """adaptive,fixed,name,svm.name,svm.uuid,"""
+    """adaptive,burst,fixed,name,svm.name,svm.uuid,"""
 
 class QosPolicy(Resource):
     """Allows interaction with QosPolicy objects on the host"""

@@ -53,6 +53,7 @@ async def _publish_app(
     commit_info: typing.Optional[modal_proto.api_pb2.CommitInfo] = None,
     deployment_strategy: str = "rolling",
     environment_name: typing.Optional[str] = None,
+    staged: bool = False,
 ) -> tuple[str, list[modal_proto.api_pb2.Warning], float]:
     """Wrapper for AppPublish RPC."""
     ...
@@ -95,11 +96,13 @@ class DeployResult:
     """Dataclass representing the result of deploying an app."""
 
     app_id: str
-    app_page_url: str
-    app_logs_url: str
+    app_page_url: typing.Optional[str]
+    app_logs_url: typing.Optional[str]
     warnings: list[str]
 
-    def __init__(self, app_id: str, app_page_url: str, app_logs_url: str, warnings: list[str]) -> None:
+    def __init__(
+        self, app_id: str, app_page_url: typing.Optional[str], app_logs_url: typing.Optional[str], warnings: list[str]
+    ) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
 
@@ -131,6 +134,7 @@ async def _deploy_app(
     tag: str = "",
     deployment_strategy: str = "rolling",
     client: typing.Optional[modal.client._Client] = None,
+    staged: bool = False,
 ) -> DeployResult:
     """Internal function for deploying an App.
 
@@ -238,6 +242,7 @@ class __deploy_app_spec(typing_extensions.Protocol):
         tag: str = "",
         deployment_strategy: str = "rolling",
         client: typing.Optional[modal.client.Client] = None,
+        staged: bool = False,
     ) -> DeployResult:
         """Internal function for deploying an App.
 
@@ -255,6 +260,7 @@ class __deploy_app_spec(typing_extensions.Protocol):
         tag: str = "",
         deployment_strategy: str = "rolling",
         client: typing.Optional[modal.client.Client] = None,
+        staged: bool = False,
     ) -> DeployResult:
         """Internal function for deploying an App.
 

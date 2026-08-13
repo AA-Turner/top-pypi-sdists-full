@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scrapinghub
-Version: 2.8.0
+Version: 2.9.0
 Summary: Client interface for Scrapinghub API
 Home-page: http://github.com/scrapinghub/python-scrapinghub
 Author: Scrapinghub

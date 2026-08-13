@@ -18,9 +18,15 @@
 
 import contextlib
 import os
+import warnings
 
 from functools import wraps, lru_cache
-from typing import Optional, Union, Tuple, TYPE_CHECKING
+from typing import Optional, Union, Tuple
+
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 from nvtx._lib import (
     Domain,
@@ -31,10 +37,14 @@ from nvtx._lib import (
     push_range as libnvtx_push_range,
     start_range as libnvtx_start_range,
     end_range as libnvtx_end_range,
+    EntryKind,
+    PayloadEntryType,
+    NvtxWarning,
 )
 
-if TYPE_CHECKING:
-    import numpy as np
+from nvtx._lib.counters import CounterSemantics
+from nvtx._dtype_validation import _validate_entry_storage
+from nvtx._metadata import NVTX_DTYPE_METADATA_KEY_NAME, _PayloadMetadata
 
 
 PayloadTypeAlias = Union[int, float, list, tuple, range, bytes, "np.ndarray"]
@@ -42,12 +52,97 @@ _immutable_payload_types = {int, float, tuple, range, bytes}
 _ENABLED = not os.getenv("NVTX_DISABLE", False)
 
 
+def numpy_dtype(
+    *args,
+    counter_semantics: Optional[CounterSemantics] = None,
+    entry_kind: Optional[EntryKind] = None,
+    entry_type: Optional[PayloadEntryType] = None,
+    **kwargs,
+) -> "np.dtype":
+    """
+    Construct a NumPy dtype, optionally carrying NVTX payload metadata.
+
+    This function accepts the same arguments as :func:`numpy.dtype`. When
+    ``counter_semantics`` is provided, the returned dtype carries metadata
+    for use as a flat structured counter field. For a top-level scalar counter,
+    pass semantics to :meth:`nvtx.Domain.get_counter` instead.
+
+    When ``entry_kind`` is provided, the dtype carries that field role for a
+    range/mark field (or a counter-group timestamp).
+
+    Parameters
+    ----------
+    *args
+        Positional arguments passed to :func:`numpy.dtype`.
+    counter_semantics : CounterSemantics, optional
+        Semantics to attach to the dtype for use as a payload schema entry,
+        typically a field in a structured counter dtype. If the NVTX metadata
+        key is already present in ``metadata``, the existing value is preserved
+        and a warning is emitted.
+    entry_kind : EntryKind, optional
+        Role of the field in a range/mark or counter-group schema.
+        Timestamp roles require 64-bit integer storage.
+    entry_type : PayloadEntryType, optional
+        Special NVTX interpretation of the field's storage. This distinguishes
+        range IDs, category IDs, packed ARGB colors, scope IDs, and
+        :attr:`PayloadEntryType.REGISTERED_STRING` handles from ordinary
+        integers with the same storage width.
+    **kwargs
+        Keyword arguments passed to :func:`numpy.dtype`.
+
+    Returns
+    -------
+    numpy.dtype
+        The constructed dtype.
+
+    Raises
+    ------
+    TypeError
+        If an entry role or type is invalid or incompatible with the dtype's
+        storage.
+    RuntimeError
+        If NumPy is not installed.
+    """
+    if np is None:
+        raise RuntimeError("Install numpy to construct NVTX NumPy dtypes.")
+    if entry_kind is not None and not isinstance(entry_kind, EntryKind):
+        raise TypeError("entry_kind must be an nvtx.EntryKind or None")
+    if entry_type is not None and not isinstance(entry_type, PayloadEntryType):
+        raise TypeError("entry_type must be an nvtx.PayloadEntryType or None")
+
+    base_dtype = np.dtype(*args, **kwargs)
+    _validate_entry_storage(base_dtype, entry_kind)
+    _validate_entry_storage(base_dtype, entry_type)
+    if counter_semantics is None and entry_kind is None and entry_type is None:
+        return base_dtype
+
+    metadata = dict(base_dtype.metadata or {})
+    if NVTX_DTYPE_METADATA_KEY_NAME in metadata:
+        warnings.warn(
+            "NVTX dtype metadata key already exists; leaving it unchanged.",
+            NvtxWarning,
+            stacklevel=2,
+        )
+        return base_dtype
+
+    metadata[NVTX_DTYPE_METADATA_KEY_NAME] = _PayloadMetadata(
+        counter_semantics=counter_semantics,
+        entry_kind=entry_kind,
+        entry_type=entry_type,
+    )
+    return np.dtype(base_dtype, metadata=metadata)
+
+
 @lru_cache(maxsize=None)
+def _get_domain_cached(name):
+    return Domain(name)
+
+
 def get_domain(name: Optional[str] = None) -> Union[Domain, DummyDomain]:
     """
     Get or create a :class:`Domain` object for a domain name.
     """
-    return Domain(name)
+    return _get_domain_cached(name)
 
 
 class annotate:
@@ -100,19 +195,27 @@ class annotate:
     """
 
     def __init__(
-        self, message: Optional[str] = None, color: Optional[Union[str, int]] = None,
-        domain: Optional[str] = None, category: Optional[Union[str, int]] = None,
-        payload: Optional[PayloadTypeAlias] = None):
+        self,
+        message: Optional[str] = None,
+        color: Optional[Union[str, int]] = None,
+        domain: Optional[str] = None,
+        category: Optional[Union[str, int]] = None,
+        payload: Optional[PayloadTypeAlias] = None,
+    ):
 
         self.init_args = message, color, domain, category, payload
         self.domain = get_domain(domain)
         if self.domain is not dummy_domain:
             if payload is not None and type(payload) not in _immutable_payload_types:
                 self.mutable_payload = payload
-                self.attributes = self.domain.get_event_attributes(message, color, category)
+                self.attributes = self.domain.get_event_attributes(
+                    message, color, category
+                )
             else:
                 self.mutable_payload = None
-                self.attributes = self.domain.get_event_attributes(message, color, category, payload)
+                self.attributes = self.domain.get_event_attributes(
+                    message, color, category, payload
+                )
 
     def __reduce__(self):
         return self.__class__, self.init_args
@@ -150,9 +253,13 @@ class annotate:
         return inner
 
 
-def mark(message: Optional[str] = None, color: Optional[Union[str, int]] = "blue",
-         domain: Optional[str] = None, category: Optional[Union[str, int]] = None,
-         payload: Optional[PayloadTypeAlias] = None):
+def mark(
+    message: Optional[str] = None,
+    color: Optional[Union[str, int]] = "blue",
+    domain: Optional[str] = None,
+    category: Optional[Union[str, int]] = None,
+    payload: Optional[PayloadTypeAlias] = None,
+):
     """
     Mark an instantaneous event.
 
@@ -193,12 +300,19 @@ def mark(message: Optional[str] = None, color: Optional[Union[str, int]] = "blue
     """
     domain = get_domain(domain)
     if domain is not dummy_domain:
-        libnvtx_mark(domain.get_event_attributes(message, color, category, payload), domain.handle)
+        libnvtx_mark(
+            domain.get_event_attributes(message, color, category, payload),
+            domain.handle,
+        )
 
 
-def push_range(message: Optional[str] = None, color: Optional[Union[str, int]] = "blue",
-               domain: Optional[str] = None, category: Optional[Union[str, int]] = None,
-               payload: Optional[PayloadTypeAlias] = None):
+def push_range(
+    message: Optional[str] = None,
+    color: Optional[Union[str, int]] = "blue",
+    domain: Optional[str] = None,
+    category: Optional[Union[str, int]] = None,
+    payload: Optional[PayloadTypeAlias] = None,
+):
     """
     Mark the beginning of a code range.
 
@@ -243,8 +357,10 @@ def push_range(message: Optional[str] = None, color: Optional[Union[str, int]] =
     """
     domain = get_domain(domain)
     if domain is not dummy_domain:
-        libnvtx_push_range(domain.get_event_attributes(message, color, category, payload),
-                           domain.handle)
+        libnvtx_push_range(
+            domain.get_event_attributes(message, color, category, payload),
+            domain.handle,
+        )
 
 
 def pop_range(domain: Optional[str] = None):
@@ -263,9 +379,11 @@ def pop_range(domain: Optional[str] = None):
 
 
 def start_range(
-    message: Optional[str] = None, color: Optional[Union[str, int]] = None,
-    domain: Optional[str] = None, category: Optional[Union[str, int]] = None,
-    payload: Optional[PayloadTypeAlias] = None
+    message: Optional[str] = None,
+    color: Optional[Union[str, int]] = None,
+    domain: Optional[str] = None,
+    category: Optional[Union[str, int]] = None,
+    payload: Optional[PayloadTypeAlias] = None,
 ) -> Tuple[int, int]:
     """
     Mark the beginning of a process range.
@@ -315,7 +433,9 @@ def start_range(
     domain = get_domain(domain)
     if domain is not dummy_domain:
         return libnvtx_start_range(
-            domain.get_event_attributes(message, color, category, payload), domain.handle)
+            domain.get_event_attributes(message, color, category, payload),
+            domain.handle,
+        )
 
 
 def end_range(range_id: Tuple[int, int]):

@@ -1,0 +1,1 @@
+(globalThis.rspackChunkjupyter_vuetify||=[]).push([[654],{9493(e,t,r){let i=r(8411),a=r(2892),u=r(2459);e.exports={id:"jupyter-vuetify",requires:[i.IJupyterWidgetRegistry],optional:[a.IThemeManager],activate(e,t,r){u.ThemeModel.themeManager=r,t.registerWidget({name:"jupyter-vuetify",version:u.version,exports:u})},autoStart:!0}}}]);

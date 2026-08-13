@@ -1,18 +1,15 @@
-# -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-from __future__ import division, print_function, unicode_literals
 
-import sys
-import requests
 import pkgutil
-
-from functools import wraps
+import sys
 from contextlib import closing
-from os.path import dirname, abspath, join
-from ._compat import to_string, to_unicode, string_types
+from functools import wraps
+from os.path import abspath, dirname, join
 
+import requests
 from pycountry import languages
+
+from ._compat import string_types, to_string, to_unicode
 
 _HTTP_HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/109.0",
@@ -65,9 +62,9 @@ def expand_resource_path(path):
 def get_stop_words(language):
     language = normalize_language(language)
     try:
-        stopwords_data = pkgutil.get_data("sumy", "data/stopwords/%s.txt" % language)
-    except IOError:
-        raise LookupError("Stop-words are not available for language %s." % language)
+        stopwords_data = pkgutil.get_data("sumy", f"data/stopwords/{language}.txt")
+    except OSError:
+        raise LookupError(f"Stop-words are not available for language {language}.")
     return parse_stop_words(stopwords_data)
 
 
@@ -80,7 +77,7 @@ def parse_stop_words(data):
     return frozenset(w.rstrip() for w in to_unicode(data).splitlines() if w)
 
 
-class ItemsCount(object):
+class ItemsCount:
     def __init__(self, value):
         self._value = value
 
@@ -97,7 +94,7 @@ class ItemsCount(object):
         elif isinstance(self._value, (int, float)):
             return sequence[:int(self._value)]
         else:
-            raise ValueError("Unsuported value of items count '%s'." % self._value)
+            raise TypeError(f"Unsuported value of items count '{self._value}'.")
 
     def __repr__(self):
-        return to_string("<ItemsCount: %r>" % self._value)
+        return to_string(f"<ItemsCount: {self._value!r}>")

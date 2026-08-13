@@ -21,6 +21,7 @@ from dbt.config.catalogs import (
 from dbt.config.runtime import UnsetProfile, load_profile, load_project
 from dbt.context.providers import generate_runtime_macro_context
 from dbt.context.query_header import generate_query_header_context
+from dbt.deprecated_version import check_deprecated_version
 from dbt.deprecations import show_deprecations_summary
 from dbt.env_vars import KNOWN_ENGINE_ENV_VARS, validate_engine_env_vars
 from dbt.events.logging import setup_event_logger
@@ -96,6 +97,9 @@ def preflight(func):
         flags = Flags(ctx)
         ctx.obj["flags"] = flags
         set_flags(flags)
+        get_invocation_context().enable_snowflake_projects_otel = getattr(
+            flags, "SNOWFLAKE_PROJECTS_OTEL", False
+        )
         get_event_manager().require_warn_or_error_handling = (
             flags.require_all_warnings_handled_by_warn_error
         )
@@ -116,6 +120,10 @@ def preflight(func):
         fire_event(MainReportVersion(version=str(installed_version), log_version=LOG_VERSION))
         flags_dict_str = cast_dict_to_dict_of_strings(get_flag_dict())
         fire_event(MainReportArgs(args=flags_dict_str))
+
+        # `init` already fires its own WARNING-level version of this notice
+        if flags.WHICH != "init":
+            check_deprecated_version()
 
         # Deprecation warnings
         flags.fire_deprecations(ctx)

@@ -30,22 +30,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3Group(
         {
+            "comment": "Admin group",
+            "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User3"}],
             "policies": [{"name": "Policy1"}, {"name": "Policy2"}, {"name": "Policy3"}],
             "name": "Admin-Group",
-            "comment": "Admin group",
+            "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
             "id": 5,
-            "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User3"}],
-            "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
         }
     ),
     S3Group(
         {
+            "comment": "Admin group",
+            "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User6"}],
             "policies": [{"name": "Policy1"}, {"name": "Policy2"}, {"name": "Policy3"}],
             "name": "Admin-Group1",
-            "comment": "Admin group",
+            "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
             "id": 6,
-            "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User6"}],
-            "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
         }
     ),
 ]
@@ -72,12 +72,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Group(
     {
+        "comment": "Admin group",
+        "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User3"}],
         "policies": [{"name": "Policy1"}, {"name": "Policy2"}, {"name": "Policy3"}],
         "name": "Admin-Group",
-        "comment": "Admin group",
+        "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
         "id": 5,
-        "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User3"}],
-        "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
     }
 )
 
@@ -107,12 +107,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Group(
     {
+        "comment": "Admin group",
+        "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User3"}],
         "policies": [{"name": "Policy1"}, {"name": "Policy2"}, {"name": "Policy3"}],
         "name": "Admin-Group",
-        "comment": "Admin group",
+        "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
         "id": 5,
-        "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User3"}],
-        "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
     }
 )
 

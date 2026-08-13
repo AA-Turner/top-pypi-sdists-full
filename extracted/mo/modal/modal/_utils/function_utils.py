@@ -1,6 +1,7 @@
 # Copyright Modal Labs 2022
 import asyncio
 import inspect
+import math
 import os
 import typing
 from collections.abc import AsyncGenerator, Callable
@@ -38,6 +39,7 @@ from ..mount import ROOT_DIR, _is_modal_path, _Mount
 from ..retries import Retries
 from .blob_utils import (
     MAX_ASYNC_OBJECT_SIZE_BYTES,
+    MAX_OBJECT_SIZE_BYTES,
     blob_download,
     blob_upload_with_r2_failure_info,
 )
@@ -78,6 +80,28 @@ def is_global_object(object_qual_name: str):
 
 def is_flash_object(experimental_options: dict[str, Any] | None, http_config: api_pb2.HTTPConfig | None) -> bool:
     return bool(experimental_options and experimental_options.get("flash", False)) or http_config is not None
+
+
+def validate_target_concurrency(value: float, param_name: str, allow_fractional: bool) -> None:
+    """Validate a user-supplied target concurrency.
+
+    Only `@app.server` may use a fractional Flash autoscaling target.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise InvalidError(f"The `{param_name}` argument must be a number, not {type(value).__name__}.")
+    if not math.isfinite(value):
+        raise InvalidError(f"The `{param_name}` argument must be finite, not {value}.")
+    if value < 0:
+        raise InvalidError(f"The `{param_name}` argument must be non-negative.")
+    if not allow_fractional and not isinstance(value, int):
+        raise InvalidError(
+            f"The `{param_name}` argument must be an integer; fractional values are only supported for Servers."
+        )
+
+
+def normalize_fractional_target_concurrency(value: float) -> float:
+    """Clamp (0, 1) up to 1 and round to the nearest hundredth for Flash targets."""
+    return 1.0 if 0 < value < 1 else round(float(value), 2)
 
 
 def is_method_fn(object_qual_name: str):
@@ -561,15 +585,16 @@ async def _process_result(result: api_pb2.GenericResult, data_format: int, stub,
 
 def should_upload(
     num_bytes: int,
-    max_object_size_bytes: int,
-    function_call_invocation_type: "api_pb2.FunctionCallInvocationType.ValueType | None",
+    max_object_size_bytes: int = MAX_OBJECT_SIZE_BYTES,
+    max_async_object_size_bytes: int = MAX_ASYNC_OBJECT_SIZE_BYTES,
+    function_call_invocation_type: "api_pb2.FunctionCallInvocationType.ValueType | None" = None,
 ) -> bool:
     """
     Determine if the input should be uploaded to blob storage.
     """
     return num_bytes > max_object_size_bytes or (
         function_call_invocation_type == api_pb2.FUNCTION_CALL_INVOCATION_TYPE_ASYNC
-        and num_bytes > MAX_ASYNC_OBJECT_SIZE_BYTES
+        and num_bytes > max_async_object_size_bytes
     )
 
 
@@ -588,6 +613,7 @@ async def _create_input(
     """
     method_name = function._use_method_name
     max_object_size_bytes = function._max_object_size_bytes
+    max_async_object_size_bytes = function._max_async_object_size_bytes
 
     if idx is None:
         idx = 0
@@ -602,7 +628,9 @@ async def _create_input(
 
     args_serialized = _serialize_data_format((args, kwargs), data_format)
 
-    if should_upload(len(args_serialized), max_object_size_bytes, function_call_invocation_type):
+    if should_upload(
+        len(args_serialized), max_object_size_bytes, max_async_object_size_bytes, function_call_invocation_type
+    ):
         args_blob_id, r2_failed, r2_throughput_bytes_s = await blob_upload_with_r2_failure_info(args_serialized, stub)
         return api_pb2.FunctionPutInputsItem(
             input=api_pb2.FunctionInput(

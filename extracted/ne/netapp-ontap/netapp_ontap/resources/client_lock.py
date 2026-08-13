@@ -28,65 +28,65 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ClientLock(
         {
-            "protocol": "cifs",
-            "client_address": "10.74.7.22",
-            "interface": {
-                "ip": {"address": "10.140.115.95"},
-                "name": "vs1.data",
-                "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
-            },
-            "share_lock": {"mode": "read_write_deny_write_delete", "soft": False},
             "state": "granted",
-            "volume": {
-                "name": "test_vol1",
-                "uuid": "429dcc79-9af2-11eb-b313-0050568ec154",
-            },
+            "type": "share_level",
+            "path": "/test_vol1/Demo406.TXT",
             "uuid": "bf03d8b4-e145-498a-902d-b9fe5d546d18",
-            "constituent": False,
+            "share_lock": {"mode": "read_write_deny_write_delete", "soft": False},
+            "protocol": "cifs",
             "smb": {
-                "open_type": "durable",
                 "open_group_id": "71756e2325a7eb11843f005056a4731c101068450bcdffff1c2c000000000000",
+                "open_type": "durable",
                 "connect_state": "connected",
             },
-            "path": "/test_vol1/Demo406.TXT",
-            "type": "share_level",
-            "node": {
-                "name": "user-vsim3",
-                "uuid": "1f29b875-9ae3-11eb-8597-0050568ec154",
+            "volume": {
+                "uuid": "429dcc79-9af2-11eb-b313-0050568ec154",
+                "name": "test_vol1",
             },
+            "interface": {
+                "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
+                "ip": {"address": "10.140.115.95"},
+                "name": "vs1.data",
+            },
+            "client_address": "10.74.7.22",
+            "svm": {"uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154", "name": "vs1"},
+            "node": {
+                "uuid": "1f29b875-9ae3-11eb-8597-0050568ec154",
+                "name": "user-vsim3",
+            },
+            "constituent": False,
             "owner_id": "feff-0206000000020000000204000000000000000000000000ffff0a4a07161053010001000000030000006c00000000000000",
-            "svm": {"name": "vs1", "uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154"},
         }
     ),
     ClientLock(
         {
-            "protocol": "cifs",
-            "client_address": "10.74.7.22",
-            "interface": {
-                "ip": {"address": "10.140.115.95"},
-                "name": "vs1.data",
-                "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
-            },
             "state": "granted",
-            "volume": {
-                "name": "test_vol1",
-                "uuid": "429dcc79-9af2-11eb-b313-0050568ec154",
-            },
+            "type": "op_lock",
+            "path": "/test_vol1/Demo406.TXT",
             "uuid": "0c33d18d-dcbc-492a-81b3-4c5740c46172",
-            "constituent": False,
+            "protocol": "cifs",
             "smb": {
                 "open_group_id": "71756e2325a7eb11843f005056a4731c101068450bcdffff1c2c000000000000",
                 "connect_state": "connected",
             },
-            "oplock_level": "batch",
-            "path": "/test_vol1/Demo406.TXT",
-            "type": "op_lock",
-            "node": {
-                "name": "user-vsim3",
-                "uuid": "1f29b875-9ae3-11eb-8597-0050568ec154",
+            "volume": {
+                "uuid": "429dcc79-9af2-11eb-b313-0050568ec154",
+                "name": "test_vol1",
             },
+            "interface": {
+                "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
+                "ip": {"address": "10.140.115.95"},
+                "name": "vs1.data",
+            },
+            "client_address": "10.74.7.22",
+            "svm": {"uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154", "name": "vs1"},
+            "node": {
+                "uuid": "1f29b875-9ae3-11eb-8597-0050568ec154",
+                "name": "user-vsim3",
+            },
+            "constituent": False,
+            "oplock_level": "batch",
             "owner_id": "feff-0206000000020000000204000000000000000000000000ffff0a4a07161053010001000000030000006c00000000000000",
-            "svm": {"name": "vs1", "uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154"},
         }
     ),
 ]
@@ -122,32 +122,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ClientLock(
         {
-            "interface": {
-                "name": "vs1.data",
-                "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
-            },
-            "volume": {
-                "name": "test_vol1",
-                "uuid": "429dcc79-9af2-11eb-b313-0050568ec154",
-            },
-            "uuid": "be1cdf00-37f1-4477-b6d0-bba8c4fa8c67",
             "path": "/test_vol1/Demo408.TXT",
-            "svm": {"name": "vs1", "uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154"},
+            "uuid": "be1cdf00-37f1-4477-b6d0-bba8c4fa8c67",
+            "volume": {
+                "uuid": "429dcc79-9af2-11eb-b313-0050568ec154",
+                "name": "test_vol1",
+            },
+            "interface": {
+                "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
+                "name": "vs1.data",
+            },
+            "svm": {"uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154", "name": "vs1"},
         }
     ),
     ClientLock(
         {
-            "interface": {
-                "name": "vs1.data",
-                "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
-            },
-            "volume": {
-                "name": "test_vol1",
-                "uuid": "429dcc79-9af2-11eb-b313-0050568ec154",
-            },
-            "uuid": "393cc06e-8b37-4f49-b09a-74d1eef79368",
             "path": "/test_vol1/Demo408.TXT",
-            "svm": {"name": "vs1", "uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154"},
+            "uuid": "393cc06e-8b37-4f49-b09a-74d1eef79368",
+            "volume": {
+                "uuid": "429dcc79-9af2-11eb-b313-0050568ec154",
+                "name": "test_vol1",
+            },
+            "interface": {
+                "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
+                "name": "vs1.data",
+            },
+            "svm": {"uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154", "name": "vs1"},
         }
     ),
 ]
@@ -176,28 +176,28 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClientLock(
     {
-        "protocol": "cifs",
-        "client_address": "10.74.7.22",
-        "interface": {
-            "ip": {"address": "10.140.115.95"},
-            "name": "vs1.data",
-            "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
-        },
-        "share_lock": {"mode": "read_write_deny_write_delete", "soft": False},
         "state": "granted",
-        "volume": {"name": "test_vol1", "uuid": "429dcc79-9af2-11eb-b313-0050568ec154"},
+        "type": "share_level",
+        "path": "/test_vol1/Demo406.TXT",
         "uuid": "be1cdf00-37f1-4477-b6d0-bba8c4fa8c67",
-        "constituent": False,
+        "share_lock": {"mode": "read_write_deny_write_delete", "soft": False},
+        "protocol": "cifs",
         "smb": {
-            "open_type": "durable",
             "open_group_id": "71756e2325a7eb11843f005056a4731c101068450bcdffff1c2c000000000000",
+            "open_type": "durable",
             "connect_state": "connected",
         },
-        "path": "/test_vol1/Demo406.TXT",
-        "type": "share_level",
-        "node": {"name": "user-vsim3", "uuid": "1f29b875-9ae3-11eb-8597-0050568ec154"},
+        "volume": {"uuid": "429dcc79-9af2-11eb-b313-0050568ec154", "name": "test_vol1"},
+        "interface": {
+            "uuid": "6bf26e25-9ae4-11eb-8597-0050568ec154",
+            "ip": {"address": "10.140.115.95"},
+            "name": "vs1.data",
+        },
+        "client_address": "10.74.7.22",
+        "svm": {"uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154", "name": "vs1"},
+        "node": {"uuid": "1f29b875-9ae3-11eb-8597-0050568ec154", "name": "user-vsim3"},
+        "constituent": False,
         "owner_id": "feff-0206000000020000000204000000000000000000000000ffff0a4a07161053010001000000030000006c00000000000000",
-        "svm": {"name": "vs1", "uuid": "5b4b6847-9ae4-11eb-8597-0050568ec154"},
     }
 )
 

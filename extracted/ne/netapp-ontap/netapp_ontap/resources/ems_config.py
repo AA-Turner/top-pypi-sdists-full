@@ -40,10 +40,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 EmsConfig(
     {
+        "mail_from": "admin@localhost",
+        "mail_server": "localhost",
         "_links": {"self": {"href": "/api/support/ems"}},
         "pubsub_enabled": True,
-        "mail_server": "localhost",
-        "mail_from": "admin@localhost",
     }
 )
 

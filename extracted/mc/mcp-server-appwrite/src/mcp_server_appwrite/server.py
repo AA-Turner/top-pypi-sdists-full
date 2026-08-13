@@ -38,6 +38,7 @@ from mcp import MCPError
 from mcp.server import NotificationOptions, Server, ServerRequestContext
 from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.models import InitializationOptions
+from mcp.server.subscriptions import InMemorySubscriptionBus, ListenHandler
 from mcp.types import CLIENT_INFO_META_KEY, INVALID_PARAMS
 
 from . import error_monitoring, flags, telemetry
@@ -72,6 +73,7 @@ from .context import (
     get_appwrite_context,
 )
 from .docs_search import DocsSearch
+from .error_classification import is_response_parse_error
 from .operator import Operator, _parse_tool_name
 from .service import Service
 from .tool_manager import ToolManager
@@ -857,7 +859,7 @@ def execute_registered_tool(
             project_id=target_project,
             organization_id=organization_id,
         )
-        raise RuntimeError(_format_appwrite_error(exc)) from exc
+        raise RuntimeError(_format_appwrite_error(exc, tool_name=name)) from exc
     except Exception as exc:
         error_monitoring.capture_exception(
             exc,
@@ -973,7 +975,10 @@ def _format_tool_result(
     return [types.TextContent(type="text", text=str(result))]
 
 
-def _format_appwrite_error(exc: AppwriteException) -> str:
+def _format_appwrite_error(exc: AppwriteException, tool_name: str | None = None) -> str:
+    if is_response_parse_error(exc):
+        return _format_response_parse_error(tool_name, _parse_error_response(exc))
+
     details = []
     if getattr(exc, "code", None):
         details.append(f"code={exc.code}")
@@ -984,6 +989,42 @@ def _format_appwrite_error(exc: AppwriteException) -> str:
     if len(message) > 500:
         message = f"{message[:500]}..."
     return f"Appwrite request failed{detail_text}: {message}"
+
+
+def _parse_error_response(exc: BaseException) -> Any:
+    """The raw body the SDK failed to hydrate, if it kept one."""
+    for item in (exc, exc.__cause__, exc.__context__):
+        response = getattr(item, "response", None)
+        if response is not None:
+            return response
+    return None
+
+
+def _format_response_parse_error(tool_name: str | None, response: Any = None) -> str:
+    """Explain an SDK deserialization failure without implying the write failed.
+
+    ``Service._parse_response`` raises this after Appwrite has already accepted
+    the request, so the operation succeeded even though the result could not be
+    hydrated. Reporting the raw Pydantic error invites the model to retry a
+    completed mutation.
+    """
+    if response is not None:
+        return (
+            "Appwrite accepted the request and it succeeded; the SDK could not "
+            "deserialize the response into its model, so the raw payload "
+            f"follows. Do not retry.\n{_serialize_result(response)}"
+        )
+
+    verify = (
+        f" Verify with the matching get or list tool for {tool_name} before retrying."
+        if tool_name
+        else " Verify with the matching get or list tool before retrying."
+    )
+    return (
+        "Appwrite accepted the request, but the SDK could not deserialize the "
+        "response, so the result is unavailable. The operation most likely "
+        f"succeeded — do not retry it blindly.{verify}"
+    )
 
 
 def build_instructions(transport: str = "http") -> str:
@@ -1028,6 +1069,7 @@ def build_instructions(transport: str = "http") -> str:
 def build_mcp_server(operator: Operator, *, transport: str = "http") -> Server:
     _configure_uploads(transport)
     instructions = build_instructions(transport)
+    subscriptions = ListenHandler(InMemorySubscriptionBus())
 
     async def handle_list_tools(
         ctx: ServerRequestContext, params: types.PaginatedRequestParams | None
@@ -1262,6 +1304,7 @@ def build_mcp_server(operator: Operator, *, transport: str = "http") -> Server:
         on_list_resources=handle_list_resources,
         on_list_resource_templates=handle_list_resource_templates,
         on_read_resource=handle_read_resource,
+        on_subscriptions_listen=subscriptions,
     )
 
 

@@ -1,15 +1,13 @@
-# -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-from __future__ import division, print_function, unicode_literals
 
 from collections import Counter
+
 from ._summarizer import AbstractSummarizer
 
 
 class EdmundsonKeyMethod(AbstractSummarizer):
     def __init__(self, stemmer, bonus_words):
-        super(EdmundsonKeyMethod, self).__init__(stemmer)
+        super().__init__(stemmer)
         self._bonus_words = bonus_words
 
     def __call__(self, document, sentences_count, weight):

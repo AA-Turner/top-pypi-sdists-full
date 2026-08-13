@@ -3,27 +3,62 @@
 #
 
 import random
+from abc import abstractmethod
+from typing import ClassVar
 
-from omnimalloc.primitives import Allocation, BufferKind
+from omnimalloc.common.constants import DEFAULT_SEED, KB, MB
+from omnimalloc.primitives import Allocation, AllocationKind
 
 from .base import BaseSource
 
 
-class RandomSource(BaseSource):
+class _GeneratorSource(BaseSource):
+    """Seeded source drawing each allocation from a per-class generation hook."""
+
+    seed: int | None
+
+    def get_allocations(
+        self, num_allocations: int | None = None, skip: int = 0
+    ) -> tuple[Allocation, ...]:
+        total = num_allocations if num_allocations is not None else self.num_allocations
+        rng = random.Random(self.seed)
+
+        for _ in range(skip):
+            self._generate_one(rng, 0)
+
+        return tuple(self._generate_one(rng, skip + i) for i in range(total))
+
+    @abstractmethod
+    def _generate_one(self, rng: random.Random, alloc_id: int) -> Allocation: ...
+
+
+class RandomSource(_GeneratorSource):
     """Generate random allocations with random sizes, starts, and durations."""
+
+    _label_fields: ClassVar[tuple[str, ...]] = (
+        "size_min",
+        "size_max",
+        "time_min",
+        "time_max",
+        "duration_min",
+        "duration_max",
+        "kinds",
+        "kind_weights",
+        "seed",
+    )
 
     def __init__(
         self,
         num_allocations: int = 100,
-        size_min: int = 1024,
-        size_max: int = 1024 * 1024,
+        size_min: int = KB,
+        size_max: int = MB,
         time_min: int = 0,
         time_max: int = 10000,
         duration_min: int = 1,
         duration_max: int = 500,
-        kinds: tuple[BufferKind, ...] | None = None,
+        kinds: tuple[AllocationKind, ...] | None = None,
         kind_weights: tuple[float, ...] | None = None,
-        seed: int | None = 42,
+        seed: int | None = DEFAULT_SEED,
     ) -> None:
         super().__init__(num_allocations=num_allocations)
         if size_min <= 0:
@@ -53,17 +88,6 @@ class RandomSource(BaseSource):
         self.kind_weights = kind_weights
         self.seed = seed
 
-    def get_allocations(
-        self, num_allocations: int | None = None, skip: int = 0
-    ) -> tuple[Allocation, ...]:
-        total = num_allocations if num_allocations is not None else self.num_allocations
-        rng = random.Random(self.seed)
-
-        for _ in range(skip):
-            self._generate_one(rng, 0)
-
-        return tuple(self._generate_one(rng, skip + i) for i in range(total))
-
     def _generate_one(self, rng: random.Random, alloc_id: int) -> Allocation:
         size = rng.randint(self.size_min, self.size_max)
         duration = rng.randint(self.duration_min, self.duration_max)
@@ -83,16 +107,23 @@ class RandomSource(BaseSource):
         )
 
 
-class UniformSource(BaseSource):
+class UniformSource(_GeneratorSource):
     """Generate uniform-sized allocations with random start times."""
+
+    _label_fields: ClassVar[tuple[str, ...]] = (
+        "size",
+        "duration",
+        "time_max",
+        "seed",
+    )
 
     def __init__(
         self,
         num_allocations: int = 100,
-        size: int = 4096,
+        size: int = 4 * KB,
         duration: int = 10,
         time_max: int = 100,
-        seed: int | None = 42,
+        seed: int | None = DEFAULT_SEED,
     ) -> None:
         super().__init__(num_allocations=num_allocations)
         if size <= 0:
@@ -109,17 +140,6 @@ class UniformSource(BaseSource):
         self.time_max = time_max
         self.seed = seed
 
-    def get_allocations(
-        self, num_allocations: int | None = None, skip: int = 0
-    ) -> tuple[Allocation, ...]:
-        total = num_allocations if num_allocations is not None else self.num_allocations
-        rng = random.Random(self.seed)
-
-        for _ in range(skip):
-            self._generate_one(rng, 0)
-
-        return tuple(self._generate_one(rng, skip + i) for i in range(total))
-
     def _generate_one(self, rng: random.Random, alloc_id: int) -> Allocation:
         max_start = max(0, self.time_max - self.duration)
         start = rng.randint(0, max_start)
@@ -132,8 +152,17 @@ class UniformSource(BaseSource):
         )
 
 
-class PowerOf2Source(BaseSource):
+class PowerOf2Source(_GeneratorSource):
     """Generate allocations with power-of-2 sizes."""
+
+    _label_fields: ClassVar[tuple[str, ...]] = (
+        "size_exponent_min",
+        "size_exponent_max",
+        "time_max",
+        "duration_min",
+        "duration_max",
+        "seed",
+    )
 
     def __init__(
         self,
@@ -143,7 +172,7 @@ class PowerOf2Source(BaseSource):
         time_max: int = 100,
         duration_min: int = 1,
         duration_max: int = 50,
-        seed: int | None = 42,
+        seed: int | None = DEFAULT_SEED,
     ) -> None:
         super().__init__(num_allocations=num_allocations)
         if size_exponent_min < 0:
@@ -164,17 +193,6 @@ class PowerOf2Source(BaseSource):
         self.duration_max = duration_max
         self.seed = seed
 
-    def get_allocations(
-        self, num_allocations: int | None = None, skip: int = 0
-    ) -> tuple[Allocation, ...]:
-        total = num_allocations if num_allocations is not None else self.num_allocations
-        rng = random.Random(self.seed)
-
-        for _ in range(skip):
-            self._generate_one(rng, 0)
-
-        return tuple(self._generate_one(rng, skip + i) for i in range(total))
-
     def _generate_one(self, rng: random.Random, alloc_id: int) -> Allocation:
         exponent = rng.randint(self.size_exponent_min, self.size_exponent_max)
         duration = rng.randint(self.duration_min, self.duration_max)
@@ -188,40 +206,36 @@ class PowerOf2Source(BaseSource):
         )
 
 
-class HighContentionSource(BaseSource):
+class HighContentionSource(_GeneratorSource):
     """Generate allocations with high temporal contention in a small time window."""
+
+    _label_fields: ClassVar[tuple[str, ...]] = (
+        "size_min",
+        "size_max",
+        "time_window",
+        "seed",
+    )
 
     def __init__(
         self,
         num_allocations: int = 100,
-        size_min: int = 1024,
-        size_max: int = 1024 * 1024,
+        size_min: int = KB,
+        size_max: int = MB,
         time_window: int = 20,
-        seed: int | None = 42,
+        seed: int | None = DEFAULT_SEED,
     ) -> None:
         super().__init__(num_allocations=num_allocations)
         if size_min <= 0:
             raise ValueError("size_min must be positive")
         if size_max < size_min:
             raise ValueError("size_max must be >= size_min")
-        if time_window <= 0:
-            raise ValueError("time_window must be positive")
+        if time_window < 2:
+            raise ValueError("time_window must be at least 2")
 
         self.size_min = size_min
         self.size_max = size_max
         self.time_window = time_window
         self.seed = seed
-
-    def get_allocations(
-        self, num_allocations: int | None = None, skip: int = 0
-    ) -> tuple[Allocation, ...]:
-        total = num_allocations if num_allocations is not None else self.num_allocations
-        rng = random.Random(self.seed)
-
-        for _ in range(skip):
-            self._generate_one(rng, 0)
-
-        return tuple(self._generate_one(rng, skip + i) for i in range(total))
 
     def _generate_one(self, rng: random.Random, alloc_id: int) -> Allocation:
         size = rng.randint(self.size_min, self.size_max)
@@ -239,14 +253,22 @@ class HighContentionSource(BaseSource):
 class SequentialSource(BaseSource):
     """Generate allocations with minimal temporal overlap."""
 
+    _label_fields: ClassVar[tuple[str, ...]] = (
+        "size_min",
+        "size_max",
+        "duration_min",
+        "duration_max",
+        "seed",
+    )
+
     def __init__(
         self,
         num_allocations: int = 100,
-        size_min: int = 1024,
-        size_max: int = 1024 * 1024,
+        size_min: int = KB,
+        size_max: int = MB,
         duration_min: int = 5,
         duration_max: int = 15,
-        seed: int | None = 42,
+        seed: int | None = DEFAULT_SEED,
     ) -> None:
         super().__init__(num_allocations=num_allocations)
         if size_min <= 0:

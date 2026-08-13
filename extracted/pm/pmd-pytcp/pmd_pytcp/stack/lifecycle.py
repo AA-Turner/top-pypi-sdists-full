@@ -766,31 +766,62 @@ async def start() -> None:
 
 def _abort_open_sockets() -> None:
     """
-    Abort every registered connection-oriented socket (TCP) so any
-    task awaiting the socket's 'recv()' / 'connect()' coroutine
-    unblocks with a connection error instead of staying parked
-    forever — after teardown nothing ever sets those sessions'
-    events again, so a coroutine still awaiting one would hang for
-    the loop's lifetime. Called from 'stop()' while the TX path is
-    still live so the RFC 9293 §3.9.1 RSTs emitted for synchronized
-    states actually reach the peers. Datagram / raw sockets have no
-    'abort' (nothing blocks beyond per-call timeouts the caller
-    opted into) and are skipped; a raising 'abort' is logged and
-    skipped so one bad session cannot stall stack teardown.
+    Release every registered socket's blocked waiters so no task
+    stays parked past a completed 'stop()' — after teardown nothing
+    ever sets those sockets' events / semaphores again, so a
+    coroutine still awaiting one would hang for the loop's
+    lifetime. Connection-oriented sockets (TCP) are aborted, which
+    wakes their recv()/connect() waiters with a connection error;
+    called from 'stop()' while the TX path is still live so the
+    RFC 9293 §3.9.1 RSTs emitted for synchronized states actually
+    reach the peers. Datagram / raw / packet sockets have no
+    'abort' but their default mode is blocking-with-no-timeout, so
+    a recv() parked on the rx semaphore would strand its task —
+    'close()' wakes those waiters with EBADF. A raising teardown is
+    logged and skipped so one bad socket cannot stall stack
+    teardown.
     """
 
     import pmd_pytcp.stack as _stack
 
-    for sock in _stack.sockets.values():
+    for sock in list(_stack.sockets.values()) + _stack.packet_sockets.snapshot():
         abort = getattr(sock, "abort", None)
-        if abort is None:
-            continue
+        teardown = abort if abort is not None else sock.close
         try:
-            abort()
+            teardown()
         except Exception as error:  # pylint: disable=broad-exception-caught
             log.enabled and log(
                 "stack",
-                f"<WARN>Aborting {sock} during stop() raised {type(error).__name__}: {error}</>",
+                f"<WARN>Releasing {sock} during stop() raised {type(error).__name__}: {error}</>",
+            )
+
+
+async def _await_stopped_subsystems(stopped_subsystems: "list[Any]") -> None:
+    """
+    Await every stopped subsystem's actual worker exit. One worker
+    whose 'wait_stopped' raises must not abort teardown midway —
+    the remaining subsystems would stay live behind a "fully
+    quiesced" stop() return, and the sysctl reset would be
+    skipped. The error is reported through the stdlib logger
+    unconditionally (the stack's own channel log is disabled in
+    embedded deployments) and teardown continues.
+    """
+
+    import asyncio
+    import logging
+
+    for subsystem in stopped_subsystems:
+        wait_stopped = getattr(subsystem, "wait_stopped", None)
+        if wait_stopped is None:
+            continue
+        try:
+            await wait_stopped()
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # pylint: disable=broad-exception-caught
+            logging.getLogger(__name__).exception(
+                "stop(): awaiting %s raised; continuing teardown",
+                subsystem,
             )
 
 
@@ -862,16 +893,16 @@ async def stop() -> None:
         stopped_subsystems.append(iface._nd_cache)
 
     # Await every cancelled worker's actual exit so teardown is
-    # complete (not merely signalled) when 'stop()' returns.
-    for subsystem in stopped_subsystems:
-        wait_stopped = getattr(subsystem, "wait_stopped", None)
-        if wait_stopped is not None:
-            await wait_stopped()
+    # complete (not merely signalled) when 'stop()' returns. The
+    # sysctl reset runs in a finally so a raising worker cannot
+    # leak this run's overrides into the next init cycle.
+    try:
+        await _await_stopped_subsystems(stopped_subsystems)
+    finally:
+        # Restore every registered sysctl to its compile-time
+        # default so a follow-up 'stack.init()' (typical in
+        # long-running test harnesses) starts from a clean baseline
+        # rather than inheriting overrides from the prior run.
+        from pmd_pytcp.stack import sysctl as sysctl_module
 
-    # Restore every registered sysctl to its compile-time default
-    # so a follow-up 'stack.init()' (typical in long-running test
-    # harnesses) starts from a clean baseline rather than
-    # inheriting overrides from the prior run.
-    from pmd_pytcp.stack import sysctl as sysctl_module
-
-    sysctl_module.reset_to_defaults()
+        sysctl_module.reset_to_defaults()

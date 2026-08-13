@@ -181,47 +181,47 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CounterTable(
     {
+        "_links": {"self": {"href": "/api/cluster/counter/tables/qos_detail"}},
         "counter_schemas": [
             {
-                "name": "in_latency_path",
                 "type": "raw",
+                "name": "in_latency_path",
+                "unit": "none",
                 "description": "Determines whether or not service center-based statistics are in the latency path.",
-                "unit": "none",
             },
             {
+                "type": "string",
                 "name": "node.name",
-                "type": "string",
+                "unit": "none",
                 "description": "System node name",
-                "unit": "none",
             },
             {
-                "name": "resource.name",
                 "type": "string",
-                "description": "Name of the associated resource.",
+                "name": "resource.name",
                 "unit": "none",
+                "description": "Name of the associated resource.",
             },
             {
+                "type": "average",
+                "denominator": {"name": "visits"},
                 "name": "service_time",
-                "denominator": {"name": "visits"},
-                "type": "average",
+                "unit": "microsec",
                 "description": "The workload's average service time per visit to the service center.",
-                "unit": "microsec",
             },
             {
-                "name": "visits",
                 "type": "rate",
-                "description": "The number of visits that the workload made to the service center; measured in visits per second.",
+                "name": "visits",
                 "unit": "per_sec",
+                "description": "The number of visits that the workload made to the service center; measured in visits per second.",
             },
             {
-                "name": "wait_time",
-                "denominator": {"name": "visits"},
                 "type": "average",
-                "description": "The workload's average wait time per visit to the service center.",
+                "denominator": {"name": "visits"},
+                "name": "wait_time",
                 "unit": "microsec",
+                "description": "The workload's average wait time per visit to the service center.",
             },
         ],
-        "_links": {"self": {"href": "/api/cluster/counter/tables/qos_detail"}},
         "name": "qos_detail",
         "description": "The qos_detail table that provides service center-based statistical information. Note: This table returns a large number of rows. Querying by row name and using wild cards may improve response times.",
     }
@@ -307,11 +307,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CounterRow(
         {
+            "properties": [{"value": "<node name>", "name": "node.name"}],
             "_links": {
                 "self": {"href": "/api/cluster/counter/tables/wafl/rows/<instance id>"}
             },
             "id": "<instance id>",
-            "properties": [{"value": "<node name>", "name": "node.name"}],
         }
     )
 ]
@@ -344,15 +344,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CounterRow(
     {
-        "_links": {
-            "self": {"href": "/api/cluster/counter/tables/volume/rows/<instance-id>/"}
-        },
-        "id": "<instance-id>",
-        "counter_table": {"name": "volume"},
         "properties": [
             {"value": "<svm-name>", "name": "svm.name"},
             {"value": "4774d11c-a606-11ec-856f-005056bb7b59", "name": "svm.uuid"},
         ],
+        "_links": {
+            "self": {"href": "/api/cluster/counter/tables/volume/rows/<instance-id>/"}
+        },
+        "counter_table": {"name": "volume"},
+        "id": "<instance-id>",
     }
 )
 
@@ -391,8 +391,8 @@ CounterRow(
         "_links": {
             "self": {"href": "/api/cluster/counter/tables/wafl/rows/<instance-id>"}
         },
-        "id": "<instance-id>",
         "counter_table": {"name": "wafl"},
+        "id": "<instance-id>",
     }
 )
 

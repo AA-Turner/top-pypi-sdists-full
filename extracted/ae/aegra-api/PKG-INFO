@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: aegra-api
-Version: 0.9.25
+Version: 0.10.0
 Summary: Aegra core API - Self-hosted Agent Protocol server
 Project-URL: Homepage, https://github.com/aegra/aegra
 Project-URL: Documentation, https://github.com/aegra/aegra#readme

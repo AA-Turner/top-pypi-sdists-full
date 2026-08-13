@@ -27,9 +27,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterNisService(
     {
-        "servers": ["10.10.10.10", "example.com"],
         "bound_servers": ["10.10.10.10"],
         "domain": "domainA.example.com",
+        "servers": ["10.10.10.10", "example.com"],
     }
 )
 

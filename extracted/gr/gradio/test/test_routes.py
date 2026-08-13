@@ -65,6 +65,23 @@ class TestRoutes:
         response = test_client.get("/")
         assert response.status_code == 200
 
+    def test_get_run_history_route(self, test_client):
+        response = test_client.get(f"{API_PREFIX}/runs")
+        assert response.status_code == 200
+        assert "<gradio-app" in response.text
+        assert '<base href="../"' in response.text
+        assert '"root":"http://testserver"' in response.text
+
+    def test_run_history_route_disabled(self):
+        io = Interface(lambda x: x + x, "text", "text", api_name="predict")
+        app, _, _ = io.launch(prevent_thread_lock=True, run_history=False)
+        try:
+            assert io.config["run_history"] is False
+            assert "runs" not in io.config["footer_links"]
+            assert TestClient(app).get(f"{API_PREFIX}/runs").status_code == 404
+        finally:
+            io.close()
+
     def test_static_files_served_safely(self, test_client):
         # Make sure things outside the static folder are not accessible
         response = test_client.get(r"/static/..%2findex.html")
@@ -589,6 +606,42 @@ class TestRoutes:
         with TestClient(app) as client:
             assert not client.get("/", headers={}).is_success
             assert client.get("/", headers={"user": "abubakar"}).is_success
+
+    def test_gradio_app_with_async_auth_dependency(self):
+        async def block_anonymous(request: Request):
+            return request.headers.get("user")
+
+        demo = gr.Interface(lambda s: s, "textbox", "textbox")
+        app, _, _ = demo.launch(
+            auth_dependency=block_anonymous, prevent_thread_lock=True
+        )
+
+        with TestClient(app) as client:
+            assert not client.get("/", headers={}).is_success
+            assert client.get("/", headers={"user": "abubakar"}).is_success
+        demo.close()
+
+    def test_server_mode_with_auth_dependency(self):
+        def block_anonymous(request: Request):
+            return request.headers.get("user")
+
+        server = gr.Server()
+
+        @server.api(name="echo")
+        def echo(x: str) -> str:
+            return x
+
+        app, _, _ = server.launch(
+            auth_dependency=block_anonymous, prevent_thread_lock=True
+        )
+
+        with TestClient(app) as client:
+            assert (
+                client.get(f"{API_PREFIX}/login_check", headers={}).status_code == 401
+            )
+            assert client.get(
+                f"{API_PREFIX}/login_check", headers={"user": "abubakar"}
+            ).is_success
 
     def test_mount_gradio_app_with_auth_dependency(self):
         app = FastAPI()

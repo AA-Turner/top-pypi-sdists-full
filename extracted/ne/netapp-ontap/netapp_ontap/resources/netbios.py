@@ -24,32 +24,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Netbios(
         {
-            "suffix": "00",
-            "name_registration_type": "",
-            "mode": "h",
             "interfaces": ["172.10.144.44"],
+            "name_registration_type": "",
             "name": "CIFSERVER2",
+            "mode": "h",
+            "svm": {"uuid": "99a3bd71-777f-11ec-95a1-1315568ef5fd", "name": "vs1"},
+            "wins_servers": [{"state": "inactive", "ip": "10.10.10.10"}],
+            "node": {"uuid": "c2179c2c-777f-11ec-95a1-1315568ef5fd", "name": "vsim2"},
+            "suffix": "00",
             "state": "broadcast",
-            "wins_servers": [{"ip": "10.10.10.10", "state": "inactive"}],
             "time_left": 0,
-            "node": {"name": "vsim2", "uuid": "c2179c2c-777f-11ec-95a1-1315568ef5fd"},
             "scope": "group",
-            "svm": {"name": "vs1", "uuid": "99a3bd71-777f-11ec-95a1-1315568ef5fd"},
         }
     ),
     Netbios(
         {
-            "suffix": "20",
-            "name_registration_type": "group",
-            "mode": "h",
             "interfaces": ["172.10.144.44"],
+            "name_registration_type": "group",
             "name": "CIFSERVER2",
+            "mode": "h",
+            "svm": {"uuid": "99a3bd71-777f-11ec-95a1-1315568ef5fd", "name": "vs1"},
+            "wins_servers": [{"state": "inactive", "ip": "10.10.10.10"}],
+            "node": {"uuid": "c2179c2c-777f-11ec-95a1-1315568ef5fd", "name": "vsim2"},
+            "suffix": "20",
             "state": "broadcast",
-            "wins_servers": [{"ip": "10.10.10.10", "state": "inactive"}],
             "time_left": 0,
-            "node": {"name": "vsim2", "uuid": "c2179c2c-777f-11ec-95a1-1315568ef5fd"},
             "scope": "",
-            "svm": {"name": "vs1", "uuid": "99a3bd71-777f-11ec-95a1-1315568ef5fd"},
         }
     ),
 ]
@@ -85,17 +85,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Netbios(
         {
-            "suffix": "00",
-            "name_registration_type": "",
-            "mode": "h",
             "interfaces": ["172.10.144.44"],
+            "name_registration_type": "",
             "name": "CIFSERVER2",
+            "mode": "h",
+            "svm": {"uuid": "45a3bd71-777f-11ec-95a1-1315568ef5fd", "name": "vs1"},
+            "wins_servers": [{"state": "inactive", "ip": "10.10.10.10"}],
+            "node": {"uuid": "c2179c2c-777f-11ec-95a1-1315568ef5fd", "name": "vsim2"},
+            "suffix": "00",
             "state": "broadcast",
-            "wins_servers": [{"ip": "10.10.10.10", "state": "inactive"}],
             "time_left": 0,
-            "node": {"name": "vsim2", "uuid": "c2179c2c-777f-11ec-95a1-1315568ef5fd"},
             "scope": "group",
-            "svm": {"name": "vs1", "uuid": "45a3bd71-777f-11ec-95a1-1315568ef5fd"},
         }
     )
 ]

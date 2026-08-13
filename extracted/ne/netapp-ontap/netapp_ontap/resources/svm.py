@@ -441,6 +441,24 @@ Available for GET requests. All SVMs are provisioned with the NVMe service confi
             )
     r""" The s3 field of the svm."""
 
+    san_multipathing = marshmallow_fields.Str(
+        data_key="san_multipathing",
+        validate=enum_validation(['local_active', 'active_active', 'active_active_scsi_only']),
+        allow_none=True,
+    )
+    r""" Specifies the multipathing mode for SAN and NVMe protocols supported by the SVM. Possible values are:
+
+* local_active - Only node-local paths are active/optimized.
+* active_active - All paths in the HA pair are active/optimized.
+<personalities supports=unified>* active_active_scsi_only - This value is available only on the original edition of ONTAP All SAN Array (ASA r1). This value provides the active-active behavior, but only for the iSCSI and FCP protocols.</personalities>
+
+
+Valid choices:
+
+* local_active
+* active_active
+* active_active_scsi_only"""
+
     snapmirror = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.models.svm_snapmirror", "SvmSnapmirrorSchema"),
                 data_key="snapmirror",
@@ -618,6 +636,7 @@ Example: 02c9e252-41be-11e9-81d5-00a0986138f7"""
         "s3.name",
         "s3.port",
         "s3.secure_port",
+        "san_multipathing",
         "snapmirror",
         "snapshot_autodelete_enabled",
         "snapshot_policy.links",
@@ -630,7 +649,7 @@ Example: 02c9e252-41be-11e9-81d5-00a0986138f7"""
         "total_volume_size_in_recovery_queue",
         "uuid",
     ]
-    """links,aggregates,aggregates_delegated,anti_ransomware,anti_ransomware_auto_switch_duration_without_new_file_extension,anti_ransomware_auto_switch_from_learning_to_enabled,anti_ransomware_auto_switch_minimum_file_count,anti_ransomware_auto_switch_minimum_file_extension,anti_ransomware_auto_switch_minimum_incoming_data,anti_ransomware_auto_switch_minimum_learning_period,anti_ransomware_default_volume_state,anti_ransomware_incoming_write_threshold,anti_ransomware_incoming_write_threshold_percent,auto_enable_activity_tracking,auto_enable_analytics,certificate.links,certificate.name,certificate.uuid,cifs.links,cifs.ad_domain,cifs.allowed,cifs.auth_style,cifs.domain_workgroup,cifs.enabled,cifs.name,cifs.workgroup,comment,dns,fc_interfaces,fcp,ip_interfaces,ipspace.links,ipspace.name,ipspace.uuid,is_space_enforcement_logical,is_space_reporting_logical,iscsi,language,ldap.ad_domain,ldap.base_dn,ldap.bind_dn,ldap.enabled,ldap.restrict_discovery_to_site,ldap.servers,max_volumes,name,ndmp,nfs,nis,nsswitch,number_of_volumes_in_recovery_queue,nvme,qos_adaptive_policy_group_template.links,qos_adaptive_policy_group_template.max_throughput,qos_adaptive_policy_group_template.max_throughput_iops,qos_adaptive_policy_group_template.max_throughput_mbps,qos_adaptive_policy_group_template.min_throughput,qos_adaptive_policy_group_template.min_throughput_iops,qos_adaptive_policy_group_template.min_throughput_mbps,qos_adaptive_policy_group_template.name,qos_adaptive_policy_group_template.uuid,qos_policy.links,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,qos_policy_group_template.links,qos_policy_group_template.max_throughput,qos_policy_group_template.max_throughput_iops,qos_policy_group_template.max_throughput_mbps,qos_policy_group_template.min_throughput,qos_policy_group_template.min_throughput_iops,qos_policy_group_template.min_throughput_mbps,qos_policy_group_template.name,qos_policy_group_template.uuid,s3.links,s3.allowed,s3.certificate,s3.default_unix_user,s3.default_win_user,s3.enabled,s3.is_http_enabled,s3.is_https_enabled,s3.name,s3.port,s3.secure_port,snapmirror,snapshot_autodelete_enabled,snapshot_policy.links,snapshot_policy.name,snapshot_policy.uuid,snapshot_reserve_percent,state,storage,subtype,total_volume_size_in_recovery_queue,uuid,"""
+    """links,aggregates,aggregates_delegated,anti_ransomware,anti_ransomware_auto_switch_duration_without_new_file_extension,anti_ransomware_auto_switch_from_learning_to_enabled,anti_ransomware_auto_switch_minimum_file_count,anti_ransomware_auto_switch_minimum_file_extension,anti_ransomware_auto_switch_minimum_incoming_data,anti_ransomware_auto_switch_minimum_learning_period,anti_ransomware_default_volume_state,anti_ransomware_incoming_write_threshold,anti_ransomware_incoming_write_threshold_percent,auto_enable_activity_tracking,auto_enable_analytics,certificate.links,certificate.name,certificate.uuid,cifs.links,cifs.ad_domain,cifs.allowed,cifs.auth_style,cifs.domain_workgroup,cifs.enabled,cifs.name,cifs.workgroup,comment,dns,fc_interfaces,fcp,ip_interfaces,ipspace.links,ipspace.name,ipspace.uuid,is_space_enforcement_logical,is_space_reporting_logical,iscsi,language,ldap.ad_domain,ldap.base_dn,ldap.bind_dn,ldap.enabled,ldap.restrict_discovery_to_site,ldap.servers,max_volumes,name,ndmp,nfs,nis,nsswitch,number_of_volumes_in_recovery_queue,nvme,qos_adaptive_policy_group_template.links,qos_adaptive_policy_group_template.max_throughput,qos_adaptive_policy_group_template.max_throughput_iops,qos_adaptive_policy_group_template.max_throughput_mbps,qos_adaptive_policy_group_template.min_throughput,qos_adaptive_policy_group_template.min_throughput_iops,qos_adaptive_policy_group_template.min_throughput_mbps,qos_adaptive_policy_group_template.name,qos_adaptive_policy_group_template.uuid,qos_policy.links,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,qos_policy_group_template.links,qos_policy_group_template.max_throughput,qos_policy_group_template.max_throughput_iops,qos_policy_group_template.max_throughput_mbps,qos_policy_group_template.min_throughput,qos_policy_group_template.min_throughput_iops,qos_policy_group_template.min_throughput_mbps,qos_policy_group_template.name,qos_policy_group_template.uuid,s3.links,s3.allowed,s3.certificate,s3.default_unix_user,s3.default_win_user,s3.enabled,s3.is_http_enabled,s3.is_https_enabled,s3.name,s3.port,s3.secure_port,san_multipathing,snapmirror,snapshot_autodelete_enabled,snapshot_policy.links,snapshot_policy.name,snapshot_policy.uuid,snapshot_reserve_percent,state,storage,subtype,total_volume_size_in_recovery_queue,uuid,"""
 
     patchable_fields = [
         "aggregates",
@@ -688,6 +707,7 @@ Example: 02c9e252-41be-11e9-81d5-00a0986138f7"""
         "qos_policy_group_template.name",
         "qos_policy_group_template.uuid",
         "s3.allowed",
+        "san_multipathing",
         "snapmirror",
         "snapshot_autodelete_enabled",
         "snapshot_policy.name",
@@ -696,7 +716,7 @@ Example: 02c9e252-41be-11e9-81d5-00a0986138f7"""
         "state",
         "storage",
     ]
-    """aggregates,anti_ransomware,anti_ransomware_auto_switch_duration_without_new_file_extension,anti_ransomware_auto_switch_from_learning_to_enabled,anti_ransomware_auto_switch_minimum_file_count,anti_ransomware_auto_switch_minimum_file_extension,anti_ransomware_auto_switch_minimum_incoming_data,anti_ransomware_auto_switch_minimum_learning_period,anti_ransomware_default_volume_state,anti_ransomware_incoming_write_threshold,anti_ransomware_incoming_write_threshold_percent,auto_enable_activity_tracking,auto_enable_analytics,certificate.name,certificate.uuid,cifs.allowed,cifs.workgroup,comment,fcp,ip_interfaces,is_space_enforcement_logical,is_space_reporting_logical,iscsi,language,max_volumes,name,ndmp,nfs,nsswitch,nvme,qos_adaptive_policy_group_template.max_throughput,qos_adaptive_policy_group_template.max_throughput_iops,qos_adaptive_policy_group_template.max_throughput_mbps,qos_adaptive_policy_group_template.min_throughput,qos_adaptive_policy_group_template.min_throughput_iops,qos_adaptive_policy_group_template.min_throughput_mbps,qos_adaptive_policy_group_template.name,qos_adaptive_policy_group_template.uuid,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,qos_policy_group_template.max_throughput,qos_policy_group_template.max_throughput_iops,qos_policy_group_template.max_throughput_mbps,qos_policy_group_template.min_throughput,qos_policy_group_template.min_throughput_iops,qos_policy_group_template.min_throughput_mbps,qos_policy_group_template.name,qos_policy_group_template.uuid,s3.allowed,snapmirror,snapshot_autodelete_enabled,snapshot_policy.name,snapshot_policy.uuid,snapshot_reserve_percent,state,storage,"""
+    """aggregates,anti_ransomware,anti_ransomware_auto_switch_duration_without_new_file_extension,anti_ransomware_auto_switch_from_learning_to_enabled,anti_ransomware_auto_switch_minimum_file_count,anti_ransomware_auto_switch_minimum_file_extension,anti_ransomware_auto_switch_minimum_incoming_data,anti_ransomware_auto_switch_minimum_learning_period,anti_ransomware_default_volume_state,anti_ransomware_incoming_write_threshold,anti_ransomware_incoming_write_threshold_percent,auto_enable_activity_tracking,auto_enable_analytics,certificate.name,certificate.uuid,cifs.allowed,cifs.workgroup,comment,fcp,ip_interfaces,is_space_enforcement_logical,is_space_reporting_logical,iscsi,language,max_volumes,name,ndmp,nfs,nsswitch,nvme,qos_adaptive_policy_group_template.max_throughput,qos_adaptive_policy_group_template.max_throughput_iops,qos_adaptive_policy_group_template.max_throughput_mbps,qos_adaptive_policy_group_template.min_throughput,qos_adaptive_policy_group_template.min_throughput_iops,qos_adaptive_policy_group_template.min_throughput_mbps,qos_adaptive_policy_group_template.name,qos_adaptive_policy_group_template.uuid,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,qos_policy_group_template.max_throughput,qos_policy_group_template.max_throughput_iops,qos_policy_group_template.max_throughput_mbps,qos_policy_group_template.min_throughput,qos_policy_group_template.min_throughput_iops,qos_policy_group_template.min_throughput_mbps,qos_policy_group_template.name,qos_policy_group_template.uuid,s3.allowed,san_multipathing,snapmirror,snapshot_autodelete_enabled,snapshot_policy.name,snapshot_policy.uuid,snapshot_reserve_percent,state,storage,"""
 
     postable_fields = [
         "aggregates",
@@ -768,6 +788,7 @@ Example: 02c9e252-41be-11e9-81d5-00a0986138f7"""
         "s3.name",
         "s3.port",
         "s3.secure_port",
+        "san_multipathing",
         "snapmirror",
         "snapshot_autodelete_enabled",
         "snapshot_policy.name",
@@ -776,7 +797,7 @@ Example: 02c9e252-41be-11e9-81d5-00a0986138f7"""
         "storage",
         "subtype",
     ]
-    """aggregates,anti_ransomware,anti_ransomware_auto_switch_duration_without_new_file_extension,anti_ransomware_auto_switch_from_learning_to_enabled,anti_ransomware_auto_switch_minimum_file_count,anti_ransomware_auto_switch_minimum_file_extension,anti_ransomware_auto_switch_minimum_incoming_data,anti_ransomware_auto_switch_minimum_learning_period,anti_ransomware_default_volume_state,anti_ransomware_incoming_write_threshold,anti_ransomware_incoming_write_threshold_percent,auto_enable_activity_tracking,auto_enable_analytics,cifs.ad_domain,cifs.allowed,cifs.enabled,cifs.name,cifs.workgroup,comment,dns,fc_interfaces,fcp,ip_interfaces,ipspace.name,ipspace.uuid,is_space_enforcement_logical,is_space_reporting_logical,iscsi,language,ldap.ad_domain,ldap.base_dn,ldap.bind_dn,ldap.enabled,ldap.restrict_discovery_to_site,ldap.servers,max_volumes,name,ndmp,nfs,nis,nsswitch,nvme,qos_adaptive_policy_group_template.max_throughput,qos_adaptive_policy_group_template.max_throughput_iops,qos_adaptive_policy_group_template.max_throughput_mbps,qos_adaptive_policy_group_template.min_throughput,qos_adaptive_policy_group_template.min_throughput_iops,qos_adaptive_policy_group_template.min_throughput_mbps,qos_adaptive_policy_group_template.name,qos_adaptive_policy_group_template.uuid,qos_policy_group_template.max_throughput,qos_policy_group_template.max_throughput_iops,qos_policy_group_template.max_throughput_mbps,qos_policy_group_template.min_throughput,qos_policy_group_template.min_throughput_iops,qos_policy_group_template.min_throughput_mbps,qos_policy_group_template.name,qos_policy_group_template.uuid,routes,s3.allowed,s3.certificate,s3.default_unix_user,s3.default_win_user,s3.enabled,s3.is_http_enabled,s3.is_https_enabled,s3.name,s3.port,s3.secure_port,snapmirror,snapshot_autodelete_enabled,snapshot_policy.name,snapshot_policy.uuid,snapshot_reserve_percent,storage,subtype,"""
+    """aggregates,anti_ransomware,anti_ransomware_auto_switch_duration_without_new_file_extension,anti_ransomware_auto_switch_from_learning_to_enabled,anti_ransomware_auto_switch_minimum_file_count,anti_ransomware_auto_switch_minimum_file_extension,anti_ransomware_auto_switch_minimum_incoming_data,anti_ransomware_auto_switch_minimum_learning_period,anti_ransomware_default_volume_state,anti_ransomware_incoming_write_threshold,anti_ransomware_incoming_write_threshold_percent,auto_enable_activity_tracking,auto_enable_analytics,cifs.ad_domain,cifs.allowed,cifs.enabled,cifs.name,cifs.workgroup,comment,dns,fc_interfaces,fcp,ip_interfaces,ipspace.name,ipspace.uuid,is_space_enforcement_logical,is_space_reporting_logical,iscsi,language,ldap.ad_domain,ldap.base_dn,ldap.bind_dn,ldap.enabled,ldap.restrict_discovery_to_site,ldap.servers,max_volumes,name,ndmp,nfs,nis,nsswitch,nvme,qos_adaptive_policy_group_template.max_throughput,qos_adaptive_policy_group_template.max_throughput_iops,qos_adaptive_policy_group_template.max_throughput_mbps,qos_adaptive_policy_group_template.min_throughput,qos_adaptive_policy_group_template.min_throughput_iops,qos_adaptive_policy_group_template.min_throughput_mbps,qos_adaptive_policy_group_template.name,qos_adaptive_policy_group_template.uuid,qos_policy_group_template.max_throughput,qos_policy_group_template.max_throughput_iops,qos_policy_group_template.max_throughput_mbps,qos_policy_group_template.min_throughput,qos_policy_group_template.min_throughput_iops,qos_policy_group_template.min_throughput_mbps,qos_policy_group_template.name,qos_policy_group_template.uuid,routes,s3.allowed,s3.certificate,s3.default_unix_user,s3.default_win_user,s3.enabled,s3.is_http_enabled,s3.is_https_enabled,s3.name,s3.port,s3.secure_port,san_multipathing,snapmirror,snapshot_autodelete_enabled,snapshot_policy.name,snapshot_policy.uuid,snapshot_reserve_percent,storage,subtype,"""
 
 class Svm(Resource):
     """Allows interaction with Svm objects on the host"""
@@ -1087,6 +1108,7 @@ There is an added computational cost to retrieving values for these properties. 
 * `auto_enable_activity_tracking` - Auto-enable volume activity-tracking on new volumes created in the SVM.
 * `storage.limit` - Maximum storage permitted on a single SVM.
 * `storage.limit_threshold_alert` - At what percentage of storage capacity, alert message needs to be sent.
+* `san_multipathing` - SAN multipathing mode.
 ### Default property values
 If not specified in POST, the following default property values are assigned:
 * `language` - _C.UTF-8_
@@ -1253,6 +1275,12 @@ If not specified in POST, the following default property values are assigned:
     ```
     <br/>
 </personalities>
+    <br/>
+* Creates an SVM and specifies the SAN multipathing mode.
+    <br/>
+    ```
+    POST "/api/svm/svms" '{"name":"testVs", "san_multipathing":"active_active"}}'
+    ```
 ### Learn more
 * [`DOC /svm/svms`](#docs-svm-svm_svms)
 """
@@ -1449,6 +1477,7 @@ There is an added computational cost to retrieving values for these properties. 
 * `auto_enable_activity_tracking` - Auto-enable volume activity-tracking on new volumes created in the SVM.
 * `storage.limit` - Maximum storage permitted on a single SVM.
 * `storage.limit_threshold_alert` - At what percentage of storage capacity, alert message needs to be sent.
+* `san_multipathing` - SAN multipathing mode.
 ### Default property values
 If not specified in POST, the following default property values are assigned:
 * `language` - _C.UTF-8_
@@ -1615,6 +1644,12 @@ If not specified in POST, the following default property values are assigned:
     ```
     <br/>
 </personalities>
+    <br/>
+* Creates an SVM and specifies the SAN multipathing mode.
+    <br/>
+    ```
+    POST "/api/svm/svms" '{"name":"testVs", "san_multipathing":"active_active"}}'
+    ```
 ### Learn more
 * [`DOC /svm/svms`](#docs-svm-svm_svms)
 """

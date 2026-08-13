@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: strands-agents
-Version: 1.51.0
+Version: 1.52.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/harness-sdk
 Project-URL: Bug Tracker, https://github.com/strands-agents/harness-sdk/issues
@@ -75,7 +75,7 @@ Requires-Dist: a2a-sdk<0.4.0,>=0.3.0; extra == 'bidi-all'
 Requires-Dist: a2a-sdk[sql]<0.4.0,>=0.3.0; extra == 'bidi-all'
 Requires-Dist: aws-sdk-bedrock-runtime<1.0.0,>=0.4.0; (python_version >= '3.12') and extra == 'bidi-all'
 Requires-Dist: fastapi<1.0.0,>=0.133.0; extra == 'bidi-all'
-Requires-Dist: google-genai<3.0.0,>=1.32.0; extra == 'bidi-all'
+Requires-Dist: google-genai<3.0.0,>=1.67.0; extra == 'bidi-all'
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'bidi-all'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'bidi-all'
 Requires-Dist: prompt-toolkit<4.0.0,>=3.0.0; extra == 'bidi-all'
@@ -88,7 +88,7 @@ Requires-Dist: starlette<2.0.0,>=1.0.0; extra == 'bidi-all'
 Requires-Dist: uvicorn<1.0.0,>=0.34.2; extra == 'bidi-all'
 Requires-Dist: websockets<17.0.0,>=15.0.0; extra == 'bidi-all'
 Provides-Extra: bidi-gemini
-Requires-Dist: google-genai<3.0.0,>=1.32.0; extra == 'bidi-gemini'
+Requires-Dist: google-genai<3.0.0,>=1.67.0; extra == 'bidi-gemini'
 Provides-Extra: bidi-io
 Requires-Dist: prompt-toolkit<4.0.0,>=3.0.0; extra == 'bidi-io'
 Requires-Dist: pyaudio<1.0.0,>=0.2.13; extra == 'bidi-io'

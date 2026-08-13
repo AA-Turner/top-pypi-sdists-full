@@ -17,6 +17,7 @@ cdef class CodecContext:
 
     cdef lib.AVCodecParserContext *parser
     cdef _init(self, lib.AVCodecContext *ptr, const lib.AVCodec *codec, HWAccel hwaccel)
+    cdef _assert_not_open(self, name)
 
     # Public API.
     cdef readonly bint is_open
@@ -28,6 +29,7 @@ cdef class CodecContext:
     # Wraps both versions of the transcode API, returning lists.
     cpdef encode(self, Frame frame=?)
     cpdef decode(self, Packet packet=?)
+    cdef _decode(self, Packet packet)
     cpdef flush_buffers(self)
 
     # Used by hardware-accelerated decode.

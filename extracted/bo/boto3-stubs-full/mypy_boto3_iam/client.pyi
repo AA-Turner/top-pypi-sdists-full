@@ -64,6 +64,8 @@ from .paginator import (
 )
 from .type_defs import (
     AcceptDelegationRequestRequestTypeDef,
+    AcquireRoleRequestTypeDef,
+    AcquireRoleResponseTypeDef,
     AddClientIDToOpenIDConnectProviderRequestTypeDef,
     AddRoleToInstanceProfileRequestTypeDef,
     AddUserToGroupRequestTypeDef,
@@ -145,6 +147,7 @@ from .type_defs import (
     GetAccountAuthorizationDetailsRequestTypeDef,
     GetAccountAuthorizationDetailsResponseTypeDef,
     GetAccountPasswordPolicyResponseTypeDef,
+    GetAccountPropertiesResponseTypeDef,
     GetAccountSummaryResponseTypeDef,
     GetContextKeysForCustomPolicyRequestTypeDef,
     GetContextKeysForPolicyResponseTypeDef,
@@ -177,6 +180,8 @@ from .type_defs import (
     GetRolePolicyResponseTypeDef,
     GetRoleRequestTypeDef,
     GetRoleResponseTypeDef,
+    GetRoleTemplateVersionRequestTypeDef,
+    GetRoleTemplateVersionResponseTypeDef,
     GetSAMLProviderRequestTypeDef,
     GetSAMLProviderResponseTypeDef,
     GetServerCertificateRequestTypeDef,
@@ -262,6 +267,7 @@ from .type_defs import (
     ListUserTagsResponseTypeDef,
     ListVirtualMFADevicesRequestTypeDef,
     ListVirtualMFADevicesResponseTypeDef,
+    PutAccountPropertiesRequestTypeDef,
     PutGroupPolicyRequestTypeDef,
     PutRolePermissionsBoundaryRequestTypeDef,
     PutRolePolicyRequestTypeDef,
@@ -358,6 +364,7 @@ class Exceptions(BaseClientExceptions):
     LimitExceededException: type[BotocoreClientError]
     MalformedCertificateException: type[BotocoreClientError]
     MalformedPolicyDocumentException: type[BotocoreClientError]
+    NameConflictException: type[BotocoreClientError]
     NoSuchEntityException: type[BotocoreClientError]
     OpenIdIdpCommunicationErrorException: type[BotocoreClientError]
     OrganizationNotFoundException: type[BotocoreClientError]
@@ -366,6 +373,8 @@ class Exceptions(BaseClientExceptions):
     PolicyEvaluationException: type[BotocoreClientError]
     PolicyNotAttachableException: type[BotocoreClientError]
     ReportGenerationLimitExceededException: type[BotocoreClientError]
+    RoleModifiedException: type[BotocoreClientError]
+    RoleTemplateDisabledException: type[BotocoreClientError]
     ServiceAccessNotEnabledException: type[BotocoreClientError]
     ServiceFailureException: type[BotocoreClientError]
     ServiceNotSupportedException: type[BotocoreClientError]
@@ -415,6 +424,16 @@ class IAMClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/accept_delegation_request.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/client/#accept_delegation_request)
+        """
+
+    def acquire_role(
+        self, **kwargs: Unpack[AcquireRoleRequestTypeDef]
+    ) -> AcquireRoleResponseTypeDef:
+        """
+        Creates an IAM role from the specified role template.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/acquire_role.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/client/#acquire_role)
         """
 
     def add_client_id_to_open_id_connect_provider(
@@ -1053,6 +1072,15 @@ class IAMClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/client/#get_account_password_policy)
         """
 
+    def get_account_properties(self) -> GetAccountPropertiesResponseTypeDef:
+        """
+        Retrieves the account-level properties for the caller's Amazon Web Services
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/get_account_properties.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/client/#get_account_properties)
+        """
+
     def get_account_summary(self) -> GetAccountSummaryResponseTypeDef:
         """
         Retrieves information about IAM entity usage and IAM quotas in the Amazon Web
@@ -1236,6 +1264,16 @@ class IAMClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/get_role_policy.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/client/#get_role_policy)
+        """
+
+    def get_role_template_version(
+        self, **kwargs: Unpack[GetRoleTemplateVersionRequestTypeDef]
+    ) -> GetRoleTemplateVersionResponseTypeDef:
+        """
+        Retrieves information about a version of the specified role template.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/get_role_template_version.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/client/#get_role_template_version)
         """
 
     def get_saml_provider(
@@ -1686,6 +1724,16 @@ class IAMClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/list_virtual_mfa_devices.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/client/#list_virtual_mfa_devices)
+        """
+
+    def put_account_properties(
+        self, **kwargs: Unpack[PutAccountPropertiesRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Sets account-level properties for the caller's Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/put_account_properties.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/client/#put_account_properties)
         """
 
     def put_group_policy(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import operator
 import pathlib
 import typing
 import warnings
@@ -258,6 +259,17 @@ class Repeat:
     """Implements the ABNF Repeat operator for Repetition."""
 
     def __init__(self, min: int = 0, max: int | None = None):
+        # `3*2` is an impossible range.  Silently treating it as `3*`
+        # -- which is what an unvalidated max does, since the loop
+        # never reaches an upper bound it has already passed -- turns
+        # a typo for `2*3` into unbounded repetition with no
+        # diagnostic.  Reject it where the grammar is built.
+        if max is not None and max < min:
+            msg = (
+                f"Repeat max ({max}) is less than min ({min}); "
+                f"a repetition of {min}*{max} can never match."
+            )
+            raise GrammarError(msg)
         self.min = min
         self.max = max
 
@@ -622,7 +634,28 @@ class Rule:
         :raises ParseError: if source cannot be parsed using rule.
         :raises GrammarError: if rule has no definition.  This usually means that a
             non-terminal in the grammar is not defined or imported.
+        :raises ValueError: if start is outside ``0 <= start <= len(source)``.
         """
+
+        # Normalise first: this turns `True` into `1` (the Rust
+        # backend already treated it as an index, while here it ended
+        # up verbatim in `ParseError.start`) and rejects non-integers
+        # with the same message the Rust backend produces.
+        start = operator.index(start)
+
+        # Without this check a negative start is a valid Python slice
+        # measured from the end of the source, so the parse quietly
+        # succeeds at a position the caller never asked for and hands
+        # back negative node offsets: `parse("abcdef", -4)` matches
+        # "cd".  The Rust backend raises OverflowError on the same
+        # input, so the backends disagreed on a case where neither
+        # answer was right.
+        if not 0 <= start <= len(source):
+            msg = (
+                f"start must be in 0..{len(source)} for a source of "
+                f"length {len(source)}; got {start}."
+            )
+            raise ValueError(msg)
 
         g = self.lparse(source, start)
         # `lparse` yields matches longest-first (the upstream
@@ -634,6 +667,24 @@ class Rule:
         # `StopIteration` in practice.
         try:
             longest_match = next(g)
+        except UnicodeEncodeError as exc:
+            # Only reachable on the Rust backend, which carries the source
+            # across the FFI as a UTF-8 `&str`.  A Python str may contain lone
+            # surrogates -- from `surrogateescape` on an undecodable filename,
+            # or an unpaired \uD800 out of `json.loads` -- and those have no
+            # UTF-8 representation, so the conversion fails before any parsing
+            # happens.  The pure-Python backend parses such input fine.
+            # Replace the codec traceback, which says nothing about abnf, with
+            # the limitation and its workaround.  See GitHub issue #173.
+            # UnicodeEncodeError is itself a ValueError, so `except ValueError`
+            # callers are unaffected by the re-raise.
+            msg = (
+                "the Rust backend cannot parse input containing lone surrogate "
+                "code points; set ABNF_NO_RUST=1 to use the pure-Python "
+                "backend, which accepts them.  "
+                "See https://github.com/declaresub/abnf/issues/173"
+            )
+            raise ValueError(msg) from exc
         except RecursionError as exc:
             # Deeply-nested input exhausts the Python call stack (the parser is
             # recursive-descent).  Convert to ParseError so the documented
@@ -662,14 +713,36 @@ class Rule:
             non-terminal in the grammar is not defined or imported.
 
         .. note::
-            The pure-Python backend is recursive-descent, so input nested more
-            deeply than the Python recursion limit permits is reported as a
-            ParseError rather than crashing with RecursionError.  The Rust
-            backend is not subject to this limit.  If you must parse very deeply
-            nested input on the pure-Python backend, run the parse on a worker
-            thread with a larger stack and a raised recursion limit -- both
-            levers are needed, as ``setrecursionlimit`` alone would overflow the
-            C stack::
+            ``source`` is a sequence of Unicode code points, which is what a
+            Python ``str`` is; a terminal value in the grammar (``%x41``,
+            ``%x10000-1FFFD``) is a code-point value.  To parse wire data,
+            decode it with latin-1 -- that maps the 256 byte values onto
+            ``U+0000``-``U+00FF`` one to one, so a code point is exactly an
+            octet and ``OCTET``/``obs-text`` behave as their RFCs describe::
+
+                rule.parse_all(raw.decode("latin-1"))
+
+            The choice of encoding is a semantic one and belongs to the caller:
+            ``b"\\xc3\\xa9"`` is two octets read as latin-1 and one character
+            read as UTF-8, and both readings are correct for some input.  See
+            the "What abnf parses" page in the documentation.
+
+        .. note::
+            Both backends are recursive-descent and both bound how deeply they
+            will recurse, reporting input nested past the bound as a ParseError
+            rather than crashing.  The pure-Python backend's bound is CPython's
+            recursion limit.  The Rust backend budgets native stack instead,
+            which puts its ceiling near 180 levels of rule nesting -- lower, but
+            the same on every platform and every thread.  (Before that budget
+            existed the Rust backend counted levels only, and on a stack too
+            small for the count -- Windows, or any thread created with a modest
+            ``threading.stack_size`` -- it overflowed and killed the process.)
+
+            To parse input nested more deeply than that, use the pure-Python
+            backend, whose bound you can raise: force it with ``ABNF_NO_RUST=1``
+            and run the parse on a worker thread with a larger stack and a
+            raised recursion limit.  Both levers are needed, as
+            ``setrecursionlimit`` alone would overflow the C stack::
 
                 import sys, threading
 

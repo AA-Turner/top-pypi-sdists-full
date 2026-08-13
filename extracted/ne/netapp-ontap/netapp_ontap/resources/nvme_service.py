@@ -38,14 +38,14 @@ NvmeService(
                 "href": "/api/protocols/nvme/services/bfb1beb0-dc69-11e8-b29f-005056bb7341"
             }
         },
-        "enabled": True,
         "svm": {
-            "name": "svm1",
+            "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
             "_links": {
                 "self": {"href": "/api/svm/svms/bfb1beb0-dc69-11e8-b29f-005056bb7341"}
             },
-            "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
+            "name": "svm1",
         },
+        "enabled": True,
     }
 )
 
@@ -77,13 +77,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "svm": {
-                "name": "svm0",
+                "uuid": "ab60c350-dc68-11e8-9711-005056bbe408",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/ab60c350-dc68-11e8-9711-005056bbe408"
                     }
                 },
-                "uuid": "ab60c350-dc68-11e8-9711-005056bbe408",
+                "name": "svm0",
             },
         }
     ),
@@ -95,13 +95,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "svm": {
-                "name": "svm1",
+                "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/bfb1beb0-dc69-11e8-b29f-005056bb7341"
                     }
                 },
-                "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
+                "name": "svm1",
             },
         }
     ),
@@ -137,14 +137,14 @@ NvmeService(
                 "href": "/api/protocols/nvme/services/bfb1beb0-dc69-11e8-b29f-005056bb7341"
             }
         },
-        "enabled": True,
         "svm": {
-            "name": "svm1",
+            "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
             "_links": {
                 "self": {"href": "/api/svm/svms/bfb1beb0-dc69-11e8-b29f-005056bb7341"}
             },
-            "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
+            "name": "svm1",
         },
+        "enabled": True,
     }
 )
 
@@ -193,14 +193,14 @@ NvmeService(
                 "href": "/api/protocols/nvme/services/bfb1beb0-dc69-11e8-b29f-005056bb7341"
             }
         },
-        "enabled": False,
         "svm": {
-            "name": "svm1",
+            "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
             "_links": {
                 "self": {"href": "/api/svm/svms/bfb1beb0-dc69-11e8-b29f-005056bb7341"}
             },
-            "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
+            "name": "svm1",
         },
+        "enabled": False,
     }
 )
 

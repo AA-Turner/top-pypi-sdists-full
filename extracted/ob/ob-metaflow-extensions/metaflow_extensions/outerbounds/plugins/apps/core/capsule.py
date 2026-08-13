@@ -8,9 +8,10 @@ import time
 from functools import partial
 import shlex
 from typing import Optional, List, Dict, Any, Tuple, Union, Callable
+from urllib.parse import urlparse
 from .utils import TODOException, safe_requests_wrapper, MaximumRetriesExceeded
 from .app_config import AppConfig, CAPSULE_DEBUG, AuthType
-from .config.unified_config import UNASSIGNED_PROJECT_BRANCH
+from .config.unified_config import UNASSIGNED_PROJECT_BRANCH, CapsuleType
 from . import experimental
 from ._state_machine import (
     _capsule_worker_semantic_status,
@@ -33,6 +34,10 @@ from .exceptions import (
 )
 
 STATE_REFRESH_FREQUENCY = 1  # in seconds
+
+# The port a `proxy.service_url` without an explicit one is served on. Mirrors the
+# schemes `ProxyConfig.SERVICE_URL_REGEX` admits.
+SCHEME_DEFAULT_PORTS = {"http": 80, "https": 443}
 
 
 def _format_url_string(url, is_https=True):
@@ -263,6 +268,50 @@ class CapsuleInput:
         return _return
 
     @classmethod
+    def _marshal_proxy_settings(cls, app_config: AppConfig):
+        proxy = app_config.get_state("proxy", {}) or {}
+        _settings = {}
+        if proxy.get("namespace"):
+            _settings["namespace"] = proxy["namespace"]
+        if proxy.get("selector_labels"):
+            _settings["selectorLabels"] = dict(proxy["selector_labels"])
+        if proxy.get("service_url"):
+            _settings["serviceURL"] = proxy["service_url"]
+        return _settings
+
+    @classmethod
+    def _port_from_service_url(cls, service_url):
+        """The port a `proxy.service_url` points at, or None if it has none.
+
+        `service_url` is `[scheme://]host[:port][/path]`, so the port lives in the
+        URL and the config does not make the user set `port` separately in that
+        mode. The payload still carries a port, so read it back out here.
+        """
+        if not service_url:
+            return None
+        # urlparse reads `my-svc:8080` as scheme `my-svc`, so give it a scheme.
+        _url = service_url if "://" in service_url else "http://%s" % service_url
+        try:
+            _parsed = urlparse(_url)
+            _port = _parsed.port
+        except ValueError:
+            # A port outside 0-65535; config validation reports it properly.
+            return None
+        if _port is not None:
+            return _port
+        return SCHEME_DEFAULT_PORTS.get(_parsed.scheme)
+
+    @classmethod
+    def _marshal_port(cls, app_config: AppConfig):
+        _port = app_config.get_state("port", None)
+        if _port is not None:
+            return _port
+        # The only way to get here is a Proxy capsule fronting an existing
+        # service, whose port `port_required` lets the user leave unset.
+        proxy = app_config.get_state("proxy", {}) or {}
+        return cls._port_from_service_url(proxy.get("service_url"))
+
+    @classmethod
     def from_app_config(cls, app_config: AppConfig):
         ## Replica settings
         replicas = app_config.get_state("replicas", {})
@@ -302,16 +351,28 @@ class CapsuleInput:
         if _app_type:
             _final_info["endpointType"] = _app_type
 
+        # A Proxy capsule runs nothing but the platform's proxy, so there is no user
+        # container to hand code or a startup command to.
+        _capsule_type = app_config.get_state("capsule_type", None)
+        _is_proxy = _capsule_type == CapsuleType.PROXY
+
+        _capsule_type_config = {}
+        if _capsule_type is not None:
+            _capsule_type_config["capsuleType"] = _capsule_type
+        _proxy_settings = cls._marshal_proxy_settings(app_config)
+        if _proxy_settings:
+            _capsule_type_config["proxySettings"] = _proxy_settings
+
         # Conditionally include codePackagePath if not skipping code packaging
         _code_package_config = {}
-        if not app_config.get_state("skip_code_package", False):
+        if not _is_proxy and not app_config.get_state("skip_code_package", False):
             _code_package_config["codePackagePath"] = app_config.get_state(
                 "code_package_url"
             )
 
         # Conditionally include containerStartupConfig if not using base image command
         _startup_config = {}
-        if not app_config.get_state("use_base_image_command", False):
+        if not _is_proxy and not app_config.get_state("use_base_image_command", False):
             _startup_config["containerStartupConfig"] = {
                 "entrypoint": cls.construct_exec_command(
                     app_config.get_state("commands")
@@ -336,6 +397,7 @@ class CapsuleInput:
             "project": _project,
             "branch": _branch,
             **_final_info,
+            **_capsule_type_config,
             **_code_package_config,
             "image": app_config.get_state("image"),
             "resourceIntegrations": [
@@ -360,7 +422,7 @@ class CapsuleInput:
                 "publicToDeployment": app_config.get_state("auth").get("public"),
             },
             "tags": _tags,
-            "port": app_config.get_state("port"),
+            "port": cls._marshal_port(app_config),
             "displayName": app_config.get_state("name"),
             "forceUpdate": app_config.get_state("force_upgrade", False),
         }

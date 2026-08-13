@@ -35,6 +35,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
             "anonymous_user": "anon1",
             "chown_mode": "restricted",
             "allow_suid": True,
+            "allow_nfs_tls_only": False,
         },
         {
             "clients": [{"match": "host2"}],

@@ -55,6 +55,9 @@ class NfsServiceProtocolSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
             )
     r""" The v41_features field of the nfs_service_protocol. """
 
+    v42_enabled = marshmallow_fields.Boolean(data_key="v42_enabled", allow_none=True)
+    r""" Specifies whether NFSv4.2 protocol is enabled. """
+
     v42_features = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.models.nfs_service_protocol_v42_features", "NfsServiceProtocolV42FeaturesSchema"),
                 unknown=EXCLUDE,
@@ -100,6 +103,7 @@ names as defined by the NFSv4 protocol. """
         "v40_features",
         "v41_enabled",
         "v41_features",
+        "v42_enabled",
         "v42_features",
         "v4_64bit_identifiers_enabled",
         "v4_fsid_change",
@@ -110,7 +114,7 @@ names as defined by the NFSv4 protocol. """
         "v4_session_slots",
         "v4_subnet_filter_enabled",
     ]
-    """v3_64bit_identifiers_enabled,v3_enabled,v3_features,v40_enabled,v40_features,v41_enabled,v41_features,v42_features,v4_64bit_identifiers_enabled,v4_fsid_change,v4_grace_seconds,v4_id_domain,v4_lease_seconds,v4_session_slot_reply_cache_size,v4_session_slots,v4_subnet_filter_enabled,"""
+    """v3_64bit_identifiers_enabled,v3_enabled,v3_features,v40_enabled,v40_features,v41_enabled,v41_features,v42_enabled,v42_features,v4_64bit_identifiers_enabled,v4_fsid_change,v4_grace_seconds,v4_id_domain,v4_lease_seconds,v4_session_slot_reply_cache_size,v4_session_slots,v4_subnet_filter_enabled,"""
 
     patchable_fields = [
         "v3_64bit_identifiers_enabled",
@@ -120,6 +124,7 @@ names as defined by the NFSv4 protocol. """
         "v40_features",
         "v41_enabled",
         "v41_features",
+        "v42_enabled",
         "v42_features",
         "v4_64bit_identifiers_enabled",
         "v4_fsid_change",
@@ -130,7 +135,7 @@ names as defined by the NFSv4 protocol. """
         "v4_session_slots",
         "v4_subnet_filter_enabled",
     ]
-    """v3_64bit_identifiers_enabled,v3_enabled,v3_features,v40_enabled,v40_features,v41_enabled,v41_features,v42_features,v4_64bit_identifiers_enabled,v4_fsid_change,v4_grace_seconds,v4_id_domain,v4_lease_seconds,v4_session_slot_reply_cache_size,v4_session_slots,v4_subnet_filter_enabled,"""
+    """v3_64bit_identifiers_enabled,v3_enabled,v3_features,v40_enabled,v40_features,v41_enabled,v41_features,v42_enabled,v42_features,v4_64bit_identifiers_enabled,v4_fsid_change,v4_grace_seconds,v4_id_domain,v4_lease_seconds,v4_session_slot_reply_cache_size,v4_session_slots,v4_subnet_filter_enabled,"""
 
     postable_fields = [
         "v3_64bit_identifiers_enabled",
@@ -140,6 +145,7 @@ names as defined by the NFSv4 protocol. """
         "v40_features",
         "v41_enabled",
         "v41_features",
+        "v42_enabled",
         "v42_features",
         "v4_64bit_identifiers_enabled",
         "v4_fsid_change",
@@ -150,7 +156,7 @@ names as defined by the NFSv4 protocol. """
         "v4_session_slots",
         "v4_subnet_filter_enabled",
     ]
-    """v3_64bit_identifiers_enabled,v3_enabled,v3_features,v40_enabled,v40_features,v41_enabled,v41_features,v42_features,v4_64bit_identifiers_enabled,v4_fsid_change,v4_grace_seconds,v4_id_domain,v4_lease_seconds,v4_session_slot_reply_cache_size,v4_session_slots,v4_subnet_filter_enabled,"""
+    """v3_64bit_identifiers_enabled,v3_enabled,v3_features,v40_enabled,v40_features,v41_enabled,v41_features,v42_enabled,v42_features,v4_64bit_identifiers_enabled,v4_fsid_change,v4_grace_seconds,v4_id_domain,v4_lease_seconds,v4_session_slot_reply_cache_size,v4_session_slots,v4_subnet_filter_enabled,"""
 
 
 class NfsServiceProtocol(Resource):

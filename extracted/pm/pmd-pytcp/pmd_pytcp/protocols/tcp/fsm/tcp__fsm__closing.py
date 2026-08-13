@@ -38,12 +38,32 @@ from typing import TYPE_CHECKING
 
 from pmd_pytcp.lib.logger import log
 from pmd_pytcp.protocols.tcp import tcp__constants
-from pmd_pytcp.protocols.tcp.tcp__enums import FsmState, SysCall
+from pmd_pytcp.protocols.tcp.tcp__enums import ConnError, FsmState, SysCall
 from pmd_pytcp.protocols.tcp.tcp__seq import ge32, gt32, in_range32
 
 if TYPE_CHECKING:
     from pmd_pytcp.protocols.tcp.session import TcpSession
     from pmd_pytcp.socket.tcp__metadata import TcpMetadata
+
+
+def fsm__closing__timer(session: TcpSession) -> None:
+    """
+    TCP FSM CLOSING state timer handler.
+
+    Run retransmit-timeout machinery and drain the TX buffer —
+    same shape as FIN_WAIT_1 / LAST_ACK, whose FIN is equally
+    still unacked. CLOSING is reached when the FINs cross
+    (simultaneous close); if the peer's ACK of our FIN is then
+    lost, the peer sits in TIME_WAIT retransmitting nothing, so
+    our FIN retransmission is the only stimulus that can
+    complete the close — and the retransmission budget is the
+    only exit when the peer has vanished. Without this handler
+    the state could never make progress on its own: the session
+    (and its local port) leaked forever.
+    """
+
+    session._retransmit_packet_timeout()
+    session._transmit_data()
 
 
 def fsm__closing__syscall(session: TcpSession, syscall: SysCall) -> None:
@@ -123,7 +143,11 @@ def fsm__closing__packet(session: TcpSession, packet_rx_md: TcpMetadata) -> None
         return
 
     # Got RST (bare or RST+ACK) -> Process per RFC 9293 §3.10.7.4
-    # three-way classification via the shared helper.
+    # three-way classification via the shared helper. Mark the
+    # connection reset so a blocked / subsequent 'recv()' on the
+    # still-readable half-closed socket raises instead of
+    # misreading the destroyed stream as a clean EOF.
     if packet_rx_md.tcp__flag_rst and not any({packet_rx_md.tcp__flag_fin, packet_rx_md.tcp__flag_syn}):
         if session._check_rst_acceptability(packet_rx_md):
+            session._connection_error = ConnError.RESET
             session._change_state(FsmState.CLOSED)

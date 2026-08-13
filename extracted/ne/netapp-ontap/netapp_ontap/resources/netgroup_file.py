@@ -27,11 +27,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NetgroupFile(
     {
+        "hash_value_by_host": "eb109a44056a47bdeb4b407ec821a14b",
+        "hash_value": "729b6e43cee04bcee18efa3aa689881d",
         "timestamp": "2021-10-04T13:05:06+05:30",
         "file_size": 5118686,
-        "hash_value": "729b6e43cee04bcee18efa3aa689881d",
-        "hash_value_by_host": "eb109a44056a47bdeb4b407ec821a14b",
-        "svm": {"name": "svm1", "uuid": "53942195-1709-11ec-b0d4-0050568efd14"},
+        "svm": {"uuid": "53942195-1709-11ec-b0d4-0050568efd14", "name": "svm1"},
     }
 )
 

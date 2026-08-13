@@ -29,13 +29,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
             "_links": {"self": {"href": "/api/support/ems/events/node1/661"}},
             "index": 661,
             "node": {
-                "name": "node1",
+                "uuid": "f087b8e3-99ac-11e8-b5a5-005056bb4ec7",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/f087b8e3-99ac-11e8-b5a5-005056bb4ec7"
                     }
                 },
-                "uuid": "f087b8e3-99ac-11e8-b5a5-005056bb4ec7",
+                "name": "node1",
             },
         }
     )

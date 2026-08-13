@@ -33,6 +33,7 @@ setup(
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
         'Programming Language :: Python :: 3.14',
+        'Programming Language :: Python :: 3.15',
         'Topic :: Internet :: WWW/HTTP',
         'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
     ],
@@ -45,5 +46,4 @@ setup(
         'formatting': ['autopep8'],
     },
     python_requires='>=3.10',
-    setup_requires=['setuptools_scm'],
 )

@@ -11,6 +11,8 @@ if TYPE_CHECKING:
 
 import pandas as pd
 from bs4 import BeautifulSoup
+
+from edgar.exceptions import EdgarError, TransportError, http_status
 from httpx import AsyncClient, HTTPStatusError
 from tqdm.auto import tqdm
 
@@ -59,7 +61,8 @@ __all__ = ['download_edgar_data',
            'parse_file_size',
            'latest_filing_date']
 
-class DirectoryBrowsingNotAllowed(Exception):
+
+class DirectoryBrowsingNotAllowed(EdgarError):
 
     def __init__(self, url: str, message: str = "Directory browsing is not allowed for this URL."):
         super().__init__(f"{message} \nurl: {url}")
@@ -594,17 +597,24 @@ def get_sec_file_listing(url:str) -> pd.DataFrame:
 
     Raises:
         ValueError: If URL is invalid or doesn't point to SEC EDGAR
-        ConnectionError: If unable to download the page
+        ConnectionError: If unable to download the page (pre-6.0; under
+            EDGARTOOLS_STRICT_ERRORS the TransportError propagates as itself)
         RuntimeError: If page structure is invalid or no table found
     """
     try:
         html = download_text(url)
-    except HTTPStatusError as e:
-        if e.response.status_code == 403:
+    except (HTTPStatusError, TransportError) as e:
+        status = http_status(e)
+        if status == 403:
             log.warning(f"There are no feed files for url {url}")
             return pd.DataFrame(columns=['Name', 'File', 'Size', 'Modified'])
-        elif e.response.status_code == 404:
+        elif status == 404:
             raise FileNotFoundError(f"Page not found: {url}") from None
+        if isinstance(e, TransportError):
+            # Already the right type under the strict wrap. Re-wrapping it as a
+            # builtin ConnectionError would demote a typed error back to the
+            # vocabulary the hierarchy exists to replace.
+            raise
         raise ConnectionError(f"Failed to download page: {str(e)}") from e
 
     if "Directory Browsing Not Allowed" in html:
@@ -668,7 +678,8 @@ def list_filing_feed_files(url: str) -> pd.DataFrame:
 
     Raises:
         ValueError: If URL is invalid or doesn't point to SEC EDGAR
-        ConnectionError: If unable to download the page
+        ConnectionError: If unable to download the page (pre-6.0; under
+            EDGARTOOLS_STRICT_ERRORS the TransportError propagates as itself)
         RuntimeError: If page structure is invalid or no table found
     """
     # Validate URL

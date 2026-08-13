@@ -36,6 +36,19 @@ class CodeBundleExecutionCollection(CodeBundleExecutionCollectionBase):
     ...     ExecuteCodeBundleRequest(from_location="@my_db.my_schema.my_stage/src", entrypoint="main.py")
     ... )
 
+    Supplying the bundle configuration inline with a typed specification:
+
+    >>> from snowflake.core.code_bundle_execution import BundleSpec, CodeBundleSpecification
+    >>> root.code_bundle_execution.execute(
+    ...     ExecuteCodeBundleRequest(
+    ...         from_location="@my_db.my_schema.my_stage/src",
+    ...         entrypoint="main.py",
+    ...         specification=CodeBundleSpecification(
+    ...             bundle=BundleSpec(type="custom", compute_type="warehouse", language="python")
+    ...         ),
+    ...     )
+    ... )
+
     Getting a reference to an existing execution:
 
     >>> execution = root.code_bundle_execution["<execution_id>"]
@@ -56,7 +69,11 @@ class CodeBundleExecutionCollection(CodeBundleExecutionCollectionBase):
         __________
         execute_code_bundle_request: ExecuteCodeBundleRequest
             The specification of the code bundle to execute, including the stage location to run from
-            and the entry point. (required)
+            (``from_location``) and the entry point (``entrypoint``). (required) The bundle configuration
+            can be supplied inline through the request's ``specification`` field, a typed
+            :class:`~snowflake.core.code_bundle_execution.CodeBundleSpecification` wrapping a
+            :class:`~snowflake.core.code_bundle_execution.BundleSpec`; a plain ``dict`` matching the same
+            shape is still accepted. When omitted, the configuration is read from the stage.
         async_exec: bool, optional
             Whether the code bundle should be executed asynchronously on the server. Defaults to ``True``,
             which submits the execution asynchronously and returns once the server has accepted it. Pass
@@ -71,10 +88,28 @@ class CodeBundleExecutionCollection(CodeBundleExecutionCollectionBase):
 
         Examples
         ________
-        Executing a code bundle:
+        Executing a code bundle with the configuration read from the stage:
 
         >>> root.code_bundle_execution.execute(
         ...     ExecuteCodeBundleRequest(from_location="@my_db.my_schema.my_stage/src", entrypoint="main.py")
+        ... )
+
+        Executing a code bundle with a typed, inline bundle specification:
+
+        >>> from snowflake.core.code_bundle_execution import BundleSpec, CodeBundleSpecification
+        >>> root.code_bundle_execution.execute(
+        ...     ExecuteCodeBundleRequest(
+        ...         from_location="@my_db.my_schema.my_stage/src",
+        ...         entrypoint="main.py",
+        ...         specification=CodeBundleSpecification(
+        ...             bundle=BundleSpec(
+        ...                 type="custom",
+        ...                 compute_type="warehouse",
+        ...                 language="python",
+        ...                 compute_options={"runtime_version": "3.11"},
+        ...             )
+        ...         ),
+        ...     )
         ... )
         """
         return self._api.execute_code_bundle(

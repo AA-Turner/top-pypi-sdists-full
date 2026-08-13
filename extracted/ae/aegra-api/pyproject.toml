@@ -1,6 +1,6 @@
 [project]
 name = "aegra-api"
-version = "0.9.25"
+version = "0.10.0"
 description = "Aegra core API - Self-hosted Agent Protocol server"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -116,6 +116,7 @@ markers = [
     "unit: unit tests",
     "e2e: end-to-end tests requiring a running server",
     "prod_only: tests that require Redis workers (skipped in dev mode)",
+    "auth_only: tests that require an auth-enabled server (run with -m auth_only)",
 ]
 
 [dependency-groups]

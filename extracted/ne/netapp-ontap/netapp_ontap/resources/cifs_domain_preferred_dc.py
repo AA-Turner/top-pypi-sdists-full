@@ -36,14 +36,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "server_ip": "4.4.4.4",
             "fqdn": "host1",
-            "svm": {"name": "svm1", "uuid": "1226670c-abc9-11eb-8de3-0050568eb0c4"},
+            "svm": {"uuid": "1226670c-abc9-11eb-8de3-0050568eb0c4", "name": "svm1"},
         }
     ),
     CifsDomainPreferredDc(
         {
             "server_ip": "11.11.11.11",
             "fqdn": "host2",
-            "svm": {"name": "svm1", "uuid": "1226670c-abc9-11eb-8de3-0050568eb0c4"},
+            "svm": {"uuid": "1226670c-abc9-11eb-8de3-0050568eb0c4", "name": "svm1"},
         }
     ),
 ]
@@ -76,7 +76,7 @@ CifsDomainPreferredDc(
     {
         "server_ip": "4.4.4.4",
         "fqdn": "host1",
-        "svm": {"name": "svm1", "uuid": "1226670c-abc9-11eb-8de3-0050568eb0c4"},
+        "svm": {"uuid": "1226670c-abc9-11eb-8de3-0050568eb0c4", "name": "svm1"},
     }
 )
 

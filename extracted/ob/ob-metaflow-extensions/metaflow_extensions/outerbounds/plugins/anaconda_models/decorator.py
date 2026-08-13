@@ -2,19 +2,21 @@
 @anaconda_models — Metaflow step decorator for pulling Anaconda catalog models.
 
 Usage:
-    from anaconda_models import anaconda_models
+    from metaflow_extensions.outerbounds.plugins.anaconda_models import anaconda_models
 
     class MyFlow(FlowSpec):
-        @anaconda_models(integration_name="outerbounds.ac-models-keys")
+        @anaconda_models
         @step
         def start(self):
-            model = self.anaconda_models.model(model="Qwen2.5-0.5B", pull=True)
+            model = self.anaconda_models.model("Qwen2.5-0.5B", pull=True)
             print(model.path)
             self.next(self.end)
 """
 
 from metaflow import user_step_decorator
 from metaflow.user_decorators.user_step_decorator import StepMutator
+
+from .exceptions import ModelAccessDenied
 
 
 # ------------------------------------------------------------------
@@ -31,7 +33,8 @@ def _paint_card(card, models):
     card : CardComponentManager
         The blank card bound to id='anaconda_models'.
     models : list[AnacondaModel]
-        All models resolved/pulled in this step.
+        All models resolved/pulled in this step (single files and
+        safetensor collections alike).
     """
     try:
         from metaflow.cards import Markdown, Table
@@ -54,10 +57,22 @@ def _paint_card(card, models):
 
 def _paint_model(card, model, Markdown, Table):
     """Paint one model's full metadata onto the card."""
+    # Handle denied models
+    if isinstance(model, _DeniedModel):
+        card.append(Markdown("## %s" % model.name))
+        card.append(Markdown("### Access Denied"))
+        card.append(
+            Table(
+                _kv_rows({"Model": model.name, "Reason": model.access_denied_reason}),
+                headers=["Property", "Value"],
+            )
+        )
+        return
+
     ident = model.identity
     prov = model.provenance
     lic = model.license_info
-    sq = model.selected_quant
+    sq = model.selected_model
 
     # --- Header ---
     card.append(Markdown("## %s" % ident["name"]))
@@ -78,7 +93,9 @@ def _paint_model(card, model, Markdown, Table):
                     "Chat Template": _yes_no(ident.get("has_chat_template")),
                     "Tool Calling": _yes_no(ident.get("supports_tool_calling")),
                     "Library": ident.get("library_name"),
-                    "Base Model": ident.get("base_model") or "-",
+                    "Base Model": ", ".join(ident.get("base_models") or [])
+                    or ident.get("base_model")
+                    or "-",
                 }
             ),
             headers=["Property", "Value"],
@@ -101,10 +118,11 @@ def _paint_model(card, model, Markdown, Table):
                     "Source": source.get("name", "-"),
                     "Published": (prov.get("first_published") or "-")[:10],
                     "Origin": prov.get("country_of_origin") or "-",
-                    "Languages": ", ".join(langs[:10])
-                    + ("..." if len(langs) > 10 else "")
-                    if langs
-                    else "-",
+                    "Languages": (
+                        ", ".join(langs[:10]) + ("..." if len(langs) > 10 else "")
+                        if langs
+                        else "-"
+                    ),
                     "Paper": prov.get("paper_url") or "-",
                     "Tags": tag_names or "-",
                 }
@@ -139,30 +157,64 @@ def _paint_model(card, model, Markdown, Table):
             score_rows.append(
                 [
                     ts.get("test_name", "?"),
-                    "%.1f" % ts["test_value"]
-                    if ts.get("test_value") is not None
-                    else "-",
+                    (
+                        "%.1f" % ts["test_value"]
+                        if ts.get("test_value") is not None
+                        else "-"
+                    ),
                 ]
             )
         card.append(Table(score_rows, headers=["Benchmark", "Score"]))
 
-    # --- Selected Quantization ---
-    card.append(Markdown("### Selected Quantization"))
-    card.append(
-        Table(
-            _kv_rows(
-                {
-                    "Method": sq.get("quant_method"),
-                    "Format": sq.get("format"),
-                    "Engine": sq.get("quant_engine"),
-                    "File Size": _format_size(sq.get("size_bytes")),
-                    "Max RAM": _format_size(sq.get("max_ram_usage")),
-                    "SHA256": (sq.get("sha256") or "")[:24] + "...",
-                }
-            ),
-            headers=["Property", "Value"],
+    # --- Selected File / Collection ---
+    if sq.get("is_collection"):
+        card.append(Markdown("### Selected Collection"))
+        card.append(
+            Table(
+                _kv_rows(
+                    {
+                        "Format": sq.get("format"),
+                        "Type": sq.get("collection_type"),
+                        "Files": sq.get("file_count"),
+                        "Total Size": _format_size(sq.get("total_size_bytes")),
+                    }
+                ),
+                headers=["Property", "Value"],
+            )
         )
-    )
+    else:
+        card.append(Markdown("### Selected Quantization"))
+        card.append(
+            Table(
+                _kv_rows(
+                    {
+                        "Method": sq.get("quant_method"),
+                        "Format": sq.get("format"),
+                        "Engine": sq.get("quant_engine"),
+                        "File Size": _format_size(sq.get("size_bytes")),
+                        "Max RAM": _format_size(sq.get("max_ram_usage")),
+                        "SHA256": (sq.get("sha256") or "")[:24] + "...",
+                    }
+                ),
+                headers=["Property", "Value"],
+            )
+        )
+
+    # --- Files (only interesting for multi-file collections) ---
+    if len(model.files) > 1:
+        file_rows = []
+        for f in model.files[:20]:
+            file_rows.append(
+                [
+                    f.get("filename", "?"),
+                    _format_size(f.get("size_bytes")),
+                    f.get("status", "-"),
+                ]
+            )
+        card.append(Markdown("### Files"))
+        card.append(Table(file_rows, headers=["Filename", "Size", "Status"]))
+        if len(model.files) > 20:
+            card.append(Markdown("*… and %d more files*" % (len(model.files) - 20)))
 
     # --- All Quantizations ---
     if len(model.all_quants) > 1:
@@ -172,7 +224,7 @@ def _paint_model(card, model, Markdown, Table):
             selected = " *" if q.get("file_uuid") == sq.get("file_uuid") else ""
             q_rows.append(
                 [
-                    (q.get("quant_method") or "?") + selected,
+                    (q.get("quant_method") or q.get("format") or "?") + selected,
                     _format_size(q.get("size_bytes")),
                     _format_size(q.get("max_ram_usage")),
                     "Yes" if q.get("published") else "No",
@@ -235,6 +287,29 @@ def _yes_no(v):
 
 
 # ------------------------------------------------------------------
+# _DeniedModel — lightweight stand-in when policy blocks access
+# ------------------------------------------------------------------
+
+
+class _DeniedModel:
+    """Minimal model object representing a policy-denied model for card display."""
+
+    def __init__(self, name, reason):
+        self.name = name
+        self.access_denied_reason = reason
+        self.identity = {"name": name}
+        self.provenance = {}
+        self.license_info = {}
+        self.selected_model = {}
+        self.all_quants = []
+        self.test_scores = []
+        self.files = []
+        self.is_collection = False
+        self.download_status = "denied"
+        self.path = None
+
+
+# ------------------------------------------------------------------
 # The user_step_decorator — wraps user code, creates client, exposes
 # self.anaconda_models before yield. Paints card after yield.
 # ------------------------------------------------------------------
@@ -249,13 +324,6 @@ def _anaconda_models_wrapper(step_name, flow, inputs=None, attr=None):
     attr = attr or {}
     temp_dir_root = attr.get("temp_dir_root")
 
-    api_key = os.environ.get("ANACONDA_API_KEY")
-    if not api_key:
-        raise RuntimeError(
-            "@anaconda_models: ANACONDA_API_KEY not found in environment. "
-            "Check that integration_name is correct and the secret is configured."
-        )
-
     # Get the card (injected by mutate). If card is unavailable for any
     # reason, we still work — just no card output.
     card = None
@@ -266,7 +334,7 @@ def _anaconda_models_wrapper(step_name, flow, inputs=None, attr=None):
     except Exception:
         pass
 
-    client = AnacondaModelClient(api_key=api_key)
+    client = AnacondaModelClient()
     accessor = _AnacondaModelsAccessor(client, temp_dir_root, card)
     flow.anaconda_models = accessor
 
@@ -308,9 +376,11 @@ class _AnacondaModelsAccessor:
         """All models resolved/pulled in this step (in order)."""
         return list(self._models)
 
-    def model(self, model, pull=False, quant_method=None):
+    def model(self, model, pull=False, **filters):
         """
-        Resolve a model from the Anaconda catalog.
+        Resolve a model from the Anaconda catalog. Single-file gguf quants
+        and multi-file safetensor collections both come through here —
+        filters pick what lands on disk.
 
         Parameters
         ----------
@@ -318,21 +388,31 @@ class _AnacondaModelsAccessor:
             Model name in the catalog (e.g. "Qwen2.5-0.5B").
         pull : bool
             If True, download the model immediately.
-        quant_method : str, optional
-            e.g. "q4_k_m". Defaults to smallest published GGUF.
+        **filters
+            Field constraints used to pick the file, e.g.
+            ``quant_method="q4_k_m"``, ``format="gguf"`` or
+            ``format="safetensors"`` (resolves the collection; If omitted,
+            the smallest published single file is chosen.
 
         Returns
         -------
-        AnacondaModel
-            The model handle. Call .pull() to download, .path for location.
+        AnacondaModel or _DeniedModel
+            The model handle. Call .pull() to download, .path for location
+            (a file for single files, a HuggingFace-layout directory for
+            collections). If access is denied by policy, returns a
+            _DeniedModel with .access_denied_reason set.
         """
-        m = self._client.model(
-            model,
-            quant_method=quant_method,
-            root_dir=self._temp_dir_root,
-        )
-        if pull:
-            m.pull()
+        try:
+            m = self._client.model(
+                model,
+                root_dir=self._temp_dir_root,
+                **filters,
+            )
+            if pull:
+                m.pull()
+        except ModelAccessDenied as e:
+            m = _DeniedModel(name=model, reason=e.reason)
+
         self._models.append(m)
 
         # Incrementally paint card after each model is resolved/pulled.
@@ -358,21 +438,18 @@ class anaconda_models(StepMutator):
     """
     Pull Anaconda catalog models inside a Metaflow step.
 
-    Injects ``@card`` and ``@secrets`` for the API key and exposes
-    ``self.anaconda_models`` with a ``.model(...)`` method.
+    Injects ``@card`` and exposes ``self.anaconda_models`` with a
+    ``.model(...)`` method. Authentication is handled via OBP platform
+    environment variables (OBP_API_SERVER, OBP_PERIMETER, METAFLOW_SERVICE_HEADERS).
 
     Parameters
     ----------
-    integration_name : str
-        Metaflow secret source for the Anaconda API key
-        (e.g. "outerbounds.ac-models-keys").
     temp_dir_root : str, optional
         Root directory for downloaded model files.
         Defaults to a new temp directory per step execution.
     """
 
-    def init(self, integration_name, temp_dir_root=None):
-        self._integration_name = integration_name
+    def init(self, temp_dir_root=None):
         self._temp_dir_root = temp_dir_root
 
     def mutate(self, mutable_step):
@@ -393,27 +470,7 @@ class anaconda_models(StepMutator):
             duplicates=mutable_step.IGNORE,
         )
 
-        # 2. Merge @secrets: collect existing sources, add ours, deduplicate.
-        existing_sources = []
-        has_secrets = False
-        for spec in mutable_step.decorator_specs:
-            name = spec[0]
-            deco_kwargs = spec[3]
-            if name == "secrets":
-                has_secrets = True
-                existing_sources.extend(deco_kwargs.get("sources", []))
-
-        sources = list(set([self._integration_name] + existing_sources))
-
-        if has_secrets:
-            mutable_step.remove_decorator("secrets")
-
-        mutable_step.add_decorator(
-            "secrets",
-            deco_kwargs={"sources": sources},
-        )
-
-        # 3. Add the runtime wrapper that creates the client.
+        # 2. Add the runtime wrapper that creates the client.
         mutable_step.add_decorator(
             _anaconda_models_wrapper,
             deco_kwargs={

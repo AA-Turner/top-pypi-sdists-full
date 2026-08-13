@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*", "extensions/*", "rust/*"]
 
 [workspace.package]
-version = "1.3.1"  # We use git tags for versioning. This is just a placeholder.
+version = "1.3.5"  # We use git tags for versioning. This is just a placeholder.
 # tombi: lint.rules.deprecated.disabled = true
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2024"
@@ -109,6 +109,7 @@ tombi-uri = { path = "crates/tombi-uri" }
 tombi-validator = { path = "crates/tombi-validator" }
 tombi-version-sort = { path = "crates/tombi-version-sort" }
 tombi-x-keyword = { path = "crates/tombi-x-keyword" }
+tower = { version = "0.5.2", default-features = false, features = ["util"] }
 tower-lsp = { version = "0.20.0", default-features = false }
 typed-builder = "0.21.0"
 ungrammar.version = "1.16.1"

@@ -830,9 +830,14 @@ def check_valid_prefetch_related_lookup(
             )
             return False
         if contenttypes_installed and is_generic_prefetch:
-            from django.contrib.contenttypes.fields import GenericForeignKey
+            try:
+                from django.contrib.contenttypes.fields import GenericForeignKeyDescriptor
+            except ImportError:  # Django < 6.1
+                from django.contrib.contenttypes.fields import (  # type: ignore[assignment]
+                    GenericForeignKey as GenericForeignKeyDescriptor,
+                )
 
-            if not isinstance(rel_obj_descriptor, GenericForeignKey):
+            if not isinstance(rel_obj_descriptor, GenericForeignKeyDescriptor):
                 # If current_model_cls is "self", we cannot use `__name__` and want "self".
                 model_name = getattr(current_model_cls, "__name__", current_model_cls)
                 ctx.api.fail(
@@ -859,9 +864,14 @@ def check_valid_prefetch_related_lookup(
             current_model_cls = rel_obj_descriptor.rel.related_model
         else:
             if contenttypes_installed:
-                from django.contrib.contenttypes.fields import GenericForeignKey
+                try:
+                    from django.contrib.contenttypes.fields import GenericForeignKeyDescriptor
+                except ImportError:  # Django < 6.1
+                    from django.contrib.contenttypes.fields import (  # type: ignore[assignment]
+                        GenericForeignKey as GenericForeignKeyDescriptor,
+                    )
 
-                if isinstance(rel_obj_descriptor, GenericForeignKey):
+                if isinstance(rel_obj_descriptor, GenericForeignKeyDescriptor):
                     # Generic foreign keys can point to any model, so we use Model as the base type
                     return True
             ctx.api.fail(
@@ -1242,9 +1252,21 @@ def validate_distinct(ctx: MethodContext, django_context: DjangoContext) -> Mypy
     return ctx.default_return_type
 
 
+def gather_update_kwargs(ctx: MethodContext) -> dict[str, MypyType]:
+    """Gather named arguments destined for the `**kwargs` collector."""
+    kwargs: dict[str, MypyType] = {}
+    named = (ARG_NAMED, ARG_NAMED_OPT)
+    slots = zip(ctx.callee_arg_names, ctx.arg_kinds, ctx.arg_types, ctx.arg_names, strict=False)
+    for formal_name, kinds, types, names in slots:
+        for kind, arg_type, name in zip(kinds, types, names, strict=False):
+            if kind in named and name is not None and name != formal_name:
+                kwargs[name] = arg_type
+    return kwargs
+
+
 def validate_update(ctx: MethodContext, django_context: DjangoContext) -> MypyType:
     if (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is None or not (
-        kwargs := gather_kwargs(ctx)
+        kwargs := gather_update_kwargs(ctx)
     ):
         return ctx.default_return_type
 

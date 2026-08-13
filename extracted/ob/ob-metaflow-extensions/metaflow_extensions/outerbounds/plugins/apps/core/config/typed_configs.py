@@ -72,6 +72,12 @@ class PackageConfigDict(TypedDict, total=False):
     suffixes: Optional[list]
 
 
+class ProxyConfigDict(TypedDict, total=False):
+    namespace: Optional[str]
+    selector_labels: Optional[dict]
+    service_url: Optional[str]
+
+
 class TypedCoreConfig:
     """
     Parameters
@@ -80,7 +86,7 @@ class TypedCoreConfig:
         The name of the app to deploy.
 
     port : int, optional
-        Port where the app is hosted. When deployed this will be port on which we will deploy the app.
+        Port where the app is hosted. When deployed this will be port on which we will deploy the app. For a `Proxy` capsule this is the port of the pods being proxied, and it is not needed when `proxy.service_url` is used.
 
     description : str, optional
         The description of the app to deploy.
@@ -95,7 +101,7 @@ class TypedCoreConfig:
         The tags of the app to deploy.
 
     secrets : list, optional
-        Outerbounds integrations to attach to the app. You can use the value you set in the `@secrets` decorator in your code.
+        Outerbounds integrations to attach to the app. You can use the value you set in the `@secrets` decorator in your code without the outerbounds prefix.
 
     compute_pools : list, optional
         A list of compute pools to deploy the app to.
@@ -149,19 +155,29 @@ class TypedCoreConfig:
         When True, skip providing startup commands and rely on the container's entrypoint/CMD. Only available in the programmatic API. In CLI mode, use `--no-deps` along side passing no command to enable this behavior.
 
     skip_code_package : bool, optional
-        When True, skip code packaging and rely on the container's embedded source code. When running the deployer programmatically, If this field is set, then the user cannot pass `package-code`
+        When True, skip code packaging and rely on the container's embedded source code. When running the deployer programmatically, If this field is set, then the user cannot pass `code_package` parameter to the AppDeployer
+
+    capsule_type : str, optional
+        What the platform runs for this deployment. `Standard` (the default) runs the image and commands configured here. `Proxy` runs nothing of its own and only fronts a workload that is already running in the cluster, described by `proxy`.
+
+    proxy : ProxyConfigDict, optional
+        The workload a `Proxy` capsule forwards traffic to. Can only be set when `capsule_type` is `Proxy`.
+            - namespace (str)
+                The namespace where the pods being proxied live. The service fronting them is created here. Required unless `service_url` is set.
+            - selector_labels (dict)
+                The labels of the pods being proxied. They become the selector of the service that fronts those pods, so they must match the labels on them. Required unless `service_url` is set.
+            - service_url (str)
+                The address of a service that already exists, e.g. `my-svc.my-ns.svc.cluster.local:8080`. The scheme is optional and defaults to http, a port must be included if the target isn't on the scheme's default port, and a path may be appended to rewrite requests into a subpath of the target. The address is not checked at deploy time: if it doesn't resolve, the proxy crashloops until it does.
 
     persistence : str, optional
         The persistence mode to deploy the app with.
         [Experimental] May change in the future.
 
     project : str, optional
-        The project name to deploy the app to.
-        [Experimental] May change in the future.
+        The project name for the app. Defaults to __unassigned__.
 
     branch : str, optional
-        The branch name to deploy the app to.
-        [Experimental] May change in the future.
+        The branch name for the app. Defaults to __unassigned__.
 
     models : list, optional
         [Experimental] May change in the future.
@@ -192,6 +208,8 @@ class TypedCoreConfig:
         force_upgrade: Optional[bool] = None,
         use_base_image_command: Optional[bool] = None,
         skip_code_package: Optional[bool] = None,
+        capsule_type: Optional[str] = None,
+        proxy: Optional[ProxyConfigDict] = None,
         persistence: Optional[str] = None,
         project: Optional[str] = None,
         branch: Optional[str] = None,
@@ -218,6 +236,8 @@ class TypedCoreConfig:
             "force_upgrade": force_upgrade,
             "use_base_image_command": use_base_image_command,
             "skip_code_package": skip_code_package,
+            "capsule_type": capsule_type,
+            "proxy": proxy,
             "persistence": persistence,
             "project": project,
             "branch": branch,

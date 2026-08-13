@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: gplugins
-Version: 2.1.1
+Version: 2.1.3
 Summary: gdsfactory plugins
 Keywords: python
 Author-email: gdsfactory <contact@gdsfactory.com>
@@ -17,7 +17,7 @@ Requires-Dist: tqdm
 Requires-Dist: numpy>=2.0,<3
 Requires-Dist: xarray==2026.4.0
 Requires-Dist: hypothesis ; extra == "dev"
-Requires-Dist: numba ; extra == "dev"
+Requires-Dist: numba>=0.60 ; extra == "dev"
 Requires-Dist: pre-commit ; extra == "dev"
 Requires-Dist: pyswarms ; extra == "dev"
 Requires-Dist: pytest ; extra == "dev"
@@ -36,6 +36,7 @@ Requires-Dist: pyvista[all]<=0.48.4 ; extra == "docs"
 Requires-Dist: bokeh ; extra == "docs"
 Requires-Dist: scikit-learn ; extra == "docs"
 Requires-Dist: zensical>=0.0.46,<0.1.0 ; extra == "docs"
+Requires-Dist: emodeconnection>=1.1.11 ; extra == "emode"
 Requires-Dist: femwell~=0.1.11 ; extra == "femwell"
 Requires-Dist: meshwell~=2.1.1 ; extra == "femwell"
 Requires-Dist: jinja2 ; extra == "gfviz"
@@ -58,7 +59,7 @@ Requires-Dist: tidy3d~=2.11.1 ; extra == "meow"
 Requires-Dist: shapely ; extra == "meshwell"
 Requires-Dist: meshwell~=2.1.1 ; extra == "meshwell"
 Requires-Dist: bokeh ; extra == "path-length-analysis"
-Requires-Dist: numba ; extra == "path-length-analysis"
+Requires-Dist: numba>=0.60 ; extra == "path-length-analysis"
 Requires-Dist: shapely ; extra == "path-length-analysis"
 Requires-Dist: sax>=0.17,<0.19 ; extra == "sax"
 Requires-Dist: bokeh ; extra == "schematic"
@@ -72,6 +73,7 @@ Requires-Dist: vlsirtools ; extra == "vlsir"
 Provides-Extra: dev
 Provides-Extra: devsim
 Provides-Extra: docs
+Provides-Extra: emode
 Provides-Extra: femwell
 Provides-Extra: gfviz
 Provides-Extra: klayout
@@ -84,8 +86,9 @@ Provides-Extra: sax
 Provides-Extra: schematic
 Provides-Extra: tidy3d
 Provides-Extra: vlsir
+Import-Name: gplugins
 
-# gplugins 2.1.1
+# gplugins 2.1.3
 
 [![docs](https://github.com/gdsfactory/gplugins/actions/workflows/pages.yml/badge.svg)](https://gdsfactory.github.io/gplugins/)
 [![PyPI](https://img.shields.io/pypi/v/gplugins)](https://pypi.org/project/gplugins/)
@@ -115,6 +118,7 @@ Run simulations with GDSFactory by installing plugins.
         - Tidy3d
         - Femwell
         - MPB
+        - `EMode` Finite Difference Method (FDM) mode solver with EME propagation (commercial).
     - TCAD
         - `devsim` TCAD device simulator.
 - Circuit simulations

@@ -2,12 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+from abc import abstractmethod
+from typing import ClassVar
+
 import pytest
 from omnimalloc.allocators import (
     BaseAllocator,
     GreedyAllocator,
     GreedyByAreaAllocator,
     GreedyBySizeAllocator,
+    OmniAllocator,
 )
 from omnimalloc.benchmark.sources import (
     BaseSource,
@@ -17,20 +21,23 @@ from omnimalloc.benchmark.sources import (
 from omnimalloc.common.registry import Registered
 
 
-class ExampleBase(Registered):
-    """Test base class."""
+class ExampleBase(Registered): ...
 
 
-class FooBar(ExampleBase):
-    """Should register as 'foo_bar'."""
+class FooBar(ExampleBase): ...
 
 
-class BazQux(ExampleBase):
-    """Should register as 'baz_qux'."""
+class BazQux(ExampleBase): ...
 
 
-class SimpleAllocator(ExampleBase):
-    """Should register as 'simple_allocator'."""
+class SimpleAllocator(ExampleBase): ...
+
+
+class ExampleRoleBase(Registered):
+    _strip_suffix: ClassVar[str] = "Widget"
+
+
+class SpinningWidget(ExampleRoleBase): ...
 
 
 def test_registry_auto_registration() -> None:
@@ -63,6 +70,11 @@ def test_get_error_shows_available() -> None:
         ExampleBase.get("nonexistent")
 
 
+def test_resolve_invalid_name_raises_value_error() -> None:
+    with pytest.raises(ValueError, match=r"'invalid' not in.*Available:.*foo_bar"):
+        ExampleBase.resolve("invalid")
+
+
 def test_class_name_property() -> None:
     assert FooBar.name() == "foo_bar"
     assert BazQux.name() == "baz_qux"
@@ -90,36 +102,105 @@ def test_name_with_numbers() -> None:
     assert Test123Thing.name() == "test123_thing"
 
 
+def test_strip_suffix_stripped_once() -> None:
+    assert SpinningWidget.name() == "spinning"
+    assert ExampleRoleBase.registry()["spinning"] is SpinningWidget
+
+
+def test_strip_suffix_absent_keeps_full_name() -> None:
+    class PlainThing(ExampleRoleBase):
+        pass
+
+    assert PlainThing.name() == "plain_thing"
+
+
+def test_strip_suffix_ignores_mid_name_token() -> None:
+    class WidgetFactoryWidget(ExampleRoleBase):
+        pass
+
+    assert WidgetFactoryWidget.name() == "widget_factory"
+
+
+def test_bare_strip_suffix_name_rejected() -> None:
+    with pytest.raises(RuntimeError, match="empty"):
+
+        class Widget(ExampleRoleBase):
+            pass
+
+
+def test_abstract_intermediate_not_registered() -> None:
+    class AbstractMid(ExampleBase):
+        @abstractmethod
+        def compute(self) -> int: ...
+
+    class ConcreteLeaf(AbstractMid):
+        def compute(self) -> int:
+            return 0
+
+    registry = ExampleBase.registry()
+    assert "abstract_mid" not in registry
+    assert "concrete_leaf" in registry
+
+
 def test_allocator_registry() -> None:
     registry = BaseAllocator.registry()
-    assert "greedy_allocator" in registry
-    assert registry["greedy_allocator"] is GreedyAllocator
+    assert "greedy" in registry
+    assert registry["greedy"] is GreedyAllocator
 
 
 def test_allocator_get() -> None:
-    cls = BaseAllocator.get("greedy_by_size_allocator")
+    cls = BaseAllocator.get("greedy_by_size")
     assert cls is GreedyBySizeAllocator
 
 
-def test_allocator_name() -> None:
-    assert GreedyByAreaAllocator.name() == "greedy_by_area_allocator"
+def test_allocator_name_drops_strip_suffix() -> None:
+    assert GreedyByAreaAllocator.name() == "greedy_by_area"
 
 
 def test_source_registry() -> None:
     registry = BaseSource.registry()
-    assert "random_source" in registry
-    assert registry["random_source"] is RandomSource
+    assert "random" in registry
+    assert registry["random"] is RandomSource
 
 
 def test_source_get() -> None:
-    cls = BaseSource.get("sequential_source")
+    cls = BaseSource.get("sequential")
     assert cls is SequentialSource
 
 
-def test_source_name() -> None:
-    assert SequentialSource.name() == "sequential_source"
+def test_source_name_drops_strip_suffix() -> None:
+    assert SequentialSource.name() == "sequential"
+    assert RandomSource.name() == "random"
 
 
-def test_source_includes_suffix() -> None:
-    assert RandomSource.name() == "random_source"
-    assert "source" in RandomSource.name()
+def test_registry_rejects_duplicate_names() -> None:
+    class UniqueNameBase(Registered): ...
+
+    class DuplicateName(UniqueNameBase): ...
+
+    first = DuplicateName
+    with pytest.raises(RuntimeError, match="already taken"):
+
+        class DuplicateName(UniqueNameBase): ...
+
+    assert UniqueNameBase.registry()["duplicate_name"] is first
+
+
+def test_resolve_rejects_a_foreign_class() -> None:
+    class Foreign:
+        pass
+
+    with pytest.raises(TypeError, match="Foreign is not a"):
+        BaseAllocator.resolve(Foreign)  # type: ignore[arg-type]
+
+
+def test_resolve_rejects_a_foreign_instance() -> None:
+    with pytest.raises(TypeError, match="object is not a"):
+        BaseAllocator.resolve(object())  # type: ignore[arg-type]
+
+
+def test_resolve_accepts_names_classes_and_instances() -> None:
+    assert isinstance(BaseAllocator.resolve("omni"), OmniAllocator)
+    assert isinstance(BaseAllocator.resolve(OmniAllocator), OmniAllocator)
+    instance = OmniAllocator()
+    assert BaseAllocator.resolve(instance) is instance

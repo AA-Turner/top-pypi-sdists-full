@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import json
+import time
 import importlib
 from typing import cast
 from pathlib import Path
@@ -126,12 +127,33 @@ _FT_TOKENIZED_DATASET_BODY = {
 }
 
 _MODEL_LIMITS_BODY = {
+    "model_name": "meta-llama/Llama-3-8b",
+    "default_gradient_accumulation_steps": 1,
     "max_num_epochs": 10,
+    "max_num_checkpoints": 5,
+    "max_num_evals": 20,
     "max_learning_rate": 1,
     "min_learning_rate": 0,
     "min_max_seq_length": 1,
     "max_seq_length_sft": 4096,
     "max_seq_length_dpo": 4096,
+    "merge_output_lora": True,
+    "supports_full_training": True,
+    "supports_reasoning": False,
+    "supports_tools": True,
+    "supports_vision": False,
+    "full_training": {
+        "max_batch_size": 64,
+        "max_batch_size_dpo": 32,
+        "min_batch_size": 1,
+    },
+    "lora_training": {
+        "max_batch_size": 128,
+        "max_batch_size_dpo": 64,
+        "max_rank": 64,
+        "min_batch_size": 1,
+        "target_modules": ["q_proj", "v_proj"],
+    },
 }
 
 _FT_CREATE_BODY = {
@@ -374,6 +396,32 @@ class TestFineTuningRetrieve:
         body = json.loads(result.output)
         assert body["id"] == "ft-1"
 
+    @pytest.mark.skipif(not hasattr(time, "tzset"), reason="requires POSIX timezone support")
+    @pytest.mark.respx(base_url=base_url)
+    def test_retrieve_handles_boundary_datetime(self, respx_mock: MockRouter, cli_runner: CliRunner) -> None:
+        body = {
+            **_FT_RETRIEVE_BODY,
+            "status": "queued",
+            "started_at": "0001-01-01T00:00:00Z",
+        }
+        respx_mock.get("/fine-tunes/ft-1").mock(return_value=httpx.Response(200, json=body))
+        previous_tz = os.environ.get("TZ")
+        os.environ["TZ"] = "America/Los_Angeles"
+        time.tzset()
+
+        try:
+            result = cli_runner.invoke(["fine-tuning", "retrieve", "ft-1", "--no-plots"])
+        finally:
+            if previous_tz is None:
+                os.environ.pop("TZ")
+            else:
+                os.environ["TZ"] = previous_tz
+            time.tzset()
+
+        assert result.exit_code == 0
+        assert "ft-1" in result.output
+        assert "Progress: unavailable" in result.output
+
 
 class TestFineTuningCancel:
     @pytest.mark.respx(base_url=base_url)
@@ -406,10 +454,12 @@ class TestFineTuningCancel:
 
 
 class TestFineTuningDelete:
-    def test_delete_json_requires_non_interactive(self, cli_runner: CliRunner) -> None:
+    @pytest.mark.respx(base_url=base_url)
+    def test_delete_json_skips_confirmation(self, respx_mock: MockRouter, cli_runner: CliRunner) -> None:
+        respx_mock.delete("/fine-tunes/ft-1").mock(return_value=httpx.Response(200, json={"message": "deleted"}))
         result = cli_runner.invoke(["fine-tuning", "delete", "ft-1", "--json"])
-        assert result.exit_code != 0
-        assert "non-interactive" in result.output.lower()
+        assert result.exit_code == 0
+        assert json.loads(result.output) == {"message": "deleted"}
 
     @pytest.mark.respx(base_url=base_url)
     def test_delete_force(self, respx_mock: MockRouter, cli_runner: CliRunner) -> None:
@@ -562,6 +612,33 @@ class TestFineTuningPreview:
         assert "Preview Rows" in result.output
         assert "1-3" in result.output
         assert "hello" in result.output
+
+
+class TestFineTuningModelLimits:
+    @pytest.mark.respx(base_url=base_url)
+    def test_model_limits_json(self, respx_mock: MockRouter, cli_runner: CliRunner) -> None:
+        route = respx_mock.get("/fine-tunes/models/limits").mock(
+            return_value=httpx.Response(200, json=_MODEL_LIMITS_BODY)
+        )
+
+        result = cli_runner.invoke(["fine-tuning", "model-limits", "meta-llama/Llama-3-8b", "--json"])
+
+        assert result.exit_code == 0
+        params = cast(Call, route.calls[0]).request.url.params
+        assert params["model_name"] == "meta-llama/Llama-3-8b"
+        body = json.loads(result.output)
+        assert body["model_name"] == "meta-llama/Llama-3-8b"
+        assert body["lora_training"]["max_rank"] == 64
+
+    @pytest.mark.respx(base_url=base_url)
+    def test_model_limits_ft_alias_table(self, respx_mock: MockRouter, cli_runner: CliRunner) -> None:
+        respx_mock.get("/fine-tunes/models/limits").mock(return_value=httpx.Response(200, json=_MODEL_LIMITS_BODY))
+
+        result = cli_runner.invoke(["ft", "model-limits", "meta-llama/Llama-3-8b"])
+
+        assert result.exit_code == 0
+        assert "meta-llama/Llama-3-8b" in result.output
+        assert "Max Rank" in result.output
 
 
 class TestFineTuningDownload:

@@ -475,6 +475,63 @@ class TestAdkApp:
             events.append(event)
         assert len(events) == 1
 
+    def test_set_up_runner_auto_create_session_enabled(self):
+        """The main runner opts into auto-creating missing sessions (b/537477760)."""
+        app = reasoning_engines.AdkApp(
+            agent=Agent(name=_TEST_AGENT_NAME, model=_TEST_MODEL)
+        )
+        app.set_up()
+        assert app._tmpl_attrs.get("runner").auto_create_session is True
+
+    @pytest.mark.asyncio
+    async def test_runner_auto_creates_missing_session(self):
+        from google.adk.runners import Runner
+        from google.adk.sessions.in_memory_session_service import (
+            InMemorySessionService,
+        )
+
+        app = reasoning_engines.AdkApp(
+            agent=Agent(name=_TEST_AGENT_NAME, model=_TEST_MODEL)
+        )
+        app.set_up()
+        assert app._tmpl_attrs.get("runner").auto_create_session is True
+
+        app_name = app._tmpl_attrs.get("app_name")
+        session_service = InMemorySessionService()
+        runner = Runner(
+            agent=Agent(name=_TEST_AGENT_NAME, model=_TEST_MODEL),
+            app_name=app_name,
+            session_service=session_service,
+            auto_create_session=app._tmpl_attrs.get("runner").auto_create_session,
+        )
+        missing_session_id = "0000000000000000000"
+
+        # Sanity: the session does not exist yet.
+        assert (
+            await session_service.get_session(
+                app_name=app_name,
+                user_id=_TEST_USER_ID,
+                session_id=missing_session_id,
+            )
+            is None
+        )
+
+        session = await runner._get_or_create_session(
+            user_id=_TEST_USER_ID,
+            session_id=missing_session_id,
+        )
+
+        assert session is not None
+        assert session.id == missing_session_id
+        assert (
+            await session_service.get_session(
+                app_name=app_name,
+                user_id=_TEST_USER_ID,
+                session_id=missing_session_id,
+            )
+            is not None
+        )
+
     @pytest.mark.asyncio
     async def test_async_stream_query_with_empty_session_events(self):
         app = reasoning_engines.AdkApp(
@@ -600,6 +657,42 @@ class TestAdkApp:
         )
         events = list(app.streaming_agent_run_with_events(request_json=request_json))
         assert len(events) == 1
+
+    def test_streaming_agent_run_with_events_propagates_labels(self):
+        from google.adk.agents.run_config import RunConfig
+
+        if "labels" not in RunConfig.model_fields:
+            pytest.skip("Installed google-adk RunConfig does not support labels.")
+
+        captured = {}
+
+        class _LabelCapturingRunner(_MockRunner):
+            def run(self, *args, **kwargs):
+                captured["run_config"] = kwargs.get("run_config")
+                yield from super().run(*args, **kwargs)
+
+        app = reasoning_engines.AdkApp(
+            agent=Agent(name=_TEST_AGENT_NAME, model=_TEST_MODEL)
+        )
+        app.set_up()
+        app._tmpl_attrs["in_memory_runner"] = _LabelCapturingRunner()
+
+        labels = {"goog-originating-logical-product-id": "prod1"}
+        request_json = json.dumps(
+            {
+                "user_id": _TEST_USER_ID,
+                "message": {
+                    "parts": [{"text": "What is the exchange rate from USD to SEK?"}],
+                    "role": "user",
+                },
+                "labels": labels,
+            }
+        )
+        events = list(app.streaming_agent_run_with_events(request_json=request_json))
+
+        assert len(events) == 1
+        assert captured["run_config"] is not None
+        assert captured["run_config"].labels == labels
 
     @pytest.mark.asyncio
     @mock.patch.dict(

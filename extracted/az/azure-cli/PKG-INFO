@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-cli
-Version: 2.89.0
+Version: 2.89.1
 Summary: Microsoft Azure Command-Line Tools
 Home-page: https://github.com/Azure/azure-cli
 Author: Microsoft Corporation
@@ -23,7 +23,7 @@ Requires-Dist: antlr4-python3-runtime~=4.13.1
 Requires-Dist: azure-appconfiguration~=1.8.0
 Requires-Dist: azure-ai-projects~=1.0.0
 Requires-Dist: azure-batch==15.0.0b1
-Requires-Dist: azure-cli-core==2.89.0
+Requires-Dist: azure-cli-core==2.89.1
 Requires-Dist: azure-cosmos>=3.0.2,~=3.0
 Requires-Dist: azure-data-tables==12.4.0
 Requires-Dist: azure-datalake-store~=1.0.1

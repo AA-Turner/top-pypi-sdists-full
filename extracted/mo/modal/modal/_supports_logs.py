@@ -5,6 +5,7 @@ from typing import Protocol
 
 from modal._logs import LogsFilters
 from modal.client import _Client
+from modal_proto import api_pb2
 
 
 @dataclasses.dataclass(frozen=True)
@@ -18,6 +19,7 @@ class _LogQueryData:
     client: _Client
     app_id: str
     filters: LogsFilters
+    source_object_id: str
 
 
 class _SupportsLogs(Protocol):
@@ -28,5 +30,21 @@ class _SupportsLogs(Protocol):
 
     async def _get_log_query_data(self) -> _LogQueryData: ...
 
-    @property
-    def object_id(self) -> str: ...
+
+@dataclasses.dataclass(frozen=True)
+class _ImageLogQueryData:
+    """Resolved data needed to query logs for a Modal object.
+
+    Log managers lazily ask their source object for this data before the first
+    query.
+    """
+
+    client: _Client
+    build_steps: list[api_pb2.ImageBuildStep]
+    object_id: str
+
+
+class _SupportsImageLogs(Protocol):
+    """Protocol for objects that support log streaming and fetching and have build steps."""
+
+    async def _get_log_query_data(self) -> _ImageLogQueryData: ...

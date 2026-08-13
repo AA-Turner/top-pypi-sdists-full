@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trl
-Version: 1.9.2
+Version: 1.10.0
 Summary: Train transformer language models with reinforcement learning.
 Author-email: Leandro von Werra <leandro.vonwerra@gmail.com>
 License-Expression: Apache-2.0
@@ -52,7 +52,7 @@ Requires-Dist: pytest-rerunfailures==15.1; extra == "test"
 Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Provides-Extra: vllm
-Requires-Dist: vllm<=0.25.1,>=0.17.0; extra == "vllm"
+Requires-Dist: vllm<=0.26.0,>=0.17.0; extra == "vllm"
 Requires-Dist: fastapi; extra == "vllm"
 Requires-Dist: pydantic; extra == "vllm"
 Requires-Dist: aiohttp>=3.13.3; extra == "vllm"
@@ -115,9 +115,7 @@ Dynamic: license-file
 
 ## 🎉 What's New
 
-**🌍 Multi-environment agentic RL:** [`GRPOTrainer`](https://huggingface.co/docs/trl/grpo_trainer) now supports per-example environment selection and environment-owned rewards — mix multiple sandboxed task suites in one run and let each environment define its own scoring, with [Harbor](https://huggingface.co/docs/trl/harbor) and [OpenEnv](https://huggingface.co/docs/trl/openenv).
-
-**🎯 KTO is now stable:** [`KTOTrainer`](https://huggingface.co/docs/trl/kto_trainer) graduates to the stable API after a full alignment pass with [`DPOTrainer`](https://huggingface.co/docs/trl/dpo_trainer).
+**⚗️ DistillationTrainer is now stable:** [`DistillationTrainer`](https://huggingface.co/docs/trl/distillation_trainer) graduates to the stable API — on-policy knowledge distillation that matches a teacher's full next-token distribution with a memory-efficient chunked JSD loss and vLLM-powered generation.
 
 ## Overview
 

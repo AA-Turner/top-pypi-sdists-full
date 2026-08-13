@@ -50,7 +50,14 @@ from typing_extensions import override
 from pmd_net_proto.lib.enums import EtherType
 from pmd_pytcp import stack
 from pmd_pytcp.lib.logger import log
-from pmd_pytcp.socket import ETH_P_ALL, AddressFamily, SocketType, _sem_acquire, socket
+from pmd_pytcp.socket import (
+    ETH_P_ALL,
+    SOCKET__DGRAM_RX_QUEUE__MAX_LEN,
+    AddressFamily,
+    SocketType,
+    _sem_acquire,
+    socket,
+)
 from pmd_pytcp.socket.packet__metadata import PacketMetadata
 from pmd_pytcp.socket.sockaddr_ll import SockAddrLl
 
@@ -138,6 +145,13 @@ class PacketSocket(socket):
 
         if self._closed:
             return
+        if len(self._packet_rx_md) >= SOCKET__DGRAM_RX_QUEUE__MAX_LEN:
+            # Full receive buffer: drop the NEWEST frame (POSIX
+            # packet(7) semantics). This bounds long-parked capture
+            # sockets — the ACD ARP defense socket polls once per
+            # DHCP BOUND tick (up to T1: hours) while every ARP
+            # broadcast on the segment lands here.
+            return
         self._packet_rx_md.append(packet_rx_md)
         self._packet_rx_md_ready.release()
 
@@ -148,6 +162,8 @@ class PacketSocket(socket):
         'BlockingIOError(EAGAIN)' on a non-blocking empty queue and
         'TimeoutError' when a timeout elapses.
         """
+
+        self._raise_if_closed()
 
         # SO_RCVTIMEO supplies the default if no per-call timeout.
         effective_timeout = timeout if timeout is not None else self._so_rcvtimeo
@@ -160,6 +176,12 @@ class PacketSocket(socket):
             if effective_timeout is None and not self._blocking:
                 raise BlockingIOError(errno.EAGAIN, os.strerror(errno.EAGAIN))
             raise TimeoutError("PACKET Socket - Receive operation timed out.")
+
+        if self._closed:
+            # close()'s wake permit, not data: cascade it to any
+            # other parked waiter, then report the dead socket.
+            self._packet_rx_md_ready.release()
+            self._raise_if_closed()
 
         return self._packet_rx_md.pop(0)
 
@@ -192,11 +214,14 @@ class PacketSocket(socket):
     def close(self) -> None:
         """
         Close the socket: deregister its capture filter and release its
-        OS-level runtime.
+        OS-level runtime. Releases the rx semaphore once so a blocked
+        'recv()'-family waiter wakes with EBADF (each woken waiter
+        cascades the permit to the next).
         """
 
         stack.packet_sockets.unregister(self)
         self._mark_closed()
+        self._packet_rx_md_ready.release()
         log.enabled and log("socket", f"<g>[{self}]</> - Closed packet socket")
 
     @override

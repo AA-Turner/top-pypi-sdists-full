@@ -7,7 +7,7 @@ from os.path import (
 )
 from setuptools import setup
 
-VERSION = "0.1.20"
+VERSION = "0.1.21"
 
 VERSION_SUFFIX = "%d.%d" % sys.version_info[:2]
 CURRENT_DIRECTORY = abspath(dirname(__file__))
@@ -21,19 +21,16 @@ with open(join(CURRENT_DIRECTORY, "README.rst")) as readme:
 install_requires = [
     "docopt>=0.6.1,<0.7",
     "chardet",
-    "lxml>=2.0",
+    "lxml[html_clean]>=2.0",
 ]
 tests_require = [
-    "nose-selecttests",
+    "pytest",
+    "pytest-cov",
     "coverage",
     "pylint",
-    "nose",
     "pep8",
 ]
 
-
-if sys.version_info < (2, 7):
-    install_requires.append("unittest2")
 
 console_script_targets = [
     "breadability = breadability.scripts.client:main",
@@ -76,18 +73,21 @@ setup(
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.2",
         "Programming Language :: Python :: 3.3",
+        "Programming Language :: Python :: 3.4",
+        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: Implementation :: CPython",
         "Topic :: Internet :: WWW/HTTP",
         "Topic :: Software Development :: Pre-processors",
         "Topic :: Text Processing :: Filters",
         "Topic :: Text Processing :: Markup :: HTML",
     ],
-    packages=['breadability'],
+    packages=['breadability', 'breadability.scripts'],
     include_package_data=True,
     zip_safe=False,
     install_requires=install_requires,
     tests_require=tests_require,
-    test_suite="nose.collector",
+    test_suite="tests",
     entry_points={
         "console_scripts": console_script_targets,
     }

@@ -18,7 +18,7 @@ class MetadataWrapper:
         self.data = data
 
     def __iter__(self):
-        yield from ({**{"AnomaloVersionID": VERSION_ID}, **self.data}).items()
+        yield from ({"AnomaloVersionID": VERSION_ID, **self.data}).items()
 
 
 yaml.add_representer(

@@ -32,8 +32,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/network/ipspaces/dcc7e79c-5acc-11e8-b9de-005056b42b32"
                 }
             },
-            "name": "Default",
             "uuid": "dcc7e79c-5acc-11e8-b9de-005056b42b32",
+            "name": "Default",
         }
     ),
     Ipspace(
@@ -43,8 +43,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/network/ipspaces/dfd3c1b2-5acc-11e8-b9de-005056b42b32"
                 }
             },
-            "name": "Cluster",
             "uuid": "dfd3c1b2-5acc-11e8-b9de-005056b42b32",
+            "name": "Cluster",
         }
     ),
     Ipspace(
@@ -54,8 +54,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/network/ipspaces/dedec1be-5aec-1eee-beee-0eee56be2b3e"
                 }
             },
-            "name": "Ipspace1",
             "uuid": "dedec1be-5aec-1eee-beee-0eee56be2b3e",
+            "name": "Ipspace1",
         }
     ),
 ]
@@ -91,8 +91,8 @@ Ipspace(
                 "href": "/api/network/ipspaces/dcc7e79c-5acc-11e8-b9de-005056b42b32"
             }
         },
-        "name": "Default",
         "uuid": "dcc7e79c-5acc-11e8-b9de-005056b42b32",
+        "name": "Default",
     }
 )
 
@@ -133,8 +133,8 @@ Ipspace(
                 "href": "/api/network/ipspaces/4165655e-0528-11e9-bd68-005056bb046a"
             }
         },
-        "name": "ipspace2",
         "uuid": "4165655e-0528-11e9-bd68-005056bb046a",
+        "name": "ipspace2",
     }
 )
 
@@ -159,6 +159,26 @@ from netapp_ontap.resources import Ipspace
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
     resource = Ipspace(uuid="4165655e-0528-11e9-bd68-005056bb046a")
     resource.name = "ipspace20"
+    resource.patch()
+
+```
+
+---
+## Updating IPspaces
+You can use the IPspaces PATCH API to update the attributes of the IPspace.
+<br/>
+---
+### Updating the TCP stack of an IPspace
+The following PATCH request is used to modify the TCP stack of the IPspace from "freebsd" to "rack".
+<br/>
+---
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Ipspace
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Ipspace(uuid="4165655e-0528-11e9-bd68-005056bb046a")
+    resource.tcp_stack = "rack"
     resource.patch()
 
 ```
@@ -225,6 +245,18 @@ class IpspaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: ipspace1"""
 
+    tcp_stack = marshmallow_fields.Str(
+        data_key="tcp_stack",
+        validate=enum_validation(['freebsd', 'rack']),
+        allow_none=True,
+    )
+    r""" The TCP stack used by the IPspace.
+
+Valid choices:
+
+* freebsd
+* rack"""
+
     uuid = marshmallow_fields.Str(
         data_key="uuid",
         allow_none=True,
@@ -240,14 +272,16 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
     gettable_fields = [
         "links",
         "name",
+        "tcp_stack",
         "uuid",
     ]
-    """links,name,uuid,"""
+    """links,name,tcp_stack,uuid,"""
 
     patchable_fields = [
         "name",
+        "tcp_stack",
     ]
-    """name,"""
+    """name,tcp_stack,"""
 
     postable_fields = [
         "name",
@@ -322,6 +356,7 @@ class Ipspace(Resource):
         r"""Updates an IPspace object.
 ### Related ONTAP commands
 * `network ipspace rename`
+* `network ipspace modify`
 
 ### Learn more
 * [`DOC /network/ipspaces`](#docs-networking-network_ipspaces)"""
@@ -441,6 +476,7 @@ class Ipspace(Resource):
         r"""Updates an IPspace object.
 ### Related ONTAP commands
 * `network ipspace rename`
+* `network ipspace modify`
 
 ### Learn more
 * [`DOC /network/ipspaces`](#docs-networking-network_ipspaces)"""

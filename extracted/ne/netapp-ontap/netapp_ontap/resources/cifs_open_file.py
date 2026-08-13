@@ -32,46 +32,46 @@ with HostConnection(
 [
     CifsOpenFile(
         {
-            "range_locks_count": 0,
-            "identifier": 109,
-            "continuously_available": "no",
-            "open_mode": "r",
-            "volume": {
-                "name": "root_vs0",
-                "uuid": "8384f6ae-3553-11ee-a3c3-005056ae0dd5",
-            },
-            "connection": {"identifier": 103985, "count": 1},
-            "session": {"identifier": 10878444899913433090},
-            "path": "first_file.txt",
             "type": "regular",
-            "node": {
-                "name": "sti220-vsim-sr050u",
-                "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
+            "path": "first_file.txt",
+            "share": {"mode": "r", "name": "sh1"},
+            "identifier": 109,
+            "volume": {
+                "uuid": "8384f6ae-3553-11ee-a3c3-005056ae0dd5",
+                "name": "root_vs0",
             },
-            "share": {"name": "sh1", "mode": "r"},
-            "svm": {"name": "vs0", "uuid": "80e795f4-3553-11ee-9f97-005056ae78de"},
+            "continuously_available": "no",
+            "session": {"identifier": 10878444899913433090},
+            "svm": {"uuid": "80e795f4-3553-11ee-9f97-005056ae78de", "name": "vs0"},
+            "open_mode": "r",
+            "node": {
+                "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
+                "name": "sti220-vsim-sr050u",
+            },
+            "connection": {"count": 1, "identifier": 103985},
+            "range_locks_count": 0,
         }
     ),
     CifsOpenFile(
         {
-            "range_locks_count": 0,
-            "identifier": 110,
-            "continuously_available": "no",
-            "open_mode": "r",
-            "volume": {
-                "name": "root_vs0",
-                "uuid": "8384f6ae-3553-11ee-a3c3-005056ae0dd5",
-            },
-            "connection": {"identifier": 103985, "count": 1},
-            "session": {"identifier": 10878444899913433090},
-            "path": "second_file.txt",
             "type": "regular",
-            "node": {
-                "name": "sti220-vsim-sr050u",
-                "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
+            "path": "second_file.txt",
+            "share": {"mode": "r", "name": "sh1"},
+            "identifier": 110,
+            "volume": {
+                "uuid": "8384f6ae-3553-11ee-a3c3-005056ae0dd5",
+                "name": "root_vs0",
             },
-            "share": {"name": "sh1", "mode": "r"},
-            "svm": {"name": "vs0", "uuid": "80e795f4-3553-11ee-9f97-005056ae78de"},
+            "continuously_available": "no",
+            "session": {"identifier": 10878444899913433090},
+            "svm": {"uuid": "80e795f4-3553-11ee-9f97-005056ae78de", "name": "vs0"},
+            "open_mode": "r",
+            "node": {
+                "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
+                "name": "sti220-vsim-sr050u",
+            },
+            "connection": {"count": 1, "identifier": 103985},
+            "range_locks_count": 0,
         }
     ),
 ]
@@ -110,21 +110,21 @@ with HostConnection(
 ```
 CifsOpenFile(
     {
-        "range_locks_count": 0,
-        "identifier": 109,
-        "continuously_available": "no",
-        "open_mode": "r",
-        "volume": {"name": "root_vs0", "uuid": "8384f6ae-3553-11ee-a3c3-005056ae0dd5"},
-        "connection": {"identifier": 103985, "count": 1},
-        "session": {"identifier": 10878444899913433000},
-        "path": "first_file.txt",
         "type": "regular",
+        "path": "first_file.txt",
+        "share": {"mode": "r", "name": "sh1"},
+        "identifier": 109,
+        "volume": {"uuid": "8384f6ae-3553-11ee-a3c3-005056ae0dd5", "name": "root_vs0"},
+        "continuously_available": "no",
+        "session": {"identifier": 10878444899913433000},
+        "svm": {"uuid": "80e795f4-3553-11ee-9f97-005056ae78de", "name": "vs0"},
+        "open_mode": "r",
         "node": {
-            "name": "sti220-vsim-sr050u",
             "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
+            "name": "sti220-vsim-sr050u",
         },
-        "share": {"name": "sh1", "mode": "r"},
-        "svm": {"name": "vs0", "uuid": "80e795f4-3553-11ee-9f97-005056ae78de"},
+        "connection": {"count": 1, "identifier": 103985},
+        "range_locks_count": 0,
     }
 )
 

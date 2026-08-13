@@ -36,11 +36,13 @@ classifiers = [
 ]
 dependencies = [
     'certifi',
+    'packaging',
     'pydantic>=2',
     'python-dateutil>=2.8.2',
     'requests',
     'snowflake-connector-python',
     'pyyaml',
+    'typing_extensions',
     'urllib3',
 ]
 dynamic = ['version']

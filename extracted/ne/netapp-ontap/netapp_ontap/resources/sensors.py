@@ -25,30 +25,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Sensors(
     {
-        "critical_low_threshold": 297,
+        "type": "voltage",
+        "critical_high_threshold": 1683,
+        "warning_high_threshold": 1485,
+        "value": 831,
+        "warning_low_threshold": 396,
+        "value_units": "mV",
+        "name": "PVCCSA CPU FD",
         "_links": {
             "self": {
                 "href": "/api/cluster/sensors/19ec0b4a-4a4d-11ec-9036-d039ea4a991a/1"
             }
         },
         "index": 1,
-        "value_units": "mV",
-        "warning_high_threshold": 1485,
-        "warning_low_threshold": 396,
-        "critical_high_threshold": 1683,
-        "value": 831,
-        "name": "PVCCSA CPU FD",
         "threshold_state": "normal",
         "node": {
-            "name": "node1",
+            "uuid": "19ec0b4a-4a4d-11ec-9036-d039ea4a991a",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/19ec0b4a-4a4d-11ec-9036-d039ea4a991a"
                 }
             },
-            "uuid": "19ec0b4a-4a4d-11ec-9036-d039ea4a991a",
+            "name": "node1",
         },
-        "type": "voltage",
+        "critical_low_threshold": 297,
     }
 )
 

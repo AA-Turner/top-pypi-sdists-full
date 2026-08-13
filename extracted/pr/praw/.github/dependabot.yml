@@ -3,16 +3,32 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: monthly
+      interval: daily
     labels:
       - "Dependencies"
     cooldown:
       default-days: 1
+    groups:
+      github-actions:
+        patterns:
+          - "*"
   - package-ecosystem: uv
     directory: /
     schedule:
-      interval: monthly
+      interval: daily
     labels:
       - "Dependencies"
     cooldown:
       default-days: 1
+    groups:
+      python:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      python-major:
+        patterns:
+          - "*"
+        update-types:
+          - "major"

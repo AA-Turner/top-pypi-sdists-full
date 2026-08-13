@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: snowflake.core
-Version: 1.13.0
+Version: 1.13.1
 Summary: Snowflake Python API for Resource Management
 Author-email: "Snowflake, Inc." <snowflake-python-libraries-dl@snowflake.com>
 License: Apache-2.0
@@ -25,11 +25,13 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: certifi
+Requires-Dist: packaging
 Requires-Dist: pydantic>=2
 Requires-Dist: python-dateutil>=2.8.2
 Requires-Dist: pyyaml
 Requires-Dist: requests
 Requires-Dist: snowflake-connector-python
+Requires-Dist: typing-extensions
 Requires-Dist: urllib3
 Provides-Extra: test
 Requires-Dist: coverage[toml]; extra == 'test'

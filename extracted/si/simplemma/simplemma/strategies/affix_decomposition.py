@@ -1,86 +1,82 @@
-"""
-This file defines the `AffixDecompositionStrategy` class, which implements an affix decomposition lemmatization strategy in the Simplemma library.
-"""
+"""Affix decomposition lemmatization strategy."""
 
 from .dictionary_lookup import DictionaryLookupStrategy
-from .greedy_dictionary_lookup import SHORTER_GREEDY, GreedyDictionaryLookupStrategy
+
+# Shared with GreedyDictionaryLookupStrategy's gate on purpose -- retuning
+# it retunes both strategies.
+from .greedy_dictionary_lookup import greedy_min_length
 from .lemmatization_strategy import LemmatizationStrategy
 
-# TODO: This custom behavior has to be simplified before it becomes unmaintainable
-LONGER_AFFIXES = {"et", "fi", "hu", "lt"}
+# Membership and max_affix_len values are UD-validated, not in-dict guesswork
+# (see training/affixbuilder.py + the gitignored gate under
+# training/data/affix_eval/). Many in-dict-positive langs were rejected on UD
+# (pt/ca/nl/en/la/gl/fr/it/ro/de); es flipped to member on v2.18 data.
 AFFIX_LANGS = {
-    "bg",
-    "cs",
-    "el",
-    "et",
-    "fi",
-    "hu",
-    "hy",
-    "lt",
-    "lv",
-    "nb",
-    "pl",
-    "ru",
-    "sk",
-    "tr",
-    "uk",
+    "bg": 2,
+    "cs": 2,
+    "da": 2,
+    "el": 2,
+    "es": 2,
+    "et": 3,
+    "fi": 5,
+    "hu": 5,
+    "hy": 2,
+    "lt": 5,
+    "lv": 2,
+    "nb": 2,
+    "nn": 2,
+    "pl": 2,
+    "ru": 2,
+    "sk": 2,
+    "tr": 5,
+    "uk": 2,
 }
 
-AFFIXLEN = 2
-LONGAFFIXLEN = 5  # better for some languages
+# Excluded from greedy-mode decomposition: UD-measured harmful
+# (ca/en/gl/it/la/nl/pt), a wash (id), or typologically wrong for suffix
+# stripping (ms/sw/tl). it joined once clitics claimed its verb+enclitic
+# class, leaving affix to over-fire on -ità/-ismo and proper nouns.
+GREEDY_EXCLUDE = {
+    "ca",
+    "en",
+    "gl",
+    "id",
+    "it",
+    "la",
+    "ms",
+    "nl",
+    "pt",
+    "sw",
+    "tl",
+}
+
+AFFIXLEN = 2  # max_affix_len for languages without an AFFIX_LANGS entry (greedy mode)
 MINCOMPLEN = 4
+# Decomposition is ~O(len²); cap long tokens (longest real form is 86 chars).
+MAXLEN = 100
 
 
 class AffixDecompositionStrategy(LemmatizationStrategy):
-    """
-    Lemmatization strategy that uses affix decomposition to find lemmas of tokens.
+    """Affix decomposition: split a token into affix + complement and look up
+    the complement in the dictionary; falls back to suffix decomposition."""
 
-    This strategy decomposes tokens into affixes and looks up their lemmas in a dictionary.
-    It first attempts to decompose the token using affix decomposition and then falls back
-    to suffix decomposition if affix decomposition fails.
-    """
-
-    __slots__ = ["_greedy", "_dictionary_lookup", "_greedy_dictionary_lookup"]
+    __slots__ = ["_greedy", "_dictionary_lookup"]
 
     def __init__(
         self,
         greedy: bool,
         dictionary_lookup: DictionaryLookupStrategy = DictionaryLookupStrategy(),
-        greedy_dictionary_lookup: GreedyDictionaryLookupStrategy = GreedyDictionaryLookupStrategy(),
     ):
-        """
-        Initialize the Affix Decomposition Strategy.
-
-        Args:
-            greedy (bool): Flag indicating whether to use greedy decomposition.
-            dictionary_lookup (DictionaryLookupStrategy): The dictionary lookup strategy to use.
-                Defaults to `DictionaryLookupStrategy()`.
-            greedy_dictionary_lookup (GreedyDictionaryLookupStrategy): The greedy dictionary lookup strategy to use.
-                Defaults to `GreedyDictionaryLookupStrategy()`.
-        """
         self._greedy = greedy
         self._dictionary_lookup = dictionary_lookup
-        self._greedy_dictionary_lookup = greedy_dictionary_lookup
 
     def get_lemma(self, token: str, lang: str) -> str | None:
-        """
-        Get the lemma of a token using affix decomposition strategy.
-
-        Args:
-            token (str): The input token.
-            lang (str): The language code.
-
-        Returns:
-            str | None: The lemma of the token if found, or None otherwise.
-        """
-        limit = 6 if lang in SHORTER_GREEDY else 8
-        if (not self._greedy and lang not in AFFIX_LANGS) or len(token) <= limit:
+        excluded = lang in GREEDY_EXCLUDE if self._greedy else lang not in AFFIX_LANGS
+        if excluded or len(token) <= greedy_min_length(lang) or len(token) > MAXLEN:
             return None
 
         # define parameters
-        max_affix_len = LONGAFFIXLEN if lang in LONGER_AFFIXES else AFFIXLEN
-        # greedier subword decomposition: suffix search with character in between
-        # then suffixes
+        max_affix_len = AFFIX_LANGS.get(lang, AFFIXLEN)
         return self._affix_decomposition(
             token, lang, max_affix_len, MINCOMPLEN
         ) or self._suffix_decomposition(token, lang, MINCOMPLEN)
@@ -92,55 +88,26 @@ class AffixDecompositionStrategy(LemmatizationStrategy):
         max_affix_len: int = 0,
         min_complem_len: int = 0,
     ) -> str | None:
-        """
-        Perform affix decomposition on a token.
-
-        Args:
-            token (str): The input token.
-            lang (str): The language code.
-            max_affix_len (int): The maximum length of the affix.
-            min_complem_len (int): The minimum length of the complementary part.
-
-        Returns:
-            str | None: The lemma of the token if found, or None otherwise.
-        """
-        # this only makes sense for languages written from left to right
-        # AFFIXLEN or MINCOMPLEN can spare time for some languages
-        for affixlen in range(max_affix_len, 1, -1):
-            for count in range(1, len(token) - min_complem_len + 1):
-                part1 = token[:-count]
-                # part1_aff = candidate[:-(count + affixlen)]p
-                lempart1 = self._dictionary_lookup.get_lemma(part1, lang)
-                if lempart1 is None:
-                    continue
-                # maybe an affix? discard it
-                if count <= affixlen:
-                    return lempart1
-                # account for case before looking for second part
-                part2 = token[-count:]
-                if token[0].isupper():
-                    part2 = part2.capitalize()
-                lempart2 = self._dictionary_lookup.get_lemma(part2, lang)
-                if lempart2 is None:
-                    continue
-                # candidate must be shorter
-                # try other case
-                candidate = self._greedy_dictionary_lookup.get_lemma(part2, lang)
-                # shorten the second known part of the token
-                if candidate is not None and len(candidate) < len(part2):
-                    return part1 + candidate.lower()
-                # backup: equal length or further candidates accepted
-                # try without capitalizing
-                # even greedier
-                # with capital letter?
-                if len(lempart2) < len(part2) + affixlen:
-                    return part1 + lempart2.lower()
-                    # print(part1, part2, affixlen, count, newcandidate, planb)
-                # elif newcandidate and len(newcandidate) < len(part2) + affixlen:
-                # plan_b = part1 + newcandidate.lower()
-                # print(part1, part2, affixlen, count, newcandidate, planb)
-                # else:
-                #    print(part1, part2, affixlen, count, newcandidate)
+        # Left-to-right languages only. A single pass at the largest affix
+        # length is equivalent to looping over smaller ones (first match wins).
+        for count in range(1, len(token) - min_complem_len + 1):
+            part1 = token[:-count]
+            lempart1 = self._dictionary_lookup.get_lemma(part1, lang)
+            if lempart1 is None:
+                continue
+            # maybe an affix? discard it
+            if count <= max_affix_len:
+                return lempart1
+            # account for case before looking for second part
+            part2 = token[-count:]
+            if token[0].isupper():
+                part2 = part2.capitalize()
+            lempart2 = self._dictionary_lookup.get_lemma(part2, lang)
+            if lempart2 is None:
+                continue
+            # accept the dictionary form if not longer than the affix bound
+            if len(lempart2) < len(part2) + max_affix_len:
+                return part1 + lempart2.lower()
         return None
 
     def _suffix_decomposition(
@@ -149,23 +116,11 @@ class AffixDecompositionStrategy(LemmatizationStrategy):
         lang: str,
         min_complem_len: int = 0,
     ) -> str | None:
-        """
-        Decomposes the token using suffix decomposition strategy.
-
-        Args:
-            token (str): The token to be decomposed.
-            lang (str): The language of the token.
-            min_complem_len (int, optional): The minimum length of the complementary part
-                to consider during decomposition. Defaults to 0.
-
-        Returns:
-            str | None: The decomposed token if decomposition is successful, None otherwise.
-        """
         for count in range(len(token) - min_complem_len, min_complem_len - 1, -1):
             suffix = self._dictionary_lookup.get_lemma(
                 token[-count:].capitalize(), lang
             )
-            if suffix is not None and len(suffix) <= len(token[-count:]):
+            if suffix is not None and len(suffix) <= count:
                 return token[:-count] + suffix.lower()
 
         return None

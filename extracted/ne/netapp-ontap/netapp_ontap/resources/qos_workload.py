@@ -84,6 +84,40 @@ class QosWorkloadSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Name of the LUN. The name of the LUN will be displayed as "(unknown)" if the name cannot be retrieved."""
 
+    max_throughput = marshmallow_fields.Str(
+        data_key="max_throughput",
+        allow_none=True,
+    )
+    r""" Specifies the maximum throughput in MB/s or B/s as appropriate.
+
+Example: 500MB/s"""
+
+    max_throughput_iops = Size(
+        data_key="max_throughput_iops",
+        validate=integer_validation(minimum=0, maximum=2147483647),
+        allow_none=True,
+    )
+    r""" Specifies the maximum throughput in IOPS, 0 means none.
+
+Example: 10000"""
+
+    min_throughput = marshmallow_fields.Str(
+        data_key="min_throughput",
+        allow_none=True,
+    )
+    r""" Specifies the minimum throughput in MB/s or B/s as appropriate.
+
+Example: 100MB/s"""
+
+    min_throughput_iops = Size(
+        data_key="min_throughput_iops",
+        validate=integer_validation(minimum=0, maximum=2147483647),
+        allow_none=True,
+    )
+    r""" Specifies the minimum throughput in IOPS, 0 means none.
+
+Example: 2000"""
+
     name = marshmallow_fields.Str(
         data_key="name",
         allow_none=True,
@@ -162,6 +196,10 @@ Valid choices:
         "links",
         "file",
         "lun",
+        "max_throughput",
+        "max_throughput_iops",
+        "min_throughput",
+        "min_throughput_iops",
         "name",
         "policy.links",
         "policy.name",
@@ -175,7 +213,7 @@ Valid choices:
         "wid",
         "workload_class",
     ]
-    """links,file,lun,name,policy.links,policy.name,policy.uuid,qtree,svm.links,svm.name,svm.uuid,uuid,volume,wid,workload_class,"""
+    """links,file,lun,max_throughput,max_throughput_iops,min_throughput,min_throughput_iops,name,policy.links,policy.name,policy.uuid,qtree,svm.links,svm.name,svm.uuid,uuid,volume,wid,workload_class,"""
 
     patchable_fields = [
         "name",

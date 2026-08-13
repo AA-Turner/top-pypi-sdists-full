@@ -19,19 +19,25 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Union
+from typing import Any, Union
 
 from .literals import (
     AccountJiraIssueManagementStatusType,
     AdditionalResourceTypeType,
     AnswerReasonType,
+    ApplicationTypeType,
     CheckFailureReasonType,
     CheckStatusType,
     ChoiceReasonType,
     ChoiceStatusType,
+    CriticalityType,
     DefinitionTypeType,
     DifferenceStatusType,
     DiscoveryIntegrationStatusType,
+    EffortType,
+    FeedbackCategoryType,
+    GenerationStatusType,
+    ImpactCategoryType,
     ImportLensStatusType,
     IntegrationStatusType,
     IssueManagementTypeType,
@@ -41,14 +47,24 @@ from .literals import (
     NotificationTypeType,
     OrganizationSharingStatusType,
     PermissionTypeType,
+    PillarType,
+    PriorityType,
     ProfileNotificationTypeType,
     ProfileOwnerTypeType,
     QuestionPriorityType,
     QuestionType,
     QuestionTypeType,
+    RecommendationFeedbackTypeType,
+    RecommendationItemTypeType,
+    RecommendationSourceType,
+    RecommendationStateType,
+    RecommendationStatusType,
+    RecommendationTypeType,
+    RemediationTypeType,
     ReportFormatType,
     ReviewTemplateAnswerStatusType,
     ReviewTemplateUpdateStatusType,
+    RiskRatingType,
     RiskType,
     ShareInvitationActionType,
     ShareResourceTypeType,
@@ -68,6 +84,14 @@ __all__ = (
     "AccountJiraConfigurationInputTypeDef",
     "AccountJiraConfigurationOutputTypeDef",
     "AdditionalResourcesTypeDef",
+    "AgentProfileSummaryTypeDef",
+    "AgentRecommendationGenerationSummaryTypeDef",
+    "AgentRecommendationItemSummaryTypeDef",
+    "AgentRecommendationRemediationTypeDef",
+    "AgentRecommendationSummaryTypeDef",
+    "AggregationConfigurationOutputTypeDef",
+    "AggregationConfigurationTypeDef",
+    "AggregationConfigurationUnionTypeDef",
     "AnswerSummaryTypeDef",
     "AnswerTypeDef",
     "AssociateLensesInputTypeDef",
@@ -82,6 +106,17 @@ __all__ = (
     "ChoiceTypeDef",
     "ChoiceUpdateTypeDef",
     "ConsolidatedReportMetricTypeDef",
+    "ContextContentOutputTypeDef",
+    "ContextContentTypeDef",
+    "ContextContentUnionTypeDef",
+    "ContextResourceTagTypeDef",
+    "ContextSummaryTypeDef",
+    "CreateAgentContextRequestTypeDef",
+    "CreateAgentContextResponseTypeDef",
+    "CreateAgentGoalRequestTypeDef",
+    "CreateAgentGoalResponseTypeDef",
+    "CreateAgentProfileRequestTypeDef",
+    "CreateAgentProfileResponseTypeDef",
     "CreateLensShareInputTypeDef",
     "CreateLensShareOutputTypeDef",
     "CreateLensVersionInputTypeDef",
@@ -100,6 +135,10 @@ __all__ = (
     "CreateWorkloadOutputTypeDef",
     "CreateWorkloadShareInputTypeDef",
     "CreateWorkloadShareOutputTypeDef",
+    "CrossPillarBenefitTypeDef",
+    "DeleteAgentContextRequestTypeDef",
+    "DeleteAgentGoalRequestTypeDef",
+    "DeleteAgentProfileRequestTypeDef",
     "DeleteLensInputTypeDef",
     "DeleteLensShareInputTypeDef",
     "DeleteProfileInputTypeDef",
@@ -111,8 +150,19 @@ __all__ = (
     "DisassociateLensesInputTypeDef",
     "DisassociateProfilesInputTypeDef",
     "EmptyResponseMetadataTypeDef",
+    "ErrorDetailsTypeDef",
     "ExportLensInputTypeDef",
     "ExportLensOutputTypeDef",
+    "GetAgentContextRequestTypeDef",
+    "GetAgentContextResponseTypeDef",
+    "GetAgentGoalRequestTypeDef",
+    "GetAgentGoalResponseTypeDef",
+    "GetAgentProfileRequestTypeDef",
+    "GetAgentProfileResponseTypeDef",
+    "GetAgentRecommendationGenerationRequestTypeDef",
+    "GetAgentRecommendationGenerationResponseTypeDef",
+    "GetAgentRecommendationRequestTypeDef",
+    "GetAgentRecommendationResponseTypeDef",
     "GetAnswerInputTypeDef",
     "GetAnswerOutputTypeDef",
     "GetConsolidatedReportInputTypeDef",
@@ -139,9 +189,11 @@ __all__ = (
     "GetReviewTemplateOutputTypeDef",
     "GetWorkloadInputTypeDef",
     "GetWorkloadOutputTypeDef",
+    "GoalSummaryTypeDef",
     "ImportLensInputTypeDef",
     "ImportLensOutputTypeDef",
     "ImprovementSummaryTypeDef",
+    "InsightTypeDef",
     "JiraConfigurationTypeDef",
     "JiraSelectedQuestionConfigurationOutputTypeDef",
     "JiraSelectedQuestionConfigurationTypeDef",
@@ -154,6 +206,24 @@ __all__ = (
     "LensSummaryTypeDef",
     "LensTypeDef",
     "LensUpgradeSummaryTypeDef",
+    "ListAgentContextsRequestPaginateTypeDef",
+    "ListAgentContextsRequestTypeDef",
+    "ListAgentContextsResponseTypeDef",
+    "ListAgentGoalsRequestPaginateTypeDef",
+    "ListAgentGoalsRequestTypeDef",
+    "ListAgentGoalsResponseTypeDef",
+    "ListAgentProfilesRequestPaginateTypeDef",
+    "ListAgentProfilesRequestTypeDef",
+    "ListAgentProfilesResponseTypeDef",
+    "ListAgentRecommendationGenerationsRequestPaginateTypeDef",
+    "ListAgentRecommendationGenerationsRequestTypeDef",
+    "ListAgentRecommendationGenerationsResponseTypeDef",
+    "ListAgentRecommendationItemsRequestPaginateTypeDef",
+    "ListAgentRecommendationItemsRequestTypeDef",
+    "ListAgentRecommendationItemsResponseTypeDef",
+    "ListAgentRecommendationsRequestPaginateTypeDef",
+    "ListAgentRecommendationsRequestTypeDef",
+    "ListAgentRecommendationsResponseTypeDef",
     "ListAnswersInputTypeDef",
     "ListAnswersOutputTypeDef",
     "ListCheckDetailsInputTypeDef",
@@ -195,7 +265,10 @@ __all__ = (
     "MilestoneSummaryTypeDef",
     "MilestoneTypeDef",
     "NotificationSummaryTypeDef",
+    "PaginatorConfigTypeDef",
     "PillarDifferenceTypeDef",
+    "PillarItemOutputTypeDef",
+    "PillarItemTypeDef",
     "PillarMetricTypeDef",
     "PillarReviewSummaryTypeDef",
     "ProfileChoiceTypeDef",
@@ -208,8 +281,14 @@ __all__ = (
     "ProfileTemplateQuestionTypeDef",
     "ProfileTemplateTypeDef",
     "ProfileTypeDef",
+    "ProgressTypeDef",
+    "PutAgentRecommendationFeedbackRequestTypeDef",
     "QuestionDifferenceTypeDef",
     "QuestionMetricTypeDef",
+    "RecommendationGoalTypeDef",
+    "RemediationStepTypeDef",
+    "RemediationSummaryTypeDef",
+    "ResourceLinkTypeDef",
     "ResponseMetadataTypeDef",
     "ReviewTemplateAnswerSummaryTypeDef",
     "ReviewTemplateAnswerTypeDef",
@@ -217,13 +296,28 @@ __all__ = (
     "ReviewTemplatePillarReviewSummaryTypeDef",
     "ReviewTemplateSummaryTypeDef",
     "ReviewTemplateTypeDef",
+    "RoiTypeDef",
+    "ScopeOutputTypeDef",
+    "ScopeTypeDef",
+    "ScopeUnionTypeDef",
     "SelectedPillarOutputTypeDef",
     "SelectedPillarTypeDef",
     "ShareInvitationSummaryTypeDef",
     "ShareInvitationTypeDef",
+    "StartAgentRecommendationGenerationRequestTypeDef",
+    "StartAgentRecommendationGenerationResponseTypeDef",
     "TagResourceInputTypeDef",
+    "TagTypeDef",
     "TemplateShareSummaryTypeDef",
+    "TradeOffTypeDef",
     "UntagResourceInputTypeDef",
+    "UpdateAgentContextRequestTypeDef",
+    "UpdateAgentContextResponseTypeDef",
+    "UpdateAgentGoalRequestTypeDef",
+    "UpdateAgentGoalResponseTypeDef",
+    "UpdateAgentProfileRequestTypeDef",
+    "UpdateAgentProfileResponseTypeDef",
+    "UpdateAgentRecommendationStatusRequestTypeDef",
     "UpdateAnswerInputTypeDef",
     "UpdateAnswerOutputTypeDef",
     "UpdateGlobalSettingsInputTypeDef",
@@ -277,6 +371,60 @@ class AccountJiraConfigurationOutputTypeDef(TypedDict):
 class ChoiceContentTypeDef(TypedDict):
     DisplayText: NotRequired[str]
     Url: NotRequired[str]
+
+class AggregationConfigurationOutputTypeDef(TypedDict):
+    accountId: str
+    regions: list[str]
+    accessRoleArn: str
+
+class TagTypeDef(TypedDict):
+    key: str
+    value: str
+
+AgentRecommendationGenerationSummaryTypeDef = TypedDict(
+    "AgentRecommendationGenerationSummaryTypeDef",
+    {
+        "id": str,
+        "profileArn": str,
+        "status": GenerationStatusType,
+        "createdBy": str,
+        "createdAt": datetime,
+        "name": NotRequired[str],
+        "estimatedCompletionTime": NotRequired[datetime],
+        "lastModifiedBy": NotRequired[str],
+        "lastModifiedAt": NotRequired[datetime],
+    },
+)
+AgentRecommendationItemSummaryTypeDef = TypedDict(
+    "AgentRecommendationItemSummaryTypeDef",
+    {
+        "id": str,
+        "recommendationArn": str,
+        "type": RecommendationItemTypeType,
+        "metadata": dict[str, Any],
+        "createdBy": str,
+        "createdAt": datetime,
+        "lastModifiedBy": NotRequired[str],
+        "lastModifiedAt": NotRequired[datetime],
+    },
+)
+
+class RemediationStepTypeDef(TypedDict):
+    content: str
+    title: NotRequired[str]
+
+class ResourceLinkTypeDef(TypedDict):
+    url: str
+    title: NotRequired[str]
+
+class RoiTypeDef(TypedDict):
+    detail: str
+    estimate: NotRequired[str]
+
+class AggregationConfigurationTypeDef(TypedDict):
+    accountId: str
+    regions: Sequence[str]
+    accessRoleArn: str
 
 class ChoiceAnswerSummaryTypeDef(TypedDict):
     ChoiceId: NotRequired[str]
@@ -343,10 +491,9 @@ class ChoiceUpdateTypeDef(TypedDict):
     Reason: NotRequired[ChoiceReasonType]
     Notes: NotRequired[str]
 
-class CreateLensShareInputTypeDef(TypedDict):
-    LensAlias: str
-    SharedWith: str
-    ClientRequestToken: str
+class ContextResourceTagTypeDef(TypedDict):
+    key: str
+    value: str
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -354,6 +501,33 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+class CreateAgentGoalRequestTypeDef(TypedDict):
+    profileArn: str
+    pillars: Sequence[PillarType]
+    title: str
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+
+GoalSummaryTypeDef = TypedDict(
+    "GoalSummaryTypeDef",
+    {
+        "id": str,
+        "profileArn": str,
+        "pillars": list[PillarType],
+        "title": str,
+        "createdBy": str,
+        "createdAt": datetime,
+        "description": NotRequired[str],
+        "lastModifiedBy": NotRequired[str],
+        "lastModifiedAt": NotRequired[datetime],
+    },
+)
+
+class CreateLensShareInputTypeDef(TypedDict):
+    LensAlias: str
+    SharedWith: str
+    ClientRequestToken: str
 
 class CreateLensVersionInputTypeDef(TypedDict):
     LensAlias: str
@@ -398,6 +572,30 @@ class CreateWorkloadShareInputTypeDef(TypedDict):
     SharedWith: str
     PermissionType: PermissionTypeType
     ClientRequestToken: str
+
+class CrossPillarBenefitTypeDef(TypedDict):
+    pillar: PillarType
+    title: str
+    description: str
+    impact: ImpactCategoryType
+
+DeleteAgentContextRequestTypeDef = TypedDict(
+    "DeleteAgentContextRequestTypeDef",
+    {
+        "profileArn": str,
+        "id": str,
+    },
+)
+DeleteAgentGoalRequestTypeDef = TypedDict(
+    "DeleteAgentGoalRequestTypeDef",
+    {
+        "profileArn": str,
+        "id": str,
+    },
+)
+
+class DeleteAgentProfileRequestTypeDef(TypedDict):
+    profileArn: str
 
 class DeleteLensInputTypeDef(TypedDict):
     LensAlias: str
@@ -444,9 +642,63 @@ class DisassociateProfilesInputTypeDef(TypedDict):
     WorkloadId: str
     ProfileArns: Sequence[str]
 
+class ErrorDetailsTypeDef(TypedDict):
+    code: str
+    message: str
+
 class ExportLensInputTypeDef(TypedDict):
     LensAlias: str
     LensVersion: NotRequired[str]
+
+GetAgentContextRequestTypeDef = TypedDict(
+    "GetAgentContextRequestTypeDef",
+    {
+        "profileArn": str,
+        "id": str,
+    },
+)
+GetAgentGoalRequestTypeDef = TypedDict(
+    "GetAgentGoalRequestTypeDef",
+    {
+        "profileArn": str,
+        "id": str,
+    },
+)
+
+class GetAgentProfileRequestTypeDef(TypedDict):
+    profileArn: str
+
+class GetAgentRecommendationGenerationRequestTypeDef(TypedDict):
+    profileArn: str
+    generationId: str
+
+class ProgressTypeDef(TypedDict):
+    stepsCompleted: int
+    totalSteps: int
+    completionPercentage: float
+
+class GetAgentRecommendationRequestTypeDef(TypedDict):
+    recommendationArn: str
+    remediationType: NotRequired[RemediationTypeType]
+
+class InsightTypeDef(TypedDict):
+    usagePattern: str
+    signalsDetected: NotRequired[str]
+
+class RecommendationGoalTypeDef(TypedDict):
+    title: str
+
+class RemediationSummaryTypeDef(TypedDict):
+    recommendation: str
+    steps: list[str]
+
+class TradeOffTypeDef(TypedDict):
+    pillar: PillarType
+    title: str
+    description: str
+    risk: RiskRatingType
+    mitigation: str
+    riskExplanation: NotRequired[str]
 
 class GetAnswerInputTypeDef(TypedDict):
     WorkloadId: str
@@ -581,6 +833,48 @@ class LensUpgradeSummaryTypeDef(TypedDict):
     LatestLensVersion: NotRequired[str]
     ResourceArn: NotRequired[str]
     ResourceName: NotRequired[str]
+
+class PaginatorConfigTypeDef(TypedDict):
+    MaxItems: NotRequired[int]
+    PageSize: NotRequired[int]
+    StartingToken: NotRequired[str]
+
+class ListAgentContextsRequestTypeDef(TypedDict):
+    profileArn: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class ListAgentGoalsRequestTypeDef(TypedDict):
+    profileArn: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class ListAgentProfilesRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class ListAgentRecommendationGenerationsRequestTypeDef(TypedDict):
+    profileArn: str
+    recommendationType: NotRequired[RecommendationTypeType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+ListAgentRecommendationItemsRequestTypeDef = TypedDict(
+    "ListAgentRecommendationItemsRequestTypeDef",
+    {
+        "recommendationArn": str,
+        "type": NotRequired[RecommendationItemTypeType],
+        "maxResults": NotRequired[int],
+        "nextToken": NotRequired[str],
+    },
+)
+
+class ListAgentRecommendationsRequestTypeDef(TypedDict):
+    profileArn: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    state: NotRequired[RecommendationStateType]
+    pillar: NotRequired[PillarType]
 
 class ListAnswersInputTypeDef(TypedDict):
     WorkloadId: str
@@ -779,6 +1073,14 @@ class QuestionDifferenceTypeDef(TypedDict):
     QuestionTitle: NotRequired[str]
     DifferenceStatus: NotRequired[DifferenceStatusType]
 
+class PillarItemOutputTypeDef(TypedDict):
+    pillar: PillarType
+    ids: list[str]
+
+class PillarItemTypeDef(TypedDict):
+    pillar: PillarType
+    ids: Sequence[str]
+
 class ProfileChoiceTypeDef(TypedDict):
     ChoiceId: NotRequired[str]
     ChoiceTitle: NotRequired[str]
@@ -788,6 +1090,16 @@ class ProfileTemplateChoiceTypeDef(TypedDict):
     ChoiceId: NotRequired[str]
     ChoiceTitle: NotRequired[str]
     ChoiceDescription: NotRequired[str]
+
+PutAgentRecommendationFeedbackRequestTypeDef = TypedDict(
+    "PutAgentRecommendationFeedbackRequestTypeDef",
+    {
+        "recommendationArn": str,
+        "type": RecommendationFeedbackTypeType,
+        "feedbackCategory": NotRequired[FeedbackCategoryType],
+        "comments": NotRequired[str],
+    },
+)
 
 class ReviewTemplatePillarReviewSummaryTypeDef(TypedDict):
     PillarId: NotRequired[str]
@@ -811,6 +1123,23 @@ class TagResourceInputTypeDef(TypedDict):
 class UntagResourceInputTypeDef(TypedDict):
     WorkloadArn: str
     TagKeys: Sequence[str]
+
+UpdateAgentGoalRequestTypeDef = TypedDict(
+    "UpdateAgentGoalRequestTypeDef",
+    {
+        "profileArn": str,
+        "id": str,
+        "clientToken": NotRequired[str],
+        "pillars": NotRequired[Sequence[PillarType]],
+        "title": NotRequired[str],
+        "description": NotRequired[str],
+    },
+)
+
+class UpdateAgentRecommendationStatusRequestTypeDef(TypedDict):
+    recommendationArn: str
+    status: RecommendationStatusType
+    updateReason: NotRequired[str]
 
 class UpdateIntegrationInputTypeDef(TypedDict):
     WorkloadId: str
@@ -893,6 +1222,68 @@ AdditionalResourcesTypeDef = TypedDict(
     },
 )
 
+class AgentProfileSummaryTypeDef(TypedDict):
+    name: str
+    pillars: list[PillarType]
+    executionRoleArn: str
+    aggregationConfiguration: list[AggregationConfigurationOutputTypeDef]
+    arn: str
+    createdBy: str
+    createdAt: datetime
+    displayName: NotRequired[str]
+    description: NotRequired[str]
+    businessOverview: NotRequired[str]
+    deletionProtection: NotRequired[bool]
+    eligibleForScheduledGeneration: NotRequired[bool]
+    eligibleForArchitectureGeneration: NotRequired[bool]
+    fieldErrors: NotRequired[dict[str, str]]
+    tags: NotRequired[list[TagTypeDef]]
+    lastModifiedBy: NotRequired[str]
+    lastModifiedAt: NotRequired[datetime]
+
+AgentRecommendationRemediationTypeDef = TypedDict(
+    "AgentRecommendationRemediationTypeDef",
+    {
+        "recommendationArn": str,
+        "type": RemediationTypeType,
+        "steps": list[RemediationStepTypeDef],
+        "createdBy": str,
+        "createdAt": datetime,
+        "resourceLinks": NotRequired[list[ResourceLinkTypeDef]],
+        "lastModifiedBy": NotRequired[str],
+        "lastModifiedAt": NotRequired[datetime],
+    },
+)
+AgentRecommendationSummaryTypeDef = TypedDict(
+    "AgentRecommendationSummaryTypeDef",
+    {
+        "recommendationArn": str,
+        "profileArn": str,
+        "title": str,
+        "description": str,
+        "type": RecommendationTypeType,
+        "pillar": PillarType,
+        "priority": PriorityType,
+        "effort": EffortType,
+        "status": RecommendationStatusType,
+        "state": RecommendationStateType,
+        "impact": ImpactCategoryType,
+        "roi": RoiTypeDef,
+        "createdBy": str,
+        "createdAt": datetime,
+        "updateReason": NotRequired[str],
+        "numberOfResources": NotRequired[int],
+        "awsServices": NotRequired[list[str]],
+        "businessUnits": NotRequired[list[str]],
+        "applications": NotRequired[list[str]],
+        "lastModifiedBy": NotRequired[str],
+        "lastModifiedAt": NotRequired[datetime],
+    },
+)
+AggregationConfigurationUnionTypeDef = Union[
+    AggregationConfigurationTypeDef, AggregationConfigurationOutputTypeDef
+]
+
 class QuestionMetricTypeDef(TypedDict):
     QuestionId: NotRequired[str]
     Risk: NotRequired[RiskType]
@@ -926,6 +1317,52 @@ class UpdateReviewTemplateAnswerInputTypeDef(TypedDict):
     Notes: NotRequired[str]
     IsApplicable: NotRequired[bool]
     Reason: NotRequired[AnswerReasonType]
+
+class ContextContentOutputTypeDef(TypedDict):
+    accountIds: NotRequired[list[str]]
+    regions: NotRequired[list[str]]
+    awsServices: NotRequired[list[str]]
+    resourceTypes: NotRequired[list[str]]
+    resourceTags: NotRequired[list[ContextResourceTagTypeDef]]
+    applicationOverview: NotRequired[str]
+    industry: NotRequired[str]
+    applicationType: NotRequired[ApplicationTypeType]
+    criticality: NotRequired[CriticalityType]
+    architectureOverview: NotRequired[str]
+    additionalContext: NotRequired[str]
+
+class ContextContentTypeDef(TypedDict):
+    accountIds: NotRequired[Sequence[str]]
+    regions: NotRequired[Sequence[str]]
+    awsServices: NotRequired[Sequence[str]]
+    resourceTypes: NotRequired[Sequence[str]]
+    resourceTags: NotRequired[Sequence[ContextResourceTagTypeDef]]
+    applicationOverview: NotRequired[str]
+    industry: NotRequired[str]
+    applicationType: NotRequired[ApplicationTypeType]
+    criticality: NotRequired[CriticalityType]
+    architectureOverview: NotRequired[str]
+    additionalContext: NotRequired[str]
+
+class CreateAgentProfileResponseTypeDef(TypedDict):
+    name: str
+    displayName: str
+    description: str
+    businessOverview: str
+    pillars: list[PillarType]
+    deletionProtection: bool
+    executionRoleArn: str
+    aggregationConfiguration: list[AggregationConfigurationOutputTypeDef]
+    arn: str
+    eligibleForScheduledGeneration: bool
+    eligibleForArchitectureGeneration: bool
+    fieldErrors: dict[str, str]
+    tags: list[TagTypeDef]
+    createdBy: str
+    createdAt: datetime
+    lastModifiedBy: str
+    lastModifiedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateLensShareOutputTypeDef(TypedDict):
     ShareId: str
@@ -977,6 +1414,26 @@ class ExportLensOutputTypeDef(TypedDict):
     LensJSON: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetAgentProfileResponseTypeDef(TypedDict):
+    name: str
+    displayName: str
+    description: str
+    businessOverview: str
+    pillars: list[PillarType]
+    deletionProtection: bool
+    executionRoleArn: str
+    aggregationConfiguration: list[AggregationConfigurationOutputTypeDef]
+    arn: str
+    eligibleForScheduledGeneration: bool
+    eligibleForArchitectureGeneration: bool
+    fieldErrors: dict[str, str]
+    tags: list[TagTypeDef]
+    createdBy: str
+    createdAt: datetime
+    lastModifiedBy: str
+    lastModifiedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetGlobalSettingsOutputTypeDef(TypedDict):
     OrganizationSharingStatus: OrganizationSharingStatusType
     DiscoveryIntegrationStatus: DiscoveryIntegrationStatusType
@@ -987,6 +1444,16 @@ class ImportLensOutputTypeDef(TypedDict):
     LensArn: str
     Status: ImportLensStatusType
     ResponseMetadata: ResponseMetadataTypeDef
+
+class ListAgentRecommendationGenerationsResponseTypeDef(TypedDict):
+    items: list[AgentRecommendationGenerationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListAgentRecommendationItemsResponseTypeDef(TypedDict):
+    items: list[AgentRecommendationItemSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class ListCheckDetailsOutputTypeDef(TypedDict):
     CheckDetails: list[CheckDetailTypeDef]
@@ -1000,6 +1467,59 @@ class ListCheckSummariesOutputTypeDef(TypedDict):
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
     Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+StartAgentRecommendationGenerationResponseTypeDef = TypedDict(
+    "StartAgentRecommendationGenerationResponseTypeDef",
+    {
+        "id": str,
+        "profileArn": str,
+        "name": str,
+        "status": GenerationStatusType,
+        "estimatedCompletionTime": datetime,
+        "createdBy": str,
+        "createdAt": datetime,
+        "lastModifiedBy": str,
+        "lastModifiedAt": datetime,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+class UpdateAgentProfileResponseTypeDef(TypedDict):
+    name: str
+    displayName: str
+    description: str
+    businessOverview: str
+    pillars: list[PillarType]
+    deletionProtection: bool
+    executionRoleArn: str
+    aggregationConfiguration: list[AggregationConfigurationOutputTypeDef]
+    arn: str
+    eligibleForScheduledGeneration: bool
+    eligibleForArchitectureGeneration: bool
+    fieldErrors: dict[str, str]
+    tags: list[TagTypeDef]
+    createdBy: str
+    createdAt: datetime
+    lastModifiedBy: str
+    lastModifiedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateAgentGoalResponseTypeDef(TypedDict):
+    goal: GoalSummaryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAgentGoalResponseTypeDef(TypedDict):
+    goal: GoalSummaryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListAgentGoalsResponseTypeDef(TypedDict):
+    items: list[GoalSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class UpdateAgentGoalResponseTypeDef(TypedDict):
+    goal: GoalSummaryTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateProfileInputTypeDef(TypedDict):
@@ -1079,6 +1599,37 @@ NotificationSummaryTypeDef = TypedDict(
     },
 )
 
+class ListAgentContextsRequestPaginateTypeDef(TypedDict):
+    profileArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListAgentGoalsRequestPaginateTypeDef(TypedDict):
+    profileArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListAgentProfilesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListAgentRecommendationGenerationsRequestPaginateTypeDef(TypedDict):
+    profileArn: str
+    recommendationType: NotRequired[RecommendationTypeType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+ListAgentRecommendationItemsRequestPaginateTypeDef = TypedDict(
+    "ListAgentRecommendationItemsRequestPaginateTypeDef",
+    {
+        "recommendationArn": str,
+        "type": NotRequired[RecommendationItemTypeType],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+
+class ListAgentRecommendationsRequestPaginateTypeDef(TypedDict):
+    profileArn: str
+    state: NotRequired[RecommendationStateType]
+    pillar: NotRequired[PillarType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListProfileNotificationsOutputTypeDef(TypedDict):
     NotificationSummaries: list[ProfileNotificationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1121,6 +1672,16 @@ class PillarDifferenceTypeDef(TypedDict):
     PillarName: NotRequired[str]
     DifferenceStatus: NotRequired[DifferenceStatusType]
     QuestionDifferences: NotRequired[list[QuestionDifferenceTypeDef]]
+
+class ScopeOutputTypeDef(TypedDict):
+    pillars: list[PillarType]
+    goalIds: NotRequired[list[str]]
+    items: NotRequired[list[PillarItemOutputTypeDef]]
+
+class ScopeTypeDef(TypedDict):
+    pillars: Sequence[PillarType]
+    goalIds: NotRequired[Sequence[str]]
+    items: NotRequired[Sequence[PillarItemTypeDef]]
 
 class ProfileQuestionTypeDef(TypedDict):
     QuestionId: NotRequired[str]
@@ -1202,6 +1763,77 @@ class ChoiceTypeDef(TypedDict):
     ImprovementPlan: NotRequired[ChoiceContentTypeDef]
     AdditionalResources: NotRequired[list[AdditionalResourcesTypeDef]]
 
+class ListAgentProfilesResponseTypeDef(TypedDict):
+    items: list[AgentProfileSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+GetAgentRecommendationResponseTypeDef = TypedDict(
+    "GetAgentRecommendationResponseTypeDef",
+    {
+        "recommendationArn": str,
+        "profileArn": str,
+        "title": str,
+        "description": str,
+        "type": RecommendationTypeType,
+        "pillar": PillarType,
+        "priority": PriorityType,
+        "effort": EffortType,
+        "status": RecommendationStatusType,
+        "state": RecommendationStateType,
+        "updateReason": str,
+        "impact": ImpactCategoryType,
+        "roi": RoiTypeDef,
+        "numberOfResources": int,
+        "awsServices": list[str],
+        "businessUnits": list[str],
+        "applications": list[str],
+        "impactDetails": list[str],
+        "insights": list[InsightTypeDef],
+        "highlights": list[str],
+        "remediationSummary": RemediationSummaryTypeDef,
+        "crossPillarBenefits": list[CrossPillarBenefitTypeDef],
+        "tradeOffs": list[TradeOffTypeDef],
+        "sources": list[RecommendationSourceType],
+        "goals": list[RecommendationGoalTypeDef],
+        "tags": list[TagTypeDef],
+        "createdBy": str,
+        "createdAt": datetime,
+        "lastModifiedBy": str,
+        "lastModifiedAt": datetime,
+        "remediations": list[AgentRecommendationRemediationTypeDef],
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+class ListAgentRecommendationsResponseTypeDef(TypedDict):
+    items: list[AgentRecommendationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class CreateAgentProfileRequestTypeDef(TypedDict):
+    name: str
+    pillars: Sequence[PillarType]
+    executionRoleArn: str
+    aggregationConfiguration: Sequence[AggregationConfigurationUnionTypeDef]
+    displayName: NotRequired[str]
+    description: NotRequired[str]
+    businessOverview: NotRequired[str]
+    deletionProtection: NotRequired[bool]
+    clientToken: NotRequired[str]
+    tags: NotRequired[Sequence[TagTypeDef]]
+
+class UpdateAgentProfileRequestTypeDef(TypedDict):
+    profileArn: str
+    clientToken: NotRequired[str]
+    displayName: NotRequired[str]
+    description: NotRequired[str]
+    executionRoleArn: NotRequired[str]
+    aggregationConfiguration: NotRequired[Sequence[AggregationConfigurationUnionTypeDef]]
+    businessOverview: NotRequired[str]
+    pillars: NotRequired[Sequence[PillarType]]
+    deletionProtection: NotRequired[bool]
+
 class PillarMetricTypeDef(TypedDict):
     PillarId: NotRequired[str]
     RiskCounts: NotRequired[dict[RiskType, int]]
@@ -1215,6 +1847,24 @@ class ListLensReviewImprovementsOutputTypeDef(TypedDict):
     ImprovementSummaries: list[ImprovementSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+ContextSummaryTypeDef = TypedDict(
+    "ContextSummaryTypeDef",
+    {
+        "id": str,
+        "profileArn": str,
+        "title": str,
+        "contextType": Literal["APPLICATION"],
+        "content": ContextContentOutputTypeDef,
+        "createdBy": str,
+        "createdAt": datetime,
+        "applicationType": NotRequired[ApplicationTypeType],
+        "criticality": NotRequired[CriticalityType],
+        "lastModifiedBy": NotRequired[str],
+        "lastModifiedAt": NotRequired[datetime],
+    },
+)
+ContextContentUnionTypeDef = Union[ContextContentTypeDef, ContextContentOutputTypeDef]
 
 class LensReviewTypeDef(TypedDict):
     LensAlias: NotRequired[str]
@@ -1260,6 +1910,29 @@ class ListNotificationsOutputTypeDef(TypedDict):
 
 class VersionDifferencesTypeDef(TypedDict):
     PillarDifferences: NotRequired[list[PillarDifferenceTypeDef]]
+
+GetAgentRecommendationGenerationResponseTypeDef = TypedDict(
+    "GetAgentRecommendationGenerationResponseTypeDef",
+    {
+        "id": str,
+        "profileArn": str,
+        "name": str,
+        "status": GenerationStatusType,
+        "estimatedCompletionTime": datetime,
+        "createdBy": str,
+        "createdAt": datetime,
+        "lastModifiedBy": str,
+        "lastModifiedAt": datetime,
+        "additionalContext": dict[str, Any],
+        "scope": ScopeOutputTypeDef,
+        "startedAt": datetime,
+        "endedAt": datetime,
+        "progress": ProgressTypeDef,
+        "errorDetails": ErrorDetailsTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+ScopeUnionTypeDef = Union[ScopeTypeDef, ScopeOutputTypeDef]
 
 class ProfileTypeDef(TypedDict):
     ProfileArn: NotRequired[str]
@@ -1416,6 +2089,41 @@ class LensMetricTypeDef(TypedDict):
     Pillars: NotRequired[list[PillarMetricTypeDef]]
     RiskCounts: NotRequired[dict[RiskType, int]]
 
+class CreateAgentContextResponseTypeDef(TypedDict):
+    context: ContextSummaryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAgentContextResponseTypeDef(TypedDict):
+    context: ContextSummaryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListAgentContextsResponseTypeDef(TypedDict):
+    items: list[ContextSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class UpdateAgentContextResponseTypeDef(TypedDict):
+    context: ContextSummaryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateAgentContextRequestTypeDef(TypedDict):
+    profileArn: str
+    title: str
+    contextType: Literal["APPLICATION"]
+    content: ContextContentUnionTypeDef
+    clientToken: NotRequired[str]
+
+UpdateAgentContextRequestTypeDef = TypedDict(
+    "UpdateAgentContextRequestTypeDef",
+    {
+        "profileArn": str,
+        "id": str,
+        "clientToken": NotRequired[str],
+        "title": NotRequired[str],
+        "content": NotRequired[ContextContentUnionTypeDef],
+    },
+)
+
 class GetLensReviewOutputTypeDef(TypedDict):
     WorkloadId: str
     MilestoneNumber: int
@@ -1448,6 +2156,17 @@ class GetLensVersionDifferenceOutputTypeDef(TypedDict):
     LatestLensVersion: str
     VersionDifferences: VersionDifferencesTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+StartAgentRecommendationGenerationRequestTypeDef = TypedDict(
+    "StartAgentRecommendationGenerationRequestTypeDef",
+    {
+        "profileArn": str,
+        "types": Sequence[RecommendationTypeType],
+        "scope": ScopeUnionTypeDef,
+        "name": NotRequired[str],
+        "additionalContext": NotRequired[Mapping[str, Any]],
+    },
+)
 
 class GetProfileOutputTypeDef(TypedDict):
     Profile: ProfileTypeDef

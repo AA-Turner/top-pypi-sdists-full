@@ -49,6 +49,7 @@ from pmd_net_proto.lib.enums import IpProto
 from pmd_pytcp import stack
 from pmd_pytcp.lib.logger import log
 from pmd_pytcp.socket import (
+    SOCKET__DGRAM_RX_QUEUE__MAX_LEN,
     IPPROTO_IP,
     IPPROTO_IPV6,
     SO_LINGER,
@@ -379,6 +380,8 @@ class RawSocket(socket):
         Read data from socket.
         """
 
+        self._raise_if_closed()
+
         # SO_RCVTIMEO supplies the default if no per-call timeout.
         effective_timeout = timeout if timeout is not None else self._so_rcvtimeo
         if effective_timeout is None and not self._blocking:
@@ -387,6 +390,12 @@ class RawSocket(socket):
             acquired = await _sem_acquire(self._packet_rx_md_ready, timeout=effective_timeout)
 
         if acquired:
+            if self._closed:
+                # close()'s wake permit, not data: cascade it to
+                # any other parked waiter, then report the dead
+                # socket.
+                self._packet_rx_md_ready.release()
+                self._raise_if_closed()
             data_rx = self._packet_rx_md.pop(0).raw__data
             # POSIX recv(2) on SOCK_RAW truncates the packet to
             # 'bufsize' bytes and silently discards the remainder.
@@ -408,6 +417,8 @@ class RawSocket(socket):
         Read data from socket.
         """
 
+        self._raise_if_closed()
+
         # SO_RCVTIMEO supplies the default if no per-call timeout.
         effective_timeout = timeout if timeout is not None else self._so_rcvtimeo
         if effective_timeout is None and not self._blocking:
@@ -416,6 +427,12 @@ class RawSocket(socket):
             acquired = await _sem_acquire(self._packet_rx_md_ready, timeout=effective_timeout)
 
         if acquired:
+            if self._closed:
+                # close()'s wake permit, not data: cascade it to
+                # any other parked waiter, then report the dead
+                # socket.
+                self._packet_rx_md_ready.release()
+                self._raise_if_closed()
             packet_rx_md = self._packet_rx_md.pop(0)
             data_rx = packet_rx_md.raw__data
             if bufsize is not None:
@@ -458,11 +475,16 @@ class RawSocket(socket):
     @override
     def close(self) -> None:
         """
-        Close socket.
+        Close socket. Releases the rx semaphore once so a blocked
+        'recv()'-family waiter wakes with EBADF (each woken waiter
+        cascades the permit to the next); without the wake, nothing
+        would ever release a closed socket's semaphore again and
+        the waiter task would park for the loop's lifetime.
         """
 
         stack.sockets.unregister(self)
         self._mark_closed()
+        self._packet_rx_md_ready.release()
 
         log.enabled and log("socket", f"<g>[{self}]</> - Closed socket")
 
@@ -474,6 +496,11 @@ class RawSocket(socket):
         """
 
         if self._closed:
+            return
+        if len(self._packet_rx_md) >= SOCKET__DGRAM_RX_QUEUE__MAX_LEN:
+            # Full receive buffer: drop the NEWEST packet (POSIX
+            # raw(7) semantics) — an unread socket must not buffer
+            # inbound traffic without bound.
             return
         self._packet_rx_md.append(packet_rx_md)
         self._packet_rx_md_ready.release()

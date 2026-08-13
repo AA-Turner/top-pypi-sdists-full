@@ -31,88 +31,88 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     BroadcastDomain(
         {
+            "ports": [
+                {
+                    "uuid": "626b4d19-f34f-11e8-8373-005056bb6b85",
+                    "_links": {
+                        "self": {
+                            "href": "/api/network/ethernet/ports/626b4d19-f34f-11e8-8373-005056bb6b85"
+                        }
+                    },
+                    "node": {"name": "examplecluster-node01"},
+                    "name": "e0a",
+                },
+                {
+                    "uuid": "626b77b9-f34f-11e8-8373-005056bb6b85",
+                    "_links": {
+                        "self": {
+                            "href": "/api/network/ethernet/ports/626b77b9-f34f-11e8-8373-005056bb6b85"
+                        }
+                    },
+                    "node": {"name": "examplecluster-node01"},
+                    "name": "e0b",
+                },
+            ],
+            "uuid": "6970c2a9-f34f-11e8-8373-005056bb6b85",
+            "name": "Cluster",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/broadcast-domains/6970c2a9-f34f-11e8-8373-005056bb6b85"
                 }
             },
-            "name": "Cluster",
+            "mtu": 9000,
             "ipspace": {
                 "_links": {
                     "self": {
                         "href": "/api/network/ipspaces/6267eff8-f34f-11e8-8373-005056bb6b85"
                     }
                 },
-                "name": "Cluster",
                 "uuid": "6267eff8-f34f-11e8-8373-005056bb6b85",
+                "name": "Cluster",
             },
-            "mtu": 9000,
-            "ports": [
-                {
-                    "name": "e0a",
-                    "node": {"name": "examplecluster-node01"},
-                    "_links": {
-                        "self": {
-                            "href": "/api/network/ethernet/ports/626b4d19-f34f-11e8-8373-005056bb6b85"
-                        }
-                    },
-                    "uuid": "626b4d19-f34f-11e8-8373-005056bb6b85",
-                },
-                {
-                    "name": "e0b",
-                    "node": {"name": "examplecluster-node01"},
-                    "_links": {
-                        "self": {
-                            "href": "/api/network/ethernet/ports/626b77b9-f34f-11e8-8373-005056bb6b85"
-                        }
-                    },
-                    "uuid": "626b77b9-f34f-11e8-8373-005056bb6b85",
-                },
-            ],
-            "uuid": "6970c2a9-f34f-11e8-8373-005056bb6b85",
         }
     ),
     BroadcastDomain(
         {
+            "ports": [
+                {
+                    "uuid": "626bae19-f34f-11e8-8373-005056bb6b85",
+                    "_links": {
+                        "self": {
+                            "href": "/api/network/ethernet/ports/626bae19-f34f-11e8-8373-005056bb6b85"
+                        }
+                    },
+                    "node": {"name": "examplecluster-node01"},
+                    "name": "e0c",
+                },
+                {
+                    "uuid": "626bd677-f34f-11e8-8373-005056bb6b85",
+                    "_links": {
+                        "self": {
+                            "href": "/api/network/ethernet/ports/626bd677-f34f-11e8-8373-005056bb6b85"
+                        }
+                    },
+                    "node": {"name": "examplecluster-node01"},
+                    "name": "e0d",
+                },
+            ],
+            "uuid": "6972416c-f34f-11e8-8373-005056bb6b85",
+            "name": "Default",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/broadcast-domains/6972416c-f34f-11e8-8373-005056bb6b85"
                 }
             },
-            "name": "Default",
+            "mtu": 1500,
             "ipspace": {
                 "_links": {
                     "self": {
                         "href": "/api/network/ipspaces/5f650349-f34f-11e8-8373-005056bb6b85"
                     }
                 },
-                "name": "Default",
                 "uuid": "5f650349-f34f-11e8-8373-005056bb6b85",
+                "name": "Default",
             },
-            "mtu": 1500,
-            "ports": [
-                {
-                    "name": "e0c",
-                    "node": {"name": "examplecluster-node01"},
-                    "_links": {
-                        "self": {
-                            "href": "/api/network/ethernet/ports/626bae19-f34f-11e8-8373-005056bb6b85"
-                        }
-                    },
-                    "uuid": "626bae19-f34f-11e8-8373-005056bb6b85",
-                },
-                {
-                    "name": "e0d",
-                    "node": {"name": "examplecluster-node01"},
-                    "_links": {
-                        "self": {
-                            "href": "/api/network/ethernet/ports/626bd677-f34f-11e8-8373-005056bb6b85"
-                        }
-                    },
-                    "uuid": "626bd677-f34f-11e8-8373-005056bb6b85",
-                },
-            ],
-            "uuid": "6972416c-f34f-11e8-8373-005056bb6b85",
         }
     ),
 ]
@@ -143,45 +143,45 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 BroadcastDomain(
     {
+        "ports": [
+            {
+                "uuid": "3e539a62-f8a0-11e8-8d33-005056bb986f",
+                "_links": {
+                    "self": {
+                        "href": "/api/network/ethernet/ports/3e539a62-f8a0-11e8-8d33-005056bb986f"
+                    }
+                },
+                "node": {"name": "examplecluster-node01"},
+                "name": "e0a",
+            },
+            {
+                "uuid": "3e53c94a-f8a0-11e8-8d33-005056bb986f",
+                "_links": {
+                    "self": {
+                        "href": "/api/network/ethernet/ports/3e53c94a-f8a0-11e8-8d33-005056bb986f"
+                    }
+                },
+                "node": {"name": "examplecluster-node01"},
+                "name": "e0b",
+            },
+        ],
+        "uuid": "4475a2c8-f8a0-11e8-8d33-005056bb986f",
+        "name": "Cluster",
         "_links": {
             "self": {
                 "href": "/api/network/ethernet/broadcast-domains/4475a2c8-f8a0-11e8-8d33-005056bb986f/"
             }
         },
-        "name": "Cluster",
+        "mtu": 9000,
         "ipspace": {
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/3e518ed5-f8a0-11e8-8d33-005056bb986f"
                 }
             },
-            "name": "Cluster",
             "uuid": "3e518ed5-f8a0-11e8-8d33-005056bb986f",
+            "name": "Cluster",
         },
-        "mtu": 9000,
-        "ports": [
-            {
-                "name": "e0a",
-                "node": {"name": "examplecluster-node01"},
-                "_links": {
-                    "self": {
-                        "href": "/api/network/ethernet/ports/3e539a62-f8a0-11e8-8d33-005056bb986f"
-                    }
-                },
-                "uuid": "3e539a62-f8a0-11e8-8d33-005056bb986f",
-            },
-            {
-                "name": "e0b",
-                "node": {"name": "examplecluster-node01"},
-                "_links": {
-                    "self": {
-                        "href": "/api/network/ethernet/ports/3e53c94a-f8a0-11e8-8d33-005056bb986f"
-                    }
-                },
-                "uuid": "3e53c94a-f8a0-11e8-8d33-005056bb986f",
-            },
-        ],
-        "uuid": "4475a2c8-f8a0-11e8-8d33-005056bb986f",
     }
 )
 
@@ -212,13 +212,13 @@ with HostConnection(
 [
     BroadcastDomain(
         {
+            "uuid": "66b607e5-4bee-11e9-af6a-005056bb13c0",
+            "name": "bd1",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/broadcast-domains/66b607e5-4bee-11e9-af6a-005056bb13c0"
                 }
             },
-            "name": "bd1",
-            "uuid": "66b607e5-4bee-11e9-af6a-005056bb13c0",
         }
     )
 ]
@@ -252,45 +252,45 @@ with HostConnection(
 [
     BroadcastDomain(
         {
+            "ports": [
+                {
+                    "uuid": "acd67884-4bed-11e9-af6a-005056bb13c0",
+                    "_links": {
+                        "self": {
+                            "href": "/api/network/ethernet/ports/acd67884-4bed-11e9-af6a-005056bb13c0"
+                        }
+                    },
+                    "node": {"name": "examplecluster-node-1"},
+                    "name": "e0a",
+                },
+                {
+                    "uuid": "ace1a36f-4bed-11e9-af6a-005056bb13c0",
+                    "_links": {
+                        "self": {
+                            "href": "/api/network/ethernet/ports/ace1a36f-4bed-11e9-af6a-005056bb13c0"
+                        }
+                    },
+                    "node": {"name": "examplecluster-node-1"},
+                    "name": "e0b",
+                },
+            ],
+            "uuid": "ae69070c-4bed-11e9-af6a-005056bb13c0",
+            "name": "Cluster",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/broadcast-domains/ae69070c-4bed-11e9-af6a-005056bb13c0"
                 }
             },
-            "name": "Cluster",
+            "mtu": 1500,
             "ipspace": {
                 "_links": {
                     "self": {
                         "href": "/api/network/ipspaces/ac466a88-4bed-11e9-af6a-005056bb13c0"
                     }
                 },
-                "name": "Cluster",
                 "uuid": "ac466a88-4bed-11e9-af6a-005056bb13c0",
+                "name": "Cluster",
             },
-            "mtu": 1500,
-            "ports": [
-                {
-                    "name": "e0a",
-                    "node": {"name": "examplecluster-node-1"},
-                    "_links": {
-                        "self": {
-                            "href": "/api/network/ethernet/ports/acd67884-4bed-11e9-af6a-005056bb13c0"
-                        }
-                    },
-                    "uuid": "acd67884-4bed-11e9-af6a-005056bb13c0",
-                },
-                {
-                    "name": "e0b",
-                    "node": {"name": "examplecluster-node-1"},
-                    "_links": {
-                        "self": {
-                            "href": "/api/network/ethernet/ports/ace1a36f-4bed-11e9-af6a-005056bb13c0"
-                        }
-                    },
-                    "uuid": "ace1a36f-4bed-11e9-af6a-005056bb13c0",
-                },
-            ],
-            "uuid": "ae69070c-4bed-11e9-af6a-005056bb13c0",
         }
     )
 ]
@@ -328,8 +328,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 BroadcastDomain(
     {
-        "_links": {"self": {"href": "/api/network/ethernet/broadcast-domains/"}},
         "name": "bd1",
+        "_links": {"self": {"href": "/api/network/ethernet/broadcast-domains/"}},
         "mtu": 1500,
     }
 )

@@ -43,55 +43,55 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     VvolBinding(
         {
-            "vvol": {
-                "name": "/vol/vol1/vvol1",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/luns/28c02623-42fa-4f5f-a984-a02044bfc005"
-                    }
-                },
-                "uuid": "28c02623-42fa-4f5f-a984-a02044bfc005",
-            },
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/vvol-bindings/2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4/28c02623-42fa-4f5f-a984-a02044bfc005"
                 }
             },
+            "vvol": {
+                "uuid": "28c02623-42fa-4f5f-a984-a02044bfc005",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/luns/28c02623-42fa-4f5f-a984-a02044bfc005"
+                    }
+                },
+                "name": "/vol/vol1/vvol1",
+            },
             "protocol_endpoint": {
-                "name": "/vol/vol1/pe1",
+                "uuid": "2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4",
                 "_links": {
                     "self": {
                         "href": "/api/storage/luns/2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4"
                     }
                 },
-                "uuid": "2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4",
+                "name": "/vol/vol1/pe1",
             },
         }
     ),
     VvolBinding(
         {
-            "vvol": {
-                "name": "/vol/vol1/vvol2",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/luns/a8d4ba93-918f-40ad-a1e4-4d7b244bdcdf"
-                    }
-                },
-                "uuid": "a8d4ba93-918f-40ad-a1e4-4d7b244bdcdf",
-            },
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/vvol-bindings/2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4/a8d4ba93-918f-40ad-a1e4-4d7b244bdcdf"
                 }
             },
+            "vvol": {
+                "uuid": "a8d4ba93-918f-40ad-a1e4-4d7b244bdcdf",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/luns/a8d4ba93-918f-40ad-a1e4-4d7b244bdcdf"
+                    }
+                },
+                "name": "/vol/vol1/vvol2",
+            },
             "protocol_endpoint": {
-                "name": "/vol/vol1/pe1",
+                "uuid": "2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4",
                 "_links": {
                     "self": {
                         "href": "/api/storage/luns/2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4"
                     }
                 },
-                "uuid": "2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4",
+                "name": "/vol/vol1/pe1",
             },
         }
     ),
@@ -125,39 +125,39 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VvolBinding(
     {
-        "vvol": {
-            "name": "/vol/vol1/vvol1",
-            "_links": {
-                "self": {
-                    "href": "/api/storage/luns/28c02623-42fa-4f5f-a984-a02044bfc005"
-                }
-            },
-            "uuid": "28c02623-42fa-4f5f-a984-a02044bfc005",
-        },
+        "is_optimal": True,
         "_links": {
             "self": {
                 "href": "/api/protocols/san/vvol-bindings/2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4/28c02623-42fa-4f5f-a984-a02044bfc005"
             }
         },
-        "count": 1,
         "svm": {
-            "name": "svm1",
+            "uuid": "bf295ccc-a6bb-11eb-93e8-005056bb470f",
             "_links": {
                 "self": {"href": "/api/svm/svms/bf295ccc-a6bb-11eb-93e8-005056bb470f"}
             },
-            "uuid": "bf295ccc-a6bb-11eb-93e8-005056bb470f",
+            "name": "svm1",
+        },
+        "count": 1,
+        "vvol": {
+            "uuid": "28c02623-42fa-4f5f-a984-a02044bfc005",
+            "_links": {
+                "self": {
+                    "href": "/api/storage/luns/28c02623-42fa-4f5f-a984-a02044bfc005"
+                }
+            },
+            "name": "/vol/vol1/vvol1",
         },
         "id": 2411392,
         "protocol_endpoint": {
-            "name": "/vol/vol1/pe1",
+            "uuid": "2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4",
             "_links": {
                 "self": {
                     "href": "/api/storage/luns/2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4"
                 }
             },
-            "uuid": "2aab57f3-dc5d-491e-80d2-15c7ed5dd5c4",
+            "name": "/vol/vol1/pe1",
         },
-        "is_optimal": True,
     }
 )
 

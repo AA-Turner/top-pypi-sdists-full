@@ -1,10 +1,6 @@
-# -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-from __future__ import division, print_function, unicode_literals
 
 import math
-
 from warnings import warn
 
 try:
@@ -42,7 +38,7 @@ class LsaSummarizer(AbstractSummarizer):
 
         matrix = self._create_matrix(document, dictionary)
         matrix = self._compute_term_frequency(matrix)
-        u, sigma, v = singular_value_decomposition(matrix, full_matrices=False)
+        _u, sigma, v = singular_value_decomposition(matrix, full_matrices=False)
 
         ranks = iter(self._compute_ranks(sigma, v))
         return self._get_best_sentences(document.sentences, sentences_count,
@@ -57,7 +53,7 @@ class LsaSummarizer(AbstractSummarizer):
         words = map(self.normalize_word, document.words)
         unique_words = frozenset(self.stem_word(w) for w in words if w not in self._stop_words)
 
-        return dict((w, i) for i, w in enumerate(unique_words))
+        return {w: i for i, w in enumerate(unique_words)}
 
     def _create_matrix(self, document, dictionary):
         """

@@ -10,16 +10,16 @@ readme = "README.md"
 authors = [
     { name = "Scott Griffiths", email = "dr.scottgriffiths@gmail.com" }
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading :: 3 - Stable",
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "License :: OSI Approved :: MIT License",
@@ -58,11 +58,24 @@ dev = [
     "pytest-benchmark>=5.2.0",
     "pyright>=1.1.389",
     "build",
+    # Only used by tests/performance_comparison.py and tests/performance_scaling.py,
+    # both of which are run by hand.
+    "bitarray",
+]
+conformance = [
+    # Pinned standards/compatibility oracles for the low-precision dtype suite.
+    # Keep these separate from normal development and runtime dependencies so
+    # an upstream semantic change produces an intentional, reviewable update.
+    "gfloat==0.5.2",
+    "ml-dtypes==0.5.4",
+    # The Bitstring 5 oracle is installed from an exact source commit by the
+    # conformance workflow. It is kept out of dependency resolution because
+    # its pre-release metadata still excludes the current Tibs major version.
 ]
 
 [tool.maturin]
 module-name = "tibs"
-features = ["pyo3/extension-module", "pyo3/abi3-py310"]
+features = ["pyo3/extension-module"]
 
 [project.urls]
 homepage = "https://github.com/scott-griffiths/tibs"

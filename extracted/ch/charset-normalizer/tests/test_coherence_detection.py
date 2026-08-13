@@ -3,12 +3,17 @@ from __future__ import annotations
 import pytest
 
 from charset_normalizer.cd import (
+    characters_popularity_compare,
     encoding_languages,
     filter_alt_coherence_matches,
     get_target_features,
     is_multi_byte_encoding,
     mb_encoding_languages,
 )
+
+
+def test_characters_popularity_compare_with_duplicates():
+    assert characters_popularity_compare("English", ["e", "e", "t", "a"]) == 0.25
 
 
 @pytest.mark.parametrize(

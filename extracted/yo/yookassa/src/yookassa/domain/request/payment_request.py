@@ -19,6 +19,7 @@ from yookassa.domain.models.payment_data.request.receiver_factory import Receive
 from yookassa.domain.models.receipt import Receipt
 from yookassa.domain.models.payment_data.statement import Statement, StatementFactory
 from yookassa.domain.models.transfer import Transfer
+from yookassa.domain.models.pos_link_data.request.pos_link_payment import PosLinkPayment
 
 DESCRIPTION_MAX_LENGTH = 128
 MERCHANT_CUSTOMER_MAX_LENGTH = 200
@@ -91,6 +92,9 @@ class PaymentRequest(RequestObject):
 
     __statements = []
     """Данные для отправки справки. Необходимо передавать, если вы хотите, чтобы после оплаты пользователь получил справку. Сейчас доступен один тип справок — квитанция по платежу. Это информация об успешном платеже, которую ЮKassa отправляет на электронную почту пользователя. Квитанцию можно отправить, если оплата прошла с банковской карты, через SberPay или СБП. """  # noqa: E501
+
+    __pos_link = None
+    """Данные о кассовой ссылке для проведения платежа в офлайне."""  # noqa: E501
 
     @property
     def amount(self):
@@ -571,6 +575,31 @@ class PaymentRequest(RequestObject):
                     raise TypeError(f'Invalid statement item type: {type(item)}')
         else:
             raise TypeError('Invalid statements data type in payment_request.statements')
+
+    @property
+    def pos_link(self):
+        """
+        Возвращает pos_link модели PaymentRequest.
+
+        :return: pos_link модели PaymentRequest.
+        :rtype: PosLinkPayment
+        """
+        return self.__pos_link
+
+    @pos_link.setter
+    def pos_link(self, value):
+        """
+        Устанавливает pos_link модели PaymentRequest.
+
+        :param value: pos_link модели PaymentRequest.
+        :type value: PosLinkPayment
+        """
+        if isinstance(value, dict):
+            self.__pos_link = PosLinkPayment(value)
+        elif isinstance(value, PosLinkPayment):
+            self.__pos_link = value
+        else:
+            raise TypeError('Invalid pos_link value type')
 
     def validate(self):
         """

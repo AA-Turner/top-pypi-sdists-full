@@ -1,14 +1,12 @@
-# -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-from __future__ import division, print_function, unicode_literals
-
-from breadability.readable import Article
-from ..utils import cached_property, fetch_url
-from ..models.dom import Sentence, Paragraph, ObjectDocumentModel
-from .parser import DocumentParser
 
 from string import punctuation
+
+from breadability.readable import Article
+
+from ..models.dom import ObjectDocumentModel, Paragraph, Sentence
+from ..utils import cached_property, fetch_url
+from .parser import DocumentParser
 
 
 class HtmlParser(DocumentParser):
@@ -37,7 +35,7 @@ class HtmlParser(DocumentParser):
         return cls(data, tokenizer, url)
 
     def __init__(self, html_content, tokenizer, url=None):
-        super(HtmlParser, self).__init__(tokenizer)
+        super().__init__(tokenizer)
         self._article = Article(html_content, url)
 
     @cached_property

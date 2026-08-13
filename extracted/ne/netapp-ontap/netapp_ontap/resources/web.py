@@ -49,28 +49,28 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Web(
     {
-        "_links": {"self": {"href": "/api/cluster/web"}},
-        "ocsp_enabled": False,
-        "csrf": {
-            "token": {"concurrent_limit": 500, "max_timeout": 650, "idle_timeout": 900},
-            "protection_enabled": True,
-        },
-        "http_port": 80,
-        "https_port": 443,
-        "http_enabled": False,
-        "hsts": {"max_age": 31536000, "enabled": True},
         "state": "online",
+        "csrf": {
+            "protection_enabled": True,
+            "token": {"concurrent_limit": 500, "max_timeout": 650, "idle_timeout": 900},
+        },
+        "ocsp_enabled": False,
+        "https_port": 443,
+        "_links": {"self": {"href": "/api/cluster/web"}},
         "client_enabled": False,
+        "enabled": True,
+        "http_enabled": False,
+        "http_port": 80,
+        "hsts": {"max_age": 31536000, "enabled": True},
         "certificate": {
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/a3bb219d-4382-1fe0-9c06-1070568ea23d"
                 }
             },
-            "name": "cert1",
             "uuid": "a3bb219d-4382-1fe0-9c06-1070568ea23d",
+            "name": "cert1",
         },
-        "enabled": True,
     }
 )
 

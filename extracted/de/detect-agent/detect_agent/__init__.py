@@ -15,15 +15,17 @@ KNOWN_AGENTS: dict[str, str] = known_agents_map()
 
 CURSOR: Literal["cursor"] = "cursor"
 CURSOR_CLI: Literal["cursor-cli"] = "cursor-cli"
-CLAUDE: Literal["claude"] = "claude"
+CLAUDE: Literal["claude_code"] = "claude_code"
 COWORK: Literal["cowork"] = "cowork"
 DEVIN: Literal["devin"] = "devin"
 REPLIT: Literal["replit"] = "replit"
-GEMINI: Literal["gemini"] = "gemini"
-CODEX: Literal["codex"] = "codex"
+KIMI: Literal["kimi"] = "kimi"
+GROK: Literal["grok"] = "grok"
+GEMINI: Literal["gemini_cli"] = "gemini_cli"
+CODEX: Literal["codex_cli"] = "codex_cli"
 ANTIGRAVITY: Literal["antigravity"] = "antigravity"
 AUGMENT_CLI: Literal["augment-cli"] = "augment-cli"
-OPENCODE: Literal["opencode"] = "opencode"
+OPENCODE: Literal["open_code"] = "open_code"
 GITHUB_COPILOT: Literal["github-copilot"] = "github-copilot"
 CLINE: Literal["cline"] = "cline"
 GOOSE: Literal["goose"] = "goose"
@@ -35,15 +37,17 @@ OPENCLAW: Literal["openclaw"] = "openclaw"
 KnownAgentNames = Literal[
     "cursor",
     "cursor-cli",
-    "claude",
+    "claude_code",
     "cowork",
     "devin",
     "replit",
-    "gemini",
-    "codex",
+    "kimi",
+    "grok",
+    "gemini_cli",
+    "codex_cli",
     "antigravity",
     "augment-cli",
-    "opencode",
+    "open_code",
     "github-copilot",
     "cline",
     "goose",

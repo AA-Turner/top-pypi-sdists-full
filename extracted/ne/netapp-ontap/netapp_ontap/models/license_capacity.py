@@ -34,7 +34,7 @@ Valid choices:
 * gpu_count """
 
     used_size = Size(data_key="used_size", allow_none=True)
-    r""" Specifies the total number of GPUs in the system when measurement_unit is GPUs, else specifies the bytes used. """
+    r""" Total number of GPUs in use on the system when measurement_unit is GPUs; otherwise, the number of bytes in use. """
 
     @property
     def resource(self):

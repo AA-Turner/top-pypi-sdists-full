@@ -13,6 +13,7 @@ from datadog_api_client.v2.api.application_security_api import ApplicationSecuri
 from datadog_api_client.v2.api.audit_api import AuditApi
 from datadog_api_client.v2.api.authn_mappings_api import AuthNMappingsApi
 from datadog_api_client.v2.api.bits_ai_api import BitsAIApi
+from datadog_api_client.v2.api.ci_visibility_git_hub_accounts_api import CIVisibilityGitHubAccountsApi
 from datadog_api_client.v2.api.ci_visibility_pipelines_api import CIVisibilityPipelinesApi
 from datadog_api_client.v2.api.ci_visibility_tests_api import CIVisibilityTestsApi
 from datadog_api_client.v2.api.csm_agents_api import CSMAgentsApi
@@ -102,7 +103,6 @@ from datadog_api_client.v2.api.restriction_policies_api import RestrictionPolici
 from datadog_api_client.v2.api.roles_api import RolesApi
 from datadog_api_client.v2.api.rum_audience_management_api import RumAudienceManagementApi
 from datadog_api_client.v2.api.rum_metrics_api import RumMetricsApi
-from datadog_api_client.v2.api.rum_rate_limit_api import RumRateLimitApi
 from datadog_api_client.v2.api.rum_replay_heatmaps_api import RumReplayHeatmapsApi
 from datadog_api_client.v2.api.rum_replay_playlists_api import RumReplayPlaylistsApi
 from datadog_api_client.v2.api.rum_replay_sessions_api import RumReplaySessionsApi
@@ -156,6 +156,7 @@ __all__ = [
     "AuditApi",
     "AuthNMappingsApi",
     "BitsAIApi",
+    "CIVisibilityGitHubAccountsApi",
     "CIVisibilityPipelinesApi",
     "CIVisibilityTestsApi",
     "CSMAgentsApi",
@@ -245,7 +246,6 @@ __all__ = [
     "RolesApi",
     "RumAudienceManagementApi",
     "RumMetricsApi",
-    "RumRateLimitApi",
     "RumReplayHeatmapsApi",
     "RumReplayPlaylistsApi",
     "RumReplaySessionsApi",

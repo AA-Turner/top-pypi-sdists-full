@@ -233,9 +233,11 @@ class GetControllersResponse(_message.Message):
         FEM_TYPE_UNSPECIFIED: _ClassVar[GetControllersResponse.FemType]
         FEM_TYPE_LF: _ClassVar[GetControllersResponse.FemType]
         FEM_TYPE_MW: _ClassVar[GetControllersResponse.FemType]
+        FEM_TYPE_BB: _ClassVar[GetControllersResponse.FemType]
     FEM_TYPE_UNSPECIFIED: GetControllersResponse.FemType
     FEM_TYPE_LF: GetControllersResponse.FemType
     FEM_TYPE_MW: GetControllersResponse.FemType
+    FEM_TYPE_BB: GetControllersResponse.FemType
     class ControllerType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = []
         CONTROLLER_TYPE_UNSPECIFIED: _ClassVar[GetControllersResponse.ControllerType]
@@ -260,7 +262,7 @@ class GetControllersResponse(_message.Message):
         details: str
         def __init__(self, details: _Optional[str] = ...) -> None: ...
     class Controller(_message.Message):
-        __slots__ = ["hostname", "controller_type", "fems", "temperatures"]
+        __slots__ = ["hostname", "controller_type", "fems", "temperatures", "metric"]
         class FemsEntry(_message.Message):
             __slots__ = ["key", "value"]
             KEY_FIELD_NUMBER: _ClassVar[int]
@@ -279,11 +281,26 @@ class GetControllersResponse(_message.Message):
         CONTROLLER_TYPE_FIELD_NUMBER: _ClassVar[int]
         FEMS_FIELD_NUMBER: _ClassVar[int]
         TEMPERATURES_FIELD_NUMBER: _ClassVar[int]
+        METRIC_FIELD_NUMBER: _ClassVar[int]
         hostname: str
         controller_type: GetControllersResponse.ControllerType
         fems: _containers.MessageMap[int, GetControllersResponse.Fem]
         temperatures: _containers.ScalarMap[str, float]
-        def __init__(self, hostname: _Optional[str] = ..., controller_type: _Optional[_Union[GetControllersResponse.ControllerType, str]] = ..., fems: _Optional[_Mapping[int, GetControllersResponse.Fem]] = ..., temperatures: _Optional[_Mapping[str, float]] = ...) -> None: ...
+        metric: GetControllersResponse.Metric
+        def __init__(self, hostname: _Optional[str] = ..., controller_type: _Optional[_Union[GetControllersResponse.ControllerType, str]] = ..., fems: _Optional[_Mapping[int, GetControllersResponse.Fem]] = ..., temperatures: _Optional[_Mapping[str, float]] = ..., metric: _Optional[_Union[GetControllersResponse.Metric, _Mapping]] = ...) -> None: ...
+    class Metric(_message.Message):
+        __slots__ = ["cpu_utilization", "qop_cpu_utilization", "memory_available", "qop_memory", "disk_available"]
+        CPU_UTILIZATION_FIELD_NUMBER: _ClassVar[int]
+        QOP_CPU_UTILIZATION_FIELD_NUMBER: _ClassVar[int]
+        MEMORY_AVAILABLE_FIELD_NUMBER: _ClassVar[int]
+        QOP_MEMORY_FIELD_NUMBER: _ClassVar[int]
+        DISK_AVAILABLE_FIELD_NUMBER: _ClassVar[int]
+        cpu_utilization: float
+        qop_cpu_utilization: float
+        memory_available: float
+        qop_memory: float
+        disk_available: float
+        def __init__(self, cpu_utilization: _Optional[float] = ..., qop_cpu_utilization: _Optional[float] = ..., memory_available: _Optional[float] = ..., qop_memory: _Optional[float] = ..., disk_available: _Optional[float] = ...) -> None: ...
     class Fem(_message.Message):
         __slots__ = ["type"]
         TYPE_FIELD_NUMBER: _ClassVar[int]

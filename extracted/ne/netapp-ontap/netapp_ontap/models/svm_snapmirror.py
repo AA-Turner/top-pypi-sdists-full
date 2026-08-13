@@ -28,6 +28,15 @@ class SvmSnapmirrorSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     protected_volumes_count = Size(data_key="protected_volumes_count", allow_none=True)
     r""" Specifies the number of SVM DR protected volumes in the SVM. """
 
+    protection_type = marshmallow_fields.Str(data_key="protection_type", allow_none=True)
+    r""" Specifies whether the SVM protected using SVM DR or Snapmirror Active Sync relationship.
+
+Valid choices:
+
+* default
+* svmdr
+* smas_nas """
+
     @property
     def resource(self):
         return SvmSnapmirror
@@ -36,8 +45,9 @@ class SvmSnapmirrorSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
         "is_protected",
         "protected_consistency_group_count",
         "protected_volumes_count",
+        "protection_type",
     ]
-    """is_protected,protected_consistency_group_count,protected_volumes_count,"""
+    """is_protected,protected_consistency_group_count,protected_volumes_count,protection_type,"""
 
     patchable_fields = [
     ]

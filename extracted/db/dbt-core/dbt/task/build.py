@@ -1,5 +1,8 @@
 from typing import AbstractSet, Dict, Iterable, List, Optional, Set, Type
 
+from opentelemetry import context
+from opentelemetry.context.context import Context
+
 from dbt.adapters.base import BaseAdapter, BaseRelation
 from dbt.artifacts.resources import Catalog
 from dbt.artifacts.schemas.results import NodeResult, NodeStatus, RunStatus
@@ -14,6 +17,7 @@ from dbt.runners import ExposureRunner as exposure_runner
 from dbt.runners import SavedQueryRunner as saved_query_runner
 from dbt.task.base import BaseRunner, resource_types_from_args
 from dbt.task.run import MicrobatchModelRunner
+from dbt.task.runnable import _otel_enabled
 
 from .function import FunctionRunner as function_runner
 from .run import ModelRunner as run_model_runner
@@ -61,6 +65,7 @@ class BuildTask(RunTask):
         super().__init__(args, config, manifest, catalogs=catalogs)
         self.selected_unit_tests: Set = set()
         self.model_to_unit_test_map: Dict[str, List] = {}
+        self._unit_test_count_added: bool = False
 
     def before_run(self, adapter: BaseAdapter, selected_uids: AbstractSet[str]) -> RunStatus:
         self._maybe_show_reuse_relations_hint()
@@ -135,8 +140,12 @@ class BuildTask(RunTask):
 
     # overrides handle_job_queue in runnable.py
     def handle_job_queue(self, pool, callback):
-        if self.run_count == 0:
+        # Unit tests run alongside their model, not as queue nodes, so add their
+        # count to num_nodes exactly once (run_count is an unreliable guard: the
+        # async workers may leave it at 0 across several dequeues).
+        if not self._unit_test_count_added:
             self.num_nodes = self.num_nodes + len(self.selected_unit_tests)
+            self._unit_test_count_added = True
         node = self.job_queue.get()
         if (
             node.resource_type == NodeType.Model
@@ -151,12 +160,19 @@ class BuildTask(RunTask):
     def handle_model_with_unit_tests_node(self, node, pool, callback):
         self._raise_set_error()
         args = [node, pool]
+        # Mirrors _submit: capture the submitting thread's context so the node
+        # and its unit tests parent under the invocation span instead of
+        # starting new traces on the worker thread.
+        if _otel_enabled():
+            args.append(context.get_current())
         if self.config.args.single_threaded:
             callback(self.call_model_and_unit_tests_runner(*args))
         else:
             pool.apply_async(self.call_model_and_unit_tests_runner, args=args, callback=callback)
 
-    def call_model_and_unit_tests_runner(self, node, pool) -> NodeResult:
+    def call_model_and_unit_tests_runner(
+        self, node, pool, parent_context: Optional[Context] = None
+    ) -> NodeResult:
         assert self.manifest
         for unit_test_unique_id in self.model_to_unit_test_map[node.unique_id]:
             unit_test_node = self.manifest.unit_tests[unit_test_unique_id]
@@ -165,7 +181,7 @@ class BuildTask(RunTask):
             if node.unique_id in self._skipped_children:
                 # cause is only for ephemeral nodes
                 unit_test_runner.do_skip(cause=None)
-            result = self.call_runner(unit_test_runner)
+            result = self.call_runner(unit_test_runner, parent_context)
             self._handle_result(result)
             if result.status in self.MARK_DEPENDENT_ERRORS_STATUSES:
                 # The _skipped_children dictionary can contain a run_result for ephemeral nodes,
@@ -180,7 +196,7 @@ class BuildTask(RunTask):
             runner.set_parent_task(self)
             runner.set_pool(pool)
 
-        return self.call_runner(runner)
+        return self.call_runner(runner, parent_context)
 
     # handle non-model-plus-unit-tests nodes
     def handle_job_queue_node(self, node, pool, callback):

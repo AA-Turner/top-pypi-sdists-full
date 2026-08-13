@@ -23,7 +23,12 @@ from music_assistant_models.api import (
     parse_message,
 )
 from music_assistant_models.enums import EventType, ImageType
-from music_assistant_models.errors import ERROR_MAP, AuthenticationFailed, AuthenticationRequired
+from music_assistant_models.errors import (
+    ERROR_MAP,
+    AuthenticationFailed,
+    AuthenticationRequired,
+    MusicAssistantError,
+)
 from music_assistant_models.event import MassEvent
 from music_assistant_models.provider import ProviderInstance, ProviderManifest
 
@@ -31,6 +36,7 @@ from .auth import Auth
 from .config import Config
 from .connection import WebsocketsConnection
 from .constants import API_SCHEMA_VERSION
+from .dashboard import Dashboard
 from .exceptions import ConnectionClosed, InvalidServerVersion, InvalidState
 from .metadata import Metadata
 from .music import Music
@@ -38,6 +44,7 @@ from .player_queues import PlayerQueues
 from .players import Players
 
 if TYPE_CHECKING:
+    from concurrent.futures import Future
     from types import TracebackType
 
     from aiohttp import ClientSession
@@ -90,6 +97,7 @@ class MusicAssistantClient:
         self._player_queues = PlayerQueues(self)
         self._music = Music(self)
         self._metadata = Metadata(self)
+        self._dashboard = Dashboard(self)
         # below items are retrieved after connect
         self._server_info: ServerInfoMessage | None = None
         self._provider_manifests: dict[str, ProviderManifest] = {}
@@ -139,6 +147,11 @@ class MusicAssistantClient:
     def metadata(self) -> Metadata:
         """Return Metadata handler."""
         return self._metadata
+
+    @property
+    def dashboard(self) -> Dashboard:
+        """Return Dashboard handler."""
+        return self._dashboard
 
     def get_provider_manifest(self, domain: str) -> ProviderManifest:
         """Return Provider manifests of single provider(domain)."""
@@ -343,7 +356,8 @@ class MusicAssistantClient:
                         return partial_result
                     return response.result
                 if isinstance(response, ErrorResultMessage):
-                    exc = ERROR_MAP[response.error_code]
+                    # unknown codes (newer server) degrade to the generic error
+                    exc = ERROR_MAP.get(response.error_code, MusicAssistantError)
                     raise exc(response.details)
 
         # Normal path when start_listening is running
@@ -423,6 +437,7 @@ class MusicAssistantClient:
             }
             await self._player_queues.fetch_state()
             await self._players.fetch_state()
+            await self._dashboard.fetch_state()
 
             if init_ready is not None:
                 init_ready.set()
@@ -478,7 +493,8 @@ class MusicAssistantClient:
                 return
             if isinstance(msg, ErrorResultMessage):
                 self._partial_results.pop(msg.message_id, None)
-                exc = ERROR_MAP[msg.error_code]
+                # unknown codes (newer server) degrade to the generic error
+                exc = ERROR_MAP.get(msg.error_code, MusicAssistantError)
                 future.set_exception(exc(msg.details))
                 return
 
@@ -511,9 +527,17 @@ class MusicAssistantClient:
             if not (id_filter is None or event.object_id in id_filter):
                 continue
             if inspect.iscoroutinefunction(cb_func):
-                asyncio.run_coroutine_threadsafe(cb_func(event), self._loop)
+                task = asyncio.run_coroutine_threadsafe(cb_func(event), self._loop)
+                task.add_done_callback(self._log_subscriber_error)
             else:
                 self._loop.call_soon_threadsafe(cb_func, event)
+
+    def _log_subscriber_error(self, future: Future[None]) -> None:
+        """Log an exception raised by an async subscriber callback."""
+        if future.cancelled():
+            return
+        if (err := future.exception()) is not None:
+            self.logger.error("Error in event subscriber callback", exc_info=err)
 
     async def __aenter__(self) -> Self:
         """Initialize and connect the connection to the Music Assistant Server."""

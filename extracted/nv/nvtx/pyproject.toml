@@ -1,6 +1,9 @@
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 [tool.black]
 line-length = 79
-target-version = ["py36"]
+target-version = ["py39"]
 include = '\.py?$'
 exclude = '''
 /(
@@ -23,9 +26,10 @@ requires = ["setuptools", "wheel", "Cython>=3.1"]
 
 [project]
 name = "nvtx"
-version = "0.2.15"
+version = "0.2.16"
 description="Python NVTX - Python code annotation library"
 readme = "README.md"
+requires-python = ">=3.9"
 license = "Apache-2.0 WITH LLVM-exception"
 license-files = ["LICENSE.txt"]
 authors = [{name = "NVIDIA Corporation"}]
@@ -58,24 +62,20 @@ docs = ["sphinx", "nvidia_sphinx_theme"]
 
 [tool.pytest.ini_options]
 addopts = [
-    "--import-mode=importlib",  # Recomended by pytest: https://docs.pytest.org/en/7.1.x/explanation/goodpractices.html#choosing-a-test-layout-import-rules
+    "--import-mode=importlib",  # Recommended by pytest: https://docs.pytest.org/en/7.1.x/explanation/goodpractices.html#choosing-a-test-layout-import-rules
 ]
 
 [tool.cibuildwheel]
-skip = ["*musllinux*", "cp38-*"]
+skip = ["*musllinux*"]
 build = "cp*"
-test-command = """
-pytest {package}/tests
-pytest --enable-injection {package}/tests
-"""
+test-command = 'python "{project}/python/tests/run_ci_tests.py"'
 test-extras = "test"
-enable = "cpython-freethreading"
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64", "aarch64"]
 
 [tool.cibuildwheel.windows]
-archs = ["AMD64"]
+archs = ["AMD64", "ARM64"]
 
 [tool.cibuildwheel.macos]
 archs = ["all"]

@@ -34,24 +34,24 @@ with HostConnection(
 ```
 MultiAdminVerifyRequest(
     {
-        "index": 1,
-        "required_approvers": 1,
-        "user_requested": "admin",
-        "pending_approvers": 1,
         "execute_on_approval": False,
-        "state": "expired",
-        "permitted_users": ["example_user"],
         "owner": {
-            "name": "cluster1",
+            "uuid": "c1483186-6e73-11ec-bc92-005056a7ad04",
             "_links": {
                 "self": {"href": "/api/svm/svms/c1483186-6e73-11ec-bc92-005056a7ad04"}
             },
-            "uuid": "c1483186-6e73-11ec-bc92-005056a7ad04",
+            "name": "cluster1",
         },
-        "query": "",
-        "create_time": "2022-01-05T20:07:09-05:00",
         "approve_expiry_time": "2022-01-05T21:07:09-05:00",
+        "pending_approvers": 1,
+        "permitted_users": ["example_user"],
+        "create_time": "2022-01-05T20:07:09-05:00",
+        "user_requested": "admin",
+        "index": 1,
         "operation": "security multi-admin-verify modify",
+        "required_approvers": 1,
+        "state": "expired",
+        "query": "",
     }
 )
 

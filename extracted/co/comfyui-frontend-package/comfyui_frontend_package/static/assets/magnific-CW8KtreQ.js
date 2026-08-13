@@ -13,4 +13,3 @@ var e=`<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="ht
 <path d="M492.858 461.125H19.1416L256 50.875L492.858 461.125ZM148.18 386.625H363.82L256 199.875L148.18 386.625Z" fill="url(#magnific_gradient)"/>
 </svg>
 `;export{e as default};
-//# sourceMappingURL=magnific-CW8KtreQ.js.map

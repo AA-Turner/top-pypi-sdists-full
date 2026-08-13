@@ -150,7 +150,7 @@ class TuiPetApp(ActionsMixin, App):
     """
     # the release-news line (title-screen msg box, first launch per build) --
     # UPDATE THIS WITH EVERY RELEASE that ships something player-visible
-    WHATS_NEW = ("THE ZONE PICKER TELLS YOU WHAT YOU ARE WALKING INTO: pick a road and the card now names the BOSS waiting at the gate, how many legs the road runs, whether there is a town to rest at, and your standing best. It also gives you the same verdict the gate itself will — so 'Too hurt to fight' turns up before you set out, not forty legs later. With this, every screen in the game has its own status card; none of them fall back to your pet vitals any more.")
+    WHATS_NEW = ("EVERY MENU NOW MEASURES ITS LINES THE WAY YOUR TERMINAL DRAWS THEM: headers, rows, footers and the scrolling status line all counted characters, but a wide glyph — an emoji, a Japanese name — is one character and TWO columns, so a single one pushed the line off the edge and the tail wrapped onto a row you cannot see. All of it counts columns now, at every step of the scroll, and a long title gives way to the count beside it instead of shoving it out.")
 
     BINDINGS = [
         # jogress is LOBBY-ONLY (fusion needs a real partner from the

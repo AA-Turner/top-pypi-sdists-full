@@ -53,24 +53,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroupSnapshot(
         {
-            "name": "sa3s1",
+            "uuid": "92c6c770-17a1-11eb-b141-005056acd498",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/a8d0626a-17a0-11eb-b141-005056acd498/snapshots/92c6c770-17a1-11eb-b141-005056acd498"
                 }
             },
-            "uuid": "92c6c770-17a1-11eb-b141-005056acd498",
+            "name": "sa3s1",
         }
     ),
     ConsistencyGroupSnapshot(
         {
-            "name": "sa3s2",
+            "uuid": "c5a250ba-17a1-11eb-b141-005056acd498",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/a8d0626a-17a0-11eb-b141-005056acd498/snapshots/c5a250ba-17a1-11eb-b141-005056acd498"
                 }
             },
-            "uuid": "c5a250ba-17a1-11eb-b141-005056acd498",
+            "name": "sa3s2",
         }
     ),
 ]
@@ -101,31 +101,31 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroupSnapshot(
     {
-        "name": "sa3s2",
-        "consistency_type": "crash",
-        "_links": {
-            "self": {
-                "href": "/api/application/consistency-groups/ddabc6a5-4196-11ec-8674-005056accf3f/snapshots/a175c021-4199-11ec-8674-005056accf3f"
-            }
-        },
-        "comment": "manually created snapshot",
-        "create_time": "2021-11-09T15:14:23-05:00",
         "uuid": "a175c021-4199-11ec-8674-005056accf3f",
         "consistency_group": {
-            "name": "CG_1",
+            "uuid": "ddabc6a5-4196-11ec-8674-005056accf3f",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/ddabc6a5-4196-11ec-8674-005056accf3f"
                 }
             },
-            "uuid": "ddabc6a5-4196-11ec-8674-005056accf3f",
+            "name": "CG_1",
         },
+        "_links": {
+            "self": {
+                "href": "/api/application/consistency-groups/ddabc6a5-4196-11ec-8674-005056accf3f/snapshots/a175c021-4199-11ec-8674-005056accf3f"
+            }
+        },
+        "create_time": "2021-11-09T15:14:23-05:00",
+        "consistency_type": "crash",
+        "comment": "manually created snapshot",
+        "name": "sa3s2",
         "svm": {
-            "name": "vs1",
+            "uuid": "7379fecb-4195-11ec-8674-005056accf3f",
             "_links": {
                 "self": {"href": "/api/svm/svms/7379fecb-4195-11ec-8674-005056accf3f"}
             },
-            "uuid": "7379fecb-4195-11ec-8674-005056accf3f",
+            "name": "vs1",
         },
     }
 )
@@ -152,62 +152,62 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroupSnapshot(
         {
-            "name": "cg3ss",
-            "_links": {
-                "self": {
-                    "href": "/api/application/consistency-groups/1218f900-c124-11ee-bbfe-005056acb65e/snapshots/7da4d364-c12e-11ee-bbfe-005056acb65e"
-                }
-            },
             "uuid": "7da4d364-c12e-11ee-bbfe-005056acb65e",
             "consistency_group": {
-                "name": "cg3",
+                "uuid": "1218f900-c124-11ee-bbfe-005056acb65e",
                 "_links": {
                     "self": {
                         "href": "/api/application/consistency-groups/1218f900-c124-11ee-bbfe-005056acb65e"
                     }
                 },
-                "uuid": "1218f900-c124-11ee-bbfe-005056acb65e",
+                "name": "cg3",
             },
+            "_links": {
+                "self": {
+                    "href": "/api/application/consistency-groups/1218f900-c124-11ee-bbfe-005056acb65e/snapshots/7da4d364-c12e-11ee-bbfe-005056acb65e"
+                }
+            },
+            "name": "cg3ss",
         }
     ),
     ConsistencyGroupSnapshot(
         {
-            "name": "cg2ss",
-            "_links": {
-                "self": {
-                    "href": "/api/application/consistency-groups/15a8f66e-c124-11ee-bbfe-005056acb65e/snapshots/83595384-c12e-11ee-bbfe-005056acb65e"
-                }
-            },
             "uuid": "83595384-c12e-11ee-bbfe-005056acb65e",
             "consistency_group": {
-                "name": "cg2",
+                "uuid": "15a8f66e-c124-11ee-bbfe-005056acb65e",
                 "_links": {
                     "self": {
                         "href": "/api/application/consistency-groups/15a8f66e-c124-11ee-bbfe-005056acb65e"
                     }
                 },
-                "uuid": "15a8f66e-c124-11ee-bbfe-005056acb65e",
+                "name": "cg2",
             },
+            "_links": {
+                "self": {
+                    "href": "/api/application/consistency-groups/15a8f66e-c124-11ee-bbfe-005056acb65e/snapshots/83595384-c12e-11ee-bbfe-005056acb65e"
+                }
+            },
+            "name": "cg2ss",
         }
     ),
     ConsistencyGroupSnapshot(
         {
-            "name": "cg1ss",
-            "_links": {
-                "self": {
-                    "href": "/api/application/consistency-groups/1c101d17-c124-11ee-bbfe-005056acb65e/snapshots/87d0e49c-c12e-11ee-bbfe-005056acb65e"
-                }
-            },
             "uuid": "87d0e49c-c12e-11ee-bbfe-005056acb65e",
             "consistency_group": {
-                "name": "cg1",
+                "uuid": "1c101d17-c124-11ee-bbfe-005056acb65e",
                 "_links": {
                     "self": {
                         "href": "/api/application/consistency-groups/1c101d17-c124-11ee-bbfe-005056acb65e"
                     }
                 },
-                "uuid": "1c101d17-c124-11ee-bbfe-005056acb65e",
+                "name": "cg1",
             },
+            "_links": {
+                "self": {
+                    "href": "/api/application/consistency-groups/1c101d17-c124-11ee-bbfe-005056acb65e/snapshots/87d0e49c-c12e-11ee-bbfe-005056acb65e"
+                }
+            },
+            "name": "cg1ss",
         }
     ),
 ]

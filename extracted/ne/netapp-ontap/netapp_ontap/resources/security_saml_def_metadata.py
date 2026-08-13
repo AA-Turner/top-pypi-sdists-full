@@ -30,18 +30,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SecuritySamlDefMetadata(
     {
-        "scope": "cluster",
+        "certificate": {
+            "ca": "cluster-1",
+            "common_name": "cluster-1",
+            "serial_number": "180E3331A0DC5A19",
+        },
         "_links": {
             "self": {
                 "href": "/api/security/authentication/cluster/saml-sp/default-metadata"
             }
         },
         "host": "172.21.74.181",
-        "certificate": {
-            "ca": "cluster-1",
-            "serial_number": "180E3331A0DC5A19",
-            "common_name": "cluster-1",
-        },
+        "scope": "cluster",
     }
 )
 

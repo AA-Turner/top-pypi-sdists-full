@@ -2,8 +2,10 @@ import collections.abc
 import modal._functions
 import modal._image
 import modal._load_context
+import modal._logs_manager
 import modal._partial_function
 import modal._server
+import modal._supports_logs
 import modal._utils.function_utils
 import modal.client
 import modal.cloud_bucket_mount
@@ -744,7 +746,7 @@ class _App:
         cpu: typing.Union[float, tuple[float, float], None] = None,
         memory: typing.Union[int, tuple[int, int], None] = None,
         ephemeral_disk: typing.Optional[int] = None,
-        target_concurrency: typing.Optional[int] = None,
+        target_concurrency: typing.Optional[float] = None,
         min_containers: typing.Optional[int] = None,
         max_containers: typing.Optional[int] = None,
         buffer_containers: typing.Optional[int] = None,
@@ -766,7 +768,7 @@ class _App:
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
     ) -> collections.abc.Callable[
-        [typing.Union[CLS_T, modal._partial_function._PartialFunction]], modal._server._Server
+        [typing.Union[type[typing.Any], modal._partial_function._PartialFunction]], modal._server._Server
     ]:
         """Decorator to register a new Modal Server with this App.
 
@@ -791,7 +793,9 @@ class _App:
                 Specify, in MiB, a memory request which is the minimum memory required. Or, pass (request, limit) to
                 additionally specify a hard limit in MiB.
             ephemeral_disk: Specify, in MiB, the ephemeral disk size for the server.
-            target_concurrency: Target concurrency for the server; 0 disables autoscaling.
+            target_concurrency:
+                Target number of concurrent requests per container; 0 disables autoscaling. May be
+                fractional, e.g. 1.5 to target three concurrent requests per two containers.
             min_containers: Minimum number of containers to keep running regardless of demand.
             max_containers: Limit on the number of containers that can be concurrently running.
             buffer_containers: Extra containers to scale up beyond current demand.
@@ -912,6 +916,25 @@ class _App:
     @classmethod
     def _reset_container_app(cls):
         """Only used for tests."""
+        ...
+
+    async def _get_log_query_data(self) -> modal._supports_logs._LogQueryData:
+        """Get the data needed to query logs for this app."""
+        ...
+
+    @property
+    def logs(self) -> modal._logs_manager._AppLogsManager:
+        """Access logs for an `App`.
+
+        Use [`fetch()`](#logsfetch)
+        to read logs from a UTC time range, [`tail()`](#logstail)
+        to read the most recent logs, and [`stream()`](#logsstream)
+        to follow new logs as they arrive.
+
+        See also:
+            - [`modal app logs`](https://modal.com/docs/cli/latest/app#modal-app-logs):
+                CLI access to logs for an App.
+        """
         ...
 
 SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
@@ -1750,7 +1773,7 @@ class App:
         cpu: typing.Union[float, tuple[float, float], None] = None,
         memory: typing.Union[int, tuple[int, int], None] = None,
         ephemeral_disk: typing.Optional[int] = None,
-        target_concurrency: typing.Optional[int] = None,
+        target_concurrency: typing.Optional[float] = None,
         min_containers: typing.Optional[int] = None,
         max_containers: typing.Optional[int] = None,
         buffer_containers: typing.Optional[int] = None,
@@ -1771,7 +1794,9 @@ class App:
         enable_memory_snapshot: bool = False,
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
-    ) -> collections.abc.Callable[[typing.Union[CLS_T, modal.partial_function.PartialFunction]], modal.server.Server]:
+    ) -> collections.abc.Callable[
+        [typing.Union[type[typing.Any], modal.partial_function.PartialFunction]], modal.server.Server
+    ]:
         """Decorator to register a new Modal Server with this App.
 
         Servers run HTTP servers that are started in a `@modal.enter()` method.
@@ -1795,7 +1820,9 @@ class App:
                 Specify, in MiB, a memory request which is the minimum memory required. Or, pass (request, limit) to
                 additionally specify a hard limit in MiB.
             ephemeral_disk: Specify, in MiB, the ephemeral disk size for the server.
-            target_concurrency: Target concurrency for the server; 0 disables autoscaling.
+            target_concurrency:
+                Target number of concurrent requests per container; 0 disables autoscaling. May be
+                fractional, e.g. 1.5 to target three concurrent requests per two containers.
             min_containers: Minimum number of containers to keep running regardless of demand.
             max_containers: Limit on the number of containers that can be concurrently running.
             buffer_containers: Extra containers to scale up beyond current demand.
@@ -1963,6 +1990,32 @@ class App:
     @classmethod
     def _reset_container_app(cls):
         """Only used for tests."""
+        ...
+
+    class ___get_log_query_data_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> modal._supports_logs._LogQueryData:
+            """Get the data needed to query logs for this app."""
+            ...
+
+        async def aio(self, /) -> modal._supports_logs._LogQueryData:
+            """Get the data needed to query logs for this app."""
+            ...
+
+    _get_log_query_data: ___get_log_query_data_spec
+
+    @property
+    def logs(self) -> modal._logs_manager.AppLogsManager:
+        """Access logs for an `App`.
+
+        Use [`fetch()`](#logsfetch)
+        to read logs from a UTC time range, [`tail()`](#logstail)
+        to read the most recent logs, and [`stream()`](#logsstream)
+        to follow new logs as they arrive.
+
+        See also:
+            - [`modal app logs`](https://modal.com/docs/cli/latest/app#modal-app-logs):
+                CLI access to logs for an App.
+        """
         ...
 
 _default_image: modal._image._Image

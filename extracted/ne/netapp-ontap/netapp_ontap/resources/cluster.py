@@ -32,6 +32,10 @@ The following fields are used to set up additional cluster-wide configurations:
 * management_interface
 * nodes
 * active_directory
+<personalities supports=aiml>
+
+* ha
+</personalities>
 ### Nodes field
 The nodes field specifies the nodes to join to the cluster. To use this API, all nodes must run the same version of ONTAP. If you do not specify a node, the cluster is configured with one node added. The REST request is issued to the node that is added to the cluster. If you specify one node, do not use the "node.cluster_interface.ip.address" field. If you specify multiple nodes, specify the node to which the REST request is issued in addition to the remote nodes. Use the "node.cluster_interface.ip.address" field to identify each node. All other node fields are optional in all cases. If you provide a field for one node, you need to provide the same field for all nodes.
 ### Node networking fields
@@ -73,6 +77,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 
+<br/>
+---
+<personalities supports=aiml>
+## High availability configuration
+### Setting failover_protection_level
+The number of concurrent node failures the cluster can tolerate with no disruptions. The default value is "nplusone".
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Cluster
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Cluster()
+    resource.ha = {"failover_protection_level": "nplusone"}
+    resource.post(hydrate=True)
+    print(resource)
+
+```
+<div class="try_it_out">
+<input id="example2_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example2_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example2_result" class="try_it_out_content">
+```
+Cluster({"ha": {"failover_protection_level": "nplusone"}})
+
+```
+</div>
+</div>
+
+</personalities>
 <br/>
 ---
 ## Monitoring cluster create status
@@ -320,22 +353,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example7_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example7_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example7_result" class="try_it_out_content">
+<input id="example8_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example8_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example8_result" class="try_it_out_content">
 ```
 [
     Node(
         {
-            "name": "cluster1",
-            "uptime": 134555,
+            "uuid": "6dce4710-c860-11e9-b5bc-005056bb6135",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/6dce4710-c860-11e9-b5bc-005056bb6135"
                 }
             },
+            "uptime": 134555,
             "state": "up",
-            "uuid": "6dce4710-c860-11e9-b5bc-005056bb6135",
+            "name": "cluster1",
         }
     )
 ]
@@ -394,46 +427,46 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example8_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example8_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example8_result" class="try_it_out_content">
+<input id="example9_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example9_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example9_result" class="try_it_out_content">
 ```
 Cluster(
     {
-        "password": "mypassword",
-        "name": "cluster1",
+        "management_interface": {
+            "ip": {
+                "address": "10.224.82.25",
+                "netmask": "255.255.192.0",
+                "gateway": "10.224.64.1",
+            }
+        },
+        "license": {"keys": ["AMEPOSOIKLKGEEEEDGNDEKSJDEEE"]},
+        "location": "datacenter1",
         "active_directory": {
             "force_account_overwrite": True,
             "password": "password",
-            "username": "administrator",
             "fqdn": "test.com",
             "name": "adaccount",
+            "username": "administrator",
         },
-        "contact": "me",
         "dns_domains": ["example.com"],
-        "name_servers": ["10.224.223.130", "10.224.223.131", "10.224.223.132"],
-        "location": "datacenter1",
         "nodes": [
             {
-                "name": "node1",
-                "cluster_interface": {"ip": {"address": "169.254.245.113"}},
                 "management_interface": {"ip": {"address": "10.224.82.29"}},
+                "cluster_interface": {"ip": {"address": "169.254.245.113"}},
+                "name": "node1",
             },
             {
-                "name": "node2",
-                "cluster_interface": {"ip": {"address": "169.254.217.95"}},
                 "management_interface": {"ip": {"address": "10.224.82.31"}},
+                "cluster_interface": {"ip": {"address": "169.254.217.95"}},
+                "name": "node2",
             },
         ],
         "ntp_servers": ["time.nist.gov"],
-        "license": {"keys": ["AMEPOSOIKLKGEEEEDGNDEKSJDEEE"]},
-        "management_interface": {
-            "ip": {
-                "gateway": "10.224.64.1",
-                "netmask": "255.255.192.0",
-                "address": "10.224.82.25",
-            }
-        },
+        "name_servers": ["10.224.223.130", "10.224.223.131", "10.224.223.132"],
+        "contact": "me",
+        "password": "mypassword",
+        "name": "cluster1",
     }
 )
 
@@ -457,20 +490,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example9_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example9_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example9_result" class="try_it_out_content">
+<input id="example10_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example10_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example10_result" class="try_it_out_content">
 ```
 Job(
     {
         "message": "success",
+        "uuid": "b5bc07e2-19e9-11e9-a751-005056bbd95f",
+        "description": "POST /api/cluster",
         "_links": {
             "self": {"href": "/api/cluster/jobs/b5bc07e2-19e9-11e9-a751-005056bbd95f"}
         },
         "code": 0,
         "state": "success",
-        "uuid": "b5bc07e2-19e9-11e9-a751-005056bbd95f",
-        "description": "POST /api/cluster",
     }
 )
 
@@ -493,85 +526,86 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example10_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example10_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example10_result" class="try_it_out_content">
+<input id="example11_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example11_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example11_result" class="try_it_out_content">
 ```
 Cluster(
     {
-        "name": "C1_sti44-vsim-ucs515w_1621957038",
-        "active_directory": {
-            "fqdn": "TEST.COM",
-            "name": "ADACCOUNT",
-            "organizational_unit": "CN=Computers",
-        },
-        "contact": "example_name",
-        "peering_policy": {
-            "authentication_required": True,
-            "encryption_required": False,
-            "minimum_passphrase_length": 8,
-        },
-        "dns_domains": ["example.com"],
-        "metric": {
-            "latency": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "timestamp": "2021-05-26T20:36:15+00:00",
-            "iops": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "status": "ok",
-            "duration": "PT15S",
-            "throughput": {"write": 0, "total": 0, "other": 0, "read": 0},
-        },
-        "name_servers": ["192.0.2.1", "192.0.2.2"],
-        "timezone": {"name": "America/New_York"},
-        "location": "sti",
-        "san_optimized": False,
-        "version": {
-            "generation": 9,
-            "full": "NetApp Release 9.10.1: Mon May 24 08:07:35 UTC 2021",
-            "minor": 1,
-            "major": 10,
-        },
-        "ntp_servers": ["192.0.2.3"],
-        "_links": {"self": {"href": "/api/cluster"}},
-        "statistics": {
-            "throughput_raw": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "iops_raw": {"write": 0, "total": 0, "other": 0, "read": 0},
-            "timestamp": "2021-05-26T20:36:25+00:00",
-            "status": "ok",
-            "latency_raw": {"write": 0, "total": 0, "other": 0, "read": 0},
-        },
+        "uuid": "5f7f57c7-bd67-11eb-95f4-005056a7b9b1",
+        "ha": {"failover_protection_level": "nplusone"},
         "management_interfaces": [
             {
-                "ip": {"address": "192.0.2.4"},
-                "name": "clus_mgmt",
+                "uuid": "beef2db7-bd67-11eb-95f4-005056a7b9b1",
                 "_links": {
                     "self": {
                         "href": "/api/network/ip/interfaces/beef2db7-bd67-11eb-95f4-005056a7b9b1"
                     }
                 },
-                "uuid": "beef2db7-bd67-11eb-95f4-005056a7b9b1",
+                "ip": {"address": "192.0.2.4"},
+                "name": "clus_mgmt",
             },
             {
-                "ip": {"address": "2001:db8:ef56:gh78::ij90"},
-                "name": "sti44-vsim-ucs515w_cluster_mgmt_inet6",
+                "uuid": "cb63e02c-bd72-11eb-95f4-005056a7b9b1",
                 "_links": {
                     "self": {
                         "href": "/api/network/ip/interfaces/cb63e02c-bd72-11eb-95f4-005056a7b9b1"
                     }
                 },
-                "uuid": "cb63e02c-bd72-11eb-95f4-005056a7b9b1",
+                "ip": {"address": "2001:db8:ef56:gh78::ij90"},
+                "name": "sti44-vsim-ucs515w_cluster_mgmt_inet6",
             },
             {
-                "ip": {"address": "2001:db8:ef56:gh78::ij91"},
-                "name": "sti44-vsim-ucs515x_cluster_mgmt_inet6",
+                "uuid": "ea13dec1-bd72-11eb-bd00-005056a7f50e",
                 "_links": {
                     "self": {
                         "href": "/api/network/ip/interfaces/ea13dec1-bd72-11eb-bd00-005056a7f50e"
                     }
                 },
-                "uuid": "ea13dec1-bd72-11eb-bd00-005056a7f50e",
+                "ip": {"address": "2001:db8:ef56:gh78::ij91"},
+                "name": "sti44-vsim-ucs515x_cluster_mgmt_inet6",
             },
         ],
-        "uuid": "5f7f57c7-bd67-11eb-95f4-005056a7b9b1",
+        "location": "sti",
+        "timezone": {"name": "America/New_York"},
+        "active_directory": {
+            "fqdn": "TEST.COM",
+            "name": "ADACCOUNT",
+            "organizational_unit": "CN=Computers",
+        },
+        "metric": {
+            "iops": {"read": 0, "write": 0, "other": 0, "total": 0},
+            "timestamp": "2021-05-26T20:36:15+00:00",
+            "duration": "PT15S",
+            "status": "ok",
+            "latency": {"read": 0, "write": 0, "other": 0, "total": 0},
+            "throughput": {"read": 0, "write": 0, "other": 0, "total": 0},
+        },
+        "dns_domains": ["example.com"],
+        "_links": {"self": {"href": "/api/cluster"}},
+        "statistics": {
+            "throughput_raw": {"read": 0, "write": 0, "other": 0, "total": 0},
+            "latency_raw": {"read": 0, "write": 0, "other": 0, "total": 0},
+            "iops_raw": {"read": 0, "write": 0, "other": 0, "total": 0},
+            "timestamp": "2021-05-26T20:36:25+00:00",
+            "status": "ok",
+        },
+        "version": {
+            "generation": 9,
+            "full": "NetApp Release 9.10.1: Mon May 24 08:07:35 UTC 2021",
+            "major": 10,
+            "minor": 1,
+        },
+        "ntp_servers": ["192.0.2.3"],
+        "peering_policy": {
+            "authentication_required": True,
+            "encryption_required": False,
+            "minimum_passphrase_length": 8,
+        },
+        "name_servers": ["192.0.2.1", "192.0.2.2"],
+        "contact": "example_name",
+        "san_optimized": False,
+        "name": "C1_sti44-vsim-ucs515w_1621957038",
     }
 )
 
@@ -685,6 +719,14 @@ Domain names have the following requirements:
 
 
 Example: ["example.com","example2.example3.com"]"""
+
+    ha = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.cluster_ha", "ClusterHaSchema"),
+                data_key="ha",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" Storage failover cluster configuration."""
 
     license = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.models.license_keys", "LicenseKeysSchema"),
@@ -837,6 +879,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "contact",
         "disaggregated",
         "dns_domains",
+        "ha",
         "location",
         "management_interfaces.links",
         "management_interfaces.ip",
@@ -857,7 +900,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "uuid",
         "version",
     ]
-    """links,tags,active_directory,auto_enable_activity_tracking,auto_enable_analytics,certificate.links,certificate.name,certificate.uuid,cluster_network_overlay_enabled,contact,disaggregated,dns_domains,location,management_interfaces.links,management_interfaces.ip,management_interfaces.name,management_interfaces.uuid,metric,name,name_servers,ntp_servers,peering_policy,san_optimized,statistics.iops_raw,statistics.latency_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,timezone,uuid,version,"""
+    """links,tags,active_directory,auto_enable_activity_tracking,auto_enable_analytics,certificate.links,certificate.name,certificate.uuid,cluster_network_overlay_enabled,contact,disaggregated,dns_domains,ha,location,management_interfaces.links,management_interfaces.ip,management_interfaces.name,management_interfaces.uuid,metric,name,name_servers,ntp_servers,peering_policy,san_optimized,statistics.iops_raw,statistics.latency_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,timezone,uuid,version,"""
 
     patchable_fields = [
         "tags",
@@ -868,12 +911,13 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "certificate.uuid",
         "contact",
         "dns_domains",
+        "ha",
         "location",
         "name",
         "name_servers",
         "timezone",
     ]
-    """tags,active_directory,auto_enable_activity_tracking,auto_enable_analytics,certificate.name,certificate.uuid,contact,dns_domains,location,name,name_servers,timezone,"""
+    """tags,active_directory,auto_enable_activity_tracking,auto_enable_analytics,certificate.name,certificate.uuid,contact,dns_domains,ha,location,name,name_servers,timezone,"""
 
     postable_fields = [
         "tags",
@@ -884,6 +928,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "configuration_backup",
         "contact",
         "dns_domains",
+        "ha",
         "license",
         "location",
         "management_interface",
@@ -894,7 +939,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "password",
         "timezone",
     ]
-    """tags,active_directory,auto_enable_activity_tracking,auto_enable_analytics,cluster_network_overlay_enabled,configuration_backup,contact,dns_domains,license,location,management_interface,name,name_servers,nodes,ntp_servers,password,timezone,"""
+    """tags,active_directory,auto_enable_activity_tracking,auto_enable_analytics,cluster_network_overlay_enabled,configuration_backup,contact,dns_domains,ha,license,location,management_interface,name,name_servers,nodes,ntp_servers,password,timezone,"""
 
 class Cluster(Resource):
     r""" Complete cluster information """
@@ -938,6 +983,9 @@ class Cluster(Resource):
 * `management_interface`
 * `nodes`
 * `timezone`
+<personalities supports=aiml>
+* `ha`
+</personalities>
 ### Learn more
 * [`DOC /cluster`](#docs-cluster-cluster)
 """
@@ -986,7 +1034,7 @@ class Cluster(Resource):
         poll_timeout: Optional[int] = None,
         **kwargs
     ) -> NetAppResponse:
-        r"""Pings BlueXP cloud service.
+        r"""Pings the NetApp Console cloud service.
 ### Learn more
 * [`DOC /cluster/mediator-ping`](#docs-cluster-cluster_mediator-ping)"""
         return super()._action(

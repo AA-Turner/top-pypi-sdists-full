@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: TotalSegmentator
-Version: 2.17.0
-Summary: Robust segmentation of 104 classes in CT images.
+Version: 2.18.0
+Summary: Robust segmentation of 117 classes in CT images.
 Home-page: https://github.com/wasserth/TotalSegmentator
 Author: Jakob Wasserthal
 Author-email: jakob.wasserthal@usb.ch
@@ -34,8 +34,12 @@ Requires-Dist: matplotlib
 Requires-Dist: networkx
 Requires-Dist: pandas
 Requires-Dist: scikit-learn
-Requires-Dist: fury
+Requires-Dist: fury<2
 Requires-Dist: dipy
+Provides-Extra: mcp
+Requires-Dist: mcp; extra == "mcp"
+Requires-Dist: uvicorn; extra == "mcp"
+Requires-Dist: xgboost; extra == "mcp"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -43,6 +47,7 @@ Dynamic: description
 Dynamic: home-page
 Dynamic: license
 Dynamic: license-file
+Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

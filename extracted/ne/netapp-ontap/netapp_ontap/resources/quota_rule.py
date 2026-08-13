@@ -40,58 +40,58 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     QuotaRule(
         {
+            "uuid": "66319cbe-b837-11e8-9c5a-005056a7e88c",
+            "volume": {
+                "uuid": "ab3df793-0f02-43c6-9514-4f142fc8cc92",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/volumes/ab3df793-0f02-43c6-9514-4f142fc8cc92"
+                    }
+                },
+                "name": "vol1",
+            },
             "_links": {
                 "self": {
                     "href": "/api/storage/quota/rules/66319cbe-b837-11e8-9c5a-005056a7e88c"
                 }
             },
             "svm": {
-                "name": "svm1",
+                "uuid": "038545f8-9ff8-11e8-bce6-005056a73bed",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/038545f8-9ff8-11e8-bce6-005056a73bed"
                     }
                 },
-                "uuid": "038545f8-9ff8-11e8-bce6-005056a73bed",
+                "name": "svm1",
             },
+        }
+    ),
+    QuotaRule(
+        {
+            "uuid": "dbd5b443-b7a4-11e8-bc58-005056a7e88c",
             "volume": {
-                "name": "vol1",
+                "uuid": "ab3df793-0f02-43c6-9514-4f142fc8cc92",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/ab3df793-0f02-43c6-9514-4f142fc8cc92"
                     }
                 },
-                "uuid": "ab3df793-0f02-43c6-9514-4f142fc8cc92",
+                "name": "vol1",
             },
-            "uuid": "66319cbe-b837-11e8-9c5a-005056a7e88c",
-        }
-    ),
-    QuotaRule(
-        {
             "_links": {
                 "self": {
                     "href": "/api/storage/quota/rules/dbd5b443-b7a4-11e8-bc58-005056a7e88c"
                 }
             },
             "svm": {
-                "name": "svm1",
+                "uuid": "038545f8-9ff8-11e8-bce6-005056a73bed",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/038545f8-9ff8-11e8-bce6-005056a73bed"
                     }
                 },
-                "uuid": "038545f8-9ff8-11e8-bce6-005056a73bed",
+                "name": "svm1",
             },
-            "volume": {
-                "name": "vol1",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/volumes/ab3df793-0f02-43c6-9514-4f142fc8cc92"
-                    }
-                },
-                "uuid": "ab3df793-0f02-43c6-9514-4f142fc8cc92",
-            },
-            "uuid": "dbd5b443-b7a4-11e8-bc58-005056a7e88c",
         }
     ),
 ]
@@ -123,42 +123,42 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 QuotaRule(
     {
+        "type": "user",
+        "qtree": {
+            "id": 1,
+            "_links": {
+                "self": {
+                    "href": "/api/storage/qtrees/c1b64eea-ca8b-45ec-9397-ab489830d268/1"
+                }
+            },
+            "name": "qt1",
+        },
+        "uuid": "264a9e0b-2e03-11e9-a610-005056a7b72d",
+        "users": [{"name": "fred"}],
+        "user_mapping": True,
+        "volume": {
+            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
+            "_links": {
+                "self": {
+                    "href": "/api/storage/volumes/c1b64eea-ca8b-45ec-9397-ab489830d268"
+                }
+            },
+            "name": "vol1",
+        },
+        "files": {"hard_limit": 100, "soft_limit": 80},
         "_links": {
             "self": {
                 "href": "/api/storage/quota/rules/264a9e0b-2e03-11e9-a610-005056a7b72d"
             }
         },
         "svm": {
-            "name": "svm1",
+            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
             "_links": {
                 "self": {"href": "/api/svm/svms/fd5db15a-15b9-11e9-a6ad-005056a760e0"}
             },
-            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
+            "name": "svm1",
         },
-        "files": {"soft_limit": 80, "hard_limit": 100},
-        "volume": {
-            "name": "vol1",
-            "_links": {
-                "self": {
-                    "href": "/api/storage/volumes/c1b64eea-ca8b-45ec-9397-ab489830d268"
-                }
-            },
-            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
-        },
-        "space": {"soft_limit": 51200, "hard_limit": 1222800},
-        "uuid": "264a9e0b-2e03-11e9-a610-005056a7b72d",
-        "type": "user",
-        "users": [{"name": "fred"}],
-        "user_mapping": True,
-        "qtree": {
-            "name": "qt1",
-            "_links": {
-                "self": {
-                    "href": "/api/storage/qtrees/c1b64eea-ca8b-45ec-9397-ab489830d268/1"
-                }
-            },
-            "id": 1,
-        },
+        "space": {"hard_limit": 1222800, "soft_limit": 51200},
     }
 )
 
@@ -187,32 +187,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 QuotaRule(
     {
+        "type": "user",
+        "uuid": "0ab84fba-19aa-11e9-a04d-005056a72f42",
+        "users": [{"name": "sam"}, {"name": "smith"}, {"id": "300010"}],
+        "volume": {
+            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
+            "_links": {
+                "self": {
+                    "href": "/api/storage/volumes/c1b64eea-ca8b-45ec-9397-ab489830d268"
+                }
+            },
+            "name": "vol1",
+        },
+        "files": {"hard_limit": 100, "soft_limit": 80},
         "_links": {
             "self": {
                 "href": "/api/storage/quota/rules/0ab84fba-19aa-11e9-a04d-005056a72f42"
             }
         },
         "svm": {
-            "name": "svm1",
+            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
             "_links": {
                 "self": {"href": "/api/svm/svms/fd5db15a-15b9-11e9-a6ad-005056a760e0"}
             },
-            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
+            "name": "svm1",
         },
-        "files": {"soft_limit": 80, "hard_limit": 100},
-        "volume": {
-            "name": "vol1",
-            "_links": {
-                "self": {
-                    "href": "/api/storage/volumes/c1b64eea-ca8b-45ec-9397-ab489830d268"
-                }
-            },
-            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
-        },
-        "space": {"soft_limit": 51200, "hard_limit": 1222800},
-        "uuid": "0ab84fba-19aa-11e9-a04d-005056a72f42",
-        "type": "user",
-        "users": [{"name": "sam"}, {"name": "smith"}, {"id": "300010"}],
+        "space": {"hard_limit": 1222800, "soft_limit": 51200},
     }
 )
 
@@ -241,32 +241,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 QuotaRule(
     {
+        "type": "tree",
+        "qtree": {"name": ""},
+        "uuid": "4a276b8c-1753-11e9-8101-005056a760e0",
+        "volume": {
+            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
+            "_links": {
+                "self": {
+                    "href": "/api/storage/volumes/c1b64eea-ca8b-45ec-9397-ab489830d268"
+                }
+            },
+            "name": "vol1",
+        },
+        "files": {"hard_limit": 20, "soft_limit": 10},
         "_links": {
             "self": {
                 "href": "/api/storage/quota/rules/4a276b8c-1753-11e9-8101-005056a760e0"
             }
         },
         "svm": {
-            "name": "svm1",
+            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
             "_links": {
                 "self": {"href": "/api/svm/svms/fd5db15a-15b9-11e9-a6ad-005056a760e0"}
             },
-            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
+            "name": "svm1",
         },
-        "files": {"soft_limit": 10, "hard_limit": 20},
-        "volume": {
-            "name": "vol1",
-            "_links": {
-                "self": {
-                    "href": "/api/storage/volumes/c1b64eea-ca8b-45ec-9397-ab489830d268"
-                }
-            },
-            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
-        },
-        "space": {"soft_limit": 51200, "hard_limit": 1034000},
-        "uuid": "4a276b8c-1753-11e9-8101-005056a760e0",
-        "type": "tree",
-        "qtree": {"name": ""},
+        "space": {"hard_limit": 1034000, "soft_limit": 51200},
     }
 )
 
@@ -295,40 +295,40 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 QuotaRule(
     {
+        "type": "tree",
+        "qtree": {
+            "id": 1,
+            "_links": {
+                "self": {
+                    "href": "/api/storage/qtrees/c1b64eea-ca8b-45ec-9397-ab489830d268/1"
+                }
+            },
+            "name": "qt1",
+        },
+        "uuid": "49b1134f-19ab-11e9-a04d-005056a72f42",
+        "volume": {
+            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
+            "_links": {
+                "self": {
+                    "href": "/api/storage/volumes/c1b64eea-ca8b-45ec-9397-ab489830d268"
+                }
+            },
+            "name": "vol1",
+        },
+        "files": {"hard_limit": 100, "soft_limit": 40},
         "_links": {
             "self": {
                 "href": "/api/storage/quota/rules/49b1134f-19ab-11e9-a04d-005056a72f42"
             }
         },
         "svm": {
-            "name": "svm1",
+            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
             "_links": {
                 "self": {"href": "/api/svm/svms/fd5db15a-15b9-11e9-a6ad-005056a760e0"}
             },
-            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
+            "name": "svm1",
         },
-        "files": {"soft_limit": 40, "hard_limit": 100},
-        "volume": {
-            "name": "vol1",
-            "_links": {
-                "self": {
-                    "href": "/api/storage/volumes/c1b64eea-ca8b-45ec-9397-ab489830d268"
-                }
-            },
-            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
-        },
-        "space": {"soft_limit": 838861, "hard_limit": 1048576},
-        "uuid": "49b1134f-19ab-11e9-a04d-005056a72f42",
-        "type": "tree",
-        "qtree": {
-            "name": "qt1",
-            "_links": {
-                "self": {
-                    "href": "/api/storage/qtrees/c1b64eea-ca8b-45ec-9397-ab489830d268/1"
-                }
-            },
-            "id": 1,
-        },
+        "space": {"hard_limit": 1048576, "soft_limit": 838861},
     }
 )
 
@@ -357,41 +357,41 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 QuotaRule(
     {
+        "type": "group",
+        "group": {"name": "group1"},
+        "qtree": {
+            "id": 1,
+            "_links": {
+                "self": {
+                    "href": "/api/storage/qtrees/c1b64eea-ca8b-45ec-9397-ab489830d268/1"
+                }
+            },
+            "name": "qt1",
+        },
+        "uuid": "b9236852-19ab-11e9-a04d-005056a72f42",
+        "volume": {
+            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
+            "_links": {
+                "self": {
+                    "href": "/api/storage/volumes/c1b64eea-ca8b-45ec-9397-ab489830d268"
+                }
+            },
+            "name": "vol1",
+        },
+        "files": {"hard_limit": 250, "soft_limit": 200},
         "_links": {
             "self": {
                 "href": "/api/storage/quota/rules/b9236852-19ab-11e9-a04d-005056a72f42"
             }
         },
         "svm": {
-            "name": "svm1",
+            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
             "_links": {
                 "self": {"href": "/api/svm/svms/fd5db15a-15b9-11e9-a6ad-005056a760e0"}
             },
-            "uuid": "fd5db15a-15b9-11e9-a6ad-005056a760e0",
+            "name": "svm1",
         },
-        "files": {"soft_limit": 200, "hard_limit": 250},
-        "volume": {
-            "name": "vol1",
-            "_links": {
-                "self": {
-                    "href": "/api/storage/volumes/c1b64eea-ca8b-45ec-9397-ab489830d268"
-                }
-            },
-            "uuid": "c1b64eea-ca8b-45ec-9397-ab489830d268",
-        },
-        "space": {"soft_limit": 1572864, "hard_limit": 2097152},
-        "uuid": "b9236852-19ab-11e9-a04d-005056a72f42",
-        "type": "group",
-        "qtree": {
-            "name": "qt1",
-            "_links": {
-                "self": {
-                    "href": "/api/storage/qtrees/c1b64eea-ca8b-45ec-9397-ab489830d268/1"
-                }
-            },
-            "id": 1,
-        },
-        "group": {"name": "group1"},
+        "space": {"hard_limit": 2097152, "soft_limit": 1572864},
     }
 )
 
@@ -430,20 +430,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 QuotaRule(
     {
+        "type": "user",
+        "qtree": {"name": "qt1"},
+        "uuid": "3220eea6-5049-11e9-bfb7-005056a7f717",
+        "users": [{"name": "example_user"}],
+        "user_mapping": True,
+        "volume": {"name": "fv"},
+        "files": {"hard_limit": 20, "soft_limit": 10},
         "_links": {
             "self": {
                 "href": "/api/storage/quota/rules/3220eea6-5049-11e9-bfb7-005056a7f717"
             }
         },
         "svm": {"name": "svm1"},
-        "files": {"soft_limit": 10, "hard_limit": 20},
-        "volume": {"name": "fv"},
-        "space": {"soft_limit": 1024, "hard_limit": 8192},
-        "uuid": "3220eea6-5049-11e9-bfb7-005056a7f717",
-        "type": "user",
-        "users": [{"name": "example_user"}],
-        "user_mapping": True,
-        "qtree": {"name": "qt1"},
+        "space": {"hard_limit": 8192, "soft_limit": 1024},
     }
 )
 
@@ -479,19 +479,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 QuotaRule(
     {
+        "type": "group",
+        "group": {"name": "test_group1"},
+        "qtree": {"name": "qt1"},
+        "uuid": "3b130f7d-504a-11e9-bfb7-005056a7f717",
+        "volume": {"name": "fv"},
+        "files": {"hard_limit": 20, "soft_limit": 10},
         "_links": {
             "self": {
                 "href": "/api/storage/quota/rules/3b130f7d-504a-11e9-bfb7-005056a7f717"
             }
         },
         "svm": {"name": "svm1"},
-        "files": {"soft_limit": 10, "hard_limit": 20},
-        "volume": {"name": "fv"},
-        "space": {"soft_limit": 1024, "hard_limit": 8192},
-        "uuid": "3b130f7d-504a-11e9-bfb7-005056a7f717",
-        "type": "group",
-        "qtree": {"name": "qt1"},
-        "group": {"name": "test_group1"},
+        "space": {"hard_limit": 8192, "soft_limit": 1024},
     }
 )
 
@@ -526,18 +526,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 QuotaRule(
     {
+        "type": "tree",
+        "qtree": {"name": "qt1"},
+        "uuid": "e5eb03be-504a-11e9-bfb7-005056a7f717",
+        "volume": {"name": "fv"},
+        "files": {"hard_limit": 20, "soft_limit": 10},
         "_links": {
             "self": {
                 "href": "/api/storage/quota/rules/e5eb03be-504a-11e9-bfb7-005056a7f717"
             }
         },
         "svm": {"name": "svm1"},
-        "files": {"soft_limit": 10, "hard_limit": 20},
-        "volume": {"name": "fv"},
-        "space": {"soft_limit": 1024, "hard_limit": 8192},
-        "uuid": "e5eb03be-504a-11e9-bfb7-005056a7f717",
-        "type": "tree",
-        "qtree": {"name": "qt1"},
+        "space": {"hard_limit": 8192, "soft_limit": 1024},
     }
 )
 
@@ -605,88 +605,88 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     QuotaRule(
         {
+            "uuid": "9abfdd9f-ede7-11ed-8b6b-005056acde94",
+            "volume": {
+                "uuid": "6dc24682-edde-11ed-8b6b-005056acde94",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/volumes/6dc24682-edde-11ed-8b6b-005056acde94"
+                    }
+                },
+                "name": "testVol",
+            },
+            "files": {"hard_limit": 15},
             "_links": {
                 "self": {
                     "href": "/api/storage/quota/rules/9abfdd9f-ede7-11ed-8b6b-005056acde94"
                 }
             },
             "svm": {
-                "name": "vs0",
+                "uuid": "2272378d-eab2-11ed-913b-005056ac10bf",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/2272378d-eab2-11ed-913b-005056ac10bf"
                     }
                 },
-                "uuid": "2272378d-eab2-11ed-913b-005056ac10bf",
+                "name": "vs0",
             },
-            "files": {"hard_limit": 15},
-            "volume": {
-                "name": "testVol",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/volumes/6dc24682-edde-11ed-8b6b-005056acde94"
-                    }
-                },
-                "uuid": "6dc24682-edde-11ed-8b6b-005056acde94",
-            },
-            "uuid": "9abfdd9f-ede7-11ed-8b6b-005056acde94",
         }
     ),
     QuotaRule(
         {
+            "uuid": "a876601e-ede7-11ed-8b6b-005056acde94",
+            "volume": {
+                "uuid": "83c865bd-edde-11ed-8b6b-005056acde94",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/volumes/83c865bd-edde-11ed-8b6b-005056acde94"
+                    }
+                },
+                "name": "testVol2",
+            },
+            "files": {"hard_limit": 6},
             "_links": {
                 "self": {
                     "href": "/api/storage/quota/rules/a876601e-ede7-11ed-8b6b-005056acde94"
                 }
             },
             "svm": {
-                "name": "vs0",
+                "uuid": "2272378d-eab2-11ed-913b-005056ac10bf",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/2272378d-eab2-11ed-913b-005056ac10bf"
                     }
                 },
-                "uuid": "2272378d-eab2-11ed-913b-005056ac10bf",
+                "name": "vs0",
             },
-            "files": {"hard_limit": 6},
-            "volume": {
-                "name": "testVol2",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/volumes/83c865bd-edde-11ed-8b6b-005056acde94"
-                    }
-                },
-                "uuid": "83c865bd-edde-11ed-8b6b-005056acde94",
-            },
-            "uuid": "a876601e-ede7-11ed-8b6b-005056acde94",
         }
     ),
     QuotaRule(
         {
+            "uuid": "d66ff5ed-ede7-11ed-8b6b-005056acde94",
+            "volume": {
+                "uuid": "a44c8f5d-edde-11ed-8b6b-005056acde94",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/volumes/a44c8f5d-edde-11ed-8b6b-005056acde94"
+                    }
+                },
+                "name": "testVol4",
+            },
             "_links": {
                 "self": {
                     "href": "/api/storage/quota/rules/d66ff5ed-ede7-11ed-8b6b-005056acde94"
                 }
             },
             "svm": {
-                "name": "vs0",
+                "uuid": "2272378d-eab2-11ed-913b-005056ac10bf",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/2272378d-eab2-11ed-913b-005056ac10bf"
                     }
                 },
-                "uuid": "2272378d-eab2-11ed-913b-005056ac10bf",
+                "name": "vs0",
             },
-            "volume": {
-                "name": "testVol4",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/volumes/a44c8f5d-edde-11ed-8b6b-005056acde94"
-                    }
-                },
-                "uuid": "a44c8f5d-edde-11ed-8b6b-005056acde94",
-            },
-            "uuid": "d66ff5ed-ede7-11ed-8b6b-005056acde94",
         }
     ),
 ]

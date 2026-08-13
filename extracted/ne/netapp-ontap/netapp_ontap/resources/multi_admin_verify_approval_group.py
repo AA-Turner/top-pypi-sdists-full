@@ -36,16 +36,16 @@ with HostConnection(
 ```
 MultiAdminVerifyApprovalGroup(
     {
+        "approvers": ["admin"],
         "owner": {
             "_links": {
                 "self": {"href": "/api/svm/svms/52b75787-7011-11ec-a23d-005056a78fd5"}
             },
-            "name": "cluster1",
             "uuid": "52b75787-7011-11ec-a23d-005056a78fd5",
+            "name": "cluster1",
         },
-        "name": "group1",
-        "approvers": ["admin"],
         "email": ["group1.approvers@email.com"],
+        "name": "group1",
     }
 )
 

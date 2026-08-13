@@ -1,7 +1,7 @@
 [build-system]
 requires = ["setuptools>=68,<83.1"]
 build-backend = "backend"
-backend-path = ["_mypyc_hook"]
+backend-path = ["_build_hook"]
 
 [project]
 name = "charset-normalizer"
@@ -28,10 +28,13 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Programming Language :: Python :: Free Threading :: 4 - Resilient",
+  "Environment :: WebAssembly",
+  "Environment :: WebAssembly :: Emscripten",
   "Topic :: Text Processing :: Linguistic",
   "Topic :: Utilities",
   "Typing :: Typed",
@@ -63,8 +66,12 @@ dev = [
 ]
 
 [tool.setuptools]
+include-package-data = false
 package-dir = {"" = "src"}
 packages = ["charset_normalizer", "charset_normalizer.cli", ]
+
+[tool.setuptools.package-data]
+charset_normalizer = ["py.typed"]
 
 [tool.setuptools.dynamic]
 version = {attr = "charset_normalizer.__version__"}

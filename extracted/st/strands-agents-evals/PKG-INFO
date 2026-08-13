@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: strands-agents-evals
-Version: 1.1.0
+Version: 1.1.1
 Summary: Evaluation framework for Strands
 Author-email: AWS <opensource@amazon.com>
 License: Apache-2.0
@@ -28,7 +28,7 @@ Requires-Dist: google-adk<3.0.0,>=2.0.0; extra == 'adk'
 Provides-Extra: dev
 Requires-Dist: hatch<2.0.0,>=1.0.0; extra == 'dev'
 Requires-Dist: mypy<2.0.0,>=1.15.0; extra == 'dev'
-Requires-Dist: pre-commit<4.6.0,>=3.2.0; extra == 'dev'
+Requires-Dist: pre-commit<4.7.0,>=3.2.0; extra == 'dev'
 Requires-Dist: ruff<0.17.0,>=0.13.0; extra == 'dev'
 Provides-Extra: langchain
 Requires-Dist: langchain-aws>=0.2.0; extra == 'langchain'

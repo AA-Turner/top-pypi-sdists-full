@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: metricflow
-Version: 0.211.0
+Version: 0.212.0
 Summary: Translates a simple metric definition into reusable SQL and executes it against the SQL engine of your choice.
 Project-URL: Documentation, https://docs.getdbt.com/docs/build/about-metricflow
 Project-URL: Source Code, https://github.com/dbt-labs/metricflow
@@ -29,6 +29,32 @@ Requires-Dist: referencing>=0.28
 Requires-Dist: sqlglot>=20.0.0
 Requires-Dist: tabulate>=0.8.9
 Requires-Dist: typing-extensions<5.0,>=4.4
+Provides-Extra: athena-env-requirements
+Requires-Dist: black<24,>=23.3; extra == 'athena-env-requirements'
+Requires-Dist: duckdb-engine<0.14.0,>=0.13.0; extra == 'athena-env-requirements'
+Requires-Dist: duckdb<1.6,>=1.5; extra == 'athena-env-requirements'
+Requires-Dist: dulwich<2.0,>=1.2; extra == 'athena-env-requirements'
+Requires-Dist: graphviz<0.21,>=0.18.2; extra == 'athena-env-requirements'
+Requires-Dist: httpx<0.25,>=0.24; extra == 'athena-env-requirements'
+Requires-Dist: hypothesis<7,>=6.87; extra == 'athena-env-requirements'
+Requires-Dist: isort<6,>=5.12; extra == 'athena-env-requirements'
+Requires-Dist: mypy<1.8.0,>=1.7.0; extra == 'athena-env-requirements'
+Requires-Dist: pre-commit<3.3.0,>=3.2.2; extra == 'athena-env-requirements'
+Requires-Dist: pyathena[sqlalchemy]<4.0.0,>=3.10.0; extra == 'athena-env-requirements'
+Requires-Dist: pygithub<3.0,>=2.9; extra == 'athena-env-requirements'
+Requires-Dist: pympler<=2.0,>=1.1; extra == 'athena-env-requirements'
+Requires-Dist: pytest-mock<3.15.0,>=3.14.0; extra == 'athena-env-requirements'
+Requires-Dist: pytest-xdist<3.7.0,>=3.6.0; extra == 'athena-env-requirements'
+Requires-Dist: pytest<9.0.0,>=8.0.0; extra == 'athena-env-requirements'
+Requires-Dist: sqlalchemy<2.1.0,>=2.0.0; extra == 'athena-env-requirements'
+Requires-Dist: termcolor<4.0,>=3.0; extra == 'athena-env-requirements'
+Requires-Dist: tomli<3,>=2.3.0; extra == 'athena-env-requirements'
+Requires-Dist: types-jinja2<3,>=2.11; extra == 'athena-env-requirements'
+Requires-Dist: types-jsonschema<5,>=4.17; extra == 'athena-env-requirements'
+Requires-Dist: types-python-dateutil; extra == 'athena-env-requirements'
+Requires-Dist: types-pyyaml; extra == 'athena-env-requirements'
+Requires-Dist: types-tabulate; extra == 'athena-env-requirements'
+Requires-Dist: varname<1,>=0.15.1; extra == 'athena-env-requirements'
 Provides-Extra: bigquery-env-requirements
 Requires-Dist: black<24,>=23.3; extra == 'bigquery-env-requirements'
 Requires-Dist: duckdb-engine<0.14.0,>=0.13.0; extra == 'bigquery-env-requirements'

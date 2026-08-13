@@ -61,16 +61,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NvmeSubsystem(
         {
-            "name": "subsystem1",
             "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
-            "svm": {"name": "svm1", "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16"},
+            "name": "subsystem1",
+            "svm": {"uuid": "a009a9e7-4081-b576-7575-ada21efcaf16", "name": "svm1"},
         }
     ),
     NvmeSubsystem(
         {
-            "name": "subsystem2",
             "uuid": "bcde901a-a379-4a91-9ea6-1b728ed6696f",
-            "svm": {"name": "svm1", "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16"},
+            "name": "subsystem2",
+            "svm": {"uuid": "a009a9e7-4081-b576-7575-ada21efcaf16", "name": "svm1"},
         }
     ),
 ]
@@ -99,10 +99,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NvmeSubsystem(
         {
+            "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
             "name": "subsystem1",
             "os_type": "linux",
-            "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
-            "svm": {"name": "svm1", "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16"},
+            "svm": {"uuid": "a009a9e7-4081-b576-7575-ada21efcaf16", "name": "svm1"},
         }
     )
 ]
@@ -131,11 +131,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 NvmeSubsystem(
     {
         "serial_number": "wtJNKNKD-uPLAAAAAAAD",
+        "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
         "name": "subsystem1",
         "os_type": "linux",
-        "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
+        "svm": {"uuid": "a009a9e7-4081-b576-7575-ada21efcaf16", "name": "svm1"},
         "target_nqn": "nqn.1992-08.com.netapp:sn.d04594ef915b4c73b642169e72e4c0b1:subsystem.subsystem1",
-        "svm": {"name": "svm1", "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16"},
     }
 )
 
@@ -164,27 +164,27 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeSubsystem(
     {
-        "name": "subsystem1",
         "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
+        "name": "subsystem1",
+        "svm": {"uuid": "a009a9e7-4081-b576-7575-ada21efcaf16", "name": "svm1"},
         "subsystem_maps": [
             {
-                "anagrpid": "00000001h",
                 "nsid": "00000001h",
+                "anagrpid": "00000001h",
                 "namespace": {
-                    "name": "/vol/vol1/namespace1",
                     "uuid": "eeaaca23-128d-4a7d-be4a-dc9106705799",
+                    "name": "/vol/vol1/namespace1",
                 },
             },
             {
-                "anagrpid": "00000002h",
                 "nsid": "00000002h",
+                "anagrpid": "00000002h",
                 "namespace": {
-                    "name": "/vol/vol1/namespace2",
                     "uuid": "feaaca23-83a0-4a7d-beda-dc9106705799",
+                    "name": "/vol/vol1/namespace2",
                 },
             },
         ],
-        "svm": {"name": "svm1", "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16"},
     }
 )
 
@@ -326,9 +326,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeSubsystemHost(
     {
-        "dh_hmac_chap": {},
         "nqn": "nqn.1992-01.com.example:subsys1.host1",
         "priority": "regular",
+        "dh_hmac_chap": {},
         "subsystem": {"uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f"},
     }
 )
@@ -643,6 +643,8 @@ class NvmeSubsystem(Resource):
 * `svm.uuid` or `svm.name` - Existing SVM in which to create the NVMe subsystem.
 * `name` - Name for NVMe subsystem. Once created, an NVMe subsystem cannot be renamed.
 * `os_type` - Operating system of the NVMe subsystem's hosts.
+* `hosts.dh_hmac_chap.host_secret_key` - When created with the subsystem host, authentication host secret key must be provided if the TLS key type is "generated".
+Note: The `hosts.dh_hmac_chap.group_size` property should not be set to "None". If the `hosts.dh_hmac_chap.group_size` property is not provided, then DH group size of 2048-bit is considered by default.
 ### Related ONTAP commands
 * `vserver nvme subsystem create`
 ### Learn more
@@ -723,6 +725,8 @@ There is an added computational cost to retrieving values for these properties. 
 * `svm.uuid` or `svm.name` - Existing SVM in which to create the NVMe subsystem.
 * `name` - Name for NVMe subsystem. Once created, an NVMe subsystem cannot be renamed.
 * `os_type` - Operating system of the NVMe subsystem's hosts.
+* `hosts.dh_hmac_chap.host_secret_key` - When created with the subsystem host, authentication host secret key must be provided if the TLS key type is "generated".
+Note: The `hosts.dh_hmac_chap.group_size` property should not be set to "None". If the `hosts.dh_hmac_chap.group_size` property is not provided, then DH group size of 2048-bit is considered by default.
 ### Related ONTAP commands
 * `vserver nvme subsystem create`
 ### Learn more

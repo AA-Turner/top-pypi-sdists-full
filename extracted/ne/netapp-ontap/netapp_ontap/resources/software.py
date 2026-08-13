@@ -29,84 +29,28 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Software(
     {
-        "version": "9.5.0",
-        "_links": {"self": {"href": "/api/cluster/software/"}},
-        "pending_version": "9.6.0",
-        "update_details": [
-            {
-                "elapsed_duration": 29,
-                "state": "in_progress",
-                "phase": "Data ONTAP updates",
-                "estimated_duration": 4620,
-                "node": {"name": "sti70-vsim-ucs165n"},
-            }
-        ],
-        "state": "in_progress",
-        "validation_results": [
-            {
-                "issue": {"message": "Use NFS hard mounts, if possible."},
-                "status": "warning",
-                "action": {"message": "Use NFS hard mounts, if possible."},
-                "update_check": "NFS mounts",
-            }
-        ],
-        "metrocluster": {
-            "progress_summary": {"message": "Update paused by user"},
-            "clusters": [
-                {
-                    "estimated_duration": 3480,
-                    "state": "waiting",
-                    "elapsed_duration": 0,
-                    "name": "sti70-vsim-ucs165n_siteA",
-                }
-            ],
-            "progress_details": {
-                "message": 'Installing software image on cluster "sti70-vsim-ucs165n_siteA".'
-            },
-        },
-        "status_details": [
-            {
-                "name": "do-download-job",
-                "start_time": "2018-05-21T09:53:04+05:30",
-                "issue": {"message": "Image update complete", "code": 0},
-                "state": "completed",
-                "end_time": "2018-05-21T11:53:04+05:30",
-                "node": {"name": "sti70-vsim-ucs165n"},
-            }
-        ],
         "nodes": [
             {
                 "version": "9.5.0",
                 "firmware": {
-                    "sp_bmc": {
-                        "autoupdate": False,
-                        "in_progress": False,
-                        "running_version": "1.2.3.4",
-                        "image": " primary",
-                        "fw_type": "SP",
-                        "start_time": "2018-05-21T09:53:04+05:30",
-                        "end_time": "2018-05-21T09:53:04+05:30",
-                        "is_current": True,
-                        "percent_done": 100,
+                    "disk": {
+                        "update_status": "idle",
+                        "total_completion_estimate": 0,
+                        "average_duration_per_disk": 120,
+                        "num_waiting_download": 0,
                     },
                     "dqp": {
-                        "version": "3.17",
                         "record_count": {
                             "drive": 680,
+                            "alias": 200,
                             "device": 29,
                             "system": 3,
-                            "alias": 200,
                         },
+                        "version": "3.17",
                         "file_name": "qual_devices_v2",
                         "revision": "20200117",
                     },
                     "shelf": {"update_status": "idle", "in_progress_count": 2},
-                    "disk": {
-                        "update_status": "idle",
-                        "num_waiting_download": 0,
-                        "average_duration_per_disk": 120,
-                        "total_completion_estimate": 0,
-                    },
                     "cluster_fw_progress": [
                         {
                             "job": {
@@ -117,30 +61,30 @@ Software(
                                 },
                                 "uuid": "5a21663c-a9a0-11ea-af9a-005056bb44d7",
                             },
-                            "zip_file_name": "abc.zip",
                             "update_state": [
                                 {
-                                    "message": "Cannot open the local staging zip file.",
                                     "attempts": 3,
+                                    "message": "Cannot open the local staging zip file.",
+                                    "worker_node": {
+                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
+                                        "name": "Node 1",
+                                    },
                                     "code": 2228325,
                                     "status": "failed",
-                                    "worker_node": {
-                                        "name": "Node 1",
-                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
-                                    },
                                 },
                                 {
-                                    "message": "Success",
                                     "attempts": 3,
+                                    "message": "Success",
+                                    "worker_node": {
+                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3498",
+                                        "name": "Node 2",
+                                    },
                                     "code": 0,
                                     "status": "complete",
-                                    "worker_node": {
-                                        "name": "Node 2",
-                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3498",
-                                    },
                                 },
                             ],
                             "update_type": "automatic_update",
+                            "zip_file_name": "abc.zip",
                         },
                         {
                             "job": {
@@ -151,35 +95,91 @@ Software(
                                 },
                                 "uuid": "5a21663c-a9a0-11ea-af9a-005056bb44d7",
                             },
-                            "zip_file_name": "xyz.zip",
                             "update_state": [
                                 {
-                                    "message": "Cannot open the local staging zip file.",
                                     "attempts": 3,
+                                    "message": "Cannot open the local staging zip file.",
+                                    "worker_node": {
+                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
+                                        "name": "Node 1",
+                                    },
                                     "code": 2228325,
                                     "status": "failed",
-                                    "worker_node": {
-                                        "name": "Node 1",
-                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
-                                    },
                                 },
                                 {
-                                    "message": "Success",
                                     "attempts": 3,
+                                    "message": "Success",
+                                    "worker_node": {
+                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3498",
+                                        "name": "Node 2",
+                                    },
                                     "code": 0,
                                     "status": "complete",
-                                    "worker_node": {
-                                        "name": "Node 2",
-                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3498",
-                                    },
                                 },
                             ],
                             "update_type": "manual_update",
+                            "zip_file_name": "xyz.zip",
                         },
                     ],
+                    "sp_bmc": {
+                        "start_time": "2018-05-21T09:53:04+05:30",
+                        "is_current": True,
+                        "running_version": "1.2.3.4",
+                        "in_progress": False,
+                        "image": " primary",
+                        "fw_type": "SP",
+                        "end_time": "2018-05-21T09:53:04+05:30",
+                        "autoupdate": False,
+                        "percent_done": 100,
+                    },
                 },
             }
         ],
+        "validation_results": [
+            {
+                "action": {"message": "Use NFS hard mounts, if possible."},
+                "status": "warning",
+                "update_check": "NFS mounts",
+                "issue": {"message": "Use NFS hard mounts, if possible."},
+            }
+        ],
+        "update_details": [
+            {
+                "elapsed_duration": 29,
+                "phase": "Data ONTAP updates",
+                "node": {"name": "sti70-vsim-ucs165n"},
+                "estimated_duration": 4620,
+                "state": "in_progress",
+            }
+        ],
+        "version": "9.5.0",
+        "_links": {"self": {"href": "/api/cluster/software/"}},
+        "metrocluster": {
+            "progress_summary": {"message": "Update paused by user"},
+            "clusters": [
+                {
+                    "estimated_duration": 3480,
+                    "elapsed_duration": 0,
+                    "state": "waiting",
+                    "name": "sti70-vsim-ucs165n_siteA",
+                }
+            ],
+            "progress_details": {
+                "message": 'Installing software image on cluster "sti70-vsim-ucs165n_siteA".'
+            },
+        },
+        "status_details": [
+            {
+                "start_time": "2018-05-21T09:53:04+05:30",
+                "end_time": "2018-05-21T11:53:04+05:30",
+                "name": "do-download-job",
+                "node": {"name": "sti70-vsim-ucs165n"},
+                "issue": {"message": "Image update complete", "code": 0},
+                "state": "completed",
+            }
+        ],
+        "pending_version": "9.6.0",
+        "state": "in_progress",
     }
 )
 
@@ -226,13 +226,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Job(
     {
         "message": "success",
+        "uuid": "f587d316-5feb-11e8-b0e0-005056956dfc",
+        "description": "PATCH /api/cluster/software",
         "_links": {
             "self": {"href": "/api/cluster/jobs/f587d316-5feb-11e8-b0e0-005056956dfc"}
         },
         "code": 0,
         "state": "success",
-        "uuid": "f587d316-5feb-11e8-b0e0-005056956dfc",
-        "description": "PATCH /api/cluster/software",
     }
 )
 
@@ -260,66 +260,29 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Software(
     {
-        "version": "9.7.0",
         "elapsed_duration": 56,
-        "_links": {"self": {"href": "/api/cluster/software"}},
-        "state": "failed",
-        "validation_results": [
-            {
-                "issue": {
-                    "message": 'Cluster HA is not configured in the cluster. Storage failover is not enabled on node "node1", "node2".'
-                },
-                "status": "error",
-                "action": {
-                    "message": "Check cluster HA configuration. Check storage failover status."
-                },
-                "update_check": "High Availability status",
-            },
-            {
-                "issue": {
-                    "message": 'Manual validation checks need to be performed. Refer to the Upgrade Advisor Plan or the "What should I verify before I upgrade with or without Upgrade Advisor" section in the "Upgrade ONTAP" documentation for the remaining validation checks that need to be performed before update. Failing to do so can result in an update failure or an I/O disruption.'
-                },
-                "status": "warning",
-                "action": {
-                    "message": 'Refer to the Upgrade Advisor Plan or the "What should I verify before I upgrade with or without Upgrade Advisor" section in the "Upgrade ONTAP" documentation for the remaining validation checks that need to be performed before update.'
-                },
-                "update_check": "Manual checks",
-            },
-        ],
-        "estimated_duration": 600,
         "nodes": [
             {
                 "version": "9.5.0",
                 "firmware": {
-                    "sp_bmc": {
-                        "autoupdate": False,
-                        "in_progress": False,
-                        "running_version": "1.2.3.4",
-                        "image": " primary",
-                        "fw_type": "SP",
-                        "start_time": "2018-05-21T09:53:04+05:30",
-                        "end_time": "2018-05-21T09:53:04+05:30",
-                        "is_current": True,
-                        "percent_done": 100,
+                    "disk": {
+                        "update_status": "idle",
+                        "total_completion_estimate": 0,
+                        "average_duration_per_disk": 120,
+                        "num_waiting_download": 0,
                     },
                     "dqp": {
-                        "version": "3.17",
                         "record_count": {
                             "drive": 680,
+                            "alias": 200,
                             "device": 29,
                             "system": 3,
-                            "alias": 200,
                         },
+                        "version": "3.17",
                         "file_name": "qual_devices_v2",
                         "revision": "20200117",
                     },
                     "shelf": {"update_status": "idle", "in_progress_count": 2},
-                    "disk": {
-                        "update_status": "idle",
-                        "num_waiting_download": 0,
-                        "average_duration_per_disk": 120,
-                        "total_completion_estimate": 0,
-                    },
                     "cluster_fw_progress": [
                         {
                             "job": {
@@ -330,30 +293,30 @@ Software(
                                 },
                                 "uuid": "5a21663c-a9a0-11ea-af9a-005056bb44d7",
                             },
-                            "zip_file_name": "abc.zip",
                             "update_state": [
                                 {
-                                    "message": "Cannot open the local staging zip file.",
                                     "attempts": 3,
+                                    "message": "Cannot open the local staging zip file.",
+                                    "worker_node": {
+                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3498",
+                                        "name": "Node 1",
+                                    },
                                     "code": 2228325,
                                     "status": "failed",
-                                    "worker_node": {
-                                        "name": "Node 1",
-                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3498",
-                                    },
                                 },
                                 {
-                                    "message": "Success",
                                     "attempts": 3,
+                                    "message": "Success",
+                                    "worker_node": {
+                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3498",
+                                        "name": "Node 2",
+                                    },
                                     "code": 0,
                                     "status": "complete",
-                                    "worker_node": {
-                                        "name": "Node 2",
-                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3498",
-                                    },
                                 },
                             ],
                             "update_type": "automatic_update",
+                            "zip_file_name": "abc.zip",
                         },
                         {
                             "job": {
@@ -364,35 +327,72 @@ Software(
                                 },
                                 "uuid": "5a21663c-a9a0-11ea-af9a-005056bb44d7",
                             },
-                            "zip_file_name": "xyz.zip",
                             "update_state": [
                                 {
-                                    "message": "Cannot open the local staging zip file.",
                                     "attempts": 3,
+                                    "message": "Cannot open the local staging zip file.",
+                                    "worker_node": {
+                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3498",
+                                        "name": "Node 1",
+                                    },
                                     "code": 2228325,
                                     "status": "failed",
-                                    "worker_node": {
-                                        "name": "Node 1",
-                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3498",
-                                    },
                                 },
                                 {
-                                    "message": "Success",
                                     "attempts": 3,
+                                    "message": "Success",
+                                    "worker_node": {
+                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3498",
+                                        "name": "Node 2",
+                                    },
                                     "code": 0,
                                     "status": "complete",
-                                    "worker_node": {
-                                        "name": "Node 2",
-                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3498",
-                                    },
                                 },
                             ],
                             "update_type": "automatic_update",
+                            "zip_file_name": "xyz.zip",
                         },
                     ],
+                    "sp_bmc": {
+                        "start_time": "2018-05-21T09:53:04+05:30",
+                        "is_current": True,
+                        "running_version": "1.2.3.4",
+                        "in_progress": False,
+                        "image": " primary",
+                        "fw_type": "SP",
+                        "end_time": "2018-05-21T09:53:04+05:30",
+                        "autoupdate": False,
+                        "percent_done": 100,
+                    },
                 },
             }
         ],
+        "validation_results": [
+            {
+                "action": {
+                    "message": "Check cluster HA configuration. Check storage failover status."
+                },
+                "status": "error",
+                "update_check": "High Availability status",
+                "issue": {
+                    "message": 'Cluster HA is not configured in the cluster. Storage failover is not enabled on node "node1", "node2".'
+                },
+            },
+            {
+                "action": {
+                    "message": 'Refer to the Upgrade Advisor Plan or the "What should I verify before I upgrade with or without Upgrade Advisor" section in the "Upgrade ONTAP" documentation for the remaining validation checks that need to be performed before update.'
+                },
+                "status": "warning",
+                "update_check": "Manual checks",
+                "issue": {
+                    "message": 'Manual validation checks need to be performed. Refer to the Upgrade Advisor Plan or the "What should I verify before I upgrade with or without Upgrade Advisor" section in the "Upgrade ONTAP" documentation for the remaining validation checks that need to be performed before update. Failing to do so can result in an update failure or an I/O disruption.'
+                },
+            },
+        ],
+        "version": "9.7.0",
+        "_links": {"self": {"href": "/api/cluster/software"}},
+        "estimated_duration": 600,
+        "state": "failed",
     }
 )
 
@@ -436,13 +436,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Job(
     {
         "message": "success",
+        "uuid": "f587d316-5feb-11e8-b0e0-005056956dfc",
+        "description": "PATCH /api/cluster/software",
         "_links": {
             "self": {"href": "/api/cluster/jobs/f587d316-5feb-11e8-b0e0-005056956dfc"}
         },
         "code": 0,
         "state": "success",
-        "uuid": "f587d316-5feb-11e8-b0e0-005056956dfc",
-        "description": "PATCH /api/cluster/software",
     }
 )
 
@@ -469,87 +469,29 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Software(
     {
-        "version": "9.7.0",
         "elapsed_duration": 63,
-        "_links": {"self": {"href": "/api/cluster/software"}},
-        "pending_version": "9.7.0",
-        "update_details": [
-            {
-                "elapsed_duration": 10,
-                "phase": "Data ONTAP updates",
-                "estimated_duration": 4620,
-                "node": {"name": "node1"},
-            },
-            {
-                "elapsed_duration": 10,
-                "phase": "Data ONTAP updates",
-                "estimated_duration": 4620,
-                "node": {"name": "node2"},
-            },
-        ],
-        "state": "in_progress",
-        "validation_results": [
-            {
-                "issue": {
-                    "message": 'Manual validation checks need to be performed. Refer to the Upgrade Advisor Plan or the "What should I verify before I upgrade with or without Upgrade Advisor" section in the "Upgrade ONTAP" documentation for the remaining validation checks that need to be performed before update. Failing to do so can result in an update failure or an I/O disruption.'
-                },
-                "status": "warning",
-                "action": {
-                    "message": 'Refer to the Upgrade Advisor Plan or the "What should I verify before I upgrade with or without Upgrade Advisor" section in the "Upgrade ONTAP" documentation for the remaining validation checks that need to be performed before update.'
-                },
-                "update_check": "Manual checks",
-            }
-        ],
-        "status_details": [
-            {
-                "name": "do-download-job",
-                "start_time": "2019-01-14T23:12:14+05:30",
-                "issue": {"message": "Installing software image.", "code": 10551400},
-                "end_time": "2019-01-14T23:12:14+05:30",
-                "node": {"name": "node1"},
-            },
-            {
-                "name": "do-download-job",
-                "start_time": "2019-01-14T23:12:14+05:30",
-                "issue": {"message": "Installing software image.", "code": 10551400},
-                "end_time": "2019-01-14T23:12:14+05:30",
-                "node": {"name": "node2"},
-            },
-        ],
-        "estimated_duration": 5220,
         "nodes": [
             {
                 "version": "9.5.0",
                 "firmware": {
-                    "sp_bmc": {
-                        "autoupdate": False,
-                        "in_progress": False,
-                        "running_version": "1.2.3.4",
-                        "image": " primary",
-                        "fw_type": "SP",
-                        "start_time": "2018-05-21T09:53:04+05:30",
-                        "end_time": "2018-05-21T09:53:04+05:30",
-                        "is_current": True,
-                        "percent_done": 100,
+                    "disk": {
+                        "update_status": "idle",
+                        "total_completion_estimate": 0,
+                        "average_duration_per_disk": 120,
+                        "num_waiting_download": 0,
                     },
                     "dqp": {
-                        "version": "3.17",
                         "record_count": {
                             "drive": 680,
+                            "alias": 200,
                             "device": 29,
                             "system": 3,
-                            "alias": 200,
                         },
+                        "version": "3.17",
                         "file_name": "qual_devices_v2",
                         "revision": "20200117",
                     },
                     "shelf": {"update_status": "idle", "in_progress_count": 2},
-                    "disk": {
-                        "update_status": "idle",
-                        "num_waiting_download": 0,
-                        "average_duration_per_disk": 120,
-                        "total_completion_estimate": 0,
-                    },
                     "cluster_fw_progress": [
                         {
                             "job": {
@@ -560,30 +502,30 @@ Software(
                                 },
                                 "uuid": "5a21663c-a9a0-11ea-af9a-005056bb44d7",
                             },
-                            "zip_file_name": "abc.zip",
                             "update_state": [
                                 {
-                                    "message": "Cannot open the local staging zip file.",
                                     "attempts": 3,
+                                    "message": "Cannot open the local staging zip file.",
+                                    "worker_node": {
+                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
+                                        "name": "Node 3",
+                                    },
                                     "code": 2228325,
                                     "status": "failed",
-                                    "worker_node": {
-                                        "name": "Node 3",
-                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
-                                    },
                                 },
                                 {
-                                    "message": "Success",
                                     "attempts": 3,
+                                    "message": "Success",
+                                    "worker_node": {
+                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3498",
+                                        "name": "Node 4",
+                                    },
                                     "code": 0,
                                     "status": "complete",
-                                    "worker_node": {
-                                        "name": "Node 4",
-                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3498",
-                                    },
                                 },
                             ],
                             "update_type": "automated_update",
+                            "zip_file_name": "abc.zip",
                         },
                         {
                             "job": {
@@ -594,35 +536,93 @@ Software(
                                 },
                                 "uuid": "5a21663c-a9a0-11ea-af9a-005056bb44d7",
                             },
-                            "zip_file_name": "xyz.zip",
                             "update_state": [
                                 {
-                                    "message": "Cannot open the local staging zip file.",
                                     "attempts": 3,
+                                    "message": "Cannot open the local staging zip file.",
+                                    "worker_node": {
+                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
+                                        "name": "Node 1",
+                                    },
                                     "code": 2228325,
                                     "status": "failed",
-                                    "worker_node": {
-                                        "name": "Node 1",
-                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
-                                    },
                                 },
                                 {
-                                    "message": "Success",
                                     "attempts": 3,
+                                    "message": "Success",
+                                    "worker_node": {
+                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
+                                        "name": "Node 2",
+                                    },
                                     "code": 0,
                                     "status": "complete",
-                                    "worker_node": {
-                                        "name": "Node 2",
-                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
-                                    },
                                 },
                             ],
                             "update_type": "automated_update",
+                            "zip_file_name": "xyz.zip",
                         },
                     ],
+                    "sp_bmc": {
+                        "start_time": "2018-05-21T09:53:04+05:30",
+                        "is_current": True,
+                        "running_version": "1.2.3.4",
+                        "in_progress": False,
+                        "image": " primary",
+                        "fw_type": "SP",
+                        "end_time": "2018-05-21T09:53:04+05:30",
+                        "autoupdate": False,
+                        "percent_done": 100,
+                    },
                 },
             }
         ],
+        "validation_results": [
+            {
+                "action": {
+                    "message": 'Refer to the Upgrade Advisor Plan or the "What should I verify before I upgrade with or without Upgrade Advisor" section in the "Upgrade ONTAP" documentation for the remaining validation checks that need to be performed before update.'
+                },
+                "status": "warning",
+                "update_check": "Manual checks",
+                "issue": {
+                    "message": 'Manual validation checks need to be performed. Refer to the Upgrade Advisor Plan or the "What should I verify before I upgrade with or without Upgrade Advisor" section in the "Upgrade ONTAP" documentation for the remaining validation checks that need to be performed before update. Failing to do so can result in an update failure or an I/O disruption.'
+                },
+            }
+        ],
+        "update_details": [
+            {
+                "elapsed_duration": 10,
+                "phase": "Data ONTAP updates",
+                "node": {"name": "node1"},
+                "estimated_duration": 4620,
+            },
+            {
+                "elapsed_duration": 10,
+                "phase": "Data ONTAP updates",
+                "node": {"name": "node2"},
+                "estimated_duration": 4620,
+            },
+        ],
+        "version": "9.7.0",
+        "_links": {"self": {"href": "/api/cluster/software"}},
+        "status_details": [
+            {
+                "start_time": "2019-01-14T23:12:14+05:30",
+                "end_time": "2019-01-14T23:12:14+05:30",
+                "name": "do-download-job",
+                "node": {"name": "node1"},
+                "issue": {"message": "Installing software image.", "code": 10551400},
+            },
+            {
+                "start_time": "2019-01-14T23:12:14+05:30",
+                "end_time": "2019-01-14T23:12:14+05:30",
+                "name": "do-download-job",
+                "node": {"name": "node2"},
+                "issue": {"message": "Installing software image.", "code": 10551400},
+            },
+        ],
+        "pending_version": "9.7.0",
+        "estimated_duration": 5220,
+        "state": "in_progress",
     }
 )
 
@@ -650,111 +650,29 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Software(
     {
-        "version": "9.7.0",
         "elapsed_duration": 63,
-        "_links": {"self": {"href": "/api/cluster/software"}},
-        "pending_version": "9.7.0",
-        "update_details": [
-            {
-                "elapsed_duration": 3120,
-                "phase": "Data ONTAP updates",
-                "estimated_duration": 4620,
-                "node": {"name": "node1"},
-            },
-            {
-                "elapsed_duration": 3210,
-                "phase": "Data ONTAP updates",
-                "estimated_duration": 4620,
-                "node": {"name": "node2"},
-            },
-            {
-                "elapsed_duration": 10,
-                "phase": "Post-update checks",
-                "estimated_duration": 600,
-                "node": {"name": "node2"},
-            },
-        ],
-        "state": "in_progress",
-        "validation_results": [
-            {
-                "issue": {
-                    "message": 'Manual validation checks need to be performed. Refer to the Upgrade Advisor Plan or the "What should I verify before I upgrade with or without Upgrade Advisor" section in the "Upgrade ONTAP" documentation for the remaining validation checks that need to be performed before update. Failing to do so can result in an update failure or an I/O disruption.'
-                },
-                "status": "warning",
-                "action": {
-                    "message": 'Refer to the Upgrade Advisor Plan or the "What should I verify before I upgrade with or without Upgrade Advisor" section in the "Upgrade ONTAP" documentation for the remaining validation checks that need to be performed before update.'
-                },
-                "update_check": "Manual checks",
-            }
-        ],
-        "post_update_checks": [
-            {
-                "issue": {"message": "Not all aggregates are online"},
-                "status": "error",
-                "action": {"message": "Ensure all aggregates are online."},
-                "update_check": "Aggregate Health Status",
-            },
-            {
-                "issue": {
-                    "message": "Storage failover is not enabled on nodes of the cluster."
-                },
-                "status": "error",
-                "action": {
-                    "message": "Ensure storage failover is enabled on all nodes of the cluster."
-                },
-                "update_check": "HA Health Status",
-            },
-        ],
-        "status_details": [
-            {
-                "name": "do-download-job",
-                "start_time": "2019-01-14T23:12:14+05:30",
-                "issue": {"message": "Image update complete.", "code": 0},
-                "end_time": "2019-01-14T23:12:14+05:30",
-                "node": {"name": "node1"},
-            },
-            {
-                "name": "do-download-job",
-                "start_time": "2019-01-14T23:12:14+05:30",
-                "issue": {"message": "Image update complete.", "code": 0},
-                "end_time": "2019-01-14T23:12:14+05:30",
-                "node": {"name": "node2"},
-            },
-        ],
-        "estimated_duration": 5220,
         "nodes": [
             {
                 "version": "9.5.0",
                 "firmware": {
-                    "sp_bmc": {
-                        "autoupdate": False,
-                        "in_progress": True,
-                        "running_version": "1.2.3.4",
-                        "image": " primary",
-                        "fw_type": "SP",
-                        "start_time": "2018-05-21T09:53:04+05:30",
-                        "end_time": "2018-05-21T09:53:04+05:30",
-                        "is_current": True,
-                        "percent_done": 100,
+                    "disk": {
+                        "update_status": "idle",
+                        "total_completion_estimate": 0,
+                        "average_duration_per_disk": 120,
+                        "num_waiting_download": 0,
                     },
                     "dqp": {
-                        "version": "3.17",
                         "record_count": {
                             "drive": 680,
+                            "alias": 200,
                             "device": 29,
                             "system": 3,
-                            "alias": 200,
                         },
+                        "version": "3.17",
                         "file_name": "qual_devices_v2",
                         "revision": "20200117",
                     },
                     "shelf": {"update_status": "idle", "in_progress_count": 2},
-                    "disk": {
-                        "update_status": "idle",
-                        "num_waiting_download": 0,
-                        "average_duration_per_disk": 120,
-                        "total_completion_estimate": 0,
-                    },
                     "cluster_fw_progress": [
                         {
                             "job": {
@@ -765,30 +683,30 @@ Software(
                                 },
                                 "uuid": "5a21663c-a9a0-11ea-af9a-005056bb44d7",
                             },
-                            "zip_file_name": "abc.zip",
                             "update_state": [
                                 {
-                                    "message": "<message catalog text>",
                                     "attempts": 3,
+                                    "message": "<message catalog text>",
+                                    "worker_node": {
+                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
+                                        "name": "Node 1",
+                                    },
                                     "code": 3,
                                     "status": "working",
-                                    "worker_node": {
-                                        "name": "Node 1",
-                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
-                                    },
                                 },
                                 {
-                                    "message": "Error message",
                                     "attempts": 3,
+                                    "message": "Error message",
+                                    "worker_node": {
+                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
+                                        "name": "Node 2",
+                                    },
                                     "code": 0,
                                     "status": "completed",
-                                    "worker_node": {
-                                        "name": "Node 2",
-                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
-                                    },
                                 },
                             ],
                             "update_type": "automated_update",
+                            "zip_file_name": "abc.zip",
                         },
                         {
                             "job": {
@@ -799,35 +717,117 @@ Software(
                                 },
                                 "uuid": "5a21663c-a9a0-11ea-af9a-005056bb44d7",
                             },
-                            "zip_file_name": "xyz.zip",
                             "update_state": [
                                 {
-                                    "message": "Error message",
                                     "attempts": 1,
+                                    "message": "Error message",
+                                    "worker_node": {
+                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
+                                        "name": "Node 1",
+                                    },
                                     "code": 0,
                                     "status": "completed",
-                                    "worker_node": {
-                                        "name": "Node 1",
-                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
-                                    },
                                 },
                                 {
-                                    "message": "Error message",
                                     "attempts": 3,
+                                    "message": "Error message",
+                                    "worker_node": {
+                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
+                                        "name": "Node 2",
+                                    },
                                     "code": 0,
                                     "status": "completed",
-                                    "worker_node": {
-                                        "name": "Node 2",
-                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
-                                    },
                                 },
                             ],
                             "update_type": "automated_update",
+                            "zip_file_name": "xyz.zip",
                         },
                     ],
+                    "sp_bmc": {
+                        "start_time": "2018-05-21T09:53:04+05:30",
+                        "is_current": True,
+                        "running_version": "1.2.3.4",
+                        "in_progress": True,
+                        "image": " primary",
+                        "fw_type": "SP",
+                        "end_time": "2018-05-21T09:53:04+05:30",
+                        "autoupdate": False,
+                        "percent_done": 100,
+                    },
                 },
             }
         ],
+        "validation_results": [
+            {
+                "action": {
+                    "message": 'Refer to the Upgrade Advisor Plan or the "What should I verify before I upgrade with or without Upgrade Advisor" section in the "Upgrade ONTAP" documentation for the remaining validation checks that need to be performed before update.'
+                },
+                "status": "warning",
+                "update_check": "Manual checks",
+                "issue": {
+                    "message": 'Manual validation checks need to be performed. Refer to the Upgrade Advisor Plan or the "What should I verify before I upgrade with or without Upgrade Advisor" section in the "Upgrade ONTAP" documentation for the remaining validation checks that need to be performed before update. Failing to do so can result in an update failure or an I/O disruption.'
+                },
+            }
+        ],
+        "update_details": [
+            {
+                "elapsed_duration": 3120,
+                "phase": "Data ONTAP updates",
+                "node": {"name": "node1"},
+                "estimated_duration": 4620,
+            },
+            {
+                "elapsed_duration": 3210,
+                "phase": "Data ONTAP updates",
+                "node": {"name": "node2"},
+                "estimated_duration": 4620,
+            },
+            {
+                "elapsed_duration": 10,
+                "phase": "Post-update checks",
+                "node": {"name": "node2"},
+                "estimated_duration": 600,
+            },
+        ],
+        "version": "9.7.0",
+        "post_update_checks": [
+            {
+                "action": {"message": "Ensure all aggregates are online."},
+                "status": "error",
+                "update_check": "Aggregate Health Status",
+                "issue": {"message": "Not all aggregates are online"},
+            },
+            {
+                "action": {
+                    "message": "Ensure storage failover is enabled on all nodes of the cluster."
+                },
+                "status": "error",
+                "update_check": "HA Health Status",
+                "issue": {
+                    "message": "Storage failover is not enabled on nodes of the cluster."
+                },
+            },
+        ],
+        "_links": {"self": {"href": "/api/cluster/software"}},
+        "status_details": [
+            {
+                "start_time": "2019-01-14T23:12:14+05:30",
+                "end_time": "2019-01-14T23:12:14+05:30",
+                "name": "do-download-job",
+                "node": {"name": "node1"},
+                "issue": {"message": "Image update complete.", "code": 0},
+            },
+            {
+                "start_time": "2019-01-14T23:12:14+05:30",
+                "end_time": "2019-01-14T23:12:14+05:30",
+                "name": "do-download-job",
+                "node": {"name": "node2"},
+                "issue": {"message": "Image update complete.", "code": 0},
+            },
+        ],
+        "pending_version": "9.7.0",
+        "estimated_duration": 5220,
+        "state": "in_progress",
     }
 )
 
@@ -871,13 +871,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Job(
     {
         "message": "success",
+        "uuid": "f587d316-5feb-11e8-b0e0-005056956dfc",
+        "description": "PATCH /api/cluster/software",
         "_links": {
             "self": {"href": "/api/cluster/jobs/f587d316-5feb-11e8-b0e0-005056956dfc"}
         },
         "code": 0,
         "state": "success",
-        "uuid": "f587d316-5feb-11e8-b0e0-005056956dfc",
-        "description": "PATCH /api/cluster/software",
     }
 )
 
@@ -905,88 +905,29 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Software(
     {
-        "version": "9.7.0",
         "elapsed_duration": 103,
-        "_links": {"self": {"href": "/api/cluster/software"}},
-        "pending_version": "9.7.0",
-        "update_details": [
-            {
-                "elapsed_duration": 54,
-                "phase": "Pre-update checks",
-                "estimated_duration": 600,
-                "node": {"name": "node1"},
-            },
-            {
-                "elapsed_duration": 49,
-                "phase": "Data ONTAP updates",
-                "estimated_duration": 4620,
-                "node": {"name": "node2"},
-            },
-            {
-                "elapsed_duration": 49,
-                "phase": "Data ONTAP updates",
-                "estimated_duration": 4620,
-            },
-        ],
-        "state": "pause_pending",
-        "validation_results": [
-            {
-                "issue": {
-                    "message": 'Manual validation checks need to be performed. Refer to the Upgrade Advisor Plan or the "What should I verify before I upgrade with or without Upgrade Advisor" section in the "Upgrade ONTAP" documentation for the remaining validation checks that need to be performed before update. Failing to do so can result in an update failure or an I/O disruption.'
-                },
-                "status": "warning",
-                "action": {
-                    "message": 'Refer to the Upgrade Advisor Plan or the "What should I verify before I upgrade with or without Upgrade Advisor" section in the "Upgrade ONTAP" documentation for the remaining validation checks that need to be performed before update.'
-                },
-                "update_check": "Manual checks",
-            }
-        ],
-        "status_details": [
-            {
-                "start_time": "2019-01-08T02:54:36+05:30",
-                "issue": {"message": "Installing software image.", "code": 10551400},
-                "node": {"name": "node1"},
-            },
-            {
-                "start_time": "2019-01-08T02:54:36+05:30",
-                "issue": {"message": "Installing software image.", "code": 10551400},
-                "node": {"name": "node2"},
-            },
-        ],
-        "estimated_duration": 5220,
         "nodes": [
             {
                 "version": "9.5.0",
                 "firmware": {
-                    "sp_bmc": {
-                        "autoupdate": False,
-                        "in_progress": False,
-                        "running_version": "1.2.3.4",
-                        "image": " primary",
-                        "fw_type": "SP",
-                        "start_time": "2018-05-21T09:53:04+05:30",
-                        "end_time": "2018-05-21T09:53:04+05:30",
-                        "is_current": True,
-                        "percent_done": 100,
+                    "disk": {
+                        "update_status": "idle",
+                        "total_completion_estimate": 0,
+                        "average_duration_per_disk": 120,
+                        "num_waiting_download": 0,
                     },
                     "dqp": {
-                        "version": "3.17",
                         "record_count": {
                             "drive": 680,
+                            "alias": 200,
                             "device": 29,
                             "system": 3,
-                            "alias": 200,
                         },
+                        "version": "3.17",
                         "file_name": "qual_devices_v2",
                         "revision": "20200117",
                     },
                     "shelf": {"update_status": "idle", "in_progress_count": 2},
-                    "disk": {
-                        "update_status": "idle",
-                        "num_waiting_download": 0,
-                        "average_duration_per_disk": 120,
-                        "total_completion_estimate": 0,
-                    },
                     "cluster_fw_progress": [
                         {
                             "job": {
@@ -997,26 +938,26 @@ Software(
                                 },
                                 "uuid": "5a21663c-a9a0-11ea-af9a-005056bb44d7",
                             },
-                            "zip_file_name": "abc.zip",
                             "update_state": [
                                 {
-                                    "message": "Cannot open the local staging zip file.",
                                     "attempts": 3,
+                                    "message": "Cannot open the local staging zip file.",
+                                    "worker_node": {
+                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
+                                        "name": "Node 1",
+                                    },
                                     "code": 2228325,
                                     "status": "failed",
-                                    "worker_node": {
-                                        "name": "Node 1",
-                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
-                                    },
                                 },
                                 {
-                                    "message": "Success",
                                     "attempts": 3,
+                                    "message": "Success",
                                     "code": 0,
                                     "status": "complete",
                                 },
                             ],
                             "update_type": "automated_update",
+                            "zip_file_name": "abc.zip",
                         },
                         {
                             "job": {
@@ -1027,31 +968,90 @@ Software(
                                 },
                                 "uuid": "5a21663c-a9a0-11ea-af9a-005056bb44d7",
                             },
-                            "zip_file_name": "xyz.zip",
                             "update_state": [
                                 {
-                                    "message": "Cannot open the local staging zip file.",
                                     "attempts": 3,
+                                    "message": "Cannot open the local staging zip file.",
+                                    "worker_node": {
+                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
+                                        "name": "Node 1",
+                                    },
                                     "code": 2228325,
                                     "status": "failed",
-                                    "worker_node": {
-                                        "name": "Node 1",
-                                        "uuid": "fcd40f70-f531-11eb-b235-005056bb3497",
-                                    },
                                 },
                                 {
-                                    "message": "Success",
                                     "attempts": 3,
+                                    "message": "Success",
                                     "code": 0,
                                     "status": "complete",
                                 },
                             ],
                             "update_type": "automated_update",
+                            "zip_file_name": "xyz.zip",
                         },
                     ],
+                    "sp_bmc": {
+                        "start_time": "2018-05-21T09:53:04+05:30",
+                        "is_current": True,
+                        "running_version": "1.2.3.4",
+                        "in_progress": False,
+                        "image": " primary",
+                        "fw_type": "SP",
+                        "end_time": "2018-05-21T09:53:04+05:30",
+                        "autoupdate": False,
+                        "percent_done": 100,
+                    },
                 },
             }
         ],
+        "validation_results": [
+            {
+                "action": {
+                    "message": 'Refer to the Upgrade Advisor Plan or the "What should I verify before I upgrade with or without Upgrade Advisor" section in the "Upgrade ONTAP" documentation for the remaining validation checks that need to be performed before update.'
+                },
+                "status": "warning",
+                "update_check": "Manual checks",
+                "issue": {
+                    "message": 'Manual validation checks need to be performed. Refer to the Upgrade Advisor Plan or the "What should I verify before I upgrade with or without Upgrade Advisor" section in the "Upgrade ONTAP" documentation for the remaining validation checks that need to be performed before update. Failing to do so can result in an update failure or an I/O disruption.'
+                },
+            }
+        ],
+        "update_details": [
+            {
+                "elapsed_duration": 54,
+                "phase": "Pre-update checks",
+                "node": {"name": "node1"},
+                "estimated_duration": 600,
+            },
+            {
+                "elapsed_duration": 49,
+                "phase": "Data ONTAP updates",
+                "node": {"name": "node2"},
+                "estimated_duration": 4620,
+            },
+            {
+                "elapsed_duration": 49,
+                "phase": "Data ONTAP updates",
+                "estimated_duration": 4620,
+            },
+        ],
+        "version": "9.7.0",
+        "_links": {"self": {"href": "/api/cluster/software"}},
+        "status_details": [
+            {
+                "start_time": "2019-01-08T02:54:36+05:30",
+                "node": {"name": "node1"},
+                "issue": {"message": "Installing software image.", "code": 10551400},
+            },
+            {
+                "start_time": "2019-01-08T02:54:36+05:30",
+                "node": {"name": "node2"},
+                "issue": {"message": "Installing software image.", "code": 10551400},
+            },
+        ],
+        "pending_version": "9.7.0",
+        "estimated_duration": 5220,
+        "state": "pause_pending",
     }
 )
 

@@ -228,7 +228,7 @@ impl<'a> Formatter<'a> {
     }
 
     #[inline]
-    pub(crate) const fn line_width(&self) -> u8 {
+    pub(crate) const fn line_width(&self) -> Option<u8> {
         self.definitions.line_width
     }
 
@@ -305,6 +305,11 @@ impl<'a> Formatter<'a> {
     #[inline]
     pub(crate) fn string_quote_style(&self) -> tombi_config::StringQuoteStyle {
         self.definitions.string_quote_style
+    }
+
+    #[inline]
+    pub(crate) fn comment_style(&self) -> tombi_config::CommentStyle {
+        self.definitions.comment_style
     }
 
     #[inline]

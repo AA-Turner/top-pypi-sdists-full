@@ -30,26 +30,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LocalCifsUsersAndGroupsImport(
     {
+        "detailed_status": {
+            "message": "Operation completed successfully.",
+            "code": "0",
+        },
+        "elements_imported": 2,
         "elements_ignored": 0,
         "_links": {
             "self": {
                 "href": "/api/protocols/cifs/users-and-groups/import/6de1d39d-1473-11ec-b0cf-0050568e4acc"
             }
         },
-        "state": "success",
-        "detailed_status": {
-            "message": "Operation completed successfully.",
-            "code": "0",
-        },
         "import_uri": {"path": "http://<import_uri>/file.7z"},
-        "elements_imported": 2,
         "svm": {
-            "name": "vs1",
+            "uuid": "6de1d39d-1473-11ec-b0cf-0050568e4acc",
             "_links": {
                 "self": {"href": "/api/svm/svms/6de1d39d-1473-11ec-b0cf-0050568e4acc"}
             },
-            "uuid": "6de1d39d-1473-11ec-b0cf-0050568e4acc",
+            "name": "vs1",
         },
+        "state": "success",
     }
 )
 
@@ -75,26 +75,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LocalCifsUsersAndGroupsImport(
     {
+        "detailed_status": {
+            "message": "Failed parsing line 1 of the input file. Check syntax and contents.",
+            "code": "655698",
+        },
+        "elements_imported": 0,
         "elements_ignored": 0,
         "_links": {
             "self": {
                 "href": "/api/protocols/cifs/users-and-groups/import/6de1d39d-1473-11ec-b0cf-0050568e4acc"
             }
         },
-        "state": "success",
-        "detailed_status": {
-            "message": "Failed parsing line 1 of the input file. Check syntax and contents.",
-            "code": "655698",
-        },
         "import_uri": {"path": "http://<import_uri>/file.7z"},
-        "elements_imported": 0,
         "svm": {
-            "name": "vs1",
+            "uuid": "6de1d39d-1473-11ec-b0cf-0050568e4acc",
             "_links": {
                 "self": {"href": "/api/svm/svms/6de1d39d-1473-11ec-b0cf-0050568e4acc"}
             },
-            "uuid": "6de1d39d-1473-11ec-b0cf-0050568e4acc",
+            "name": "vs1",
         },
+        "state": "success",
     }
 )
 
@@ -124,12 +124,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LocalCifsUsersAndGroupsImport(
     {
-        "import_uri": {
-            "password": "aaaa",
-            "username": "user1",
-            "path": "http://example.com/file1.7z",
-        },
         "decryption_password": "cccc",
+        "import_uri": {
+            "path": "http://example.com/file1.7z",
+            "username": "user1",
+            "password": "aaaa",
+        },
     }
 )
 

@@ -61,6 +61,13 @@ class CapitalizeEngine:
         return self
 
 
+class CapitalizeEngineWithAgentCard(CapitalizeEngine):
+    """A sample Agent Engine that advertises an A2A AgentCard."""
+
+    def __init__(self, agent_card: Any):
+        self.agent_card = agent_card
+
+
 class AsyncQueryEngine:
     """A sample Agent Engine that implements `async_query`."""
 
@@ -554,6 +561,16 @@ _TEST_AGENT_ENGINE_IDENTITY_TYPE_SERVICE_ACCOUNT = (
     _genai_types.IdentityType.SERVICE_ACCOUNT
 )
 _TEST_AGENT_ENGINE_ENCRYPTION_SPEC = {"kms_key_name": "test-kms-key"}
+_TEST_AGENT_ENGINE_BUILD_WORKER_POOL = (
+    "projects/test-project/locations/us-central1/workerPools/test-pool"
+)
+_TEST_AGENT_ENGINE_BUILD_SERVICE_ACCOUNT = (
+    "test-build-sa@test-project.iam.gserviceaccount.com"
+)
+_TEST_AGENT_ENGINE_BUILD_CONFIG = _genai_types.ReasoningEngineSpecBuildSpecDict(
+    worker_pool=_TEST_AGENT_ENGINE_BUILD_WORKER_POOL,
+    service_account=_TEST_AGENT_ENGINE_BUILD_SERVICE_ACCOUNT,
+)
 _TEST_AGENT_ENGINE_KEEP_ALIVE_PROBE = {
     "http_get": {
         "path": "/health",
@@ -1046,6 +1063,51 @@ class TestAgentEngineHelpers:
             == _TEST_AGENT_ENGINE_IDENTITY_TYPE_SERVICE_ACCOUNT
         )
 
+    @mock.patch.object(_agent_engines_utils, "_prepare")
+    def test_create_agent_engine_config_with_build_config(self, mock_prepare):
+        config = self.client.agent_engines._create_config(
+            mode="create",
+            agent=self.test_agent,
+            staging_bucket=_TEST_STAGING_BUCKET,
+            requirements=_TEST_AGENT_ENGINE_REQUIREMENTS,
+            display_name=_TEST_AGENT_ENGINE_DISPLAY_NAME,
+            build_config=_TEST_AGENT_ENGINE_BUILD_CONFIG,
+        )
+        assert config["spec"]["build_spec"] == {
+            "worker_pool": _TEST_AGENT_ENGINE_BUILD_WORKER_POOL,
+            "service_account": _TEST_AGENT_ENGINE_BUILD_SERVICE_ACCOUNT,
+        }
+
+    @mock.patch.object(_agent_engines_utils, "_prepare")
+    def test_create_agent_engine_config_with_build_config_worker_pool_only(
+        self, mock_prepare
+    ):
+        config = self.client.agent_engines._create_config(
+            mode="create",
+            agent=self.test_agent,
+            staging_bucket=_TEST_STAGING_BUCKET,
+            requirements=_TEST_AGENT_ENGINE_REQUIREMENTS,
+            display_name=_TEST_AGENT_ENGINE_DISPLAY_NAME,
+            build_config={"worker_pool": _TEST_AGENT_ENGINE_BUILD_WORKER_POOL},
+        )
+        assert config["spec"]["build_spec"] == {
+            "worker_pool": _TEST_AGENT_ENGINE_BUILD_WORKER_POOL,
+        }
+
+    @mock.patch.object(_agent_engines_utils, "_prepare")
+    def test_update_agent_engine_config_with_build_config(self, mock_prepare):
+        config = self.client.agent_engines._create_config(
+            mode="update",
+            build_config=_TEST_AGENT_ENGINE_BUILD_CONFIG,
+        )
+        assert config["spec"]["build_spec"] == {
+            "worker_pool": _TEST_AGENT_ENGINE_BUILD_WORKER_POOL,
+            "service_account": _TEST_AGENT_ENGINE_BUILD_SERVICE_ACCOUNT,
+        }
+        update_mask = config["update_mask"].split(",")
+        assert "spec.build_spec.worker_pool" in update_mask
+        assert "spec.build_spec.service_account" in update_mask
+
     @mock.patch.object(
         _agent_engines_utils,
         "_create_base64_encoded_tarball",
@@ -1537,6 +1599,49 @@ class TestAgentEngineHelpers:
                 "spec.service_account",
             ]
         )
+
+    @mock.patch.object(_agent_engines_utils, "_prepare")
+    def test_update_agent_engine_config_with_agent_card(self, mock_prepare):
+        from google.protobuf import struct_pb2
+        from google.protobuf import json_format
+
+        card = struct_pb2.Struct()
+        card["version"] = "1.3.0"
+        agent = CapitalizeEngineWithAgentCard(agent_card=card)
+
+        config = self.client.agent_engines._create_config(
+            mode="update",
+            agent=agent,
+            staging_bucket=_TEST_STAGING_BUCKET,
+            requirements=_TEST_AGENT_ENGINE_REQUIREMENTS,
+        )
+
+        # The serialized card must be written into the request body ...
+        assert config["spec"]["agent_card"] == json_format.MessageToDict(card)
+        # ... and, crucially, registered in the update mask. Without the mask
+        # entry the server silently drops `spec.agent_card` on a PATCH, so the
+        # advertised card can never be changed after the first deployment
+        # (GitHub #7064).
+        update_masks = config["update_mask"].split(",")
+        assert "spec.agent_card" in update_masks
+        # The card mask is emitted immediately before the agent_framework mask.
+        assert update_masks.index("spec.agent_card") + 1 == update_masks.index(
+            "spec.agent_framework"
+        )
+
+    @mock.patch.object(_agent_engines_utils, "_prepare")
+    def test_update_agent_engine_config_without_agent_card_omits_mask(
+        self, mock_prepare
+    ):
+        config = self.client.agent_engines._create_config(
+            mode="update",
+            agent=self.test_agent,
+            staging_bucket=_TEST_STAGING_BUCKET,
+            requirements=_TEST_AGENT_ENGINE_REQUIREMENTS,
+        )
+
+        assert "agent_card" not in config["spec"]
+        assert "spec.agent_card" not in config["update_mask"].split(",")
 
     @mock.patch.object(_agent_engines_utils, "_prepare")
     def test_update_agent_engine_clear_service_account(self, mock_prepare):
@@ -2236,6 +2341,7 @@ class TestAgentEngine:
                 agent_config_source=None,
                 container_spec=None,
                 keep_alive_probe=None,
+                build_config=None,
             )
             request_mock.assert_called_with(
                 "post",
@@ -2342,6 +2448,7 @@ class TestAgentEngine:
                 agent_config_source=None,
                 container_spec=None,
                 keep_alive_probe=None,
+                build_config=None,
             )
             request_mock.assert_called_with(
                 "post",
@@ -2447,6 +2554,7 @@ class TestAgentEngine:
                 agent_config_source=None,
                 container_spec=None,
                 keep_alive_probe=None,
+                build_config=None,
             )
             request_mock.assert_called_with(
                 "post",
@@ -2621,6 +2729,7 @@ class TestAgentEngine:
                 agent_config_source=None,
                 container_spec=None,
                 keep_alive_probe=None,
+                build_config=None,
             )
             request_mock.assert_called_with(
                 "post",
@@ -2721,6 +2830,7 @@ class TestAgentEngine:
                 agent_config_source=None,
                 container_spec=None,
                 keep_alive_probe=None,
+                build_config=None,
             )
             request_mock.assert_called_with(
                 "post",

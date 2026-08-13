@@ -30,19 +30,19 @@ with HostConnection(
 ```
 DcnClusterSoftwarePackage(
     {
+        "uuid": "f0ce5ac2-3347-4fa9-9335-ff8f2212bdad",
         "version": {
-            "minor": 1,
-            "major": 18,
             "generation": 9,
             "full": "9.18.1U0 Wed Jan 15 18:20:57 UTC 2026",
+            "major": 18,
             "patch": "U0",
+            "minor": 1,
         },
-        "staged": False,
-        "state": "available",
         "size": 38777467320,
-        "compatible": True,
         "create_time": "2025-10-14T16:50:21-04:00",
-        "uuid": "f0ce5ac2-3347-4fa9-9335-ff8f2212bdad",
+        "state": "available",
+        "compatible": True,
+        "staged": False,
     }
 )
 

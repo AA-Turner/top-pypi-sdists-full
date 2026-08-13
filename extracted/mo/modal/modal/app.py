@@ -15,12 +15,14 @@ import typing_extensions
 from google.protobuf.message import Message
 from synchronicity.async_wrap import asynccontextmanager
 
+from modal._logs import LogsFilters
 from modal_proto import api_pb2
 
 from ._functions import _Function
 from ._image import _Image
 from ._ipython import is_interactive_ipython
 from ._load_context import LoadContext
+from ._logs_manager import _AppLogsManager
 from ._object import _get_environment_name, _Object
 from ._partial_function import (
     _find_partial_methods_for_user_cls,
@@ -29,6 +31,7 @@ from ._partial_function import (
     verify_concurrent_params,
 )
 from ._server import _Server, validate_http_server_config
+from ._supports_logs import _LogQueryData
 from ._utils.async_utils import synchronize_api
 from ._utils.deprecation import (
     deprecation_warning,
@@ -39,6 +42,7 @@ from ._utils.function_utils import (
     is_flash_object,
     is_global_object,
     is_method_fn,
+    validate_target_concurrency,
 )
 from ._utils.mount_utils import validate_volumes
 from ._utils.name_utils import check_object_name, check_tag_dict
@@ -1288,7 +1292,7 @@ class _App:
         cpu: float | tuple[float, float] | None = None,  # CPU cores to request
         memory: int | tuple[int, int] | None = None,  # Memory in MiB to request
         ephemeral_disk: int | None = None,  # Ephemeral disk size in MiB
-        target_concurrency: int | None = None,  # Target concurrency for the server; 0 disables autoscaling
+        target_concurrency: float | None = None,  # Target concurrency for the server; 0 disables autoscaling
         min_containers: int | None = None,  # Minimum number of containers to keep warm
         max_containers: int | None = None,  # Maximum number of containers
         buffer_containers: int | None = None,  # Additional idle containers under active load
@@ -1310,7 +1314,7 @@ class _App:
         include_source: bool | None = None,  # Whether to add source to container
         # Experimental options
         experimental_options: dict[str, Any] | None = None,
-    ) -> Callable[[CLS_T | _PartialFunction], _Server]:
+    ) -> Callable[[type[Any] | _PartialFunction], _Server]:
         """
         Decorator to register a new Modal Server with this App.
 
@@ -1335,7 +1339,9 @@ class _App:
                 Specify, in MiB, a memory request which is the minimum memory required. Or, pass (request, limit) to
                 additionally specify a hard limit in MiB.
             ephemeral_disk: Specify, in MiB, the ephemeral disk size for the server.
-            target_concurrency: Target concurrency for the server; 0 disables autoscaling.
+            target_concurrency:
+                Target number of concurrent requests per container; 0 disables autoscaling. May be
+                fractional, e.g. 1.5 to target three concurrent requests per two containers.
             min_containers: Minimum number of containers to keep running regardless of demand.
             max_containers: Limit on the number of containers that can be concurrently running.
             buffer_containers: Extra containers to scale up beyond current demand.
@@ -1383,8 +1389,7 @@ class _App:
         )
 
         if target_concurrency is not None:
-            if not isinstance(target_concurrency, int) or target_concurrency < 0:
-                raise InvalidError("The `target_concurrency` argument must be a non-negative integer.")
+            validate_target_concurrency(target_concurrency, "target_concurrency", allow_fractional=True)
 
         if scaleup_window is not None and scaleup_window <= 0:
             raise InvalidError("`scaleup_window` must be > 0")
@@ -1403,7 +1408,7 @@ class _App:
         if env:
             secrets_list.append(_Secret.from_dict(env))
 
-        def wrapper(wrapped_user_cls: CLS_T | _PartialFunction | Callable) -> _Server:
+        def wrapper(wrapped_user_cls: type[Any] | _PartialFunction | Callable) -> _Server:
             _Server._validate_wrapped_user_cls_decorators(wrapped_user_cls, enable_memory_snapshot)
 
             # Validate the server class
@@ -1612,6 +1617,32 @@ class _App:
     def _reset_container_app(cls):
         """Only used for tests."""
         cls._container_app = None
+
+    async def _get_log_query_data(self) -> _LogQueryData:
+        """Get the data needed to query logs for this app."""
+        if not self._app_id:
+            raise InvalidError("`app._logs` requires a running/stopped app.")
+        client = self._client or await _Client.from_env()
+        filters = LogsFilters()
+        return _LogQueryData(client=client, app_id=self._app_id, filters=filters, source_object_id=self._app_id)
+
+    @property
+    def logs(self) -> _AppLogsManager:
+        """Access logs for an `App`.
+
+        Use [`fetch()`](#logsfetch)
+        to read logs from a UTC time range, [`tail()`](#logstail)
+        to read the most recent logs, and [`stream()`](#logsstream)
+        to follow new logs as they arrive.
+
+        See also:
+            - [`modal app logs`](https://modal.com/docs/cli/latest/app#modal-app-logs):
+                CLI access to logs for an App.
+        """
+        if not self._app_id:
+            raise InvalidError("`app.logs` requires a running/stopped app.")
+
+        return _AppLogsManager(self)
 
 
 App = synchronize_api(_App)

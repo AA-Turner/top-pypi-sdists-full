@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyee"
-version = "13.0.1"
+version = "14.0.0"
 authors = [
   {name = "Josh Holbrook", email = "josh.holbrook@gmail.com"}
 ]
@@ -21,21 +21,18 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Other/Nonlisted Topic",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.12"
 
 dependencies = [
     "typing-extensions"
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
   "build",
   "flake8",
@@ -51,12 +48,9 @@ dev = [
   "mkdocstrings[python]",
   "mypy",
   "sphinx",
-  "toml",
   "tox",
-  "trio",
   "trio; python_version > '3.6'",
   "trio-typing; python_version > '3.6'",
-  "twine",
   "twisted",
   "validate-pyproject[all]",
 ]
@@ -74,7 +68,3 @@ testpaths = [ "tests" ]
 
 [tool.setuptools]
 packages = ["pyee"]
-
-[tool.setuptools.dynamic]
-dependencies = { file = ["requirements.txt"] }
-optional-dependencies.dev = { file = ["requirements_dev.txt"] }

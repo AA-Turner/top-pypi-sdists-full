@@ -2793,6 +2793,12 @@ class _CreateEvaluationRunParameters(_common.BaseModel):
     analysis_configs: Optional[list[AnalysisConfig]] = Field(
         default=None, description=""""""
     )
+    evaluation_experiment: Optional[str] = Field(
+        default=None,
+        description="""The resource name of the parent EvaluationExperiment that this run
+      belongs to. Format:
+      `projects/{project}/locations/{location}/evaluationExperiments/{evaluation_experiment}`.""",
+    )
 
 
 class _CreateEvaluationRunParametersDict(TypedDict, total=False):
@@ -2821,6 +2827,11 @@ class _CreateEvaluationRunParametersDict(TypedDict, total=False):
 
     analysis_configs: Optional[list[AnalysisConfigDict]]
     """"""
+
+    evaluation_experiment: Optional[str]
+    """The resource name of the parent EvaluationExperiment that this run
+      belongs to. Format:
+      `projects/{project}/locations/{location}/evaluationExperiments/{evaluation_experiment}`."""
 
 
 _CreateEvaluationRunParametersOrDict = Union[
@@ -8403,6 +8414,34 @@ ReasoningEngineSpecContainerSpecOrDict = Union[
 ]
 
 
+class ReasoningEngineSpecBuildSpec(_common.BaseModel):
+    """Specification for building container image."""
+
+    worker_pool: Optional[str] = Field(
+        default=None,
+        description="""Optional. Identifier. The resource name of the Cloud Build WorkerPool to use for the build. Format: `projects/{project}/locations/{location}/workerPools/{worker_pool}`""",
+    )
+    service_account: Optional[str] = Field(
+        default=None,
+        description="""Optional. The service account that Cloud Build uses to run the build. This field is only applicable when `worker_pool` is specified (i.e., for custom worker pools). If `worker_pool` is not specified, this field is ignored and the build runs using the Google-managed service agent. Format: `projects/{project}/serviceAccounts/{service_account}` or `{service_account}@{project}.iam.gserviceaccount.com`""",
+    )
+
+
+class ReasoningEngineSpecBuildSpecDict(TypedDict, total=False):
+    """Specification for building container image."""
+
+    worker_pool: Optional[str]
+    """Optional. Identifier. The resource name of the Cloud Build WorkerPool to use for the build. Format: `projects/{project}/locations/{location}/workerPools/{worker_pool}`"""
+
+    service_account: Optional[str]
+    """Optional. The service account that Cloud Build uses to run the build. This field is only applicable when `worker_pool` is specified (i.e., for custom worker pools). If `worker_pool` is not specified, this field is ignored and the build runs using the Google-managed service agent. Format: `projects/{project}/serviceAccounts/{service_account}` or `{service_account}@{project}.iam.gserviceaccount.com`"""
+
+
+ReasoningEngineSpecBuildSpecOrDict = Union[
+    ReasoningEngineSpecBuildSpec, ReasoningEngineSpecBuildSpecDict
+]
+
+
 class ReasoningEngineSpec(_common.BaseModel):
     """The specification of an agent engine."""
 
@@ -8446,6 +8485,10 @@ class ReasoningEngineSpec(_common.BaseModel):
         default=None,
         description="""Deploy from a container image with a defined entrypoint and commands.""",
     )
+    build_spec: Optional[ReasoningEngineSpecBuildSpec] = Field(
+        default=None,
+        description="""Optional. Configuration for building container image.""",
+    )
 
 
 class ReasoningEngineSpecDict(TypedDict, total=False):
@@ -8480,6 +8523,9 @@ class ReasoningEngineSpecDict(TypedDict, total=False):
 
     container_spec: Optional[ReasoningEngineSpecContainerSpecDict]
     """Deploy from a container image with a defined entrypoint and commands."""
+
+    build_spec: Optional[ReasoningEngineSpecBuildSpecDict]
+    """Optional. Configuration for building container image."""
 
 
 ReasoningEngineSpecOrDict = Union[ReasoningEngineSpec, ReasoningEngineSpecDict]
@@ -20362,6 +20408,10 @@ class AgentEngineConfig(_common.BaseModel):
     traffic_config: Optional[ReasoningEngineTrafficConfig] = Field(
         default=None, description="""The traffic config for the Agent Engine."""
     )
+    build_config: Optional[ReasoningEngineSpecBuildSpec] = Field(
+        default=None,
+        description="""The build config for the Agent Engine. Allows bringing your own Cloud Build private worker pool (BYOBP) and, optionally, a build-time service account for the container build. Supported keys: `worker_pool` (the resource name of the Cloud Build WorkerPool to use for the build) and `service_account` (the service account that Cloud Build uses to run the build; only applicable when `worker_pool` is specified).""",
+    )
 
 
 class AgentEngineConfigDict(TypedDict, total=False):
@@ -20548,6 +20598,9 @@ class AgentEngineConfigDict(TypedDict, total=False):
 
     traffic_config: Optional[ReasoningEngineTrafficConfigDict]
     """The traffic config for the Agent Engine."""
+
+    build_config: Optional[ReasoningEngineSpecBuildSpecDict]
+    """The build config for the Agent Engine. Allows bringing your own Cloud Build private worker pool (BYOBP) and, optionally, a build-time service account for the container build. Supported keys: `worker_pool` (the resource name of the Cloud Build WorkerPool to use for the build) and `service_account` (the service account that Cloud Build uses to run the build; only applicable when `worker_pool` is specified)."""
 
 
 AgentEngineConfigOrDict = Union[AgentEngineConfig, AgentEngineConfigDict]

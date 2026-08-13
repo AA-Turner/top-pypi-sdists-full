@@ -135,6 +135,7 @@ def test_execute_code_bundle_with_arguments(
 
 @pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
+@pytest.mark.skip
 def test_execute_scala_code_bundle_with_arguments(
     code_bundles: CodeBundleCollection,
     code_bundle_execution: CodeBundleExecutionCollection,

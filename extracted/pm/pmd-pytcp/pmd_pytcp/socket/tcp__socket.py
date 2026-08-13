@@ -738,6 +738,16 @@ class TcpSocket(socket):
                     errno.ETIMEDOUT,
                     "Connection timed out - [No valid response received from remote host]",
                 ) from error
+            if str(error) == "Host unreachable":
+                raise OSError(
+                    errno.EHOSTUNREACH,
+                    "Host unreachable - [Received ICMP Host Unreachable during handshake]",
+                ) from error
+            if str(error) == "Network unreachable":
+                raise OSError(
+                    errno.ENETUNREACH,
+                    "Network unreachable - [Received ICMP Net Unreachable during handshake]",
+                ) from error
             # "Connection canceled" (a concurrent close()/abort()
             # tore the pending connect down). Previously this fell
             # through both mappings and was silently swallowed —
@@ -838,17 +848,48 @@ class TcpSocket(socket):
         # Per-call 'timeout' takes precedence over 'setblocking()';
         # otherwise non-blocking mode equates to a non-blocking
         # acquire that surfaces as 'BlockingIOError(EAGAIN)'.
-        if timeout is None and not self._blocking:
-            acquired = await _sem_acquire(self._event__tcp_session_established, blocking=False)
-        else:
-            acquired = await _sem_acquire(self._event__tcp_session_established, timeout=timeout)
+        self._raise_if_closed()
 
-        if not acquired:
+        while True:
             if timeout is None and not self._blocking:
-                raise BlockingIOError(errno.EAGAIN, os.strerror(errno.EAGAIN))
-            raise TimeoutError("TCP Socket - Accept operation timed out.")
+                acquired = await _sem_acquire(self._event__tcp_session_established, blocking=False)
+            else:
+                acquired = await _sem_acquire(self._event__tcp_session_established, timeout=timeout)
 
-        socket = cast(TcpSocket, self._tcp_accept.pop(0))
+            if not acquired:
+                if timeout is None and not self._blocking:
+                    raise BlockingIOError(errno.EAGAIN, os.strerror(errno.EAGAIN))
+                raise TimeoutError("TCP Socket - Accept operation timed out.")
+
+            if not self._tcp_accept:
+                # A teardown wake (close()/abort() drained the backlog),
+                # not a connection: cascade the permit to any other
+                # parked waiter, then report per POSIX — EBADF once the
+                # listener is closed, ECONNABORTED for an aborted-but-
+                # still-open one.
+                self._event__tcp_session_established.release()
+                self._raise_if_closed()
+                raise ConnectionAbortedError(
+                    errno.ECONNABORTED,
+                    "Connection aborted - [Listener torn down while accept() was blocked]",
+                )
+
+            socket = cast(TcpSocket, self._tcp_accept.pop(0))
+            # A child reset by its peer while queued is dead: its
+            # session reached CLOSED (and deregistered) but the queue
+            # entry survived, and handing it out gives the
+            # application a socket whose first recv()/send() fails
+            # confusingly (Linux 'inet_csk_accept' reaps disconnected
+            # children instead). Consume its permit and wait for a
+            # live one. (A re-acquire restarts the full 'timeout' —
+            # an acceptable imprecision for this rare path.)
+            if socket._tcp_session is not None and socket._tcp_session.state is FsmState.CLOSED:
+                log.enabled and log(
+                    "socket",
+                    f"<g>[{self}]</> - Skipping dead (reset-before-accept) backlog child",
+                )
+                continue
+            break
         # POSIX accept(2) inherits the listener's O_NONBLOCK on the
         # accepted child; mirror that so apps that flip the listener
         # to non-blocking get non-blocking children.
@@ -959,13 +1000,72 @@ class TcpSocket(socket):
                 raise BlockingIOError(errno.EAGAIN, os.strerror(errno.EAGAIN)) from error
             raise TimeoutError("TCP Socket - Receive operation timed out.") from error
 
+        except TcpSessionError as error:
+            # The session died under the reader; map the session's
+            # terminal signal to the POSIX exception, mirroring the
+            # 'connect()' error-type mapping. Graceful peer closes
+            # are NOT errors — they return 'b""' from the session
+            # and never reach this handler.
+            if str(error) == "Connection reset by peer":
+                raise ConnectionResetError(
+                    errno.ECONNRESET,
+                    "Connection reset - [Received RST packet from remote host]",
+                ) from error
+            if str(error) == "Connection timeout":
+                raise TimeoutError(
+                    errno.ETIMEDOUT,
+                    "Connection timed out - [No valid response received from remote host]",
+                ) from error
+            # "Connection canceled" (a concurrent close()/abort()
+            # tore the connection down under the reader).
+            raise ConnectionAbortedError(
+                errno.ECONNABORTED,
+                "Connection aborted - [Connection canceled by concurrent close or abort]",
+            ) from error
+
+    def _teardown_listener_backlog(self) -> None:
+        """
+        Reset and deregister every established-but-unaccepted child
+        queued in the accept backlog, then wake any blocked
+        'accept()' (which reports EBADF and cascades the permit).
+        Linux parity ('inet_csk_listen_stop'): un-accepted
+        connections are reset when the listener goes away — an idle
+        peer would otherwise keep a backlog child ESTABLISHED,
+        registered, and port-holding forever. No-op on non-listener
+        sockets (empty backlog; the stray permit is harmless since
+        nothing ever awaits accept() on them). Embryonic (SYN_RCVD)
+        children are not tracked here — their own retransmission
+        budget bounds them in time.
+        """
+
+        children, self._tcp_accept[:] = list(self._tcp_accept), []
+        for child in children:
+            try:
+                cast(TcpSocket, child).abort()
+            except Exception:  # pylint: disable=broad-exception-caught
+                log.enabled and log("socket", f"<g>[{self}]</> - backlog child abort raised; continuing")
+        self._event__tcp_session_established.release()
+
     @override
     def close(self) -> None:
         """
         Close socket and the TCP session(s) it owns.
         """
 
-        assert self._tcp_session is not None
+        self._teardown_listener_backlog()
+
+        if self._tcp_session is None:
+            # A bound-but-never-connected socket owns no session, and
+            # only a session's CLOSED transition ever unregisters TCP
+            # sockets — so close() must unregister directly here or
+            # the registry entry (and the bound port, which the
+            # ephemeral-port pickers exclude while the entry exists)
+            # leaks with no recovery path. The previous 'assert' made
+            # close() itself the thing that raised.
+            stack.sockets.unregister(self)
+            self._mark_closed()
+            log.enabled and log("socket", f"<g>[{self}]</> - Closed socket (no session)")
+            return
 
         linger = self._so_linger
 
@@ -1026,6 +1126,8 @@ class TcpSocket(socket):
         with no associated session, this is a no-op.
         """
 
+        self._teardown_listener_backlog()
+
         if self._tcp_session is not None:
             self._tcp_session.abort()
 
@@ -1066,8 +1168,16 @@ class TcpSocket(socket):
 
         if not self._is_recverr_enabled():
             return
+        # Release a permit only when the append actually grew the
+        # queue: an overflow append into the bounded deque is
+        # net-zero (oldest dropped, newest added), and an
+        # unconditional release would accumulate phantom permits
+        # that later let 'recvmsg(MSG_ERRQUEUE)' pop an empty
+        # deque (IndexError).
+        was_full = len(self._error_queue) == self._error_queue.maxlen
         self._error_queue.append(entry)
-        self._error_queue_ready.release()
+        if not was_full:
+            self._error_queue_ready.release()
 
     def notify_unreachable(
         self,

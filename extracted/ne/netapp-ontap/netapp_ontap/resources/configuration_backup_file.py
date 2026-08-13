@@ -30,13 +30,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "name": "backup1.7z",
             "node": {
-                "name": "node1",
+                "uuid": "5cafe0f6-499f-11e9-b644-005056bbcf93",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/5cafe0f6-499f-11e9-b644-005056bbcf93"
                     }
                 },
-                "uuid": "5cafe0f6-499f-11e9-b644-005056bbcf93",
+                "name": "node1",
             },
         }
     )
@@ -68,23 +68,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConfigurationBackupFile(
     {
+        "type": "cluster",
         "version": "9.7.0",
-        "download_link": "https://10.224.66.113/backups/backup1.7z",
         "backup_nodes": [{"name": "node1"}, {"name": "node2"}],
-        "name": "backup1.7z",
         "size": 6058408,
+        "name": "backup1.7z",
         "auto": False,
         "time": "2019-06-10T13:35:06-04:00",
         "node": {
-            "name": "node1",
+            "uuid": "bc2f15d0-8b93-11e9-90e9-005056bb6a30",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/bc2f15d0-8b93-11e9-90e9-005056bb6a30"
                 }
             },
-            "uuid": "bc2f15d0-8b93-11e9-90e9-005056bb6a30",
+            "name": "node1",
         },
-        "type": "cluster",
+        "download_link": "https://10.224.66.113/backups/backup1.7z",
     }
 )
 
@@ -115,7 +115,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ConfigurationBackupFile(
     {
         "name": "backup3.7z",
-        "node": {"name": "node1", "uuid": "ac13c636-4fc9-11e9-94c2-005056bb2516"},
+        "node": {"uuid": "ac13c636-4fc9-11e9-94c2-005056bb2516", "name": "node1"},
     }
 )
 
@@ -337,7 +337,7 @@ class ConfigurationBackupFile(Resource):
         connection: HostConnection = None,
         **kwargs
     ) -> Union[List["ConfigurationBackupFile"], NetAppResponse]:
-        r"""Creates a configuration backup. The required backup file name must end with .7z extension.
+        r"""Creates a configuration backup. The required backup file name must end with .7z extension. In clusters with greater than 32 nodes, a multi-part backup will be generated with each part containing the cluster-wide replica and up to 32 individual node backups.
 ### Required properties
 * `node.uuid` or `node.name` - The node UUID or node name on which the configuration backup will be created.
 * `name` - The backup file name
@@ -409,7 +409,7 @@ class ConfigurationBackupFile(Resource):
         poll_timeout: Optional[int] = None,
         **kwargs
     ) -> NetAppResponse:
-        r"""Creates a configuration backup. The required backup file name must end with .7z extension.
+        r"""Creates a configuration backup. The required backup file name must end with .7z extension. In clusters with greater than 32 nodes, a multi-part backup will be generated with each part containing the cluster-wide replica and up to 32 individual node backups.
 ### Required properties
 * `node.uuid` or `node.name` - The node UUID or node name on which the configuration backup will be created.
 * `name` - The backup file name

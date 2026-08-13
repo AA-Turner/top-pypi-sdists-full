@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-dateparser
-Version: 1.4.1.20260806
+Version: 1.4.2.20260813
 Summary: Typing stubs for dateparser
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -21,7 +21,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`dateparser`](https://github.com/scrapinghub/dateparser) package. It can be used by type checkers
 to check code that uses `dateparser`. This version of
 `types-dateparser` aims to provide accurate annotations for
-`dateparser==1.4.1`.
+`dateparser==1.4.2`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -32,8 +32,9 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 2.3.0
+* [pyrefly](https://pyrefly.org/) 1.3.0.dev1
 * [pyright](https://github.com/microsoft/pyright) 1.1.411
 * [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`a2811326ffe3c0e69c4624de1d6b199a3c1f4ace`](https://github.com/python/typeshed/commit/a2811326ffe3c0e69c4624de1d6b199a3c1f4ace).
+[`b73f5c1a3b4a39ac7f1867e50a58c51c71cf0545`](https://github.com/python/typeshed/commit/b73f5c1a3b4a39ac7f1867e50a58c51c71cf0545).

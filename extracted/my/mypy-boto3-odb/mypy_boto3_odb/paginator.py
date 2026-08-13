@@ -25,6 +25,9 @@ Usage::
         ListDbNodesPaginator,
         ListDbServersPaginator,
         ListDbSystemShapesPaginator,
+        ListExadbVmClustersPaginator,
+        ListExascaleDbStorageVaultsPaginator,
+        ListGiMinorVersionsPaginator,
         ListGiVersionsPaginator,
         ListOdbNetworksPaginator,
         ListOdbPeeringConnectionsPaginator,
@@ -47,6 +50,9 @@ Usage::
     list_db_nodes_paginator: ListDbNodesPaginator = client.get_paginator("list_db_nodes")
     list_db_servers_paginator: ListDbServersPaginator = client.get_paginator("list_db_servers")
     list_db_system_shapes_paginator: ListDbSystemShapesPaginator = client.get_paginator("list_db_system_shapes")
+    list_exadb_vm_clusters_paginator: ListExadbVmClustersPaginator = client.get_paginator("list_exadb_vm_clusters")
+    list_exascale_db_storage_vaults_paginator: ListExascaleDbStorageVaultsPaginator = client.get_paginator("list_exascale_db_storage_vaults")
+    list_gi_minor_versions_paginator: ListGiMinorVersionsPaginator = client.get_paginator("list_gi_minor_versions")
     list_gi_versions_paginator: ListGiVersionsPaginator = client.get_paginator("list_gi_versions")
     list_odb_networks_paginator: ListOdbNetworksPaginator = client.get_paginator("list_odb_networks")
     list_odb_peering_connections_paginator: ListOdbPeeringConnectionsPaginator = client.get_paginator("list_odb_peering_connections")
@@ -88,6 +94,12 @@ from .type_defs import (
     ListDbServersOutputTypeDef,
     ListDbSystemShapesInputPaginateTypeDef,
     ListDbSystemShapesOutputTypeDef,
+    ListExadbVmClustersInputPaginateTypeDef,
+    ListExadbVmClustersOutputTypeDef,
+    ListExascaleDbStorageVaultsInputPaginateTypeDef,
+    ListExascaleDbStorageVaultsOutputTypeDef,
+    ListGiMinorVersionsInputPaginateTypeDef,
+    ListGiMinorVersionsOutputTypeDef,
     ListGiVersionsInputPaginateTypeDef,
     ListGiVersionsOutputTypeDef,
     ListOdbNetworksInputPaginateTypeDef,
@@ -118,6 +130,9 @@ __all__ = (
     "ListDbNodesPaginator",
     "ListDbServersPaginator",
     "ListDbSystemShapesPaginator",
+    "ListExadbVmClustersPaginator",
+    "ListExascaleDbStorageVaultsPaginator",
+    "ListGiMinorVersionsPaginator",
     "ListGiVersionsPaginator",
     "ListOdbNetworksPaginator",
     "ListOdbPeeringConnectionsPaginator",
@@ -411,6 +426,69 @@ class ListDbSystemShapesPaginator(_ListDbSystemShapesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListDbSystemShapes.html#Odb.Paginator.ListDbSystemShapes.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listdbsystemshapespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListExadbVmClustersPaginatorBase = Paginator[ListExadbVmClustersOutputTypeDef]
+else:
+    _ListExadbVmClustersPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListExadbVmClustersPaginator(_ListExadbVmClustersPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListExadbVmClusters.html#Odb.Paginator.ListExadbVmClusters)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listexadbvmclusterspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListExadbVmClustersInputPaginateTypeDef]
+    ) -> PageIterator[ListExadbVmClustersOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListExadbVmClusters.html#Odb.Paginator.ListExadbVmClusters.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listexadbvmclusterspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListExascaleDbStorageVaultsPaginatorBase = Paginator[ListExascaleDbStorageVaultsOutputTypeDef]
+else:
+    _ListExascaleDbStorageVaultsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListExascaleDbStorageVaultsPaginator(_ListExascaleDbStorageVaultsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListExascaleDbStorageVaults.html#Odb.Paginator.ListExascaleDbStorageVaults)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listexascaledbstoragevaultspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListExascaleDbStorageVaultsInputPaginateTypeDef]
+    ) -> PageIterator[ListExascaleDbStorageVaultsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListExascaleDbStorageVaults.html#Odb.Paginator.ListExascaleDbStorageVaults.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listexascaledbstoragevaultspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListGiMinorVersionsPaginatorBase = Paginator[ListGiMinorVersionsOutputTypeDef]
+else:
+    _ListGiMinorVersionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListGiMinorVersionsPaginator(_ListGiMinorVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListGiMinorVersions.html#Odb.Paginator.ListGiMinorVersions)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listgiminorversionspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListGiMinorVersionsInputPaginateTypeDef]
+    ) -> PageIterator[ListGiMinorVersionsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListGiMinorVersions.html#Odb.Paginator.ListGiMinorVersions.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listgiminorversionspaginator)
         """
 
 

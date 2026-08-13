@@ -123,8 +123,21 @@ cdef extern from "nvtx3/nvToolsExtPayload.h" nogil:
     cdef int NVTX_PAYLOAD_ENTRY_FLAG_UNUSED
     cdef int NVTX_PAYLOAD_ENTRY_FLAG_ARRAY_FIXED_SIZE
     cdef int NVTX_PAYLOAD_ENTRY_FLAG_ARRAY_LENGTH_INDEX
+    cdef int NVTX_PAYLOAD_ENTRY_FLAG_EVENT_MESSAGE
+    cdef int NVTX_PAYLOAD_ENTRY_FLAG_TIMESTAMP
+    cdef int NVTX_PAYLOAD_ENTRY_FLAG_RANGE_BEGIN
+    cdef int NVTX_PAYLOAD_ENTRY_FLAG_RANGE_END
+    cdef int NVTX_PAYLOAD_ENTRY_FLAG_MARK
+    cdef int NVTX_PAYLOAD_ENTRY_FLAG_COUNTER
 
     cdef int NVTX_PAYLOAD_TYPE_EXT
+
+    cdef int NVTX_SCOPE_NONE
+
+    cdef int NVTX_BATCH_FLAG_TIME_SORTED
+    cdef int NVTX_BATCH_FLAG_TIME_SORTED_PARTIALLY
+    cdef int NVTX_BATCH_FLAG_TIME_SORTED_PER_SCOPE
+    cdef int NVTX_BATCH_FLAG_UNSORTED
 
     cdef int NVTX_PAYLOAD_ENTRY_TYPE_INVALID
     cdef int NVTX_PAYLOAD_ENTRY_TYPE_INT8
@@ -141,14 +154,46 @@ cdef extern from "nvtx3/nvToolsExtPayload.h" nogil:
     cdef int NVTX_PAYLOAD_ENTRY_TYPE_FLOAT128
     cdef int NVTX_PAYLOAD_ENTRY_TYPE_BYTE
     cdef int NVTX_PAYLOAD_ENTRY_TYPE_CSTRING_UTF32
+    cdef int NVTX_PAYLOAD_ENTRY_TYPE_RANGE_ID
+    cdef int NVTX_PAYLOAD_ENTRY_TYPE_CATEGORY
+    cdef int NVTX_PAYLOAD_ENTRY_TYPE_COLOR_ARGB
+    cdef int NVTX_PAYLOAD_ENTRY_TYPE_SCOPE_ID
+    cdef int NVTX_PAYLOAD_ENTRY_TYPE_NVTX_REGISTERED_STRING_HANDLE
 
     cdef int NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_TYPE
+    cdef int NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_NAME
+    cdef int NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_FLAGS
     cdef int NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_ENTRIES
     cdef int NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_NUM_ENTRIES
     cdef int NVTX_PAYLOAD_SCHEMA_ATTR_FIELD_STATIC_SIZE
 
+    cdef int NVTX_PAYLOAD_SCHEMA_FLAG_COUNTER_GROUP
+
+    cdef int NVTX_PAYLOAD_SCHEMA_FLAG_RANGE_PUSHPOP
+    cdef int NVTX_PAYLOAD_SCHEMA_FLAG_RANGE_STARTEND
+    cdef int NVTX_PAYLOAD_SCHEMA_FLAG_MARK
+    cdef int NVTX_PAYLOAD_SCHEMA_FLAG_RANGE_PUSH
+    cdef int NVTX_PAYLOAD_SCHEMA_FLAG_RANGE_POP
+    cdef int NVTX_PAYLOAD_SCHEMA_FLAG_RANGE_START
+    cdef int NVTX_PAYLOAD_SCHEMA_FLAG_RANGE_END
+
     cdef int NVTX_PAYLOAD_SCHEMA_TYPE_STATIC
     cdef int NVTX_PAYLOAD_SCHEMA_TYPE_DYNAMIC
+
+    cdef int NVTX_SCOPE_ROOT
+    cdef int NVTX_SCOPE_CURRENT_HW_MACHINE
+    cdef int NVTX_SCOPE_CURRENT_HW_SOCKET
+    cdef int NVTX_SCOPE_CURRENT_HW_CPU_PHYSICAL
+    cdef int NVTX_SCOPE_CURRENT_HW_CPU_LOGICAL
+    cdef int NVTX_SCOPE_CURRENT_HW_INNERMOST
+    cdef int NVTX_SCOPE_CURRENT_HYPERVISOR
+    cdef int NVTX_SCOPE_CURRENT_VM
+    cdef int NVTX_SCOPE_CURRENT_KERNEL
+    cdef int NVTX_SCOPE_CURRENT_CONTAINER
+    cdef int NVTX_SCOPE_CURRENT_OS
+    cdef int NVTX_SCOPE_CURRENT_SW_PROCESS
+    cdef int NVTX_SCOPE_CURRENT_SW_THREAD
+    cdef int NVTX_SCOPE_CURRENT_SW_INNERMOST
 
     ctypedef struct nvtxPayloadData_v1:
         uint64_t schemaId
@@ -191,6 +236,17 @@ cdef extern from "nvtx3/nvToolsExtPayload.h" nogil:
         const nvtxPayloadSchemaAttr_t* attr
     )
 
+    ctypedef struct nvtxScopeAttr_t:
+        size_t structSize
+        const char* path
+        uint64_t parentScope
+        uint64_t scopeId
+
+    cdef uint64_t nvtxScopeRegister(
+        nvtxDomainHandle_t domain,
+        const nvtxScopeAttr_t* attr
+    )
+
 cdef class EventAttributes:
     cdef object domain
     cdef object _message
@@ -200,6 +256,7 @@ cdef class EventAttributes:
     cdef nvtxStringHandle_t string_handle
     cdef nvtxEventAttributes_t c_obj
     cdef nvtxPayloadData_t _payload_data
+    cdef object _payload_object
 
     # Dynamic memory allocation is required for array payloads.
     # This pointer is used to track the memory that should be freed.
@@ -209,6 +266,15 @@ cdef class EventAttributes:
     cdef _clear_payload(self)
 
 
+cdef class SchemaRegistrar:
+    cdef dict _dtype_cache
+    cdef dict _array_cache
+    cdef dict _fixed_cache
+    cdef uint64_t _do_register(
+        self, const nvtxPayloadSchemaAttr_t* attr
+    ) except *
+
+
 cdef class DomainHandle:
     cdef bytes _name
     cdef nvtxDomainHandle_t c_obj
@@ -216,3 +282,5 @@ cdef class DomainHandle:
 cdef class StringHandle:
     cdef bytes _string
     cdef nvtxStringHandle_t c_obj
+
+cpdef bytes _to_bytes(object s)

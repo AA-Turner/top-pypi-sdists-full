@@ -1,305 +1,1438 @@
-# Comparison of performance between bitarray and tibs.
-# This isn't meant as a competition, but more of a sanity check.
-# If the tibs speed for a task is significantly less than the speed that bitarray can
-# do the same task, then that points to an area that needs to be optimized.
+#!/usr/bin/env python3
+"""Local performance comparison between tibs and other ways of doing the job.
 
+Two separate tables, answering two different questions:
 
-import os
-import sys
+* against bitarray: is tibs competitive with the other bit library?
+* against the standard library: do you need a bit library at all?
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import timeit
-import random
+Each case uses equivalent prepared inputs and idiomatic operations on both
+sides. Results are checked for equivalence before timing. This is useful for
+finding optimization opportunities and regressions, but is not an exhaustive
+overall score for anything.
+"""
+
+import argparse
+import array
+from collections.abc import Callable
+from dataclasses import dataclass
 import math
-from math import isqrt
-from random import randrange
-from tibs import Tibs, Mutibs
-from bitarray.util import random_p, ones
-from bitarray import bitarray
-from bitarray.util import int2ba, ba2int, pprint
+import operator
+import os
+import pickle
+import random
+import statistics
+import struct
+import sys
+import time
+from typing import Any
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from tibs import Dtype, Mutibs, Tibs
+
+try:
+    from bitarray import bitarray, decodetree
+    from bitarray.util import int2ba, ones, random_p, urandom, zeros
+except ImportError:
+    bitarray = None
+
+
+def deterministic_bytes(size, seed):
+    rng = random.Random(seed)
+    return bytes(rng.randrange(256) for _ in range(size))
+
+
+@dataclass(frozen=True)
+class ComparisonCase:
+    name: str
+    baseline_fn: Callable[[], Any]
+    tibs_fn: Callable[[], Any]
+    equivalent: Callable[[Any, Any], bool] = operator.eq
+
+
+# A single sample has to last long enough that clock resolution and scheduler
+# noise are a small part of it. The fastest cases here take a few microseconds,
+# where timing one call at a time gives swings of 2x in either direction.
+MIN_SAMPLE_SECONDS = 0.002
+MAX_CALLS_PER_SAMPLE = 100_000
+
+
+def calls_per_sample(fn):
+    """How many calls to fold into one timed sample to get clear of the noise."""
+    started = time.perf_counter()
+    fn()
+    elapsed = time.perf_counter() - started
+    if elapsed >= MIN_SAMPLE_SECONDS:
+        return 1
+    if elapsed <= 0:
+        return MAX_CALLS_PER_SAMPLE
+    calls = math.ceil(MIN_SAMPLE_SECONDS / elapsed)
+    return min(calls, MAX_CALLS_PER_SAMPLE)
 
-ba_rand = random_p(1_000_000_000)
-tibs_rand = Tibs.from_random(1_000_000_000)
 
-some_bytes = Tibs.from_random(10_000_000, seed=b'a').to_bytes()
-other_bytes = Tibs.from_random(10_000_000, seed=b'b').to_bytes()
+def median_times(baseline_fn, tibs_fn, repeats):
+    """Time both functions while alternating which one runs first.
 
-t = Tibs.from_bytes(some_bytes)
-bit_list = list(t[:10_000_000])
-
-value_words = [randrange(1 << 16) for _ in range(100_000)]
-value_bytes = Tibs.from_values('u16', value_words).to_bytes()
-
-
-def test_findall_tibs():
-    t = Tibs.from_bytes(some_bytes)
-    x = t.find_all('0xabc')
-
-
-def test_findall_bitarray():
-    b = bitarray()
-    b.frombytes(some_bytes)
-    pattern = bitarray('101010111100')
-    x = list(b.search(pattern))
-
-def test_findall_bytes_tibs():
-    t = Tibs.from_bytes(some_bytes)
-    x = t.find_all('0xabcd', byte_aligned=True)
-    assert len(x) == 21
-
-
-def test_findall_bytes_bitarray():
-    b = bitarray()
-    b.frombytes(some_bytes)
-    pattern = bitarray('1010101111001101')
-    # bitarray doesn't have a byte-aligned find method, but this is a reasonable use-case,
-    # so I think this is a justified test.
-    x = list(v for v in b.search(pattern) if v % 8 == 0)
-    assert len(x) == 21
-
-def test_bitops_tibs():
-    t1 = Tibs.from_bytes(some_bytes)
-    t2 = Tibs.from_bytes(other_bytes)
-    for _ in range(100):
-        t3 = t1 | t2
-        t4 = t3[10:1_000_000] & t2[9:999_999]
-
-
-def test_bitops_bitarray():
-    b1 = bitarray()
-    b1.frombytes(some_bytes)
-    b2 = bitarray()
-    b2.frombytes(other_bytes)
-    for _ in range(100):
-        b3 = b1 | b2
-        b4 = b3[10:1_000_000] & b2[9:999_999]
-
-
-def test_construction_bitarray():
-    b = bitarray()
-    _ = [Tibs('0b10101')] * 1_000_000
-    x = [bitarray('10101')] * 1_000_000
-    for y in x:
-        b.extend(y)
-    assert len(b) == 5 * 1000000
-
-
-def test_construction_tibs():
-    _ = [bitarray('10101')] * 1_000_000
-    x = [Tibs('0b10101')] * 1_000_000
-    t = Tibs.from_joined(x)
-    assert len(t) == 5 * 1000000
-
-
-def test_counting_bitarray():
-    for _ in range(20):
-        _ = ba_rand.count(1)
-
-
-def test_counting_tibs():
-    for _ in range(20):
-        _ = tibs_rand.count(1)
-
-
-def test_rand_bitarray():
-    s = random_p(1_000_000_000)
-
-
-def test_rand_tibs():
-    s = Mutibs.from_random(1_000_000_000)
-
-
-def test_primes_bitarray():
-    limit = 50_000_000
-    is_prime = ones(limit)
-    is_prime[:2] = False
-
-    for i in range(2, isqrt(limit) + 1):
-        if is_prime[i]:
-            is_prime[i * i:: i] = False
-    x = is_prime.count(bitarray("101")) + 1
-    assert x == 239101
-
-
-def test_primes_tibs():
-    limit = 50_000_000
-    is_prime = Mutibs.from_ones(limit)
-    is_prime.unset([0, 1])
-    for i in range(2, isqrt(limit) + 1):
-        if is_prime[i]:
-            is_prime.unset(range(i * i, limit, i))
-    twin_primes = is_prime.count([1, 0, 1])
-    assert twin_primes == 239101
-
-
-def test_reverse_find_bitarray():
-    b = bitarray()
-    b.frombytes(some_bytes)
-    pattern = bitarray('11011110101011011110')
-    l = len(list(b.search(pattern, right=True)))
-    assert l == 8
-
-
-def test_reverse_find_tibs():
-    t = Tibs.from_bytes(some_bytes)
-    l = len(t.find_all('0xdeade'))
-    assert l == 8
-
-
-def test_chunks_bitarray():
-    b = bitarray()
-    b.frombytes(some_bytes)
-    f = bitarray('11111')
-    count = 0
-    for i in range(0, len(b), 5):
-        if b[i: i + 5] == f:
-            count += 1
-
-
-def test_chunks_tibs():
-    t = Tibs.from_bytes(some_bytes)
-    f = Tibs('0b11111')
-    count = 0
-    for chunk in t.chunks_iter(5):
-        if chunk == f:
-            count += 1
-
-
-def test_extending_bits_tibs():
-    m = Mutibs()
-    m.extend(bit_list)
-
-
-def test_extending_bits_bitarray():
-    m = bitarray()
-    m.extend(bit_list)
-
-
-def test_pop_bitarray():
-    b = bitarray()
-    b.frombytes(some_bytes)
-    while (b):
-        _ = b.pop()
-
-
-def test_pop_tibs():
-    t = Mutibs.from_bytes(some_bytes)
-    # About half the time here is in the method lookup, which isn't cached
-    # in the same way as with the bitarray C extension. Using `pop = t.pop` outside
-    # the loop will speed it up a lot.
-    while (t):
-        _ = t.pop()
-
-
-def test_bool_construction_bitarray():
-    b = bitarray(bit_list)
-    assert len(b) == len(bit_list)
-
-
-def test_bool_construction_tibs():
-    t = Tibs.from_bools(bit_list)
-    assert len(t) == len(bit_list)
-
-
-def test_slice_count_bitarray():
-    b = bitarray()
-    b.frombytes(some_bytes)
-    total = 0
-    for start in range(0, 750_000, 5):
-        total += b[start:start + 257].count(1)
-    assert total >= 0
-
-
-def test_slice_count_tibs():
-    t = Tibs.from_bytes(some_bytes)
-    total = 0
-    for start in range(0, 750_000, 5):
-        total += t.count(1, start, start + 257)
-    assert total >= 0
-
-
-def test_pack_u16_bitarray():
-    b = bitarray()
-    for value in value_words:
-        b.extend(int2ba(value, length=16))
-    assert len(b) == 16 * len(value_words)
-
-
-def test_pack_u16_tibs():
-    t = Tibs.from_values('u16', value_words)
-    assert len(t) == 16 * len(value_words)
-
-
-def test_unpack_u16_bitarray():
-    b = bitarray()
-    b.frombytes(value_bytes)
-    values = [ba2int(b[i:i + 16]) for i in range(0, len(b), 16)]
-    assert values == value_words
-
-
-def test_unpack_u16_tibs():
-    values = Tibs.from_bytes(value_bytes).to_values('u16')
-    assert values == value_words
-
-
-class FunctionPairs:
-    def __init__(self, name, bitarray_func, tibs_func):
-        self.name = name
-        self.bitarray_func = bitarray_func
-        self.tibs_func = tibs_func
-        self.bf_time = None
-        self.bs_time = None
-        self.ratio = 1.0
-
-    def run(self):
-        self.ba_time = timeit.timeit(self.bitarray_func, number=5)
-        self.t_time = timeit.timeit(self.tibs_func, number=5)
-        self.ratio = self.ba_time / self.t_time
-
-
-class TestSuite:
-    def __init__(self, pairs):
-        self.pairs = pairs
-
-    def run(self):
-        for pair in self.pairs:
-            pair.run()
-
-    def print_results(self):
-        for pair in self.pairs:
-            if pair.ratio > 1.0:
-                extra = ""
-            else:
-                extra = f"({1 / pair.ratio:.2f}⨉ slower)"
+    Each side gets its own call count, so a case where one side is orders of
+    magnitude faster still has both sides measured over a usable interval. The
+    reported time is per call either way.
+    """
+    functions = {"baseline": baseline_fn, "tibs": tibs_fn}
+    counts = {name: calls_per_sample(fn) for name, fn in functions.items()}
+    times = {"baseline": [], "tibs": []}
+    for repeat in range(repeats):
+        order = ("baseline", "tibs") if repeat % 2 == 0 else ("tibs", "baseline")
+        for name in order:
+            function = functions[name]
+            calls = counts[name]
+            started = time.perf_counter()
+            for _ in range(calls):
+                function()
+            times[name].append((time.perf_counter() - started) / calls)
+    return statistics.median(times["baseline"]), statistics.median(times["tibs"])
+
+
+def make_bitarray(data):
+    # frombytes copies, which matches Tibs.from_bytes. bitarray(buffer=data) is
+    # a zero-copy alternative, but it aliases the source and is read-only, so it
+    # is not the same operation.
+    bits = bitarray(endian="big")
+    bits.frombytes(data)
+    return bits
+
+
+def same_bits(bitarray_result, tibs_result):
+    return (
+            len(bitarray_result) == len(tibs_result)
+            and bitarray_result.tobytes() == tibs_result.to_padded_bytes()
+    )
+
+
+def same_bytes(baseline_result, tibs_result):
+    return baseline_result == tibs_result.to_bytes()
+
+
+RESET = "\033[0m"
+RED = "\033[31m"
+GREEN = "\033[32m"
+BOLD = "\033[1m"
+
+SLOW_THRESHOLD = 0.8
+FAST_THRESHOLD = 1.2
+
+NAME_WIDTH = 26
+TIME_WIDTH = 13
+SPEEDUP_WIDTH = 9
+PAIR_WIDTH = TIME_WIDTH + SPEEDUP_WIDTH
+
+
+def colourise(text, colour, enabled):
+    return f"{colour}{text}{RESET}" if enabled and colour else text
+
+
+def speedup_colour(speedup):
+    if speedup < SLOW_THRESHOLD:
+        return RED
+    if speedup > FAST_THRESHOLD:
+        return GREEN
+    return ""
+
+
+def relative_factor(speedup):
+    """How many times faster the faster side is, whichever side that is."""
+    if speedup >= 1:
+        return speedup
+    return 1 / speedup if speedup else float("inf")
+
+
+def relative_cells(speedup):
+    """Format both relative columns, leaving the slower side blank."""
+    factor = relative_factor(speedup)
+    if factor < 1.005:
+        # Would print as 1.00x, which reads as a win it didn't have.
+        return "", ""
+    text = f"{factor:.2f}x"
+    return ("", text) if speedup >= 1 else (text, "")
+
+
+def relative_cell(text, cell_colour, colour):
+    return colourise(text.rjust(SPEEDUP_WIDTH), cell_colour if text else "", colour)
+
+
+TIME_UNITS = ((1.0, "s"), (1e-3, "ms"), (1e-6, "µs"), (1e-9, "ns"))
+
+
+def format_time(seconds):
+    """Use a readable unit even for scalar cases that take under a microsecond."""
+    for scale, suffix in TIME_UNITS:
+        if seconds >= scale:
+            return f"{seconds / scale:.3g} {suffix}"
+    return f"{seconds / 1e-9:.3g} ns"
+
+
+def result_summary(result):
+    bit_types = (Tibs, Mutibs) if bitarray is None else (bitarray, Tibs, Mutibs)
+    if isinstance(result, bit_types):
+        return f"{type(result).__name__}(len={len(result):,}, ones={result.count(1):,})"
+    if isinstance(result, list) and len(result) > 10:
+        return f"list(len={len(result):,}, first={result[0]!r}, last={result[-1]!r})"
+    return repr(result)
+
+
+def build_bitarray_cases(byte_count, value_count):
+    search_bytes = deterministic_bytes(byte_count, "comparison-search")
+    other_bytes = deterministic_bytes(byte_count, "comparison-other")
+    search_tibs = Tibs.from_bytes(search_bytes)
+    other_tibs = Tibs.from_bytes(other_bytes)
+    search_bits = make_bitarray(search_bytes)
+    other_bits = make_bitarray(other_bytes)
+    bit_count = len(search_bits)
+    bit_list = list(search_tibs[: min(byte_count * 8, 80_000)])
+
+    all_zero_bits = zeros(bit_count, endian="big")
+    all_one_bits = ones(bit_count, endian="big")
+    all_zero_tibs = Tibs.from_zeros(bit_count)
+    all_one_tibs = Tibs.from_ones(bit_count)
+
+    deposit_mask_bits = other_bits
+    deposit_mask_tibs = other_tibs
+    deposit_value_length = deposit_mask_bits.count(1)
+    deposit_value_bits = search_bits[:deposit_value_length]
+    deposit_value_tibs = search_tibs[:deposit_value_length]
+
+    search_pattern_bits = bitarray("101010111100", endian="big")
+    search_pattern_tibs = Tibs("0xabc")
+
+    find_pattern_len = min(137, bit_count)
+    find_pattern_start = (bit_count - find_pattern_len) // 3
+    find_pattern_bits = search_bits[
+        find_pattern_start: find_pattern_start + find_pattern_len
+    ]
+    find_pattern_tibs = search_tibs[
+        find_pattern_start: find_pattern_start + find_pattern_len
+    ]
+
+    # A Tibs slice is a view onto shared storage, so its cost does not grow with
+    # the width; a bitarray slice copies. Taking almost the whole buffer would
+    # therefore measure that difference and nothing else, and report a ratio in
+    # the hundreds. A field-sized window is the case worth knowing about, and
+    # narrow enough that per-call overhead still shows through.
+    slice_start = min(3, bit_count)
+    slice_width = min(4096, bit_count - slice_start)
+    slice_end = slice_start + slice_width
+
+    mutation_width = min(10_000, max(1, bit_count // 8))
+    mutation_start = (bit_count - mutation_width) // 2
+    mutation_end = mutation_start + mutation_width
+    mutation_bits = bitarray(mutation_width, endian="big")
+    mutation_bits.setall(1)
+    mutation_tibs = Tibs.from_ones(mutation_width)
+
+    rng = random.Random("comparison-index-reads")
+    read_positions = [rng.randrange(bit_count) for _ in range(value_count)]
+
+    rng = random.Random("comparison-values")
+    value_words = [rng.randrange(1 << 16) for _ in range(value_count)]
+    value_bytes = Tibs.from_values("u16", value_words).to_bytes()
+
+    # A fixed-width code is a prefix code, so bitarray's encode/decode codec
+    # applies to packing integers, and it is its fastest own route: ~2.7x faster
+    # than the obvious extend(int2ba(value)) loop to pack, and ~1.9x faster than
+    # slicing and calling ba2int per value to unpack. Building the table and the
+    # decodetree is setup, done once here, exactly as the tibs side hoists its
+    # dtype. The table has 2**width entries, so this is only affordable for
+    # narrow widths - u16 costs ~90 ms and a few MB to set up.
+    def fixed_width_codec(width):
+        code = {
+            value: int2ba(value, length=width, endian="big")
+            for value in range(1 << width)
+        }
+        return code, decodetree(code)
+
+    u16_code, u16_tree = fixed_width_codec(16)
+    u12_code, u12_tree = fixed_width_codec(12)
+
+    # u12 runs the same job at a width that is not a whole number of bytes,
+    # which is a different path inside tibs.
+    value_words_12 = [word & 0xFFF for word in value_words]
+    value_12_tibs = Tibs.from_values("u12", value_words_12)
+    value_12_bytes = value_12_tibs.to_padded_bytes()
+    value_12_bit_count = len(value_12_tibs)
+
+    bulk_set_bit_count = min(byte_count * 8, 2_000_000)
+    bulk_set_width = 8
+    rng = random.Random("comparison-bulk-set")
+    bulk_set_positions = [
+        [rng.randrange(bulk_set_bit_count) for _ in range(bulk_set_width)]
+        for _ in range(value_count)
+    ]
+
+    sieve_limit = min(bit_count, 2_000_000)
+    random_bit_count = min(bit_count, 2_000_000)
+    random_repeats = 10
+
+    pop_count = min(bit_count, 200_000)
+    pop_bits = search_bits[:pop_count]
+    pop_tibs = search_tibs[:pop_count]
+
+    ba_piece = bitarray("10101", endian="big")
+    tibs_piece = Tibs("0b10101")
+    # Scaled to the input rather than fixed, so that --bytes actually shrinks
+    # this row. bitarray has no join, so its side is a Python-level loop however
+    # it is spelled; preallocating and slice-assigning is slower than extend.
+    piece_count = max(1, min(50_000, bit_count // 5))
+    ba_pieces = [ba_piece] * piece_count
+    tibs_pieces = [tibs_piece] * piece_count
+    repeat_pattern_bits = bitarray("1011001011", endian="big")
+    repeat_pattern_tibs = Tibs("0b1011001011")
+    repeat_count = bit_count // len(repeat_pattern_bits)
+    small_and_widths = (1, 7, 13, 31, 47, 63, 64)
+    small_and_values = [
+        (
+            0x123456789ABCDEF0 & ((1 << width) - 1),
+            0xFEDCBA9876543210 & ((1 << width) - 1),
+        )
+        for width in small_and_widths
+    ]
+    small_and_bits = [
+        (
+            int2ba(left, length=width, endian="big"),
+            int2ba(right, length=width, endian="big"),
+        )
+        for width, (left, right) in zip(
+            small_and_widths, small_and_values, strict=True
+        )
+    ]
+    small_and_tibs = [
+        (Tibs.from_u(left, width), Tibs.from_u(right, width))
+        for width, (left, right) in zip(
+            small_and_widths, small_and_values, strict=True
+        )
+    ]
+    # Bitwise ops on a Tibs of 64 bits or fewer go through a single-word fast
+    # path (padded_word, in tibs_.rs), and the result fits the inline storage.
+    # Past that the result needs a heap allocation, and the per-call cost steps
+    # up ~3x and stays flat there until the operands are big enough for
+    # throughput to dominate again. The 1-64-bit rows sit inside the fast path
+    # and the whole-buffer rows are far past it, so neither samples the band in
+    # between - which is where bitarray is furthest ahead. 256 bits is in it.
+    mid_and_width = 256
+    mid_rng = random.Random("comparison-mid-and")
+    mid_left_value = mid_rng.randrange(1 << mid_and_width)
+    mid_right_value = mid_rng.randrange(1 << mid_and_width)
+    mid_left_bits = int2ba(mid_left_value, length=mid_and_width, endian="big")
+    mid_right_bits = int2ba(mid_right_value, length=mid_and_width, endian="big")
+    mid_left_tibs = Tibs.from_u(mid_left_value, mid_and_width)
+    mid_right_tibs = Tibs.from_u(mid_right_value, mid_and_width)
+
+    chunk_target_bits = bitarray("11111", endian="big")
+    chunk_target_tibs = Tibs("0b11111")
+
+    def ba_find_all():
+        return len(list(search_bits.search(search_pattern_bits)))
+
+    def tibs_find_all():
+        return len(search_tibs.find_all(search_pattern_tibs))
+
+    def ba_find():
+        return search_bits.find(find_pattern_bits)
+
+    def tibs_find():
+        return search_tibs.find(find_pattern_tibs)
+
+    def ba_rfind():
+        return search_bits.find(find_pattern_bits, 0, len(search_bits), right=True)
+
+    def tibs_rfind():
+        return search_tibs.rfind(find_pattern_tibs)
+
+    def ba_reverse_find_all():
+        return len(list(search_bits.search(search_pattern_bits, right=True)))
+
+    def tibs_reverse_find_all():
+        return len(list(search_tibs.rfind_all_iter(search_pattern_tibs)))
+
+    def ba_bitops():
+        end = min(byte_count * 8, 500_000)
+        for _ in range(50):
+            combined = search_bits | other_bits
+            result = combined[10:end] & other_bits[9: end - 1]
+        return result
+
+    def tibs_bitops():
+        end = min(byte_count * 8, 500_000)
+        for _ in range(50):
+            combined = search_tibs | other_tibs
+            result = combined[10:end] & other_tibs[9: end - 1]
+        return result
+
+    def ba_small_ands():
+        return [left & right for left, right in small_and_bits]
+
+    def tibs_small_ands():
+        return [left & right for left, right in small_and_tibs]
+
+    # One operand pair rather than a list, so the row is the bare per-call cost
+    # of a single bitwise op at this width and nothing else. That does mean the
+    # harness's own ~50 ns of loop and call overhead lands on both sides and
+    # drags the ratio toward 1: measured with the operation unrolled into the
+    # loop body instead, the gap here is ~3.5x rather than the ~2.4x reported.
+    # The same compression applies to every sub-microsecond row in the table.
+    def ba_mid_and():
+        return mid_left_bits & mid_right_bits
+
+    def tibs_mid_and():
+        return mid_left_tibs & mid_right_tibs
+
+    def ba_small_invert():
+        return [~left for left, _ in small_and_bits]
+
+    def tibs_small_invert():
+        return [~left for left, _ in small_and_tibs]
+
+    def ba_small_shift_left():
+        return [left << 3 for left, _ in small_and_bits]
+
+    def tibs_small_shift_left():
+        return [left << 3 for left, _ in small_and_tibs]
+
+    def ba_small_concatenate():
+        return [left + right for left, right in small_and_bits[:4]]
+
+    def tibs_small_concatenate():
+        return [left + right for left, right in small_and_tibs[:4]]
+
+    small_repeat_counts = (64, 9, 4, 2)
+
+    def ba_small_repeat():
+        return [
+            left * count
+            for (left, _), count in zip(
+                small_and_bits[:4], small_repeat_counts, strict=True
+            )
+        ]
+
+    def tibs_small_repeat():
+        return [
+            left * count
+            for (left, _), count in zip(
+                small_and_tibs[:4], small_repeat_counts, strict=True
+            )
+        ]
+
+    def same_small_bits(bitarray_results, tibs_results):
+        return len(bitarray_results) == len(tibs_results) and all(
+            same_bits(bitarray_result, tibs_result)
+            for bitarray_result, tibs_result in zip(
+                bitarray_results, tibs_results, strict=True
+            )
+        )
+
+    # Start from a fresh mutable copy on each call, so repeated samples do the
+    # same work instead of repeatedly ANDing an already-filtered result.
+    def ba_inplace_and():
+        out = search_bits.copy()
+        out &= other_bits
+        return out
+
+    def tibs_inplace_and():
+        out = search_tibs.to_mutibs()
+        out &= other_tibs
+        return out
+
+    def ba_deposit():
+        out = search_bits.copy()
+        out[deposit_mask_bits] = deposit_value_bits
+        return out
+
+    def tibs_deposit():
+        out = search_tibs.to_mutibs()
+        out.deposit(deposit_value_tibs, deposit_mask_tibs)
+        return out
+
+    def ba_whole_view_write():
+        out = search_bits.copy()
+        out[:] = other_bits
+        return out
+
+    def tibs_whole_view_write():
+        out = search_tibs.to_mutibs()
+        out.view().write_bytes(other_bytes)
+        return out
+
+    # bitarray short-circuits these predicates. The immediate-exit rows put
+    # the deciding bit first; the full-scan rows make every bit agree so that
+    # both implementations have to inspect the whole input.
+    def ba_all_immediate():
+        return all_zero_bits.all()
+
+    def tibs_all_immediate():
+        return all_zero_tibs.all()
+
+    def ba_any_immediate():
+        return all_one_bits.any()
+
+    def tibs_any_immediate():
+        return all_one_tibs.any()
+
+    def ba_all_full_scan():
+        return all_one_bits.all()
+
+    def tibs_all_full_scan():
+        return all_one_tibs.all()
+
+    def ba_any_full_scan():
+        return all_zero_bits.any()
+
+    def tibs_any_full_scan():
+        return all_zero_tibs.any()
+
+    def ba_count():
+        return sum(search_bits.count(1) for _ in range(10))
+
+    def tibs_count():
+        return sum(search_tibs.count(1) for _ in range(10))
+
+    def ba_join_small_pieces():
+        out = bitarray(endian="big")
+        for item in ba_pieces:
+            out.extend(item)
+        return out
+
+    def tibs_join_small_pieces():
+        return Tibs.from_joined(tibs_pieces)
+
+    def ba_extend_bool_list():
+        out = bitarray(endian="big")
+        out.extend(bit_list)
+        return out
+
+    def tibs_extend_bool_list():
+        out = Mutibs()
+        out.extend(bit_list)
+        return out
+
+    def ba_append_bits():
+        out = bitarray(endian="big")
+        append = out.append
+        for bit in bit_list:
+            append(bit)
+        return out
+
+    def tibs_append_bits():
+        out = Mutibs()
+        # Tibs documents reserve as the way to avoid growth reallocations when
+        # constructing incrementally, so give it the known final size.
+        out.reserve(len(bit_list))
+        append = out.append
+        for bit in bit_list:
+            append(bit)
+        return out
+
+    def ba_bulk_index_set():
+        out = zeros(bulk_set_bit_count, endian="big")
+        for positions in bulk_set_positions:
+            out[positions] = 1
+        return out
+
+    def tibs_bulk_index_set():
+        out = Mutibs.from_zeros(bulk_set_bit_count)
+        for positions in bulk_set_positions:
+            out.set(positions)
+        return out
+
+    def ba_bool_construction():
+        return bitarray(bit_list, endian="big")
+
+    def tibs_bool_construction():
+        return Tibs.from_bools(bit_list)
+
+    def ba_from_bytes():
+        return make_bitarray(search_bytes)
+
+    def tibs_from_bytes():
+        return Tibs.from_bytes(search_bytes)
+
+    def ba_to_bytes():
+        return search_bits.tobytes()
+
+    def tibs_to_bytes():
+        return search_tibs.to_bytes()
+
+    def ba_slice():
+        for _ in range(100):
+            result = search_bits[slice_start:slice_end]
+        return result
+
+    def tibs_slice():
+        for _ in range(100):
+            result = search_tibs[slice_start:slice_end]
+        return result
+
+    def ba_concat():
+        return search_bits + other_bits
+
+    def tibs_concat():
+        return search_tibs + other_tibs
+
+    def ba_repeat_pattern():
+        return repeat_pattern_bits * repeat_count
+
+    def tibs_repeat_pattern():
+        return repeat_pattern_tibs * repeat_count
+
+    def ba_invert():
+        return ~search_bits
+
+    def tibs_invert():
+        return ~search_tibs
+
+    # Both libraries reverse in place, so this measures the reverse itself
+    # rather than a copy. The two buffers are reversed the same number of
+    # times, so they stay in step with each other.
+    reverse_bits = search_bits.copy()
+    reverse_tibs = search_tibs.to_mutibs()
+
+    def ba_reverse():
+        reverse_bits.reverse()
+        return reverse_bits
+
+    def tibs_reverse():
+        reverse_tibs.reverse()
+        return reverse_tibs
+
+    def ba_shift_left():
+        return search_bits << 13
+
+    def tibs_shift_left():
+        return search_tibs << 13
+
+    def ba_index_reads():
+        # This row isolates scalar indexing on both sides. The separate
+        # gather-and-count row below lets bitarray use its bulk indexing API.
+        return sum(search_bits[pos] for pos in read_positions)
+
+    def tibs_index_reads():
+        return sum(search_tibs[pos] for pos in read_positions)
+
+    def ba_gather_count():
+        return search_bits[read_positions].count(1)
+
+    def tibs_gather_count():
+        # Tibs has no fancy-indexing read, so scalar indexing is its idiomatic
+        # route for gathering arbitrary positions.
+        return sum(search_tibs[pos] for pos in read_positions)
+
+    def ba_to_bool_list():
+        return search_bits.tolist()
+
+    def tibs_to_bool_list():
+        return search_tibs.to_bools()
+
+    def ba_copy_slice_set():
+        out = search_bits.copy()
+        out[mutation_start:mutation_end] = mutation_bits
+        return out
+
+    def tibs_copy_slice_set():
+        out = search_tibs.to_mutibs()
+        out[mutation_start:mutation_end] = mutation_tibs
+        return out
+
+    def ba_copy_slice_delete():
+        out = search_bits.copy()
+        del out[mutation_start:mutation_end]
+        return out
+
+    def tibs_copy_slice_delete():
+        out = search_tibs.to_mutibs()
+        del out[mutation_start:mutation_end]
+        return out
+
+    def ba_slice_count():
+        total = 0
+        limit = min(byte_count * 8 - 257, 75_000)
+        for start in range(0, limit, 5):
+            total += search_bits.count(1, start, start + 257)
+        return total
+
+    def tibs_slice_count():
+        total = 0
+        limit = min(byte_count * 8 - 257, 75_000)
+        for start in range(0, limit, 5):
+            total += search_tibs.count(1, start, start + 257)
+        return total
+
+    # Both sides stay inside their own library here. struct.pack plus frombytes
+    # would beat bitarray's codec on the byte-aligned widths, but struct is
+    # equally available to tibs, so putting it on one side only would measure
+    # struct and a memcpy rather than the two libraries. That question already
+    # has its own rows in the standard library table below.
+    def ba_pack_u16():
+        out = bitarray(endian="big")
+        out.encode(u16_code, value_words)
+        return out
+
+    def tibs_pack_u16():
+        return Tibs.from_values("u16", value_words)
+
+    def ba_unpack_u16():
+        bits = make_bitarray(value_bytes)
+        return list(bits.decode(u16_tree))
+
+    def tibs_unpack_u16():
+        return Tibs.from_bytes(value_bytes).to_values("u16")
+
+    def ba_pack_u12():
+        out = bitarray(endian="big")
+        out.encode(u12_code, value_words_12)
+        return out
+
+    def tibs_pack_u12():
+        return Tibs.from_values("u12", value_words_12)
+
+    def ba_unpack_u12():
+        bits = make_bitarray(value_12_bytes)
+        del bits[value_12_bit_count:]
+        return list(bits.decode(u12_tree))
+
+    def tibs_unpack_u12():
+        return Tibs.from_bytes(value_12_bytes)[:value_12_bit_count].to_values("u12")
+
+    buffer_view_repeats = 2_000
+
+    def ba_buffer_view():
+        total = 0
+        for _ in range(buffer_view_repeats):
+            total += len(memoryview(search_bits))
+        return total
+
+    def tibs_buffer_view():
+        total = 0
+        for _ in range(buffer_view_repeats):
+            total += len(memoryview(search_tibs))
+        return total
+
+    def ba_primes():
+        is_prime = ones(sieve_limit)
+        is_prime[:2] = False
+        for i in range(2, math.isqrt(sieve_limit) + 1):
+            if is_prime[i]:
+                is_prime[i * i:: i] = False
+        # bitarray counts non-overlapping occurrences, so it misses one of the
+        # two overlapping "101" hits in 3, 5, 7 - the only prime triple there is.
+        return is_prime.count(bitarray("101")) + 1
+
+    def tibs_primes():
+        is_prime = Mutibs.from_ones(sieve_limit)
+        is_prime.unset([0, 1])
+        for i in range(2, math.isqrt(sieve_limit) + 1):
+            if is_prime[i]:
+                is_prime.unset(range(i * i, sieve_limit, i))
+        return is_prime.count([1, 0, 1])
+
+    # Two rows, because the gap between them is a choice of entropy source
+    # rather than a difference between the libraries. random_p is bitarray's
+    # fastest route to uniform bits (faster than urandom) and Mutibs.from_random
+    # defaults to a seeded userspace PRNG, so the first row is PRNG against
+    # PRNG. The second pins both sides to the OS generator, where they agree.
+    def ba_random():
+        for _ in range(random_repeats):
+            out = random_p(random_bit_count)
+        return len(out)
+
+    def tibs_random():
+        for _ in range(random_repeats):
+            out = Mutibs.from_random(random_bit_count)
+        return len(out)
+
+    def ba_secure_random():
+        for _ in range(random_repeats):
+            out = urandom(random_bit_count)
+        return len(out)
+
+    def tibs_secure_random():
+        for _ in range(random_repeats):
+            out = Mutibs.from_random(random_bit_count, True)
+        return len(out)
+
+    def ba_pop():
+        out = pop_bits.copy()
+        pop = out.pop
+        total = 0
+        while out:
+            total += pop()
+        return total
+
+    def tibs_pop():
+        out = pop_tibs.to_mutibs()
+        pop = out.pop
+        total = 0
+        while out:
+            total += pop()
+        return total
+
+    def ba_chunks():
+        # bitarray has no chunk iterator, and count(sub_bitarray) counts
+        # non-overlapping hits at any offset rather than on a 5-bit stride,
+        # so the slice-compare loop is the equivalent spelling.
+        count = 0
+        for index in range(0, len(search_bits), 5):
+            if search_bits[index: index + 5] == chunk_target_bits:
+                count += 1
+        return count
+
+    def tibs_chunks():
+        return sum(
+            1 for chunk in search_tibs.chunks_iter(5) if chunk == chunk_target_tibs
+        )
+
+    return [
+        ComparisonCase("find_all 12-bit", ba_find_all, tibs_find_all),
+        ComparisonCase("find", ba_find, tibs_find),
+        ComparisonCase("rfind", ba_rfind, tibs_rfind),
+        ComparisonCase(
+            "reverse find_all iter", ba_reverse_find_all, tibs_reverse_find_all
+        ),
+        ComparisonCase("bit ops sliced", ba_bitops, tibs_bitops, same_bits),
+        ComparisonCase(
+            "1-64-bit and",
+            ba_small_ands,
+            tibs_small_ands,
+            same_small_bits,
+        ),
+        ComparisonCase("256-bit and", ba_mid_and, tibs_mid_and, same_bits),
+        ComparisonCase(
+            "1-64-bit invert",
+            ba_small_invert,
+            tibs_small_invert,
+            same_small_bits,
+        ),
+        ComparisonCase(
+            "1-64-bit shift left",
+            ba_small_shift_left,
+            tibs_small_shift_left,
+            same_small_bits,
+        ),
+        ComparisonCase(
+            "small concatenate",
+            ba_small_concatenate,
+            tibs_small_concatenate,
+            same_small_bits,
+        ),
+        ComparisonCase(
+            "small repeat",
+            ba_small_repeat,
+            tibs_small_repeat,
+            same_small_bits,
+        ),
+        ComparisonCase(
+            "copy + in-place and", ba_inplace_and, tibs_inplace_and, same_bits
+        ),
+        ComparisonCase("masked bit deposit", ba_deposit, tibs_deposit, same_bits),
+        ComparisonCase(
+            "copy + whole view write",
+            ba_whole_view_write,
+            tibs_whole_view_write,
+            same_bits,
+        ),
+        ComparisonCase("all immediate exit", ba_all_immediate, tibs_all_immediate),
+        ComparisonCase("any immediate exit", ba_any_immediate, tibs_any_immediate),
+        ComparisonCase("all full scan", ba_all_full_scan, tibs_all_full_scan),
+        ComparisonCase("any full scan", ba_any_full_scan, tibs_any_full_scan),
+        ComparisonCase("count ones", ba_count, tibs_count),
+        ComparisonCase(
+            "join small pieces", ba_join_small_pieces, tibs_join_small_pieces, same_bits
+        ),
+        ComparisonCase(
+            "extend bool list", ba_extend_bool_list, tibs_extend_bool_list, same_bits
+        ),
+        ComparisonCase("append bits", ba_append_bits, tibs_append_bits, same_bits),
+        ComparisonCase("bulk index set", ba_bulk_index_set, tibs_bulk_index_set, same_bits),
+        ComparisonCase(
+            "bool construction", ba_bool_construction, tibs_bool_construction, same_bits
+        ),
+        ComparisonCase("from bytes", ba_from_bytes, tibs_from_bytes, same_bits),
+        ComparisonCase("to bytes", ba_to_bytes, tibs_to_bytes),
+        ComparisonCase("unaligned slice x100", ba_slice, tibs_slice, same_bits),
+        ComparisonCase("concatenate", ba_concat, tibs_concat, same_bits),
+        ComparisonCase(
+            "repeat 10-bit pattern",
+            ba_repeat_pattern,
+            tibs_repeat_pattern,
+            same_bits,
+        ),
+        ComparisonCase("invert", ba_invert, tibs_invert, same_bits),
+        ComparisonCase("reverse in place", ba_reverse, tibs_reverse, same_bits),
+        ComparisonCase("shift left", ba_shift_left, tibs_shift_left, same_bits),
+        ComparisonCase("random index reads", ba_index_reads, tibs_index_reads),
+        ComparisonCase("gather + count", ba_gather_count, tibs_gather_count),
+        ComparisonCase("to bool list", ba_to_bool_list, tibs_to_bool_list),
+        ComparisonCase(
+            "copy + slice set", ba_copy_slice_set, tibs_copy_slice_set, same_bits
+        ),
+        ComparisonCase(
+            "copy + slice delete", ba_copy_slice_delete, tibs_copy_slice_delete, same_bits
+        ),
+        ComparisonCase("slice count", ba_slice_count, tibs_slice_count),
+        ComparisonCase("pack u16", ba_pack_u16, tibs_pack_u16, same_bits),
+        ComparisonCase("unpack u16", ba_unpack_u16, tibs_unpack_u16),
+        ComparisonCase("pack u12", ba_pack_u12, tibs_pack_u12, same_bits),
+        ComparisonCase("unpack u12", ba_unpack_u12, tibs_unpack_u12),
+        ComparisonCase("prime sieve", ba_primes, tibs_primes),
+        ComparisonCase("random generation", ba_random, tibs_random),
+        ComparisonCase("secure random generation", ba_secure_random, tibs_secure_random),
+        ComparisonCase("pop all bits", ba_pop, tibs_pop),
+        ComparisonCase("chunks_iter", ba_chunks, tibs_chunks),
+        ComparisonCase("repeated buffer view", ba_buffer_view, tibs_buffer_view),
+    ]
+
+
+def build_stdlib_cases(byte_count, value_count):
+    """Cases where the standard library can do the same job as tibs.
+
+    Each case is modelled on an example from the Python documentation for the
+    module concerned, so that the standard library side is doing the job the way
+    its own docs present it. struct and array stop at byte boundaries and ints
+    have no length, so the overlap with tibs is only partial.
+    """
+    search_bytes = deterministic_bytes(byte_count, "comparison-search")
+    other_bytes = deterministic_bytes(byte_count, "comparison-other")
+    search_tibs = Tibs.from_bytes(search_bytes)
+    other_tibs = Tibs.from_bytes(other_bytes)
+    search_int = int.from_bytes(search_bytes, "big")
+    other_int = int.from_bytes(other_bytes, "big")
+    bit_count = byte_count * 8
+    width_mask = (1 << bit_count) - 1
+    unaligned_bit_count = bit_count - 3
+    unaligned_search_int = search_int >> 3
+    unaligned_other_int = other_int >> 3
+    # This construction currently leaves the backing BitVec starting part way
+    # through a byte, which reactivates several bit-at-a-time fallbacks.
+    unaligned_search_tibs = Tibs.from_u(unaligned_search_int, unaligned_bit_count)
+    unaligned_other_tibs = Tibs.from_u(unaligned_other_int, unaligned_bit_count)
+
+    rng = random.Random("comparison-values")
+    value_words = [rng.randrange(1 << 16) for _ in range(value_count)]
+    value_bytes = Tibs.from_values("u16", value_words).to_bytes()
+    value_floats = [rng.random() for _ in range(value_count)]
+
+    # struct's documented first example is pack('hhl', 1, 2, 3), a mixed-width
+    # record. Byte order is pinned so the sizes are standard rather than native.
+    rng = random.Random("comparison-records")
+    record_count = max(1, value_count // 4)
+    records = [
+        (
+            rng.randrange(-(1 << 15), 1 << 15),
+            rng.randrange(-(1 << 15), 1 << 15),
+            rng.randrange(-(1 << 31), 1 << 31),
+        )
+        for _ in range(record_count)
+    ]
+    # The docs recommend a compiled Struct when a format is reused, so the tibs
+    # side hoists a DtypeTuple to match rather than rebuilding dtypes per field.
+    # DtypeTuple("(i16, i16, i32)") is the mixed-width record dtype added in
+    # the Dtype expansion, so a whole record round-trips in one pack/unpack
+    # call rather than one call per field.
+    record_struct = struct.Struct(">hhl")
+    record_bytes = b"".join(record_struct.pack(*record) for record in records)
+    record_dtype = Dtype("(i16, i16, i32)")
+    scalar_record = records[0]
+    scalar_record_bytes = record_struct.pack(*scalar_record)
+    scalar_record_tibs = Tibs.from_bytes(scalar_record_bytes)
+
+    # bytes.join and Tibs.from_joined both accept prepared pieces. Five bytes is
+    # small enough for per-piece overhead to matter but is still a plausible
+    # fixed-width field or short protocol fragment.
+    byte_pieces = [
+        search_bytes[index: index + 5] for index in range(0, byte_count, 5)
+    ]
+    tibs_byte_pieces = [Tibs.from_bytes(piece) for piece in byte_pieces]
+    spaced_hex_pieces = " ".join(piece.hex() for piece in byte_pieces)
+    tibs_hex_pieces = ",".join(f"0x{piece.hex()}" for piece in byte_pieces)
+
+    u64_value = 0x123456789ABCDEF0
+    u64_other_value = 0xFEDCBA9876543210
+    u64_bytes = u64_value.to_bytes(8, "big")
+    small_and_widths = (1, 7, 13, 31, 47, 63, 64)
+    small_and_values = [
+        (
+            u64_value & ((1 << width) - 1),
+            u64_other_value & ((1 << width) - 1),
+        )
+        for width in small_and_widths
+    ]
+    small_and_tibs = [
+        (Tibs.from_u(left, width), Tibs.from_u(right, width))
+        for width, (left, right) in zip(
+            small_and_widths, small_and_values, strict=True
+        )
+    ]
+
+    replace_old = search_bytes[byte_count // 2: byte_count // 2 + 1]
+    replace_new = bytes([replace_old[0] ^ 0xFF])
+    replace_old_tibs = Tibs.from_bytes(replace_old)
+    replace_new_tibs = Tibs.from_bytes(replace_new)
+
+    hex_string = search_bytes.hex()
+    prefixed_hex = "0x" + hex_string
+
+    # Taken from two thirds of the way in so both sides have to scan for it. A
+    # pattern near the start would flatter whichever side exits earliest.
+    aligned_pattern_start = byte_count * 2 // 3
+    aligned_pattern = search_bytes[aligned_pattern_start: aligned_pattern_start + 4]
+    aligned_pattern_tibs = Tibs.from_bytes(aligned_pattern)
+
+    u16_format = f">{len(value_words)}H"
+    f32_format = f">{len(value_floats)}f"
+
+    def struct_pack_records():
+        # struct docs: pack('hhl', 1, 2, 3)
+        return b"".join(record_struct.pack(*record) for record in records)
+
+    def tibs_pack_records():
+        # DtypeTuple.pack_values (via Tibs.from_values) packs every field of
+        # every record in one call rather than one call per field. Dtype
+        # caches a flat per-field byte-offset layout (RecordLayout, in
+        # dtype.rs) for a tuple/array of scalar fields that are all whole
+        # bytes wide, so this writes straight into one Vec<u8> - no BV
+        # allocated per field the way the pre-2.0 hand-rolled version needed.
+        return Tibs.from_values(record_dtype, records).to_bytes()
+
+    def struct_unpack_records():
+        # struct docs: iter_unpack, "iteratively unpack from the buffer"
+        return list(record_struct.iter_unpack(record_bytes))
+
+    def tibs_unpack_records():
+        # DtypeTuple.unpack_values (via Tibs.to_values) mirrors iter_unpack:
+        # one call decodes every record instead of slicing each field by hand.
+        return Tibs.from_bytes(record_bytes).to_values(record_dtype)
+
+    def struct_pack_scalar_record():
+        # The bulk row above is appropriate when all records are known at once.
+        # This row covers independently arriving records, with both the Struct
+        # and Dtype compiled and reused outside the timed region.
+        return record_struct.pack(*scalar_record)
+
+    def tibs_pack_scalar_record():
+        return record_dtype.pack(scalar_record).to_bytes()
+
+    def struct_unpack_scalar_record():
+        return record_struct.unpack(scalar_record_bytes)
+
+    def tibs_unpack_scalar_record():
+        return record_dtype.unpack(scalar_record_tibs)
+
+    def struct_pack_u16():
+        # struct docs: a format character may be preceded by a repeat count,
+        # so '4h' means the same as 'hhhh'.
+        return struct.pack(u16_format, *value_words)
+
+    def tibs_pack_u16():
+        return Tibs.from_values("u16", value_words).to_bytes()
+
+    def struct_unpack_u16():
+        return list(struct.unpack(u16_format, value_bytes))
+
+    def tibs_unpack_u16():
+        return Tibs.from_bytes(value_bytes).to_values("u16")
+
+    def struct_pack_f32():
+        return struct.pack(f32_format, *value_floats)
+
+    def tibs_pack_f32():
+        return Tibs.from_values("f32", value_floats).to_bytes()
+
+    def struct_pack_u16_le():
+        return struct.pack(f"<{len(value_words)}H", *value_words)
+
+    def tibs_pack_u16_le():
+        return Dtype("u16_le").pack_values(value_words).to_bytes()
+
+    def array_to_bytes():
+        # array is native-endian, so a byteswap is needed to match the
+        # big-endian convention used throughout this script.
+        out = array.array("H", value_words)
+        out.byteswap()
+        return out.tobytes()
+
+    def array_from_bytes():
+        out = array.array("H")
+        out.frombytes(value_bytes)
+        out.byteswap()
+        return out.tolist()
+
+    def int_popcount():
+        # int docs: bit_count(), "also known as the population count"
+        return search_int.bit_count()
+
+    def tibs_popcount():
+        return search_tibs.count(1)
+
+    def same_value(int_result, tibs_result):
+        # Each side is left holding its own natural type, so the conversion
+        # happens here in the equivalence check rather than inside the timing.
+        return int_result == tibs_result.to_u()
+
+    def int_and():
+        return search_int & other_int
+
+    def tibs_and():
+        return search_tibs & other_tibs
+
+    def int_small_ands():
+        return [left & right for left, right in small_and_values]
+
+    def tibs_small_ands():
+        return [left & right for left, right in small_and_tibs]
+
+    def same_small_values(int_results, tibs_results):
+        return int_results == [result.to_u() for result in tibs_results]
+
+    def int_unaligned_and():
+        return unaligned_search_int & unaligned_other_int
+
+    def tibs_unaligned_and():
+        return unaligned_search_tibs & unaligned_other_tibs
+
+    def int_shift_left():
+        # An int has no length, so it grows on a left shift where tibs drops the
+        # bits shifted off the top. Masking back to width is the work a user has
+        # to do to get fixed-width behaviour from an int, so it counts.
+        return (search_int << 13) & width_mask
+
+    def tibs_shift_left():
+        return search_tibs << 13
+
+    def int_from_bytes():
+        # int docs: int.from_bytes(b'\x00\x10', byteorder='big')
+        return int.from_bytes(search_bytes, "big")
+
+    def tibs_from_bytes_to_u():
+        return Tibs.from_bytes(search_bytes).to_u()
+
+    def int_unaligned_to_u():
+        return int.from_bytes(search_bytes, "big") >> 3
+
+    def tibs_unaligned_to_u():
+        return search_tibs[:-3].to_u()
+
+    def int_u64_to_bytes():
+        # This is deliberately small: fixed-width integer fields in headers and
+        # protocol records do not amortize conversion overhead over a large buffer.
+        return u64_value.to_bytes(8, "big")
+
+    def tibs_u64_to_bytes():
+        return Tibs.from_u(u64_value, 64).to_bytes()
+
+    def int_bytes_to_u64():
+        return int.from_bytes(u64_bytes, "big")
+
+    def tibs_bytes_to_u64():
+        return Tibs.from_bytes(u64_bytes).to_u()
+
+    def bytes_pickle_round_trip():
+        return pickle.loads(pickle.dumps(search_bytes, protocol=5))
+
+    def tibs_pickle_round_trip():
+        return pickle.loads(pickle.dumps(search_tibs, protocol=5))
+
+    def bytes_join_pieces():
+        return b"".join(byte_pieces)
+
+    def tibs_join_byte_pieces():
+        return Tibs.from_joined(tibs_byte_pieces).to_bytes()
+
+    def bytes_parse_hex_pieces():
+        # bytes.fromhex accepts ASCII whitespace between byte groups.
+        return bytes.fromhex(spaced_hex_pieces)
+
+    def tibs_parse_hex_pieces():
+        return Tibs.from_string(tibs_hex_pieces).to_bytes()
+
+    def bytes_replace_aligned():
+        return search_bytes.replace(replace_old, replace_new)
+
+    def tibs_replace_aligned():
+        return search_tibs.replaced(
+            replace_old_tibs, replace_new_tibs, byte_aligned=True
+        )
+
+    def bytes_to_hex():
+        # bytes docs: b'\xf0\xf1\xf2'.hex()
+        return search_bytes.hex()
+
+    def tibs_to_hex():
+        return search_tibs.to_hex()
+
+    def bytes_from_hex():
+        # bytes docs: bytes.fromhex('2Ef0 F1f2  ')
+        return bytes.fromhex(hex_string)
+
+    def tibs_from_hex():
+        return Tibs.from_string(prefixed_hex).to_bytes()
+
+    def bytes_to_binary():
+        # Converting the whole buffer to one int and formatting that is much
+        # faster than joining format(byte, '08b') per byte, which spends its
+        # time allocating one small string object per byte rather than on the
+        # conversion. int -> str is linear for base 2 (only decimal is
+        # superlinear, and only decimal is capped by int_max_str_digits). The
+        # explicit width is needed because an int has no length of its own.
+        return format(int.from_bytes(search_bytes, "big"), f"0{bit_count}b")
+
+    def tibs_to_binary():
+        return search_tibs.to_bin()
+
+    def bytes_aligned_find():
+        return search_bytes.find(aligned_pattern) * 8
+
+    def tibs_aligned_find():
+        return search_tibs.find(aligned_pattern_tibs, byte_aligned=True)
+
+    def bytes_aligned_count():
+        # bytes.count is non-overlapping and find_all overlaps. A 4-byte pattern
+        # drawn from random data effectively never overlaps itself, so the two
+        # agree here, but they would not for a self-similar pattern.
+        return search_bytes.count(aligned_pattern)
+
+    def tibs_aligned_count():
+        return len(search_tibs.find_all(aligned_pattern_tibs, byte_aligned=True))
+
+    return [
+        ComparisonCase("struct: pack hhl", struct_pack_records, tibs_pack_records),
+        ComparisonCase("struct: iter_unpack hhl", struct_unpack_records, tibs_unpack_records),
+        ComparisonCase(
+            "struct: pack one hhl", struct_pack_scalar_record, tibs_pack_scalar_record
+        ),
+        ComparisonCase(
+            "struct: unpack one hhl",
+            struct_unpack_scalar_record,
+            tibs_unpack_scalar_record,
+        ),
+        ComparisonCase("struct: pack u16", struct_pack_u16, tibs_pack_u16),
+        ComparisonCase("struct: unpack u16", struct_unpack_u16, tibs_unpack_u16),
+        ComparisonCase("struct: pack f32", struct_pack_f32, tibs_pack_f32),
+        ComparisonCase("struct: pack u16 le", struct_pack_u16_le, tibs_pack_u16_le),
+        ComparisonCase("array: u16 to bytes", array_to_bytes, tibs_pack_u16),
+        ComparisonCase("array: bytes to u16", array_from_bytes, tibs_unpack_u16),
+        ComparisonCase("int: popcount", int_popcount, tibs_popcount),
+        ComparisonCase("int: bitwise and", int_and, tibs_and, same_value),
+        ComparisonCase(
+            "int: 1-64-bit and",
+            int_small_ands,
+            tibs_small_ands,
+            same_small_values,
+        ),
+        ComparisonCase(
+            "int: unaligned and", int_unaligned_and, tibs_unaligned_and, same_value
+        ),
+        ComparisonCase("int: shift left", int_shift_left, tibs_shift_left, same_value),
+        ComparisonCase("int: from bytes", int_from_bytes, tibs_from_bytes_to_u),
+        ComparisonCase(
+            "int: unaligned to int", int_unaligned_to_u, tibs_unaligned_to_u
+        ),
+        ComparisonCase("int: u64 to bytes", int_u64_to_bytes, tibs_u64_to_bytes),
+        ComparisonCase("int: 8 bytes to u64", int_bytes_to_u64, tibs_bytes_to_u64),
+        ComparisonCase(
+            "pickle: round trip",
+            bytes_pickle_round_trip,
+            tibs_pickle_round_trip,
+            same_bytes,
+        ),
+        ComparisonCase(
+            "bytes: join 5-byte pieces", bytes_join_pieces, tibs_join_byte_pieces
+        ),
+        ComparisonCase(
+            "bytes: parse hex pieces", bytes_parse_hex_pieces, tibs_parse_hex_pieces
+        ),
+        ComparisonCase(
+            "bytes: aligned replace",
+            bytes_replace_aligned,
+            tibs_replace_aligned,
+            same_bytes,
+        ),
+        ComparisonCase("bytes: to hex", bytes_to_hex, tibs_to_hex),
+        ComparisonCase("bytes: from hex", bytes_from_hex, tibs_from_hex),
+        ComparisonCase("bytes: to binary str", bytes_to_binary, tibs_to_binary),
+        ComparisonCase("bytes: aligned find", bytes_aligned_find, tibs_aligned_find),
+        ComparisonCase("bytes: aligned count", bytes_aligned_count, tibs_aligned_count),
+    ]
+
+
+NOTE = """\
+Note: This is not a complete or impartial comparison of the two libraries, and it
+is not meant as a competition. The cases here are the ones that have been useful
+for tuning tibs, so treat the results as a regression check and a performance
+goal rather than an overall score for either library. Where tibs is markedly
+slower than bitarray on a case, that points at something worth optimizing.
+
+I have tried to be fair and idiomatic in using bitarray - any inefficiencies
+are my fault and I'd be happy to correct them. Where bitarray has a faster route
+to a job than the obvious spelling, it gets it: its encode/decode codec for
+packing fixed-width values, and its own fancy indexing for gathering bits. Both
+sides stay inside their own library, so neither is handed a stdlib shortcut the
+other could equally have used - that question is what the second table is for.
+
+Results depend on input size, and --bytes and --values change it. A large buffer
+hides per-call overhead on both sides and rewards whichever library has the
+better inner loop; below a few thousand bytes most rows drop under a microsecond
+and per-call overhead is most of what is left. The defaults sit above that.
+
+The standard library table asks a different question: for a job that doesn't
+need bit-level addressing, is a dedicated library worth it at all? Each case is
+modelled on an example from the Python documentation for the module concerned,
+so the standard library is doing the job the way its own docs present it. Only
+the byte-aligned part of tibs overlaps here - struct and array stop at byte
+boundaries, and ints have no length.
+"""
+
+
+def time_cases(cases, baseline_label, repeats):
+    """Time every case, checking equivalence first, and return one row each.
+
+    The whole table has to be timed before any of it can be printed, since the
+    rows are ordered by the result. Progress goes to stderr so that it stays out
+    of the way when stdout is redirected.
+    """
+    progress = sys.stderr.isatty()
+    # Padded so that a short case name does not leave part of a longer one behind.
+    width = max(len(case.name) for case in cases) + 8
+    rows = []
+    for case in cases:
+        if progress:
+            message = f"timing {case.name}".ljust(width)
+            print(f"\r{message}", end="", file=sys.stderr, flush=True)
+        baseline_result = case.baseline_fn()
+        tibs_result = case.tibs_fn()
+        if not case.equivalent(baseline_result, tibs_result):
+            raise AssertionError(
+                f"{case.name} returned different results: "
+                f"{baseline_label}={result_summary(baseline_result)}, "
+                f"tibs={result_summary(tibs_result)}"
+            )
+        del baseline_result, tibs_result
+
+        baseline_time, tibs_time = median_times(
+            case.baseline_fn, case.tibs_fn, repeats
+        )
+        speedup = baseline_time / tibs_time if tibs_time else float("inf")
+        rows.append((speedup, case.name, baseline_time, tibs_time))
+    if progress:
+        print("\r" + " " * width + "\r", end="", file=sys.stderr, flush=True)
+    rows.sort(key=lambda row: row[0], reverse=True)
+    return rows
+
+
+def run_table(title, baseline_label, cases, repeats, colour):
+    """Time every case, print the table, and return the speedups."""
+    rows = time_cases(cases, baseline_label, repeats)
+
+    print()
+    print(colourise(title, BOLD, colour))
+    print("Each case shows how many times faster the faster of the two was,")
+    print("with the best tibs result first.")
+    print()
+
+    header = (
+        f"{'case':<{NAME_WIDTH}}{baseline_label:^{PAIR_WIDTH}}{'tibs':^{PAIR_WIDTH}}"
+    )
+    rule = "-" * len(header)
+    print(colourise(header.rstrip(), BOLD, colour))
+    print(rule)
+
+    speedups = []
+    for speedup, name, baseline_time, tibs_time in rows:
+        if baseline_time > 0 and tibs_time > 0:
+            speedups.append(speedup)
+        # The winner is green whichever library it is: the column it lands in
+        # already says who won, so a second colour would only add noise.
+        baseline_relative, tibs_relative = relative_cells(speedup)
+        cell_colour = GREEN if relative_factor(speedup) > FAST_THRESHOLD else ""
+        print(
+            (
+                f"{name:<{NAME_WIDTH}}"
+                f"{format_time(baseline_time):>{TIME_WIDTH}}"
+                f"{relative_cell(baseline_relative, cell_colour, colour)}"
+                f"{format_time(tibs_time):>{TIME_WIDTH}}"
+                f"{relative_cell(tibs_relative, cell_colour, colour)}"
+            ).rstrip()
+        )
+
+    if speedups:
+        print(rule)
+        for label, value in (
+                ("Geometric mean", math.prod(speedups) ** (1 / len(speedups))),
+                ("Median", statistics.median(speedups)),
+        ):
+            comparison = (
+                f"{value:.2f}x faster" if value >= 1 else f"{1 / value:.2f}x slower"
+            )
+            summary = f"Tibs is {comparison}".rjust(2 * PAIR_WIDTH)
             print(
-                f'{pair.name}: {pair.ratio:.2f}⨉ faster {extra} bitarray: {pair.ba_time:.2f}s vs tibs: {pair.t_time:.2f}s')
-        # For ratios we use a geometric mean
-        average = math.prod(r.ratio for r in self.pairs) ** (1 / len(self.pairs))
-        print(f"AVERAGE: {average:.2f}⨉ faster")
+                f"{label:<{NAME_WIDTH}}"
+                f"{colourise(summary, speedup_colour(value), colour)}"
+            )
+    return speedups
 
 
 def main():
-    fn_pairs = [
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--bytes", type=int, default=250_000, help="random data bytes")
+    parser.add_argument("--values", type=int, default=20_000, help="u16 value count")
+    parser.add_argument("--repeats", type=int, default=5, help="timing repeats per case")
+    parser.add_argument("--no-color", action="store_true", help="disable coloured output")
+    parser.add_argument(
+        "--table",
+        choices=("bitarray", "stdlib", "both"),
+        default="both",
+        help="which comparison table to run",
+    )
+    args = parser.parse_args()
 
-        FunctionPairs("Primes", test_primes_bitarray, test_primes_tibs),
-        FunctionPairs("Counting", test_counting_bitarray, test_counting_tibs),
-        FunctionPairs("Random Generation", test_rand_bitarray, test_rand_tibs),
-        FunctionPairs("Construction", test_construction_bitarray, test_construction_tibs),
-        FunctionPairs("Find all", test_findall_bitarray, test_findall_tibs),
-        # FunctionPairs("Find all bytes", test_findall_bytes_bitarray, test_findall_bytes_tibs),
-        FunctionPairs("Find all reversed", test_reverse_find_bitarray, test_reverse_find_tibs),
-        FunctionPairs("Bit ops", test_bitops_bitarray, test_bitops_tibs),
-        FunctionPairs("Chunks", test_chunks_bitarray, test_chunks_tibs),
-        FunctionPairs("Extend", test_extending_bits_bitarray, test_extending_bits_tibs),
-        FunctionPairs("Pop", test_pop_bitarray, test_pop_tibs),
-        FunctionPairs("Bool construction", test_bool_construction_bitarray, test_bool_construction_tibs),
-        FunctionPairs("Slice count", test_slice_count_bitarray, test_slice_count_tibs),
-        FunctionPairs("Pack u16 values", test_pack_u16_bitarray, test_pack_u16_tibs),
-        FunctionPairs("Unpack u16 values", test_unpack_u16_bitarray, test_unpack_u16_tibs),
-    ]
-    ts = TestSuite(fn_pairs)
-    ts.run()
-    ts.print_results()
+    colour = not args.no_color and sys.stdout.isatty() and not os.environ.get("NO_COLOR")
+
+    if args.bytes < 2:
+        parser.error("--bytes must be at least 2")
+    if args.values < 0:
+        parser.error("--values must not be negative")
+    if args.repeats < 1:
+        parser.error("--repeats must be at least 1")
+
+    wants_bitarray = args.table in ("bitarray", "both")
+    if wants_bitarray and bitarray is None:
+        if args.table == "bitarray":
+            raise SystemExit(
+                "bitarray is not installed; install it to run this local comparison."
+            )
+        wants_bitarray = False
+
+    print(NOTE)
+    print(
+        f"Running local comparison with {args.bytes:,} bytes, "
+        f"{args.values:,} u16 values, {args.repeats} repeats."
+    )
+    print("Lower times are better.")
+    if args.table != "stdlib" and not wants_bitarray:
+        print("Skipping the bitarray table: bitarray is not installed.")
+
+    if wants_bitarray:
+        run_table(
+            "tibs vs bitarray",
+            "bitarray",
+            build_bitarray_cases(args.bytes, args.values),
+            args.repeats,
+            colour,
+        )
+    if args.table in ("stdlib", "both"):
+        run_table(
+            "tibs vs the standard library",
+            "stdlib",
+            build_stdlib_cases(args.bytes, args.values),
+            args.repeats,
+            colour,
+        )
 
 
 if __name__ == "__main__":

@@ -52,15 +52,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     WwpnAlias(
         {
-            "svm": {
-                "name": "svm1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/68589d3d-7efa-11e8-9eed-005056b43025"
-                    }
-                },
-                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
-            },
             "wwpn": "20:00:00:50:56:b4:30:25",
             "_links": {
                 "self": {
@@ -68,19 +59,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "alias": "alias1",
-        }
-    ),
-    WwpnAlias(
-        {
             "svm": {
-                "name": "svm1",
+                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/68589d3d-7efa-11e8-9eed-005056b43025"
                     }
                 },
-                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
+                "name": "svm1",
             },
+        }
+    ),
+    WwpnAlias(
+        {
             "wwpn": "50:0a:09:82:b4:30:25:00",
             "_links": {
                 "self": {
@@ -88,6 +79,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "alias": "alias2",
+            "svm": {
+                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/68589d3d-7efa-11e8-9eed-005056b43025"
+                    }
+                },
+                "name": "svm1",
+            },
         }
     ),
 ]
@@ -116,15 +116,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     WwpnAlias(
         {
-            "svm": {
-                "name": "svm1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/68589d3d-7efa-11e8-9eed-005056b43025"
-                    }
-                },
-                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
-            },
             "wwpn": "20:00:00:50:56:b4:30:25",
             "_links": {
                 "self": {
@@ -132,6 +123,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "alias": "alias1",
+            "svm": {
+                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/68589d3d-7efa-11e8-9eed-005056b43025"
+                    }
+                },
+                "name": "svm1",
+            },
         }
     )
 ]
@@ -164,15 +164,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     WwpnAlias(
         {
-            "svm": {
-                "name": "svm1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/68589d3d-7efa-11e8-9eed-005056b43025"
-                    }
-                },
-                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
-            },
             "wwpn": "50:0a:09:82:b4:30:25:00",
             "_links": {
                 "self": {
@@ -180,6 +171,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "alias": "alias2",
+            "svm": {
+                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/68589d3d-7efa-11e8-9eed-005056b43025"
+                    }
+                },
+                "name": "svm1",
+            },
         }
     )
 ]

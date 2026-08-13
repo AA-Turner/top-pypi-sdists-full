@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: detect_agent
-Version: 0.5.0
+Version: 0.6.0
 Summary: Detect if code is running in an AI agent or automated development environment
 Project-URL: Homepage, https://github.com/togethercomputer/detect_agent
 Project-URL: Repository, https://github.com/togethercomputer/detect_agent
@@ -49,6 +49,8 @@ This package can detect the following AI agents and development environments:
 - **Cursor** (Anysphere)
 - **Claude Code** (Anthropic)
 - **Claude Cowork** (Anthropic)
+- **Kimi Code** (Moonshot AI)
+- **Grok Build** (xAI)
 - **Devin** (Cognition Labs)
 - **Gemini CLI** (Google)
 - **Codex** (OpenAI)

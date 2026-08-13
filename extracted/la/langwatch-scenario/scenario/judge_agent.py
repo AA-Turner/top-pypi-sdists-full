@@ -39,6 +39,39 @@ from .voice.modality_resolver import ModalityTier, resolve_modality
 logger = logging.getLogger("scenario")
 
 
+# `/v1/chat/completions` refuses function tools on some reasoning models unless
+# reasoning is explicitly switched off:
+#
+#   Function tools with reasoning_effort are not supported for <model> in
+#   /v1/chat/completions. To use function tools, use /v1/responses or set
+#   reasoning_effort to 'none'.
+#
+# The judge forces a finish_test / continue_test tool call on every graded run,
+# so on such a model no run could reach a verdict (langwatch/scenario#864, and
+# the same signature on the LangWatch platform judge, langwatch/langwatch#6369).
+#
+# Reasoning is disabled by RETRY, never preemptively: whether a model accepts
+# reasoning off is not knowable up front (Gemini 2.5 Pro rejects it with
+# "Budget 0 is invalid. This model only works in thinking mode."), so the call
+# goes out untouched and is re-sent with reasoning off only when the provider's
+# rejection asks for exactly that. Models that work today are never sent
+# anything new.
+_REASONING_OFF = "none"
+
+
+def _rejection_asks_for_reasoning_off(error: Exception) -> bool:
+    """
+    Whether a provider rejection is the "set reasoning_effort to 'none' to use
+    function tools" class, as opposed to any other bad request.
+
+    Keyed on the remediation directive, not just the field name: an error such
+    as "reasoning_effort 'none' is invalid for this model" mentions both tokens
+    but is not asking us to turn reasoning off, and retrying it with reasoning
+    off would replace the provider's real error.
+    """
+    return "set reasoning_effort to 'none'" in str(error)
+
+
 _DISCOVERY_TOOL_NAMES = frozenset(
     {"expand_trace", "grep_trace", "expand_transcript", "grep_transcript"}
 )
@@ -571,6 +604,7 @@ If you do have enough information, use the finish_test tool to determine if all 
 <rules>
 - Be strict, do not let the conversation continue if the agent already broke one of the "do not" or "should not" criterias.
 - DO NOT make any judgment calls that are not explicitly listed in the success or failure criteria, withhold judgement if necessary
+- If you do not yet have enough information for a definitive verdict, call the continue_test tool to let the conversation play out - do NOT call finish_test with an "inconclusive" verdict while the conversation can still continue. When a final verdict is explicitly required (the conversation cannot continue), deliver your honest verdict - "inconclusive" is acceptable there
 </rules>
 """,
             },
@@ -669,11 +703,34 @@ if you don't have enough information to make a verdict, say inconclusive with ma
                 reasoning="TestingAgent was called as a judge, but it has no criteria to judge against",
             )
 
+        # A final judgment is required when the conversation cannot continue
+        # past this call: the last turn, or an explicit judgment_request. This
+        # is about the CONTRACT, not the transport — the discovery loop applies
+        # the pinned tool_choice only on its final step, but a checkpoint/
+        # last-turn judgment is still terminal.
+        judgment_required = is_last_message or enforce_judgment
+
+        # Pinned on judgment_required ALONE: a required judgment cannot be
+        # dodged via continue_test, criteria or not — the criteria-less
+        # enforced case already returned above, and a criteria-less last-turn
+        # judge still owes its terminal verdict. The large-trace discovery loop
+        # relaxes this pin to "required" so the judge can use discovery tools,
+        # but _run_discovery_loop forces a final verdict if a required judgment
+        # answers continue_test there, so the terminal contract holds on both
+        # paths.
         tool_choice: Any = (
             {"type": "function", "function": {"name": "finish_test"}}
-            if (is_last_message or enforce_judgment) and has_criteria
+            if judgment_required
             else "required"
         )
+
+        # Only a forced judgment may legitimately end the run on an
+        # inconclusive verdict (#886); discovery exhaustion forces separately
+        # in _force_verdict. Deliberately independent of has_criteria: a
+        # criteria-less judge on the last turn still delivers its terminal
+        # result rather than silently continuing into the generic max-turns
+        # failure.
+        verdict_forced = judgment_required
 
         # Multi-step discovery loop for large traces
         if is_large_trace:
@@ -685,25 +742,53 @@ if you don't have enough information to make a verdict, say inconclusive with ma
                 working_messages=working_messages,
                 effective_criteria=effective_criteria,
                 input_messages=input.messages,
+                verdict_forced=verdict_forced,
             )
 
         # Standard single-call path for small traces
-        response = cast(
-            ModelResponse,
-            litellm.completion(
-                model=self.model,
-                messages=messages,
-                temperature=self.temperature,
-                api_key=self.api_key,
-                api_base=self.api_base,
-                max_tokens=self.max_tokens,
-                tools=tools,
-                tool_choice=tool_choice,
-                **self._extra_params,
-            ),
+        response = self._completion_with_reasoning_off_retry(
+            model=self.model,
+            messages=messages,
+            temperature=self.temperature,
+            api_key=self.api_key,
+            api_base=self.api_base,
+            max_tokens=self.max_tokens,
+            tools=tools,
+            tool_choice=tool_choice,
+            **self._extra_params,
         )
 
-        return self._parse_response(response, effective_criteria, messages, input_messages=input.messages)
+        return self._parse_response(
+            response,
+            effective_criteria,
+            messages,
+            input_messages=input.messages,
+            verdict_forced=verdict_forced,
+        )
+
+    def _completion_with_reasoning_off_retry(self, **kwargs: Any) -> ModelResponse:
+        """
+        ``litellm.completion``, retried once with reasoning declared off when —
+        and only when — the provider rejected a tool-carrying call for exactly
+        that reason. A caller that already asked for a specific effort keeps it
+        and gets the endpoint's own error, rather than having its intent
+        silently rewritten.
+        """
+        try:
+            return cast(ModelResponse, litellm.completion(**kwargs))
+        except Exception as error:
+            if not kwargs.get("tools") or "reasoning_effort" in kwargs:
+                raise
+            if not _rejection_asks_for_reasoning_off(error):
+                raise
+            logger.debug(
+                "provider rejected function tools without reasoning off for %s; retrying",
+                kwargs.get("model"),
+            )
+            return cast(
+                ModelResponse,
+                litellm.completion(**kwargs, reasoning_effort=_REASONING_OFF),
+            )
 
     def _build_trace_digest(self, spans: Sequence[Any]) -> tuple[str, bool]:
         """
@@ -860,6 +945,7 @@ if you don't have enough information to make a verdict, say inconclusive with ma
         working_messages: Sequence[ChatCompletionMessageParam],
         effective_criteria: List[str],
         input_messages: Sequence[Any],
+        verdict_forced: bool,
     ) -> AgentReturnTypes:
         """
         Runs the multi-step discovery loop for large traces.
@@ -894,19 +980,16 @@ if you don't have enough information to make a verdict, say inconclusive with ma
             is_last_step = step == self._max_discovery_steps - 1
             step_tool_choice = tool_choice if is_last_step else "required"
 
-            response = cast(
-                ModelResponse,
-                litellm.completion(
-                    model=self.model,
-                    messages=messages,
-                    temperature=self.temperature,
-                    api_key=self.api_key,
-                    api_base=self.api_base,
-                    max_tokens=self.max_tokens,
-                    tools=tools,
-                    tool_choice=step_tool_choice,
-                    **self._extra_params,
-                ),
+            response = self._completion_with_reasoning_off_retry(
+                model=self.model,
+                messages=messages,
+                temperature=self.temperature,
+                api_key=self.api_key,
+                api_base=self.api_base,
+                max_tokens=self.max_tokens,
+                tools=tools,
+                tool_choice=step_tool_choice,
+                **self._extra_params,
             )
 
             if not hasattr(response, "choices") or len(response.choices) == 0:
@@ -917,7 +1000,13 @@ if you don't have enough information to make a verdict, say inconclusive with ma
             message = cast(Choices, response.choices[0]).message
             if not message.tool_calls:
                 # No tool calls - try to parse as a response
-                return self._parse_response(response, effective_criteria, messages, input_messages=input_messages)
+                return self._parse_response(
+                    response,
+                    effective_criteria,
+                    messages,
+                    input_messages=input_messages,
+                    verdict_forced=verdict_forced,
+                )
 
             # Check for terminal tool call
             terminal_call = next(
@@ -925,7 +1014,31 @@ if you don't have enough information to make a verdict, say inconclusive with ma
                 None,
             )
             if terminal_call:
-                return self._parse_response(response, effective_criteria, messages, input_messages=input_messages)
+                # A required judgment must not be dodged via continue_test on a
+                # large trace: discovery relaxed the pin to "required", so if
+                # the judge continued instead of finishing, force the final
+                # verdict rather than fall through to the generic max-turns
+                # failure (#886; the large-trace half of the terminal contract).
+                if (
+                    verdict_forced
+                    and terminal_call.function.name == "continue_test"
+                ):
+                    logger.debug(
+                        "required judgment continued during discovery - forcing verdict"
+                    )
+                    return self._force_verdict(
+                        messages=messages,
+                        tools=tools,
+                        effective_criteria=effective_criteria,
+                        input_messages=input_messages,
+                    )
+                return self._parse_response(
+                    response,
+                    effective_criteria,
+                    messages,
+                    input_messages=input_messages,
+                    verdict_forced=verdict_forced,
+                )
 
             # Execute discovery tools and add results to messages
             # Add the assistant message with tool calls
@@ -1000,22 +1113,25 @@ if you don't have enough information to make a verdict, say inconclusive with ma
             if t.get("function", {}).get("name") not in _DISCOVERY_TOOL_NAMES
         ]
 
-        forced_response = cast(
-            ModelResponse,
-            litellm.completion(
-                model=self.model,
-                messages=rewritten_messages,
-                temperature=self.temperature,
-                api_key=self.api_key,
-                api_base=self.api_base,
-                max_tokens=self.max_tokens,
-                tools=finish_only_tools,
-                tool_choice={"type": "function", "function": {"name": "finish_test"}},
-                **self._extra_params,
-            ),
+        forced_response = self._completion_with_reasoning_off_retry(
+            model=self.model,
+            messages=rewritten_messages,
+            temperature=self.temperature,
+            api_key=self.api_key,
+            api_base=self.api_base,
+            max_tokens=self.max_tokens,
+            tools=finish_only_tools,
+            tool_choice={"type": "function", "function": {"name": "finish_test"}},
+            **self._extra_params,
         )
         return self._parse_response(
-            forced_response, effective_criteria, rewritten_messages, input_messages=input_messages
+            forced_response,
+            effective_criteria,
+            rewritten_messages,
+            input_messages=input_messages,
+            # The whole point of this call is a pinned finish_test — the model
+            # has no continue escape, so an inconclusive verdict is legitimate.
+            verdict_forced=True,
         )
 
     def _execute_discovery_tool(
@@ -1066,6 +1182,7 @@ if you don't have enough information to make a verdict, say inconclusive with ma
         messages: List[dict],
         *,
         input_messages: Sequence[Any],
+        verdict_forced: bool,
     ) -> AgentReturnTypes:
         """
         Parses a litellm response into the appropriate return type.
@@ -1114,6 +1231,22 @@ if you don't have enough information to make a verdict, say inconclusive with ma
 
             verdict = args.get("verdict", "inconclusive")
             reasoning = args.get("reasoning", "No reasoning provided")
+
+            # "Can't tell yet" is not a verdict (#886). When nothing forced the
+            # judge to finish — continue_test was freely available — an
+            # inconclusive finish_test used to end the run as a failure, which
+            # on a platform surface reads as the simulated user going silent
+            # mid-conversation. Treat it as continue_test and let the
+            # conversation play out; a FORCED judgment (last turn, an explicit
+            # judgment_request, discovery exhaustion) keeps its terminal
+            # behavior unchanged.
+            if not verdict_forced and verdict == "inconclusive":
+                logger.debug(
+                    "finish_test returned an inconclusive verdict without a "
+                    "forced judgment - continuing the conversation"
+                )
+                return []
+
             criteria_verdicts = args.get("criteria", {})
 
             # LLMs sometimes serialise the criteria object as a JSON *string*

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-aiplatform
-Version: 1.163.0
+Version: 1.164.0
 Summary: Vertex AI API client library
 Home-page: https://github.com/googleapis/python-aiplatform
 Author: Google LLC
@@ -40,43 +40,44 @@ Provides-Extra: endpoint
 Requires-Dist: requests>=2.28.1; extra == "endpoint"
 Requires-Dist: requests-toolbelt<=1.0.0; extra == "endpoint"
 Provides-Extra: full
-Requires-Dist: starlette>=0.17.1; extra == "full"
-Requires-Dist: docker>=5.0.3; extra == "full"
-Requires-Dist: fastapi<=0.124.4,>=0.71.0; extra == "full"
-Requires-Dist: httpx<=0.28.1,>=0.23.0; extra == "full"
-Requires-Dist: mlflow<=2.16.0,>=1.27.0; python_version < "3.13" and extra == "full"
-Requires-Dist: pyarrow>=6.0.1; extra == "full"
-Requires-Dist: ruamel.yaml; extra == "full"
-Requires-Dist: werkzeug<4.0.0,>=2.0.0; extra == "full"
-Requires-Dist: immutabledict; extra == "full"
-Requires-Dist: google-vizier>=0.1.6; extra == "full"
-Requires-Dist: uvicorn[standard]>=0.16.0; extra == "full"
-Requires-Dist: tensorflow<3.0.0,>=2.3.0; python_version < "3.13" and extra == "full"
-Requires-Dist: tqdm>=4.23.0; extra == "full"
-Requires-Dist: jsonschema; extra == "full"
-Requires-Dist: lit-nlp==0.4.0; python_version < "3.13" and extra == "full"
-Requires-Dist: ray[default]!=2.10.*,!=2.11.*,!=2.12.*,!=2.13.*,!=2.14.*,!=2.15.*,!=2.16.*,!=2.17.*,!=2.18.*,!=2.19.*,!=2.20.*,!=2.21.*,!=2.22.*,!=2.23.*,!=2.24.*,!=2.25.*,!=2.26.*,!=2.27.*,!=2.28.*,!=2.29.*,!=2.30.*,!=2.31.*,!=2.32.*,!=2.34.*,!=2.35.*,!=2.36.*,!=2.37.*,!=2.38.*,!=2.39.*,!=2.40.*,!=2.41.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.0,!=2.9.1,!=2.9.2,<=2.42.0,>=2.4; python_version < "3.11" and extra == "full"
-Requires-Dist: ray[default]<=2.47.1,>=2.5; python_version == "3.11" and extra == "full"
-Requires-Dist: google-cloud-bigquery; extra == "full"
-Requires-Dist: google-cloud-bigquery-storage; extra == "full"
-Requires-Dist: pandas>=1.0.0; extra == "full"
-Requires-Dist: pyarrow>=10.0.1; python_version == "3.11" and extra == "full"
-Requires-Dist: pyarrow>=10.0.1; python_version == "3.10" and extra == "full"
-Requires-Dist: pyarrow<8.0.0,>=3.0.0; python_version < "3.10" and extra == "full"
-Requires-Dist: litellm<1.86.0,>=1.83.7; extra == "full"
-Requires-Dist: tensorflow<3.0.0,>=2.3.0; python_version < "3.13" and extra == "full"
-Requires-Dist: numpy>=1.15.0; extra == "full"
-Requires-Dist: urllib3<1.27,>=1.21.1; extra == "full"
-Requires-Dist: pyarrow>=14.0.0; python_version >= "3.12" and extra == "full"
-Requires-Dist: requests>=2.28.1; extra == "full"
-Requires-Dist: requests-toolbelt<=1.0.0; extra == "full"
+Requires-Dist: litellm<1.97.0,>=1.93.0; python_version >= "3.14" and extra == "full"
 Requires-Dist: mlflow>=1.27.0; python_version >= "3.13" and extra == "full"
+Requires-Dist: docker>=5.0.3; extra == "full"
+Requires-Dist: urllib3<1.27,>=1.21.1; extra == "full"
 Requires-Dist: scikit-learn<1.6.0; python_version <= "3.10" and extra == "full"
+Requires-Dist: pyarrow>=10.0.1; python_version == "3.11" and extra == "full"
+Requires-Dist: ray[default]!=2.10.*,!=2.11.*,!=2.12.*,!=2.13.*,!=2.14.*,!=2.15.*,!=2.16.*,!=2.17.*,!=2.18.*,!=2.19.*,!=2.20.*,!=2.21.*,!=2.22.*,!=2.23.*,!=2.24.*,!=2.25.*,!=2.26.*,!=2.27.*,!=2.28.*,!=2.29.*,!=2.30.*,!=2.31.*,!=2.32.*,!=2.34.*,!=2.35.*,!=2.36.*,!=2.37.*,!=2.38.*,!=2.39.*,!=2.40.*,!=2.41.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.0,!=2.9.1,!=2.9.2,<=2.42.0,>=2.4; python_version < "3.11" and extra == "full"
+Requires-Dist: pandas>=1.0.0; extra == "full"
+Requires-Dist: tqdm>=4.23.0; extra == "full"
+Requires-Dist: mlflow<=2.16.0,>=1.27.0; python_version < "3.13" and extra == "full"
 Requires-Dist: pyyaml; extra == "full"
 Requires-Dist: tensorboard-plugin-profile<2.18.0,>=2.4.0; extra == "full"
+Requires-Dist: tensorflow<3.0.0,>=2.3.0; python_version < "3.13" and extra == "full"
 Requires-Dist: pyyaml<7,>=5.3.1; extra == "full"
+Requires-Dist: pyarrow>=14.0.0; python_version >= "3.12" and extra == "full"
 Requires-Dist: scikit-learn; python_version > "3.10" and extra == "full"
+Requires-Dist: tensorflow<3.0.0,>=2.3.0; python_version < "3.13" and extra == "full"
+Requires-Dist: google-cloud-bigquery-storage; extra == "full"
+Requires-Dist: google-cloud-bigquery; extra == "full"
+Requires-Dist: lit-nlp==0.4.0; python_version < "3.13" and extra == "full"
+Requires-Dist: numpy>=1.15.0; extra == "full"
+Requires-Dist: immutabledict; extra == "full"
+Requires-Dist: fastapi<=0.124.4,>=0.71.0; extra == "full"
+Requires-Dist: pyarrow>=6.0.1; extra == "full"
+Requires-Dist: pyarrow<8.0.0,>=3.0.0; python_version < "3.10" and extra == "full"
+Requires-Dist: ray[default]<=2.47.1,>=2.5; python_version == "3.11" and extra == "full"
+Requires-Dist: requests>=2.28.1; extra == "full"
+Requires-Dist: httpx<=0.28.1,>=0.23.0; extra == "full"
+Requires-Dist: werkzeug<4.0.0,>=2.0.0; extra == "full"
+Requires-Dist: google-vizier>=0.1.6; extra == "full"
+Requires-Dist: litellm<1.86.0,>=1.83.7; python_version < "3.14" and extra == "full"
+Requires-Dist: requests-toolbelt<=1.0.0; extra == "full"
+Requires-Dist: jsonschema; extra == "full"
+Requires-Dist: ruamel.yaml; extra == "full"
 Requires-Dist: explainable-ai-sdk>=1.0.0; python_version < "3.13" and extra == "full"
+Requires-Dist: starlette>=0.17.1; extra == "full"
+Requires-Dist: pyarrow>=10.0.1; python_version == "3.10" and extra == "full"
+Requires-Dist: uvicorn[standard]>=0.16.0; extra == "full"
 Provides-Extra: metadata
 Requires-Dist: pandas>=1.0.0; extra == "metadata"
 Requires-Dist: numpy>=1.15.0; extra == "metadata"
@@ -84,43 +85,44 @@ Provides-Extra: tensorboard
 Requires-Dist: tensorboard-plugin-profile<2.18.0,>=2.4.0; extra == "tensorboard"
 Requires-Dist: werkzeug<4.0.0,>=2.0.0; extra == "tensorboard"
 Provides-Extra: testing
-Requires-Dist: starlette>=0.17.1; extra == "testing"
-Requires-Dist: docker>=5.0.3; extra == "testing"
-Requires-Dist: fastapi<=0.124.4,>=0.71.0; extra == "testing"
-Requires-Dist: httpx<=0.28.1,>=0.23.0; extra == "testing"
-Requires-Dist: mlflow<=2.16.0,>=1.27.0; python_version < "3.13" and extra == "testing"
-Requires-Dist: pyarrow>=6.0.1; extra == "testing"
-Requires-Dist: ruamel.yaml; extra == "testing"
-Requires-Dist: werkzeug<4.0.0,>=2.0.0; extra == "testing"
-Requires-Dist: immutabledict; extra == "testing"
-Requires-Dist: google-vizier>=0.1.6; extra == "testing"
-Requires-Dist: uvicorn[standard]>=0.16.0; extra == "testing"
-Requires-Dist: tensorflow<3.0.0,>=2.3.0; python_version < "3.13" and extra == "testing"
-Requires-Dist: tqdm>=4.23.0; extra == "testing"
-Requires-Dist: jsonschema; extra == "testing"
-Requires-Dist: lit-nlp==0.4.0; python_version < "3.13" and extra == "testing"
-Requires-Dist: ray[default]!=2.10.*,!=2.11.*,!=2.12.*,!=2.13.*,!=2.14.*,!=2.15.*,!=2.16.*,!=2.17.*,!=2.18.*,!=2.19.*,!=2.20.*,!=2.21.*,!=2.22.*,!=2.23.*,!=2.24.*,!=2.25.*,!=2.26.*,!=2.27.*,!=2.28.*,!=2.29.*,!=2.30.*,!=2.31.*,!=2.32.*,!=2.34.*,!=2.35.*,!=2.36.*,!=2.37.*,!=2.38.*,!=2.39.*,!=2.40.*,!=2.41.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.0,!=2.9.1,!=2.9.2,<=2.42.0,>=2.4; python_version < "3.11" and extra == "testing"
-Requires-Dist: ray[default]<=2.47.1,>=2.5; python_version == "3.11" and extra == "testing"
-Requires-Dist: google-cloud-bigquery; extra == "testing"
-Requires-Dist: google-cloud-bigquery-storage; extra == "testing"
-Requires-Dist: pandas>=1.0.0; extra == "testing"
-Requires-Dist: pyarrow>=10.0.1; python_version == "3.11" and extra == "testing"
-Requires-Dist: pyarrow>=10.0.1; python_version == "3.10" and extra == "testing"
-Requires-Dist: pyarrow<8.0.0,>=3.0.0; python_version < "3.10" and extra == "testing"
-Requires-Dist: litellm<1.86.0,>=1.83.7; extra == "testing"
-Requires-Dist: tensorflow<3.0.0,>=2.3.0; python_version < "3.13" and extra == "testing"
-Requires-Dist: numpy>=1.15.0; extra == "testing"
-Requires-Dist: urllib3<1.27,>=1.21.1; extra == "testing"
-Requires-Dist: pyarrow>=14.0.0; python_version >= "3.12" and extra == "testing"
-Requires-Dist: requests>=2.28.1; extra == "testing"
-Requires-Dist: requests-toolbelt<=1.0.0; extra == "testing"
+Requires-Dist: litellm<1.97.0,>=1.93.0; python_version >= "3.14" and extra == "testing"
 Requires-Dist: mlflow>=1.27.0; python_version >= "3.13" and extra == "testing"
+Requires-Dist: docker>=5.0.3; extra == "testing"
+Requires-Dist: urllib3<1.27,>=1.21.1; extra == "testing"
 Requires-Dist: scikit-learn<1.6.0; python_version <= "3.10" and extra == "testing"
+Requires-Dist: pyarrow>=10.0.1; python_version == "3.11" and extra == "testing"
+Requires-Dist: ray[default]!=2.10.*,!=2.11.*,!=2.12.*,!=2.13.*,!=2.14.*,!=2.15.*,!=2.16.*,!=2.17.*,!=2.18.*,!=2.19.*,!=2.20.*,!=2.21.*,!=2.22.*,!=2.23.*,!=2.24.*,!=2.25.*,!=2.26.*,!=2.27.*,!=2.28.*,!=2.29.*,!=2.30.*,!=2.31.*,!=2.32.*,!=2.34.*,!=2.35.*,!=2.36.*,!=2.37.*,!=2.38.*,!=2.39.*,!=2.40.*,!=2.41.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.0,!=2.9.1,!=2.9.2,<=2.42.0,>=2.4; python_version < "3.11" and extra == "testing"
+Requires-Dist: pandas>=1.0.0; extra == "testing"
+Requires-Dist: tqdm>=4.23.0; extra == "testing"
+Requires-Dist: mlflow<=2.16.0,>=1.27.0; python_version < "3.13" and extra == "testing"
 Requires-Dist: pyyaml; extra == "testing"
 Requires-Dist: tensorboard-plugin-profile<2.18.0,>=2.4.0; extra == "testing"
+Requires-Dist: tensorflow<3.0.0,>=2.3.0; python_version < "3.13" and extra == "testing"
 Requires-Dist: pyyaml<7,>=5.3.1; extra == "testing"
+Requires-Dist: pyarrow>=14.0.0; python_version >= "3.12" and extra == "testing"
 Requires-Dist: scikit-learn; python_version > "3.10" and extra == "testing"
+Requires-Dist: tensorflow<3.0.0,>=2.3.0; python_version < "3.13" and extra == "testing"
+Requires-Dist: google-cloud-bigquery-storage; extra == "testing"
+Requires-Dist: google-cloud-bigquery; extra == "testing"
+Requires-Dist: lit-nlp==0.4.0; python_version < "3.13" and extra == "testing"
+Requires-Dist: numpy>=1.15.0; extra == "testing"
+Requires-Dist: immutabledict; extra == "testing"
+Requires-Dist: fastapi<=0.124.4,>=0.71.0; extra == "testing"
+Requires-Dist: pyarrow>=6.0.1; extra == "testing"
+Requires-Dist: pyarrow<8.0.0,>=3.0.0; python_version < "3.10" and extra == "testing"
+Requires-Dist: ray[default]<=2.47.1,>=2.5; python_version == "3.11" and extra == "testing"
+Requires-Dist: requests>=2.28.1; extra == "testing"
+Requires-Dist: httpx<=0.28.1,>=0.23.0; extra == "testing"
+Requires-Dist: werkzeug<4.0.0,>=2.0.0; extra == "testing"
+Requires-Dist: google-vizier>=0.1.6; extra == "testing"
+Requires-Dist: litellm<1.86.0,>=1.83.7; python_version < "3.14" and extra == "testing"
+Requires-Dist: requests-toolbelt<=1.0.0; extra == "testing"
+Requires-Dist: jsonschema; extra == "testing"
+Requires-Dist: ruamel.yaml; extra == "testing"
 Requires-Dist: explainable-ai-sdk>=1.0.0; python_version < "3.13" and extra == "testing"
+Requires-Dist: starlette>=0.17.1; extra == "testing"
+Requires-Dist: pyarrow>=10.0.1; python_version == "3.10" and extra == "testing"
+Requires-Dist: uvicorn[standard]>=0.16.0; extra == "testing"
 Requires-Dist: tensorboard-plugin-profile<2.18.0,>=2.4.0; extra == "testing"
 Requires-Dist: werkzeug<4.0.0,>=2.0.0; extra == "testing"
 Requires-Dist: sentencepiece>=0.2.0; extra == "testing"
@@ -129,7 +131,6 @@ Requires-Dist: google-vizier>=0.1.6; extra == "testing"
 Requires-Dist: aiohttp; extra == "testing"
 Requires-Dist: bigframes; (python_version >= "3.10" and python_version < "3.14") and extra == "testing"
 Requires-Dist: google-api-core<3.0.0,>=2.11; extra == "testing"
-Requires-Dist: google-cloud-iam; extra == "testing"
 Requires-Dist: grpcio-testing; extra == "testing"
 Requires-Dist: grpcio-tools>=1.63.0; python_version >= "3.13" and extra == "testing"
 Requires-Dist: ipython; extra == "testing"
@@ -207,21 +208,22 @@ Requires-Dist: xgboost; extra == "ray-testing"
 Requires-Dist: xgboost_ray; extra == "ray-testing"
 Provides-Extra: adk
 Requires-Dist: google-adk<3.0.0,>=1.5.0; extra == "adk"
+Requires-Dist: aiohttp; extra == "adk"
 Provides-Extra: adk-testing
-Requires-Dist: opentelemetry-instrumentation-google-genai<1.0.0,>=0.3b0; extra == "adk-testing"
-Requires-Dist: cloudpickle<4.0,>=3.0; extra == "adk-testing"
-Requires-Dist: opentelemetry-exporter-otlp-proto-http<2; extra == "adk-testing"
-Requires-Dist: opentelemetry-exporter-gcp-trace<2; extra == "adk-testing"
-Requires-Dist: typing_extensions; extra == "adk-testing"
-Requires-Dist: opentelemetry-sdk<2; extra == "adk-testing"
 Requires-Dist: opentelemetry-resourcedetector-gcp>=1.5.0.dev0; extra == "adk-testing"
-Requires-Dist: google-cloud-trace<2; extra == "adk-testing"
 Requires-Dist: opentelemetry-exporter-gcp-logging<2.0.0,>=1.11.0a0; extra == "adk-testing"
-Requires-Dist: aiohttp; extra == "adk-testing"
-Requires-Dist: absl-py; extra == "adk-testing"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2; extra == "adk-testing"
 Requires-Dist: pydantic<3,>=2.11.1; extra == "adk-testing"
-Requires-Dist: pytest-xdist; extra == "adk-testing"
+Requires-Dist: opentelemetry-exporter-gcp-trace<2; extra == "adk-testing"
 Requires-Dist: google-adk<3.0.0,>=1.5.0; extra == "adk-testing"
+Requires-Dist: typing_extensions; extra == "adk-testing"
+Requires-Dist: absl-py; extra == "adk-testing"
+Requires-Dist: google-cloud-trace<2; extra == "adk-testing"
+Requires-Dist: opentelemetry-sdk<2; extra == "adk-testing"
+Requires-Dist: cloudpickle<4.0,>=3.0; extra == "adk-testing"
+Requires-Dist: opentelemetry-instrumentation-google-genai<1.0.0,>=0.3b0; extra == "adk-testing"
+Requires-Dist: pytest-xdist; extra == "adk-testing"
+Requires-Dist: aiohttp; extra == "adk-testing"
 Provides-Extra: reasoningengine
 Requires-Dist: cloudpickle<4.0,>=3.0; extra == "reasoningengine"
 Requires-Dist: google-cloud-trace<2; extra == "reasoningengine"
@@ -245,7 +247,6 @@ Requires-Dist: opentelemetry-exporter-gcp-trace<2; extra == "agent-engines"
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2; extra == "agent-engines"
 Requires-Dist: pydantic<3,>=2.11.1; extra == "agent-engines"
 Requires-Dist: typing_extensions; extra == "agent-engines"
-Requires-Dist: google-cloud-iam; extra == "agent-engines"
 Requires-Dist: aiohttp; extra == "agent-engines"
 Provides-Extra: evaluation
 Requires-Dist: pandas>=1.0.0; extra == "evaluation"
@@ -255,7 +256,8 @@ Requires-Dist: scikit-learn; python_version > "3.10" and extra == "evaluation"
 Requires-Dist: jsonschema; extra == "evaluation"
 Requires-Dist: ruamel.yaml; extra == "evaluation"
 Requires-Dist: pyyaml; extra == "evaluation"
-Requires-Dist: litellm<1.86.0,>=1.83.7; extra == "evaluation"
+Requires-Dist: litellm<1.86.0,>=1.83.7; python_version < "3.14" and extra == "evaluation"
+Requires-Dist: litellm<1.97.0,>=1.93.0; python_version >= "3.14" and extra == "evaluation"
 Provides-Extra: langchain
 Requires-Dist: langchain<2.0.0,>=1.0.0; extra == "langchain"
 Requires-Dist: langchain-classic; extra == "langchain"
@@ -264,67 +266,67 @@ Requires-Dist: langchain-google-genai<4.2.3,>=4.0.0; extra == "langchain"
 Requires-Dist: langgraph<2.0.0,>=1.0.0; extra == "langchain"
 Requires-Dist: openinference-instrumentation-langchain<0.2,>=0.1.19; extra == "langchain"
 Provides-Extra: langchain-testing
-Requires-Dist: opentelemetry-exporter-otlp-proto-http<2; extra == "langchain-testing"
-Requires-Dist: opentelemetry-sdk<2; extra == "langchain-testing"
-Requires-Dist: opentelemetry-resourcedetector-gcp>=1.5.0.dev0; extra == "langchain-testing"
-Requires-Dist: opentelemetry-instrumentation-google-genai<1.0.0,>=0.3b0; extra == "langchain-testing"
-Requires-Dist: langchain-classic; extra == "langchain-testing"
-Requires-Dist: cloudpickle<4.0,>=3.0; extra == "langchain-testing"
-Requires-Dist: opentelemetry-exporter-gcp-trace<2; extra == "langchain-testing"
-Requires-Dist: opentelemetry-exporter-gcp-logging<2.0.0,>=1.11.0a0; extra == "langchain-testing"
-Requires-Dist: absl-py; extra == "langchain-testing"
-Requires-Dist: langchain-google-genai<4.2.3,>=4.0.0; extra == "langchain-testing"
-Requires-Dist: langchain<2.0.0,>=1.0.0; extra == "langchain-testing"
-Requires-Dist: langgraph<2.0.0,>=1.0.0; extra == "langchain-testing"
-Requires-Dist: google-cloud-trace<2; extra == "langchain-testing"
 Requires-Dist: pydantic<3,>=2.11.1; extra == "langchain-testing"
+Requires-Dist: langchain<2.0.0,>=1.0.0; extra == "langchain-testing"
+Requires-Dist: google-cloud-trace<2; extra == "langchain-testing"
+Requires-Dist: opentelemetry-sdk<2; extra == "langchain-testing"
+Requires-Dist: cloudpickle<4.0,>=3.0; extra == "langchain-testing"
+Requires-Dist: opentelemetry-instrumentation-google-genai<1.0.0,>=0.3b0; extra == "langchain-testing"
+Requires-Dist: opentelemetry-exporter-gcp-trace<2; extra == "langchain-testing"
+Requires-Dist: langchain-classic; extra == "langchain-testing"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2; extra == "langchain-testing"
+Requires-Dist: absl-py; extra == "langchain-testing"
+Requires-Dist: pytest-xdist; extra == "langchain-testing"
+Requires-Dist: aiohttp; extra == "langchain-testing"
+Requires-Dist: opentelemetry-exporter-gcp-logging<2.0.0,>=1.11.0a0; extra == "langchain-testing"
+Requires-Dist: langgraph<2.0.0,>=1.0.0; extra == "langchain-testing"
+Requires-Dist: langchain-google-genai<4.2.3,>=4.0.0; extra == "langchain-testing"
+Requires-Dist: langchain-core<2.0.0,>=1.0.0; extra == "langchain-testing"
+Requires-Dist: opentelemetry-resourcedetector-gcp>=1.5.0.dev0; extra == "langchain-testing"
 Requires-Dist: typing_extensions; extra == "langchain-testing"
 Requires-Dist: openinference-instrumentation-langchain<0.2,>=0.1.19; extra == "langchain-testing"
-Requires-Dist: aiohttp; extra == "langchain-testing"
-Requires-Dist: pytest-xdist; extra == "langchain-testing"
-Requires-Dist: langchain-core<2.0.0,>=1.0.0; extra == "langchain-testing"
 Provides-Extra: tokenization
 Requires-Dist: sentencepiece>=0.2.0; extra == "tokenization"
 Provides-Extra: ag2
 Requires-Dist: autogen[gemini]<1,>=0.14.1; extra == "ag2"
 Requires-Dist: openinference-instrumentation-autogen<0.2,>=0.1.6; extra == "ag2"
 Provides-Extra: ag2-testing
-Requires-Dist: opentelemetry-instrumentation-google-genai<1.0.0,>=0.3b0; extra == "ag2-testing"
+Requires-Dist: opentelemetry-resourcedetector-gcp>=1.5.0.dev0; extra == "ag2-testing"
+Requires-Dist: opentelemetry-exporter-gcp-logging<2.0.0,>=1.11.0a0; extra == "ag2-testing"
 Requires-Dist: openinference-instrumentation-autogen<0.2,>=0.1.6; extra == "ag2-testing"
-Requires-Dist: cloudpickle<4.0,>=3.0; extra == "ag2-testing"
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2; extra == "ag2-testing"
 Requires-Dist: opentelemetry-exporter-gcp-trace<2; extra == "ag2-testing"
-Requires-Dist: typing_extensions; extra == "ag2-testing"
-Requires-Dist: opentelemetry-sdk<2; extra == "ag2-testing"
-Requires-Dist: opentelemetry-resourcedetector-gcp>=1.5.0.dev0; extra == "ag2-testing"
-Requires-Dist: google-cloud-trace<2; extra == "ag2-testing"
-Requires-Dist: opentelemetry-exporter-gcp-logging<2.0.0,>=1.11.0a0; extra == "ag2-testing"
-Requires-Dist: aiohttp; extra == "ag2-testing"
-Requires-Dist: absl-py; extra == "ag2-testing"
-Requires-Dist: autogen[gemini]<1,>=0.14.1; extra == "ag2-testing"
 Requires-Dist: pydantic<3,>=2.11.1; extra == "ag2-testing"
+Requires-Dist: typing_extensions; extra == "ag2-testing"
+Requires-Dist: absl-py; extra == "ag2-testing"
+Requires-Dist: google-cloud-trace<2; extra == "ag2-testing"
+Requires-Dist: aiohttp; extra == "ag2-testing"
+Requires-Dist: opentelemetry-sdk<2; extra == "ag2-testing"
+Requires-Dist: cloudpickle<4.0,>=3.0; extra == "ag2-testing"
+Requires-Dist: opentelemetry-instrumentation-google-genai<1.0.0,>=0.3b0; extra == "ag2-testing"
 Requires-Dist: pytest-xdist; extra == "ag2-testing"
+Requires-Dist: autogen[gemini]<1,>=0.14.1; extra == "ag2-testing"
 Provides-Extra: llama-index
 Requires-Dist: llama-index; extra == "llama-index"
 Requires-Dist: llama-index-llms-google-genai; extra == "llama-index"
 Requires-Dist: openinference-instrumentation-llama-index<4.0,>=3.0; extra == "llama-index"
 Provides-Extra: llama-index-testing
-Requires-Dist: opentelemetry-instrumentation-google-genai<1.0.0,>=0.3b0; extra == "llama-index-testing"
-Requires-Dist: cloudpickle<4.0,>=3.0; extra == "llama-index-testing"
-Requires-Dist: opentelemetry-exporter-otlp-proto-http<2; extra == "llama-index-testing"
-Requires-Dist: openinference-instrumentation-llama-index<4.0,>=3.0; extra == "llama-index-testing"
-Requires-Dist: opentelemetry-exporter-gcp-trace<2; extra == "llama-index-testing"
-Requires-Dist: typing_extensions; extra == "llama-index-testing"
-Requires-Dist: opentelemetry-sdk<2; extra == "llama-index-testing"
-Requires-Dist: llama-index; extra == "llama-index-testing"
 Requires-Dist: opentelemetry-resourcedetector-gcp>=1.5.0.dev0; extra == "llama-index-testing"
-Requires-Dist: google-cloud-trace<2; extra == "llama-index-testing"
-Requires-Dist: llama-index-llms-google-genai; extra == "llama-index-testing"
 Requires-Dist: opentelemetry-exporter-gcp-logging<2.0.0,>=1.11.0a0; extra == "llama-index-testing"
-Requires-Dist: aiohttp; extra == "llama-index-testing"
-Requires-Dist: absl-py; extra == "llama-index-testing"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2; extra == "llama-index-testing"
 Requires-Dist: pydantic<3,>=2.11.1; extra == "llama-index-testing"
+Requires-Dist: openinference-instrumentation-llama-index<4.0,>=3.0; extra == "llama-index-testing"
+Requires-Dist: llama-index-llms-google-genai; extra == "llama-index-testing"
+Requires-Dist: typing_extensions; extra == "llama-index-testing"
+Requires-Dist: absl-py; extra == "llama-index-testing"
+Requires-Dist: google-cloud-trace<2; extra == "llama-index-testing"
+Requires-Dist: aiohttp; extra == "llama-index-testing"
+Requires-Dist: opentelemetry-sdk<2; extra == "llama-index-testing"
+Requires-Dist: cloudpickle<4.0,>=3.0; extra == "llama-index-testing"
+Requires-Dist: llama-index; extra == "llama-index-testing"
 Requires-Dist: pytest-xdist; extra == "llama-index-testing"
+Requires-Dist: opentelemetry-exporter-gcp-trace<2; extra == "llama-index-testing"
+Requires-Dist: opentelemetry-instrumentation-google-genai<1.0.0,>=0.3b0; extra == "llama-index-testing"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -343,12 +345,39 @@ Google Gemini Enterprise Agent Platform SDK for Python
 
 |GA| |pypi| |versions| |unit-tests| |system-tests| |sample-tests|
 
-> **Note:** The Gemini Enterprise Agent Platform was formerly known as
-> Vertex AI.
+.. note::
 
-> **Note:** The **agent_engines** module will be rebranded as **runtimes** in
-> an upcoming major release (not before 7/31/2026). See [Agent Runtime](https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale#agent-runtime) for details.
+   The Gemini Enterprise Agent Platform was formerly known as Vertex AI.
 
+.. warning::
+
+   **Upcoming Rebranding:**
+
+   The ``agent_engines`` module will be rebranded as ``runtimes`` in an upcoming major release (not before 7/31/2026). See `Agent Runtime <https://docs.cloud.google.com/gemini-enterprise-agent-platform/scale#agent-runtime>`_ for details.
+
+   Additionally, the ``sandboxes``, ``sessions``, and ``memory_banks`` modules will be moved directly under the top-level ``client`` object:
+
+   .. list-table::
+      :header-rows: 1
+
+      * - Current method
+        - future method
+      * - ``client.agent_engines.sandboxes``
+        - ``client.sandboxes``
+      * - ``client.agent_engines.sandboxes.snapshots``
+        - ``client.sandboxes.snapshots``
+      * - ``client.agent_engines.sandboxes.templates``
+        - ``client.sandboxes.templates``
+      * - ``client.agent_engines.sessions``
+        - ``client.sessions``
+      * - ``client.agent_engines.sessions.events``
+        - ``client.sessions.events``
+      * - ``client.agent_engines.runtimes.revisions``
+        - ``client.runtimes.revisions``
+      * - ``client.agent_engines.memories``
+        - ``client.memory_banks``
+
+   To avoid unexpected updates, pin the SDK version to ``< 2.0.0``.
 
 `Gemini Enterprise Agent Platform`_: Gemini Enterprise Agent Platform is Google Cloud's comprehensive platform for developers to build, scale, govern and optimize agents.
 
@@ -535,7 +564,7 @@ method.
 To call the data-driven prompt optimization, call the `launch_optimization_job` method.
 In this case however, we need to provide a VAPO (Gemini Enterprise Agent Platform Prompt Optimizer) config. This config needs to
 have either service account or project **number** and the config path.
-Please refer to this [tutorial](https://cloud.google.com/vertex-ai/generative-ai/docs/learn/prompts/data-driven-optimizer)
+Please refer to this `tutorial <https://cloud.google.com/vertex-ai/generative-ai/docs/learn/prompts/data-driven-optimizer>`_
 for more details on config parameter.
 
 .. code-block:: Python
@@ -717,9 +746,9 @@ Delete a skill when it is no longer required.
 .. note::
 
    The following Generative AI modules in the Gemini Enterprise Agent Platform SDK are deprecated as of June 24, 2025 and will be removed on June 24, 2026:
-   `vertexai.generative_models`, `vertexai.language_models`, `vertexai.vision_models`, `vertexai.tuning`, `vertexai.caching`. Please use the
-   [Google Gen AI SDK](https://pypi.org/project/google-genai/) to access these features. See
-   [the migration guide](https://cloud.google.com/vertex-ai/generative-ai/docs/deprecations/genai-vertexai-sdk) for details.
+   ``vertexai.generative_models``, ``vertexai.language_models``, ``vertexai.vision_models``, ``vertexai.tuning``, ``vertexai.caching``. Please use the
+   `Google Gen AI SDK <https://pypi.org/project/google-genai/>`_ to access these features. See
+   `the migration guide <https://cloud.google.com/vertex-ai/generative-ai/docs/deprecations/genai-vertexai-sdk>`_ for details.
    You can continue using all other Gemini Enterprise Agent Platform SDK modules, as they are the recommended way to use the API.
 
 Quick Start

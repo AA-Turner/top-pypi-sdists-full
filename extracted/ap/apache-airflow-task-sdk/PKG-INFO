@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-task-sdk
-Version: 1.3.0
+Version: 1.3.1
 Summary: Python Task SDK for Apache Airflow DAG Authors
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
 Project-URL: Documentation, https://airflow.apache.org/docs/
@@ -53,7 +53,7 @@ Requires-Dist: psutil>=6.1.0
 Requires-Dist: pydantic>2.11.0
 Requires-Dist: pygtrie>=2.5.0
 Requires-Dist: python-dateutil>=2.7.0
-Requires-Dist: structlog>=25.4.0
+Requires-Dist: structlog>=26.1.0
 Requires-Dist: tenacity>=8.3.0
 Requires-Dist: typing-extensions>=4.14.1
 Provides-Extra: all

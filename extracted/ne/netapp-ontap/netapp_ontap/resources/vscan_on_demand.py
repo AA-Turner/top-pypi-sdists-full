@@ -27,53 +27,53 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     VscanOnDemand(
         {
             "log_path": "/vol0/report_dir",
-            "name": "on-demand-policy1",
             "scan_paths": ["/vol1/", "/vol2/cifs/"],
+            "name": "on-demand-policy1",
             "schedule": {
+                "uuid": "f6d0843e-f159-11e8-8e22-0050568e0945",
+                "name": "schedule",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/schedules/f6d0843e-f159-11e8-8e22-0050568e0945"
                     }
                 },
-                "name": "schedule",
-                "uuid": "f6d0843e-f159-11e8-8e22-0050568e0945",
-            },
-            "scope": {
-                "scan_without_extension": False,
-                "max_file_size": 10737418240,
-                "include_extensions": ["vmdk", "mp*"],
-                "exclude_paths": ["/vol1/cold-files/", "/vol1/cifs/names"],
-                "exclude_extensions": ["mp3", "mp4"],
             },
             "svm": {
-                "name": "vs1",
+                "uuid": "86fbc414-f140-11e8-8e22-0050568e0945",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/86fbc414-f140-11e8-8e22-0050568e0945"
                     }
                 },
-                "uuid": "86fbc414-f140-11e8-8e22-0050568e0945",
+                "name": "vs1",
+            },
+            "scope": {
+                "include_extensions": ["vmdk", "mp*"],
+                "scan_without_extension": False,
+                "exclude_extensions": ["mp3", "mp4"],
+                "max_file_size": 10737418240,
+                "exclude_paths": ["/vol1/cold-files/", "/vol1/cifs/names"],
             },
         }
     ),
     VscanOnDemand(
         {
             "log_path": "/report",
-            "name": "on-demand-policy2",
             "scan_paths": ["/vol1/", "/vol2/cifs/"],
-            "scope": {
-                "scan_without_extension": True,
-                "max_file_size": 10737418240,
-                "include_extensions": ["mp*"],
-            },
+            "name": "on-demand-policy2",
             "svm": {
-                "name": "vs1",
+                "uuid": "86fbc414-f140-11e8-8e22-0050568e0945",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/86fbc414-f140-11e8-8e22-0050568e0945"
                     }
                 },
-                "uuid": "86fbc414-f140-11e8-8e22-0050568e0945",
+                "name": "vs1",
+            },
+            "scope": {
+                "include_extensions": ["mp*"],
+                "scan_without_extension": True,
+                "max_file_size": 10737418240,
             },
         }
     ),
@@ -106,19 +106,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 VscanOnDemand(
     {
         "log_path": "/report",
-        "name": "on-demand-policy",
         "scan_paths": ["/vol1/cifs"],
-        "scope": {
-            "scan_without_extension": True,
-            "max_file_size": 10737418240,
-            "include_extensions": ["vmdk", "mp*"],
-        },
+        "name": "on-demand-policy",
         "svm": {
-            "name": "vs1",
+            "uuid": "86fbc414-f140-11e8-8e22-0050568e0945",
             "_links": {
                 "self": {"href": "/api/svm/svms/86fbc414-f140-11e8-8e22-0050568e0945"}
             },
-            "uuid": "86fbc414-f140-11e8-8e22-0050568e0945",
+            "name": "vs1",
+        },
+        "scope": {
+            "include_extensions": ["vmdk", "mp*"],
+            "scan_without_extension": True,
+            "max_file_size": 10737418240,
         },
     }
 )
@@ -163,17 +163,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 VscanOnDemand(
     {
         "log_path": "/vol0/report_dir",
-        "name": "on-demand-policy",
         "scan_paths": ["/vol1/", "/vol2/cifs/"],
+        "name": "on-demand-policy",
         "schedule": {"name": "weekly"},
-        "scope": {
-            "scan_without_extension": True,
-            "max_file_size": 1073741824,
-            "include_extensions": ["vmdk", "mp*"],
-            "exclude_paths": ["/vol/cold-files/"],
-            "exclude_extensions": ["mp3"],
-        },
         "svm": {"name": "vs1"},
+        "scope": {
+            "include_extensions": ["vmdk", "mp*"],
+            "scan_without_extension": True,
+            "exclude_extensions": ["mp3"],
+            "max_file_size": 1073741824,
+            "exclude_paths": ["/vol/cold-files/"],
+        },
     }
 )
 
@@ -206,14 +206,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 VscanOnDemand(
     {
         "log_path": "/report",
-        "name": "on-demand-policy",
         "scan_paths": ["vol1/cifs/"],
+        "name": "on-demand-policy",
+        "svm": {"name": "vs1"},
         "scope": {
+            "include_extensions": ["vmdk", "mp*"],
             "scan_without_extension": True,
             "max_file_size": 10737418240,
-            "include_extensions": ["vmdk", "mp*"],
         },
-        "svm": {"name": "vs1"},
     }
 )
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abnf
-Version: 2.6.0
+Version: 2.7.0
 Summary: Parsers for ABNF grammars.
 Author-email: Charles Yeomans <charles@declaresub.com>
 Project-URL: Homepage, https://github.com/declaresub/abnf
@@ -26,16 +26,16 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Provides-Extra: dev
 Requires-Dist: check-manifest==0.51; extra == "dev"
-Requires-Dist: pre-commit==4.6.0; extra == "dev"
-Requires-Dist: pyright[nodejs]==1.1.410; extra == "dev"
+Requires-Dist: pre-commit==4.6.1; extra == "dev"
+Requires-Dist: pyright[nodejs]==1.1.411; extra == "dev"
 Requires-Dist: pytest==9.1.1; extra == "dev"
 Requires-Dist: pytest-cov==7.1.0; extra == "dev"
 Requires-Dist: pytest-benchmark==5.2.3; extra == "dev"
-Requires-Dist: hypothesis==6.156.6; extra == "dev"
-Requires-Dist: ruff==0.15.17; extra == "dev"
-Requires-Dist: setuptools==82.0.1; extra == "dev"
-Requires-Dist: tox==4.55.1; extra == "dev"
-Requires-Dist: setuptools_scm==10.0.5; extra == "dev"
+Requires-Dist: hypothesis==6.165.1; extra == "dev"
+Requires-Dist: ruff==0.16.1; extra == "dev"
+Requires-Dist: setuptools==83.0.0; extra == "dev"
+Requires-Dist: tox==4.58.0; extra == "dev"
+Requires-Dist: setuptools_scm==10.2.1; extra == "dev"
 Provides-Extra: rust
 Requires-Dist: abnf-rust<3,>=2.5; extra == "rust"
 Provides-Extra: docs
@@ -88,6 +88,20 @@ greeting = Rule.create('greeting = "hello" SP 1*ALPHA')
 greeting.parse_all("hello world")
 ```
 
+## Parsing bytes
+
+`abnf` parses code points, so `parse` and `parse_all` take a `str`. To parse wire
+data, decode it with latin-1 — that maps the 256 byte values onto `U+0000`–`U+00FF`
+one to one, so a code point is exactly an octet and octet-oriented grammars behave
+as their RFCs describe:
+
+```python
+rfc7230.Rule("request-line").parse_all(raw.decode("latin-1"))
+```
+
+See [What abnf parses](https://abnf.readthedocs.io/en/latest/explanation/what-abnf-parses.html)
+for why the encoding is the caller's choice.
+
 ## Documentation
 
 Full documentation is hosted at **[abnf.readthedocs.io](https://abnf.readthedocs.io/en/latest/)**
@@ -98,8 +112,9 @@ and follows the [Diátaxis](https://diataxis.fr/) framework:
   from a file, write your own grammar module, use the Rust backend.
 - **Reference** — the public API, the built-in core rules, the bundled grammars, and
   configuration knobs.
-- **Explanation** — the combinator architecture, the two backends, alternation
-  semantics, and how backtracking is kept in check.
+- **Explanation** — what abnf parses (code points, not bytes), the combinator
+  architecture, the two backends, alternation semantics, and how backtracking is
+  kept in check.
 
 To build the docs locally:
 

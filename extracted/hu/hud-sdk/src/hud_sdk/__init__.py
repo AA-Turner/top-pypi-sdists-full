@@ -88,6 +88,8 @@ class FlowType(str, Enum):
     WORKFLOW = "workflow"
     ACTIVITY = "activity"
     WEBSOCKET = "websocket"
+    GRAPHQL = "graphql"
+    GRPC = "grpc"
 
 
 class Framework(str, Enum):
@@ -102,6 +104,8 @@ class Framework(str, Enum):
     TEMPORAL = "temporal"
     # WebSocket
     SOCKETIO = "socket.io"
+    # gRPC
+    GRPC = "grpc"
     # Manual flows
     CUSTOM = "custom"
 

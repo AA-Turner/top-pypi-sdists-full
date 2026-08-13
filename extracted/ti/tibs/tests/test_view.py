@@ -1,16 +1,14 @@
+import re
+
 import pytest
 
-from tibs import BitOrder, ByteOrder, Mutibs, MutableView, Tibs, View
+from tibs import BitOrder, ByteOrder, Dtype, Mutibs, MutableView, Tibs, View
 
 
-def test_view_constructor_accepts_tibs_and_mutibs():
+def test_view_constructor_accepts_tibs():
     t = Tibs("0x1234")
-    m = Mutibs("0x1234")
 
     assert repr(View(t)) == (
-        "View(Tibs('0x1234'), ByteOrder.Unspecified, BitOrder.Msb0)"
-    )
-    assert repr(View(m)) == (
         "View(Tibs('0x1234'), ByteOrder.Unspecified, BitOrder.Msb0)"
     )
     assert repr(View(t, byte_order=ByteOrder.Little)) == (
@@ -49,12 +47,15 @@ def test_view_from_indices_accepts_ranges_and_iterables():
     assert View.from_indices(t, (i for i in [1, 3, 5])).bin == "100"
 
 
-def test_view_from_indices_snapshots_mutibs_source():
+def test_view_from_indices_rejects_mutibs_source():
     m = Mutibs("0b01101001")
-    v = View.from_indices(m, range(0, 8, 2))
 
+    with pytest.raises(TypeError, match="must be a Tibs"):
+        View.from_indices(m, range(0, 8, 2))
+
+    # The explicit copy is accepted, and does not track the Mutibs.
+    v = View.from_indices(m.to_tibs(), range(0, 8, 2))
     assert v.bin == "0110"
-
     m[2] = False
     assert v.bin == "0110"
 
@@ -69,18 +70,35 @@ def test_view_from_indices_validates_source_indices():
         _ = View.from_indices(t, [0, 0])
 
 
-def test_view_equality_uses_type_source_and_layout():
+def test_view_equality_uses_selected_bits_and_layout():
     t = Tibs("0x12")
     m = Mutibs("0x12")
 
-    assert View(t) == View(m)
+    assert View(t) == View(m.to_tibs())
     assert View.from_indices(Tibs("0xf0"), range(0, 4)) == View(Tibs("0xf"))
 
+    # Mutability is not part of the value, exactly as for Tibs == Mutibs.
+    assert View(t) == MutableView(m)
+
     assert View(t) != t
-    assert View(t) != MutableView(m)
     assert View(t) != View(Tibs("0x13"))
     assert View(t) != View(t, byte_order=ByteOrder.Big)
     assert View(t) != View(t, bit_order=BitOrder.Lsb0)
+    # A layout difference still counts, whichever pair of types it spans.
+    assert View(t) != MutableView(m, byte_order=ByteOrder.Big)
+    assert View(t) != MutableView(m, bit_order=BitOrder.Lsb0)
+
+
+def test_view_equality_ignores_bits_outside_the_selection():
+    # Only what a view presents counts. Two views showing the same bits are
+    # equal however much of their sources they leave out, and whichever of the
+    # two view types they are.
+    assert Tibs("0xff").field(0, 3) == Tibs("0xf0").field(0, 3)
+    assert Mutibs("0xff").field(0, 3) == Mutibs("0xf0").field(0, 3)
+    assert Tibs("0xff").field(0, 3) == Mutibs("0xf0").field(0, 3)
+    assert Mutibs("0xf0").field(0, 3) == Tibs("0xff").field(0, 3)
+
+    assert Tibs("0xff").field(0, 3) != Mutibs("0x0f").field(0, 3)
 
 
 def test_tibs_view_aliases_create_views():
@@ -185,20 +203,27 @@ def test_mutable_view_from_indices_validates_source_indices():
         _ = MutableView.from_indices(m, [0, 0])
 
 
-def test_mutable_view_equality_uses_type_source_layout_and_source_indices():
+def test_mutable_view_equality_uses_selected_bits_and_layout():
     m1 = Mutibs("0xff")
     m2 = Mutibs("0xff")
 
     assert MutableView(m1) == MutableView(m2)
     assert MutableView(m1) == MutableView.from_indices(m1, range(len(m1)))
 
-    assert MutableView(m1) != View(m1)
+    # Mutability is not part of the value, exactly as for Tibs == Mutibs.
+    assert MutableView(m1) == View(m1.to_tibs())
     assert MutableView(m1) != m1
     assert MutableView(m1) != MutableView(Mutibs("0x00"))
     assert MutableView(m1) != MutableView(m1, byte_order=ByteOrder.Big)
     assert MutableView(m1) != MutableView(m1, bit_order=BitOrder.Lsb0)
-    assert MutableView.from_indices(m1, range(0, 4)) != (
-        MutableView.from_indices(m1, range(4, 8))
+    # Different selections of one source, comparing by the bits they land on:
+    # 0xf0 makes the two halves differ, where 0xff would make them equal.
+    halves = Mutibs("0xf0")
+    assert MutableView.from_indices(halves, range(0, 4)) != (
+        MutableView.from_indices(halves, range(4, 8))
+    )
+    assert MutableView.from_indices(halves, range(0, 4)) == (
+        MutableView.from_indices(Mutibs("0x0f"), range(4, 8))
     )
 
     v1 = MutableView(m1)
@@ -302,6 +327,119 @@ def test_view_to_methods_use_lsb0_value_order():
     assert Tibs("0x123456").lsb0.oct == Tibs("0x563412").oct
 
 
+def test_view_to_value_reaches_dtypes_the_privileged_kinds_do_not():
+    # The point of to_value on a view: any dtype, not just the nine
+    # interpretations that happen to have their own view method.
+    t = Tibs("0x0000803f")
+
+    assert t.le.to_value("f32") == 1.0
+    assert t.le.to_value(Dtype("f32")) == 1.0
+    assert t.le.to_value("[u8; 4]") == (0x3F, 0x80, 0x00, 0x00)
+    assert t.le.to_value("(u8, u24)") == (0x3F, 0x800000)
+    assert t.lsb0.to_value("bits32") == Tibs("0x3f800000")
+    assert Tibs("0b1").view().to_value("bool") is True
+
+
+def test_view_to_value_reaches_bf16_which_has_no_view_property():
+    # to_f is IEEE only and picks its format from the length, so a view can
+    # only reach bfloat16 through a dtype.
+    t = Tibs("0x803f")
+
+    assert t.le.to_value("bf16") == 1.0
+    assert t.to_value("bf16") != 1.0
+    assert t.le.to_f() != 1.0
+
+    with pytest.raises(ValueError, match="through a view that specifies its own byte order"):
+        t.le.to_value("bf16_le")
+
+    m = Mutibs.from_zeros(16)
+    m.le.write_value("bf16", 1.0)
+    assert m.hex == "803f"
+    assert m.le.to_value("bf16") == 1.0
+    assert m.to_value("bf16") != 1.0
+
+
+@pytest.mark.parametrize("spec", ["0x0100", "0x23a11234", "0xdeadbeefcafe"])
+@pytest.mark.parametrize("byte_order", [ByteOrder.Unspecified, ByteOrder.Little, ByteOrder.Big])
+@pytest.mark.parametrize("bit_order", [BitOrder.Msb0, BitOrder.Lsb0])
+def test_view_to_value_matches_materializing_the_view_first(spec, byte_order, bit_order):
+    # The governing rule for every view conversion: the layout is applied
+    # first, and start/end are positions in the value the view denotes.
+    view = Tibs(spec).view(byte_order, bit_order)
+    materialized = view.to_tibs()
+
+    for dtype in ("u16", "i16", "hex4", "bits8", "bool"):
+        length = Dtype(dtype).length
+        for start in range(0, len(view) - length + 1, 4):
+            assert view.to_value(dtype, start, start + length) == materialized.to_value(
+                dtype, start, start + length
+            )
+
+
+def test_view_to_value_takes_byte_order_from_one_place_only():
+    # The view's layout is applied first, so a '_le' dtype inside an 'le' view
+    # would be a second byte order and would swap twice. Say it once.
+    t = Tibs("0x0100")
+
+    assert t.to_value("u16") == 256
+    assert t.to_value("u16_le") == 1
+    assert t.le.to_value("u16") == 1
+
+    with pytest.raises(ValueError, match="through a view that specifies its own byte order"):
+        t.le.to_value("u16_le")
+
+
+@pytest.mark.parametrize("dtype", ["u16_le", "u16_be", "bf16_le", "(u8, u8_le)", "[u16_le; 1]"])
+@pytest.mark.parametrize("view_name", ["le", "be", "lsb0"])
+def test_byte_ordered_view_refuses_a_byte_ordered_dtype_at_any_nesting_depth(view_name, dtype):
+    view = getattr(Tibs("0x0100"), view_name)
+    mutable = getattr(Mutibs("0x0100"), view_name)
+
+    with pytest.raises(ValueError, match=f"Cannot use the dtype '{re.escape(str(Dtype(dtype)))}'"):
+        view.to_value(dtype)
+    with pytest.raises(ValueError, match="through a view that specifies its own byte order"):
+        mutable.to_value(dtype)
+    with pytest.raises(ValueError, match="through a view that specifies its own byte order"):
+        mutable.write_value(dtype, 1 if "(" not in dtype and "[" not in dtype else (1, 1))
+
+
+def test_a_view_that_states_no_layout_still_passes_a_byte_ordered_dtype_through():
+    # A plain view() makes no claim about byte order, so it stays a
+    # pass-through to the reading Tibs.to_value would give.
+    t = Tibs("0x0100")
+
+    assert t.view().to_value("u16_le") == t.to_value("u16_le") == 1
+    assert t.msb0.to_value("(u8, u8)") == (1, 0)
+    assert Mutibs("0x0100").view().to_value("u16_le") == 1
+
+    m = Mutibs.from_zeros(16)
+    m.view().write_value("u16_le", 1)
+    assert m.hex == "0100"
+
+
+def test_field_views_inherit_the_byte_order_rule_from_their_parent():
+    # field() keeps the parent byte order for whole-byte fields and drops it
+    # otherwise, and the dtype rule has to follow that either way.
+    header = Tibs("0x23a11234").lsb0.le
+
+    assert header.field(31, 16).byte_order == ByteOrder.Little
+    with pytest.raises(ValueError, match="through a view that specifies its own byte order"):
+        header.field(31, 16).to_value("u16_le")
+
+    narrow = header.field(11, 0)
+    assert narrow.byte_order == ByteOrder.Unspecified
+    assert narrow.to_value("u12") == 291
+
+
+def test_view_to_value_rejects_a_range_that_is_not_the_dtype_length():
+    with pytest.raises(ValueError, match="dtype with length"):
+        Tibs("0xff").le.to_value("u4")
+    with pytest.raises(ValueError, match="Invalid slice positions"):
+        Tibs("0xff").le.to_value("u4", 0, 99)
+    with pytest.raises(TypeError, match="dtype must be a Dtype instance"):
+        Tibs("0xff").view().to_value(8)
+
+
 def test_view_whole_value_matches_full_width_field():
     t = Tibs("0x0100")
     views = [t.view(), t.le, t.lsb0, t.lsb0.le]
@@ -354,10 +492,14 @@ def test_mutable_view_reflects_current_source_value():
     assert v.to_bin() == "10010010"
 
 
-def test_explicit_view_constructor_snapshots_mutibs_source():
+def test_explicit_view_constructor_rejects_mutibs_source():
     m = Mutibs("0x12")
-    v = View(m, bit_order=BitOrder.Lsb0)
 
+    with pytest.raises(TypeError, match="must be a Tibs"):
+        View(m, bit_order=BitOrder.Lsb0)
+
+    # The explicit copy is accepted, and does not track the Mutibs.
+    v = View(m.to_tibs(), bit_order=BitOrder.Lsb0)
     assert v.to_hex() == "12"
 
     m[0] = True
@@ -455,6 +597,53 @@ def test_mutable_view_representation_setters_reject_width_changes():
 
     with pytest.raises(ValueError, match="Cannot change the length of a MutableView"):
         m.lsb0.bytes = b"\x00"
+
+    assert m == original
+
+
+def test_mutable_view_value_methods_round_trip_through_the_view_layout():
+    m = Mutibs.from_zeros(32)
+
+    assert m.le.write_value("f32", 1.0) is None
+    assert m.hex == "0000803f"
+    assert m.le.to_value("f32") == 1.0
+    assert m.le.to_value("[u8; 4]") == (0x3F, 0x80, 0x00, 0x00)
+    assert m.to_value("f32") != 1.0
+
+    m.lsb0.le.write_value("(u16, u16)", (0x1122, 0x3344))
+    assert m.hex == "44332211"
+    assert m.lsb0.le.to_value("(u16, u16)") == (0x1122, 0x3344)
+
+
+def test_mutable_view_write_value_writes_a_field_in_place():
+    m = Mutibs.from_bytes(bytes.fromhex("07 01 00 00 44 33 22 11"))
+    field = m.lsb0.le.field(63, 32)
+
+    assert field.to_value("u32") == 0x11223344
+
+    field.write_value("u32", 0xDEADBEEF)
+
+    assert len(m) == 64
+    assert m.hex == "07010000efbeadde"
+    assert m.lsb0.le.field(63, 32).to_value("u32") == 0xDEADBEEF
+
+
+def test_mutable_view_write_value_is_fixed_width_and_leaves_the_source_alone():
+    m = Mutibs("0xffff")
+    original = m.to_tibs()
+
+    with pytest.raises(ValueError, match="Cannot change the length of a MutableView"):
+        m.le.write_value("u8", 1)
+
+    assert m == original
+
+    with pytest.raises(ValueError):
+        m.le.write_value("u16", 1 << 16)
+
+    assert m == original
+
+    with pytest.raises(TypeError, match="dtype must be a Dtype instance"):
+        m.le.write_value(16, 1)
 
     assert m == original
 
@@ -558,7 +747,7 @@ def test_mutable_view_field_write_failure_leaves_source_unchanged():
     original = m.to_tibs()
     field = m.lsb0.field(31, 26)
 
-    with pytest.raises(OverflowError):
+    with pytest.raises(ValueError):
         field.u = 64
 
     assert m == original
@@ -568,7 +757,7 @@ def test_mutable_view_set_errors_leave_value_unchanged():
     m = Mutibs.from_zeros(4)
     original = m.to_tibs()
 
-    with pytest.raises(OverflowError):
+    with pytest.raises(ValueError):
         m.view().write_u(16)
 
     assert m == original
@@ -706,10 +895,16 @@ def test_view_field_rejects_empty_view():
 
 def test_mutibs_views():
     m = Mutibs('0x1234')
-    v = View(m, ByteOrder.Little)
+    with pytest.raises(TypeError, match="must be a Tibs"):
+        View(m, ByteOrder.Little)
+
+    v = View(m.to_tibs(), ByteOrder.Little)
     assert v.hex == '3412'
     m += '0x5'
     assert v.hex == '3412'
+
+    # The live view of the same Mutibs does track it.
+    assert len(m.view()) == 20
 
 
 def test_bin_views():

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: socketsecurity
-Version: 2.6.3
+Version: 2.6.4
 Summary: Socket Security CLI for CI/CD
 Project-URL: Homepage, https://socket.dev
 Author-email: Douglas Coburn <douglas@socket.dev>
@@ -36,7 +36,7 @@ Requires-Python: >=3.11
 Requires-Dist: beautifulsoup4==4.15.0
 Requires-Dist: brotli==1.2.0; platform_python_implementation == 'CPython'
 Requires-Dist: brotlicffi==1.2.0.1; platform_python_implementation != 'CPython'
-Requires-Dist: gitpython==3.1.57
+Requires-Dist: gitpython==3.1.59
 Requires-Dist: markdown==3.10.3
 Requires-Dist: mdutils==1.8.1
 Requires-Dist: packaging==26.2

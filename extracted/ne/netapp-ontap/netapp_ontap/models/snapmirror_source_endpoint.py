@@ -36,7 +36,7 @@ class SnapmirrorSourceEndpointSchema(ResourceSchema, metaclass=ResourceSchemaMet
                 data_key="consistency_group_volumes",
                 allow_none=True
                 )
-    r""" This property specifies the list of FlexVol volumes or LUNs of a Consistency Group. Optional on the ASA r2 platform. Mandatory for all other platforms. """
+    r""" <personalities supports=asar2>Optional</personalities><personalities supports=unified,aiml>Mandatory</personalities> property to specify the list of FlexVol volumes or LUNs of a Consistency Group. """
 
     luns = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.resources.lun", "LunSchema"),

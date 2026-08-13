@@ -66,6 +66,20 @@ This is an advanced property; there is an added computational cost to retrieving
 
 Example: 608896 """
 
+    logical_used = Size(data_key="logical_used", allow_none=True)
+    r""" Total volume logical used size of an aggregate in bytes.<br/>
+**Note**: This field is not applicable for aggregates when the underlying storage medium does not support it. It is only supported for specific NetApp environments. For unsupported environments, this field appears blank.
+
+
+Example: 2461696 """
+
+    logical_used_percent = Size(data_key="logical_used_percent", allow_none=True)
+    r""" Total volume logical used percentage.<br/>
+**Note**: This field is not applicable for aggregates when the underlying storage medium does not support it. It is only supported for specific NetApp environments. For unsupported environments, this field appears blank.
+
+
+Example: 50 """
+
     snapshot = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.models.aggregate_space_snapshot", "AggregateSpaceSnapshotSchema"),
                 unknown=EXCLUDE,
@@ -92,10 +106,12 @@ Example: 20971520 """
         "efficiency_without_snapshots",
         "efficiency_without_snapshots_flexclones",
         "footprint",
+        "logical_used",
+        "logical_used_percent",
         "snapshot",
         "total_provisioned_space",
     ]
-    """block_storage,cloud_storage,efficiency,efficiency_without_snapshots,efficiency_without_snapshots_flexclones,footprint,snapshot,total_provisioned_space,"""
+    """block_storage,cloud_storage,efficiency,efficiency_without_snapshots,efficiency_without_snapshots_flexclones,footprint,logical_used,logical_used_percent,snapshot,total_provisioned_space,"""
 
     patchable_fields = [
         "block_storage",

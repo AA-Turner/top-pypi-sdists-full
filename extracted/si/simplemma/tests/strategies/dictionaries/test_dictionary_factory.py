@@ -1,7 +1,19 @@
+import lzma
+
 import pytest
 
 from simplemma.strategies import DefaultDictionaryFactory
-from simplemma.strategies.dictionaries.dictionary_factory import MappingStrToByteString
+from simplemma.strategies.dictionaries import frontcode
+from simplemma.strategies.dictionaries.dictionary_factory import (
+    MappingStrToByteString,
+)
+
+
+def test_decode_rejects_non_frontcoded_payload() -> None:
+    # Pre-2.0 pickled .plzma is no longer readable: reject it, don't mis-parse it.
+    blob = lzma.compress(b"\x80\x05 legacy pickle bytes, no SMFC1 magic")
+    with pytest.raises(ValueError, match="front-coded"):
+        frontcode._decode_stream(lzma.decompress(blob))
 
 
 def test_mapping_str_to_bytestring() -> None:
@@ -36,8 +48,7 @@ def test_dictionary_cache() -> None:
     for _ in range(iterations):
         dictionaries.get_dictionary("en")
         dictionaries.get_dictionary("de")
-    assert dictionaries._load_dictionary_from_disk.cache_info().misses == 2
-    assert (
-        dictionaries._load_dictionary_from_disk.cache_info().hits
-        == (iterations - 1) * 2
-    )
+    assert dictionaries._get_dictionary.cache_info().misses == 2
+    assert dictionaries._get_dictionary.cache_info().hits == (iterations - 1) * 2
+    # the cached wrapper itself is reused, not just the underlying dict
+    assert dictionaries.get_dictionary("en") is dictionaries.get_dictionary("en")

@@ -72,6 +72,27 @@ class AuthType:
         return [cls.BROWSER, cls.API, cls.BROWSER_AND_API]
 
 
+class CapsuleType:
+    # What the platform actually runs for a capsule.
+    # - Standard: the image/commands configured on the capsule itself.
+    # - Proxy: nothing of its own; it only fronts a workload that is already
+    #   running in the cluster (see ProxyConfig).
+    STANDARD = "Standard"
+    PROXY = "Proxy"
+
+    @classmethod
+    def enums(cls):
+        return [cls.STANDARD, cls.PROXY]
+
+    @classproperty
+    def default(cls):
+        return cls.STANDARD
+
+    @classmethod
+    def choices(cls):
+        return [cls.STANDARD, cls.PROXY]
+
+
 class UnitParser:
     UNIT_FREE_REGEX = r"^\d+$"
 
@@ -341,6 +362,181 @@ class AuthConfig(metaclass=ConfigMeta):
         return BasicValidations(AuthConfig, "type").enum_validation(
             AuthType.choices(), auth_config.type
         )
+
+
+class ProxyConfig(metaclass=ConfigMeta):
+    """
+    The workload a `Proxy` capsule forwards traffic to. Only applies when
+    `capsule_type` is `Proxy`.
+
+    The target is named in exactly one of two ways:
+    - `service_url`: a service that already exists. The port is carried in the URL,
+      so the capsule's `port` need not be set in this mode.
+    - `namespace` + `selector_labels`: the pods to put a service in front of. The
+      namespace must already exist and the labels must match those pods.
+    """
+
+    # These mirror the validations the Capsule CRD enforces on `proxySettings`, so
+    # that a bad target is reported here instead of coming back as an API error.
+    SERVICE_URL_REGEX = r"^(https?://)?[a-zA-Z0-9._~%-]+(:[0-9]{1,5})?(/[^\s]*)?$"
+    # Kubernetes DNS-1123 label (namespaces) and label key/value rules.
+    DNS_1123_LABEL_REGEX = r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+    DNS_1123_SUBDOMAIN_REGEX = (
+        r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+    )
+    LABEL_NAME_REGEX = r"^[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$"
+    LABEL_VALUE_REGEX = r"^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$"
+
+    _TARGETING_MESSAGE = (
+        "proxy must set either `service_url`, or both `namespace` and "
+        "`selector_labels`, but not a mix of the two."
+    )
+
+    namespace = ConfigField(
+        cli_meta=CLIOption(
+            name="proxy_namespace",
+            cli_option_str="--proxy-namespace",
+        ),
+        field_type=str,
+        help=(
+            "The namespace where the pods being proxied live. The service fronting them "
+            "is created here. Required unless `service_url` is set."
+        ),
+        example="jobs-default",
+    )
+    selector_labels = ConfigField(
+        cli_meta=CLIOption(
+            name="proxy_selector_labels",
+            cli_option_str="--proxy-selector-label",
+            multiple=True,
+            click_type=PureStringKVPairType,
+        ),
+        field_type=dict,
+        help=(
+            "The labels of the pods being proxied. They become the selector of the service "
+            "that fronts those pods, so they must match the labels on them. "
+            "Required unless `service_url` is set."
+        ),
+        example={"app": "my-app"},
+    )
+    service_url = ConfigField(
+        cli_meta=CLIOption(
+            name="proxy_service_url",
+            cli_option_str="--proxy-service-url",
+        ),
+        field_type=str,
+        help=(
+            "The address of a service that already exists, e.g. "
+            "`my-svc.my-ns.svc.cluster.local:8080`. The scheme is optional and defaults to "
+            "http, a port must be included if the target isn't on the scheme's default port, "
+            "and a path may be appended to rewrite requests into a subpath of the target. "
+            "The address is not checked at deploy time: if it doesn't resolve, the proxy "
+            "crashloops until it does."
+        ),
+        example="my-svc.my-ns.svc.cluster.local:8080",
+    )
+
+    @staticmethod
+    def is_set(proxy_config: Optional["ProxyConfig"]) -> bool:
+        if proxy_config is None:
+            return False
+        return any(
+            [
+                proxy_config.namespace,
+                proxy_config.selector_labels,
+                proxy_config.service_url,
+            ]
+        )
+
+    @staticmethod
+    def targets_existing_service(proxy_config: Optional["ProxyConfig"]) -> bool:
+        return proxy_config is not None and bool(proxy_config.service_url)
+
+    @staticmethod
+    def targets_pods(proxy_config: Optional["ProxyConfig"]) -> bool:
+        if proxy_config is None:
+            return False
+        return bool(proxy_config.namespace or proxy_config.selector_labels)
+
+    @staticmethod
+    def _targeting_error(proxy_config: "ProxyConfig", field_name: str):
+        return ConfigValidationFailedException(
+            field_name=field_name,
+            field_info=proxy_config._get_field(field_name),  # type: ignore
+            current_value=getattr(proxy_config, field_name),
+            message=ProxyConfig._TARGETING_MESSAGE,
+        )
+
+    @staticmethod
+    def validate(proxy_config: "ProxyConfig"):
+        if not ProxyConfig.is_set(proxy_config):
+            return True
+
+        targets_service = ProxyConfig.targets_existing_service(proxy_config)
+        targets_pods = ProxyConfig.targets_pods(proxy_config)
+        if targets_service == targets_pods:
+            raise ProxyConfig._targeting_error(proxy_config, "service_url")
+
+        if targets_service:
+            return BasicValidations(ProxyConfig, "service_url").regex_validation(
+                ProxyConfig.SERVICE_URL_REGEX, proxy_config.service_url
+            )
+
+        if not (proxy_config.namespace and proxy_config.selector_labels):
+            _missing = "namespace" if not proxy_config.namespace else "selector_labels"
+            raise ProxyConfig._targeting_error(proxy_config, _missing)
+
+        # The namespace and the labels are what the service fronting the target pods is
+        # built from, so reject anything Kubernetes would refuse later on.
+        _namespace_validator = BasicValidations(ProxyConfig, "namespace")
+        _namespace_validator.length_validation(63, proxy_config.namespace)
+        _namespace_validator.regex_validation(
+            ProxyConfig.DNS_1123_LABEL_REGEX, proxy_config.namespace
+        )
+
+        for key, value in proxy_config.selector_labels.items():  # type: ignore
+            ProxyConfig._validate_label(proxy_config, key, value)
+
+        return True
+
+    @staticmethod
+    def _validate_label(proxy_config: "ProxyConfig", key, value):
+        def _fail(message):
+            raise ConfigValidationFailedException(
+                field_name="selector_labels",
+                field_info=proxy_config._get_field("selector_labels"),  # type: ignore
+                current_value=proxy_config.selector_labels,
+                message=message,
+            )
+
+        if not everything_is_string(key, value):
+            _fail(
+                "proxy `selector_labels` must be a mapping of strings to strings. "
+                "`%s` is set to `%s`." % (key, value)
+            )
+
+        # A label key is an optional `prefix/` (a DNS subdomain) followed by a name.
+        prefix, _, name = key.rpartition("/")
+        if prefix and not (
+            len(prefix) <= 253
+            and re.match(ProxyConfig.DNS_1123_SUBDOMAIN_REGEX, prefix)
+        ):
+            _fail(
+                "proxy `selector_labels` key `%s` has an invalid prefix `%s`. The prefix "
+                "must be a DNS subdomain of at most 253 characters." % (key, prefix)
+            )
+        if not (len(name) <= 63 and re.match(ProxyConfig.LABEL_NAME_REGEX, name)):
+            _fail(
+                "proxy `selector_labels` key `%s` is not a valid label name. It must be at "
+                "most 63 characters and match `%s`."
+                % (key, ProxyConfig.LABEL_NAME_REGEX)
+            )
+        if not (len(value) <= 63 and re.match(ProxyConfig.LABEL_VALUE_REGEX, value)):
+            _fail(
+                "proxy `selector_labels` value `%s` for key `%s` is not a valid label "
+                "value. It must be at most 63 characters and match `%s`."
+                % (value, key, ProxyConfig.LABEL_VALUE_REGEX)
+            )
 
 
 class ScalingPolicyConfig(metaclass=ConfigMeta):
@@ -711,6 +907,51 @@ class BasicAppValidations:
             ["none", "postgres"], persistence
         )
 
+    @staticmethod
+    def capsule_type(capsule_type):
+        if capsule_type is None:
+            return True
+        return BasicValidations(CoreConfig, "capsule_type").enum_validation(
+            CapsuleType.choices(), capsule_type
+        )
+
+    @staticmethod
+    def port_required(core_config: "CoreConfig") -> bool:
+        # A Proxy capsule pointing at an existing service carries the port in the
+        # service URL, so it has no port of its own.
+        if core_config.capsule_type != CapsuleType.PROXY:
+            return True
+        return not ProxyConfig.targets_existing_service(core_config.proxy)
+
+    @staticmethod
+    def proxy_agreement(core_config: "CoreConfig"):
+        """Proxy settings belong to a Proxy capsule and nothing else."""
+        proxy_is_set = ProxyConfig.is_set(core_config.proxy)
+        is_proxy = core_config.capsule_type == CapsuleType.PROXY
+
+        if is_proxy and not proxy_is_set:
+            raise ConfigValidationFailedException(
+                field_name="proxy",
+                field_info=CoreConfig._get_field(CoreConfig, "proxy"),  # type: ignore
+                current_value=None,
+                message=(
+                    "proxy is required when capsule_type is `%s`. Set either "
+                    "`proxy.service_url`, or both `proxy.namespace` and "
+                    "`proxy.selector_labels`." % CapsuleType.PROXY
+                ),
+            )
+        if proxy_is_set and not is_proxy:
+            raise ConfigValidationFailedException(
+                field_name="proxy",
+                field_info=CoreConfig._get_field(CoreConfig, "proxy"),  # type: ignore
+                current_value=None,
+                message=(
+                    "proxy can only be set when capsule_type is `%s`. It is currently "
+                    "set to `%s`." % (CapsuleType.PROXY, core_config.capsule_type)
+                ),
+            )
+        return True
+
 
 class CoreConfig(metaclass=ConfigMeta):
     """Unified App Configuration - The single source of truth for application configuration.
@@ -805,8 +1046,14 @@ How to read this schema:
         ),
         validation_fn=BasicAppValidations.port,
         field_type=int,
-        required=True,
-        help="Port where the app is hosted. When deployed this will be port on which we will deploy the app.",
+        # Required everywhere except for a Proxy capsule that targets an existing
+        # service, which carries its port in `proxy.service_url`.
+        required=BasicAppValidations.port_required,
+        help=(
+            "Port where the app is hosted. When deployed this will be port on which we will "
+            "deploy the app. For a `Proxy` capsule this is the port of the pods being proxied, "
+            "and it is not needed when `proxy.service_url` is used."
+        ),
         example=8000,
     )
 
@@ -997,6 +1244,34 @@ How to read this schema:
         ),
     )
 
+    # ------- Proxy Capsules -------------
+
+    capsule_type = ConfigField(
+        cli_meta=CLIOption(
+            name="capsule_type",
+            cli_option_str="--capsule-type",
+            choices=CapsuleType.choices(),
+        ),
+        validation_fn=BasicAppValidations.capsule_type,
+        field_type=str,
+        help=(
+            "What the platform runs for this deployment. `Standard` (the default) runs the "
+            "image and commands configured here. `Proxy` runs nothing of its own and only "
+            "fronts a workload that is already running in the cluster, described by `proxy`."
+        ),
+        example="Proxy",
+    )
+
+    proxy = ConfigField(
+        cli_meta=None,  # No top-level CLI option, only nested fields have CLI options
+        field_type=ProxyConfig,
+        validation_fn=ProxyConfig.validate,
+        help=(
+            "The workload a `Proxy` capsule forwards traffic to. Can only be set when "
+            "`capsule_type` is `Proxy`."
+        ),
+    )
+
     # ------- Experimental -------------
     # These options get treated in the `..experimental` module.
     # If we move any option as a first class citizen then we need to move
@@ -1104,6 +1379,9 @@ How to read this schema:
 
     def validate(self):
         validate_config_meta(self)
+        # Validations that span more than one field cannot live on a single
+        # ConfigField, so they are run here.
+        BasicAppValidations.proxy_agreement(self)
 
     @commit_owner_names_across_tree
     def commit(self):
@@ -1140,16 +1418,23 @@ How to read this schema:
                 return field_info.cli_meta.name
             return None
 
+        # Options that are repeatable KEY=VALUE pairs on the CLI arrive as a list of
+        # single item dicts and need to be collapsed into the one dict the field holds.
+        _kv_pair_keys = {
+            cls.environment.name,
+            ProxyConfig.selector_labels.cli_meta.name,
+        }
+
         def get_cli_value(source_data, key):
             value = source_data.get(key)
             # Only return non-None values since None means not set in CLI
             if value is None:
                 return None
-            if key == cls.environment.name:
-                _env_dict = {}
+            if key in _kv_pair_keys:
+                _kv_dict = {}
                 for v in value:
-                    _env_dict.update(v)
-                return _env_dict
+                    _kv_dict.update(v)
+                return _kv_dict
             if type(value) == tuple or type(value) == list:
                 obj = list(x for x in source_data[key])
                 if len(obj) == 0:

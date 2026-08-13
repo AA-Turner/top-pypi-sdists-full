@@ -17,7 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -33,6 +33,7 @@ from .literals import (
     FeatureTypeType,
     GlobalEndpointTokenVersionType,
     JobStatusTypeType,
+    ParameterTypeTypeType,
     PermissionCheckResultTypeType,
     PermissionCheckStatusTypeType,
     PolicyEvaluationDecisionTypeType,
@@ -62,6 +63,8 @@ __all__ = (
     "AccessKeyLastUsedTypeDef",
     "AccessKeyMetadataTypeDef",
     "AccessKeyTypeDef",
+    "AcquireRoleRequestTypeDef",
+    "AcquireRoleResponseTypeDef",
     "AddClientIDToOpenIDConnectProviderRequestTypeDef",
     "AddRoleToInstanceProfileRequestInstanceProfileAddRoleTypeDef",
     "AddRoleToInstanceProfileRequestTypeDef",
@@ -187,6 +190,7 @@ __all__ = (
     "GetAccountAuthorizationDetailsRequestTypeDef",
     "GetAccountAuthorizationDetailsResponseTypeDef",
     "GetAccountPasswordPolicyResponseTypeDef",
+    "GetAccountPropertiesResponseTypeDef",
     "GetAccountSummaryResponseTypeDef",
     "GetContextKeysForCustomPolicyRequestTypeDef",
     "GetContextKeysForPolicyResponseTypeDef",
@@ -223,6 +227,8 @@ __all__ = (
     "GetRoleRequestTypeDef",
     "GetRoleRequestWaitTypeDef",
     "GetRoleResponseTypeDef",
+    "GetRoleTemplateVersionRequestTypeDef",
+    "GetRoleTemplateVersionResponseTypeDef",
     "GetSAMLProviderRequestTypeDef",
     "GetSAMLProviderResponseTypeDef",
     "GetSSHPublicKeyRequestTypeDef",
@@ -243,6 +249,7 @@ __all__ = (
     "GroupDetailTypeDef",
     "GroupTypeDef",
     "InlinePolicyIdentifierTypeTypeDef",
+    "InlinePolicyTypeDef",
     "InstanceProfileTypeDef",
     "ListAccessKeysRequestPaginateTypeDef",
     "ListAccessKeysRequestTypeDef",
@@ -351,6 +358,7 @@ __all__ = (
     "OrderedOrganizationPolicyTypeTypeDef",
     "OrganizationsDecisionDetailTypeDef",
     "PaginatorConfigTypeDef",
+    "ParameterDefinitionTypeDef",
     "PasswordPolicyTypeDef",
     "PermissionsBoundaryDecisionDetailTypeDef",
     "PolicyDetailTypeDef",
@@ -367,6 +375,7 @@ __all__ = (
     "PolicyUserTypeDef",
     "PolicyVersionTypeDef",
     "PositionTypeDef",
+    "PutAccountPropertiesRequestTypeDef",
     "PutGroupPolicyRequestGroupCreatePolicyTypeDef",
     "PutGroupPolicyRequestGroupPolicyPutTypeDef",
     "PutGroupPolicyRequestTypeDef",
@@ -384,6 +393,7 @@ __all__ = (
     "RemoveUserFromGroupRequestGroupRemoveUserTypeDef",
     "RemoveUserFromGroupRequestTypeDef",
     "RemoveUserFromGroupRequestUserRemoveGroupTypeDef",
+    "ReplacementValueEntryTypeDef",
     "ResetServiceSpecificCredentialRequestTypeDef",
     "ResetServiceSpecificCredentialResponseTypeDef",
     "ResourceSpecificResultTypeDef",
@@ -392,6 +402,7 @@ __all__ = (
     "ResyncMFADeviceRequestTypeDef",
     "RoleDetailTypeDef",
     "RoleLastUsedTypeDef",
+    "RoleTemplateVersionTypeDef",
     "RoleTypeDef",
     "RoleUsageTypeTypeDef",
     "SAMLPrivateKeyTypeDef",
@@ -412,6 +423,7 @@ __all__ = (
     "SimulatePolicyResponseTypeDef",
     "SimulatePrincipalPolicyRequestPaginateTypeDef",
     "SimulatePrincipalPolicyRequestTypeDef",
+    "SourceRoleTemplateTypeDef",
     "StatementTypeDef",
     "TagInstanceProfileRequestTypeDef",
     "TagMFADeviceRequestTypeDef",
@@ -420,6 +432,7 @@ __all__ = (
     "TagRoleRequestTypeDef",
     "TagSAMLProviderRequestTypeDef",
     "TagServerCertificateRequestTypeDef",
+    "TagTemplateTypeDef",
     "TagTypeDef",
     "TagUserRequestTypeDef",
     "TrackedActionLastAccessedTypeDef",
@@ -512,6 +525,16 @@ class AccessKeyTypeDef(TypedDict):
     SecretAccessKey: str
     CreateDate: NotRequired[datetime]
 
+class ReplacementValueEntryTypeDef(TypedDict):
+    Values: Sequence[str]
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
+
 class AddClientIDToOpenIDConnectProviderRequestTypeDef(TypedDict):
     OpenIDConnectProviderArn: str
     ClientID: str
@@ -589,13 +612,6 @@ class ContextEntryTypeDef(TypedDict):
 
 class CreateAccessKeyRequestTypeDef(TypedDict):
     UserName: NotRequired[str]
-
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
 
 class CreateAccountAliasRequestServiceResourceCreateAccountAliasTypeDef(TypedDict):
     AccountAlias: str
@@ -940,6 +956,10 @@ class GetRolePolicyRequestTypeDef(TypedDict):
 class GetRoleRequestTypeDef(TypedDict):
     RoleName: str
 
+class GetRoleTemplateVersionRequestTypeDef(TypedDict):
+    TemplateArn: str
+    MinorVersion: NotRequired[int]
+
 class GetSAMLProviderRequestTypeDef(TypedDict):
     SAMLProviderArn: str
 
@@ -1237,6 +1257,19 @@ class ListVirtualMFADevicesRequestTypeDef(TypedDict):
 class OrderedOrganizationPolicyTypeTypeDef(TypedDict):
     ServiceControlPolicyInputList: NotRequired[Sequence[str]]
 
+ParameterDefinitionTypeDef = TypedDict(
+    "ParameterDefinitionTypeDef",
+    {
+        "Name": str,
+        "Type": ParameterTypeTypeType,
+        "SubType": NotRequired[str],
+        "Description": NotRequired[str],
+        "IsRequired": NotRequired[bool],
+        "DefaultValue": NotRequired[str],
+        "Immutable": NotRequired[bool],
+    },
+)
+
 class PolicyDocumentStatementTypeDef(TypedDict):
     Effect: str
     Resource: str | list[str]
@@ -1246,6 +1279,9 @@ class PolicyDocumentStatementTypeDef(TypedDict):
 class PositionTypeDef(TypedDict):
     Line: NotRequired[int]
     Column: NotRequired[int]
+
+class PutAccountPropertiesRequestTypeDef(TypedDict):
+    Properties: Mapping[str, str]
 
 class PutGroupPolicyRequestGroupCreatePolicyTypeDef(TypedDict):
     PolicyName: str
@@ -1329,6 +1365,14 @@ class ResyncMFADeviceRequestTypeDef(TypedDict):
 class RoleLastUsedTypeDef(TypedDict):
     LastUsedDate: NotRequired[datetime]
     Region: NotRequired[str]
+
+class TagTemplateTypeDef(TypedDict):
+    Key: str
+    Value: str
+
+class SourceRoleTemplateTypeDef(TypedDict):
+    TemplateArn: str
+    TemplateMinorVersion: int
 
 class SendDelegationTokenRequestTypeDef(TypedDict):
     DelegationRequestId: str
@@ -1536,6 +1580,11 @@ class UploadSigningCertificateRequestTypeDef(TypedDict):
     CertificateBody: str
     UserName: NotRequired[str]
 
+class AcquireRoleRequestTypeDef(TypedDict):
+    TemplateArn: str
+    TemplateMinorVersion: NotRequired[int]
+    ReplacementValues: NotRequired[Mapping[str, ReplacementValueEntryTypeDef]]
+
 class CreateAccessKeyResponseTypeDef(TypedDict):
     AccessKey: AccessKeyTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1594,6 +1643,10 @@ class GetAccessKeyLastUsedResponseTypeDef(TypedDict):
     AccessKeyLastUsed: AccessKeyLastUsedTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetAccountPropertiesResponseTypeDef(TypedDict):
+    Properties: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetAccountSummaryResponseTypeDef(TypedDict):
     SummaryMap: dict[SummaryKeyTypeType, int]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1638,24 +1691,6 @@ class ListAccountAliasesResponseTypeDef(TypedDict):
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
-class ListAttachedGroupPoliciesResponseTypeDef(TypedDict):
-    AttachedPolicies: list[AttachedPolicyTypeDef]
-    IsTruncated: bool
-    Marker: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class ListAttachedRolePoliciesResponseTypeDef(TypedDict):
-    AttachedPolicies: list[AttachedPolicyTypeDef]
-    IsTruncated: bool
-    Marker: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class ListAttachedUserPoliciesResponseTypeDef(TypedDict):
-    AttachedPolicies: list[AttachedPolicyTypeDef]
-    IsTruncated: bool
-    Marker: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class ListGroupPoliciesResponseTypeDef(TypedDict):
     PolicyNames: list[str]
     IsTruncated: bool
@@ -1681,6 +1716,24 @@ class ListUserPoliciesResponseTypeDef(TypedDict):
 
 class UpdateSAMLProviderResponseTypeDef(TypedDict):
     SAMLProviderArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListAttachedGroupPoliciesResponseTypeDef(TypedDict):
+    AttachedPolicies: list[AttachedPolicyTypeDef]
+    IsTruncated: bool
+    Marker: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListAttachedRolePoliciesResponseTypeDef(TypedDict):
+    AttachedPolicies: list[AttachedPolicyTypeDef]
+    IsTruncated: bool
+    Marker: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListAttachedUserPoliciesResponseTypeDef(TypedDict):
+    AttachedPolicies: list[AttachedPolicyTypeDef]
+    IsTruncated: bool
+    Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateGroupResponseTypeDef(TypedDict):
@@ -2459,6 +2512,10 @@ class GetUserPolicyResponseTypeDef(TypedDict):
     PolicyDocument: PolicyDocumentTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class InlinePolicyTypeDef(TypedDict):
+    PolicyName: str
+    PolicyDocument: PolicyDocumentTypeDef
+
 class PolicyDetailTypeDef(TypedDict):
     PolicyName: NotRequired[str]
     PolicyDocument: NotRequired[PolicyDocumentTypeDef]
@@ -2481,6 +2538,7 @@ class RoleTypeDef(TypedDict):
     PermissionsBoundary: NotRequired[AttachedPermissionsBoundaryTypeDef]
     Tags: NotRequired[list[TagTypeDef]]
     RoleLastUsed: NotRequired[RoleLastUsedTypeDef]
+    SourceRoleTemplate: NotRequired[SourceRoleTemplateTypeDef]
 
 class EvaluationResultTypeDef(TypedDict):
     EvalActionName: str
@@ -2492,6 +2550,31 @@ class EvaluationResultTypeDef(TypedDict):
     PermissionsBoundaryDecisionDetail: NotRequired[PermissionsBoundaryDecisionDetailTypeDef]
     EvalDecisionDetails: NotRequired[dict[str, PolicyEvaluationDecisionTypeType]]
     ResourceSpecificResults: NotRequired[list[ResourceSpecificResultTypeDef]]
+
+class RoleTemplateVersionTypeDef(TypedDict):
+    TemplateArn: NotRequired[str]
+    TemplateName: NotRequired[str]
+    TemplateVersionId: NotRequired[str]
+    Description: NotRequired[str]
+    MajorVersion: NotRequired[int]
+    DefaultMinorVersion: NotRequired[int]
+    ManagedByType: NotRequired[Literal["Service"]]
+    ManagedByValue: NotRequired[str]
+    Enabled: NotRequired[bool]
+    MinorVersion: NotRequired[int]
+    RoleNamePattern: NotRequired[str]
+    RolePathPattern: NotRequired[str]
+    RoleDescriptionPattern: NotRequired[str]
+    AssumeRolePolicyDocumentTemplate: NotRequired[PolicyDocumentTypeDef]
+    InlinePolicyTemplates: NotRequired[list[InlinePolicyTypeDef]]
+    ManagedPolicyArns: NotRequired[list[str]]
+    PermissionBoundaryArn: NotRequired[str]
+    ParametersDefinition: NotRequired[list[ParameterDefinitionTypeDef]]
+    RoleTagsTemplate: NotRequired[list[TagTemplateTypeDef]]
+    MaxSessionDuration: NotRequired[int]
+    VersionEnabled: NotRequired[bool]
+    CreateTimestamp: NotRequired[datetime]
+    UpdateTimestamp: NotRequired[datetime]
 
 class GroupDetailTypeDef(TypedDict):
     Path: NotRequired[str]
@@ -2542,6 +2625,10 @@ class ManagedPolicyDetailTypeDef(TypedDict):
     UpdateDate: NotRequired[datetime]
     PolicyVersionList: NotRequired[list[PolicyVersionTypeDef]]
 
+class AcquireRoleResponseTypeDef(TypedDict):
+    Role: RoleTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateRoleResponseTypeDef(TypedDict):
     Role: RoleTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2577,6 +2664,10 @@ class SimulatePolicyResponseTypeDef(TypedDict):
     EvaluationResults: list[EvaluationResultTypeDef]
     IsTruncated: bool
     Marker: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetRoleTemplateVersionResponseTypeDef(TypedDict):
+    RoleTemplateVersion: RoleTemplateVersionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateInstanceProfileResponseTypeDef(TypedDict):

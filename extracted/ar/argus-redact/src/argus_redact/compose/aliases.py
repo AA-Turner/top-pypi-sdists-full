@@ -29,6 +29,16 @@ _EN_GENERATIONAL_ROMAN = frozenset({"II", "III", "IV"})
 # Compound Chinese surnames (2-char). When original starts with one of these,
 # use 2 chars as surname; otherwise use 1 char. Coverage: top compound surnames
 # from《百家姓》— not exhaustive, conservative.
+#
+# Intentional divergence (do NOT auto-sync): the Rust ``person_zh`` DETECTOR owns
+# its own compound-surname RON pool (reachable as ``_core.person_compound_surnames_zh()``)
+# used for name-CANDIDATE generation. This alias-EXPANSION pool serves a different
+# purpose (deciding how many leading chars of an already-known name are the
+# surname) and the two have drifted in content — this pool carries 夏侯 the core
+# pool lacks, and omits several the core pool carries. They are NOT equal, so this
+# is not a drop-in duplicate: unifying to one SSOT would change ``expand_aliases``
+# output and must be a deliberate, separately-reviewed change, not a refactor.
+# Until then, hand-sync consciously if this list changes.
 _ZH_COMPOUND_SURNAMES = frozenset(
     {
         "欧阳",
@@ -139,32 +149,29 @@ def expand_aliases(key: dict, lang: str | None = None) -> dict:
         return {}
     expanded = dict(key)
 
-    # Per-Person (titles, extract) resolution. Explicit lang: one shared decision
-    # for the whole key (unchanged behavior — do not detect per-name here). Auto
-    # (lang=None): each Person's OWN original name picks its own script, so a
-    # MIXED-language key (e.g. one zh name + one Latin name) doesn't force every
-    # name through the same extractor/titles.
-    person_config: dict[str, tuple[str, tuple[str, ...], object]] = {}
+    # Single walk over every Person pseudonym. Resolve its (titles, extract): under
+    # explicit `lang`, one shared decision for the whole key (unchanged behavior — do
+    # not detect per-name here); under auto (lang=None), each Person's OWN original
+    # name picks its own script, so a MIXED-language key (e.g. one zh name + one Latin
+    # name) doesn't force every name through the same extractor/titles. Extraction is
+    # pure (same original → same surname), so the surname is extracted ONCE here and
+    # stored in `person_config` for the emit pass to reuse — one extract() per Person.
+    #
+    # surname_originals records which surnames are shared by ≥2 DISTINCT Person
+    # originals: a bare {surname}{title} alias for a shared surname is ambiguous — it
+    # cannot restore to one identity — so the emit pass must not emit it at all.
+    # Emitting it would silently bind the alias to the first-iterated Person = a
+    # confident wrong-identity restore. Surnames are extracted with each Person's OWN
+    # extractor, so a zh surname and an en surname never spuriously collide.
+    person_config: dict[str, tuple[str, tuple[str, ...], str]] = {}
+    surname_originals: dict[str, set[str]] = {}
     for pseudonym, original in key.items():
         if not pseudonym.startswith("P-"):
             continue
         lang_code = lang if lang is not None else _detect_name_lang(original)
         titles, extract = _titles_and_extract(lang_code)
-        person_config[pseudonym] = (lang_code, titles, extract)
-
-    # First pass: which surnames are shared by ≥2 DISTINCT Person originals? A bare
-    # {surname}{title} alias for a shared surname is ambiguous — it cannot restore to
-    # one identity — so it must not be emitted at all. Emitting it would silently bind
-    # the alias to the first-iterated Person = a confident wrong-identity restore.
-    # Surnames are extracted with each Person's OWN extractor, so a zh surname and
-    # an en surname never spuriously collide.
-    surname_originals: dict[str, set[str]] = {}
-    for pseudonym, original in key.items():
-        config = person_config.get(pseudonym)
-        if config is None:
-            continue
-        _, _, extract = config
         surname = extract(original)
+        person_config[pseudonym] = (lang_code, titles, surname)
         if surname:
             surname_originals.setdefault(surname, set()).add(original)
 
@@ -172,8 +179,7 @@ def expand_aliases(key: dict, lang: str | None = None) -> dict:
         config = person_config.get(pseudonym)
         if config is None:
             continue
-        lang_code, titles, extract = config
-        surname = extract(original)
+        lang_code, titles, surname = config
         if not surname:
             continue
         if len(surname_originals.get(surname, ())) > 1:

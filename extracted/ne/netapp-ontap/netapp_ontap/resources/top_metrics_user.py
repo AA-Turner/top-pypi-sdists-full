@@ -16,7 +16,6 @@ The API can sometimes fail to return the list of users with the most I/O activit
 * The NFS/CIFS client operations are being served by the client-side filesystem cache.
 * The NFS/CIFS client operations are being buffered by the client operating system.
 * On rare occasions, the incoming traffic pattern is not suitable to obtain the list of users with the most I/O activity.
-* NFSv4 client read operations using Multi-Processor I/O (MPIO) are not tracked.
 ## Failure to return the usernames
 The API can sometimes fail to obtain the usernames for the list of userid entries, due to internal transient errors.
 In such cases, instead of the username, the API will return "{<user-id>}" for the user entry.
@@ -46,62 +45,62 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsUser(
         {
+            "volume": {"name": "vol1"},
             "user_id": "S-1-5-21-256008430-3394229847-3930036330-1001",
-            "svm": {
-                "name": "vs1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
-                    }
-                },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
-            },
-            "volume": {"name": "vol1"},
-            "throughput": {
-                "error": {"lower_bound": 1495, "upper_bound": 1502},
-                "read": 1495,
-            },
             "user_name": "John",
+            "svm": {
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
+                    }
+                },
+                "name": "vs1",
+            },
+            "throughput": {
+                "read": 1495,
+                "error": {"lower_bound": 1495, "upper_bound": 1502},
+            },
         }
     ),
     TopMetricsUser(
         {
+            "volume": {"name": "vol1"},
             "user_id": "1988",
+            "user_name": "Ryan",
             "svm": {
-                "name": "vs1",
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
                     }
                 },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
+                "name": "vs1",
             },
-            "volume": {"name": "vol1"},
             "throughput": {
-                "error": {"lower_bound": 1022, "upper_bound": 1025},
                 "read": 1022,
+                "error": {"lower_bound": 1022, "upper_bound": 1025},
             },
-            "user_name": "Ryan",
         }
     ),
     TopMetricsUser(
         {
+            "volume": {"name": "vol1"},
             "user_id": "S-1-5-21-256008430-3394229847-3930036330-1003",
+            "user_name": "Julie",
             "svm": {
-                "name": "vs1",
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
                     }
                 },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
+                "name": "vs1",
             },
-            "volume": {"name": "vol1"},
             "throughput": {
-                "error": {"lower_bound": 345, "upper_bound": 348},
                 "read": 345,
+                "error": {"lower_bound": 345, "upper_bound": 348},
             },
-            "user_name": "Julie",
         }
     ),
 ]
@@ -185,6 +184,22 @@ class TopMetricsUserSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
             )
     r""" The throughput field of the top_metrics_user."""
 
+    total_ops = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.top_metrics_client_total_ops", "TopMetricsClientTotalOpsSchema"),
+                data_key="total_ops",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" The total_ops field of the top_metrics_user."""
+
+    total_throughput = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.top_metrics_client_total_throughput", "TopMetricsClientTotalThroughputSchema"),
+                data_key="total_throughput",
+                unknown=EXCLUDE,
+                allow_none=True
+            )
+    r""" The total_throughput field of the top_metrics_user."""
+
     user_id = marshmallow_fields.Str(
         data_key="user_id",
         allow_none=True,
@@ -219,25 +234,31 @@ Example: James"""
         "svm.name",
         "svm.uuid",
         "throughput",
+        "total_ops",
+        "total_throughput",
         "user_id",
         "user_name",
         "volume.links",
         "volume.name",
         "volume.uuid",
     ]
-    """iops,svm.links,svm.name,svm.uuid,throughput,user_id,user_name,volume.links,volume.name,volume.uuid,"""
+    """iops,svm.links,svm.name,svm.uuid,throughput,total_ops,total_throughput,user_id,user_name,volume.links,volume.name,volume.uuid,"""
 
     patchable_fields = [
         "iops",
         "throughput",
+        "total_ops",
+        "total_throughput",
     ]
-    """iops,throughput,"""
+    """iops,throughput,total_ops,total_throughput,"""
 
     postable_fields = [
         "iops",
         "throughput",
+        "total_ops",
+        "total_throughput",
     ]
-    """iops,throughput,"""
+    """iops,throughput,total_ops,total_throughput,"""
 
 class TopMetricsUser(Resource):
     r""" Information about a user's IO activity. """

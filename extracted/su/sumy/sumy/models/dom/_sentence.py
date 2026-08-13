@@ -1,15 +1,12 @@
-# -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-from __future__ import division, print_function, unicode_literals
 
+from ..._compat import to_string, to_unicode, unicode_compatible
 from ...utils import cached_property
-from ..._compat import to_unicode, to_string, unicode_compatible
 
 
 @unicode_compatible
-class Sentence(object):
-    __slots__ = ("_text", "_cached_property_words", "_tokenizer", "_is_heading",)
+class Sentence:
+    __slots__ = ("_cached_property_words", "_is_heading", "_text", "_tokenizer")
 
     def __init__(self, text, tokenizer, is_heading=False):
         self._text = to_unicode(text).strip()

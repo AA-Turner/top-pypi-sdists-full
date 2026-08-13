@@ -40,21 +40,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Igroup(
     {
+        "uuid": "8f249e7d-ab9f-11e8-b8a3-005056bb7072",
         "protocol": "iscsi",
+        "name": "igroup1",
         "_links": {
             "self": {
                 "href": "/api/protocols/san/igroups/8f249e7d-ab9f-11e8-b8a3-005056bb7072"
             }
         },
-        "name": "igroup1",
         "os_type": "linux",
-        "uuid": "8f249e7d-ab9f-11e8-b8a3-005056bb7072",
         "svm": {
-            "name": "svm1",
+            "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
             "_links": {
                 "self": {"href": "/api/svm/svms/02b0dfff-aa28-11e8-a653-005056bb7072"}
             },
-            "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
+            "name": "svm1",
         },
     }
 )
@@ -92,40 +92,40 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Igroup(
     {
+        "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7072",
         "protocol": "mixed",
+        "name": "igroup2",
         "_links": {
             "self": {
                 "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072"
             }
         },
-        "name": "igroup2",
+        "os_type": "windows",
+        "svm": {
+            "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
+            "_links": {
+                "self": {"href": "/api/svm/svms/02b0dfff-aa28-11e8-a653-005056bb7072"}
+            },
+            "name": "svm1",
+        },
         "initiators": [
             {
+                "name": "20:01:00:50:56:bb:70:72",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072/initiators/20:01:00:50:56:bb:70:72"
                     }
                 },
-                "name": "20:01:00:50:56:bb:70:72",
             },
             {
+                "name": "iqn.1991-05.com.ms:host1",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072/initiators/iqn.1991-05.com.ms:host1"
                     }
                 },
-                "name": "iqn.1991-05.com.ms:host1",
             },
         ],
-        "os_type": "windows",
-        "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7072",
-        "svm": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/02b0dfff-aa28-11e8-a653-005056bb7072"}
-            },
-            "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
-        },
     }
 )
 
@@ -159,69 +159,69 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Igroup(
     {
-        "protocol": "mixed",
-        "_links": {
-            "self": {
-                "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7073"
-            }
-        },
-        "name": "igroup3",
+        "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7073",
         "igroups": [
             {
+                "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7072",
+                "name": "igroup2",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072"
                     }
                 },
-                "name": "igroup2",
-                "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7072",
             }
         ],
+        "protocol": "mixed",
+        "name": "igroup3",
+        "_links": {
+            "self": {
+                "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7073"
+            }
+        },
+        "os_type": "windows",
+        "svm": {
+            "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
+            "_links": {
+                "self": {"href": "/api/svm/svms/02b0dfff-aa28-11e8-a653-005056bb7072"}
+            },
+            "name": "svm1",
+        },
         "initiators": [
             {
+                "name": "20:01:00:50:56:bb:70:72",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072/initiators/20:01:00:50:56:bb:70:72"
                     }
                 },
                 "igroup": {
+                    "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7072",
+                    "name": "igroup2",
                     "_links": {
                         "self": {
                             "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072"
                         }
                     },
-                    "name": "igroup2",
-                    "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7072",
                 },
-                "name": "20:01:00:50:56:bb:70:72",
             },
             {
+                "name": "iqn.1991-05.com.ms:host1",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072/initiators/iqn.1991-05.com.ms:host1"
                     }
                 },
                 "igroup": {
+                    "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7072",
+                    "name": "igroup2",
                     "_links": {
                         "self": {
                             "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072"
                         }
                     },
-                    "name": "igroup2",
-                    "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7072",
                 },
-                "name": "iqn.1991-05.com.ms:host1",
             },
         ],
-        "os_type": "windows",
-        "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7073",
-        "svm": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/02b0dfff-aa28-11e8-a653-005056bb7072"}
-            },
-            "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
-        },
     }
 )
 
@@ -247,61 +247,61 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Igroup(
         {
+            "uuid": "8f249e7d-ab9f-11e8-b8a3-005056bb7072",
+            "name": "igroup1",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/igroups/8f249e7d-ab9f-11e8-b8a3-005056bb7072"
                 }
             },
-            "name": "igroup1",
-            "uuid": "8f249e7d-ab9f-11e8-b8a3-005056bb7072",
             "svm": {
-                "name": "svm1",
+                "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/02b0dfff-aa28-11e8-a653-005056bb7072"
                     }
                 },
-                "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
+                "name": "svm1",
             },
         }
     ),
     Igroup(
         {
+            "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7072",
+            "name": "igroup2",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072"
                 }
             },
-            "name": "igroup2",
-            "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7072",
             "svm": {
-                "name": "svm1",
+                "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/02b0dfff-aa28-11e8-a653-005056bb7072"
                     }
                 },
-                "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
+                "name": "svm1",
             },
         }
     ),
     Igroup(
         {
+            "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7073",
+            "name": "igroup3",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7073"
                 }
             },
-            "name": "igroup3",
-            "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7073",
             "svm": {
-                "name": "svm1",
+                "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/02b0dfff-aa28-11e8-a653-005056bb7072"
                     }
                 },
-                "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
+                "name": "svm1",
             },
         }
     ),
@@ -333,144 +333,144 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Igroup(
         {
+            "uuid": "8f249e7d-ab9f-11e8-b8a3-005056bb7072",
             "protocol": "iscsi",
+            "name": "igroup1",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/igroups/8f249e7d-ab9f-11e8-b8a3-005056bb7072"
                 }
             },
-            "name": "igroup1",
             "os_type": "linux",
-            "uuid": "8f249e7d-ab9f-11e8-b8a3-005056bb7072",
             "svm": {
-                "name": "svm1",
+                "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/02b0dfff-aa28-11e8-a653-005056bb7072"
                     }
                 },
-                "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
+                "name": "svm1",
             },
         }
     ),
     Igroup(
         {
-            "protocol": "mixed",
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072"
-                }
-            },
-            "name": "igroup2",
-            "initiators": [
-                {
-                    "_links": {
-                        "self": {
-                            "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072/initiators/20:01:00:50:56:bb:70:72"
-                        }
-                    },
-                    "name": "20:01:00:50:56:bb:70:72",
-                },
-                {
-                    "_links": {
-                        "self": {
-                            "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072/initiators/iqn.1991-05.com.ms:host1"
-                        }
-                    },
-                    "name": "iqn.1991-05.com.ms:host1",
-                },
-            ],
-            "os_type": "windows",
             "parent_igroups": [
                 {
+                    "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7073",
+                    "name": "igroup3",
                     "_links": {
                         "self": {
                             "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7073"
                         }
                     },
-                    "name": "igroup3",
-                    "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7073",
                 }
             ],
             "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7072",
+            "protocol": "mixed",
+            "name": "igroup2",
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072"
+                }
+            },
+            "os_type": "windows",
             "svm": {
-                "name": "svm1",
+                "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/02b0dfff-aa28-11e8-a653-005056bb7072"
                     }
                 },
-                "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
+                "name": "svm1",
             },
+            "initiators": [
+                {
+                    "name": "20:01:00:50:56:bb:70:72",
+                    "_links": {
+                        "self": {
+                            "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072/initiators/20:01:00:50:56:bb:70:72"
+                        }
+                    },
+                },
+                {
+                    "name": "iqn.1991-05.com.ms:host1",
+                    "_links": {
+                        "self": {
+                            "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072/initiators/iqn.1991-05.com.ms:host1"
+                        }
+                    },
+                },
+            ],
         }
     ),
     Igroup(
         {
-            "protocol": "mixed",
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7073"
-                }
-            },
-            "name": "igroup3",
+            "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7073",
             "igroups": [
                 {
+                    "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7072",
+                    "name": "igroup2",
                     "_links": {
                         "self": {
                             "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072"
                         }
                     },
-                    "name": "igroup2",
-                    "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7072",
                 }
             ],
+            "protocol": "mixed",
+            "name": "igroup3",
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7073"
+                }
+            },
+            "os_type": "windows",
+            "svm": {
+                "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/02b0dfff-aa28-11e8-a653-005056bb7072"
+                    }
+                },
+                "name": "svm1",
+            },
             "initiators": [
                 {
+                    "name": "20:01:00:50:56:bb:70:72",
                     "_links": {
                         "self": {
                             "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072/initiators/20:01:00:50:56:bb:70:72"
                         }
                     },
                     "igroup": {
+                        "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7072",
+                        "name": "igroup2",
                         "_links": {
                             "self": {
                                 "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072"
                             }
                         },
-                        "name": "igroup2",
-                        "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7072",
                     },
-                    "name": "20:01:00:50:56:bb:70:72",
                 },
                 {
+                    "name": "iqn.1991-05.com.ms:host1",
                     "_links": {
                         "self": {
                             "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072/initiators/iqn.1991-05.com.ms:host1"
                         }
                     },
                     "igroup": {
+                        "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7072",
+                        "name": "igroup2",
                         "_links": {
                             "self": {
                                 "href": "/api/protocols/san/igroups/abf9c39d-ab9f-11e8-b8a3-005056bb7072"
                             }
                         },
-                        "name": "igroup2",
-                        "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7072",
                     },
-                    "name": "iqn.1991-05.com.ms:host1",
                 },
             ],
-            "os_type": "windows",
-            "uuid": "abf9c39d-ab9f-11e8-b8a3-005056bb7073",
-            "svm": {
-                "name": "svm1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/02b0dfff-aa28-11e8-a653-005056bb7072"
-                    }
-                },
-                "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
-            },
         }
     ),
 ]
@@ -499,22 +499,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Igroup(
         {
+            "uuid": "8f249e7d-ab9f-11e8-b8a3-005056bb7072",
+            "name": "igroup1",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/igroups/8f249e7d-ab9f-11e8-b8a3-005056bb7072"
                 }
             },
-            "name": "igroup1",
             "os_type": "linux",
-            "uuid": "8f249e7d-ab9f-11e8-b8a3-005056bb7072",
             "svm": {
-                "name": "svm1",
+                "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/02b0dfff-aa28-11e8-a653-005056bb7072"
                     }
                 },
-                "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
+                "name": "svm1",
             },
         }
     )
@@ -543,21 +543,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Igroup(
     {
+        "uuid": "8f249e7d-ab9f-11e8-b8a3-005056bb7072",
         "protocol": "iscsi",
+        "name": "igroup1",
         "_links": {
             "self": {
                 "href": "/api/protocols/san/igroups/8f249e7d-ab9f-11e8-b8a3-005056bb7072"
             }
         },
-        "name": "igroup1",
         "os_type": "linux",
-        "uuid": "8f249e7d-ab9f-11e8-b8a3-005056bb7072",
         "svm": {
-            "name": "svm1",
+            "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
             "_links": {
                 "self": {"href": "/api/svm/svms/02b0dfff-aa28-11e8-a653-005056bb7072"}
             },
-            "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
+            "name": "svm1",
         },
     }
 )
@@ -587,6 +587,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Igroup(
     {
+        "uuid": "8f249e7d-ab9f-11e8-b8a3-005056bb7072",
+        "name": "igroup1",
         "_links": {
             "self": {
                 "href": "/api/protocols/san/igroups/8f249e7d-ab9f-11e8-b8a3-005056bb7072"
@@ -596,33 +598,31 @@ Igroup(
             {
                 "lun": {
                     "node": {
-                        "name": "node1",
+                        "uuid": "f17182af-223f-4d51-8197-2cb2146d5c4c",
                         "_links": {
                             "self": {
                                 "href": "/api/cluster/nodes/f17182af-223f-4d51-8197-2cb2146d5c4c"
                             }
                         },
-                        "uuid": "f17182af-223f-4d51-8197-2cb2146d5c4c",
+                        "name": "node1",
                     },
                     "_links": {
                         "self": {
                             "href": "/api/storage/luns/4b33ba57-c4e0-4dbb-bc47-214800d18a71"
                         }
                     },
-                    "name": "/vol/vol1/lun1",
                     "uuid": "4b33ba57-c4e0-4dbb-bc47-214800d18a71",
+                    "name": "/vol/vol1/lun1",
                 },
                 "logical_unit_number": 0,
             }
         ],
-        "name": "igroup1",
-        "uuid": "8f249e7d-ab9f-11e8-b8a3-005056bb7072",
         "svm": {
-            "name": "svm1",
+            "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
             "_links": {
                 "self": {"href": "/api/svm/svms/02b0dfff-aa28-11e8-a653-005056bb7072"}
             },
-            "uuid": "02b0dfff-aa28-11e8-a653-005056bb7072",
+            "name": "svm1",
         },
     }
 )

@@ -28,26 +28,25 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CapacityPool(
         {
-            "serial_number": "390000100",
+            "nodes": [
+                {
+                    "used_size": 1099511627776,
+                    "node": {
+                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563411",
+                        "name": "node-1",
+                    },
+                },
+                {
+                    "used_size": 1099511627776,
+                    "node": {
+                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563412",
+                        "name": "node-2",
+                    },
+                },
+            ],
             "_links": {
                 "self": {"href": "/api/cluster/licensing/capacity-pools/390000100"}
             },
-            "nodes": [
-                {
-                    "node": {
-                        "name": "node-1",
-                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563411",
-                    },
-                    "used_size": 1099511627776,
-                },
-                {
-                    "node": {
-                        "name": "node-2",
-                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563412",
-                    },
-                    "used_size": 1099511627776,
-                },
-            ],
             "license_manager": {
                 "_links": {
                     "self": {
@@ -56,30 +55,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 },
                 "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
             },
+            "serial_number": "390000100",
         }
     ),
     CapacityPool(
         {
-            "serial_number": "390000101",
+            "nodes": [
+                {
+                    "used_size": 2199023255552,
+                    "node": {
+                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563413",
+                        "name": "node-3",
+                    },
+                },
+                {
+                    "used_size": 2199023255552,
+                    "node": {
+                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563414",
+                        "name": "node-4",
+                    },
+                },
+            ],
             "_links": {
                 "self": {"href": "/api/cluster/licensing/capacity-pools/390000101"}
             },
-            "nodes": [
-                {
-                    "node": {
-                        "name": "node-3",
-                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563413",
-                    },
-                    "used_size": 2199023255552,
-                },
-                {
-                    "node": {
-                        "name": "node-4",
-                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563414",
-                    },
-                    "used_size": 2199023255552,
-                },
-            ],
             "license_manager": {
                 "_links": {
                     "self": {
@@ -88,6 +87,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 },
                 "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
             },
+            "serial_number": "390000101",
         }
     ),
 ]
@@ -116,24 +116,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CapacityPool(
     {
-        "serial_number": "390000100",
-        "_links": {"self": {"href": "/api/cluster/licensing/capacity-pools/390000100"}},
         "nodes": [
             {
-                "node": {
-                    "name": "node-1",
-                    "uuid": "4ea7a442-86d1-11e0-ae1c-123478563411",
-                },
                 "used_size": 1099511627776,
+                "node": {
+                    "uuid": "4ea7a442-86d1-11e0-ae1c-123478563411",
+                    "name": "node-1",
+                },
             },
             {
-                "node": {
-                    "name": "node-2",
-                    "uuid": "4ea7a442-86d1-11e0-ae1c-123478563412",
-                },
                 "used_size": 1099511627776,
+                "node": {
+                    "uuid": "4ea7a442-86d1-11e0-ae1c-123478563412",
+                    "name": "node-2",
+                },
             },
         ],
+        "_links": {"self": {"href": "/api/cluster/licensing/capacity-pools/390000100"}},
         "license_manager": {
             "_links": {
                 "self": {
@@ -142,6 +141,7 @@ CapacityPool(
             },
             "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
         },
+        "serial_number": "390000100",
     }
 )
 

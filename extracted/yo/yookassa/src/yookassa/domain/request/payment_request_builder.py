@@ -231,6 +231,17 @@ class PaymentRequestBuilder(object):
         self.__request.statements = value
         return self
 
+    def set_pos_link(self, value):
+        """
+        Устанавливает pos_link модели PaymentRequestBuilder.
+
+        :param value: pos_link модели PaymentRequestBuilder.
+        :type value: PosLinkPayment
+        :rtype: PaymentRequestBuilder
+        """
+        self.__request.pos_link = value
+        return self
+
     def build(self):
         """
         Возвращает request модели PaymentRequestBuilder.

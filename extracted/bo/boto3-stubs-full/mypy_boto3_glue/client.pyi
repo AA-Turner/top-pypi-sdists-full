@@ -3200,7 +3200,7 @@ class GlueClient(BaseClient):
         self, **kwargs: Unpack[StartMaterializedViewRefreshTaskRunRequestTypeDef]
     ) -> StartMaterializedViewRefreshTaskRunResponseTypeDef:
         """
-        Starts a materialized view refresh task run, for a specified table and columns.
+        Starts a materialized view refresh task run for a specified materialized view.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/start_materialized_view_refresh_task_run.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#start_materialized_view_refresh_task_run)
@@ -3269,7 +3269,7 @@ class GlueClient(BaseClient):
         self, **kwargs: Unpack[StopMaterializedViewRefreshTaskRunRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Stops a materialized view refresh task run, for a specified table and columns.
+        Stops a materialized view refresh task run for a specified materialized view.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/stop_materialized_view_refresh_task_run.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#stop_materialized_view_refresh_task_run)

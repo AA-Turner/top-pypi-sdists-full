@@ -19,7 +19,7 @@ classifiers = [
 ]
 dependencies = [
   "ansible-compat>=25.8.2",
-  "ansible-core>=2.16.14",
+  "ansible-core>=2.16.19,!=2.17.*",
   "cffi>=1.15.1",
   "packaging>=23.2",
   "pytest>=6",
@@ -378,7 +378,8 @@ filterwarnings = [
   "ignore:Host management is deprecated and will be removed in a future release:DeprecationWarning",
   "ignore:ansible_host fixture is deprecated and will be removed in a future release.:DeprecationWarning",
   "ignore:ansible_group fixture is deprecated and will be removed in a future release.:DeprecationWarning",
-  "ignore:pytest-ansible no longer supports the '--connection' option:DeprecationWarning"
+  "ignore:pytest-ansible no longer supports the '--connection' option:DeprecationWarning",
+  "ignore:Running Molecule scenarios via pytest-ansible is deprecated:DeprecationWarning"
 ]
 junit_family = "xunit2"
 markers = ["old", "unit", "requires_ansible_v2"]
@@ -615,4 +616,10 @@ PRE_COMMIT_COLOR = "always"
 TERM = "xterm-256color"
 
 [tool.uv]
+constraint-dependencies = [
+  "cairosvg>=2.9.0",
+  "idna>=3.18",
+  "pymdown-extensions>=11.0",
+  "urllib3>=2.7.0",
+]
 package = true

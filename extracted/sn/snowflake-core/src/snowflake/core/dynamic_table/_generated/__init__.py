@@ -22,6 +22,12 @@ __version__ = "1.0.0"
 from snowflake.core.dynamic_table._generated.api.dynamic_table_api import DynamicTableApi
 
 # import models into sdk package
+from snowflake.core.dynamic_table._generated.models.data_metric_cron_schedule import DataMetricCronSchedule
+from snowflake.core.dynamic_table._generated.models.data_metric_minutes_schedule import DataMetricMinutesSchedule
+from snowflake.core.dynamic_table._generated.models.data_metric_schedule import DataMetricSchedule
+from snowflake.core.dynamic_table._generated.models.data_metric_trigger_on_changes_schedule import (
+    DataMetricTriggerOnChangesSchedule,
+)
 from snowflake.core.dynamic_table._generated.models.downstream_lag import DownstreamLag
 from snowflake.core.dynamic_table._generated.models.dynamic_table import DynamicTable
 from snowflake.core.dynamic_table._generated.models.dynamic_table_clone import DynamicTableClone

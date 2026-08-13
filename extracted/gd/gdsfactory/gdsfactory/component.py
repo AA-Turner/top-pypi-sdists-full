@@ -101,7 +101,13 @@ if TYPE_CHECKING:
 
 cell_without_validator = cell
 
-type _PolygonPoints = "npt.NDArray[np.floating[Any]] | kdb.DPolygon | kdb.Polygon | kdb.DSimplePolygon | kdb.Region | Coordinates"
+type _PolygonPoints = (
+    npt.NDArray[np.floating[Any]]
+    | kdb.DPolygon
+    | kdb.Polygon
+    | kdb.DSimplePolygon
+    | Coordinates
+)
 
 
 def ensure_tuple_of_tuples(points: Any) -> tuple[tuple[float, float], ...]:
@@ -116,7 +122,7 @@ def ensure_tuple_of_tuples(points: Any) -> tuple[tuple[float, float], ...]:
 
 
 def points_to_polygon(
-    points: _PolygonPoints,
+    points: _PolygonPoints | kdb.Region,
 ) -> kdb.Polygon | kdb.DPolygon | kdb.DSimplePolygon | kdb.Region:
     if isinstance(points, kdb.Polygon | kdb.DPolygon | kdb.DSimplePolygon | kdb.Region):
         return points
@@ -186,9 +192,13 @@ class ComponentBase(ProtoKCell[float, BaseKCell], ABC):
             if not self.bbox(self.kcl.layout.layer(info)).empty()
         ]
 
+    @overload
+    def add_polygon(self, points: _PolygonPoints, layer: LayerSpec) -> kdb.Shape: ...
+    @overload
+    def add_polygon(self, points: kdb.Region, layer: LayerSpec) -> None: ...
     @abstractmethod
     def add_polygon(
-        self, points: _PolygonPoints, layer: LayerSpec
+        self, points: _PolygonPoints | kdb.Region, layer: LayerSpec
     ) -> kdb.Shape | None: ...
 
     def bbox_np(self) -> npt.NDArray[np.float64]:
@@ -992,7 +1002,7 @@ class Component(ComponentBase, kf.DKCell):
 
         Args:
             merge: if True, merges the polygons.
-            scale: if True, scales the points.
+            scale: if not None, scales the points.
             by: the format of the resulting keys in the dictionary ('index', 'name', 'tuple')
             layers: list of layers to get polygons from. Defaults to all layers.
         """
@@ -1199,6 +1209,7 @@ class Component(ComponentBase, kf.DKCell):
         layer: LayerSpec,
         min_space: float = 0.2,
         size_bias: float = 0.0,
+        smooth_factor: float = 0.05,
     ) -> None:
         """Fixes layer spacing in the Component.
 
@@ -1206,6 +1217,9 @@ class Component(ComponentBase, kf.DKCell):
             layer: layer to fix spacing on.
             min_space: minimum space in um.
             size_bias: optional geometry bias applied after spacing fix (um).
+            smooth_factor: smoothing factor applied to the fixed edges. Set to
+                0 to disable smoothing, which otherwise can distort curved
+                geometry such as S-bends.
         """
         import gdsfactory as gf
         from gdsfactory.pdk import get_layer
@@ -1213,7 +1227,10 @@ class Component(ComponentBase, kf.DKCell):
         layer = get_layer(layer)
         layer_info = gf.kcl.get_info(layer)
         fix = fix_spacing_tiled(
-            self.to_itype(), min_space=self.kcl.to_dbu(min_space), layer=layer_info
+            self.to_itype(),
+            min_space=self.kcl.to_dbu(min_space),
+            layer=layer_info,
+            smooth_factor=smooth_factor,
         )
         if size_bias:
             size_offset_dbu = self.kcl.to_dbu(size_bias)
@@ -1296,7 +1313,13 @@ class Component(ComponentBase, kf.DKCell):
 
         self.kcl.layout.end_changes()
 
-    def add_polygon(self, points: _PolygonPoints, layer: LayerSpec) -> kdb.Shape | None:
+    @overload
+    def add_polygon(self, points: _PolygonPoints, layer: LayerSpec) -> kdb.Shape: ...
+    @overload
+    def add_polygon(self, points: kdb.Region, layer: LayerSpec) -> None: ...
+    def add_polygon(
+        self, points: _PolygonPoints | kdb.Region, layer: LayerSpec
+    ) -> kdb.Shape | None:
         """Adds a Polygon to the Component and returns a klayout Shape.
 
         Args:
@@ -1629,7 +1652,13 @@ class ComponentAllAngle(ComponentBase, kf.VKCell):
 
         return c
 
-    def add_polygon(self, points: _PolygonPoints, layer: LayerSpec) -> kdb.Shape | None:
+    @overload
+    def add_polygon(self, points: _PolygonPoints, layer: LayerSpec) -> kdb.Shape: ...
+    @overload
+    def add_polygon(self, points: kdb.Region, layer: LayerSpec) -> None: ...
+    def add_polygon(
+        self, points: _PolygonPoints | kdb.Region, layer: LayerSpec
+    ) -> kdb.Shape | None:
         """Adds a Polygon to the Component and returns a klayout Shape.
 
         Args:
@@ -1653,6 +1682,24 @@ class ComponentAllAngle(ComponentBase, kf.VKCell):
         from gdsfactory import get_layer
 
         return [x for x in self.shapes(get_layer(layer)) if isinstance(x, kdb.DPolygon)]
+
+    def get_polygons_points(
+        self, layer: LayerSpec, scale: float | None = None
+    ) -> list[npt.NDArray[np.floating[Any]]]:
+        """Returns a list of points per polygon in um.
+
+        Only the hull points are returned, holes are ignored.
+
+        Args:
+            layer: layer to get the polygons from.
+            scale: if not None, scales the points.
+        """
+        scale = scale or 1
+        return [
+            scale
+            * np.array([(point.x, point.y) for point in polygon.each_point_hull()])
+            for polygon in self.get_polygons(layer)
+        ]
 
 
 def container(

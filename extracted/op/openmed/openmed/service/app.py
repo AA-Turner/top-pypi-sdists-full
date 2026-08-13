@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import time
 from contextlib import asynccontextmanager
@@ -66,8 +67,10 @@ from .resilience import CircuitBreakerOpenError, circuit_breaker_details
 from .runtime import ServiceRuntime
 from .schemas import (
     AnalyzeRequest,
+    CohortResolveRequest,
     DeidentifyJobRequest,
     ModelUnloadRequest,
+    OmopLoadRequest,
     PIIDeidentifyRequest,
     PIIExtractRequest,
     PIIExtractStreamRequest,
@@ -145,6 +148,101 @@ def _result_to_dict(result: Any) -> Dict[str, Any]:
         return dict(result)
 
     raise TypeError("Unsupported result payload type.")
+
+
+def _parse_grounded_jsonl_text(text: str) -> list[Mapping[str, Any]]:
+    """Parse newline-delimited grounded note records without echoing content.
+
+    Errors reference only the offending line number so no note text or other
+    caller-supplied content leaks into the PHI-free error envelope.
+    """
+    records: list[Mapping[str, Any]] = []
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        try:
+            payload = json.loads(stripped)
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"records_jsonl line {line_number} is not valid JSON"
+            ) from exc
+        if not isinstance(payload, Mapping):
+            raise ValueError(f"records_jsonl line {line_number} must be a JSON object")
+        records.append(payload)
+    if not records:
+        raise ValueError("records_jsonl must contain at least one record")
+    return records
+
+
+def _omop_load_summary(payload: OmopLoadRequest) -> Dict[str, Any]:
+    """Build a PHI-free OMOP load summary from an inline JSONL request body."""
+    from ..interop.omop import load_grounded_notes, validate_omop_tables
+
+    records = _parse_grounded_jsonl_text(payload.records_jsonl)
+    tables = load_grounded_notes(
+        records,
+        vocabulary_version=payload.vocabulary_version,
+    )
+    summary = tables.summary
+    response: Dict[str, Any] = {
+        "row_counts": dict(summary.row_counts),
+        "rejection_counts": dict(summary.rejection_counts),
+        "rejected_spans": [span.to_dict() for span in summary.rejected_spans],
+        "source_note_hashes": list(summary.source_note_hashes),
+    }
+    if payload.validate_constraints:
+        violations = validate_omop_tables(tables)
+        by_reason: Dict[str, int] = {}
+        for violation in violations:
+            by_reason[violation.reason] = by_reason.get(violation.reason, 0) + 1
+        response["constraint_violations"] = {
+            "count": len(violations),
+            "by_reason": by_reason,
+        }
+    return response
+
+
+def _cohort_resolve_summary(payload: CohortResolveRequest) -> Dict[str, Any]:
+    """Resolve an inline grounded corpus without persisting request content."""
+
+    from ..interop.omop import load_grounded_notes, write_omop_duckdb
+    from ..structured.cohort import (
+        ConceptHierarchy,
+        PhenotypeDefinition,
+        resolve_phenotype,
+    )
+
+    definition = PhenotypeDefinition.from_dict(payload.phenotype)
+    records = _parse_grounded_jsonl_text(payload.records_jsonl)
+    tables = load_grounded_notes(records)
+    hierarchy_rows = [
+        {
+            "ancestor_concept_id": edge.ancestor_concept_id,
+            "descendant_concept_id": edge.descendant_concept_id,
+        }
+        for edge in payload.concept_ancestors
+    ]
+    hierarchy = None
+    if hierarchy_rows:
+        canonical_rows = json.dumps(
+            hierarchy_rows,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        hierarchy = ConceptHierarchy.from_rows(
+            hierarchy_rows,
+            source_sha256=hashlib.sha256(canonical_rows).hexdigest(),
+        )
+    connection = write_omop_duckdb(tables)
+    try:
+        return resolve_phenotype(
+            definition,
+            connection,
+            hierarchy=hierarchy,
+        ).to_dict()
+    finally:
+        connection.close()
 
 
 def _error_response(
@@ -954,6 +1052,31 @@ def create_app() -> FastAPI:
             return await _run_with_timeout(runtime, _model_operation)
 
         return await _operation()
+
+    @app.post("/omop/load")
+    async def omop_load(payload: OmopLoadRequest, request: Request) -> Dict[str, Any]:
+        with trace_service_stage(
+            "omop_load",
+            {
+                "openmed.endpoint": "/omop/load",
+                "openmed.input.length": len(payload.records_jsonl),
+            },
+        ):
+            return await run_in_threadpool(_omop_load_summary, payload)
+
+    @app.post("/cohort/resolve")
+    async def cohort_resolve(
+        payload: CohortResolveRequest,
+        request: Request,
+    ) -> Dict[str, Any]:
+        with trace_service_stage(
+            "cohort_resolve",
+            {
+                "openmed.endpoint": "/cohort/resolve",
+                "openmed.input.length": len(payload.records_jsonl),
+            },
+        ):
+            return await run_in_threadpool(_cohort_resolve_summary, payload)
 
     @app.post(_SMART_BACKEND_START_PATH)
     async def start_smart_backend_ingestion(

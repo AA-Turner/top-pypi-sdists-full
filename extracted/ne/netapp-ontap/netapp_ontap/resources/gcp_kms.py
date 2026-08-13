@@ -39,17 +39,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 GcpKms(
     {
+        "key_name": "key1",
+        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
         "key_ring_location": "global",
         "_links": {
             "self": {
                 "href": "/api/security/gcp-kms/f72098a2-e908-11ea-bd56-005056bb4222"
             }
         },
-        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
         "project_id": "testProj",
-        "key_name": "key1",
         "key_ring_name": "testKeyRing",
-        "svm": {"name": "vs0", "uuid": "f36ff553-e713-11ea-bd56-005056bb4222"},
+        "svm": {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222", "name": "vs0"},
     }
 )
 
@@ -76,18 +76,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     GcpKms(
         {
+            "key_name": "key1",
+            "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
             "key_ring_location": "global",
             "_links": {
                 "self": {
                     "href": "/api/security/gcp-kms/f72098a2-e908-11ea-bd56-005056bb4222"
                 }
             },
-            "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-            "project_id": "testProj",
-            "key_name": "key1",
-            "key_ring_name": "testKeyRing",
             "scope": "svm",
-            "svm": {"name": "vs0", "uuid": "f36ff553-e713-11ea-bd56-005056bb4222"},
+            "project_id": "testProj",
+            "key_ring_name": "testKeyRing",
+            "svm": {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222", "name": "vs0"},
         }
     )
 ]
@@ -116,18 +116,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 GcpKms(
     {
+        "key_name": "key1",
+        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
         "key_ring_location": "global",
         "_links": {
             "self": {
                 "href": "/api/security/gcp-kms/f72098a2-e908-11ea-bd56-005056bb4222"
             }
         },
-        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-        "project_id": "testProj",
-        "key_name": "key1",
-        "key_ring_name": "testKeyRing",
         "scope": "svm",
-        "svm": {"name": "vs0", "uuid": "f36ff553-e713-11ea-bd56-005056bb4222"},
+        "project_id": "testProj",
+        "key_ring_name": "testKeyRing",
+        "svm": {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222", "name": "vs0"},
     }
 )
 
@@ -155,48 +155,48 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 GcpKms(
     {
-        "google_reachability": {"message": "", "code": "0", "reachable": True},
+        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
+        "ekmip_reachability": [
+            {
+                "message": "",
+                "code": "0",
+                "node": {
+                    "uuid": "d208115f-7721-11eb-bf83-005056bb150e",
+                    "_links": {
+                        "self": {
+                            "href": "/api/cluster/nodes/d208115f-7721-11eb-bf83-005056bb150e"
+                        }
+                    },
+                    "name": "node1",
+                },
+                "reachable": True,
+            },
+            {
+                "message": "",
+                "code": "0",
+                "node": {
+                    "uuid": "e208115f-7721-11eb-bf83-005056bb150e",
+                    "_links": {
+                        "self": {
+                            "href": "/api/cluster/nodes/e208115f-7721-11eb-bf83-005056bb150e"
+                        }
+                    },
+                    "name": "node2",
+                },
+                "reachable": True,
+            },
+        ],
         "_links": {
             "self": {
                 "href": "/api/security/gcp-kms/f72098a2-e908-11ea-bd56-005056bb4222"
             }
         },
         "state": {
+            "cluster_state": False,
             "message": "The Google Cloud Key Management Service key protection is unavailable on the following nodes: cluster1-node1.",
             "code": "65537708",
-            "cluster_state": False,
         },
-        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-        "ekmip_reachability": [
-            {
-                "message": "",
-                "node": {
-                    "name": "node1",
-                    "_links": {
-                        "self": {
-                            "href": "/api/cluster/nodes/d208115f-7721-11eb-bf83-005056bb150e"
-                        }
-                    },
-                    "uuid": "d208115f-7721-11eb-bf83-005056bb150e",
-                },
-                "code": "0",
-                "reachable": True,
-            },
-            {
-                "message": "",
-                "node": {
-                    "name": "node2",
-                    "_links": {
-                        "self": {
-                            "href": "/api/cluster/nodes/e208115f-7721-11eb-bf83-005056bb150e"
-                        }
-                    },
-                    "uuid": "e208115f-7721-11eb-bf83-005056bb150e",
-                },
-                "code": "0",
-                "reachable": True,
-            },
-        ],
+        "google_reachability": {"message": "", "code": "0", "reachable": True},
     }
 )
 

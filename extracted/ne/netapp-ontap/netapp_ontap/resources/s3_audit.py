@@ -38,14 +38,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 S3Audit(
     {
         "log_path": "/",
-        "events": {"data": False, "management": False},
         "log": {
+            "rotation": {"size": 2048000},
             "format": "json",
             "retention": {"count": 10, "duration": "0s"},
-            "rotation": {"size": 2048000},
         },
+        "svm": {"uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf", "name": "vs1"},
         "enabled": True,
-        "svm": {"name": "vs1", "uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf"},
+        "events": {"management": False, "data": False},
     }
 )
 
@@ -92,22 +92,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 S3Audit(
     {
         "log_path": "/",
-        "events": {"data": True, "management": True},
         "log": {
-            "format": "json",
-            "retention": {"count": 0, "duration": "P4DT12H30M5S"},
             "rotation": {
                 "schedule": {
-                    "weekdays": [0, 2, 5],
-                    "months": [0],
-                    "hours": [0, 1, 6, 12, 18, 23],
-                    "minutes": [10, 15, 30, 45, 59],
                     "days": [1, 5, 10, 15],
+                    "hours": [0, 1, 6, 12, 18, 23],
+                    "months": [0],
+                    "minutes": [10, 15, 30, 45, 59],
+                    "weekdays": [0, 2, 5],
                 }
             },
+            "format": "json",
+            "retention": {"count": 0, "duration": "P4DT12H30M5S"},
         },
+        "svm": {"uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e", "name": "vs3"},
         "enabled": True,
-        "svm": {"name": "vs3", "uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e"},
+        "events": {"management": True, "data": True},
     }
 )
 
@@ -137,35 +137,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     S3Audit(
         {
             "log_path": "/",
-            "events": {"data": False, "management": False},
             "log": {
+                "rotation": {"size": 2048000},
                 "format": "json",
                 "retention": {"count": 10, "duration": "0s"},
-                "rotation": {"size": 2048000},
             },
+            "svm": {"uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf", "name": "vs1"},
             "enabled": True,
-            "svm": {"name": "vs1", "uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf"},
+            "events": {"management": False, "data": False},
         }
     ),
     S3Audit(
         {
             "log_path": "/",
-            "events": {"data": True, "management": True},
             "log": {
-                "format": "json",
-                "retention": {"count": 0, "duration": "P4DT12H30M5S"},
                 "rotation": {
                     "schedule": {
-                        "weekdays": [0, 2, 5],
-                        "months": [0],
-                        "hours": [0, 1, 6, 12, 18, 23],
-                        "minutes": [10, 15, 30, 45, 59],
                         "days": [1, 5, 10, 15],
+                        "hours": [0, 1, 6, 12, 18, 23],
+                        "months": [0],
+                        "minutes": [10, 15, 30, 45, 59],
+                        "weekdays": [0, 2, 5],
                     }
                 },
+                "format": "json",
+                "retention": {"count": 0, "duration": "P4DT12H30M5S"},
             },
+            "svm": {"uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e", "name": "vs3"},
             "enabled": True,
-            "svm": {"name": "vs3", "uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e"},
+            "events": {"management": True, "data": True},
         }
     ),
 ]
@@ -199,14 +199,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3Audit(
         {
-            "events": {"data": True, "management": True},
-            "svm": {"name": "vs1", "uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf"},
+            "svm": {"uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf", "name": "vs1"},
+            "events": {"management": True, "data": True},
         }
     ),
     S3Audit(
         {
-            "events": {"data": True, "management": True},
-            "svm": {"name": "vs3", "uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e"},
+            "svm": {"uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e", "name": "vs3"},
+            "events": {"management": True, "data": True},
         }
     ),
 ]
@@ -238,14 +238,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 S3Audit(
     {
         "log_path": "/",
-        "events": {"data": False, "management": False},
         "log": {
+            "rotation": {"size": 2048000},
             "format": "json",
             "retention": {"count": 10, "duration": "0s"},
-            "rotation": {"size": 2048000},
         },
+        "svm": {"uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf", "name": "vs1"},
         "enabled": True,
-        "svm": {"name": "vs1", "uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf"},
+        "events": {"management": False, "data": False},
     }
 )
 

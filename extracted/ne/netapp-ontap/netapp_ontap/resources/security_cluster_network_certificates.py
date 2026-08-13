@@ -9,10 +9,119 @@ You can use the security cluster-network certificate API endpoints to
 view and modify the certificate configuration for cluster network security.
 The following operations are supported:
 
-* GET to retrieve the certificate configuration for cluster network security: GET security/cluster-network/certificate
-* PATCH to update the certificate configuration for cluster network security for a given node: PATCH security/cluster-network/certificate
-* POST to specify the certificate configuration for cluster network security for a given node: POST security/cluster-network/certificate
-* DELETE to remove the certificate configuration for cluster network security for a given node: DELETE security/cluster-network/certificate"""
+* GET to retrieve the certificate configuration for cluster network security: GET security/cluster-network/certificates
+* PATCH to update the certificate configuration for cluster network security for a given node: PATCH security/cluster-network/certificates/{node.uuid}
+* POST to specify the certificate configuration for cluster network security for a given node: POST security/cluster-network/certificates
+* DELETE to remove the certificate configuration for cluster network security for a given node: DELETE security/cluster-network/certificates/{node.uuid}
+## Examples
+### Retrieving all certificate configurations for cluster network security
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import SecurityClusterNetworkCertificates
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    print(list(SecurityClusterNetworkCertificates.get_collection(fields="*")))
+
+```
+<div class="try_it_out">
+<input id="example0_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example0_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example0_result" class="try_it_out_content">
+```
+[
+    SecurityClusterNetworkCertificates(
+        {
+            "certificate": {
+                "uuid": "1cd8a442-86d1-11e0-ae1c-123478563412",
+                "name": "cluster_network_cert_1",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/security/cluster-network/certificates/4ea7a442-86d1-11e0-ae1c-123478563412"
+                }
+            },
+            "node": {"uuid": "4ea7a442-86d1-11e0-ae1c-123478563412", "name": "node1"},
+        }
+    ),
+    SecurityClusterNetworkCertificates(
+        {
+            "certificate": {
+                "uuid": "2de9b553-97e2-22f1-bf2d-234589674523",
+                "name": "cluster_network_cert_2",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/security/cluster-network/certificates/5fb8b553-97e2-22f1-bf2d-234589674523"
+                }
+            },
+            "node": {"uuid": "5fb8b553-97e2-22f1-bf2d-234589674523", "name": "node2"},
+        }
+    ),
+]
+
+```
+</div>
+</div>
+
+### Assigning a certificate to a node for cluster network security
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import SecurityClusterNetworkCertificates
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = SecurityClusterNetworkCertificates()
+    resource.node = {"uuid": "4ea7a442-86d1-11e0-ae1c-123478563412"}
+    resource.certificate = {"name": "cluster_network_cert_1"}
+    resource.post(hydrate=True)
+    print(resource)
+
+```
+<div class="try_it_out">
+<input id="example1_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example1_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example1_result" class="try_it_out_content">
+```
+SecurityClusterNetworkCertificates(
+    {
+        "certificate": {
+            "uuid": "1cd8a442-86d1-11e0-ae1c-123478563412",
+            "name": "cluster_network_cert_1",
+        },
+        "node": {"uuid": "4ea7a442-86d1-11e0-ae1c-123478563412", "name": "node1"},
+    }
+)
+
+```
+</div>
+</div>
+
+### Updating the certificate for a specific node
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import SecurityClusterNetworkCertificates
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = SecurityClusterNetworkCertificates(
+        **{"node.uuid": "4ea7a442-86d1-11e0-ae1c-123478563412"}
+    )
+    resource.certificate = {"name": "cluster_network_cert_new"}
+    resource.patch()
+
+```
+
+### Deleting the certificate configuration for a specific node
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import SecurityClusterNetworkCertificates
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = SecurityClusterNetworkCertificates(
+        **{"node.uuid": "4ea7a442-86d1-11e0-ae1c-123478563412"}
+    )
+    resource.delete()
+
+```
+"""
 
 import asyncio
 from datetime import datetime
@@ -160,7 +269,7 @@ class SecurityClusterNetworkCertificates(Resource):
     ) -> NetAppResponse:
         r"""Updates the certificate configuration for cluster network security for a given node.
 ### Required properties
-* `node: Node UUID`
+* `certificate.name` - The name of the certificate to assign.
 ### Related ONTAP commands
 * 'security cluster-network certificate modify'
 
@@ -187,8 +296,8 @@ class SecurityClusterNetworkCertificates(Resource):
     ) -> Union[List["SecurityClusterNetworkCertificates"], NetAppResponse]:
         r"""Specifies the certificate configuration for cluster network security for a given node.
 ### Required properties
-* 'node' - The node to which the certificate will be assigned.
-* 'name' - The certificate name.
+* `node.uuid` - The UUID of the node to which the certificate will be assigned.
+* `certificate.name` -The certificate name.
 ### Related ONTAP commands
 * 'security cluster-network certificate create'
 
@@ -261,8 +370,8 @@ class SecurityClusterNetworkCertificates(Resource):
     ) -> NetAppResponse:
         r"""Specifies the certificate configuration for cluster network security for a given node.
 ### Required properties
-* 'node' - The node to which the certificate will be assigned.
-* 'name' - The certificate name.
+* `node.uuid` - The UUID of the node to which the certificate will be assigned.
+* `certificate.name` -The certificate name.
 ### Related ONTAP commands
 * 'security cluster-network certificate create'
 
@@ -285,7 +394,7 @@ class SecurityClusterNetworkCertificates(Resource):
     ) -> NetAppResponse:
         r"""Updates the certificate configuration for cluster network security for a given node.
 ### Required properties
-* `node: Node UUID`
+* `certificate.name` - The name of the certificate to assign.
 ### Related ONTAP commands
 * 'security cluster-network certificate modify'
 

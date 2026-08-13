@@ -475,8 +475,8 @@ def classify_error(exc: Exception) -> dict[str, Any]:
         pass
 
     try:
-        from edgar.httprequests import IdentityNotSetException
-        if isinstance(exc, IdentityNotSetException):
+        from edgar.exceptions import IdentityNotSetError
+        if isinstance(exc, IdentityNotSetError):
             return {
                 "error_code": "IDENTITY_NOT_SET",
                 "message": "SEC identity not configured. Set the EDGAR_IDENTITY environment variable.",
@@ -508,8 +508,8 @@ def classify_error(exc: Exception) -> dict[str, Any]:
         pass
 
     try:
-        from edgar.entity.entity_facts import NoCompanyFactsFound
-        if isinstance(exc, NoCompanyFactsFound):
+        from edgar.exceptions import CompanyFactsNotFoundError
+        if isinstance(exc, CompanyFactsNotFoundError):
             return {
                 "error_code": "NO_FACTS_DATA",
                 "message": getattr(exc, 'message', str(exc)),
@@ -530,8 +530,8 @@ def classify_error(exc: Exception) -> dict[str, Any]:
         pass
 
     try:
-        from edgar.sgml.sgml_parser import SECFilingNotFoundError
-        if isinstance(exc, SECFilingNotFoundError):
+        from edgar.exceptions import FilingNotFoundError
+        if isinstance(exc, FilingNotFoundError):
             return {
                 "error_code": "FILING_NOT_FOUND",
                 "message": f"SEC filing not found: {exc}",
@@ -585,6 +585,44 @@ def classify_error(exc: Exception) -> dict[str, Any]:
                     "message": f"HTTP error {status}: {exc}",
                     "suggestions": ERROR_SUGGESTIONS["HTTPStatusError"],
                 }
+    except ImportError:
+        pass
+
+    # --- The same failures, in the wrapped era ---
+    # Under EDGARTOOLS_STRICT_ERRORS (and unconditionally in 6.0) the network
+    # boundary raises TransportError instead of the httpx types above, so this
+    # block has to answer the same questions the httpx blocks just did. It sits
+    # last among the transport checks because TooManyRequestsError,
+    # SSLVerificationError and IdentityNotSetError are all TransportError
+    # subclasses and each has its own, better answer earlier in this function.
+    try:
+        from edgar.exceptions import TransportError
+        if isinstance(exc, TransportError):
+            status = exc.status_code
+            if status == 404:
+                return {
+                    "error_code": "FILING_NOT_FOUND",
+                    "message": f"Resource not found (HTTP 404): {exc.url}",
+                    "suggestions": ["Check the URL or accession number", "The filing may have been removed"],
+                }
+            elif status is not None and status >= 500:
+                return {
+                    "error_code": "NETWORK_CONNECTION",
+                    "message": f"SEC server error (HTTP {status})",
+                    "suggestions": ["SEC EDGAR is experiencing server issues", "Try again in a few minutes"],
+                }
+            elif status is not None:
+                return {
+                    "error_code": "INTERNAL_ERROR",
+                    "message": f"HTTP error {status}: {exc}",
+                    "suggestions": ERROR_SUGGESTIONS["HTTPStatusError"],
+                }
+            # No status means we never got an answer — connect failure or timeout.
+            return {
+                "error_code": "NETWORK_CONNECTION",
+                "message": f"Could not reach SEC EDGAR: {exc}",
+                "suggestions": ERROR_SUGGESTIONS["ConnectError"],
+            }
     except ImportError:
         pass
 

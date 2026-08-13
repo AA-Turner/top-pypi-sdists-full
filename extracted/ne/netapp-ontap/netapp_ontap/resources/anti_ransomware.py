@@ -74,13 +74,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Job(
     {
         "message": "success",
+        "uuid": "74d0faef-3e1a-11ef-af89-005056ac6d8a",
+        "description": "PATCH /api/security/anti-ransomware",
         "_links": {
             "self": {"href": "/api/cluster/jobs/74d0faef-3e1a-11ef-af89-005056ac6d8a"}
         },
         "code": 0,
         "state": "success",
-        "uuid": "74d0faef-3e1a-11ef-af89-005056ac6d8a",
-        "description": "PATCH /api/security/anti-ransomware",
     }
 )
 

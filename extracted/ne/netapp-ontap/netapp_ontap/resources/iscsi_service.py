@@ -38,17 +38,17 @@ IscsiService(
                 "href": "/api/protocols/san/iscsi/services/19d04b8e-94d7-11e8-8370-005056b48fd2"
             }
         },
-        "target": {
-            "name": "iqn.1992-08.com.netapp:sn.19d04b8e94d711e88370005056b48fd2:vs.4",
-            "alias": "svm1",
-        },
-        "enabled": True,
         "svm": {
-            "name": "svm1",
+            "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
             "_links": {
                 "self": {"href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"}
             },
-            "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
+            "name": "svm1",
+        },
+        "enabled": True,
+        "target": {
+            "alias": "svm1",
+            "name": "iqn.1992-08.com.netapp:sn.19d04b8e94d711e88370005056b48fd2:vs.4",
         },
     }
 )
@@ -81,13 +81,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "svm": {
-                "name": "svm1",
+                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"
                     }
                 },
-                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
+                "name": "svm1",
             },
         }
     ),
@@ -99,13 +99,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "svm": {
-                "name": "svm2",
+                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/25f617cf-94d7-11e8-8370-005056b48fd2"
                     }
                 },
-                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
+                "name": "svm2",
             },
         }
     ),
@@ -141,17 +141,17 @@ IscsiService(
                 "href": "/api/protocols/san/iscsi/services/19d04b8e-94d7-11e8-8370-005056b48fd2"
             }
         },
-        "target": {
-            "name": "iqn.1992-08.com.netapp:sn.19d04b8e94d711e88370005056b48fd2:vs.4",
-            "alias": "svm1",
-        },
-        "enabled": True,
         "svm": {
-            "name": "svm1",
+            "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
             "_links": {
                 "self": {"href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"}
             },
-            "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
+            "name": "svm1",
+        },
+        "enabled": True,
+        "target": {
+            "alias": "svm1",
+            "name": "iqn.1992-08.com.netapp:sn.19d04b8e94d711e88370005056b48fd2:vs.4",
         },
     }
 )
@@ -202,14 +202,14 @@ IscsiService(
                 "href": "/api/protocols/san/iscsi/services/19d04b8e-94d7-11e8-8370-005056b48fd2"
             }
         },
-        "enabled": False,
         "svm": {
-            "name": "svm1",
+            "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
             "_links": {
                 "self": {"href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"}
             },
-            "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
+            "name": "svm1",
         },
+        "enabled": False,
     }
 )
 

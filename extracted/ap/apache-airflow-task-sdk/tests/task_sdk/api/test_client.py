@@ -1127,6 +1127,12 @@ class TestConnectionOperations:
                     json={
                         "conn_id": "test_conn",
                         "conn_type": "mysql",
+                        "host": None,
+                        "schema": None,
+                        "login": None,
+                        "password": None,
+                        "port": None,
+                        "extra": None,
                     },
                 )
             return httpx.Response(status_code=400, json={"detail": "Bad Request"})
@@ -1480,6 +1486,10 @@ class TestDagRunOperations:
                         "run_type": "scheduled",
                         "state": "success",
                         "consumed_asset_events": [],
+                        "data_interval_start": None,
+                        "data_interval_end": None,
+                        "end_date": None,
+                        "partition_key": None,
                     },
                 )
             return httpx.Response(status_code=422)
@@ -1515,6 +1525,10 @@ class TestDagRunOperations:
                         "run_type": "scheduled",
                         "state": "success",
                         "consumed_asset_events": [],
+                        "data_interval_start": None,
+                        "data_interval_end": None,
+                        "end_date": None,
+                        "partition_key": None,
                     },
                 )
             return httpx.Response(status_code=422)
@@ -1831,6 +1845,19 @@ class TestTaskStateOperations:
         assert isinstance(result, TaskStateStoreResponse)
         assert result.value == "spark_app_001"
 
+    def test_get_url_encodes_key_with_slash(self):
+        requests_seen = []
+
+        def handle_request(request: httpx.Request) -> httpx.Response:
+            requests_seen.append(request)
+            return httpx.Response(status_code=200, json={"value": "spark_app_001"})
+
+        client = make_client(transport=httpx.MockTransport(handle_request))
+        client.task_state_store.get(ti_id=self.TI_ID, key="spark/job_id")
+
+        assert b"%2F" in requests_seen[0].url.raw_path
+        assert requests_seen[0].url.raw_path == f"/store/ti/{self.TI_ID}/spark%2Fjob_id".encode()
+
     def test_get_returns_error_response_on_404(self):
         def handle_request(request: httpx.Request) -> httpx.Response:
             return httpx.Response(
@@ -1857,6 +1884,21 @@ class TestTaskStateOperations:
             ti_id=self.TI_ID, key="job_id", value="spark_app_001", expires_at=expires
         )
         assert result == OKResponse(ok=True)
+
+    def test_set_url_encodes_key_with_slash(self):
+        requests_seen = []
+
+        def handle_request(request: httpx.Request) -> httpx.Response:
+            requests_seen.append(request)
+            return httpx.Response(status_code=204)
+
+        client = make_client(transport=httpx.MockTransport(handle_request))
+        client.task_state_store.set(
+            ti_id=self.TI_ID, key="spark/job_id", value="spark_app_001", expires_at=None
+        )
+
+        assert b"%2F" in requests_seen[0].url.raw_path
+        assert requests_seen[0].url.raw_path == f"/store/ti/{self.TI_ID}/spark%2Fjob_id".encode()
 
     def test_set_with_expires_at_sends_field(self):
         """expires_at is forwarded as an ISO datetime string in the request body."""
@@ -1900,6 +1942,19 @@ class TestTaskStateOperations:
         client = make_client(transport=httpx.MockTransport(handle_request))
         result = client.task_state_store.delete(ti_id=self.TI_ID, key="job_id")
         assert result == OKResponse(ok=True)
+
+    def test_delete_url_encodes_key_with_slash(self):
+        requests_seen = []
+
+        def handle_request(request: httpx.Request) -> httpx.Response:
+            requests_seen.append(request)
+            return httpx.Response(status_code=204)
+
+        client = make_client(transport=httpx.MockTransport(handle_request))
+        client.task_state_store.delete(ti_id=self.TI_ID, key="spark/job_id")
+
+        assert b"%2F" in requests_seen[0].url.raw_path
+        assert requests_seen[0].url.raw_path == f"/store/ti/{self.TI_ID}/spark%2Fjob_id".encode()
 
     def test_clear_sends_delete_request(self):
         def handle_request(request: httpx.Request) -> httpx.Response:

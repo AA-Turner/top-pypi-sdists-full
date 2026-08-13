@@ -4,7 +4,7 @@ Definition of the object transformer API
 
 :authors: Thomas Calmant
 :license: Apache License 2.0
-:version: 0.5.0
+:version: 0.6.1
 :status: Alpha
 
 ..
@@ -39,7 +39,7 @@ from .stream import DataStreamReader  # noqa: F401
 # ------------------------------------------------------------------------------
 
 # Module version
-__version_info__ = (0, 4, 4)
+__version_info__ = (0, 6, 1)
 __version__ = ".".join(str(x) for x in __version_info__)
 
 # Documentation strings format
@@ -54,7 +54,7 @@ class IJavaStreamParser:
     """
 
     def run(self):
-        # type: () -> List[ParsedJavaContent]
+        # type: () -> List[Optional[ParsedJavaContent]]
         """
         Parses the input stream
         """
@@ -68,10 +68,13 @@ class IJavaStreamParser:
         raise NotImplementedError
 
     def _read_content(self, type_code, block_data, class_desc=None):
-        # type: (int, bool, Optional[JavaClassDesc]) -> ParsedJavaContent
+        # type: (int, bool, Optional[JavaClassDesc]) -> Optional[ParsedJavaContent]
         """
         Parses the next content. Use with care (use only in a transformer)
+
+        :return: The parsed content, None if the stream holds TC_NULL
         """
+        raise NotImplementedError
 
 
 class ObjectTransformer(object):  # pylint:disable=R0205

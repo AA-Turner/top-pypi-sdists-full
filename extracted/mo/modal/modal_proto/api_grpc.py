@@ -84,6 +84,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def AppPromote(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AppPromoteRequest, modal_proto.api_pb2.AppPromoteResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def AppPublish(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AppPublishRequest, modal_proto.api_pb2.AppPublishResponse]') -> None:
         pass
 
@@ -328,6 +332,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def EnvironmentSetDefaultMemberRole(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EnvironmentSetDefaultMemberRoleRequest, google.protobuf.empty_pb2.Empty]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def EnvironmentSetManaged(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EnvironmentSetManagedRequest, google.protobuf.empty_pb2.Empty]') -> None:
         pass
 
@@ -449,6 +457,10 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def FunctionUpdateSchedulingParams(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.FunctionUpdateSchedulingParamsRequest, modal_proto.api_pb2.FunctionUpdateSchedulingParamsResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def ImageBuildChainGet(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.ImageBuildChainGetRequest, modal_proto.api_pb2.ImageBuildChainGetResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -585,6 +597,10 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def SandboxCreateConnectToken(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxCreateConnectTokenRequest, modal_proto.api_pb2.SandboxCreateConnectTokenResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def SandboxCreateConnectTokenV2(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxCreateConnectTokenRequest, modal_proto.api_pb2.SandboxCreateConnectTokenResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -820,6 +836,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def UserGroupEnvironmentSet(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.UserGroupEnvironmentSetRequest, google.protobuf.empty_pb2.Empty]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def VolumeCommit(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.VolumeCommitRequest, modal_proto.api_pb2.VolumeCommitResponse]') -> None:
         pass
 
@@ -917,6 +937,10 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def WebhookTokenListForEnvironment(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.WebhookTokenListForEnvironmentRequest, modal_proto.api_pb2.WebhookTokenListResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def WorkspaceBillingRates(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.WorkspaceBillingRatesRequest, modal_proto.api_pb2.WorkspaceBillingRatesResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -1048,6 +1072,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.AppLookupRequest,
                 modal_proto.api_pb2.AppLookupResponse,
+            ),
+            '/modal.client.ModalClient/AppPromote': grpclib.const.Handler(
+                self.AppPromote,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.AppPromoteRequest,
+                modal_proto.api_pb2.AppPromoteResponse,
             ),
             '/modal.client.ModalClient/AppPublish': grpclib.const.Handler(
                 self.AppPublish,
@@ -1415,6 +1445,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.EnvironmentSetBudgetRequest,
                 google.protobuf.empty_pb2.Empty,
             ),
+            '/modal.client.ModalClient/EnvironmentSetDefaultMemberRole': grpclib.const.Handler(
+                self.EnvironmentSetDefaultMemberRole,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.EnvironmentSetDefaultMemberRoleRequest,
+                google.protobuf.empty_pb2.Empty,
+            ),
             '/modal.client.ModalClient/EnvironmentSetManaged': grpclib.const.Handler(
                 self.EnvironmentSetManaged,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -1600,6 +1636,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.FunctionUpdateSchedulingParamsRequest,
                 modal_proto.api_pb2.FunctionUpdateSchedulingParamsResponse,
+            ),
+            '/modal.client.ModalClient/ImageBuildChainGet': grpclib.const.Handler(
+                self.ImageBuildChainGet,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.ImageBuildChainGetRequest,
+                modal_proto.api_pb2.ImageBuildChainGetResponse,
             ),
             '/modal.client.ModalClient/ImageDelete': grpclib.const.Handler(
                 self.ImageDelete,
@@ -1801,6 +1843,12 @@ class ModalClientBase(abc.ABC):
             ),
             '/modal.client.ModalClient/SandboxCreateConnectToken': grpclib.const.Handler(
                 self.SandboxCreateConnectToken,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxCreateConnectTokenRequest,
+                modal_proto.api_pb2.SandboxCreateConnectTokenResponse,
+            ),
+            '/modal.client.ModalClient/SandboxCreateConnectTokenV2': grpclib.const.Handler(
+                self.SandboxCreateConnectTokenV2,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.SandboxCreateConnectTokenRequest,
                 modal_proto.api_pb2.SandboxCreateConnectTokenResponse,
@@ -2153,6 +2201,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.TunnelStopRequest,
                 modal_proto.api_pb2.TunnelStopResponse,
             ),
+            '/modal.client.ModalClient/UserGroupEnvironmentSet': grpclib.const.Handler(
+                self.UserGroupEnvironmentSet,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.UserGroupEnvironmentSetRequest,
+                google.protobuf.empty_pb2.Empty,
+            ),
             '/modal.client.ModalClient/VolumeCommit': grpclib.const.Handler(
                 self.VolumeCommit,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -2303,6 +2357,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.WebhookTokenListForEnvironmentRequest,
                 modal_proto.api_pb2.WebhookTokenListResponse,
             ),
+            '/modal.client.ModalClient/WorkspaceBillingRates': grpclib.const.Handler(
+                self.WorkspaceBillingRates,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.WorkspaceBillingRatesRequest,
+                modal_proto.api_pb2.WorkspaceBillingRatesResponse,
+            ),
             '/modal.client.ModalClient/WorkspaceBillingReport': grpclib.const.Handler(
                 self.WorkspaceBillingReport,
                 grpclib.const.Cardinality.UNARY_STREAM,
@@ -2452,6 +2512,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/AppLookup',
             modal_proto.api_pb2.AppLookupRequest,
             modal_proto.api_pb2.AppLookupResponse,
+        )
+        self.AppPromote = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/AppPromote',
+            modal_proto.api_pb2.AppPromoteRequest,
+            modal_proto.api_pb2.AppPromoteResponse,
         )
         self.AppPublish = grpclib.client.UnaryUnaryMethod(
             channel,
@@ -2819,6 +2885,12 @@ class ModalClientStub:
             modal_proto.api_pb2.EnvironmentSetBudgetRequest,
             google.protobuf.empty_pb2.Empty,
         )
+        self.EnvironmentSetDefaultMemberRole = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/EnvironmentSetDefaultMemberRole',
+            modal_proto.api_pb2.EnvironmentSetDefaultMemberRoleRequest,
+            google.protobuf.empty_pb2.Empty,
+        )
         self.EnvironmentSetManaged = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/EnvironmentSetManaged',
@@ -3004,6 +3076,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/FunctionUpdateSchedulingParams',
             modal_proto.api_pb2.FunctionUpdateSchedulingParamsRequest,
             modal_proto.api_pb2.FunctionUpdateSchedulingParamsResponse,
+        )
+        self.ImageBuildChainGet = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/ImageBuildChainGet',
+            modal_proto.api_pb2.ImageBuildChainGetRequest,
+            modal_proto.api_pb2.ImageBuildChainGetResponse,
         )
         self.ImageDelete = grpclib.client.UnaryUnaryMethod(
             channel,
@@ -3206,6 +3284,12 @@ class ModalClientStub:
         self.SandboxCreateConnectToken = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/SandboxCreateConnectToken',
+            modal_proto.api_pb2.SandboxCreateConnectTokenRequest,
+            modal_proto.api_pb2.SandboxCreateConnectTokenResponse,
+        )
+        self.SandboxCreateConnectTokenV2 = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxCreateConnectTokenV2',
             modal_proto.api_pb2.SandboxCreateConnectTokenRequest,
             modal_proto.api_pb2.SandboxCreateConnectTokenResponse,
         )
@@ -3557,6 +3641,12 @@ class ModalClientStub:
             modal_proto.api_pb2.TunnelStopRequest,
             modal_proto.api_pb2.TunnelStopResponse,
         )
+        self.UserGroupEnvironmentSet = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/UserGroupEnvironmentSet',
+            modal_proto.api_pb2.UserGroupEnvironmentSetRequest,
+            google.protobuf.empty_pb2.Empty,
+        )
         self.VolumeCommit = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/VolumeCommit',
@@ -3706,6 +3796,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/WebhookTokenListForEnvironment',
             modal_proto.api_pb2.WebhookTokenListForEnvironmentRequest,
             modal_proto.api_pb2.WebhookTokenListResponse,
+        )
+        self.WorkspaceBillingRates = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/WorkspaceBillingRates',
+            modal_proto.api_pb2.WorkspaceBillingRatesRequest,
+            modal_proto.api_pb2.WorkspaceBillingRatesResponse,
         )
         self.WorkspaceBillingReport = grpclib.client.UnaryStreamMethod(
             channel,

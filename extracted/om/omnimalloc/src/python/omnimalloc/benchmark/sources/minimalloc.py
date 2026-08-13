@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-import csv
 import logging
-from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import ClassVar
 
-from omnimalloc.common.directories import EXTERNAL_DIR
-from omnimalloc.primitives import Allocation, BufferKind, IdType, Pool
+from omnimalloc.common.validation import ensure_positive
+from omnimalloc.io import load_allocation
+from omnimalloc.primitives import Allocation, IdType, Pool
 
 from .base import BaseSource
 
@@ -17,112 +17,104 @@ logger = logging.getLogger(__name__)
 
 
 class MinimallocSubset(str, Enum):
-    """Bundled CSV subsets shipped under ``external/minimalloc/<value>``."""
+    """CSV subsets checked into the repository under ``external/minimalloc``."""
 
     EXAMPLES = "examples"
     SMALL = "small"
     CHALLENGING = "challenging"
 
-
-@dataclass(frozen=True)
-class _MinimallocBuffer:
-    id: IdType
-    lower: int
-    upper: int
-    size: int
-
-    def __post_init__(self) -> None:
-        if isinstance(self.id, int) and self.id < 0:
-            raise ValueError(f"id must be non-negative, got {self.id}")
-        if self.size <= 0:
-            raise ValueError(f"size must be positive, got {self.size}")
-        if self.upper <= self.lower:
-            raise ValueError(f"upper ({self.upper}) < lower ({self.lower})")
+    __str__ = str.__str__
 
 
-def _read_minimalloc_csv(file_path: Path) -> list[_MinimallocBuffer]:
-    buffers = []
-    with Path.open(file_path, mode="r", newline="") as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            buffer = _MinimallocBuffer(
-                id=str(row["id"]),
-                lower=int(row["lower"]),
-                upper=int(row["upper"]),
-                size=int(row["size"]),
+def _checkout_csv_dir(subset: MinimallocSubset) -> Path | None:
+    """The subset's directory in a source checkout; None from an install.
+
+    The walk stops at the first project root, so an install cannot silently
+    adopt a foreign external/ directory further up the tree.
+    """
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "pyproject.toml").is_file():
+            candidate = parent / "external" / "minimalloc" / subset.value
+            return candidate if candidate.is_dir() else None
+    return None
+
+
+def _prefix_ids(pool: Pool) -> Pool:
+    """CSV ids restart at 0 per file, so qualify them with the pool id."""
+    return pool.with_allocations(
+        tuple(
+            Allocation(
+                id=f"{pool.id}_{alloc.id}",
+                size=alloc.size,
+                start=alloc.start,
+                end=alloc.end,
+                offset=alloc.offset,
+                kind=alloc.kind,
             )
-            buffers.append(buffer)
-    return buffers
-
-
-def _from_minimalloc_csv(file_path: str | Path) -> Pool:
-    file_path_ = Path(file_path)
-    mm_buffers = _read_minimalloc_csv(file_path_)
-    allocations = []
-    for mm_buffer in mm_buffers:
-        allocation = Allocation(
-            id=mm_buffer.id,
-            size=mm_buffer.size,
-            start=mm_buffer.lower,
-            end=mm_buffer.upper,
-            offset=None,
-            kind=BufferKind.WORKSPACE,
+            for alloc in pool.allocations
         )
-        allocations.append(allocation)
-
-    pool = Pool(
-        id=file_path_.stem,
-        allocations=tuple(allocations),
-        offset=None,
     )
-
-    return pool
 
 
 class MinimallocSource(BaseSource):
-    """Load allocations from a bundled Minimalloc CSV subset.
+    """Fixed source loading pools from a directory of Minimalloc CSV files.
 
-    This is a fixed source with predetermined pools from the Minimalloc
-    benchmarks. Pick a bundled ``subset`` to select which pools to load.
+    `csv_dir` defaults to the `subset`'s directory in a source checkout, which
+    an installed package does not have.
     """
+
+    _label_fields: ClassVar[tuple[str, ...]] = ("subset", "csv_dir")
 
     def __init__(
         self,
         subset: MinimallocSubset | str = MinimallocSubset.CHALLENGING,
+        csv_dir: str | Path | None = None,
     ) -> None:
         self.subset = MinimallocSubset(subset)
+        # The label must carry an explicit csv_dir but not the checkout default
+        self.csv_dir = Path(csv_dir) if csv_dir is not None else None
         self._cached_pools: list[Pool] | None = None
 
-        # Load pools to get actual num_allocations
-        pools = self._pools
-        num_allocs = sum(len(p.allocations) for p in pools) if pools else 1
-
-        # Initialize with actual num_allocations
-        super().__init__(num_allocations=num_allocs)
+        # An empty dataset keeps the base invariant; the accessors raise instead
+        num_allocs = sum(len(p.allocations) for p in self._pools)
+        super().__init__(num_allocations=max(num_allocs, 1))
 
     @property
     def _pools(self) -> list[Pool]:
         if self._cached_pools is None:
-            csv_dir = EXTERNAL_DIR / "minimalloc" / self.subset.value
-            self._cached_pools = [
-                _from_minimalloc_csv(f) for f in csv_dir.glob("*.csv")
-            ]
+            csv_dir = (
+                self.csv_dir
+                if self.csv_dir is not None
+                else _checkout_csv_dir(self.subset)
+            )
+            # Sort for a filesystem-independent, reproducible variant order
+            files = sorted(csv_dir.glob("*.csv")) if csv_dir is not None else []
+            if csv_dir is None:
+                logger.warning(
+                    f"Not running from a source checkout, so the "
+                    f"{self.subset.value!r} subset has no datasets; pass "
+                    "csv_dir to read them from an install."
+                )
+            elif not files:
+                logger.warning(
+                    f"No Minimalloc CSVs found in {csv_dir}; the "
+                    f"{self.subset.value!r} subset yields no variants."
+                )
+            self._cached_pools = [_prefix_ids(load_allocation(f)) for f in files]
         return self._cached_pools
 
     def _all_allocations(self) -> tuple[Allocation, ...]:
-        all_allocations: list[Allocation] = []
-        for pool in self._pools:
-            all_allocations.extend(pool.allocations)
-        return tuple(all_allocations)
+        return tuple(alloc for pool in self._pools for alloc in pool.allocations)
 
     def is_parameterizable(self) -> bool:
         """Minimalloc has fixed pools, not parameterizable."""
         return False
 
-    def get_available_variants(self, variants: int | None = None) -> tuple[str, ...]:
+    def get_available_variants(
+        self,
+        count: int | None = None,  # noqa: ARG002
+    ) -> tuple[str, ...]:
         """Return pool IDs from Minimalloc benchmarks."""
-        if variants is not None:
-            logger.debug(f"Ignoring variants={variants}")
         return tuple(str(pool.id) for pool in self._pools)
 
     def get_variant(self, variant_id: IdType) -> Pool:
@@ -154,6 +146,7 @@ class MinimallocSource(BaseSource):
     def get_pools(
         self, num_pools: int | None = None, skip: int = 0
     ) -> tuple[Pool, ...]:
+        ensure_positive(num_pools, "num_pools", allow_none=True)
         if skip >= len(self._pools):
             return ()
         if num_pools is None:

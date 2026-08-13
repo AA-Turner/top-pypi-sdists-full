@@ -6,10 +6,12 @@ payload. The only format this SDK writes is ``devl`` — UTF-8
 `devalue.stringify` output — so a payload written here parses with
 `devalue.parse` in JavaScript and vice versa.
 
+``encr`` — an encrypted payload — is read too.
+
 The remaining tags are recognized so that an envelope written by the
-TypeScript SDK is reported as unsupported by name instead of as corrupt
-data. None of them are implemented: `encr`/`encp` need the run's key
-material, and `gzip`/`zstd` wrap another prefixed payload.
+TypeScript SDK is reported as unsupported by name instead of as corrupt data:
+`encp` is a different (X25519) construction, and `gzip`/`zstd` wrap another
+prefixed payload.
 """
 
 from __future__ import annotations
@@ -19,7 +21,7 @@ from typing import Any
 
 from vercel._internal import devalue
 
-from . import serde
+from . import encryption, serde
 
 FORMAT_PREFIX_LENGTH = 4
 
@@ -42,10 +44,42 @@ class SerializationError(RuntimeError):
     """A payload could not be encoded, or arrived in a format we cannot read."""
 
 
+def _reduce_writable_stream(value: Any) -> Any:
+    """devalue reducer for a run's stream. Falsy declines the value.
+
+    Rides `@workflow/core`'s own ``WritableStream`` tag rather than the
+    ``Instance`` rail :mod:`.serde` uses for new types, because a stream is not
+    a new type: the TypeScript SDK already defines this tag and revives it into
+    a real `WritableStream` against the same ``(runId, name)``. A Python
+    workflow can therefore hand one of its streams to a JavaScript peer.
+    """
+    from . import streams
+
+    if isinstance(value, streams.WorkflowStreamHandle | streams.WorkflowStreamWriter):
+        return {"name": value.name, "runId": value.run_id}
+    return False
+
+
+def _revive_writable_stream(value: Any) -> Any:
+    """devalue reviver for the ``WritableStream`` tag."""
+    from . import runtime
+
+    if not isinstance(value, dict) or not isinstance(value.get("name"), str):
+        raise ValueError(f"malformed WritableStream payload: {value!r}")
+    run_id = value.get("runId")
+    return runtime.open_writable(run_id if isinstance(run_id, str) else None, value["name"])
+
+
+# `serde` owns the custom-type rail; streams sit alongside it on a tag
+# `@workflow/core` composes itself.
+REDUCERS: dict[str, Any] = {**serde.REDUCERS, "WritableStream": _reduce_writable_stream}
+REVIVERS: dict[str, Any] = {**serde.REVIVERS, "WritableStream": _revive_writable_stream}
+
+
 def dehydrate(value: Any) -> bytes:
     """Encode *value* as a ``devl``-prefixed devalue payload."""
     try:
-        return DEVALUE_V1 + devalue.stringify(value, serde.REDUCERS).encode()
+        return DEVALUE_V1 + devalue.stringify(value, REDUCERS).encode()
     except devalue.DevalueError as error:
         at = f" at {error.path}" if error.path else ""
         raise SerializationError(
@@ -57,7 +91,19 @@ def dehydrate(value: Any) -> bytes:
         raise SerializationError(f"Cannot serialize value: {error}") from error
 
 
-def hydrate(data: Any, *, what: str) -> Any:
+def is_encrypted(data: Any) -> bool:
+    """Whether reading *data* would need the run's key.
+
+    Lets a caller skip resolving a key it does not need, which can cost an API
+    call. Takes ``Any`` for the same reason :func:`hydrate` does, and answers
+    ``False`` for anything that is not a payload at all.
+    """
+    if not isinstance(data, bytes | bytearray | memoryview):
+        return False
+    return bytes(data[:FORMAT_PREFIX_LENGTH]) == ENCRYPTED
+
+
+def hydrate(data: Any, *, what: str, key: bytes | None = None) -> Any:
     """Decode a format-prefixed payload written by either SDK.
 
     Takes ``Any`` because it is the boundary that checks: a payload field can
@@ -67,6 +113,9 @@ def hydrate(data: Any, *, what: str) -> Any:
 
     *what* names the payload in the error message — it is the only context
     the caller has that would help someone reading the traceback.
+
+    *key* is the run's 32-byte key, needed only for an ``encr`` payload;
+    :func:`is_encrypted` says in advance whether one will be asked for.
     """
     if not isinstance(data, bytes | bytearray | memoryview):
         raise SerializationError(f"{what} is not serialized data: {type(data).__name__}")
@@ -77,9 +126,20 @@ def hydrate(data: Any, *, what: str) -> Any:
     prefix, payload = data[:FORMAT_PREFIX_LENGTH], data[FORMAT_PREFIX_LENGTH:]
     if prefix == DEVALUE_V1:
         try:
-            return devalue.parse(payload.decode(), serde.REVIVERS)
+            return devalue.parse(payload.decode(), REVIVERS)
         except (devalue.DevalueError, ValueError, TypeError) as error:
             raise SerializationError(f"Cannot deserialize {what}: {error}") from error
+    if prefix == ENCRYPTED:
+        if key is None:
+            raise SerializationError(
+                f"{what} is encrypted, and no key was resolved for the run that wrote it"
+            )
+        try:
+            plaintext = encryption.open_envelope(key, payload)
+        except (encryption.DecryptionError, ValueError) as error:
+            raise SerializationError(f"Cannot decrypt {what}: {error}") from error
+        # The plaintext carries its own prefix, normally `devl`.
+        return hydrate(plaintext, what=what, key=key)
     if prefix in KNOWN_FORMATS:
         raise SerializationError(
             f"{what} uses the {prefix.decode()!r} format, which this SDK cannot read"

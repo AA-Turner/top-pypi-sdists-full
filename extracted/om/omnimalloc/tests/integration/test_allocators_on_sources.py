@@ -5,7 +5,8 @@
 from pathlib import Path
 
 import pytest
-from omnimalloc.allocate import run_allocation
+from omnimalloc import allocate
+from omnimalloc.allocators.base import BaseAllocator
 from omnimalloc.allocators.greedy import (
     GreedyAllocator,
     GreedyByAreaAllocator,
@@ -13,6 +14,7 @@ from omnimalloc.allocators.greedy import (
     GreedyByDurationAllocator,
     GreedyBySizeAllocator,
 )
+from omnimalloc.allocators.hillclimb import HillClimbAllocator
 from omnimalloc.benchmark.sources.generator import (
     HighContentionSource,
     PowerOf2Source,
@@ -23,67 +25,56 @@ from omnimalloc.benchmark.sources.generator import (
 from omnimalloc.primitives.memory import Memory
 from omnimalloc.primitives.pool import Pool
 from omnimalloc.validate import validate_allocation
-from omnimalloc.visualize import HAS_MATPLOTLIB, plot_allocation
+from omnimalloc.visualize import plot_allocation
 
-
-def test_greedy_with_random_source() -> None:
-    source = RandomSource(num_allocations=50, seed=42)
-    allocations = source.get_allocations()
-    pool = Pool(id="test_pool", allocations=allocations)
-
-    allocator = GreedyAllocator()
-    allocated_pool = run_allocation(pool, allocator)
-
-    assert validate_allocation(allocated_pool)
-    assert all(a.offset is not None for a in allocated_pool.allocations)
-
-
-def test_greedy_by_size_with_random_source() -> None:
-    source = RandomSource(num_allocations=50, seed=42)
-    allocations = source.get_allocations()
-    pool = Pool(id="test_pool", allocations=allocations)
-
-    allocator = GreedyBySizeAllocator()
-    allocated_pool = run_allocation(pool, allocator)
-
-    assert validate_allocation(allocated_pool)
-    assert all(a.offset is not None for a in allocated_pool.allocations)
+from tests.markers import needs_matplotlib
 
 
 def test_greedy_by_duration_with_sequential_source() -> None:
     source = SequentialSource(num_allocations=30, seed=42)
-    allocations = source.get_allocations()
-    pool = Pool(id="test_pool", allocations=allocations)
+    pool = Pool(id="test_pool", allocations=source.get_allocations())
+    allocated_pool = allocate(pool, GreedyByDurationAllocator())
 
-    allocator = GreedyByDurationAllocator()
-    allocated_pool = run_allocation(pool, allocator)
-
-    assert validate_allocation(allocated_pool)
+    validate_allocation(allocated_pool)
     assert allocated_pool.size > 0
+    assert all(a.offset is not None for a in allocated_pool.allocations)
 
 
 def test_greedy_by_conflict_with_high_contention() -> None:
     source = HighContentionSource(num_allocations=40, time_window=10, seed=42)
-    allocations = source.get_allocations()
-    pool = Pool(id="test_pool", allocations=allocations)
+    pool = Pool(id="test_pool", allocations=source.get_allocations())
+    allocated_pool = allocate(pool, GreedyByConflictAllocator())
 
-    allocator = GreedyByConflictAllocator()
-    allocated_pool = run_allocation(pool, allocator)
-
-    assert validate_allocation(allocated_pool)
+    validate_allocation(allocated_pool)
+    assert allocated_pool.size > 0
     assert all(a.offset is not None for a in allocated_pool.allocations)
 
 
 def test_greedy_by_area_with_power_of_2_source() -> None:
     source = PowerOf2Source(num_allocations=25, seed=42)
-    allocations = source.get_allocations()
-    pool = Pool(id="test_pool", allocations=allocations)
+    pool = Pool(id="test_pool", allocations=source.get_allocations())
+    allocated_pool = allocate(pool, GreedyByAreaAllocator())
 
-    allocator = GreedyByAreaAllocator()
-    allocated_pool = run_allocation(pool, allocator)
-
-    assert validate_allocation(allocated_pool)
+    validate_allocation(allocated_pool)
     assert allocated_pool.size > 0
+    assert all(a.offset is not None for a in allocated_pool.allocations)
+
+
+def test_greedy_by_area_with_varying_durations() -> None:
+    source = RandomSource(
+        num_allocations=30,
+        duration_min=1,
+        duration_max=50,
+        size_min=1024,
+        size_max=10240,
+        seed=42,
+    )
+    pool = Pool(id="test_pool", allocations=source.get_allocations())
+    allocated_pool = allocate(pool, GreedyByAreaAllocator())
+
+    validate_allocation(allocated_pool)
+    assert allocated_pool.size > 0
+    assert all(a.offset is not None for a in allocated_pool.allocations)
 
 
 def test_greedy_with_uniform_source() -> None:
@@ -92,9 +83,9 @@ def test_greedy_with_uniform_source() -> None:
     pool = Pool(id="test_pool", allocations=allocations)
 
     allocator = GreedyAllocator()
-    allocated_pool = run_allocation(pool, allocator)
+    allocated_pool = allocate(pool, allocator)
 
-    assert validate_allocation(allocated_pool)
+    validate_allocation(allocated_pool)
     assert all(a.size == 1024 for a in allocated_pool.allocations)
 
 
@@ -113,8 +104,8 @@ def test_greedy_allocators_produce_different_results() -> None:
 
     results = []
     for allocator in allocators:
-        allocated_pool = run_allocation(pool, allocator)
-        assert validate_allocation(allocated_pool)
+        allocated_pool = allocate(pool, allocator)
+        validate_allocation(allocated_pool)
         results.append(allocated_pool.size)
 
     assert len(set(results)) > 1
@@ -127,9 +118,9 @@ def test_greedy_with_memory_hierarchy() -> None:
     memory = Memory(id="test_memory", pools=(pool,))
 
     allocator = GreedyBySizeAllocator()
-    allocated_memory = run_allocation(memory, allocator)
+    allocated_memory = allocate(memory, allocator)
 
-    assert validate_allocation(allocated_memory)
+    validate_allocation(allocated_memory)
     assert allocated_memory.used_size > 0
     assert len(allocated_memory.pools) == 1
 
@@ -140,9 +131,9 @@ def test_greedy_with_large_workload() -> None:
     pool = Pool(id="test_pool", allocations=allocations)
 
     allocator = GreedyAllocator()
-    allocated_pool = run_allocation(pool, allocator)
+    allocated_pool = allocate(pool, allocator)
 
-    assert validate_allocation(allocated_pool)
+    validate_allocation(allocated_pool)
     assert len(allocated_pool.allocations) == 200
 
 
@@ -154,11 +145,11 @@ def test_greedy_by_conflict_minimizes_peak_with_contention() -> None:
     conflict_allocator = GreedyByConflictAllocator()
     basic_allocator = GreedyAllocator()
 
-    conflict_pool = run_allocation(pool, conflict_allocator)
-    basic_pool = run_allocation(pool, basic_allocator)
+    conflict_pool = allocate(pool, conflict_allocator)
+    basic_pool = allocate(pool, basic_allocator)
 
-    assert validate_allocation(conflict_pool)
-    assert validate_allocation(basic_pool)
+    validate_allocation(conflict_pool)
+    validate_allocation(basic_pool)
     assert conflict_pool.size <= basic_pool.size * 1.5
 
 
@@ -169,13 +160,25 @@ def test_greedy_deterministic_across_runs() -> None:
 
     allocator = GreedyBySizeAllocator()
 
-    result1 = run_allocation(pool, allocator)
-    result2 = run_allocation(pool, allocator)
+    result1 = allocate(pool, allocator)
+    result2 = allocate(pool, allocator)
 
     assert result1.size == result2.size
     offsets1 = [a.offset for a in result1.allocations]
     offsets2 = [a.offset for a in result2.allocations]
     assert offsets1 == offsets2
+
+
+def test_hill_climb_with_high_contention() -> None:
+    source = HighContentionSource(num_allocations=40, time_window=10, seed=42)
+    allocations = source.get_allocations()
+    pool = Pool(id="test_pool", allocations=allocations)
+
+    allocator = HillClimbAllocator(max_iterations=200)
+    allocated_pool = allocate(pool, allocator)
+
+    validate_allocation(allocated_pool)
+    assert all(a.offset is not None for a in allocated_pool.allocations)
 
 
 def test_greedy_with_sequential_produces_small_footprint() -> None:
@@ -184,31 +187,12 @@ def test_greedy_with_sequential_produces_small_footprint() -> None:
     pool = Pool(id="test_pool", allocations=allocations)
 
     allocator = GreedyAllocator()
-    allocated_pool = run_allocation(pool, allocator)
+    allocated_pool = allocate(pool, allocator)
 
-    assert validate_allocation(allocated_pool)
+    validate_allocation(allocated_pool)
     total_alloc_size = sum(a.size for a in allocations)
     avg_alloc_size = total_alloc_size // len(allocations)
     assert allocated_pool.size < avg_alloc_size * 10
-
-
-def test_greedy_by_area_with_varying_durations() -> None:
-    source = RandomSource(
-        num_allocations=30,
-        duration_min=1,
-        duration_max=50,
-        size_min=1024,
-        size_max=10240,
-        seed=42,
-    )
-    allocations = source.get_allocations()
-    pool = Pool(id="test_pool", allocations=allocations)
-
-    allocator = GreedyByAreaAllocator()
-    allocated_pool = run_allocation(pool, allocator)
-
-    assert validate_allocation(allocated_pool)
-    assert allocated_pool.size > 0
 
 
 def test_all_greedy_variants_handle_empty_pool() -> None:
@@ -223,13 +207,31 @@ def test_all_greedy_variants_handle_empty_pool() -> None:
     ]
 
     for allocator in allocators:
-        allocated_pool = run_allocation(pool, allocator)
-        assert validate_allocation(allocated_pool)
+        allocated_pool = allocate(pool, allocator)
+        validate_allocation(allocated_pool)
         assert len(allocated_pool.allocations) == 0
         assert allocated_pool.size == 0
 
 
-@pytest.mark.skipif(not HAS_MATPLOTLIB, reason="matplotlib not installed")
+@pytest.mark.parametrize("name", sorted(BaseAllocator.registry()))
+def test_every_registered_allocator_on_random_source(name: str) -> None:
+    source = RandomSource(num_allocations=25, seed=42)
+    allocations = source.get_allocations()
+    pool = Pool(id="test_pool", allocations=allocations)
+
+    try:
+        allocator = BaseAllocator.get(name)()
+    except ImportError as error:
+        pytest.skip(str(error))
+
+    allocated_pool = allocate(pool, allocator)
+
+    validate_allocation(allocated_pool)
+    assert {a.id for a in allocated_pool.allocations} == {a.id for a in allocations}
+    assert all(a.offset is not None for a in allocated_pool.allocations)
+
+
+@needs_matplotlib
 def test_greedy_allocators_with_artifacts(artifacts_dir: Path) -> None:
     source = RandomSource(num_allocations=30, seed=42)
     allocations = source.get_allocations()
@@ -244,8 +246,8 @@ def test_greedy_allocators_with_artifacts(artifacts_dir: Path) -> None:
     }
 
     for name, allocator in allocators.items():
-        allocated_pool = run_allocation(pool, allocator)
-        assert validate_allocation(allocated_pool)
+        allocated_pool = allocate(pool, allocator)
+        validate_allocation(allocated_pool)
 
         output_file = artifacts_dir / f"{name}.pdf"
         plot_allocation(allocated_pool, output_file)

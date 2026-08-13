@@ -43,6 +43,7 @@ class S3PolicyStatementSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 * PutBucketPolicy - puts bucket policy on the bucket specified.
 * GetBucketPolicy - retrieves the bucket policy of a bucket.
 * DeleteBucketPolicy - deletes the policy created for a bucket.
+* AbortMultipartUpload - cancels an in-progress multipart upload for a bucket.
 The wildcard character "*" can be used to form a regular expression for specifying actions.
 
 

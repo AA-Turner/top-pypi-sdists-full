@@ -92,45 +92,45 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsService(
     {
-        "ad_domain": {"fqdn": "ONTAPAVC.COM", "organizational_unit": "CN=Computers"},
-        "name": "CIFS1",
+        "default_unix_user": "string",
         "security": {
-            "encrypt_dc_connection": False,
-            "smb_encryption": False,
-            "smb_signing": False,
-            "session_security": "none",
-            "aes_netlogon_enabled": False,
             "try_ldap_channel_binding": False,
             "use_start_tls": False,
-            "lm_compatibility_level": "lm_ntlm_ntlmv2_krb",
-            "restrict_anonymous": "no_enumeration",
+            "smb_encryption": False,
             "kdc_encryption": False,
             "use_ldaps": False,
+            "aes_netlogon_enabled": False,
+            "encrypt_dc_connection": False,
+            "session_security": "none",
+            "smb_signing": False,
+            "lm_compatibility_level": "lm_ntlm_ntlmv2_krb",
+            "restrict_anonymous": "no_enumeration",
         },
-        "options": {
-            "null_user_windows_name": "string",
-            "path_component_cache": True,
-            "fsctl_trim": True,
-            "junction_reparse": True,
-            "advanced_sparse_file": True,
-            "multichannel": True,
-            "smb_credits": 128,
-            "widelink_reparse_versions": ["smb1"],
-            "referral": False,
-            "fake_open": True,
-            "large_mtu": True,
-            "admin_to_root_mapping": True,
-            "copy_offload": True,
-        },
-        "default_unix_user": "string",
+        "enabled": True,
+        "ad_domain": {"fqdn": "ONTAPAVC.COM", "organizational_unit": "CN=Computers"},
         "netbios": {
             "wins_servers": ["10.224.65.20", "10.224.65.21"],
             "aliases": ["ALIAS_1", "ALIAS_2", "ALIAS_3"],
             "enabled": False,
         },
-        "enabled": True,
         "comment": "This CIFS Server Belongs to CS Department",
-        "svm": {"name": "vs1", "uuid": "e0c20d9c-96cd-11eb-97da-0050568e684d"},
+        "name": "CIFS1",
+        "options": {
+            "smb_credits": 128,
+            "advanced_sparse_file": True,
+            "null_user_windows_name": "string",
+            "fsctl_trim": True,
+            "widelink_reparse_versions": ["smb1"],
+            "junction_reparse": True,
+            "path_component_cache": True,
+            "referral": False,
+            "large_mtu": True,
+            "copy_offload": True,
+            "admin_to_root_mapping": True,
+            "fake_open": True,
+            "multichannel": True,
+        },
+        "svm": {"uuid": "e0c20d9c-96cd-11eb-97da-0050568e684d", "name": "vs1"},
     }
 )
 
@@ -203,45 +203,45 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsService(
     {
-        "ad_domain": {"fqdn": "ONTAPAVC.COM", "organizational_unit": "CN=Computers"},
-        "name": "CIFS1",
+        "default_unix_user": "string",
         "security": {
-            "encrypt_dc_connection": False,
-            "smb_encryption": False,
-            "smb_signing": False,
-            "session_security": "none",
-            "aes_netlogon_enabled": False,
             "try_ldap_channel_binding": False,
             "use_start_tls": False,
-            "lm_compatibility_level": "lm_ntlm_ntlmv2_krb",
-            "restrict_anonymous": "no_enumeration",
+            "smb_encryption": False,
             "kdc_encryption": False,
             "use_ldaps": False,
+            "aes_netlogon_enabled": False,
+            "encrypt_dc_connection": False,
+            "session_security": "none",
+            "smb_signing": False,
+            "lm_compatibility_level": "lm_ntlm_ntlmv2_krb",
+            "restrict_anonymous": "no_enumeration",
         },
-        "options": {
-            "null_user_windows_name": "string",
-            "path_component_cache": True,
-            "fsctl_trim": True,
-            "junction_reparse": True,
-            "advanced_sparse_file": True,
-            "multichannel": True,
-            "smb_credits": 128,
-            "widelink_reparse_versions": ["smb1"],
-            "referral": False,
-            "fake_open": True,
-            "large_mtu": True,
-            "admin_to_root_mapping": True,
-            "copy_offload": True,
-        },
-        "default_unix_user": "string",
+        "enabled": True,
+        "ad_domain": {"fqdn": "ONTAPAVC.COM", "organizational_unit": "CN=Computers"},
         "netbios": {
             "wins_servers": ["10.224.65.20", "10.224.65.21"],
             "aliases": ["ALIAS_1", "ALIAS_2", "ALIAS_3"],
             "enabled": False,
         },
-        "enabled": True,
         "comment": "This CIFS Server Belongs to CS Department",
-        "svm": {"name": "vs1", "uuid": "e0c20d9c-96cd-11eb-97da-0050568e684d"},
+        "name": "CIFS1",
+        "options": {
+            "smb_credits": 128,
+            "advanced_sparse_file": True,
+            "null_user_windows_name": "string",
+            "fsctl_trim": True,
+            "widelink_reparse_versions": ["smb1"],
+            "junction_reparse": True,
+            "path_component_cache": True,
+            "referral": False,
+            "large_mtu": True,
+            "copy_offload": True,
+            "admin_to_root_mapping": True,
+            "fake_open": True,
+            "multichannel": True,
+        },
+        "svm": {"uuid": "e0c20d9c-96cd-11eb-97da-0050568e684d", "name": "vs1"},
     }
 )
 
@@ -279,11 +279,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsService(
     {
-        "ad_domain": {"fqdn": "ONTAPAVC.COM", "organizational_unit": "CN=Computers"},
-        "name": "CIFS1",
         "enabled": True,
+        "ad_domain": {"fqdn": "ONTAPAVC.COM", "organizational_unit": "CN=Computers"},
         "comment": "This CIFS Server Belongs to CS Department",
-        "svm": {"name": "vs1", "uuid": "e0c20d9c-96cd-11eb-97da-0050568e684d"},
+        "name": "CIFS1",
+        "svm": {"uuid": "e0c20d9c-96cd-11eb-97da-0050568e684d", "name": "vs1"},
     }
 )
 
@@ -321,57 +321,57 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsService(
     {
-        "ad_domain": {
-            "default_site": "",
-            "fqdn": "TESTDOMAIN.COM",
-            "organizational_unit": "CN=Computers",
-        },
-        "name": "CIFS_SERVER1",
+        "default_unix_user": "pcuser",
+        "group_policy_object_enabled": False,
         "security": {
-            "encrypt_dc_connection": False,
-            "smb_encryption": False,
-            "smb_signing": False,
-            "session_security": "none",
-            "ldap_referral_enabled": False,
             "advertised_kdc_encryptions": ["aes_128"],
-            "aes_netlogon_enabled": False,
             "try_ldap_channel_binding": True,
             "use_start_tls": False,
-            "lm_compatibility_level": "lm_ntlm_ntlmv2_krb",
-            "restrict_anonymous": "no_enumeration",
+            "smb_encryption": False,
             "kdc_encryption": True,
             "use_ldaps": False,
+            "aes_netlogon_enabled": False,
+            "encrypt_dc_connection": False,
+            "ldap_referral_enabled": False,
+            "session_security": "none",
+            "smb_signing": False,
+            "lm_compatibility_level": "lm_ntlm_ntlmv2_krb",
+            "restrict_anonymous": "no_enumeration",
         },
-        "options": {
-            "path_component_cache": True,
-            "fsctl_trim": True,
-            "junction_reparse": True,
-            "export_policy_enabled": False,
-            "advanced_sparse_file": True,
-            "multichannel": False,
-            "smb_credits": 512,
-            "widelink_reparse_versions": ["smb1"],
-            "shadowcopy_dir_depth": 5,
-            "referral": False,
-            "fake_open": True,
-            "large_mtu": True,
-            "admin_to_root_mapping": True,
-            "shadowcopy": True,
-            "copy_offload": True,
-        },
-        "default_unix_user": "pcuser",
-        "netbios": {"wins_servers": [], "enabled": False},
         "enabled": True,
+        "ad_domain": {
+            "fqdn": "TESTDOMAIN.COM",
+            "default_site": "",
+            "organizational_unit": "CN=Computers",
+        },
+        "netbios": {"wins_servers": [], "enabled": False},
         "statistics": {
-            "throughput_raw": {"write": 0, "total": 0, "read": 0},
-            "iops_raw": {"write": 0, "total": 0, "other": 0, "read": 0},
+            "throughput_raw": {"read": 0, "write": 0, "total": 0},
+            "latency_raw": {"read": 0, "write": 0, "other": 0, "total": 0},
+            "iops_raw": {"read": 0, "write": 0, "other": 0, "total": 0},
             "timestamp": "2024-04-16T15:17:41+00:00",
             "status": "ok",
-            "latency_raw": {"write": 0, "total": 0, "other": 0, "read": 0},
         },
         "comment": "",
-        "group_policy_object_enabled": False,
-        "svm": {"name": "testvs", "uuid": "508375d4-fb16-11ee-a792-005056a75b5c"},
+        "name": "CIFS_SERVER1",
+        "options": {
+            "smb_credits": 512,
+            "advanced_sparse_file": True,
+            "fsctl_trim": True,
+            "shadowcopy": True,
+            "widelink_reparse_versions": ["smb1"],
+            "junction_reparse": True,
+            "path_component_cache": True,
+            "referral": False,
+            "large_mtu": True,
+            "copy_offload": True,
+            "admin_to_root_mapping": True,
+            "fake_open": True,
+            "shadowcopy_dir_depth": 5,
+            "export_policy_enabled": False,
+            "multichannel": False,
+        },
+        "svm": {"uuid": "508375d4-fb16-11ee-a792-005056a75b5c", "name": "testvs"},
     }
 )
 
@@ -398,48 +398,48 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CifsService(
         {
+            "default_unix_user": "string",
+            "security": {
+                "try_ldap_channel_binding": False,
+                "use_start_tls": False,
+                "smb_encryption": False,
+                "kdc_encryption": False,
+                "use_ldaps": False,
+                "aes_netlogon_enabled": False,
+                "encrypt_dc_connection": False,
+                "session_security": "none",
+                "smb_signing": False,
+                "lm_compatibility_level": "lm_ntlm_ntlmv2_krb",
+                "restrict_anonymous": "no_enumeration",
+            },
+            "enabled": True,
             "ad_domain": {
                 "fqdn": "ONTAPAVC.COM",
                 "organizational_unit": "CN=Computers",
             },
-            "name": "CIFS1",
-            "security": {
-                "encrypt_dc_connection": False,
-                "smb_encryption": False,
-                "smb_signing": False,
-                "session_security": "none",
-                "aes_netlogon_enabled": False,
-                "try_ldap_channel_binding": False,
-                "use_start_tls": False,
-                "lm_compatibility_level": "lm_ntlm_ntlmv2_krb",
-                "restrict_anonymous": "no_enumeration",
-                "kdc_encryption": False,
-                "use_ldaps": False,
-            },
-            "options": {
-                "null_user_windows_name": "string",
-                "path_component_cache": True,
-                "fsctl_trim": True,
-                "junction_reparse": True,
-                "advanced_sparse_file": True,
-                "multichannel": True,
-                "smb_credits": 128,
-                "widelink_reparse_versions": ["smb1"],
-                "referral": False,
-                "fake_open": True,
-                "large_mtu": True,
-                "admin_to_root_mapping": True,
-                "copy_offload": True,
-            },
-            "default_unix_user": "string",
             "netbios": {
                 "wins_servers": ["10.224.65.20", "10.224.65.21"],
                 "aliases": ["ALIAS_1", "ALIAS_2", "ALIAS_3"],
                 "enabled": False,
             },
-            "enabled": True,
             "comment": "This CIFS Server Belongs to CS Department",
-            "svm": {"name": "vs1", "uuid": "e0c20d9c-96cd-11eb-97da-0050568e684d"},
+            "name": "CIFS1",
+            "options": {
+                "smb_credits": 128,
+                "advanced_sparse_file": True,
+                "null_user_windows_name": "string",
+                "fsctl_trim": True,
+                "widelink_reparse_versions": ["smb1"],
+                "junction_reparse": True,
+                "path_component_cache": True,
+                "referral": False,
+                "large_mtu": True,
+                "copy_offload": True,
+                "admin_to_root_mapping": True,
+                "fake_open": True,
+                "multichannel": True,
+            },
+            "svm": {"uuid": "e0c20d9c-96cd-11eb-97da-0050568e684d", "name": "vs1"},
         }
     )
 ]
@@ -468,45 +468,45 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsService(
     {
-        "ad_domain": {"fqdn": "ONTAPAVC.COM", "organizational_unit": "CN=Computers"},
-        "name": "CIFS1",
+        "default_unix_user": "string",
         "security": {
-            "encrypt_dc_connection": False,
-            "smb_encryption": False,
-            "smb_signing": False,
-            "session_security": "none",
-            "aes_netlogon_enabled": False,
             "try_ldap_channel_binding": False,
             "use_start_tls": False,
-            "lm_compatibility_level": "lm_ntlm_ntlmv2_krb",
-            "restrict_anonymous": "no_enumeration",
+            "smb_encryption": False,
             "kdc_encryption": False,
             "use_ldaps": False,
+            "aes_netlogon_enabled": False,
+            "encrypt_dc_connection": False,
+            "session_security": "none",
+            "smb_signing": False,
+            "lm_compatibility_level": "lm_ntlm_ntlmv2_krb",
+            "restrict_anonymous": "no_enumeration",
         },
-        "options": {
-            "null_user_windows_name": "string",
-            "path_component_cache": True,
-            "fsctl_trim": True,
-            "junction_reparse": True,
-            "advanced_sparse_file": True,
-            "multichannel": True,
-            "smb_credits": 128,
-            "widelink_reparse_versions": ["smb1"],
-            "referral": False,
-            "fake_open": True,
-            "large_mtu": True,
-            "admin_to_root_mapping": True,
-            "copy_offload": True,
-        },
-        "default_unix_user": "string",
+        "enabled": True,
+        "ad_domain": {"fqdn": "ONTAPAVC.COM", "organizational_unit": "CN=Computers"},
         "netbios": {
             "wins_servers": ["10.224.65.20", "10.224.65.21"],
             "aliases": ["ALIAS_1", "ALIAS_2", "ALIAS_3"],
             "enabled": False,
         },
-        "enabled": True,
         "comment": "This CIFS Server Belongs to CS Department",
-        "svm": {"name": "vs1", "uuid": "e0c20d9c-96cd-11eb-97da-0050568e684d"},
+        "name": "CIFS1",
+        "options": {
+            "smb_credits": 128,
+            "advanced_sparse_file": True,
+            "null_user_windows_name": "string",
+            "fsctl_trim": True,
+            "widelink_reparse_versions": ["smb1"],
+            "junction_reparse": True,
+            "path_component_cache": True,
+            "referral": False,
+            "large_mtu": True,
+            "copy_offload": True,
+            "admin_to_root_mapping": True,
+            "fake_open": True,
+            "multichannel": True,
+        },
+        "svm": {"uuid": "e0c20d9c-96cd-11eb-97da-0050568e684d", "name": "vs1"},
     }
 )
 
@@ -636,6 +636,20 @@ Valid choices:
 
 * client_secret
 * certificate"""
+
+    azure_cloud_region = marshmallow_fields.Str(
+        data_key="azure_cloud_region",
+        validate=enum_validation(['global', 'us_gov', 'china']),
+        allow_none=True,
+    )
+    r""" Specifies the azure cloud location of the tenant in case of hybrid-user authentication
+
+
+Valid choices:
+
+* global
+* us_gov
+* china"""
 
     client_certificate = marshmallow_fields.Str(
         data_key="client_certificate",
@@ -846,6 +860,7 @@ Example: workgrp1"""
         "auth_style",
         "auth_user_type",
         "authentication_method",
+        "azure_cloud_region",
         "client_id",
         "comment",
         "default_unix_user",
@@ -881,12 +896,13 @@ Example: workgrp1"""
         "verify_host",
         "workgroup",
     ]
-    """links,ad_domain,auth_style,auth_user_type,authentication_method,client_id,comment,default_unix_user,enabled,group_policy_object_enabled,key_vault_uri,metric.links,metric.duration,metric.iops,metric.latency,metric.status,metric.throughput,metric.timestamp,name,netbios,oauth_host,options,proxy_host,proxy_port,proxy_type,proxy_username,security,statistics.iops_raw,statistics.latency_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,svm.links,svm.name,svm.uuid,tenant_id,timeout,verify_host,workgroup,"""
+    """links,ad_domain,auth_style,auth_user_type,authentication_method,azure_cloud_region,client_id,comment,default_unix_user,enabled,group_policy_object_enabled,key_vault_uri,metric.links,metric.duration,metric.iops,metric.latency,metric.status,metric.throughput,metric.timestamp,name,netbios,oauth_host,options,proxy_host,proxy_port,proxy_type,proxy_username,security,statistics.iops_raw,statistics.latency_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,svm.links,svm.name,svm.uuid,tenant_id,timeout,verify_host,workgroup,"""
 
     patchable_fields = [
         "ad_domain",
         "auth_user_type",
         "authentication_method",
+        "azure_cloud_region",
         "client_certificate",
         "client_id",
         "client_secret",
@@ -910,12 +926,13 @@ Example: workgrp1"""
         "verify_host",
         "workgroup",
     ]
-    """ad_domain,auth_user_type,authentication_method,client_certificate,client_id,client_secret,comment,default_unix_user,enabled,group_policy_object_enabled,key_vault_uri,name,netbios,oauth_host,options,proxy_host,proxy_password,proxy_port,proxy_type,proxy_username,security,tenant_id,timeout,verify_host,workgroup,"""
+    """ad_domain,auth_user_type,authentication_method,azure_cloud_region,client_certificate,client_id,client_secret,comment,default_unix_user,enabled,group_policy_object_enabled,key_vault_uri,name,netbios,oauth_host,options,proxy_host,proxy_password,proxy_port,proxy_type,proxy_username,security,tenant_id,timeout,verify_host,workgroup,"""
 
     postable_fields = [
         "ad_domain",
         "auth_user_type",
         "authentication_method",
+        "azure_cloud_region",
         "client_certificate",
         "client_id",
         "client_secret",
@@ -940,7 +957,7 @@ Example: workgrp1"""
         "verify_host",
         "workgroup",
     ]
-    """ad_domain,auth_user_type,authentication_method,client_certificate,client_id,client_secret,comment,default_unix_user,enabled,key_vault_uri,name,netbios,oauth_host,options,proxy_host,proxy_password,proxy_port,proxy_type,proxy_username,security,svm.name,svm.uuid,tenant_id,timeout,verify_host,workgroup,"""
+    """ad_domain,auth_user_type,authentication_method,azure_cloud_region,client_certificate,client_id,client_secret,comment,default_unix_user,enabled,key_vault_uri,name,netbios,oauth_host,options,proxy_host,proxy_password,proxy_port,proxy_type,proxy_username,security,svm.name,svm.uuid,tenant_id,timeout,verify_host,workgroup,"""
 
 class CifsService(Resource):
     """Allows interaction with CifsService objects on the host"""
@@ -1068,6 +1085,7 @@ There is an added computational cost to retrieving values for these properties. 
 * `key_vault_uri` - URI of the deployed AKV that is used by ONTAP for storing keys.
 * `authentication_method` - Authentication method used by the application to prove its identity to AKV or EntraId. It can be either "client_secret" or "certificate".
 * `auth_user_type` - Type of user who can access the SMB Volume. It can be either "domain_user" or "hybrid_user". The default is domain_user. In the case of a hybrid-user, ONTAP cannot access on-premise ADDS.
+* `azure_cloud_region` - The azure cloud location of the tenant in case of hybrid-user authentication, It can be global, us-gov or china. The default is global.
 * `client_secret` - Secret used by the application to prove its identity to AKV.
 * `client_certificate` - Base64 encoded PKCS12 certificate used by the application to prove its identity to AKV.
 ### Recommended optional properties
@@ -1196,6 +1214,7 @@ There is an added computational cost to retrieving values for these properties. 
 * `key_vault_uri` - URI of the deployed AKV that is used by ONTAP for storing keys.
 * `authentication_method` - Authentication method used by the application to prove its identity to AKV or EntraId. It can be either "client_secret" or "certificate".
 * `auth_user_type` - Type of user who can access the SMB Volume. It can be either "domain_user" or "hybrid_user". The default is domain_user. In the case of a hybrid-user, ONTAP cannot access on-premise ADDS.
+* `azure_cloud_region` - The azure cloud location of the tenant in case of hybrid-user authentication, It can be global, us-gov or china. The default is global.
 * `client_secret` - Secret used by the application to prove its identity to AKV.
 * `client_certificate` - Base64 encoded PKCS12 certificate used by the application to prove its identity to AKV.
 ### Recommended optional properties

@@ -79,18 +79,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     DcnNode(
         {
-            "serial_number": "4048820-32-5",
-            "name": "node1",
             "membership": "available",
+            "serial_number": "4048820-32-5",
             "uuid": "f8b16514-cb03-44e0-8efd-9feec9c3fb3e",
+            "name": "node1",
         }
     ),
     DcnNode(
         {
-            "serial_number": "4048820-47-2",
-            "name": "node2",
             "membership": "available",
+            "serial_number": "4048820-47-2",
             "uuid": "f8b16514-cb03-44e0-8efd-9feec9c3fb3f",
+            "name": "node2",
         }
     ),
 ]
@@ -116,26 +116,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     DcnNode(
         {
-            "name": "dcn-01",
             "membership": "member",
+            "uuid": "f8b16514-cb03-44e0-8efd-9feec9c3fb3e",
+            "name": "dcn-01",
             "_links": {
                 "self": {
                     "href": "/api/dcn/cluster/nodes/f8b16514-cb03-44e0-8efd-9feec9c3fb3e"
                 }
             },
-            "uuid": "f8b16514-cb03-44e0-8efd-9feec9c3fb3e",
         }
     ),
     DcnNode(
         {
-            "name": "dcn-02",
             "membership": "member",
+            "uuid": "f8b16514-cb03-44e0-8efd-9feec9c3fb3f",
+            "name": "dcn-02",
             "_links": {
                 "self": {
                     "href": "/api/dcn/cluster/nodes/f8b16514-cb03-44e0-8efd-9feec9c3fb3f"
                 }
             },
-            "uuid": "f8b16514-cb03-44e0-8efd-9feec9c3fb3f",
         }
     ),
 ]
@@ -174,29 +174,29 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     DcnNode(
         {
-            "name": "example_node_name",
             "metric": {
-                "cpu": {"memory_used": 1024000000, "processor_utilization": 3},
                 "timestamp": "2019-12-19T15:50:45+00:00",
-                "gpu": {"memory_used": 1024000000, "processor_utilization": 3},
-                "status": "ok",
+                "cpu": {"processor_utilization": 3, "memory_used": 1024000000},
                 "duration": "PT15S",
-            },
-            "statistics": {
                 "status": "ok",
-                "gpu": {
-                    "processor_utilization_base": 35042835393,
-                    "memory_used": 1024000000,
-                    "processor_utilization_raw": 2514992973,
-                },
-                "cpu": {
-                    "processor_utilization_base": 35046206957,
-                    "memory_used": 1024000000,
-                    "processor_utilization_raw": 2569086312,
-                },
-                "timestamp": "2019-12-19T15:50:48+00:00",
+                "gpu": {"processor_utilization": 3, "memory_used": 1024000000},
             },
             "uuid": "6b29327b-21ca-11ea-99aa-005056bb420b",
+            "name": "example_node_name",
+            "statistics": {
+                "gpu": {
+                    "processor_utilization_base": 35042835393,
+                    "processor_utilization_raw": 2514992973,
+                    "memory_used": 1024000000,
+                },
+                "status": "ok",
+                "timestamp": "2019-12-19T15:50:48+00:00",
+                "cpu": {
+                    "processor_utilization_base": 35046206957,
+                    "processor_utilization_raw": 2569086312,
+                    "memory_used": 1024000000,
+                },
+            },
         }
     )
 ]
@@ -399,14 +399,6 @@ Example: 300536"""
 
 Example: 4ea7a442-86d1-11e0-ae1c-123478563412"""
 
-    vendor_serial_number = marshmallow_fields.Str(
-        data_key="vendor_serial_number",
-        allow_none=True,
-    )
-    r""" OEM vendor serial number.
-
-Example: 791603000068"""
-
     @property
     def resource(self):
         return DcnNode
@@ -430,9 +422,8 @@ Example: 791603000068"""
         "system_id",
         "uptime",
         "uuid",
-        "vendor_serial_number",
     ]
-    """links,date,error,hardware,location,membership,metric,model,name,network,owner,serial_number,software,state,statistics,system_id,uptime,uuid,vendor_serial_number,"""
+    """links,date,error,hardware,location,membership,metric,model,name,network,owner,serial_number,software,state,statistics,system_id,uptime,uuid,"""
 
     patchable_fields = [
         "location",

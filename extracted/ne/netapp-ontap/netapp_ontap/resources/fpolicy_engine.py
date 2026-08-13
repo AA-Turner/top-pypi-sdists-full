@@ -5,7 +5,7 @@ All rights reserved.
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 ## Overview
-The FPolicy engine allows you to configure the external servers to which the file access notifications are sent. As part of FPolicy engine configuration, you can configure a server(s) to which the notification is sent, an optional set of secondary server(s) to which the notification is sent in the case of a primary server(s) failure, the port number for FPolicy application, the type of the engine, which is either synchronous or asynchronous and the format of the notifications, which is either xml or protobuf. </br>
+The FPolicy engine allows you to configure the external servers to which the file access notifications are sent. As part of FPolicy engine configuration, you can configure a server or servers to which the notification is sent, an optional set of secondary servers (one or more) to which the notification is sent if the primary servers fail, the port number for FPolicy application, the type of the engine, which is either synchronous or asynchronous, and the format of the notifications, which is either XML or protobuf. </br>
 For the synchronous engine, ONTAP will wait for a response from the FPolicy application before it allows the operation. With an asynchronous engine, ONTAP proceeds with the operation processing after sending the notification to the FPolicy application. An engine can belong to multiple FPolicy policies. If the format is not specified, the default format, xml, is configured.
 ## Examples
 ### Creating an FPolicy engine
@@ -40,12 +40,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyEngine(
     {
-        "name": "engine0",
-        "primary_servers": ["10.132.145.22", "10.140.101.109"],
-        "secondary_servers": ["10.132.145.20", "10.132.145.21"],
-        "format": "xml",
         "port": 9876,
+        "primary_servers": ["10.132.145.22", "10.140.101.109"],
+        "format": "xml",
+        "secondary_servers": ["10.132.145.20", "10.132.145.21"],
         "type": "synchronous",
+        "name": "engine0",
     }
 )
 
@@ -77,11 +77,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyEngine(
     {
-        "name": "engine0",
+        "port": 9876,
         "primary_servers": ["10.132.145.22", "10.140.101.109"],
         "format": "xml",
-        "port": 9876,
         "type": "synchronous",
+        "name": "engine0",
     }
 )
 
@@ -114,33 +114,33 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FpolicyEngine(
         {
-            "name": "cifs",
-            "primary_servers": ["10.20.20.10"],
             "port": 9876,
+            "primary_servers": ["10.20.20.10"],
             "type": "synchronous",
+            "name": "cifs",
             "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
         }
     ),
     FpolicyEngine(
         {
+            "port": 9876,
+            "primary_servers": ["10.23.140.64", "10.140.101.109"],
+            "format": "xml",
+            "request_cancel_timeout": "PT29S",
+            "secondary_servers": ["10.132.145.20", "10.132.145.22"],
+            "resiliency": {"enabled": False, "retention_duration": "PT3M"},
             "keep_alive_interval": "PT2M",
+            "type": "synchronous",
+            "max_connection_retries": 5,
+            "server_progress_timeout": "PT1M",
             "session_timeout": "PT10S",
+            "status_request_interval": "PT23S",
+            "ssl_option": "no_auth",
             "request_abort_timeout": "PT3M",
             "name": "nfs",
-            "buffer_size": {"recv_buffer": 262144, "send_buffer": 1048576},
-            "request_cancel_timeout": "PT29S",
-            "primary_servers": ["10.23.140.64", "10.140.101.109"],
-            "status_request_interval": "PT23S",
-            "secondary_servers": ["10.132.145.20", "10.132.145.22"],
-            "format": "xml",
-            "ssl_option": "no_auth",
-            "port": 9876,
-            "server_progress_timeout": "PT1M",
-            "max_connection_retries": 5,
-            "type": "synchronous",
-            "max_server_requests": 500,
-            "resiliency": {"retention_duration": "PT3M", "enabled": False},
             "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
+            "max_server_requests": 500,
+            "buffer_size": {"send_buffer": 1048576, "recv_buffer": 262144},
         }
     ),
 ]
@@ -169,11 +169,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyEngine(
     {
-        "name": "cifs",
+        "port": 9876,
         "primary_servers": ["10.20.20.10"],
         "format": "xml",
-        "port": 9876,
         "type": "synchronous",
+        "name": "cifs",
         "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
     }
 )

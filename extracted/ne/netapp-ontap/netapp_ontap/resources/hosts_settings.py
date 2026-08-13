@@ -26,34 +26,34 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     HostsSettings(
         {
-            "negative_cache_enabled": True,
-            "svm": {"name": "vs43", "uuid": "8a1a8730-2036-11ec-8457-005056bbcfdb"},
             "dns_ttl_enabled": True,
-            "ttl": "P1D",
             "uuid": "8a1a8730-2036-11ec-8457-005056bbcfdb",
-            "negative_ttl": "PT1M",
+            "ttl": "P1D",
+            "negative_cache_enabled": True,
             "enabled": True,
+            "svm": {"uuid": "8a1a8730-2036-11ec-8457-005056bbcfdb", "name": "vs43"},
+            "negative_ttl": "PT1M",
         }
     ),
     HostsSettings(
         {
-            "negative_cache_enabled": True,
             "dns_ttl_enabled": True,
-            "ttl": "P1D",
             "uuid": "951e8676-2035-11ec-bfe2-005056bb6bef",
-            "negative_ttl": "PT1M",
+            "ttl": "P1D",
+            "negative_cache_enabled": True,
             "enabled": True,
+            "negative_ttl": "PT1M",
         }
     ),
     HostsSettings(
         {
-            "negative_cache_enabled": True,
-            "svm": {"name": "vs34", "uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef"},
             "dns_ttl_enabled": True,
-            "ttl": "P1D",
             "uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef",
-            "negative_ttl": "PT1M",
+            "ttl": "P1D",
+            "negative_cache_enabled": True,
             "enabled": True,
+            "svm": {"uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef", "name": "vs34"},
+            "negative_ttl": "PT1M",
         }
     ),
 ]
@@ -83,13 +83,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 HostsSettings(
     {
-        "negative_cache_enabled": True,
-        "svm": {"name": "vs34", "uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef"},
         "dns_ttl_enabled": True,
-        "ttl": "P1D",
         "uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef",
-        "negative_ttl": "PT1M",
+        "ttl": "P1D",
+        "negative_cache_enabled": True,
         "enabled": False,
+        "svm": {"uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef", "name": "vs34"},
+        "negative_ttl": "PT1M",
     }
 )
 

@@ -32,11 +32,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsShareAcl(
     {
-        "user_or_group": "root",
-        "svm": {"name": "vs1"},
-        "permission": "no_access",
-        "sid": "S-1-1-0",
         "type": "windows",
+        "permission": "no_access",
+        "user_or_group": "root",
+        "sid": "S-1-1-0",
+        "svm": {"name": "vs1"},
     }
 )
 
@@ -72,20 +72,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CifsShareAcl(
         {
-            "user_or_group": "Everyone",
-            "svm": {"name": "vs1", "uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb"},
-            "permission": "full_control",
-            "sid": "S-1-1-0",
             "type": "windows",
+            "permission": "full_control",
+            "user_or_group": "Everyone",
+            "sid": "S-1-1-0",
+            "svm": {"uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb", "name": "vs1"},
         }
     ),
     CifsShareAcl(
         {
-            "user_or_group": "root",
-            "svm": {"name": "vs1", "uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb"},
-            "permission": "no_access",
-            "sid": "S-1-1-0",
             "type": "windows",
+            "permission": "no_access",
+            "user_or_group": "root",
+            "sid": "S-1-1-0",
+            "svm": {"uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb", "name": "vs1"},
         }
     ),
 ]
@@ -119,11 +119,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsShareAcl(
     {
-        "user_or_group": "everyone",
-        "svm": {"name": "vs1", "uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb"},
-        "permission": "full_control",
-        "sid": "S-1-1-0",
         "type": "windows",
+        "permission": "full_control",
+        "user_or_group": "everyone",
+        "sid": "S-1-1-0",
+        "svm": {"uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb", "name": "vs1"},
     }
 )
 

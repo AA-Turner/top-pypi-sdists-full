@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from aiohttp import ClientError, ClientSession, ClientTimeout, ContentTypeError
 import jwt
+from mashumaro.exceptions import InvalidFieldValue, MissingField
+from mashumaro.mixins.orjson import DataClassORJSONMixin
 
 from pymammotion.const import (
     APP_VERSION,
@@ -41,20 +43,47 @@ from pymammotion.http.model.http import (
 )
 from pymammotion.http.model.response_factory import response_factory
 from pymammotion.http.model.rtk import RTK
-from pymammotion.transport.base import AuthError
+from pymammotion.transport.base import AuthError, ReLoginRequiredError
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable
 
 T = TypeVar("T")
+_ModelT = TypeVar("_ModelT", bound=DataClassORJSONMixin)
 
 _LOGGER = logging.getLogger(__name__)
 
-#: After a failed token refresh, no further refresh is attempted for this many
-#: seconds — decorated API calls proceed with the stale token instead.  Without
-#: this, a persistently failing refresh turns every decorated call into an
-#: oauth2/token hit (refresh_token_v2 + login_v2 fallback).
-_REFRESH_FAILURE_COOLDOWN = 30.0
+#: Hard bound on how long a token refresh may run.  ``_refresh_lock`` — and, via
+#: ``TokenManager``, every other coroutine waiting on a credential — is held for
+#: the duration, and an aiohttp ``ClientSession`` supplied by the host (Home
+#: Assistant does supply one) carries its own timeout policy that we cannot
+#: assume is bounded.  Applied at the refresh call site so the bound holds
+#: regardless of whose session we are using.
+_REFRESH_TIMEOUT_SEC = 30.0
+
+#: Exceptions a malformed credential cache can raise while being decoded.  The cache
+#: is untrusted input: it was written by a previous (possibly older) version of the
+#: library, may have been hand-edited, and may hold live models where the schema now
+#: expects dicts.  Restoring must degrade to "no usable login" rather than propagate
+#: — see :meth:`MammotionHTTP.from_cache`.
+_CACHE_DECODE_ERRORS = (InvalidFieldValue, MissingField, ValueError, TypeError, AttributeError, jwt.PyJWTError)
+
+
+def _decode_cached(value: Any, model: type[_ModelT]) -> _ModelT | None:
+    """Return one cached field as *model*, or ``None`` when the cache does not hold one.
+
+    A cache entry is either an already-decoded model (the cache never left memory) or
+    a plain dict (it round-tripped through JSON) — and, when the cache is corrupt, it
+    may be neither.  Passing an unrecognised value straight through would plant it in
+    a typed attribute and defer the failure to whoever reads that attribute next, so
+    anything else becomes ``None`` and the caller keeps its default.
+    """
+    if isinstance(value, model):
+        return value
+    if isinstance(value, dict):
+        with suppress(*_CACHE_DECODE_ERRORS):
+            return model.from_dict(value)
+    return None
 
 
 def _token_fingerprint(token: str | None) -> str:
@@ -164,6 +193,11 @@ class MammotionHTTP:
         self.msg = None
         self._session: ClientSession | None = session  # None → new session per request
         self.account = account
+        # Stored for callers' convenience only.  NOTHING in this class may read it:
+        # a session is minted from a password exclusively by an explicit, caller-
+        # initiated login_v2(account, password).  Reintroducing an automatic
+        # password login here would let any decorated endpoint bypass every
+        # re-auth policy above this layer — see TokenManager's terminal reauth flags.
         self._password = password
         self._response: Response | None = None
         self._login_info: LoginResponseData | None = None
@@ -173,12 +207,10 @@ class MammotionHTTP:
         # app_version = f"ALIYUN DEMO,{APP_VERSION}"  # f"HA,{ha_version}"
         self._headers = {"User-Agent": "okhttp/4.9.3", "App-Version": app_version}
         self.encryption_utils = EncryptionUtils()
-        # Serializes every oauth2/token exchange (ensure_token_valid, refresh_login,
+        # Serializes every oauth2/token exchange (ensure_token_valid,
         # refresh_token_v2) so concurrent near-expiry callers produce ONE refresh
         # instead of a stampede of competing rotations.
         self._refresh_lock: asyncio.Lock = asyncio.Lock()
-        # Monotonic timestamp of the last failed refresh — see _REFRESH_FAILURE_COOLDOWN.
-        self._refresh_failed_at: float | None = None
         #: Fired (async) after any successful oauth2/token exchange rotates the
         #: login session.  TokenManager wires this to mirror the rotation into its
         #: credential snapshot and persist it — a rotation that isn't persisted
@@ -209,6 +241,126 @@ class MammotionHTTP:
         else:
             async with ClientSession(timeout=self._DEFAULT_HTTP_TIMEOUT) as session:
                 yield session
+
+    @classmethod
+    def from_cache(
+        cls,
+        data: dict[str, Any],
+        account: str | None = None,
+        password: str | None = None,
+        session: ClientSession | None = None,
+        ha_version: str | None = None,
+    ) -> MammotionHTTP | None:
+        """Rebuild a login session from a previously serialized credential cache.
+
+        Pure and synchronous — it performs no I/O, so the restored session is not yet
+        known to be *accepted* by the server.  Call :meth:`validate_login` for that.
+
+        Every value may be either a plain dict (the cache came back from JSON) or an
+        already-decoded model (the cache is still the in-memory one), so each field is
+        normalised on the way in.
+
+        Returns ``None`` — never raises — when the login itself is unusable: no
+        ``mammotion_data``, an undecodable one, or one carrying no access token.  A
+        corrupt cache must fall back to a fresh login, and it used to escape as a
+        ``mashumaro`` ``InvalidFieldValue`` from the middle of the Aliyun restore
+        instead.  The optional fields degrade individually: a malformed MQTT credential
+        block costs the MQTT credentials, not the whole session.
+
+        Args:
+            data:       Cache dictionary produced by ``MammotionClient.to_cache``.
+            account:    Account (email / phone) the cache belongs to.
+            password:   Account password — stored for callers only, never used here.
+            session:    Optional :class:`aiohttp.ClientSession` to reuse.
+            ha_version: Home Assistant integration version for the ``App-Version`` header.
+
+        """
+        if (mammotion_data := data.get("mammotion_data")) is None:
+            _LOGGER.debug("from_cache: no mammotion_data in cache — cannot restore a login session")
+            return None
+
+        try:
+            response = (
+                mammotion_data
+                if isinstance(mammotion_data, Response)
+                else response_factory(Response[LoginResponseData], mammotion_data)
+            )
+            login_info = _decode_cached(response.data, LoginResponseData)
+            if login_info is None or not login_info.access_token:
+                _LOGGER.warning("from_cache: cached login response carries no access token — cannot restore")
+                return None
+            # Normalise before assigning: the ``response`` setter decodes
+            # ``response.data.access_token`` directly and would trip over a dict.
+            response.data = login_info
+
+            http = cls(account, password, session=session, ha_version=ha_version)
+            http.response = response  # derives jwt_info + expires_in from the JWT exp claim
+            http.login_info = login_info
+        except _CACHE_DECODE_ERRORS:
+            _LOGGER.warning("from_cache: cached login data could not be decoded — a fresh login is required")
+            _LOGGER.debug("from_cache: decode failure detail", exc_info=True)
+            return None
+
+        # The cached JWT wins over the one the response setter derived above: it is
+        # what the live session was actually using when the cache was written.
+        if (cached_jwt := _decode_cached(data.get("mammotion_jwt_info"), JWTTokenInfo)) is not None:
+            http.jwt_info = cached_jwt
+
+        if (cached_mqtt := _decode_cached(data.get("mammotion_mqtt"), MQTTConnection)) is not None:
+            http.mqtt_credentials = cached_mqtt
+
+        if isinstance(device_list := data.get("mammotion_device_list"), list):
+            devices = [d for raw in device_list if (d := _decode_cached(raw, DeviceInfo)) is not None]
+            if devices:
+                http.device_info = devices
+
+        if (cached_records := _decode_cached(data.get("mammotion_device_records"), DeviceRecords)) is not None:
+            http.device_records = cached_records
+
+        return http
+
+    async def validate_login(self) -> bool:
+        """Confirm the restored login session is one the server still accepts.
+
+        Two steps, cheapest first:
+
+        1. :meth:`ensure_token_valid` — a local expiry check that only spends a round
+           trip when the access token is within 5 minutes of expiry.
+        2. :meth:`get_user_device_list` — the server's own verdict.  A cached token
+           can be dead long before its ``exp``: the account was logged out, signed in
+           elsewhere, or had its session rotated by another client.  None of that is
+           visible locally, so without a real call a revoked session restores as
+           healthy and only fails on the first command the user issues.
+
+        The probe is the device-list endpoint rather than a dedicated "is this token
+        live" one because it is known to exist and answer — ``/user/oauth/check``
+        returns 404 on live accounts, and treating that as a rejection made every
+        restore refresh (spending the cached refresh token) and then re-login anyway.
+        The caller needs this list moments later regardless, so it costs nothing.
+
+        Returns False when the session is genuinely unusable, so the caller can fall
+        back to a full login.  Transient network failures are deliberately NOT
+        converted to False — they propagate as their own type (``ClientError`` /
+        ``TimeoutError`` / ``ConnectionError``) so a blip cannot be mistaken for a
+        rejected login and trigger a needless password grant.
+        """
+        if self._login_info is None:
+            _LOGGER.warning("validate_login: no login session to validate — a fresh login is required")
+            return False
+        try:
+            await self.ensure_token_valid(caller="validate_login")
+        except ReLoginRequiredError as exc:
+            _LOGGER.warning("validate_login: refresh token rejected (%s) — a fresh login is required", exc)
+            return False
+
+        try:
+            await self.get_user_device_list()
+        except (UnauthorizedExceptionError, AuthError, ReLoginRequiredError) as exc:
+            # ensure_token_valid has already renewed a near-expiry token, so a
+            # rejection here is the session itself, not the clock.
+            _LOGGER.warning("validate_login: server rejected the cached session (%s) — a fresh login is required", exc)
+            return False
+        return True
 
     @property
     def login_info(self) -> LoginResponseData | None:
@@ -277,9 +429,8 @@ class MammotionHTTP:
         """Ensure a valid access token before executing *func*.
 
         Delegates to :meth:`ensure_token_valid` — serialized behind the shared
-        refresh lock with a failure cooldown — so N concurrent decorated calls
-        produce at most one refresh instead of a stampede of competing
-        ``refresh_login()`` calls that rotate each other's refresh token.
+        refresh lock — so N concurrent decorated calls produce at most one
+        refresh instead of a stampede of competing rotations.
         """
 
         @wraps(func)
@@ -296,62 +447,50 @@ class MammotionHTTP:
         in-flight refresh and then see the fresh token via the double-check under
         the lock, instead of each firing their own refresh.
 
-        Never raises — on a failed refresh the request proceeds with the stale
-        token and the endpoint's own 401 handling takes over — but a failure arms
-        a :data:`_REFRESH_FAILURE_COOLDOWN` window during which no further refresh
-        is attempted, so a persistently failing refresh cannot turn every API call
-        into an oauth2/token hit.
+        The refresh token is the ONLY credential used.  There is deliberately no
+        ``login_v2`` fallback: a rejected refresh token is terminal and surfaces as
+        :class:`ReLoginRequiredError` so the host can prompt the user to
+        re-authenticate.  An automatic password login here would bypass every
+        re-auth policy above this layer and, on a server-side outage, turn each
+        decorated call into a password grant.
+
+        Raises:
+            ReLoginRequiredError: The refresh token was rejected, or there is no
+                login session to refresh.  Re-authentication is required.
+            TimeoutError / ClientError / OSError / ConnectionError: The refresh
+                could not be attempted because the network or server is
+                unavailable.  Propagated as-is — the token may well still be
+                good, so callers must back off and retry rather than treat this
+                as an auth failure.
+
         """
         if self.expires_in >= time.time() + 300:  # 300 seconds = 5 minutes
             return
         async with self._refresh_lock:
             if self.expires_in >= time.time() + 300:
                 return  # a concurrent caller refreshed while we waited on the lock
-            if (failed_at := self._refresh_failed_at) is not None and (
-                elapsed := time.monotonic() - failed_at
-            ) < _REFRESH_FAILURE_COOLDOWN:
-                _LOGGER.debug(
-                    "ensure_token_valid[%s]: refresh failed %.0fs ago — cooling down, proceeding with stale token",
-                    caller,
-                    elapsed,
-                )
-                return
+            if self._login_info is None:
+                raise ReLoginRequiredError(self.account or "", "no login session to refresh")
             _LOGGER.debug(
                 "ensure_token_valid[%s]: token near expiry (expires_in=%s, now=%.0f, fp=%s) — refreshing",
                 caller,
                 self.expires_in,
                 time.time(),
-                _token_fingerprint(self._login_info.access_token if self._login_info else None),
+                _token_fingerprint(self._login_info.access_token),
             )
-            try:
-                response = await self._refresh_login_locked()
-            except (TimeoutError, ClientError, OSError) as exc:
-                # Transient network/server failure — the endpoint call may still
-                # succeed (or fail with its own error); do not block it here.
-                self._refresh_failed_at = time.monotonic()
-                _LOGGER.warning(
-                    "ensure_token_valid[%s]: refresh failed (%s) — cooling down %.0fs",
-                    caller,
-                    exc,
-                    _REFRESH_FAILURE_COOLDOWN,
-                )
-                return
+            # Bound the lock hold time independently of the ClientSession's own
+            # timeout policy — see _REFRESH_TIMEOUT_SEC.
+            async with asyncio.timeout(_REFRESH_TIMEOUT_SEC):
+                response = await self._refresh_token_v2_locked()
             if response.code != 0:
-                self._refresh_failed_at = time.monotonic()
                 _LOGGER.warning(
-                    "ensure_token_valid[%s]: refresh rejected (code=%s) — cooling down %.0fs",
+                    "ensure_token_valid[%s]: refresh token rejected (code=%s) — re-authentication required",
                     caller,
                     response.code,
-                    _REFRESH_FAILURE_COOLDOWN,
                 )
-            else:
-                self._refresh_failed_at = None
-
-    async def handle_expiry(self, resp: Response) -> Response:
-        """Re-login and return a fresh response if the given response indicates an expired token (401)."""
-        if resp.code == 401 and self.account and self._password:
-            return await self.login_v2(self.account, self._password)
-        return resp
+                raise ReLoginRequiredError(
+                    self.account or "", f"refresh token rejected by oauth2/token (code={response.code})"
+                )
 
     async def login_by_email(self, email: str, password: str) -> Response[LoginResponseData]:
         """Log in using email and password via the v2 OAuth endpoint."""
@@ -380,35 +519,15 @@ class MammotionHTTP:
 
         return {}
 
-    async def oauth_check(self) -> Response:
-        """Check if token is valid.
-
-        Returns 401 if token is invalid. We then need to re-authenticate, can try to refresh token first
-        """
-        async with self._client_session() as session:
-            resp = await session.post(
-                f"{MAMMOTION_DOMAIN}/user-server/v1/user/oauth/check",
-                headers={
-                    **self._headers,
-                    "Authorization": f"Bearer {self._require_login_info.access_token}",
-                    "Content-Type": "application/json",
-                },
-            )
-            if (resp.headers.get("Content-Type") or "").startswith("application/json"):
-                data = await resp.json()
-                return Response.from_dict(data)
-
-        return Response(code=200, msg="success")
-
     @refresh_token_decorator
     async def refresh_authorization_token(self) -> Response:
         """Proactively refresh the /authorization/code token.
 
-        The @refresh_token_decorator checks whether the OAuth access token is
-        close to expiry and calls refresh_login() first if needed.  Use this
-        for scheduled / background refreshes.  For reactive refreshes (after a
-        401 is already in hand) use fetch_authorization_token() directly so the
-        caller can ensure the access token is already fresh before calling.
+        The @refresh_token_decorator renews the OAuth access token first if it is
+        close to expiry.  Use this for scheduled / background refreshes.  For
+        reactive refreshes (after a 401 is already in hand) use
+        fetch_authorization_token() directly so the caller can ensure the access
+        token is already fresh before calling.
         """
         return await self.fetch_authorization_token()
 
@@ -432,13 +551,13 @@ class MammotionHTTP:
             )
             if (resp.headers.get("Content-Type") or "").startswith("application/json"):
                 data = await resp.json()
-                # This is the /authorization/code endpoint, NOT handle_expiry.  Its
-                # response carries data.code (a fresh authorization *code*), and only
-                # SOMETIMES data.accessToken.  When accessToken is absent (the common
-                # case — see logs) the access token is left UNCHANGED, so this call
-                # alone does not recover an expired bearer; the access token must come
-                # from refresh_login()/refresh_token_v2().  Logged explicitly so a
-                # "still 401 after token refresh" can be traced to a no-op authz fetch.
+                # The /authorization/code response carries data.code (a fresh
+                # authorization *code*), and only SOMETIMES data.accessToken.  When
+                # accessToken is absent (the common case — see logs) the access token
+                # is left UNCHANGED, so this call alone does not recover an expired
+                # bearer; the access token must come from refresh_token_v2().  Logged
+                # explicitly so a "still 401 after token refresh" can be traced to a
+                # no-op authz fetch.
                 had_access_token = "accessToken" in (data.get("data") or {})
                 _LOGGER.debug(
                     "fetch_authorization_token: code=%s, carries_accessToken=%s (access_token left fp=%s)",
@@ -635,7 +754,17 @@ class MammotionHTTP:
 
     @refresh_token_decorator
     async def get_user_device_list(self) -> Response[list[DeviceInfo]]:
-        """Fetches device list for a user (owned not shared, shared returns nothing)."""
+        """Fetch the user's owned devices (shared devices are not returned).
+
+        Raises:
+            UnauthorizedExceptionError: The server rejected the access token.  The
+                decorator above has already renewed it if it was near expiry, so a
+                401 here means the session was invalidated server-side — the token's
+                own ``exp`` cannot show that.  Raising (rather than handing back a
+                ``Response(code=401)`` nobody inspects) is what lets callers tell a
+                dead login from an empty device list.
+
+        """
         async with self._client_session() as session:
             resp = await session.get(
                 f"{MAMMOTION_API_DOMAIN}/device-server/v1/device/list",
@@ -647,8 +776,18 @@ class MammotionHTTP:
                     "Client-Type": "1",
                 },
             )
-            if (resp.headers.get("Content-Type") or "").startswith("application/json"):
-                resp_dict = await resp.json()
+            resp_dict = (
+                await resp.json() if (resp.headers.get("Content-Type") or "").startswith("application/json") else {}
+            )
+            # A 401 arrives either as the HTTP status or as an in-body code — same
+            # dual check mqtt_invoke makes, and for the same reason.
+            if resp.status == 401 or resp_dict.get("code") == 401:
+                _LOGGER.debug(
+                    "get_user_device_list: 401 with access_token fp=%s",
+                    _token_fingerprint(self._login_info.access_token if self._login_info else None),
+                )
+                raise UnauthorizedExceptionError("Access Token expired")
+            if resp_dict:
                 response = response_factory(Response[list[DeviceInfo]], resp_dict)
                 self.device_info = response.data if response.data else self.device_info
                 return response
@@ -828,30 +967,6 @@ class MammotionHTTP:
             with suppress(Exception):
                 await self.on_login_refreshed()
 
-    async def refresh_login(self) -> Response[LoginResponseData]:
-        """Refresh the access token, falling back to a full re-login ONLY on explicit rejection.
-
-        Serialized behind the shared refresh lock with :meth:`ensure_token_valid`
-        and :meth:`refresh_token_v2`.
-
-        Raises:
-            ConnectionError: (propagated from :meth:`refresh_token_v2`) when
-                oauth2/token is unavailable or throttling — callers must back off;
-                a server outage must never escalate into password re-logins.
-
-        """
-        async with self._refresh_lock:
-            return await self._refresh_login_locked()
-
-    async def _refresh_login_locked(self) -> Response[LoginResponseData]:
-        """Body of :meth:`refresh_login`; caller holds ``_refresh_lock``."""
-        if self._login_info is not None:
-            res = await self._refresh_token_v2_locked()
-            if res.code == 0:
-                return res
-            _LOGGER.debug("refresh_login: refresh token rejected (code=%s) — falling back to full login_v2", res.code)
-        return await self.login_v2(self.account, self._password)  # type: ignore
-
     async def login(self, account: str, password: str) -> Response[LoginResponseData]:
         """Logs in to the service using provided account and password."""
         self.account = account
@@ -896,12 +1011,17 @@ class MammotionHTTP:
     async def refresh_token_v2(self) -> Response[LoginResponseData]:
         """Refresh the access token via grant_type=refresh_token; serialized behind the shared refresh lock.
 
+        This is the ONLY way an access token is renewed automatically.  A
+        non-zero ``code`` in the returned response means the refresh token was
+        rejected and re-authentication is required — there is no password
+        fallback.
+
         Raises:
             ConnectionError: On 408/429/5xx or a non-JSON body — the server is
                 unavailable or throttling, not rejecting the refresh token.
 
         """
-        async with self._refresh_lock:
+        async with self._refresh_lock, asyncio.timeout(_REFRESH_TIMEOUT_SEC):
             return await self._refresh_token_v2_locked()
 
     async def _refresh_token_v2_locked(self) -> Response[LoginResponseData]:
@@ -910,9 +1030,13 @@ class MammotionHTTP:
         timestamp = int(time.time() * 1000)
 
         refresh_request = {
+            # Key order matters: create_oauth_signature signs the serialized JSON,
+            # so this must match the order the Android app builds the same request
+            # in (SpecialCodeIntercepter.getRefreshTokenRequest: client_id,
+            # grant_type, refresh_token) for the two signatures to agree.
             "client_id": MAMMOTION_OAUTH2_CLIENT_ID,
-            "refresh_token": self._require_login_info.refresh_token,
             "grant_type": "refresh_token",
+            "refresh_token": self._require_login_info.refresh_token,
         }
 
         oauth_signature = create_oauth_signature(
@@ -928,7 +1052,15 @@ class MammotionHTTP:
                 f"{MAMMOTION_DOMAIN}/oauth2/token",
                 headers={
                     **self._headers,
-                    "Ma-Iot-Signature": oauth_signature,
+                    # Same trio as login_v2, and for the same reason: this is the
+                    # id.mammotion.com/oauth2/token host, where Ma-App-Key names the
+                    # OAuth2 client whose secret keys Ma-Signature.  The Android app
+                    # sends exactly these three on both the password grant and the
+                    # refresh (SpecialCodeIntercepter.getRefreshTokenRequest).
+                    # "Ma-Iot-*" belongs to the other token system
+                    # (api-iot-region.mammotion.com) and was never right here.
+                    "Ma-App-Key": MAMMOTION_OAUTH2_CLIENT_ID,
+                    "Ma-Signature": oauth_signature,
                     "Ma-Timestamp": str(timestamp),
                     "Client-Id": self.client_id,
                     "Client-Type": "1",
@@ -949,9 +1081,19 @@ class MammotionHTTP:
                 msg = f"oauth2/token refresh returned non-JSON body (status={resp.status})"
                 raise ConnectionError(msg) from exc
         refresh_response = response_factory(Response[LoginResponseData], data)
-        if refresh_response is None or refresh_response.data is None:
-            _LOGGER.debug("refresh_token_v2: empty/failed response (status=%s, code=%s)", resp.status, data.get("code"))
-            return Response.from_dict({"code": resp.status, "msg": "Refresh login token failed"})
+        if refresh_response.data is None:
+            # Return the API's own code and message.  Substituting the HTTP status here
+            # discarded the only useful part of the answer: this endpoint reports
+            # failures as 200 + a body code, so callers and logs saw "code=200" for what
+            # was actually e.g. 40102 "Refresh token has expired" — which is the one
+            # thing that tells you the token was superseded rather than merely refused.
+            _LOGGER.warning(
+                "refresh_token_v2: refresh rejected (status=%s, code=%s, msg=%s)",
+                resp.status,
+                refresh_response.code,
+                refresh_response.msg,
+            )
+            return refresh_response
         _LOGGER.debug(
             "refresh_token_v2: OK — access_token %s -> %s",
             _token_fingerprint(self._login_info.access_token if self._login_info else None),
@@ -969,7 +1111,24 @@ class MammotionHTTP:
         return refresh_response
 
     async def login_v2(self, account: str, password: str) -> Response[LoginResponseData]:
-        """Logs in to the service using provided account and password."""
+        """Log in with account + password — the only password grant in this library.
+
+        Reachable only from an explicit, caller-initiated login; no refresh path may
+        call it (see :meth:`ensure_token_valid`).
+
+        On request signing: the ``Ma-App-Key`` / ``Ma-Signature`` / ``Ma-Timestamp``
+        trio below matches the Android app for this host (id.mammotion.com), where
+        ``Ma-App-Key`` names the OAuth2 client whose secret keys the signature.
+        :meth:`refresh_token_v2` now sends the same three, as the app does on both
+        grants.
+
+        Note the server does not appear to enforce any of it strictly: refresh
+        worked for a long time while sending ``Ma-Iot-Signature`` (a header
+        belonging to the *other* token system) and no app key at all, and this
+        request's signature payload orders its JSON keys differently from the
+        app's.  Worth remembering before attributing an auth failure to the
+        signature — it is rarely the cause.
+        """
         self.account = account
         self._password = password
 

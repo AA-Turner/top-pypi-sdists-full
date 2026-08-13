@@ -32,9 +32,10 @@ TEST_SETTINGS_FIXTURE = (
     / "configuration_subsystem"
     / "ansible-navigator.yml"
 )
-DOCS_SETTINGS_SAMPLE = PROJECT_DIR / "docs" / ".generated" / "ansible-navigator.yml"
-DOCS_SETTINGS_DUMP = PROJECT_DIR / "docs" / ".generated" / "settings-dump.md"
-DOCS_SUBCOMMANDS_OVERVIEW = PROJECT_DIR / "docs" / ".generated" / "subcommands-overview.md"
+GENERATED_DIR_NAME = ".generated"
+DOCS_SETTINGS_SAMPLE = PROJECT_DIR / "docs" / GENERATED_DIR_NAME / "ansible-navigator.yml"
+DOCS_SETTINGS_DUMP = PROJECT_DIR / "docs" / GENERATED_DIR_NAME / "settings-dump.md"
+DOCS_SUBCOMMANDS_OVERVIEW = PROJECT_DIR / "docs" / GENERATED_DIR_NAME / "subcommands-overview.md"
 
 APP = "ansible-navigator"
 
@@ -140,8 +141,7 @@ def _params_row_for_entry(entry: SettingsEntry) -> tuple[str, ...]:
         settings.append(f"**Choices:** {choices}")
     if default is not None:
         settings.append(f"**Default:** {default}")
-    if cli_parameters is not None:
-        settings.append(f"**CLI:** {cli_parameters}")
+    settings.append(f"**CLI:** {cli_parameters}")
     if env_var is not None:
         settings.append(f"**ENV:** {env_var}")
 

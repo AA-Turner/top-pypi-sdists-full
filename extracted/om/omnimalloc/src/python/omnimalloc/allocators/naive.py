@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+from omnimalloc.common.intervals import stack_around_pins
 from omnimalloc.primitives import Allocation
 
 from .base import BaseAllocator
@@ -10,14 +11,15 @@ from .base import BaseAllocator
 class NaiveAllocator(BaseAllocator):
     """Naive allocator that places allocations sequentially."""
 
-    def allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
-        placed_allocations: list[Allocation] = []
-        current_offset = 0
+    supports_vector_time = True
+    supports_pinned = True
 
-        for current_alloc in allocations:
-            new_alloc = current_alloc.with_offset(current_offset)
-            placed_allocations.append(new_alloc)
-            assert new_alloc.offset is not None
-            current_offset += new_alloc.size
-
-        return tuple(placed_allocations)
+    def _allocate(self, allocations: tuple[Allocation, ...]) -> tuple[Allocation, ...]:
+        offsets = stack_around_pins(
+            [alloc.size for alloc in allocations],
+            [alloc.offset for alloc in allocations],
+        )
+        return tuple(
+            alloc if alloc.offset is not None else alloc.with_offset(offset)
+            for alloc, offset in zip(allocations, offsets, strict=True)
+        )

@@ -958,7 +958,7 @@ def t_tool(
     return types.Tool(
         function_declarations=[
             types.FunctionDeclaration.from_callable(
-                client=client, callable=origin
+                client=client, callable=origin, use_json_schema=True
             )
         ]
     )

@@ -76,16 +76,13 @@ Container(
     {
         "volumes": [
             {
-                "scale_out": False,
-                "space": {"size": 104857600},
-                "name": "vol1",
                 "s3_bucket": {
                     "policy": {
                         "statements": [
                             {
-                                "effect": "allow",
                                 "resources": ["vol1", "vol1/*"],
                                 "actions": ["ListBucket"],
+                                "effect": "allow",
                                 "principals": ["user1", "group/grp1"],
                             }
                         ]
@@ -93,32 +90,259 @@ Container(
                     "name": "vol1",
                     "nas_path": "/vol1",
                 },
+                "space": {"size": 104857600},
                 "nas": {
+                    "path": "/vol1",
                     "export_policy": {
-                        "name": "vol1",
                         "rules": [
                             {
-                                "ro_rule": ["any"],
-                                "clients": [{"match": "0.0.0.0/0"}],
                                 "rw_rule": ["any"],
+                                "clients": [{"match": "0.0.0.0/0"}],
+                                "ro_rule": ["any"],
                             }
                         ],
+                        "name": "vol1",
                     },
                     "cifs": {
                         "shares": [
                             {
-                                "name": "vol1",
                                 "acls": [
                                     {
-                                        "user_or_group": "everyone",
-                                        "permission": "full_control",
                                         "type": "windows",
+                                        "permission": "full_control",
+                                        "user_or_group": "everyone",
                                     }
                                 ],
+                                "name": "vol1",
                             }
                         ]
                     },
+                },
+                "scale_out": False,
+                "name": "vol1",
+            }
+        ],
+        "svm": {"name": "vs0"},
+    }
+)
+
+```
+</div>
+</div>
+
+### Creating a Flexgroup with NAS (NFS and CIFS access) along with S3 NAS bucket with S3 access policies
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Container
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Container()
+    resource.svm = {"name": "vs0"}
+    resource.volumes = [
+        {
+            "name": "vol1",
+            "space": {"size": "100mb"},
+            "scale_out": True,
+            "qos": {"policy": {"name": "none"}},
+            "nas": {
+                "path": "/vol1",
+                "export_policy": {
+                    "name": "test_ep1",
+                    "rules": [
+                        {
+                            "clients": [{"match": "0.0.0.0/0"}],
+                            "rw_rule": ["any"],
+                            "ro_rule": ["any"],
+                        }
+                    ],
+                },
+                "cifs": {
+                    "shares": [
+                        {
+                            "name": "vol1",
+                            "acls": [
+                                {
+                                    "type": "windows",
+                                    "permission": "full_control",
+                                    "user_or_group": "everyone",
+                                }
+                            ],
+                        }
+                    ]
+                },
+            },
+            "s3_bucket": {
+                "name": "vol14",
+                "nas_path": "/vol14",
+                "policy": {
+                    "statements": [
+                        {
+                            "actions": ["ListBucket"],
+                            "effect": "allow",
+                            "resources": ["vol14", "vol1/*"],
+                        }
+                    ]
+                },
+            },
+        }
+    ]
+    resource.post(hydrate=True)
+    print(resource)
+
+```
+<div class="try_it_out">
+<input id="example1_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example1_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example1_result" class="try_it_out_content">
+```
+Container(
+    {
+        "volumes": [
+            {
+                "s3_bucket": {
+                    "policy": {
+                        "statements": [
+                            {
+                                "resources": ["vol14", "vol1/*"],
+                                "actions": ["ListBucket"],
+                                "effect": "allow",
+                            }
+                        ]
+                    },
+                    "name": "vol14",
+                    "nas_path": "/vol14",
+                },
+                "space": {"size": 104857600},
+                "nas": {
                     "path": "/vol1",
+                    "export_policy": {
+                        "rules": [
+                            {
+                                "rw_rule": ["any"],
+                                "clients": [{"match": "0.0.0.0/0"}],
+                                "ro_rule": ["any"],
+                            }
+                        ],
+                        "name": "test_ep1",
+                    },
+                    "cifs": {
+                        "shares": [
+                            {
+                                "acls": [
+                                    {
+                                        "type": "windows",
+                                        "permission": "full_control",
+                                        "user_or_group": "everyone",
+                                    }
+                                ],
+                                "name": "vol1",
+                            }
+                        ]
+                    },
+                },
+                "scale_out": True,
+                "qos": {"policy": {"name": "none"}},
+                "name": "vol1",
+            }
+        ],
+        "svm": {"name": "vs0"},
+    }
+)
+
+```
+</div>
+</div>
+
+### Creating a Flexcache with NAS (NFS and CIFS access), given there exist a Flexvol "vol1" on the cluster
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Container
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Container()
+    resource.svm = {"name": "vs0"}
+    resource.volumes = [
+        {
+            "name": "vol11",
+            "space": {"size": "320mb"},
+            "flexcache": {
+                "origins": [{"volume": {"name": "vol1"}, "svm": {"name": "vs0"}}]
+            },
+            "qos": {"policy": {"name": "value-fixed"}},
+            "nas": {
+                "path": "/vol11",
+                "export_policy": {
+                    "name": "vol11",
+                    "rules": [
+                        {
+                            "clients": [{"match": "0.0.0.0/0"}],
+                            "rw_rule": ["any"],
+                            "ro_rule": ["any"],
+                        }
+                    ],
+                },
+                "cifs": {
+                    "shares": [
+                        {
+                            "name": "vol11",
+                            "acls": [
+                                {
+                                    "type": "windows",
+                                    "permission": "full_control",
+                                    "user_or_group": "everyone",
+                                }
+                            ],
+                        }
+                    ]
+                },
+            },
+        }
+    ]
+    resource.post(hydrate=True)
+    print(resource)
+
+```
+<div class="try_it_out">
+<input id="example2_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example2_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example2_result" class="try_it_out_content">
+```
+Container(
+    {
+        "volumes": [
+            {
+                "space": {"size": 335544320},
+                "nas": {
+                    "path": "/vol11",
+                    "export_policy": {
+                        "rules": [
+                            {
+                                "rw_rule": ["any"],
+                                "clients": [{"match": "0.0.0.0/0"}],
+                                "ro_rule": ["any"],
+                            }
+                        ],
+                        "name": "vol11",
+                    },
+                    "cifs": {
+                        "shares": [
+                            {
+                                "acls": [
+                                    {
+                                        "type": "windows",
+                                        "permission": "full_control",
+                                        "user_or_group": "everyone",
+                                    }
+                                ],
+                                "name": "vol11",
+                            }
+                        ]
+                    },
+                },
+                "qos": {"policy": {"name": "value-fixed"}},
+                "name": "vol11",
+                "flexcache": {
+                    "origins": [{"volume": {"name": "vol1"}, "svm": {"name": "vs0"}}]
                 },
             }
         ],
@@ -155,14 +379,6 @@ __pdoc__ = {
 class ContainerSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the Container object"""
 
-    provisioning_options = marshmallow_fields.Nested(
-                lambda: lazy_import_schema("netapp_ontap.models.container_provisioning_options", "ContainerProvisioningOptionsSchema"),
-                data_key="provisioning_options",
-                unknown=EXCLUDE,
-                allow_none=True
-            )
-    r""" Options that are applied to the operation."""
-
     svm = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.resources.svm", "SvmSchema"),
                 data_key="svm",
@@ -170,12 +386,6 @@ class ContainerSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
                 allow_none=True
             )
     r""" The svm field of the container."""
-
-    use_mirrored_aggregates = marshmallow_fields.Boolean(
-        data_key="use_mirrored_aggregates",
-        allow_none=True,
-    )
-    r""" Specifies whether mirrored aggregates are selected when provisioning the volume. Only mirrored aggregates are used if this parameter is set to _true_ and only unmirrored aggregates are used if this parameter is set to _false_. The default value is _true_ for a MetroCluster configuration and is _false_ for a non-MetroCluster configuration."""
 
     volumes = marshmallow_fields.List(
                 marshmallow_fields.Nested(
@@ -203,13 +413,11 @@ class ContainerSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """volumes,"""
 
     postable_fields = [
-        "provisioning_options",
         "svm.name",
         "svm.uuid",
-        "use_mirrored_aggregates",
         "volumes",
     ]
-    """provisioning_options,svm.name,svm.uuid,use_mirrored_aggregates,volumes,"""
+    """svm.name,svm.uuid,volumes,"""
 
 class Container(Resource):
     """Allows interaction with Container objects on the host"""
@@ -236,10 +444,9 @@ class Container(Resource):
 </personalities>
 <personalities supports=aiml,unified>
 Creates one or more of the following:
-* New NAS FlexVol or FlexGroup volumes
-* S3 buckets
-* Access policies for NFS, CIFS and S3
-* FlexCache volumes
+  * New NAS FlexVol or FlexGroup volumes (with or without S3 buckets)
+  * Access policies for NFS, CIFS, and S3
+  * FlexCache volumes
 ## Required properties
 * `svm.uuid` or `svm.name` - Existing SVM in which to create the container.
 * `volumes`
@@ -274,10 +481,9 @@ Creates one or more of the following:
 </personalities>
 <personalities supports=aiml,unified>
 Creates one or more of the following:
-* New NAS FlexVol or FlexGroup volumes
-* S3 buckets
-* Access policies for NFS, CIFS and S3
-* FlexCache volumes
+  * New NAS FlexVol or FlexGroup volumes (with or without S3 buckets)
+  * Access policies for NFS, CIFS, and S3
+  * FlexCache volumes
 ## Required properties
 * `svm.uuid` or `svm.name` - Existing SVM in which to create the container.
 * `volumes`

@@ -33,12 +33,14 @@ Valid choices:
 Possible values:
   - `none` - TLS encryption is not configured for the host connection.
   - `configured` - A user supplied PSK was used for the encrypted NVMe/TCP-TLS transport connection between the host and the NVMe subsystem.
+  - `generated` - A PSK generated via NVMe in-band authentication was used to setup the encrypted NVMe/TCP-TLS transport connection between the host and the NVMe subsystem.
 
 
 Valid choices:
 
 * none
-* configured """
+* configured
+* generated """
 
     psk_identity = marshmallow_fields.Str(data_key="psk_identity", allow_none=True)
     r""" The TLS PSK identity supplied by the host when establishing the encrypted NVMe/TCP transport connection between the host and the NVMe subsystem. This property is populated only when encryption is in use for the transport connection.

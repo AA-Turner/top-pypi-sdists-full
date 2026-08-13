@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiopvapi
-Version: 3.4.0
+Version: 3.4.1
 Summary: Powerview blinds API wrapper
 Home-page: https://github.com/sander76/aio-powerview-api
 Author: Sander Teunissen
@@ -43,6 +43,12 @@ Links
 
 Changelog
 ---------
+
+**v3.4.1**
+- Correct erroneous naming in function naming
+- Handle empty responses from gen 1 hubs
+- Handle scenemembers api endpoint case sensitive
+- Update automation primary key to eventid
 
 **v3.4.0**
 - BREAKING CHANGE: Update SceneMembers api to use Scene ID as index over Shade ID

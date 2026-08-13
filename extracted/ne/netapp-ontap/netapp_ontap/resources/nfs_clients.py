@@ -56,30 +56,30 @@ with HostConnection(
     NfsClients(
         {
             "protocol": "nfs4",
+            "volume": {"uuid": "c6bbc6f2-b8d0-11e9-9ad1-0050568e8480", "name": "rvol1"},
             "server_ip": "10.140.72.214",
-            "svm": {"name": "vs1", "uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480"},
-            "volume": {"name": "rvol1", "uuid": "c6bbc6f2-b8d0-11e9-9ad1-0050568e8480"},
-            "node": {"name": "vsim1", "uuid": "cc282893-b82f-11e9-a3ad-0050568e8480"},
+            "svm": {"uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480", "name": "vs1"},
+            "node": {"uuid": "cc282893-b82f-11e9-a3ad-0050568e8480", "name": "vsim1"},
             "client_ip": "10.140.137.57",
         }
     ),
     NfsClients(
         {
             "protocol": "nfs3",
+            "volume": {"uuid": "d28d1999-b8d0-11e9-9ad1-0050568e8480", "name": "vol1"},
             "server_ip": "10.140.72.214",
-            "svm": {"name": "vs1", "uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480"},
-            "volume": {"name": "vol1", "uuid": "d28d1999-b8d0-11e9-9ad1-0050568e8480"},
-            "node": {"name": "vsim1", "uuid": "cc282893-b82f-11e9-a3ad-0050568e8480"},
+            "svm": {"uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480", "name": "vs1"},
+            "node": {"uuid": "cc282893-b82f-11e9-a3ad-0050568e8480", "name": "vsim1"},
             "client_ip": "10.140.137.57",
         }
     ),
     NfsClients(
         {
             "protocol": "nfs4",
+            "volume": {"uuid": "d28d1999-b8d0-11e9-9ad1-0050568e8480", "name": "vol1"},
             "server_ip": "10.140.72.214",
-            "svm": {"name": "vs1", "uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480"},
-            "volume": {"name": "vol1", "uuid": "d28d1999-b8d0-11e9-9ad1-0050568e8480"},
-            "node": {"name": "vsim1", "uuid": "cc282893-b82f-11e9-a3ad-0050568e8480"},
+            "svm": {"uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480", "name": "vs1"},
+            "node": {"uuid": "cc282893-b82f-11e9-a3ad-0050568e8480", "name": "vsim1"},
             "client_ip": "10.140.137.57",
         }
     ),

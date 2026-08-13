@@ -44,6 +44,7 @@ def simplify(
     verbose: bool = False,
     return_collapses: bool = False,
     lossless: bool = False,
+    preserve_border: bool = False,
 ) -> (
     tuple[NDArray[np.float64], NDArray[np.int64]]
     | tuple[NDArray[np.float64], NDArray[np.int64], NDArray[np.int64]]
@@ -80,6 +81,10 @@ def simplify(
         i-th collapse, the vertex ``i1`` was collapsed into the vertex ``i0``.
     lossless : bool, optional
         If True, simplify the mesh losslessly.
+    preserve_border : bool, default: False
+        If True, preserve the open boundary (border) of the mesh by
+        preventing the collapse of any edge that touches a border vertex.
+        Applies to both the standard and lossless simplification paths.
 
     Returns
     -------
@@ -155,10 +160,10 @@ def simplify(
     )
 
     if lossless:
-        _simplify.simplify_lossless(verbose)
+        _simplify.simplify_lossless(verbose, preserve_border)
     else:
         target_count = _check_args(target_reduction, target_count, n_faces)
-        _simplify.simplify(target_count, agg, verbose)
+        _simplify.simplify(target_count, agg, verbose, preserve_border)
     points = _simplify.return_points()
     faces = _simplify.return_faces_int32_no_padding().reshape(-1, 3)
 
@@ -173,6 +178,7 @@ def simplify_mesh(
     target_count: int | None = None,
     agg: float = 7.0,
     verbose: bool = False,
+    preserve_border: bool = False,
 ):
     """Simplify a pyvista mesh.
 
@@ -196,6 +202,9 @@ def simplify_mesh(
         reach the ``target_reduction`` or ``target_count``.
     verbose : bool, optional
         Enable verbose output when simplifying the mesh.
+    preserve_border : bool, default: False
+        If True, preserve the open boundary (border) of the mesh by
+        preventing the collapse of any edge that touches a border vertex.
 
     Returns
     -------
@@ -222,16 +231,43 @@ def simplify_mesh(
     )
 
     target_count = _check_args(target_reduction, target_count, n_faces)
-    _simplify.simplify(target_count, agg, verbose)
+    _simplify.simplify(target_count, agg, verbose, preserve_border)
 
-    # return the correct datatype of the faces
-    if pv._get_vtk_id_type() == np.int32:
-        faces = _simplify.return_faces_int32()
+    # Fast simplification only produces triangle meshes, so the output cell
+    # array is uniformly 3-wide.  On VTK >= 9.6.2 this is a perfect fit for
+    # fixed-size cell storage, which drops the redundant offsets array by
+    # storing only the flat connectivity together with a constant cell size.
+    if pv.vtk_version_info >= (9, 6, 2):
+        from vtkmodules.util.numpy_support import numpy_to_vtk
+        from vtkmodules.vtkCommonDataModel import vtkCellArray
+
+        # unpadded flat connectivity (length n_tri * 3), int32.  numpy_to_vtk
+        # maps int32 to a ``vtkTypeInt32Array``, one of the connectivity array
+        # widths accepted by ``vtkCellArray.SetData``.
+        connectivity = _simplify.return_faces_int32_no_padding()
+        connectivity_vtk = numpy_to_vtk(connectivity, deep=False)
+
+        carr = vtkCellArray()
+        carr.SetData(3, connectivity_vtk)
+        # keep the numpy buffer alive for the lifetime of the cell array
+        carr._connectivity_np_ref = connectivity_vtk
+
+        # build an empty PolyData and attach points + polys directly so that
+        # no spurious vertex cells are generated (as would happen when passing
+        # only points to the PolyData constructor)
+        mesh = pv.PolyData()
+        mesh.points = _simplify.return_points()
+        mesh.SetPolys(carr)
     else:
-        faces = _simplify.return_faces_int64()
+        # return the correct datatype of the faces
+        if pv._get_vtk_id_type() == np.int32:
+            faces = _simplify.return_faces_int32()
+        else:
+            faces = _simplify.return_faces_int64()
 
-    # construct mesh
-    mesh = pv.PolyData(_simplify.return_points(), faces, deep=False)
+        # construct mesh
+        mesh = pv.PolyData(_simplify.return_points(), faces, deep=False)
+
     mesh.field_data["fast_simplification_collapses"] = _simplify.return_collapses()
 
     return mesh

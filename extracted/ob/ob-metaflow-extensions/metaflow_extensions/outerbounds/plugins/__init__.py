@@ -338,6 +338,7 @@ STEP_DECORATORS_DESC = [
     ("nim", ".nim.nim_decorator.NimDecorator"),
     ("ollama", ".ollama.OllamaDecorator"),
     ("vllm", ".vllm.VLLMDecorator"),
+    ("ray_ui", ".ray_ui.RayUIDecorator"),
     ("s3_proxy", ".s3_proxy.s3_proxy_decorator.S3ProxyDecorator"),
     ("nebius_s3_proxy", ".s3_proxy.s3_proxy_decorator.NebiusS3ProxyDecorator"),
     ("coreweave_s3_proxy", ".s3_proxy.s3_proxy_decorator.CoreWeaveS3ProxyDecorator"),

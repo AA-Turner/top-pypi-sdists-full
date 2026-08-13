@@ -26,64 +26,64 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsDomain(
     {
-        "server_discovery_mode": "all",
         "password_schedule": {
-            "schedule_description": "Tue@1:00",
-            "schedule_randomized_minute": 120,
             "schedule_enabled": False,
             "schedule_weekly_interval": 4,
+            "schedule_randomized_minute": 120,
+            "schedule_description": "Tue@1:00",
         },
-        "trust_relationships": [
-            {
-                "home_domain": "SERVER02.COM",
-                "node": {
-                    "name": "vsNode2",
-                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
-                },
-                "trusted_domains": ["SERVER02.COM"],
-            }
-        ],
-        "name_mapping": {"trusted_domains": ["SERVER03.COM", "SERVER04.COM"]},
         "discovered_servers": [
             {
+                "preference": "preferred",
+                "server_name": "scspb0659002001",
                 "server_ip": "192.168.20.1",
+                "domain": "server02.com",
+                "node": {
+                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
+                    "name": "vsNode2",
+                },
                 "state": "undetermined",
                 "server_type": "kerberos",
-                "preference": "preferred",
-                "server_name": "scspb0659002001",
-                "node": {
-                    "name": "vsNode2",
-                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
-                },
-                "domain": "server02.com",
             },
             {
+                "preference": "preferred",
+                "server_name": "scspb0659002001",
                 "server_ip": "192.168.20.1",
+                "domain": "server02.com",
+                "node": {
+                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
+                    "name": "vsNode2",
+                },
                 "state": "undetermined",
                 "server_type": "ms_ldap",
-                "preference": "preferred",
-                "server_name": "scspb0659002001",
-                "node": {
-                    "name": "vsNode2",
-                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
-                },
-                "domain": "server02.com",
             },
             {
-                "server_ip": "192.168.20.1",
-                "state": "undetermined",
-                "server_type": "ms_dc",
                 "preference": "preferred",
                 "server_name": "scspb0659002001",
-                "node": {
-                    "name": "vsNode2",
-                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
-                },
+                "server_ip": "192.168.20.1",
                 "domain": "server02.com",
+                "node": {
+                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
+                    "name": "vsNode2",
+                },
+                "state": "undetermined",
+                "server_type": "ms_dc",
             },
         ],
+        "name_mapping": {"trusted_domains": ["SERVER03.COM", "SERVER04.COM"]},
         "preferred_dcs": [{"server_ip": "192.168.20.1", "fqdn": "server02.com"}],
-        "svm": {"name": "vs2", "uuid": "6dd78167-c907-11eb-b2bf-0050568e7324"},
+        "svm": {"uuid": "6dd78167-c907-11eb-b2bf-0050568e7324", "name": "vs2"},
+        "trust_relationships": [
+            {
+                "node": {
+                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
+                    "name": "vsNode2",
+                },
+                "trusted_domains": ["SERVER02.COM"],
+                "home_domain": "SERVER02.COM",
+            }
+        ],
+        "server_discovery_mode": "all",
     }
 )
 
@@ -111,72 +111,72 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsDomain(
     {
-        "server_discovery_mode": "all",
         "password_schedule": {
-            "schedule_description": "Tue@1:00",
-            "schedule_randomized_minute": 120,
             "schedule_enabled": False,
             "schedule_weekly_interval": 4,
+            "schedule_randomized_minute": 120,
+            "schedule_description": "Tue@1:00",
         },
-        "trust_relationships": [
+        "discovered_servers": [
             {
-                "home_domain": "SERVER02.COM",
+                "preference": "preferred",
+                "server_name": "scspb0659002001",
+                "server_ip": "192.168.20.1",
+                "domain": "server02.com",
                 "node": {
-                    "name": "vsNode1",
-                    "uuid": "a64c0906-c7dd-11eb-af15-0050568e403e",
+                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
+                    "name": "vsNode2",
                 },
-                "trusted_domains": ["SERVER02.COM"],
+                "state": "undetermined",
+                "server_type": "kerberos",
             },
             {
-                "home_domain": "SERVER02.COM",
+                "preference": "preferred",
+                "server_name": "scspb0659002001",
+                "server_ip": "192.168.20.1",
+                "domain": "server02.com",
                 "node": {
-                    "name": "vsNode2",
                     "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
+                    "name": "vsNode2",
                 },
-                "trusted_domains": ["SERVER02.COM"],
+                "state": "undetermined",
+                "server_type": "ms_ldap",
+            },
+            {
+                "preference": "preferred",
+                "server_name": "scspb0659002001",
+                "server_ip": "192.168.20.1",
+                "domain": "server02.com",
+                "node": {
+                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
+                    "name": "vsNode2",
+                },
+                "state": "undetermined",
+                "server_type": "ms_dc",
             },
         ],
         "name_mapping": {"trusted_domains": ["SERVER03.COM", "SERVER04.COM"]},
-        "discovered_servers": [
+        "preferred_dcs": [{"server_ip": "192.168.20.1", "fqdn": "server02.com"}],
+        "svm": {"uuid": "6dd78167-c907-11eb-b2bf-0050568e7324", "name": "vs2"},
+        "trust_relationships": [
             {
-                "server_ip": "192.168.20.1",
-                "state": "undetermined",
-                "server_type": "kerberos",
-                "preference": "preferred",
-                "server_name": "scspb0659002001",
                 "node": {
-                    "name": "vsNode2",
-                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
+                    "uuid": "a64c0906-c7dd-11eb-af15-0050568e403e",
+                    "name": "vsNode1",
                 },
-                "domain": "server02.com",
+                "trusted_domains": ["SERVER02.COM"],
+                "home_domain": "SERVER02.COM",
             },
             {
-                "server_ip": "192.168.20.1",
-                "state": "undetermined",
-                "server_type": "ms_ldap",
-                "preference": "preferred",
-                "server_name": "scspb0659002001",
                 "node": {
-                    "name": "vsNode2",
                     "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
-                },
-                "domain": "server02.com",
-            },
-            {
-                "server_ip": "192.168.20.1",
-                "state": "undetermined",
-                "server_type": "ms_dc",
-                "preference": "preferred",
-                "server_name": "scspb0659002001",
-                "node": {
                     "name": "vsNode2",
-                    "uuid": "4d9400f0-c84b-11eb-90ab-0050568e7324",
                 },
-                "domain": "server02.com",
+                "trusted_domains": ["SERVER02.COM"],
+                "home_domain": "SERVER02.COM",
             },
         ],
-        "preferred_dcs": [{"server_ip": "192.168.20.1", "fqdn": "server02.com"}],
-        "svm": {"name": "vs2", "uuid": "6dd78167-c907-11eb-b2bf-0050568e7324"},
+        "server_discovery_mode": "all",
     }
 )
 

@@ -137,9 +137,10 @@ def add_subparser(sub: argparse._SubParsersAction[Any]) -> None:
         help=(
             "Execution lane (th#913 dual-form): a family 'bf16'|'fp8', or a "
             "full descriptor like 'fp8-w8a8-dynamic+compiled'. Default: auto "
-            "(the binding as declared). 'fp8' maps to the local cast lane; "
-            "'fp8-w8a8*' folds the #fp8-w8a8 flavor (must be published); "
-            "4bit lanes need an explicit ref#flavor instead."
+            "(the binding as declared). 'fp8' maps to the local cast lane. "
+            "Stored-quant lanes (fp8-w8a8, 4bit) are not selectable locally: "
+            "§1.32(d) deleted the within-tag-group selector, so bind the "
+            "checkpoint you mean by digest ('owner/repo@sha256:<hex>')."
         ),
     )
     p.add_argument(
@@ -403,8 +404,13 @@ def _inject_default_source(
 def _decode_payload(
     payload_bytes: bytes, payload_type: type,
 ) -> Any:
-    """Decode the JSON payload into the typed msgspec.Struct, then apply
-    any post-decode Clamp constraints exactly the way the live worker does.
+    """Decode the JSON payload into the typed msgspec.Struct.
+
+    The decode IS the whole contract: msgspec's own validation is what the
+    live worker runs (`executor` decodes with the same `payload_type`). The
+    old `Clamp` post-decode pass claimed to mirror the worker and did not —
+    it had no serve-path call site at all, and its result was discarded here
+    inside a bare `except`. Deleted with the module (pgw#941 A).
     """
     try:
         decoded: Any = msgspec.json.decode(payload_bytes, type=payload_type)
@@ -414,12 +420,6 @@ def _decode_payload(
         raise _UsageError(f"payload validation failed: {e}") from e
     except msgspec.DecodeError as e:
         raise _UsageError(f"payload is not valid JSON: {e}") from e
-    try:
-        from ..api.payload_constraints import apply_payload_constraints
-        _ = apply_payload_constraints(decoded)
-    except Exception:
-        # Best-effort; failure here is non-fatal (matches live worker).
-        pass
     return decoded
 
 
@@ -668,12 +668,20 @@ def run_setup(
     mint = _local_mint_context(
         instance, resolved_models, wanted,
         component_paths=component_paths, selected=selected)
+    # pgw#1199: a mint this load OWES is collected, not run. Arming from the
+    # local store still happens inside the load (the endpoint's `setup()` must
+    # receive an armed pipeline), but the MINT waits until `setup()` and
+    # `warmup()` have returned — because the mint child no longer proves the
+    # endpoint's handler itself, and proving it needs an instance whose
+    # pipeline is bound. Same order the fleet boots in (pgw#671).
+    deferred: List[Any] = []
     loaded = {
         k: _load_injected_model(
             hints.get(k), v, decl=decl, slot=k, device=device,
             arm_compile=arm_compile, place=place,
             overrides=dict((component_paths or {}).get(k) or {}),
-            structure_only=tuple(structure_only), mint=mint)
+            structure_only=tuple(structure_only), mint=mint,
+            defer=deferred)
         for k, v in resolved_models.items()
         if k in wanted
     }
@@ -682,6 +690,11 @@ def run_setup(
     warmup_fn = getattr(instance, "warmup", None)
     if callable(warmup_fn):
         warmup_fn()
+    if deferred and selected is not None:
+        from .. import local_serve
+
+        local_serve.run_deferred(
+            deferred, instance=instance, specs=[selected.spec])
     return loaded if return_loaded else None
 
 
@@ -728,7 +741,8 @@ def _local_mint_context(
 
 
 def _assert_structure_honored(
-    pipe: Any, injected: Dict[str, Any], *, slot: str = "",
+    pipe: Any, injected: Dict[str, Any], *,
+    requested: Sequence[str] = (), slot: str = "",
 ) -> None:
     """The composed pipeline must actually CARRY the structure-only modules.
 
@@ -741,8 +755,41 @@ def _assert_structure_honored(
     strand, because the component WAS built weight-free and the pipeline threw
     it away. The mint child FAILS CLOSED on it (it does not fall back to a
     real-weight export, which is how z-image OOM'd ~40 GiB as `retryable`).
+
+    ``requested`` is what the CALLER asked to be weight-free, and it is checked
+    separately because the loop below could only ever see components that were
+    BUILT (pgw#1173). A target the builder skipped — ``model_index.json`` does
+    not name it, or the tree has no readable index at all, in which case
+    ``model_index_components`` returns the empty set and EVERY target is
+    skipped — never enters ``injected``, so this guard iterated nothing and
+    passed while the pipeline loaded that target's checkpoint. A guard that
+    cannot fire for the case it is named for is worse than no guard, because
+    its silence is read as proof. Such a target is the buildable-strand
+    refusal (``StructureOnlyUnsupported``), NOT the swallowed one: the mint
+    child's fallback to a real-weight export stays correct and stays RECORDED,
+    and the boot trace — which may not fall back at all — refuses.
     """
-    from ..models.structure_only import STAMP, StructureNotHonored
+    from ..models.structure_only import (
+        STAMP, StructureNotHonored, StructureOnlyUnsupported, target_module,
+    )
+
+    for component in sorted({str(c).strip() for c in requested if str(c).strip()}):
+        # A target is an attribute PATH: `vae.decode`'s weights live in the
+        # `vae` the builder injected, so the root is what `injected` is keyed
+        # on and what decides whether this target was covered.
+        if component in injected or component.split(".")[0] in injected:
+            continue
+        module = target_module(pipe, component)
+        if module is None:
+            continue  # this slot does not carry it — legitimately absent
+        raise StructureOnlyUnsupported(
+            component=component, cls_name=type(module).__name__,
+            lacks=(
+                f"the pipeline for slot {slot or '?'} DOES carry this "
+                f"component and no structure-only module was built for it, so "
+                f"it was composed from the checkpoint — the tree's "
+                f"model_index.json does not name it (or has none), which is "
+                f"what the builder skips on"))
 
     for component, module in sorted(injected.items()):
         got = getattr(pipe, component, None)
@@ -784,6 +831,7 @@ def _load_injected_model(
     overrides: Optional[Dict[str, str]] = None,
     structure_only: Sequence[str] = (),
     mint: Optional["local_serve.LocalMintContext"] = None,
+    defer: Optional[List[Any]] = None,
 ) -> Any:
     """Load one setup slot via the shared core, with a per-process warm cache
     (so ``serve`` and repeated local dispatches never reload weights).
@@ -840,7 +888,8 @@ def _load_injected_model(
     if not sl.is_pipeline:
         return sl.obj
     if structure_only:
-        _assert_structure_honored(sl.obj, injected, slot=slot)
+        _assert_structure_honored(
+            sl.obj, injected, requested=structure_only, slot=slot)
     compile_cfg = getattr(decl, "compile", None) if decl is not None else None
     if compile_cfg is not None:
         # SDK v2: the compile machinery consumes the enriched CompileCell
@@ -850,17 +899,12 @@ def _load_injected_model(
         # is self-consistent.
         from ..registry import CompileCell
 
-        compile_cfg = CompileCell(
-            shapes=tuple(compile_cfg.shapes),
-            targets=tuple(compile_cfg.targets),
-            family=str(compile_cfg.family or ""),
-            regional=bool(compile_cfg.regional),
-            text_len=compile_cfg.text_len,
-            dynamic=tuple(compile_cfg.dynamic),
-            lora_bucket=int(getattr(decl, "lora_bucket", 0) or 0),
-            guidance_scales=(),
-            text_lens=(),
-        )
+        # ONE constructor with the registry's path (pgw#1150): a must-survive
+        # field this site forgot to copy — the declared numerics band was
+        # exactly that — silently judges every locally minted cell at a default
+        # nobody chose.
+        compile_cfg = CompileCell.from_declaration(
+            compile_cfg, lora_bucket=int(getattr(decl, "lora_bucket", 0) or 0))
     if (
         arm_compile
         and compile_cfg is not None
@@ -879,7 +923,8 @@ def _load_injected_model(
         # pgw#1086 wave 1's deletion of that module would have taken compiled
         # serving off cozy-local outright.
         local_serve.enable_compiled(
-            sl.obj, compile_cfg, Path(tensorhub_cas_dir()), mint=mint)
+            sl.obj, compile_cfg, Path(tensorhub_cas_dir()), mint=mint,
+            defer=defer)
     _INJECTED_CACHE[key] = sl.obj
     return sl.obj
 
@@ -954,7 +999,6 @@ def _local_executing_execution_lane(
     if not body:
         body = lanespec.most_quantized_body(
             lanespec.execution_lane_body_of_binding(
-                getattr(b, "flavor", "") or "",
                 getattr(b, "storage_dtype", "") or "")
             for b in (bindings or {}).values())
     # ie#655: a local run compiles nothing, so the execution axis is eager —
@@ -967,9 +1011,10 @@ def _apply_execution_lane_to_bindings(bindings: Dict[str, Any], execution_lane_s
     """th#913/gw#596: fold a --lane choice into the declared bindings.
 
     bf16 = the declared base (no transform); fp8 family = the local cast
-    lane (per-layer fp8 storage); an explicit fp8-w8a8 descriptor folds the
-    #fp8-w8a8 flavor (fails loudly if unpublished at resolve time); 4bit
-    lanes need an exact ref#flavor and are refused here."""
+    lane (per-layer fp8 storage). STORED-quant lanes (fp8-w8a8, 4bit) are
+    refused: they used to fold a `#flavor` onto the binding, and pgw#1148
+    deleted that selector with the flavor system (§1.32(d)). Locally, bind
+    the stored-quant checkpoint by digest instead."""
 
     try:
         req = lanespec.parse_execution_lane_spec(execution_lane_str)
@@ -977,20 +1022,22 @@ def _apply_execution_lane_to_bindings(bindings: Dict[str, Any], execution_lane_s
         raise _UsageError(f"--lane: {e}") from None
     if req.is_zero or req.family == lanespec.FAMILY_BF16:
         return bindings
-    if req.family == lanespec.FAMILY_4BIT:
+    if req.family == lanespec.FAMILY_4BIT or (
+        req.execution_lane is not None
+        and req.execution_lane.activation == lanespec.ACT_W8A8
+    ):
         raise _UsageError(
-            "--lane: 4bit lanes carry rank/engine-specific flavor tokens; "
-            "bind the exact ref#flavor (e.g. '#svdq-int4-r128') instead.")
-    want_w8a8 = req.execution_lane is not None and req.execution_lane.activation == lanespec.ACT_W8A8
+            f"--lane {execution_lane_str!r}: a STORED-quant lane is not "
+            "selectable locally. It used to fold a `#flavor` onto the "
+            "binding, and §1.32(d)/th#1803 deleted that selector "
+            "(pgw#1148) — bind the stored-quant checkpoint directly, e.g. "
+            "'owner/repo@sha256:<hex>'.")
     out: Dict[str, Any] = {}
     for name, binding in bindings.items():
         try:
-            if want_w8a8:
-                out[name] = rebind_pick(binding, flavor="fp8-w8a8")
-            else:
-                out[name] = rebind_pick(binding, cast="fp8")
+            out[name] = rebind_pick(binding, cast="fp8")
         except (ValueError, TypeError):
-            out[name] = binding  # non-foldable source (HF flavor etc.) — declared as-is
+            out[name] = binding  # non-foldable source — declared as-is
     return out
 
 

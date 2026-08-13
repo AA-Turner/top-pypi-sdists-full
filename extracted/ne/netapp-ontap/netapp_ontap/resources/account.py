@@ -35,35 +35,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Account(
     {
         "role": {
+            "name": "vsadmin",
             "_links": {
                 "self": {
                     "href": "/api/svms/aaef7c38-4bd3-11e9-b238-0050568e2e25/admin/roles/vsadmin"
                 }
             },
-            "name": "vsadmin",
         },
+        "owner": {
+            "uuid": "aaef7c38-4bd3-11e9-b238-0050568e2e25",
+            "_links": {
+                "self": {"href": "/api/svm/svms/aaef7c38-4bd3-11e9-b238-0050568e2e25"}
+            },
+            "name": "svm1",
+        },
+        "applications": [
+            {
+                "application": "ssh",
+                "authentication_methods": ["password"],
+                "second_authentication_method": "none",
+            }
+        ],
+        "name": "svm_user1",
+        "password_hash_algorithm": "sha512",
         "locked": False,
         "_links": {
             "self": {
                 "href": "/api/security/accounts/aaef7c38-4bd3-11e9-b238-0050568e2e25/svm_user1"
             }
         },
-        "name": "svm_user1",
-        "applications": [
-            {
-                "application": "ssh",
-                "second_authentication_method": "none",
-                "authentication_methods": ["password"],
-            }
-        ],
-        "owner": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/aaef7c38-4bd3-11e9-b238-0050568e2e25"}
-            },
-            "uuid": "aaef7c38-4bd3-11e9-b238-0050568e2e25",
-        },
-        "password_hash_algorithm": "sha512",
         "scope": "svm",
     }
 )

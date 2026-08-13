@@ -76,6 +76,12 @@ class NfsTlsInterfaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Indicates whether NFS over TLS is enabled."""
 
+    enforce_host_authentication = marshmallow_fields.Boolean(
+        data_key="enforce_host_authentication",
+        allow_none=True,
+    )
+    r""" Indicates whether NFS over TLS host authentication is enforced or not."""
+
     interface = marshmallow_fields.Nested(
                 lambda: lazy_import_schema("netapp_ontap.resources.ip_interface", "IpInterfaceSchema"),
                 data_key="interface",
@@ -102,6 +108,7 @@ class NfsTlsInterfaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
         "certificate.name",
         "certificate.uuid",
         "enabled",
+        "enforce_host_authentication",
         "interface.links",
         "interface.ip",
         "interface.name",
@@ -110,21 +117,23 @@ class NfsTlsInterfaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
         "svm.name",
         "svm.uuid",
     ]
-    """links,certificate.links,certificate.name,certificate.uuid,enabled,interface.links,interface.ip,interface.name,interface.uuid,svm.links,svm.name,svm.uuid,"""
+    """links,certificate.links,certificate.name,certificate.uuid,enabled,enforce_host_authentication,interface.links,interface.ip,interface.name,interface.uuid,svm.links,svm.name,svm.uuid,"""
 
     patchable_fields = [
         "certificate.name",
         "certificate.uuid",
         "enabled",
+        "enforce_host_authentication",
     ]
-    """certificate.name,certificate.uuid,enabled,"""
+    """certificate.name,certificate.uuid,enabled,enforce_host_authentication,"""
 
     postable_fields = [
         "certificate.name",
         "certificate.uuid",
         "enabled",
+        "enforce_host_authentication",
     ]
-    """certificate.name,certificate.uuid,enabled,"""
+    """certificate.name,certificate.uuid,enabled,enforce_host_authentication,"""
 
 class NfsTlsInterface(Resource):
     """Allows interaction with NfsTlsInterface objects on the host"""

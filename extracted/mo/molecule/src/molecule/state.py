@@ -232,18 +232,8 @@ class State:
         return cast("StateData", util.safe_load_file(self._state_file))
 
     def _write_state_file(self) -> None:
-        util.write_file(self.state_file, util.safe_dump(self._data))
+        # Scenarios write this file concurrently under --workers + shared_state.
+        util.atomic_write_file(self.state_file, util.safe_dump(self._data))
 
     def _get_state_file(self) -> Path:
         return Path(self._config.scenario.ephemeral_directory) / "state.yml"
-
-
-class SharedState(State):
-    """A class which manages the state file.
-
-    This is exactly like the normal State object but it's backed by the shared ephemeral directory,
-    so state is maintained between scenarios.
-    """
-
-    def _get_state_file(self) -> Path:
-        return Path(self._config.scenario.shared_ephemeral_directory) / "state.yml"

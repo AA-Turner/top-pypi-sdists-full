@@ -68,7 +68,9 @@ __all__ = (
     "ListUserTagsPaginatorName",
     "ListUsersPaginatorName",
     "ListVirtualMFADevicesPaginatorName",
+    "ManagedByTypeTypeType",
     "PaginatorName",
+    "ParameterTypeTypeType",
     "PermissionCheckResultTypeType",
     "PermissionCheckStatusTypeType",
     "PermissionsBoundaryAttachmentTypeType",
@@ -155,6 +157,8 @@ ListUserPoliciesPaginatorName = Literal["list_user_policies"]
 ListUserTagsPaginatorName = Literal["list_user_tags"]
 ListUsersPaginatorName = Literal["list_users"]
 ListVirtualMFADevicesPaginatorName = Literal["list_virtual_mfa_devices"]
+ManagedByTypeTypeType = Literal["Service"]
+ParameterTypeTypeType = Literal["Arn", "ArnList", "Number", "NumberList", "String", "StringList"]
 PermissionCheckResultTypeType = Literal["ALLOWED", "DENIED", "UNSURE"]
 PermissionCheckStatusTypeType = Literal["COMPLETE", "FAILED", "IN_PROGRESS"]
 PermissionsBoundaryAttachmentTypeType = Literal["PermissionsBoundaryPolicy"]

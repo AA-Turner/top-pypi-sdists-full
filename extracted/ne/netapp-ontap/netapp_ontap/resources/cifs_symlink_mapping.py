@@ -41,15 +41,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsSymlinkMapping(
     {
+        "svm": {"uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb", "name": "vs1"},
         "unix_path": "/mnt/eng_volume/",
         "target": {
-            "home_directory": False,
             "locality": "local",
             "path": "/dir1/dir2/",
-            "server": "cifs123",
             "share": "sh1",
+            "home_directory": False,
+            "server": "cifs123",
         },
-        "svm": {"name": "vs1", "uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb"},
     }
 )
 
@@ -75,53 +75,53 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CifsSymlinkMapping(
         {
-            "unix_path": "/mnt/eng_volume/",
             "_links": {
                 "self": {
                     "href": "/api/protocols/cifs/unix-symlink-mapping/000c5cd2-ebdf-11e8-a96e-0050568ea3cb/%2Fmnt%2Feng_volume%2F"
                 }
             },
-            "target": {
-                "home_directory": False,
-                "locality": "local",
-                "path": "/dir1/dir2/",
-                "server": "CIFS123",
-                "share": "sh1",
-            },
             "svm": {
-                "name": "vs1",
+                "uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/000c5cd2-ebdf-11e8-a96e-0050568ea3cb"
                     }
                 },
-                "uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb",
+                "name": "vs1",
+            },
+            "unix_path": "/mnt/eng_volume/",
+            "target": {
+                "locality": "local",
+                "path": "/dir1/dir2/",
+                "share": "sh1",
+                "home_directory": False,
+                "server": "CIFS123",
             },
         }
     ),
     CifsSymlinkMapping(
         {
-            "unix_path": "/mnt/eng_volume/",
             "_links": {
                 "self": {
                     "href": "/api/protocols/cifs/unix-symlink-mapping/1d30d1b1-ebdf-11e8-a96e-0050568ea3cb/%2Fmnt%2Feng_volume%2F"
                 }
             },
-            "target": {
-                "home_directory": False,
-                "locality": "widelink",
-                "path": "/dir1/dir2/",
-                "server": "ENGCIFS",
-                "share": "ENG_SHARE",
-            },
             "svm": {
-                "name": "vs2",
+                "uuid": "1d30d1b1-ebdf-11e8-a96e-0050568ea3cb",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/1d30d1b1-ebdf-11e8-a96e-0050568ea3cb"
                     }
                 },
-                "uuid": "1d30d1b1-ebdf-11e8-a96e-0050568ea3cb",
+                "name": "vs2",
+            },
+            "unix_path": "/mnt/eng_volume/",
+            "target": {
+                "locality": "widelink",
+                "path": "/dir1/dir2/",
+                "share": "ENG_SHARE",
+                "home_directory": False,
+                "server": "ENGCIFS",
             },
         }
     ),
@@ -154,15 +154,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsSymlinkMapping(
     {
+        "svm": {"uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb", "name": "vs1"},
         "unix_path": "/mnt/eng_volume/",
         "target": {
-            "home_directory": False,
             "locality": "local",
             "path": "/dir1/dir2/",
-            "server": "CIFS123",
             "share": "sh1",
+            "home_directory": False,
+            "server": "CIFS123",
         },
-        "svm": {"name": "vs1", "uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb"},
     }
 )
 

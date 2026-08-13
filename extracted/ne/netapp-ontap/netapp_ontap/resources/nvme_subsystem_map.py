@@ -41,37 +41,37 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NvmeSubsystemMap(
         {
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/nvme/subsystem-maps/580a6b1e-fe43-11e8-91a0-005056a79967/3ccdedc6-2519-4206-bc1f-b0f4adab6f89"
-                }
-            },
             "namespace": {
                 "_links": {
                     "self": {
                         "href": "/api/storage/namespaces/3ccdedc6-2519-4206-bc1f-b0f4adab6f89"
                     }
                 },
-                "name": "/vol/vol1/namespace1",
                 "uuid": "3ccdedc6-2519-4206-bc1f-b0f4adab6f89",
+                "name": "/vol/vol1/namespace1",
             },
-            "subsystem": {
-                "_links": {
-                    "self": {
-                        "href": "/api/protocols/nvme/subsystems/580a6b1e-fe43-11e8-91a0-005056a79967"
-                    }
-                },
-                "name": "subsystem1",
-                "uuid": "580a6b1e-fe43-11e8-91a0-005056a79967",
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/nvme/subsystem-maps/580a6b1e-fe43-11e8-91a0-005056a79967/3ccdedc6-2519-4206-bc1f-b0f4adab6f89"
+                }
             },
             "svm": {
-                "name": "svm1",
+                "uuid": "0e91b214-fe40-11e8-91a0-005056a79967",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/0e91b214-fe40-11e8-91a0-005056a79967"
                     }
                 },
-                "uuid": "0e91b214-fe40-11e8-91a0-005056a79967",
+                "name": "svm1",
+            },
+            "subsystem": {
+                "uuid": "580a6b1e-fe43-11e8-91a0-005056a79967",
+                "name": "subsystem1",
+                "_links": {
+                    "self": {
+                        "href": "/api/protocols/nvme/subsystems/580a6b1e-fe43-11e8-91a0-005056a79967"
+                    }
+                },
             },
         }
     )
@@ -107,45 +107,45 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeSubsystemMap(
     {
-        "nsid": "00000001h",
-        "_links": {
-            "self": {
-                "href": "/api/protocols/nvme/subsystem-maps/580a6b1e-fe43-11e8-91a0-005056a79967/3ccdedc6-2519-4206-bc1f-b0f4adab6f89"
-            }
-        },
         "namespace": {
             "node": {
-                "name": "node1",
+                "uuid": "012b4508-67d6-4788-8c2d-801f254ce976",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/012b4508-67d6-4788-8c2d-801f254ce976"
                     }
                 },
-                "uuid": "012b4508-67d6-4788-8c2d-801f254ce976",
+                "name": "node1",
             },
             "_links": {
                 "self": {
                     "href": "/api/storage/namespaces/3ccdedc6-2519-4206-bc1f-b0f4adab6f89"
                 }
             },
-            "name": "/vol/vol1/namespace1",
             "uuid": "3ccdedc6-2519-4206-bc1f-b0f4adab6f89",
+            "name": "/vol/vol1/namespace1",
         },
+        "_links": {
+            "self": {
+                "href": "/api/protocols/nvme/subsystem-maps/580a6b1e-fe43-11e8-91a0-005056a79967/3ccdedc6-2519-4206-bc1f-b0f4adab6f89"
+            }
+        },
+        "svm": {
+            "uuid": "0e91b214-fe40-11e8-91a0-005056a79967",
+            "_links": {
+                "self": {"href": "/api/svm/svms/0e91b214-fe40-11e8-91a0-005056a79967"}
+            },
+            "name": "svm1",
+        },
+        "nsid": "00000001h",
         "subsystem": {
+            "uuid": "580a6b1e-fe43-11e8-91a0-005056a79967",
+            "name": "subsystem1",
             "_links": {
                 "self": {
                     "href": "/api/protocols/nvme/subsystems/580a6b1e-fe43-11e8-91a0-005056a79967"
                 }
             },
-            "name": "subsystem1",
-            "uuid": "580a6b1e-fe43-11e8-91a0-005056a79967",
-        },
-        "svm": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/0e91b214-fe40-11e8-91a0-005056a79967"}
-            },
-            "uuid": "0e91b214-fe40-11e8-91a0-005056a79967",
         },
     }
 )

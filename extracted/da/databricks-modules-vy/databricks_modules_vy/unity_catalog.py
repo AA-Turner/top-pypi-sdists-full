@@ -9,6 +9,24 @@ import re
 spark = SparkSession.builder.appName("module").getOrCreate()
 
 
+def _sql_string_literal(value: object) -> str:
+    """
+    Converts a Python value into a safe SQL string literal.
+
+    Escapes single quotes and removes null bytes that can break SQL parsing.
+    """
+    text = "" if value is None else str(value)
+    text = text.replace("\x00", "").replace("'", "''")
+    return f"'{text}'"
+
+
+def _quote_identifier(identifier: str) -> str:
+    """
+    Quotes a SQL identifier using backticks and escapes embedded backticks.
+    """
+    return f"`{identifier.replace('`', '``')}`"
+
+
 def write_to_uc(
     df: DataFrame,
     target: str,
@@ -81,7 +99,9 @@ def write_to_uc(
 
         if table_description:
             lp("Commenting table ...")
-            spark.sql(f"COMMENT ON TABLE {target} IS '{table_description}'")
+            spark.sql(
+                f"COMMENT ON TABLE {target} IS {_sql_string_literal(table_description)}"
+            )
 
         if comments:
             if autoformat_columns:
@@ -207,7 +227,9 @@ def upsert_to_uc(
 
         if table_description:
             lp("Commenting table ...")
-            spark.sql(f"COMMENT ON TABLE {target} IS '{table_description}'")
+            spark.sql(
+                f"COMMENT ON TABLE {target} IS {_sql_string_literal(table_description)}"
+            )
 
         if comments:
             if autoformat_columns:
@@ -308,7 +330,9 @@ def autoloader_batch_to_uc(
 
         if table_description:
             lp("Commenting table ...")
-            spark.sql(f"COMMENT ON TABLE {target} IS '{table_description}'")
+            spark.sql(
+                f"COMMENT ON TABLE {target} IS {_sql_string_literal(table_description)}"
+            )
 
         if comments:
             if autoformat_columns:
@@ -455,12 +479,16 @@ def _apply_comments(
     if overwrite_schema or not current_comments:
         # If schema is overwritten or there are no comments currently, reapply all comments
         for col, comment in comments.items():
-            spark.sql(f"ALTER TABLE {target} CHANGE {col} COMMENT '{comment}'")
+            spark.sql(
+                f"ALTER TABLE {target} CHANGE {_quote_identifier(col)} COMMENT {_sql_string_literal(comment)}"
+            )
     else:
         # If schema is not overwritten, only apply comments that have changed or are new
         for col, comment in comments.items():
             if col not in current_comments or comment != current_comments[col]:
-                spark.sql(f"ALTER TABLE {target} CHANGE {col} COMMENT '{comment}'")
+                spark.sql(
+                    f"ALTER TABLE {target} CHANGE {_quote_identifier(col)} COMMENT {_sql_string_literal(comment)}"
+                )
 
 
 def _format_column_name(column_name: str) -> str:

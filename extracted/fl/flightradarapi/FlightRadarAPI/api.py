@@ -3,7 +3,7 @@
 import dataclasses
 import math
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import quote
 
 from .core import Core, Countries
@@ -11,8 +11,15 @@ from .entities.airport import Airport
 from .entities.flight import Flight
 from .errors import AirportNotFoundError, LoginError
 from .flight_tracker_config import FlightTrackerConfig
-from .parsers import parse_airlines_html, parse_airports_html
+from .parsers import country_to_slug, parse_airlines_html, parse_airports_json
 from .request import APIClient, RetryPolicy
+
+# Some FR24 live-feed backends answer 200 with a well-formed envelope but no
+# flight entries -- indistinguishable from a legitimately empty result. The
+# "AWSALB" cookie then pins the session to that backend, so dropping it is what
+# makes the load balancer re-roll on retry.
+FEED_STICKY_COOKIES = ("AWSALB", "AWSALBCORS")
+FEED_EMPTY_RETRIES = 4
 
 
 class FlightRadar24API:
@@ -180,21 +187,33 @@ class FlightRadar24API:
         )
         return response.get_json_content()
 
-    def get_airports(self, countries: List[Countries]) -> List[Airport]:
+    def get_airports(
+        self, countries: Optional[Union[Iterable[Union[Countries, str]], Countries, str]] = None,
+    ) -> List[Airport]:
         """
-        Return a list with all airports for specified countries.
+        Return a list with all airports, optionally narrowed to some countries.
 
-        :param countries: List of country names from Countries enum.
+        :param countries: Country names from the Countries enum, or their slug strings,
+            as any iterable or a single value. Every country when omitted.
         """
-        def _fetch(country):
-            href = Core.airports_data_url + "/" + country.value
-            response = self.__client.request_standalone(href, headers=Core.html_headers, timeout=self.timeout)
-            return parse_airports_html(response.get_bytes_content(), href)
+        wanted: Optional[List[Union[Countries, str]]] = None
 
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            results = executor.map(_fetch, countries)
+        if isinstance(countries, (Countries, str)):
+            wanted = [countries]
+        elif countries is not None:
+            # Materialised: a generator has no len() and is consumed once.
+            wanted = list(countries)
 
-        return [airport for result in results for airport in result]
+        if wanted is not None and len(wanted) == 0:
+            return []
+
+        response = self.__client.request(
+            Core.airports_json_url, headers=Core.json_headers, timeout=self.timeout,
+        )
+
+        # get_content(), not get_json_content(): an html body reaches the parser's
+        # guard; a malformed JSON body still raises. The parser slugifies `wanted`.
+        return parse_airports_json(response.get_content(), wanted)
 
     def get_bookmarks(self) -> Dict:
         """
@@ -285,7 +304,12 @@ class FlightRadar24API:
 
         :param country: Country name
         """
-        slug = country.lower().replace(" ", "-")
+        # Same slugifier as the feed, which spells some names "Myanmar (Burma)".
+        slug = country_to_slug(country)
+
+        if not slug:
+            return None
+
         flag_url = Core.country_flag_url.format(slug)
         headers = Core.image_headers.copy()
 
@@ -342,24 +366,31 @@ class FlightRadar24API:
         if registration is not None: request_params["reg"] = registration
         if aircraft_type is not None: request_params["type"] = aircraft_type
 
-        # Get all flights from Data Live FlightRadar24.
-        response = self.__client.request(
-            Core.real_time_flight_tracker_data_url,
-            params=request_params,
-            headers=Core.json_headers,
-            timeout=self.timeout,
-        )
-        content = response.get_json_content()
-
         flights: List[Flight] = list()
 
-        for flight_id, flight_info in content.items():
+        for _ in range(FEED_EMPTY_RETRIES + 1):
+            # Get all flights from Data Live FlightRadar24.
+            response = self.__client.request(
+                Core.real_time_flight_tracker_data_url,
+                params=request_params,
+                headers=Core.json_headers,
+                timeout=self.timeout,
+            )
+            content = response.get_json_content()
 
             # Get flights only.
-            if not flight_id[0].isnumeric():
-                continue
+            flights = [
+                Flight(flight_id, flight_info)
+                for flight_id, flight_info in content.items()
+                if flight_id[0].isnumeric()
+            ]
 
-            flights.append(Flight(flight_id, flight_info))
+            # "full_count": 0 means the feed really has nothing to report.
+            if flights or not content.get("full_count"):
+                break
+
+            for cookie_name in FEED_STICKY_COOKIES:
+                self.__client.delete_cookie(cookie_name)
 
         if details:
             with ThreadPoolExecutor(max_workers=self.max_workers) as executor:

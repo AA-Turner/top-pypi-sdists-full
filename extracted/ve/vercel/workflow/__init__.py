@@ -7,12 +7,25 @@ from vercel._internal.workflow.core import (
     sleep,
     time_ns,
 )
-from vercel._internal.workflow.runtime import Run, StepInfo, get_step_metadata, start
+from vercel._internal.workflow.runtime import (
+    Run,
+    StepInfo,
+    get_step_metadata,
+    get_writable,
+    read_stream,
+    start,
+)
 from vercel._internal.workflow.serde import register_serializable, serializable
+from vercel._internal.workflow.streams import (
+    WorkflowStreamHandle,
+    WorkflowStreamWriter,
+    WorkflowWritable,
+)
 
 from . import sandbox
 from .errors import (
     EntityConflictError,
+    FatalError,
     HookNotFoundError,
     RunExpiredError,
     SerializationError,
@@ -33,10 +46,16 @@ __all__ = [
     "BaseHook",
     "HookEvent",
     "get_step_metadata",
+    "get_writable",
+    "read_stream",
+    "WorkflowWritable",
+    "WorkflowStreamWriter",
+    "WorkflowStreamHandle",
     "StepInfo",
     "serializable",
     "register_serializable",
     "EntityConflictError",
+    "FatalError",
     "HookNotFoundError",
     "RunExpiredError",
     "SerializationError",

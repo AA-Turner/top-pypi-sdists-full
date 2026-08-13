@@ -19,7 +19,7 @@ properties:
     cli_option: --name
   port:
     description: |-
-      Port where the app is hosted. When deployed this will be port on which we will deploy the app. (validation applied)
+      Port where the app is hosted. When deployed this will be port on which we will deploy the app. For a `Proxy` capsule this is the port of the pods being proxied, and it is not needed when `proxy.service_url` is used. (validation applied)
     type: integer
     example: 8000
     mutation_behavior: union
@@ -54,7 +54,7 @@ properties:
     cli_option: --tag
   secrets:
     description: |-
-      Outerbounds integrations to attach to the app. You can use the value you set in the `@secrets` decorator in your code. (validation applied)
+      Outerbounds integrations to attach to the app. You can use the value you set in the `@secrets` decorator in your code without the outerbounds prefix. (validation applied)
     type: array
     items:
       type: string
@@ -287,11 +287,58 @@ properties:
     cli_option: --force-upgrade
   skip_code_package:
     description: |-
-      When True, skip code packaging and rely on the container's embedded source code. When running the deployer programmatically, If this field is set, then the user cannot pass `package-code`
+      When True, skip code packaging and rely on the container's embedded source code. When running the deployer programmatically, If this field is set, then the user cannot pass `code_package` parameter to the AppDeployer
     type: boolean
     default: false
     mutation_behavior: union
     cli_option: --skip-code-package
+  capsule_type:
+    description: |-
+      What the platform runs for this deployment. `Standard` (the default) runs the image and commands configured here. `Proxy` runs nothing of its own and only fronts a workload that is already running in the cluster, described by `proxy`. (validation applied)
+    type: string
+    enum:
+    - Standard
+    - Proxy
+    example: Proxy
+    mutation_behavior: union
+    cli_option: --capsule-type
+  proxy:
+    title: ProxyConfig
+    description: |-
+      The workload a `Proxy` capsule forwards traffic to. Only applies when
+      `capsule_type` is `Proxy`.
+      The target is named in exactly one of two ways:
+      - `service_url`: a service that already exists. The port is carried in the URL,
+      so the capsule's `port` need not be set in this mode.
+      - `namespace` + `selector_labels`: the pods to put a service in front of. The
+      namespace must already exist and the labels must match those pods.
+    type: object
+    required: []
+    properties:
+      namespace:
+        description: |-
+          The namespace where the pods being proxied live. The service fronting them is created here. Required unless `service_url` is set.
+        type: string
+        example: jobs-default
+        mutation_behavior: union
+        cli_option: --proxy-namespace
+      selector_labels:
+        description: |-
+          The labels of the pods being proxied. They become the selector of the service that fronts those pods, so they must match the labels on them. Required unless `service_url` is set.
+        type: object
+        additionalProperties: true
+        example:
+          app: my-app
+        mutation_behavior: union
+        cli_option: --proxy-selector-label
+      service_url:
+        description: |-
+          The address of a service that already exists, e.g. `my-svc.my-ns.svc.cluster.local:8080`. The scheme is optional and defaults to http, a port must be included if the target isn't on the scheme's default port, and a path may be appended to rewrite requests into a subpath of the target. The address is not checked at deploy time: if it doesn't resolve, the proxy crashloops until it does.
+        type: string
+        example: my-svc.my-ns.svc.cluster.local:8080
+        mutation_behavior: union
+        cli_option: --proxy-service-url
+    mutation_behavior: union
   persistence:
     description: The persistence mode to deploy the app with. (validation applied)
     type: string
@@ -304,17 +351,17 @@ properties:
     mutation_behavior: union
     cli_option: --persistence
   project:
-    description: The project name to deploy the app to.
+    description: The project name for the app. Defaults to __unassigned__.
     type: string
+    default: __unassigned__
     example: my-project
-    experimental: true
     mutation_behavior: union
     cli_option: --project
   branch:
-    description: The branch name to deploy the app to.
+    description: The branch name for the app. Defaults to __unassigned__.
     type: string
+    default: __unassigned__
     example: main
-    experimental: true
     mutation_behavior: union
     cli_option: --branch
   models:

@@ -38,15 +38,15 @@ FcpService(
                 "href": "/api/protocols/san/fcp/services/5c659d90-c01a-11e8-88ed-005056bbb24b"
             }
         },
-        "target": {"name": "20:00:00:50:56:bb:b2:4b"},
-        "enabled": True,
         "svm": {
-            "name": "svm1",
+            "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
             "_links": {
                 "self": {"href": "/api/svm/svms/5c659d90-c01a-11e8-88ed-005056bbb24b"}
             },
-            "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
+            "name": "svm1",
         },
+        "enabled": True,
+        "target": {"name": "20:00:00:50:56:bb:b2:4b"},
     }
 )
 
@@ -78,13 +78,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "svm": {
-                "name": "svm1",
+                "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/5c659d90-c01a-11e8-88ed-005056bbb24b"
                     }
                 },
-                "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
+                "name": "svm1",
             },
         }
     ),
@@ -96,13 +96,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "svm": {
-                "name": "svm2",
+                "uuid": "6011f874-c01a-11e8-88ed-005056bbb24b",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/6011f874-c01a-11e8-88ed-005056bbb24b"
                     }
                 },
-                "uuid": "6011f874-c01a-11e8-88ed-005056bbb24b",
+                "name": "svm2",
             },
         }
     ),
@@ -138,15 +138,15 @@ FcpService(
                 "href": "/api/protocols/san/fcp/services/5c659d90-c01a-11e8-88ed-005056bbb24b"
             }
         },
-        "target": {"name": "20:00:00:50:56:bb:b2:4b"},
-        "enabled": True,
         "svm": {
-            "name": "svm1",
+            "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
             "_links": {
                 "self": {"href": "/api/svm/svms/5c659d90-c01a-11e8-88ed-005056bbb24b"}
             },
-            "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
+            "name": "svm1",
         },
+        "enabled": True,
+        "target": {"name": "20:00:00:50:56:bb:b2:4b"},
     }
 )
 
@@ -196,14 +196,14 @@ FcpService(
                 "href": "/api/protocols/san/fcp/services/5c659d90-c01a-11e8-88ed-005056bbb24b"
             }
         },
-        "enabled": False,
         "svm": {
-            "name": "svm1",
+            "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
             "_links": {
                 "self": {"href": "/api/svm/svms/5c659d90-c01a-11e8-88ed-005056bbb24b"}
             },
-            "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
+            "name": "svm1",
         },
+        "enabled": False,
     }
 )
 

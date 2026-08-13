@@ -4,7 +4,7 @@ import json
 import os
 import re
 import sys
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator, Sequence
 from datetime import datetime
 from typing import (
     Annotated,
@@ -101,8 +101,12 @@ def get_physical_topic(queue_name: str) -> SanitizedName:
 #   3  CBOR queue transport
 #   4  native attributes (`attr_set`)
 #   5  payloads may be zstd- or gzip-compressed
+#   6  slot-numbered event ids
 #
+# `CURRENT` is what we stamp on rows we create; `MAX_SUPPORTED` is the highest
+# version we accept when reading, mirroring the same split in TS.
 SPEC_VERSION_CURRENT: Literal[2] = 2
+SPEC_VERSION_MAX_SUPPORTED = 6
 
 
 class BaseModel(pydantic.BaseModel):
@@ -310,10 +314,20 @@ class BaseEvent(BaseModel):
     correlation_id: str | None = pydantic.Field(
         default=None, alias="correlationId", exclude_if=lambda e: e is None
     )
-    spec_version: Literal[1, 2, 3, 4, 5] = pydantic.Field(
-        default=SPEC_VERSION_CURRENT, alias="specVersion"
+    spec_version: int = pydantic.Field(
+        default=SPEC_VERSION_CURRENT,
+        alias="specVersion",
+        ge=1,
+        le=SPEC_VERSION_MAX_SUPPORTED,
     )
     server_props: ServerProps | None = pydantic.Field(default=None, exclude=True)
+
+    def payloads(self) -> tuple[Any, ...]:
+        """The serialized payloads this event carries, if any.
+
+        One per entry in JS's ``EVENT_DATA_PAYLOAD_FIELD_BY_EVENT_TYPE``.
+        """
+        return ()
 
     @pydantic.model_validator(mode="before")
     @classmethod
@@ -350,6 +364,9 @@ class RunCreatedEvent(BaseEvent):
     event_type: Literal["run_created"] = pydantic.Field(default="run_created", alias="eventType")
     event_data: RunCreatedEventData = pydantic.Field(alias="eventData")
 
+    def payloads(self) -> tuple[Any, ...]:
+        return (self.event_data.input,)
+
 
 class RunStartedEvent(BaseEvent):
     """
@@ -382,6 +399,9 @@ class RunCompletedEvent(BaseEvent):
     )
     event_data: RunCompletedEventData = pydantic.Field(alias="eventData")
 
+    def payloads(self) -> tuple[Any, ...]:
+        return (self.event_data.output,)
+
 
 class RunFailedEventData(BaseModel):
     error: Any
@@ -402,6 +422,9 @@ class RunFailedEvent(BaseEvent):
         alias="eventType",
     )
     event_data: RunFailedEventData = pydantic.Field(alias="eventData")
+
+    def payloads(self) -> tuple[Any, ...]:
+        return (self.event_data.error,)
 
 
 class StepCreatedEventData(BaseModel):
@@ -424,6 +447,9 @@ class StepCreatedEvent(BaseEvent):
     )
     correlation_id: str = pydantic.Field(alias="correlationId")
     event_data: StepCreatedEventData = pydantic.Field(alias="eventData")
+
+    def payloads(self) -> tuple[Any, ...]:
+        return (self.event_data.input,)
 
 
 class StepStartedEventData(BaseModel):
@@ -469,6 +495,9 @@ class StepRetryingEvent(BaseEvent):
     correlation_id: str = pydantic.Field(alias="correlationId")
     event_data: StepRetryingEventData = pydantic.Field(alias="eventData")
 
+    def payloads(self) -> tuple[Any, ...]:
+        return (self.event_data.error,)
+
 
 class StepCompletedEventData(BaseModel):
     result: bytes | Any = None
@@ -484,6 +513,9 @@ class StepCompletedEvent(BaseEvent):
     )
     correlation_id: str = pydantic.Field(alias="correlationId")
     event_data: StepCompletedEventData = pydantic.Field(alias="eventData")
+
+    def payloads(self) -> tuple[Any, ...]:
+        return (self.event_data.result,)
 
 
 class StepFailedEventData(BaseModel):
@@ -501,6 +533,9 @@ class StepFailedEvent(BaseEvent):
     )
     correlation_id: str = pydantic.Field(alias="correlationId")
     event_data: StepFailedEventData = pydantic.Field(alias="eventData")
+
+    def payloads(self) -> tuple[Any, ...]:
+        return (self.event_data.error,)
 
 
 class Hook(BaseModel):
@@ -538,6 +573,9 @@ class HookCreatedEvent(BaseEvent):
     correlation_id: str = pydantic.Field(alias="correlationId")
     event_data: HookCreatedEventData = pydantic.Field(alias="eventData")
 
+    def payloads(self) -> tuple[Any, ...]:
+        return (self.event_data.metadata,)
+
 
 class HookReceivedEventData(BaseModel):
     payload: bytes
@@ -553,6 +591,9 @@ class HookReceivedEvent(BaseEvent):
     )
     correlation_id: str = pydantic.Field(alias="correlationId")
     event_data: HookReceivedEventData = pydantic.Field(alias="eventData")
+
+    def payloads(self) -> tuple[Any, ...]:
+        return (self.event_data.payload,)
 
 
 class HookDisposedEvent(BaseEvent):
@@ -665,6 +706,37 @@ class PaginatedResult(BaseModel, Generic[T]):
     data: list[T]
     cursor: str | None
     has_more: bool = pydantic.Field(alias="hasMore")
+
+
+class StreamInfo(BaseModel):
+    """Lightweight metadata about a stream, without reading its payloads."""
+
+    tail_index: int = pydantic.Field(alias="tailIndex")
+    """Index of the last known chunk, 0-based, or ``-1`` when none was written.
+
+    Anything deriving a start index from this has to handle ``-1`` rather than
+    treating it as a position.
+    """
+
+    done: bool
+    """Whether the stream has been closed."""
+
+
+class StreamChunk(BaseModel):
+    index: int
+    data: bytes
+
+
+class StreamChunksPage(PaginatedResult[StreamChunk]):
+    """One page of already-written chunks -- a snapshot, not a live read."""
+
+    # Both are optional here, unlike the base: a page that ends the stream
+    # carries neither, and the endpoint omits them rather than sending nulls.
+    cursor: str | None = None
+    has_more: bool = pydantic.Field(default=False, alias="hasMore")
+
+    done: bool = False
+    """Whether the stream is closed, so no more chunks will ever arrive."""
 
 
 class EventResult(BaseModel):
@@ -848,6 +920,13 @@ class World(metaclass=abc.ABCMeta):
         """
         ...
 
+    async def run_key(self, run_id: str, *, deployment_id: str | None = None) -> bytes | None:
+        """The encryption key that opens the payloads of *run_id*.
+
+        ``None`` means the run's payloads are plaintext.
+        """
+        return None
+
     @abc.abstractmethod
     async def runs_get(self, run_id: str) -> WorkflowRun: ...
 
@@ -894,6 +973,71 @@ class World(metaclass=abc.ABCMeta):
         *,
         pagination: PaginationOptions | None = None,
     ) -> PaginatedResult[Event]: ...
+
+    # ── streams ────────────────────────────────────────────────────────────
+    #
+    # A stream is an append-only, indexed log of opaque chunks scoped to a run.
+    # Unlike the entities above it lives outside the event log: chunks are not
+    # events and are not replayed, which is what lets a workflow stream output
+    # without growing its own history.
+
+    @abc.abstractmethod
+    async def streams_write(self, run_id: str, name: str, chunk: bytes) -> None:
+        """Append one chunk to a stream, creating it if needed."""
+        ...
+
+    async def streams_write_multi(self, run_id: str, name: str, chunks: Sequence[bytes]) -> None:
+        """Append several chunks in order, ideally in one round trip.
+
+        Concrete because a world that cannot batch is still correct without it:
+        chunk boundaries and indices come out the same either way, so the
+        default below only costs requests.
+        """
+        for chunk in chunks:
+            await self.streams_write(run_id, name, chunk)
+
+    @abc.abstractmethod
+    async def streams_close(self, run_id: str, name: str) -> None:
+        """Mark a stream complete, ending its readers.
+
+        Idempotent: closing a closed stream is not an error, which is what lets
+        a retried close be safe.
+        """
+        ...
+
+    @abc.abstractmethod
+    def streams_get(
+        self, run_id: str, name: str, start_index: int | None = None
+    ) -> AsyncGenerator[bytes, None]:
+        """Read a stream live, waiting for chunks that have not arrived yet.
+
+        The iterator ends when the stream is closed, not when it runs out of
+        currently-available chunks -- for a snapshot use
+        :meth:`streams_get_chunks` instead.
+
+        *start_index* skips that many chunks from the start. A negative value
+        counts back from the current end (``-3`` starts three chunks before it),
+        clamped at 0. Callers who abandon the iterator early should close it
+        (``contextlib.aclosing``) so the underlying request or poll stops.
+        """
+        ...
+
+    @abc.abstractmethod
+    async def streams_list(self, run_id: str) -> list[str]:
+        """The names of every stream this run has written to."""
+        ...
+
+    @abc.abstractmethod
+    async def streams_get_chunks(
+        self, run_id: str, name: str, *, limit: int | None = None, cursor: str | None = None
+    ) -> StreamChunksPage:
+        """One page of currently-available chunks, oldest first."""
+        ...
+
+    @abc.abstractmethod
+    async def streams_get_info(self, run_id: str, name: str) -> StreamInfo:
+        """A stream's tail index and closed flag, without reading payloads."""
+        ...
 
 
 the_world: World | None = None

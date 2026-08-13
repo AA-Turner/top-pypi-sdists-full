@@ -46,9 +46,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Snapshot(
     {
         "volume": {"name": "v2"},
-        "name": "snapshot_copy",
         "comment": "Store this copy.",
-        "svm": {"name": "vs0", "uuid": "8139f958-3c6e-11e9-a45f-005056bbc848"},
+        "name": "snapshot_copy",
+        "svm": {"uuid": "8139f958-3c6e-11e9-a45f-005056bbc848", "name": "vs0"},
     }
 )
 
@@ -74,35 +74,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Snapshot(
         {
-            "name": "hourly.2019-03-13_1305",
+            "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/402b6c73-73a0-4e89-a58a-75ee0ab3e8c0"
                 }
             },
-            "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
+            "name": "hourly.2019-03-13_1305",
         }
     ),
     Snapshot(
         {
-            "name": "hourly.2019-03-13_1405",
+            "uuid": "f0dd497f-efe8-44b7-a4f4-bdd3890bc0c8",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/f0dd497f-efe8-44b7-a4f4-bdd3890bc0c8"
                 }
             },
-            "uuid": "f0dd497f-efe8-44b7-a4f4-bdd3890bc0c8",
+            "name": "hourly.2019-03-13_1405",
         }
     ),
     Snapshot(
         {
-            "name": "hourly.2019-03-13_1522",
+            "uuid": "02701900-51bd-46b8-9c77-47d9a9e2ce1d",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/02701900-51bd-46b8-9c77-47d9a9e2ce1d"
                 }
             },
-            "uuid": "02701900-51bd-46b8-9c77-47d9a9e2ce1d",
+            "name": "hourly.2019-03-13_1522",
         }
     ),
 ]
@@ -173,35 +173,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Snapshot(
         {
-            "name": "hourly.2019-03-13_1305",
+            "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/402b6c73-73a0-4e89-a58a-75ee0ab3e8c0"
                 }
             },
-            "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
+            "name": "hourly.2019-03-13_1305",
         }
     ),
     Snapshot(
         {
-            "name": "hourly.2019-03-13_1405",
+            "uuid": "f0dd497f-efe8-44b7-a4f4-bdd3890bc0c8",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/f0dd497f-efe8-44b7-a4f4-bdd3890bc0c8"
                 }
             },
-            "uuid": "f0dd497f-efe8-44b7-a4f4-bdd3890bc0c8",
+            "name": "hourly.2019-03-13_1405",
         }
     ),
     Snapshot(
         {
-            "name": "hourly.2019-03-13_1522",
+            "uuid": "02701900-51bd-46b8-9c77-47d9a9e2ce1d",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/02701900-51bd-46b8-9c77-47d9a9e2ce1d"
                 }
             },
-            "uuid": "02701900-51bd-46b8-9c77-47d9a9e2ce1d",
+            "name": "hourly.2019-03-13_1522",
         }
     ),
 ]
@@ -237,16 +237,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Snapshot(
         {
-            "name": "hourly.2022-06-29_1105",
             "uuid": "52a2247a-7735-4a92-bc3c-e51df1fe502f",
             "delta": {"time_elapsed": "PT3H27M45S", "size_consumed": 675840},
+            "name": "hourly.2022-06-29_1105",
         }
     ),
     Snapshot(
         {
-            "name": "hourly.2022-06-29_1205",
             "uuid": "b399eb34-44fe-4689-9fb5-c8f72162dd77",
             "delta": {"time_elapsed": "PT2H27M45S", "size_consumed": 507904},
+            "name": "hourly.2022-06-29_1205",
         }
     ),
 ]
@@ -277,30 +277,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Snapshot(
     {
+        "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
         "volume": {
-            "name": "v2",
+            "uuid": "0353dc05-405f-11e9-acb6-005056bbc848",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848"
                 }
             },
-            "uuid": "0353dc05-405f-11e9-acb6-005056bbc848",
+            "name": "v2",
         },
-        "name": "hourly.2019-03-13_1305",
-        "size": 122880,
         "_links": {
             "self": {
                 "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/402b6c73-73a0-4e89-a58a-75ee0ab3e8c0"
             }
         },
         "create_time": "2019-03-13T13:05:00-04:00",
-        "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
+        "size": 122880,
+        "name": "hourly.2019-03-13_1305",
         "svm": {
-            "name": "vs0",
+            "uuid": "8139f958-3c6e-11e9-a45f-005056bbc848",
             "_links": {
                 "self": {"href": "/api/svm/svms/8139f958-3c6e-11e9-a45f-005056bbc848"}
             },
-            "uuid": "8139f958-3c6e-11e9-a45f-005056bbc848",
+            "name": "vs0",
         },
     }
 )
@@ -332,29 +332,29 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Snapshot(
     {
+        "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
         "volume": {
-            "name": "v2",
+            "uuid": "0353dc05-405f-11e9-acb6-005056bbc848",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848"
                 }
             },
-            "uuid": "0353dc05-405f-11e9-acb6-005056bbc848",
+            "name": "v2",
         },
-        "name": "hourly.2019-03-13_1305",
         "reclaimable_space": 167832,
         "_links": {
             "self": {
                 "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/402b6c73-73a0-4e89-a58a-75ee0ab3e8c0"
             }
         },
-        "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
+        "name": "hourly.2019-03-13_1305",
         "svm": {
-            "name": "vs0",
+            "uuid": "8139f958-3c6e-11e9-a45f-005056bbc848",
             "_links": {
                 "self": {"href": "/api/svm/svms/8139f958-3c6e-11e9-a45f-005056bbc848"}
             },
-            "uuid": "8139f958-3c6e-11e9-a45f-005056bbc848",
+            "name": "vs0",
         },
     }
 )
@@ -390,16 +390,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Snapshot(
         {
-            "name": "hourly.2022-06-29_1105",
             "uuid": "52a2247a-7735-4a92-bc3c-e51df1fe502f",
             "delta": {"time_elapsed": "PT3H27M45S", "size_consumed": 675840},
+            "name": "hourly.2022-06-29_1105",
         }
     ),
     Snapshot(
         {
-            "name": "hourly.2022-06-29_1205",
             "uuid": "b399eb34-44fe-4689-9fb5-c8f72162dd77",
             "delta": {"time_elapsed": "PT2H27M45S", "size_consumed": 507904},
+            "name": "hourly.2022-06-29_1205",
         }
     ),
 ]
@@ -426,30 +426,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Snapshot(
         {
-            "volume": {"name": "v1", "uuid": "966c285f-47f7-11ec-8407-005056bbc08f"},
-            "name": "daily.2021-11-18_0010",
             "uuid": "3edba912-5507-4535-adce-e12fe5c0e31c",
-        }
-    ),
-    Snapshot(
-        {
-            "volume": {"name": "v1", "uuid": "966c285f-47f7-11ec-8407-005056bbc08f"},
-            "name": "hourly.2021-11-18_0705",
-            "uuid": "3ad61153-d5ef-495d-8e0e-5c3b8bbaf5e6",
-        }
-    ),
-    Snapshot(
-        {
-            "volume": {"name": "v2", "uuid": "99c974e3-47f7-11ec-8407-005056bbc08f"},
+            "volume": {"uuid": "966c285f-47f7-11ec-8407-005056bbc08f", "name": "v1"},
             "name": "daily.2021-11-18_0010",
-            "uuid": "3dd0fa97-65d9-41ea-a99d-5ceb9d2f55c5",
         }
     ),
     Snapshot(
         {
-            "volume": {"name": "v2", "uuid": "99c974e3-47f7-11ec-8407-005056bbc08f"},
+            "uuid": "3ad61153-d5ef-495d-8e0e-5c3b8bbaf5e6",
+            "volume": {"uuid": "966c285f-47f7-11ec-8407-005056bbc08f", "name": "v1"},
             "name": "hourly.2021-11-18_0705",
+        }
+    ),
+    Snapshot(
+        {
+            "uuid": "3dd0fa97-65d9-41ea-a99d-5ceb9d2f55c5",
+            "volume": {"uuid": "99c974e3-47f7-11ec-8407-005056bbc08f", "name": "v2"},
+            "name": "daily.2021-11-18_0010",
+        }
+    ),
+    Snapshot(
+        {
             "uuid": "6ca20a52-c342-4753-8865-3693fa9b7e23",
+            "volume": {"uuid": "99c974e3-47f7-11ec-8407-005056bbc08f", "name": "v2"},
+            "name": "hourly.2021-11-18_0705",
         }
     ),
 ]
@@ -678,6 +678,7 @@ Example: 2019-02-04T19:00:00.000+0000"""
 
     snapmirror_label = marshmallow_fields.Str(
         data_key="snapmirror_label",
+        validate=len_validation(minimum=1, maximum=31),
         allow_none=True,
     )
     r""" Label for SnapMirror operations"""

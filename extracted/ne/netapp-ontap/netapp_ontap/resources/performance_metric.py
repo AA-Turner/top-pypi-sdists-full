@@ -66,12 +66,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     PerformanceMetric(
         {
-            "latency": {"write": 216, "total": 199, "other": 0, "read": 148},
+            "iops": {"read": 1, "write": 5, "other": 0, "total": 6},
             "timestamp": "2019-01-01T23:33:00+00:00",
-            "iops": {"write": 5, "total": 6, "other": 0, "read": 1},
-            "status": "ok",
             "duration": "PT15S",
-            "throughput": {"write": 205892, "total": 212718, "other": 0, "read": 6826},
+            "status": "ok",
+            "latency": {"read": 148, "write": 216, "other": 0, "total": 199},
+            "throughput": {"read": 6826, "write": 205892, "other": 0, "total": 212718},
         }
     )
 ]
@@ -109,61 +109,61 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     PerformanceMetric(
         {
-            "latency": {"write": 430, "total": 318, "other": 0, "read": 156},
+            "iops": {"read": 18, "write": 26, "other": 0, "total": 45},
             "timestamp": "2019-01-01T23:30:00+00:00",
-            "iops": {"write": 26, "total": 45, "other": 0, "read": 18},
-            "status": "ok",
             "duration": "PT30M",
+            "status": "ok",
+            "latency": {"read": 156, "write": 430, "other": 0, "total": 318},
             "throughput": {
-                "write": 5556255,
-                "total": 5824584,
-                "other": 0,
                 "read": 268328,
+                "write": 5556255,
+                "other": 0,
+                "total": 5824584,
             },
         }
     ),
     PerformanceMetric(
         {
-            "latency": {"write": 448, "total": 262, "other": 0, "read": 154},
+            "iops": {"read": 48, "write": 28, "other": 0, "total": 76},
             "timestamp": "2019-01-01T23:00:00+00:00",
-            "iops": {"write": 28, "total": 76, "other": 0, "read": 48},
-            "status": "ok",
             "duration": "PT30M",
+            "status": "ok",
+            "latency": {"read": 154, "write": 448, "other": 0, "total": 262},
             "throughput": {
-                "write": 6121908,
-                "total": 6596175,
-                "other": 0,
                 "read": 474266,
-            },
-        }
-    ),
-    PerformanceMetric(
-        {
-            "latency": {"write": 394, "total": 193, "other": 192, "read": 159},
-            "timestamp": "2019-01-01T22:30:00+00:00",
-            "iops": {"write": 16, "total": 548, "other": 437, "read": 94},
-            "status": "ok",
-            "duration": "PT30M",
-            "throughput": {
-                "write": 2411356,
-                "total": 29196206,
-                "other": 26244685,
-                "read": 540164,
-            },
-        }
-    ),
-    PerformanceMetric(
-        {
-            "latency": {"write": 540, "total": 523, "other": 0, "read": 189},
-            "timestamp": "2019-01-01T22:00:00+00:00",
-            "iops": {"write": 13, "total": 13, "other": 0, "read": 0},
-            "status": "ok",
-            "duration": "PT30M",
-            "throughput": {
-                "write": 2765407,
-                "total": 2768249,
+                "write": 6121908,
                 "other": 0,
+                "total": 6596175,
+            },
+        }
+    ),
+    PerformanceMetric(
+        {
+            "iops": {"read": 94, "write": 16, "other": 437, "total": 548},
+            "timestamp": "2019-01-01T22:30:00+00:00",
+            "duration": "PT30M",
+            "status": "ok",
+            "latency": {"read": 159, "write": 394, "other": 192, "total": 193},
+            "throughput": {
+                "read": 540164,
+                "write": 2411356,
+                "other": 26244685,
+                "total": 29196206,
+            },
+        }
+    ),
+    PerformanceMetric(
+        {
+            "iops": {"read": 0, "write": 13, "other": 0, "total": 13},
+            "timestamp": "2019-01-01T22:00:00+00:00",
+            "duration": "PT30M",
+            "status": "ok",
+            "latency": {"read": 189, "write": 540, "other": 0, "total": 523},
+            "throughput": {
                 "read": 2842,
+                "write": 2765407,
+                "other": 0,
+                "total": 2768249,
             },
         }
     ),

@@ -1,7 +1,8 @@
 """Dataclass models for Mammotion direct-MQTT device properties payloads."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Annotated
+from typing import Annotated, Any
 
 from mashumaro.config import BaseConfig
 from mashumaro.mixins.orjson import DataClassORJSONMixin
@@ -208,10 +209,8 @@ class DeviceOtherInfo(DataClassORJSONMixin):
     charge_status: int
     chassis_state: int
     nav: str
-    ins_fusion: str
     perception: str
     vision_proxy: str
-    vslam_vio: str
     iot_con_timeout: int
     iot_con: int
     iot_con_fail_max: str
@@ -229,6 +228,8 @@ class DeviceOtherInfo(DataClassORJSONMixin):
     systemio_boot_time: Annotated[str, Alias("systemioBootTime")]
     dds_no_gdc: int
     tilt_degree: str = ""
+    vslam_vio: str = ""
+    ins_fusion: str = ""
 
     class Config(BaseConfig):
         """Mashumaro config: accept both aliased and raw field names on deserialize."""
@@ -260,10 +261,13 @@ class DeviceProperties(DataClassORJSONMixin):
     individual field may be absent from any given message.
     """
 
-    device_state: Annotated[int, Alias("deviceState")] = 0
-    battery_percentage: Annotated[int, Alias("batteryPercentage")] = 0
+    # None (not 0) when the field is absent from this partial post, so consumers
+    # can distinguish "not reported" from a genuine value of 0 (e.g. 0% battery,
+    # or deviceState 0 == MODE_NOT_ACTIVE). Mirrors the nested-object fields below.
+    device_state: Annotated[int | None, Alias("deviceState")] = None
+    battery_percentage: Annotated[int | None, Alias("batteryPercentage")] = None
     device_version: Annotated[str, Alias("deviceVersion")] = ""
-    knife_height: Annotated[int, Alias("knifeHeight")] = 0
+    knife_height: Annotated[int | None, Alias("knifeHeight")] = None
     lora_general_config: Annotated[str, Alias("loraGeneralConfig")] = ""
     ext_mod: Annotated[str, Alias("extMod")] = ""
     int_mod: Annotated[str, Alias("intMod")] = ""
@@ -295,7 +299,7 @@ class DeviceProperties(DataClassORJSONMixin):
         """Mashumaro config: accept raw field names and decode nested JSON-string fields."""
 
         allow_deserialization_not_by_alias = True
-        serialization_strategy = {
+        serialization_strategy: dict[Any, dict[str, Callable[[Any], Any]]] = {  # noqa: RUF012
             DeviceVersionInfo: {
                 "deserialize": lambda x: DeviceVersionInfo.from_json(x) if isinstance(x, str) else x,
                 "serialize": lambda x: x.to_json() if hasattr(x, "to_json") else x,

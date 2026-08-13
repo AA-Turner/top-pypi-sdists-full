@@ -95,6 +95,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.AppLookupRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.AppLookupResponse.FromString,
                 )
+        self.AppPromote = channel.unary_unary(
+                '/modal.client.ModalClient/AppPromote',
+                request_serializer=modal__proto_dot_api__pb2.AppPromoteRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.AppPromoteResponse.FromString,
+                )
         self.AppPublish = channel.unary_unary(
                 '/modal.client.ModalClient/AppPublish',
                 request_serializer=modal__proto_dot_api__pb2.AppPublishRequest.SerializeToString,
@@ -400,6 +405,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.EnvironmentSetBudgetRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 )
+        self.EnvironmentSetDefaultMemberRole = channel.unary_unary(
+                '/modal.client.ModalClient/EnvironmentSetDefaultMemberRole',
+                request_serializer=modal__proto_dot_api__pb2.EnvironmentSetDefaultMemberRoleRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
         self.EnvironmentSetManaged = channel.unary_unary(
                 '/modal.client.ModalClient/EnvironmentSetManaged',
                 request_serializer=modal__proto_dot_api__pb2.EnvironmentSetManagedRequest.SerializeToString,
@@ -554,6 +564,11 @@ class ModalClientStub(object):
                 '/modal.client.ModalClient/FunctionUpdateSchedulingParams',
                 request_serializer=modal__proto_dot_api__pb2.FunctionUpdateSchedulingParamsRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.FunctionUpdateSchedulingParamsResponse.FromString,
+                )
+        self.ImageBuildChainGet = channel.unary_unary(
+                '/modal.client.ModalClient/ImageBuildChainGet',
+                request_serializer=modal__proto_dot_api__pb2.ImageBuildChainGetRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.ImageBuildChainGetResponse.FromString,
                 )
         self.ImageDelete = channel.unary_unary(
                 '/modal.client.ModalClient/ImageDelete',
@@ -722,6 +737,11 @@ class ModalClientStub(object):
                 )
         self.SandboxCreateConnectToken = channel.unary_unary(
                 '/modal.client.ModalClient/SandboxCreateConnectToken',
+                request_serializer=modal__proto_dot_api__pb2.SandboxCreateConnectTokenRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.SandboxCreateConnectTokenResponse.FromString,
+                )
+        self.SandboxCreateConnectTokenV2 = channel.unary_unary(
+                '/modal.client.ModalClient/SandboxCreateConnectTokenV2',
                 request_serializer=modal__proto_dot_api__pb2.SandboxCreateConnectTokenRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.SandboxCreateConnectTokenResponse.FromString,
                 )
@@ -1015,6 +1035,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.TunnelStopRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.TunnelStopResponse.FromString,
                 )
+        self.UserGroupEnvironmentSet = channel.unary_unary(
+                '/modal.client.ModalClient/UserGroupEnvironmentSet',
+                request_serializer=modal__proto_dot_api__pb2.UserGroupEnvironmentSetRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
         self.VolumeCommit = channel.unary_unary(
                 '/modal.client.ModalClient/VolumeCommit',
                 request_serializer=modal__proto_dot_api__pb2.VolumeCommitRequest.SerializeToString,
@@ -1139,6 +1164,11 @@ class ModalClientStub(object):
                 '/modal.client.ModalClient/WebhookTokenListForEnvironment',
                 request_serializer=modal__proto_dot_api__pb2.WebhookTokenListForEnvironmentRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.WebhookTokenListResponse.FromString,
+                )
+        self.WorkspaceBillingRates = channel.unary_unary(
+                '/modal.client.ModalClient/WorkspaceBillingRates',
+                request_serializer=modal__proto_dot_api__pb2.WorkspaceBillingRatesRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.WorkspaceBillingRatesResponse.FromString,
                 )
         self.WorkspaceBillingReport = channel.unary_stream(
                 '/modal.client.ModalClient/WorkspaceBillingReport',
@@ -1277,6 +1307,12 @@ class ModalClientServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def AppLookup(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AppPromote(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1660,6 +1696,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def EnvironmentSetDefaultMemberRole(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def EnvironmentSetManaged(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1852,9 +1894,15 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def ImageDelete(self, request, context):
+    def ImageBuildChainGet(self, request, context):
         """Images
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ImageDelete(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -2058,6 +2106,12 @@ class ModalClientServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def SandboxCreateConnectToken(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SandboxCreateConnectTokenV2(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2419,6 +2473,13 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def UserGroupEnvironmentSet(self, request, context):
+        """User groups
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def VolumeCommit(self, request, context):
         """Volumes
         """
@@ -2571,9 +2632,15 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def WorkspaceBillingReport(self, request, context):
+    def WorkspaceBillingRates(self, request, context):
         """Workspaces
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def WorkspaceBillingReport(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -2702,6 +2769,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.AppLookup,
                     request_deserializer=modal__proto_dot_api__pb2.AppLookupRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.AppLookupResponse.SerializeToString,
+            ),
+            'AppPromote': grpc.unary_unary_rpc_method_handler(
+                    servicer.AppPromote,
+                    request_deserializer=modal__proto_dot_api__pb2.AppPromoteRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.AppPromoteResponse.SerializeToString,
             ),
             'AppPublish': grpc.unary_unary_rpc_method_handler(
                     servicer.AppPublish,
@@ -3008,6 +3080,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.EnvironmentSetBudgetRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
+            'EnvironmentSetDefaultMemberRole': grpc.unary_unary_rpc_method_handler(
+                    servicer.EnvironmentSetDefaultMemberRole,
+                    request_deserializer=modal__proto_dot_api__pb2.EnvironmentSetDefaultMemberRoleRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
             'EnvironmentSetManaged': grpc.unary_unary_rpc_method_handler(
                     servicer.EnvironmentSetManaged,
                     request_deserializer=modal__proto_dot_api__pb2.EnvironmentSetManagedRequest.FromString,
@@ -3162,6 +3239,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.FunctionUpdateSchedulingParams,
                     request_deserializer=modal__proto_dot_api__pb2.FunctionUpdateSchedulingParamsRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.FunctionUpdateSchedulingParamsResponse.SerializeToString,
+            ),
+            'ImageBuildChainGet': grpc.unary_unary_rpc_method_handler(
+                    servicer.ImageBuildChainGet,
+                    request_deserializer=modal__proto_dot_api__pb2.ImageBuildChainGetRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.ImageBuildChainGetResponse.SerializeToString,
             ),
             'ImageDelete': grpc.unary_unary_rpc_method_handler(
                     servicer.ImageDelete,
@@ -3330,6 +3412,11 @@ def add_ModalClientServicer_to_server(servicer, server):
             ),
             'SandboxCreateConnectToken': grpc.unary_unary_rpc_method_handler(
                     servicer.SandboxCreateConnectToken,
+                    request_deserializer=modal__proto_dot_api__pb2.SandboxCreateConnectTokenRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.SandboxCreateConnectTokenResponse.SerializeToString,
+            ),
+            'SandboxCreateConnectTokenV2': grpc.unary_unary_rpc_method_handler(
+                    servicer.SandboxCreateConnectTokenV2,
                     request_deserializer=modal__proto_dot_api__pb2.SandboxCreateConnectTokenRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.SandboxCreateConnectTokenResponse.SerializeToString,
             ),
@@ -3623,6 +3710,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.TunnelStopRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.TunnelStopResponse.SerializeToString,
             ),
+            'UserGroupEnvironmentSet': grpc.unary_unary_rpc_method_handler(
+                    servicer.UserGroupEnvironmentSet,
+                    request_deserializer=modal__proto_dot_api__pb2.UserGroupEnvironmentSetRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
             'VolumeCommit': grpc.unary_unary_rpc_method_handler(
                     servicer.VolumeCommit,
                     request_deserializer=modal__proto_dot_api__pb2.VolumeCommitRequest.FromString,
@@ -3747,6 +3839,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.WebhookTokenListForEnvironment,
                     request_deserializer=modal__proto_dot_api__pb2.WebhookTokenListForEnvironmentRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.WebhookTokenListResponse.SerializeToString,
+            ),
+            'WorkspaceBillingRates': grpc.unary_unary_rpc_method_handler(
+                    servicer.WorkspaceBillingRates,
+                    request_deserializer=modal__proto_dot_api__pb2.WorkspaceBillingRatesRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.WorkspaceBillingRatesResponse.SerializeToString,
             ),
             'WorkspaceBillingReport': grpc.unary_stream_rpc_method_handler(
                     servicer.WorkspaceBillingReport,
@@ -4067,6 +4164,23 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/AppLookup',
             modal__proto_dot_api__pb2.AppLookupRequest.SerializeToString,
             modal__proto_dot_api__pb2.AppLookupResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AppPromote(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/AppPromote',
+            modal__proto_dot_api__pb2.AppPromoteRequest.SerializeToString,
+            modal__proto_dot_api__pb2.AppPromoteResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -5108,6 +5222,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def EnvironmentSetDefaultMemberRole(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/EnvironmentSetDefaultMemberRole',
+            modal__proto_dot_api__pb2.EnvironmentSetDefaultMemberRoleRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def EnvironmentSetManaged(request,
             target,
             options=(),
@@ -5631,6 +5762,23 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/FunctionUpdateSchedulingParams',
             modal__proto_dot_api__pb2.FunctionUpdateSchedulingParamsRequest.SerializeToString,
             modal__proto_dot_api__pb2.FunctionUpdateSchedulingParamsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ImageBuildChainGet(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/ImageBuildChainGet',
+            modal__proto_dot_api__pb2.ImageBuildChainGetRequest.SerializeToString,
+            modal__proto_dot_api__pb2.ImageBuildChainGetResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -6207,6 +6355,23 @@ class ModalClient(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxCreateConnectToken',
+            modal__proto_dot_api__pb2.SandboxCreateConnectTokenRequest.SerializeToString,
+            modal__proto_dot_api__pb2.SandboxCreateConnectTokenResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SandboxCreateConnectTokenV2(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxCreateConnectTokenV2',
             modal__proto_dot_api__pb2.SandboxCreateConnectTokenRequest.SerializeToString,
             modal__proto_dot_api__pb2.SandboxCreateConnectTokenResponse.FromString,
             options, channel_credentials,
@@ -7199,6 +7364,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def UserGroupEnvironmentSet(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/UserGroupEnvironmentSet',
+            modal__proto_dot_api__pb2.UserGroupEnvironmentSetRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def VolumeCommit(request,
             target,
             options=(),
@@ -7620,6 +7802,23 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/WebhookTokenListForEnvironment',
             modal__proto_dot_api__pb2.WebhookTokenListForEnvironmentRequest.SerializeToString,
             modal__proto_dot_api__pb2.WebhookTokenListResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def WorkspaceBillingRates(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/WorkspaceBillingRates',
+            modal__proto_dot_api__pb2.WorkspaceBillingRatesRequest.SerializeToString,
+            modal__proto_dot_api__pb2.WorkspaceBillingRatesResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

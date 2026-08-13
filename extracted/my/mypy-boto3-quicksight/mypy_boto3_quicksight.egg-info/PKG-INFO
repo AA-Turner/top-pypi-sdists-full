@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-quicksight
-Version: 1.43.62
-Summary: Type annotations for boto3 QuickSight 1.43.62 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.70
+Summary: Type annotations for boto3 QuickSight 1.43.70 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 QuickSight 1.43.62](https://pypi.org/project/boto3/) compatible with
+[boto3 QuickSight 1.43.70](https://pypi.org/project/boto3/) compatible with
 [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.62' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.70' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `QuickSight` service.
 4. Use provided commands to install generated packages.
@@ -343,6 +343,7 @@ from mypy_boto3_quicksight.paginator import (
     DescribeFolderResolvedPermissionsPaginator,
     ListActionConnectorsPaginator,
     ListAnalysesPaginator,
+    ListApprovalPoliciesPaginator,
     ListAssetBundleExportJobsPaginator,
     ListAssetBundleImportJobsPaginator,
     ListBrandsPaginator,
@@ -351,6 +352,7 @@ from mypy_boto3_quicksight.paginator import (
     ListDashboardsPaginator,
     ListDataSetsPaginator,
     ListDataSourcesPaginator,
+    ListDlpSettingsPaginator,
     ListFlowsPaginator,
     ListFolderMembersPaginator,
     ListFoldersForResourcePaginator,
@@ -361,6 +363,7 @@ from mypy_boto3_quicksight.paginator import (
     ListIAMPolicyAssignmentsPaginator,
     ListIngestionsPaginator,
     ListKnowledgeBasesPaginator,
+    ListLimitsProfilesPaginator,
     ListNamespacesPaginator,
     ListOAuthClientApplicationsPaginator,
     ListRoleMembershipsPaginator,
@@ -399,6 +402,9 @@ list_action_connectors_paginator: ListActionConnectorsPaginator = client.get_pag
     "list_action_connectors"
 )
 list_analyses_paginator: ListAnalysesPaginator = client.get_paginator("list_analyses")
+list_approval_policies_paginator: ListApprovalPoliciesPaginator = client.get_paginator(
+    "list_approval_policies"
+)
 list_asset_bundle_export_jobs_paginator: ListAssetBundleExportJobsPaginator = client.get_paginator(
     "list_asset_bundle_export_jobs"
 )
@@ -415,6 +421,7 @@ list_dashboard_versions_paginator: ListDashboardVersionsPaginator = client.get_p
 list_dashboards_paginator: ListDashboardsPaginator = client.get_paginator("list_dashboards")
 list_data_sets_paginator: ListDataSetsPaginator = client.get_paginator("list_data_sets")
 list_data_sources_paginator: ListDataSourcesPaginator = client.get_paginator("list_data_sources")
+list_dlp_settings_paginator: ListDlpSettingsPaginator = client.get_paginator("list_dlp_settings")
 list_flows_paginator: ListFlowsPaginator = client.get_paginator("list_flows")
 list_folder_members_paginator: ListFolderMembersPaginator = client.get_paginator(
     "list_folder_members"
@@ -436,6 +443,9 @@ list_iam_policy_assignments_paginator: ListIAMPolicyAssignmentsPaginator = clien
 list_ingestions_paginator: ListIngestionsPaginator = client.get_paginator("list_ingestions")
 list_knowledge_bases_paginator: ListKnowledgeBasesPaginator = client.get_paginator(
     "list_knowledge_bases"
+)
+list_limits_profiles_paginator: ListLimitsProfilesPaginator = client.get_paginator(
+    "list_limits_profiles"
 )
 list_namespaces_paginator: ListNamespacesPaginator = client.get_paginator("list_namespaces")
 list_o_auth_client_applications_paginator: ListOAuthClientApplicationsPaginator = (

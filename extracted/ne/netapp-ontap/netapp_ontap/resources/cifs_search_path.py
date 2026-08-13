@@ -31,7 +31,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 CifsSearchPath(
     {
         "path": "/",
-        "svm": {"name": "vs1", "uuid": "a41fd873-ecf8-11e8-899d-0050568e9333"},
+        "svm": {"uuid": "a41fd873-ecf8-11e8-899d-0050568e9333", "name": "vs1"},
     }
 )
 
@@ -57,30 +57,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CifsSearchPath(
         {
-            "index": 1,
             "path": "/",
-            "svm": {"name": "vs1", "uuid": "2d96f9aa-f4ce-11e8-b075-0050568e278e"},
+            "svm": {"uuid": "2d96f9aa-f4ce-11e8-b075-0050568e278e", "name": "vs1"},
+            "index": 1,
         }
     ),
     CifsSearchPath(
         {
-            "index": 2,
             "path": "/a",
-            "svm": {"name": "vs1", "uuid": "2d96f9aa-f4ce-11e8-b075-0050568e278e"},
-        }
-    ),
-    CifsSearchPath(
-        {
-            "index": 1,
-            "path": "/",
-            "svm": {"name": "vs2", "uuid": "4f23449b-f4ce-11e8-b075-0050568e278e"},
-        }
-    ),
-    CifsSearchPath(
-        {
+            "svm": {"uuid": "2d96f9aa-f4ce-11e8-b075-0050568e278e", "name": "vs1"},
             "index": 2,
+        }
+    ),
+    CifsSearchPath(
+        {
+            "path": "/",
+            "svm": {"uuid": "4f23449b-f4ce-11e8-b075-0050568e278e", "name": "vs2"},
+            "index": 1,
+        }
+    ),
+    CifsSearchPath(
+        {
             "path": "/1",
-            "svm": {"name": "vs2", "uuid": "4f23449b-f4ce-11e8-b075-0050568e278e"},
+            "svm": {"uuid": "4f23449b-f4ce-11e8-b075-0050568e278e", "name": "vs2"},
+            "index": 2,
         }
     ),
 ]
@@ -110,9 +110,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsSearchPath(
     {
-        "index": 2,
         "path": "/a",
-        "svm": {"name": "vs1", "uuid": "2d96f9aa-f4ce-11e8-b075-0050568e278e"},
+        "svm": {"uuid": "2d96f9aa-f4ce-11e8-b075-0050568e278e", "name": "vs1"},
+        "index": 2,
     }
 )
 

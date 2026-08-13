@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: FlightRadarAPI
-Version: 1.5.1
+Version: 1.5.3
 Summary: SDK for FlightRadar24
 Project-URL: Homepage, https://github.com/JeanExtreme002/FlightRadarAPI
 Project-URL: Source Code, https://github.com/JeanExtreme002/FlightRadarAPI
@@ -58,6 +58,7 @@ flights = fr_api.get_flights(...)  # Returns a list of Flight objects
 **Getting airports list:**
 ```py
 airports = fr_api.get_airports(...)  # Returns a list of Airport objects
+all_airports = fr_api.get_airports()  # Omit the countries to get every airport
 ```
 **Getting airlines list:**
 ```py

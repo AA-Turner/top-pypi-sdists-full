@@ -174,12 +174,7 @@ class Credentials:
             case bool():
                 return x
             case str():
-                x_lower = x.lower()
-                if x_lower == "true":
-                    return True
-                if x_lower == "false":
-                    return False
-                return x
+                return x == "True" if x in {"True", "False"} else x
             case Path():
                 return str(x)
             case _:

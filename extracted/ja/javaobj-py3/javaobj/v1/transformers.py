@@ -5,7 +5,7 @@ Implementation of the object transformers in v1 parser
 
 :authors: Volodymyr Buell, Thomas Calmant
 :license: Apache License 2.0
-:version: 0.5.0
+:version: 0.6.1
 :status: Alpha
 
 ..
@@ -30,7 +30,7 @@ from __future__ import absolute_import
 import functools
 from typing import Callable, Dict  # noqa: F401
 
-from ..constants import ClassDescFlags, TerminalCode, TypeCode
+from ..constants import ClassDescFlags
 from ..utils import (
     log_debug,
     log_error,
@@ -61,7 +61,7 @@ class DefaultObjectTransformer(object):  # pylint:disable=R0205
             JavaObject.__init__(self)
 
         def __hash__(self):
-            return list.__hash__(self)
+            return object.__hash__(self)
 
         def __extra_loading__(self, unmarshaller, ident=0):
             # type: (JavaObjectUnmarshaller, int) -> None
@@ -115,7 +115,7 @@ class DefaultObjectTransformer(object):  # pylint:disable=R0205
             JavaObject.__init__(self)
 
         def __hash__(self):
-            return dict.__hash__(self)
+            return object.__hash__(self)
 
         def __extra_loading__(self, unmarshaller, ident=0):
             # type: (JavaObjectUnmarshaller, int) -> None
@@ -128,37 +128,17 @@ class DefaultObjectTransformer(object):  # pylint:disable=R0205
                 self[key] = value
 
     class JavaLinkedHashMap(JavaMap):
-        def __extra_loading__(self, unmarshaller, ident=0):
-            # type: (JavaObjectUnmarshaller, int) -> None
-            """
-            Loads the content of the map, written with a custom implementation
-            """
-            # Ignore the blockdata opid
-            (opid,) = unmarshaller._readStruct(">B")
-            if opid != TerminalCode.TC_BLOCKDATA:
-                raise ValueError("Start of block data not found")
+        """
+        Python-Java linked dictionary/map bridge type
 
-            # Read HashMap fields
-            self.buckets = unmarshaller._read_value(
-                TypeCode.TYPE_INTEGER, ident
-            )
-            self.size = unmarshaller._read_value(TypeCode.TYPE_INTEGER, ident)
+        A LinkedHashMap is written exactly like the HashMap it extends: the
+        entries are part of the block data of the HashMap level of the
+        hierarchy, which the unmarshaller already stores in the annotations.
+        The content is therefore loaded by JavaMap.__extra_loading__.
 
-            # Read entries
-            for _ in range(self.size):
-                key = unmarshaller._read_and_exec_opcode()[1]
-                value = unmarshaller._read_and_exec_opcode()[1]
-                self[key] = value
-
-            # Ignore the end of the blockdata
-            unmarshaller._read_and_exec_opcode(
-                ident, [TerminalCode.TC_ENDBLOCKDATA]
-            )
-
-            # Ignore the trailing 0
-            (opid,) = unmarshaller._readStruct(">B")
-            if opid != 0:
-                raise ValueError("Should find 0x0, got {0:x}".format(opid))
+        The own field of LinkedHashMap ('accessOrder') is read as a regular
+        field, as it is written by a class without a custom writeObject.
+        """
 
     class JavaSet(set, JavaObject):
         """
@@ -171,7 +151,7 @@ class DefaultObjectTransformer(object):  # pylint:disable=R0205
             JavaObject.__init__(self)
 
         def __hash__(self):
-            return set.__hash__(self)
+            return object.__hash__(self)
 
         def __extra_loading__(self, unmarshaller, ident=0):
             # type: (JavaObjectUnmarshaller, int) -> None
@@ -376,6 +356,9 @@ class DefaultObjectTransformer(object):  # pylint:disable=R0205
         :return: The Python form of the object, or the original JavaObject
         """
         try:
+            if classdesc.name is None:
+                raise KeyError(classdesc.name)
+
             mapped_type = self.TYPE_MAPPER[classdesc.name]
         except KeyError:
             # Return a JavaObject by default

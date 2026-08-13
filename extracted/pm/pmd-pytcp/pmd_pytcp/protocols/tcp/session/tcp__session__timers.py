@@ -65,8 +65,8 @@ _SERVICED_TIMERS_BY_STATE: dict[FsmState, frozenset[str]] = {
     FsmState.ESTABLISHED: frozenset({"retransmit", "persist", "delayed_ack", "keepalive", "rack", "tlp", _PUMP}),
     FsmState.CLOSE_WAIT: frozenset({"retransmit", "persist", "delayed_ack", _PUMP}),
     FsmState.FIN_WAIT_1: frozenset({"retransmit", "persist", _PUMP}),
-    FsmState.FIN_WAIT_2: frozenset({_PUMP}),
-    FsmState.CLOSING: frozenset({_PUMP}),
+    FsmState.FIN_WAIT_2: frozenset({"fin_wait_2", _PUMP}),
+    FsmState.CLOSING: frozenset({"retransmit", "persist", _PUMP}),
     FsmState.LAST_ACK: frozenset({"retransmit", "persist", _PUMP}),
     FsmState.TIME_WAIT: frozenset({"time_wait", _PUMP}),
 }
@@ -86,9 +86,9 @@ class TcpTimerService:
         self._session: TcpSession = session
         # Per-session logical-timer deadline map (absolute
         # monotonic ms; key absent == not armed). Keyed by bare
-        # logical name ("retransmit", "time_wait", "persist",
-        # "delayed_ack", "challenge_ack", "keepalive", "tlp",
-        # "rack", "tx_pump").
+        # logical name ("retransmit", "time_wait", "fin_wait_2",
+        # "persist", "delayed_ack", "challenge_ack", "keepalive",
+        # "tlp", "rack", "tx_pump").
         self._deadlines: dict[str, int] = {}
         # Coalesced per-session service handle. Re-armed by
         # '_reschedule' to the soonest deadline among logical
@@ -127,6 +127,16 @@ class TcpTimerService:
         if self._service_handle is not None:
             stack.timer.cancel(self._service_handle)
             self._service_handle = None
+
+    def deadline(self, name: str, /) -> int | None:
+        """
+        Return the named logical timer's absolute deadline
+        (monotonic ms) when armed, else None. The RFC 8985 §7.2
+        'do not outlast RTO' clamp reads the in-flight retransmit
+        deadline through this.
+        """
+
+        return self._deadlines.get(name)
 
     def armed(self, name: str, /) -> bool:
         """

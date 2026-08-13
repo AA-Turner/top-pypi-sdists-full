@@ -3,16 +3,11 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from .get_auth_method import get_auth_method
-from .iam_auth import IAMTokenAuth, get_iam_user_details
-from .icp_auth import ICPAuth
-from .jwt_token_function_auth import JWTTokenFunctionAuth
-from .models import TokenInfo
-from .placeholders import TokenRemovedDuringClientCopyPlaceholder
-from .refreshable_token_auth import RefreshableTokenAuth
-from .token_auth import TokenAuth
-from .trusted_profile_auth import TrustedProfileAuth
-from .utils import get_token_payload
+from ibm_watsonx_ai.utils.auth.base_auth import TokenAuth, get_auth_method
+from ibm_watsonx_ai.utils.auth.iam_auth import IAMTokenAuth, get_iam_user_details
+from ibm_watsonx_ai.utils.auth.icp_auth import ICPAuth
+from ibm_watsonx_ai.utils.auth.jwt_token_function_auth import JWTTokenFunctionAuth
+from ibm_watsonx_ai.utils.auth.trusted_profile_auth import TrustedProfileAuth
 
 __all__ = [
     "TokenAuth",
@@ -22,8 +17,4 @@ __all__ = [
     "ICPAuth",
     "JWTTokenFunctionAuth",
     "TrustedProfileAuth",
-    "get_token_payload",
-    "TokenInfo",
-    "TokenRemovedDuringClientCopyPlaceholder",
-    "RefreshableTokenAuth",
 ]

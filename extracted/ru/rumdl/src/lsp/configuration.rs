@@ -14,7 +14,7 @@ use crate::config::{
 };
 use crate::rule::Rule;
 
-use super::server::{ConfigCacheEntry, RumdlLanguageServer};
+use super::server::{ConfigCacheEntry, ConfigResolver, RumdlLanguageServer};
 use super::types::{ConfigurationPreference, LspRuleSettings, RumdlLspConfig};
 
 /// A project config that loaded, and where it came from.
@@ -39,69 +39,149 @@ enum ResolvedProjectConfig {
     Unresolvable,
 }
 
-/// Collect candidate project-config file paths by walking up from `search_dir`,
-/// nearest directory first.
+/// Merge editor settings with a file's resolved filesystem configuration.
 ///
-/// Mirrors CLI discovery (`SourcedConfig::discover_config_upward`): rumdl-native files
-/// take precedence over markdownlint files within a directory, and `pyproject.toml`
-/// only counts when it declares `[tool.rumdl]`. Returning candidates nearest-first lets
-/// the caller skip a malformed nearer config and try the next one up.
-///
-/// The walk stops at `workspace_root` (inclusive) when the file is inside one, and at
-/// `home_dir` (exclusive): a config located in `$HOME` is user-level, never a project
-/// config, so it must reach the loader only through the user-config fallback where the
-/// platform user-config directory keeps precedence over `~/.rumdl.toml`. `home_dir` is
-/// supplied for tests; production passes the resolved home directory.
-pub(crate) fn collect_project_config_candidates(
-    search_dir: &Path,
-    workspace_root: Option<&Path>,
-    home_dir: Option<&Path>,
-) -> Vec<PathBuf> {
-    // Resolve the home boundary up front. Compare canonically so differing path
-    // representations (Windows 8.3 short names, Unix symlinks) still match.
-    let canonical_home = home_dir.and_then(|h| std::fs::canonicalize(h).ok());
-    let mut candidates = Vec::new();
-    let mut current_dir = search_dir.to_path_buf();
+/// This is intentionally independent of the language-server transport so both
+/// request handling and workspace indexing apply the same precedence policy.
+fn merge_lsp_settings(mut file_config: Config, lsp_config: &RumdlLspConfig) -> Config {
+    let Some(settings) = &lsp_config.settings else {
+        return file_config;
+    };
 
-    loop {
-        // Stop at the home directory: never treat `$HOME/.rumdl.toml` as a project config.
-        let at_home = match (&canonical_home, std::fs::canonicalize(&current_dir).ok()) {
-            (Some(home), Some(current)) => &current == home,
-            _ => home_dir == Some(current_dir.as_path()),
-        };
-        if at_home {
-            log::debug!("Reached home directory boundary; stopping project config discovery");
-            break;
-        }
-
-        // Collect every config file in this directory in precedence order. Pushing all
-        // of them (rather than only the first) lets the caller fall through to a
-        // lower-precedence file in the same directory when a higher-precedence one
-        // fails to load, matching the prior per-directory resolution behavior.
-        //
-        // rumdl-native configs come from the shared `rumdl_configs_in_dir` helper -
-        // the single source of truth that also gates `pyproject.toml` on a real
-        // `[tool.rumdl]` section, keeping CLI and LSP discovery identical. markdownlint
-        // configs are a separate fallback tier appended after.
-        candidates.extend(crate::config::rumdl_configs_in_dir(&current_dir));
-        for config_file_name in MARKDOWNLINT_CONFIG_FILES {
-            let config_path = current_dir.join(config_file_name);
-            if config_path.exists() {
-                candidates.push(config_path);
-            }
-        }
-
-        if workspace_root == Some(current_dir.as_path()) {
-            break;
-        }
-
-        match current_dir.parent() {
-            Some(parent) => current_dir = parent.to_path_buf(),
-            None => break,
+    match lsp_config.configuration_preference {
+        ConfigurationPreference::EditorFirst => apply_lsp_settings_to_config(&mut file_config, settings),
+        ConfigurationPreference::FilesystemFirst => apply_lsp_settings_if_absent(&mut file_config, settings),
+        ConfigurationPreference::EditorOnly => {
+            let mut default_config = Config::default();
+            apply_lsp_settings_to_config(&mut default_config, settings);
+            return default_config;
         }
     }
 
-    candidates
+    file_config
+}
+
+fn apply_lsp_settings_to_config(config: &mut Config, settings: &LspRuleSettings) {
+    if let Some(line_length) = settings.line_length {
+        config.global.line_length = crate::types::LineLength::new(line_length);
+    }
+    if let Some(disable) = &settings.disable {
+        config.global.disable.extend(disable.iter().cloned());
+    }
+    if let Some(enable) = &settings.enable {
+        config.global.enable.extend(enable.iter().cloned());
+    }
+    for (rule_name, rule_config) in &settings.rules {
+        apply_rule_config(config, rule_name, rule_config);
+    }
+    config.canonicalize_rule_lists();
+}
+
+fn apply_lsp_settings_if_absent(config: &mut Config, settings: &LspRuleSettings) {
+    if config.global.line_length.get() == 80
+        && let Some(line_length) = settings.line_length
+    {
+        config.global.line_length = crate::types::LineLength::new(line_length);
+    }
+    if let Some(disable) = &settings.disable {
+        config.global.disable.extend(disable.iter().cloned());
+    }
+    if let Some(enable) = &settings.enable {
+        config.global.enable.extend(enable.iter().cloned());
+    }
+    for (rule_name, rule_config) in &settings.rules {
+        apply_rule_config_if_absent(config, rule_name, rule_config);
+    }
+    config.canonicalize_rule_lists();
+}
+
+pub(super) fn apply_rule_config(config: &mut Config, rule_name: &str, rule_config: &serde_json::Value) {
+    let rule_key = rule_name.to_uppercase();
+    let rule_entry = config.rules.entry(rule_key.clone()).or_default();
+
+    if let Some(obj) = rule_config.as_object() {
+        for (key, value) in obj {
+            let config_key = camel_to_snake(key);
+            if config_key == "severity" {
+                if let Some(severity_str) = value.as_str() {
+                    match serde_json::from_value::<crate::rule::Severity>(serde_json::Value::String(
+                        severity_str.to_string(),
+                    )) {
+                        Ok(severity) => rule_entry.severity = Some(severity),
+                        Err(_) => log::warn!(
+                            "Invalid severity '{severity_str}' for rule {rule_key}. Valid values: error, warning, info"
+                        ),
+                    }
+                }
+                continue;
+            }
+
+            if let Some(toml_value) = json_to_toml(value) {
+                rule_entry.values.insert(config_key, toml_value);
+            }
+        }
+    }
+}
+
+pub(super) fn apply_rule_config_if_absent(config: &mut Config, rule_name: &str, rule_config: &serde_json::Value) {
+    let rule_key = rule_name.to_uppercase();
+    let existing_rule = config.rules.get(&rule_key);
+    let has_existing_values = existing_rule.is_some_and(|rule| !rule.values.is_empty());
+    let has_existing_severity = existing_rule.and_then(|rule| rule.severity).is_some();
+
+    if let Some(obj) = rule_config.as_object() {
+        let rule_entry = config.rules.entry(rule_key.clone()).or_default();
+        for (key, value) in obj {
+            let config_key = camel_to_snake(key);
+            if config_key == "severity" {
+                if !has_existing_severity && let Some(severity_str) = value.as_str() {
+                    match serde_json::from_value::<crate::rule::Severity>(serde_json::Value::String(
+                        severity_str.to_string(),
+                    )) {
+                        Ok(severity) => rule_entry.severity = Some(severity),
+                        Err(_) => log::warn!(
+                            "Invalid severity '{severity_str}' for rule {rule_key}. Valid values: error, warning, info"
+                        ),
+                    }
+                }
+                continue;
+            }
+
+            if !has_existing_values && let Some(toml_value) = json_to_toml(value) {
+                rule_entry.values.insert(config_key, toml_value);
+            }
+        }
+    }
+}
+
+fn camel_to_snake(s: &str) -> String {
+    let mut result = String::new();
+    for (i, c) in s.chars().enumerate() {
+        if c.is_uppercase() && i > 0 {
+            result.push('_');
+        }
+        result.push(c.to_lowercase().next().unwrap_or(c));
+    }
+    result
+}
+
+fn json_to_toml(json: &serde_json::Value) -> Option<toml::Value> {
+    match json {
+        serde_json::Value::Bool(value) => Some(toml::Value::Boolean(*value)),
+        serde_json::Value::Number(value) => value
+            .as_i64()
+            .map(toml::Value::Integer)
+            .or_else(|| value.as_f64().map(toml::Value::Float)),
+        serde_json::Value::String(value) => Some(toml::Value::String(value.clone())),
+        serde_json::Value::Array(values) => Some(toml::Value::Array(values.iter().filter_map(json_to_toml).collect())),
+        serde_json::Value::Object(values) => Some(toml::Value::Table(
+            values
+                .iter()
+                .filter_map(|(key, value)| Some((camel_to_snake(key), json_to_toml(value)?)))
+                .collect(),
+        )),
+        serde_json::Value::Null => None,
+    }
 }
 
 impl RumdlLanguageServer {
@@ -160,226 +240,8 @@ impl RumdlLanguageServer {
     /// This follows Ruff's pattern where editors can pass per-rule configuration
     /// via LSP initialization options. The `configuration_preference` controls
     /// whether editor settings override filesystem configs or vice versa.
-    pub(super) fn merge_lsp_settings(&self, mut file_config: Config, lsp_config: &RumdlLspConfig) -> Config {
-        let Some(settings) = &lsp_config.settings else {
-            return file_config;
-        };
-
-        match lsp_config.configuration_preference {
-            ConfigurationPreference::EditorFirst => {
-                // Editor settings take priority - apply them on top of file config
-                self.apply_lsp_settings_to_config(&mut file_config, settings);
-            }
-            ConfigurationPreference::FilesystemFirst => {
-                // File config takes priority - only apply settings for values not in file config
-                self.apply_lsp_settings_if_absent(&mut file_config, settings);
-            }
-            ConfigurationPreference::EditorOnly => {
-                // Ignore file config completely - start from default and apply editor settings
-                let mut default_config = Config::default();
-                self.apply_lsp_settings_to_config(&mut default_config, settings);
-                return default_config;
-            }
-        }
-
-        file_config
-    }
-
-    /// Apply all LSP settings to config, overriding existing values
-    fn apply_lsp_settings_to_config(&self, config: &mut Config, settings: &LspRuleSettings) {
-        // Apply global line length
-        if let Some(line_length) = settings.line_length {
-            config.global.line_length = crate::types::LineLength::new(line_length);
-        }
-
-        // Apply disable list
-        if let Some(disable) = &settings.disable {
-            config.global.disable.extend(disable.iter().cloned());
-        }
-
-        // Apply enable list
-        if let Some(enable) = &settings.enable {
-            config.global.enable.extend(enable.iter().cloned());
-        }
-
-        // Apply per-rule settings (e.g., "MD013": { "lineLength": 120 })
-        for (rule_name, rule_config) in &settings.rules {
-            self.apply_rule_config(config, rule_name, rule_config);
-        }
-
-        // Re-establish the canonical-rule-IDs invariant: editor-supplied
-        // disable/enable lists may use aliases (e.g. "no-inline-html") and
-        // must be normalised so `rules::filter_rules` matches them against
-        // `Rule::name()`.
-        config.canonicalize_rule_lists();
-    }
-
-    /// Apply LSP settings to config only where file config doesn't specify values
-    fn apply_lsp_settings_if_absent(&self, config: &mut Config, settings: &LspRuleSettings) {
-        // Apply global line length only if using default value
-        // LineLength default is 80, so we can check if it's still the default
-        if config.global.line_length.get() == 80
-            && let Some(line_length) = settings.line_length
-        {
-            config.global.line_length = crate::types::LineLength::new(line_length);
-        }
-
-        // For disable/enable lists, we merge them (filesystem values are already there)
-        if let Some(disable) = &settings.disable {
-            config.global.disable.extend(disable.iter().cloned());
-        }
-
-        if let Some(enable) = &settings.enable {
-            config.global.enable.extend(enable.iter().cloned());
-        }
-
-        // Apply per-rule settings only if not already configured in file
-        for (rule_name, rule_config) in &settings.rules {
-            self.apply_rule_config_if_absent(config, rule_name, rule_config);
-        }
-
-        // Re-establish the canonical-rule-IDs invariant after merging editor input.
-        config.canonicalize_rule_lists();
-    }
-
-    /// Apply per-rule configuration from LSP settings
-    ///
-    /// Converts JSON values from LSP settings to TOML values and merges them
-    /// into the config's rule-specific BTreeMap.
-    pub(super) fn apply_rule_config(&self, config: &mut Config, rule_name: &str, rule_config: &serde_json::Value) {
-        let rule_key = rule_name.to_uppercase();
-
-        // Get or create the rule config entry
-        let rule_entry = config.rules.entry(rule_key.clone()).or_default();
-
-        // Convert JSON object to TOML values and merge
-        if let Some(obj) = rule_config.as_object() {
-            for (key, value) in obj {
-                // Convert camelCase to snake_case for config compatibility
-                let config_key = Self::camel_to_snake(key);
-
-                // Handle severity specially - it's a first-class field on RuleConfig
-                if config_key == "severity" {
-                    if let Some(severity_str) = value.as_str() {
-                        match serde_json::from_value::<crate::rule::Severity>(serde_json::Value::String(
-                            severity_str.to_string(),
-                        )) {
-                            Ok(severity) => {
-                                rule_entry.severity = Some(severity);
-                            }
-                            Err(_) => {
-                                log::warn!(
-                                    "Invalid severity '{severity_str}' for rule {rule_key}. \
-                                     Valid values: error, warning, info"
-                                );
-                            }
-                        }
-                    }
-                    continue;
-                }
-
-                // Convert JSON value to TOML value
-                if let Some(toml_value) = Self::json_to_toml(value) {
-                    rule_entry.values.insert(config_key, toml_value);
-                }
-            }
-        }
-    }
-
-    /// Apply per-rule configuration only if not already set in file config
-    ///
-    /// For FilesystemFirst mode: file config takes precedence for each setting.
-    /// This means:
-    /// - If file has severity set, don't override it with LSP severity
-    /// - If file has values set, don't override them with LSP values
-    /// - Handle severity and values independently
-    pub(super) fn apply_rule_config_if_absent(
-        &self,
-        config: &mut Config,
-        rule_name: &str,
-        rule_config: &serde_json::Value,
-    ) {
-        let rule_key = rule_name.to_uppercase();
-
-        // Check existing config state
-        let existing_rule = config.rules.get(&rule_key);
-        let has_existing_values = existing_rule.is_some_and(|r| !r.values.is_empty());
-        let has_existing_severity = existing_rule.and_then(|r| r.severity).is_some();
-
-        // Apply LSP settings, respecting file config
-        if let Some(obj) = rule_config.as_object() {
-            let rule_entry = config.rules.entry(rule_key.clone()).or_default();
-
-            for (key, value) in obj {
-                let config_key = Self::camel_to_snake(key);
-
-                // Handle severity independently
-                if config_key == "severity" {
-                    if !has_existing_severity && let Some(severity_str) = value.as_str() {
-                        match serde_json::from_value::<crate::rule::Severity>(serde_json::Value::String(
-                            severity_str.to_string(),
-                        )) {
-                            Ok(severity) => {
-                                rule_entry.severity = Some(severity);
-                            }
-                            Err(_) => {
-                                log::warn!(
-                                    "Invalid severity '{severity_str}' for rule {rule_key}. \
-                                     Valid values: error, warning, info"
-                                );
-                            }
-                        }
-                    }
-                    continue;
-                }
-
-                // Handle other values only if file config doesn't have any values for this rule
-                if !has_existing_values && let Some(toml_value) = Self::json_to_toml(value) {
-                    rule_entry.values.insert(config_key, toml_value);
-                }
-            }
-        }
-    }
-
-    /// Convert camelCase to snake_case
-    fn camel_to_snake(s: &str) -> String {
-        let mut result = String::new();
-        for (i, c) in s.chars().enumerate() {
-            if c.is_uppercase() && i > 0 {
-                result.push('_');
-            }
-            result.push(c.to_lowercase().next().unwrap_or(c));
-        }
-        result
-    }
-
-    /// Convert a JSON value to a TOML value
-    fn json_to_toml(json: &serde_json::Value) -> Option<toml::Value> {
-        match json {
-            serde_json::Value::Bool(b) => Some(toml::Value::Boolean(*b)),
-            serde_json::Value::Number(n) => {
-                if let Some(i) = n.as_i64() {
-                    Some(toml::Value::Integer(i))
-                } else {
-                    n.as_f64().map(toml::Value::Float)
-                }
-            }
-            serde_json::Value::String(s) => Some(toml::Value::String(s.clone())),
-            serde_json::Value::Array(arr) => {
-                let toml_arr: Vec<toml::Value> = arr.iter().filter_map(Self::json_to_toml).collect();
-                Some(toml::Value::Array(toml_arr))
-            }
-            serde_json::Value::Object(obj) => {
-                let mut table = toml::map::Map::new();
-                for (k, v) in obj {
-                    if let Some(toml_v) = Self::json_to_toml(v) {
-                        table.insert(Self::camel_to_snake(k), toml_v);
-                    }
-                }
-                Some(toml::Value::Table(table))
-            }
-            serde_json::Value::Null => None,
-        }
+    pub(super) fn merge_lsp_settings(&self, file_config: Config, lsp_config: &RumdlLspConfig) -> Config {
+        merge_lsp_settings(file_config, lsp_config)
     }
 
     /// Load or reload rumdl configuration from files.
@@ -514,6 +376,38 @@ impl RumdlLanguageServer {
         }
     }
 
+    pub(crate) async fn resolve_config_for_file(&self, file_path: &Path) -> Config {
+        self.resolve_config_for_file_impl(file_path, None, None).await
+    }
+
+    pub(crate) async fn resolve_config_for_file_impl(
+        &self,
+        file_path: &Path,
+        user_config_dir: Option<&Path>,
+        home_dir_override: Option<&Path>,
+    ) -> Config {
+        self.config_resolver
+            .resolve_config_for_file_impl(file_path, user_config_dir, home_dir_override)
+            .await
+    }
+}
+
+impl ConfigResolver {
+    /// The root configuration used to select files during a workspace scan.
+    pub(crate) async fn workspace_config(&self) -> Config {
+        self.rumdl_config.read().await.clone()
+    }
+
+    /// Resolve the complete configuration used to interpret one document.
+    ///
+    /// Project and `.editorconfig` settings are resolved for the path first;
+    /// editor settings are then layered according to `configurationPreference`.
+    pub(crate) async fn resolve_effective_config_for_file(&self, file_path: &Path) -> Config {
+        let file_config = self.resolve_config_for_file(file_path).await;
+        let lsp_config = self.config.read().await.clone();
+        merge_lsp_settings(file_config, &lsp_config)
+    }
+
     /// Resolve configuration for a specific file
     ///
     /// This method searches for a configuration file starting from the file's directory
@@ -628,7 +522,11 @@ impl RumdlLanguageServer {
         // Walk upward from the file's directory, bounded by the workspace root and the
         // home directory. Candidates are nearest-first; load the first that parses so a
         // malformed nearer config falls through to the next one up, mirroring the CLI.
-        let candidates = collect_project_config_candidates(&search_dir, workspace_root.as_deref(), home_dir.as_deref());
+        let candidates = crate::config::collect_project_config_candidates(
+            &search_dir,
+            workspace_root.as_deref(),
+            home_dir.as_deref(),
+        );
 
         // These candidates were discovered, not named by the user, so they load through
         // the discovery loader: it keeps the user config as a base under a markdownlint

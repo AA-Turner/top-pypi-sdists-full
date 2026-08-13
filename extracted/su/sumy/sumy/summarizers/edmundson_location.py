@@ -1,17 +1,15 @@
-# -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-from __future__ import division, print_function, unicode_literals
 
 from itertools import chain
 from operator import attrgetter
+
 from .._compat import ffilter
 from ._summarizer import AbstractSummarizer
 
 
 class EdmundsonLocationMethod(AbstractSummarizer):
     def __init__(self, stemmer, null_words):
-        super(EdmundsonLocationMethod, self).__init__(stemmer)
+        super().__init__(stemmer)
         self._null_words = null_words
 
     def __call__(self, document, sentences_count, w_h, w_p1, w_p2, w_s1, w_s2):

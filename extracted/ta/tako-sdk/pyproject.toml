@@ -1,6 +1,6 @@
 [project]
 name = "tako-sdk"
-version = "2.2.15"
+version = "2.2.16"
 description = "The official Python library for the tako API"
 readme = "README.md"
 license = "MIT"

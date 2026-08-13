@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any, Iterator, cast
 
 import numpy as np
 import pytest
@@ -15,7 +15,7 @@ from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
 
 from model2vec.inference import StaticModelPipeline
 from model2vec.model import StaticModel
-from model2vec.train import StaticModelForClassification, StaticModelForSimilarity
+from model2vec.train import StaticModelForClassification, StaticModelForRegression, StaticModelForSimilarity
 
 _TOKENIZER_TYPES = ["wordpiece", "bpe", "unigram"]
 
@@ -62,6 +62,14 @@ def mock_tokenizermodel() -> TokenizerModel:
     return TokenizerModel.from_pretrained("tests/data/test_tokenizer")
 
 
+# TODO: Temporary fix for skeletoken 0.3.3 compatibility.
+# Once we go to >= 0.4.0 this is no longer needed
+class DumbConfig:
+    def __iter__(self) -> Iterator[tuple[str, object]]:
+        """Yield no config values."""
+        yield from []
+
+
 @pytest.fixture
 def mock_transformer(request: pytest.FixtureRequest) -> PreTrainedModel:
     """Create a mock transformer model."""
@@ -80,7 +88,7 @@ def mock_transformer(request: pytest.FixtureRequest) -> PreTrainedModel:
             self.with_pooler = with_pooler
             self.pooler_value = pooler_value
             self.input_embs = torch.nn.Embedding(vocab_size, dim)
-            self.config: dict[str, Any] = {}
+            self.config = DumbConfig()
 
         def to(self, device: str) -> MockPreTrainedModel:
             self.device = device
@@ -191,6 +199,21 @@ def mock_trained_similarity_pipeline() -> StaticModelForSimilarity:
     torch.random.manual_seed(42)
     vectors_torched = torch.randn(len(tokenizer.get_vocab()), 12)
     model = StaticModelForSimilarity(vectors=vectors_torched, tokenizer=tokenizer, hidden_dim=12).to("cpu")
+
+    X = ["dog", "cat"]
+    y = torch.randn(2, 32)
+    model.fit(X, y)
+
+    return model
+
+
+@pytest.fixture(scope="session")
+def mock_trained_regression_pipeline() -> StaticModelForRegression:
+    """Mock StaticModelForSimilarity."""
+    tokenizer = AutoTokenizer.from_pretrained("tests/data/test_tokenizer").backend_tokenizer
+    torch.random.manual_seed(42)
+    vectors_torched = torch.randn(len(tokenizer.get_vocab()), 12)
+    model = StaticModelForRegression(vectors=vectors_torched, tokenizer=tokenizer, hidden_dim=12).to("cpu")
 
     X = ["dog", "cat"]
     y = torch.randn(2, 32)

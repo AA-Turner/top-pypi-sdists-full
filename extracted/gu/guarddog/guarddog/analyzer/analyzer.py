@@ -81,6 +81,7 @@ class Analyzer:
             ".ts": LANGUAGE.TYPESCRIPT,
             ".tsx": LANGUAGE.TYPESCRIPT,
             ".go": LANGUAGE.GO,
+            ".rs": LANGUAGE.RUST,
             ".rb": LANGUAGE.RUBY,
         }
         return language_map.get(ext)
@@ -123,7 +124,12 @@ class Analyzer:
                     "utf-8", errors="ignore"
                 )
 
-            if language in [LANGUAGE.JAVASCRIPT, LANGUAGE.TYPESCRIPT, LANGUAGE.GO]:
+            if language in [
+                LANGUAGE.JAVASCRIPT,
+                LANGUAGE.TYPESCRIPT,
+                LANGUAGE.GO,
+                LANGUAGE.RUST,
+            ]:
                 # Search backwards for first /* or */
                 last_open = window.rfind("/*")
                 last_close = window.rfind("*/")
@@ -194,6 +200,7 @@ class Analyzer:
                 LANGUAGE.JAVASCRIPT,
                 LANGUAGE.TYPESCRIPT,
                 LANGUAGE.GO,
+                LANGUAGE.RUST,
             ] and line_stripped.startswith("//"):
                 return True
 
@@ -389,7 +396,10 @@ class Analyzer:
             # filtering the full ruleset witht the user's input
             all_rules = self.yara_ruleset & rules
 
-        results = {rule: {} for rule in all_rules}  # type: dict
+        # Sort for deterministic result/rule ordering across machines (#828)
+        sorted_rules = sorted(all_rules)
+
+        results = {rule: {} for rule in sorted_rules}  # type: dict
         errors: Dict[str, str] = {}
         issues = 0
 
@@ -397,7 +407,7 @@ class Analyzer:
 
         rules_path = {
             rule_name: os.path.join(SOURCECODE_RULES_PATH, f"{rule_name}.yar")
-            for rule_name in all_rules
+            for rule_name in sorted_rules
         }
 
         if len(rules_path) == 0:
@@ -438,11 +448,14 @@ class Analyzer:
                 hits_found = 0
                 should_stop = False
 
-                for root, _, files in os.walk(path):
+                for root, dirs, files in os.walk(path):
                     if should_stop:
                         break
 
-                    for f in files:
+                    # Sort for deterministic max_hits results across machines (#828)
+                    dirs.sort()
+
+                    for f in sorted(files):
                         if should_stop:
                             break
 

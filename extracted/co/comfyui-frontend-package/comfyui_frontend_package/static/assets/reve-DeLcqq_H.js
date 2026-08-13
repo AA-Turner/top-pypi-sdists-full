@@ -9,4 +9,3 @@ var e=`<svg width="182" height="148" viewBox="0 0 182 148" fill="none" xmlns="ht
 </defs>
 </svg>
 `;export{e as default};
-//# sourceMappingURL=reve-DeLcqq_H.js.map

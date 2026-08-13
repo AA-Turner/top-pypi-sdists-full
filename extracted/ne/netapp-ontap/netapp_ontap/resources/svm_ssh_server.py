@@ -53,20 +53,27 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SvmSshServer(
     {
-        "_links": {
-            "self": {
-                "href": "/api/security/ssh/svms/02c9e252-41be-11e9-81d5-00a0986138f7"
-            }
-        },
         "ciphers": ["aes256_ctr", "aes192_ctr"],
         "login_grace_time": 30,
-        "mac_algorithms": ["hmac_sha2_512_etm", "umac_128_etm"],
         "max_authentication_retry_count": 3,
         "key_exchange_algorithms": [
             "diffie_hellman_group_exchange_sha256",
             "ecdh_sha2_nistp256",
             "diffie_hellman_group16_sha512",
         ],
+        "_links": {
+            "self": {
+                "href": "/api/security/ssh/svms/02c9e252-41be-11e9-81d5-00a0986138f7"
+            }
+        },
+        "mac_algorithms": ["hmac_sha2_512_etm", "umac_128_etm"],
+        "svm": {
+            "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7",
+            "_links": {
+                "self": {"href": "/api/svm/svms/02c9e252-41be-11e9-81d5-00a0986138f7"}
+            },
+            "name": "svm1",
+        },
         "is_rsa_in_publickey_algorithms_enabled": False,
         "host_key_algorithms": [
             "ecdsa_sha2_nistp256",
@@ -74,13 +81,6 @@ SvmSshServer(
             "rsa_sha2_256",
             "rsa_sha2_512",
         ],
-        "svm": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/02c9e252-41be-11e9-81d5-00a0986138f7"}
-            },
-            "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7",
-        },
     }
 )
 

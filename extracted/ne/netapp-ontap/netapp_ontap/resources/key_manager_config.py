@@ -29,18 +29,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 KeyManagerConfig(
     {
+        "health_monitor_polling_interval": 15,
+        "cc_mode_enabled": False,
         "_links": {"self": {"href": "/api/security/key-manager-configs"}},
         "health_monitor_policy": {
-            "kmip": {"manage_volume_offline": True, "enabled": True},
             "okm": {"manage_volume_offline": True, "enabled": True},
+            "akv": {"manage_volume_offline": True, "enabled": True},
             "aws": {"manage_volume_offline": True, "enabled": True},
             "gcp": {"manage_volume_offline": True, "enabled": True},
-            "akv": {"manage_volume_offline": True, "enabled": True},
+            "kmip": {"manage_volume_offline": True, "enabled": True},
             "ikp": {"manage_volume_offline": True, "enabled": True},
         },
         "cloud_kms_retry_count": 3,
-        "cc_mode_enabled": False,
-        "health_monitor_polling_interval": 15,
     }
 )
 

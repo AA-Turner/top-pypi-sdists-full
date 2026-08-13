@@ -255,12 +255,14 @@ class AddToQueueResponse(_message.Message):
     def __init__(self, success: _Optional[_Union[AddToQueueResponse.AddToQueueResponseSuccess, _Mapping]] = ..., error: _Optional[_Union[AddToQueueResponse.AddToQueueResponseError, _Mapping]] = ...) -> None: ...
 
 class QmServiceAddCompiledToQueueRequest(_message.Message):
-    __slots__ = ["quantum_machine_id", "program_id"]
+    __slots__ = ["quantum_machine_id", "program_id", "overrides"]
     QUANTUM_MACHINE_ID_FIELD_NUMBER: _ClassVar[int]
     PROGRAM_ID_FIELD_NUMBER: _ClassVar[int]
+    OVERRIDES_FIELD_NUMBER: _ClassVar[int]
     quantum_machine_id: str
     program_id: str
-    def __init__(self, quantum_machine_id: _Optional[str] = ..., program_id: _Optional[str] = ...) -> None: ...
+    overrides: _frontend_pb2.ExecutionOverrides
+    def __init__(self, quantum_machine_id: _Optional[str] = ..., program_id: _Optional[str] = ..., overrides: _Optional[_Union[_frontend_pb2.ExecutionOverrides, _Mapping]] = ...) -> None: ...
 
 class AddCompiledToQueueResponse(_message.Message):
     __slots__ = ["success", "error"]

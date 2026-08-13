@@ -681,6 +681,7 @@ class RichArgument(_message.Message):
         "batch_udf_value",
         "flat_expr_value",
         "canonical_proto_value",
+        "custom_python_value",
         "list_value",
         "unordered_dict_value",
     )
@@ -691,6 +692,7 @@ class RichArgument(_message.Message):
     BATCH_UDF_VALUE_FIELD_NUMBER: _ClassVar[int]
     FLAT_EXPR_VALUE_FIELD_NUMBER: _ClassVar[int]
     CANONICAL_PROTO_VALUE_FIELD_NUMBER: _ClassVar[int]
+    CUSTOM_PYTHON_VALUE_FIELD_NUMBER: _ClassVar[int]
     LIST_VALUE_FIELD_NUMBER: _ClassVar[int]
     UNORDERED_DICT_VALUE_FIELD_NUMBER: _ClassVar[int]
     primitive_value: _primitive_pb2.Primitive
@@ -700,6 +702,7 @@ class RichArgument(_message.Message):
     batch_udf_value: BatchUDF
     flat_expr_value: FlatLogicalExpr
     canonical_proto_value: _any_pb2.Any
+    custom_python_value: CustomPython
     list_value: RichArgumentList
     unordered_dict_value: RichArgumentUnorderedDict
     def __init__(
@@ -711,8 +714,19 @@ class RichArgument(_message.Message):
         batch_udf_value: _Optional[_Union[BatchUDF, _Mapping]] = ...,
         flat_expr_value: _Optional[_Union[FlatLogicalExpr, _Mapping]] = ...,
         canonical_proto_value: _Optional[_Union[_any_pb2.Any, _Mapping]] = ...,
+        custom_python_value: _Optional[_Union[CustomPython, _Mapping]] = ...,
         list_value: _Optional[_Union[RichArgumentList, _Mapping]] = ...,
         unordered_dict_value: _Optional[_Union[RichArgumentUnorderedDict, _Mapping]] = ...,
+    ) -> None: ...
+
+class CustomPython(_message.Message):
+    __slots__ = ("py_ty", "py_encoding")
+    PY_TY_FIELD_NUMBER: _ClassVar[int]
+    PY_ENCODING_FIELD_NUMBER: _ClassVar[int]
+    py_ty: str
+    py_encoding: _any_pb2.Any
+    def __init__(
+        self, py_ty: _Optional[str] = ..., py_encoding: _Optional[_Union[_any_pb2.Any, _Mapping]] = ...
     ) -> None: ...
 
 class RichArgumentList(_message.Message):

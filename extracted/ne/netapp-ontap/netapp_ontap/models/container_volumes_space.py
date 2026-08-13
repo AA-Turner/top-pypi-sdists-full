@@ -25,24 +25,35 @@ class ContainerVolumesSpaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
 Example: 1073741824 """
 
+    snapshot = marshmallow_fields.Nested(
+                lambda: lazy_import_schema("netapp_ontap.models.container_volumes_space_snapshot", "ContainerVolumesSpaceSnapshotSchema"),
+                unknown=EXCLUDE,
+                data_key="snapshot",
+                allow_none=True
+            )
+    r""" The snapshot field of the container_volumes_space. """
+
     @property
     def resource(self):
         return ContainerVolumesSpace
 
     gettable_fields = [
         "size",
+        "snapshot",
     ]
-    """size,"""
+    """size,snapshot,"""
 
     patchable_fields = [
         "size",
+        "snapshot",
     ]
-    """size,"""
+    """size,snapshot,"""
 
     postable_fields = [
         "size",
+        "snapshot",
     ]
-    """size,"""
+    """size,snapshot,"""
 
 
 class ContainerVolumesSpace(Resource):

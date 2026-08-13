@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING
 
 from pmd_pytcp.lib.logger import log
 from pmd_pytcp.protocols.tcp import tcp__constants
-from pmd_pytcp.protocols.tcp.tcp__enums import FsmState, SysCall
+from pmd_pytcp.protocols.tcp.tcp__enums import ConnError, FsmState, SysCall
 from pmd_pytcp.protocols.tcp.tcp__seq import gt32, in_range32
 
 if TYPE_CHECKING:
@@ -46,9 +46,33 @@ if TYPE_CHECKING:
     from pmd_pytcp.socket.tcp__metadata import TcpMetadata
 
 
+def fsm__fin_wait_2__timer(session: TcpSession) -> None:
+    """
+    TCP FSM FIN_WAIT_2 state timer handler.
+
+    Run the orphan reaper (Linux 'tcp_fin_timeout' parity): when
+    the named 'fin_wait_2' timer — armed only for ORPHANED
+    connections, whose socket the application has fully closed —
+    expires without the peer's FIN arriving, transition to
+    CLOSED. Deliberate deviation from RFC 9293's unbounded
+    FIN_WAIT_2 hold: an orphan has no reader, so holding the TCB
+    (and its local port) for a vanished peer serves nobody.
+    """
+
+    if session._timer_expired("fin_wait_2"):
+        session._change_state(FsmState.CLOSED)
+
+
 def fsm__fin_wait_2__syscall(session: TcpSession, syscall: SysCall) -> None:
     """
     TCP FSM FIN_WAIT_2 state syscall handler.
+
+    Got CLOSE syscall -> the application has now fully closed a
+    connection it had earlier half-closed via 'shutdown(SHUT_WR)';
+    nobody can ever read the peer's remaining data, so the
+    connection is orphaned. Arm the Linux-'tcp_fin_timeout'-parity
+    reaper (see 'fsm__fin_wait_2__timer'); the FIN-exchange
+    machinery itself is already in flight.
 
     Got ABORT syscall -> flush and reset per RFC 9293 §3.9.1
     (FIN_WAIT_2 is synchronized: RST goes on the wire).
@@ -56,6 +80,12 @@ def fsm__fin_wait_2__syscall(session: TcpSession, syscall: SysCall) -> None:
     terminal transition to CLOSED that unregisters the socket
     and releases its local port.
     """
+
+    if syscall is SysCall.CLOSE:
+        session._arm_timer(
+            "fin_wait_2",
+            tcp__constants.TCP__FIN_WAIT_2__TIMEOUT_MS,
+        )
 
     if syscall is SysCall.ABORT:
         session.abort()
@@ -123,12 +153,20 @@ def fsm__fin_wait_2__packet(session: TcpSession, packet_rx_md: TcpMetadata) -> N
             )
             # Change state to TIME_WAIT.
             session._change_state(FsmState.TIME_WAIT)
+            # The peer's FIN arrived — the orphan reaper (armed
+            # only for application-closed connections) is moot;
+            # TIME_WAIT's own 2MSL delay owns the teardown now.
+            session._cancel_timer("fin_wait_2")
             # Initialize TIME_WAIT delay
             session._arm_timer("time_wait", tcp__constants.TCP__TIME_WAIT__DELAY_MS)
             return
 
     # Got RST (bare or RST+ACK) -> Process per RFC 9293 §3.10.7.4
-    # three-way classification via the shared helper.
+    # three-way classification via the shared helper. Mark the
+    # connection reset so a blocked / subsequent 'recv()' on the
+    # still-readable half-closed socket raises instead of
+    # misreading the destroyed stream as a clean EOF.
     if packet_rx_md.tcp__flag_rst and not any({packet_rx_md.tcp__flag_fin, packet_rx_md.tcp__flag_syn}):
         if session._check_rst_acceptability(packet_rx_md):
+            session._connection_error = ConnError.RESET
             session._change_state(FsmState.CLOSED)

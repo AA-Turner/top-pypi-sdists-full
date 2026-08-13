@@ -35,8 +35,8 @@ with HostConnection(
         {
             "server_ip": "10.140.72.214",
             "client_ips": ["127.0.0.1"],
-            "node": {"name": "vsim1", "uuid": "cc282893-b82f-11e9-a3ad-0050568e8480"},
-            "svm": {"name": "vs1", "uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480"},
+            "svm": {"uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480", "name": "vs1"},
+            "node": {"uuid": "cc282893-b82f-11e9-a3ad-0050568e8480", "name": "vsim1"},
         }
     )
 ]

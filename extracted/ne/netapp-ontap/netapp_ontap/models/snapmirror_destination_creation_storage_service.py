@@ -20,13 +20,13 @@ class SnapmirrorDestinationCreationStorageServiceSchema(ResourceSchema, metaclas
     """The fields of the SnapmirrorDestinationCreationStorageService object"""
 
     enabled = marshmallow_fields.Boolean(data_key="enabled", allow_none=True)
-    r""" This property indicates whether to create the destination endpoint using storage service. This property is supported for Unified ONTAP destination endpoints only. """
+    r""" This property indicates whether to create the destination endpoint using storage service. """
 
     enforce_performance = marshmallow_fields.Boolean(data_key="enforce_performance", allow_none=True)
-    r""" Optional property to enforce storage service performance on the destination endpoint. This property is applicable to FlexVol volume, FlexGroup volume, and Consistency Group endpoints. This property is supported for Unified ONTAP destination endpoints only. """
+    r""" Optional property to enforce storage service performance on the destination endpoint. This property is applicable to FlexVol volume, FlexGroup volume, and Consistency Group endpoints. """
 
     name = marshmallow_fields.Str(data_key="name", allow_none=True)
-    r""" Optional property to specify the storage service name for the destination endpoint. This property is considered when the property "create_destination.storage_service.enabled" is set to "true". When the property "create_destination.storage_service.enabled" is set to "true" and the "create_destination.storage_service.name" for the endpoint is not specified, then ONTAP selects the highest storage service available on the cluster to provision the destination endpoint. This property is applicable to FlexVol volume, FlexGroup volume, and Consistency Group endpoints. This property is supported for Unified ONTAP destination endpoints only.
+    r""" Optional property to specify the storage service name for the destination endpoint. This property is considered when the property "create_destination.storage_service.enabled" is set to "true". When the property "create_destination.storage_service.enabled" is set to "true" and the "create_destination.storage_service.name" for the endpoint is not specified, then ONTAP selects the highest storage service available on the cluster to provision the destination endpoint. This property is applicable to FlexVol volume, FlexGroup volume, and Consistency Group endpoints.
 
 Valid choices:
 
