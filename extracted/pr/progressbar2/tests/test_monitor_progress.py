@@ -85,10 +85,10 @@ def test_list_example(testdir) -> None:
     pprint.pprint(result.stderr.lines, width=70)
     result.stderr.fnmatch_lines([
         '  0% (0 of 9) |            | Elapsed Time: ?:00:00 ETA:  --:--:--',
-        ' 11% (1 of 9) |#           | Elapsed Time: ?:00:01 ETA:   ?:00:08',
-        ' 22% (2 of 9) |##          | Elapsed Time: ?:00:02 ETA:   ?:00:07',
-        ' 33% (3 of 9) |####        | Elapsed Time: ?:00:03 ETA:   ?:00:06',
-        ' 44% (4 of 9) |#####       | Elapsed Time: ?:00:04 ETA:   ?:00:05',
+        ' 11% (1 of 9) |#           | Elapsed Time: ?:00:01 ETA:   ?:00:16',
+        ' 22% (2 of 9) |##          | Elapsed Time: ?:00:02 ETA:   ?:00:11',
+        ' 33% (3 of 9) |####        | Elapsed Time: ?:00:03 ETA:   ?:00:08',
+        ' 44% (4 of 9) |#####       | Elapsed Time: ?:00:04 ETA:   ?:00:06',
         ' 55% (5 of 9) |######      | Elapsed Time: ?:00:05 ETA:   ?:00:04',
         ' 66% (6 of 9) |########    | Elapsed Time: ?:00:06 ETA:   ?:00:03',
         ' 77% (7 of 9) |#########   | Elapsed Time: ?:00:07 ETA:   ?:00:02',
@@ -114,7 +114,7 @@ def test_generator_example(testdir) -> None:
     pprint.pprint(result.stderr.lines, width=70)
 
     lines = [
-        r'[/\\|\-]\s+\|\s*#\s*\| %(i)d Elapsed Time: \d:00:%(i)02d' % dict(i=i)
+        fr'[/\\|\-]\s+\|\s*#\s*\| {i:d} Elapsed Time: \d:00:{i:02d}'
         for i in range(9)
     ]
     result.stderr.re_match_lines(lines)
@@ -144,14 +144,14 @@ def test_rapid_updates(testdir) -> None:
     result.stderr.fnmatch_lines(
         [
             '  0% (0 of 10) |      | Elapsed Time: 0:00:00 ETA:  --:--:--',
-            ' 10% (1 of 10) |      | Elapsed Time: 0:00:01 ETA:   0:00:09',
-            ' 20% (2 of 10) |#     | Elapsed Time: 0:00:02 ETA:   0:00:08',
-            ' 30% (3 of 10) |#     | Elapsed Time: 0:00:03 ETA:   0:00:07',
-            ' 40% (4 of 10) |##    | Elapsed Time: 0:00:04 ETA:   0:00:06',
-            ' 50% (5 of 10) |###   | Elapsed Time: 0:00:05 ETA:   0:00:05',
-            ' 60% (6 of 10) |###   | Elapsed Time: 0:00:07 ETA:   0:00:04',
-            ' 70% (7 of 10) |####  | Elapsed Time: 0:00:09 ETA:   0:00:03',
-            ' 80% (8 of 10) |####  | Elapsed Time: 0:00:11 ETA:   0:00:02',
+            ' 10% (1 of 10) |      | Elapsed Time: 0:00:01 ETA:   0:00:18',
+            ' 20% (2 of 10) |#     | Elapsed Time: 0:00:02 ETA:   0:00:12',
+            ' 30% (3 of 10) |#     | Elapsed Time: 0:00:03 ETA:   0:00:09',
+            ' 40% (4 of 10) |##    | Elapsed Time: 0:00:04 ETA:   0:00:07',
+            ' 50% (5 of 10) |###   | Elapsed Time: 0:00:05 ETA:   0:00:06',
+            ' 60% (6 of 10) |###   | Elapsed Time: 0:00:07 ETA:   0:00:05',
+            ' 70% (7 of 10) |####  | Elapsed Time: 0:00:09 ETA:   0:00:04',
+            ' 80% (8 of 10) |####  | Elapsed Time: 0:00:11 ETA:   0:00:03',
             ' 90% (9 of 10) |##### | Elapsed Time: 0:00:13 ETA:   0:00:01',
             '100% (10 of 10) |#####| Elapsed Time: 0:00:15 Time:  0:00:15',
         ],
@@ -200,7 +200,6 @@ def test_line_breaks(testdir) -> None:
             ' 60%|################################                      |',
             ' 80%|###########################################           |',
             '100%|######################################################|',
-            '100%|######################################################|',
         ),
     )
 
@@ -224,8 +223,6 @@ def test_no_line_breaks(testdir) -> None:
         ' 60%|################################                      |',
         ' 80%|###########################################           |',
         '100%|######################################################|',
-        '',
-        '100%|######################################################|',
     ]
 
 
@@ -247,8 +244,6 @@ def test_percentage_label_bar(testdir) -> None:
         '|#######################    40%                            |',
         '|###########################60%####                        |',
         '|###########################80%################            |',
-        '|###########################100%###########################|',
-        '',
         '|###########################100%###########################|',
     ]
 
@@ -272,8 +267,6 @@ def test_granular_bar(testdir) -> None:
         '|OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOo                       |',
         '|OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO.           |',
         '|OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO|',
-        '',
-        '|OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO|',
     ]
 
 
@@ -287,10 +280,10 @@ def test_colors(testdir) -> None:
         testdir.makepyfile(_create_script(enable_colors=True, **kwargs)),
     )
     pprint.pprint(result.stderr.lines, width=70)
-    assert result.stderr.lines == ['\x1b[92mgreen\x1b[0m'] * 3
+    assert result.stderr.lines == ['\x1b[92mgreen\x1b[0m'] * 2
 
     result = testdir.runpython(
         testdir.makepyfile(_create_script(enable_colors=False, **kwargs)),
     )
     pprint.pprint(result.stderr.lines, width=70)
-    assert result.stderr.lines == ['green'] * 3
+    assert result.stderr.lines == ['green'] * 2

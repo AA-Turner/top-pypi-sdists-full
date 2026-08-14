@@ -46,7 +46,7 @@ class ThermostatSchedule:
         message: str
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 created_at=d.get("created_at", None),
                 error_code=d.get("error_code", None),
@@ -58,15 +58,15 @@ class ThermostatSchedule:
     device_id: str
     ends_at: str
     errors: List[Errors]
-    is_override_allowed: bool
-    max_override_period_minutes: int
-    name: str
+    is_override_allowed: Optional[bool]
+    max_override_period_minutes: Optional[int]
+    name: Optional[str]
     starts_at: str
     thermostat_schedule_id: str
     workspace_id: str
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]):
+    def from_dict(cls, d: Any):
         return cls(
             climate_preset_key=d.get("climate_preset_key", None),
             created_at=d.get("created_at", None),

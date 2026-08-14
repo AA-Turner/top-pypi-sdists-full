@@ -46,9 +46,23 @@ VersionType_contra = TypeVar("VersionType_contra", contravariant=True)
 class RangeProtocol(Protocol[VersionType_contra]):
     """Contract for version range types used by the resolver.
 
-    Both :class:`nab_resolver.ranges.Range` and
-    :class:`packaging.ranges.VersionRange` satisfy this protocol.  Mixing
-    range types within a single resolution is unsupported.
+    Beyond the signatures, conflict resolution only terminates while
+    ``x.is_subset((x - y) | y)`` holds for every term constraint ``x`` and
+    every ``y``; otherwise a clause resolves into itself and the loop spins.
+    :class:`nab_resolver.ranges.Range` holds it everywhere.  A type whose
+    widest value carries membership that ``-`` drops does not:
+    ``packaging.ranges.VersionRange.full()`` admits arbitrary ``===`` strings
+    and loses them to any ``y`` that removes versions.  The resolver therefore
+    records ``~empty()`` in place of any supplied range equal to :meth:`full`,
+    which may be strictly narrower.
+
+    That substitution covers the value equal to :meth:`full` and nothing else.
+    A range that keeps membership ``-`` drops without equalling it, such as
+    :meth:`full` minus an ``===`` literal, is the caller's to keep out of a
+    term; conflict resolution's step budget reports one as an internal error
+    rather than spinning on it.
+
+    Mixing range types within a single resolution is unsupported.
     """
 
     @classmethod
@@ -58,7 +72,11 @@ class RangeProtocol(Protocol[VersionType_contra]):
 
     @classmethod
     def full(cls) -> Self:
-        """Create a range containing all versions."""
+        """Create the widest range the type can express.
+
+        This is the identity for intersection folds, and may be wider than a
+        legal term constraint.
+        """
         ...
 
     @classmethod
@@ -279,6 +297,10 @@ class IncompatibilityState(enum.Enum):
     """Result of evaluating an incompatibility against the partial solution."""
 
     CONFLICT = enum.auto()
+    """Every term is satisfied."""
+
+    CONTRADICTED = enum.auto()
+    """At least one term is contradicted, so the clause already holds."""
 
 
 class IncompatibilityCause(enum.Enum):
@@ -322,6 +344,10 @@ class Incompatibility(Generic[PackageType, VersionType]):
     clause. The clause's term carries the requirement range that backtracking
     needs, so the user's constraint is kept here for the message.
 
+    ``dependency_range`` holds the required range for a ``DEPENDENCY`` clause
+    of a package on itself, whose two terms merge into one because a clause
+    holds at most one term per package.
+
     ``origin`` holds the caller's :class:`RootRequirement` origin for a
     ``ROOT`` clause, opaque to the resolver and never read by it.
 
@@ -333,6 +359,7 @@ class Incompatibility(Generic[PackageType, VersionType]):
         "cause_left",
         "cause_right",
         "constraint_range",
+        "dependency_range",
         "origin",
         "terms",
     )
@@ -345,6 +372,7 @@ class Incompatibility(Generic[PackageType, VersionType]):
         cause_right: Incompatibility[PackageType, VersionType] | None = None,
         constraint_range: RangeProtocol[VersionType] | None = None,
         origin: Any = None,
+        dependency_range: RangeProtocol[VersionType] | None = None,
     ) -> None:
         """Create an incompatibility with terms and a cause."""
         self.terms = terms
@@ -353,6 +381,7 @@ class Incompatibility(Generic[PackageType, VersionType]):
         self.cause_right = cause_right
         self.constraint_range = constraint_range
         self.origin = origin
+        self.dependency_range = dependency_range
 
     @override
     def __repr__(self) -> str:

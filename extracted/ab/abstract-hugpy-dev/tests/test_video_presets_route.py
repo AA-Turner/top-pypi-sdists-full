@@ -522,7 +522,7 @@ def test_motion_accepts_a_control_image_that_id_lock_only_used_to():
                     "image. SKIP, not a pass.")
     from abstract_hugpy_dev.imports.src.constants.constants import DEFAULT_ROOT
 
-    work = tempfile.mkdtemp(prefix="studio-motion-gate-", dir=DEFAULT_ROOT)
+    work = tempfile.mkdtemp(prefix="studio-motion-gate-", dir=os.path.join(DEFAULT_ROOT, "video_intel", "_scratch"))
     try:
         pose = os.path.join(work, "pose.png")
         Image.new("RGB", (96, 96), (30, 30, 30)).save(pose, "PNG")

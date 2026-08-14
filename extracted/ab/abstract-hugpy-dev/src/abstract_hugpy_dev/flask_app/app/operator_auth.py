@@ -31,6 +31,31 @@ Auth modes (resolved from ``HUGPY_AUTH_MODE``, same as ``/auth/config``):
 The gate only ENFORCES in external mode (or when an operator token is set), so
 installing it changes nothing until the operator flips ``HUGPY_AUTH_MODE`` —
 making rollout safe to deploy and verify before activation.
+
+ROLES (2026-08-06) — the MEMBER tier
+------------------------------------
+Until today every valid central session was treated as a full operator: the
+gate's only question was "does this cookie authenticate", so a registered
+Clownworld member who logged in could mint API keys, drive worker admission and
+delete models. The upstream ``/me`` payload (``{username, email, is_admin,
+status, sites:[...]}``) was fetched and THROWN AWAY.
+
+It is now parsed and kept (``current_principal()``), and the request resolves to
+exactly one of three roles (``principal_role()``):
+
+  * ``operator`` — a valid ``HUGPY_OPERATOR_TOKEN`` (CLI/automation, unchanged),
+    ``open`` mode with no token set (the self-hosted product, unchanged), or a
+    session whose ``/me`` says ``is_admin: true``.
+  * ``member``   — a session with ``status == "approved"`` that carries the
+    ``hugpy`` or ``clownworld`` site grant. A member may use the Studio/Media
+    plane (``/media``, ``/ml``, ``/uploads``, ``/session``, ``/chat``,
+    ``/video``) but is REFUSED (403) on every console mutation in ``_SENSITIVE``.
+  * ``anonymous`` — everything else (no cookie, unapproved, no site grant, or
+    the auth service is unreachable — this layer stays fail-CLOSED).
+
+The console gate's deny SHAPE is role-dependent: operator -> allow, member ->
+403 (an honest "you are logged in, this is not yours"), anonymous -> 401
+(unchanged, so the SPA's login-probe behavior is untouched).
 """
 from __future__ import annotations
 
@@ -39,8 +64,9 @@ import re
 import time
 import hashlib
 import logging
+from typing import Optional
 
-from flask import request, abort
+from flask import request, abort, jsonify, g
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +89,14 @@ _SENSITIVE = [
     # too, but never the 2-segment /keys/video-share/<id> revoke — hence its own.)
     ({"GET", "POST"},            re.compile(r"^/keys/video-share$")),
     ({"DELETE"},                 re.compile(r"^/keys/video-share/[^/]+$")),
+    # Studio TESTER sweep (video_routes.video_studio_tester): one prompt fanned out
+    # across EVERY servable model of a category — many GPU generations spent on a
+    # caller-chosen prompt, the same "spends disk/bandwidth/GPU" tier as
+    # /llm/review/run above. Operator INTENT, not a share-link action: gated HERE
+    # (not just by the /video session-or-share gate) so a video-share principal —
+    # which CAN pass the /video gate — can never trigger a fleet-wide sweep. The
+    # /video/studio render routes stay share-reachable; only the sweep is operator-only.
+    ({"POST"},                   re.compile(r"^/video/studio/tester$")),
     # Worker enrollment tokens (minting/revoking enrollment — CRITICAL)
     ({"GET", "POST"},            re.compile(r"^/llm/enroll-tokens$")),
     ({"DELETE"},                 re.compile(r"^/llm/enroll-tokens/[^/]+$")),
@@ -103,6 +137,16 @@ _SENSITIVE = [
     # slashes (`<path:...>`), so `.+` spans it; the GET placement/meta reads stay
     # open. Matched after the /api strip, bare and dual-mounted.
     ({"POST"},                   re.compile(r"^/llm/models/.+/(un)?block$")),
+    # EXPLICIT model PRIORITY GROUPS (operator directive 2026-08-06): an ordered
+    # fallback list that decides WHICH model key a request resolves to. That is
+    # a routing-registry write of exactly the same tier as assign/block, so
+    # every mutation is operator-only. The two GETs — the listing and
+    # /llm/model-groups/resolve (the preview) — are deliberately NOT here: they
+    # are console reads, member-visible like every other read, and the preview
+    # routes nothing. Note the resolve path would be caught by the <id> rule
+    # below if it were ever given a write verb; it has none.
+    ({"POST"},                   re.compile(r"^/llm/model-groups$")),
+    ({"PUT", "PATCH", "DELETE"}, re.compile(r"^/llm/model-groups/[^/]+$")),
     # Serving / slot control (operator) — the GET status reads stay open.
     ({"POST"},                   re.compile(r"^/llm/serving/[^/]+$")),
     ({"POST"},                   re.compile(r"^/llm/slots/(load|unload)$")),
@@ -163,7 +207,11 @@ _SENSITIVE = [
     # reaches a worker's raw PIDs (agent._reap_gpu_orphans, fail-closed 4-gate
     # admission). Same operator-only, destructive-executor tier as evict/reap;
     # dry_run defaults true so a bare POST previews before it ever kills.
-    ({"POST"},                   re.compile(r"^/llm/workers/[^/]+/(restart|update|pip|config|reap|reap-approve|reap-orphans|pin-all|unpin-all|residency-all|free-ram|evict)$")),
+    # external-set (2026-08-12) = adjust a running gpu_lease's evictable/resume
+    # policy (console twin of hugpy-lease-set) — flipping evictable can pause a
+    # live batch job, so it sits in the same tier as evict. The GET .../external
+    # read stays open like every other roster/residents read.
+    ({"POST"},                   re.compile(r"^/llm/workers/[^/]+/(restart|update|pip|config|reap|reap-approve|reap-orphans|pin-all|unpin-all|residency-all|free-ram|evict|external-set)$")),
     # FLEET-WIDE eviction policy (2026-07-25): the drop-pass switch applies to
     # EVERY worker at once and changes which models an admission unloads, so the
     # write sits in the same operator-only tier as the per-worker config it
@@ -189,16 +237,22 @@ _SENSITIVE = [
     # are deliberately NOT here — their credential is the node's enroll token.
     ({"GET"},                    re.compile(r"^/agent/nodes$")),
     ({"POST"},                   re.compile(r"^/agent/[^/]+/dispatch$")),
-    # 2026-07-23 secure one-time install links: mint/list/revoke are CREDENTIAL-
-    # MINTING operator actions (each link mints a scoped api key) — same tier as
-    # /keys and /keys/video-share. Belt-and-suspenders with the blueprint's own
-    # _require_operator_strict (which, unlike the fleet-view gates, does NOT
-    # honor the HUGPY_AGENT_OPEN testing waiver — see _path_is_sensitive: these
-    # two rules are excluded from that waiver too). The download GET
-    # /agent/install/<link_id> is deliberately NOT here — the unguessable
-    # link_id IS its capability, exactly like the video-share links.
-    ({"GET", "POST"},            re.compile(r"^/agent/install-links$")),
-    ({"DELETE"},                 re.compile(r"^/agent/install-links/[^/]+$")),
+    # 2026-07-23 secure one-time install links: NOT in this operator-only
+    # inventory as of 2026-08-06. A MEMBER may mint an install link for their
+    # OWN machine (that is the product: install the fleet console you are
+    # entitled to), so the whole surface is gated by the blueprint's own
+    # _require_member_strict / _require_link_admin instead of a blanket rule
+    # here — the gate that can express "operator OR the link's creator", which a
+    # (methods, path) rule cannot. What that route layer enforces:
+    #   * POST   -> member-or-operator; the creator's username is RECORDED on the
+    #              link, and a non-operator's scope request is CLAMPED to the
+    #              product scopes (never "full", never "agent-register").
+    #   * GET    -> member sees ONLY their own links; an operator sees all.
+    #   * DELETE -> operator, or the member who created that link.
+    # It still fails CLOSED for anonymous (401) and still ignores the
+    # HUGPY_AGENT_OPEN waiver — credential-minting is never waivable.
+    # The download GET /agent/install/<link_id> is, as before, deliberately
+    # ungated — the unguessable link_id IS its capability (like a share link).
     # P3.1b: the single-task detail read (a run's full row incl. its result) is
     # the operator's drill-in for the P3.3 console — gated like /agent/nodes.
     # Scoped to GET and to the /tasks/<seq> shape (with a trailing seq), so the
@@ -225,10 +279,66 @@ _SENSITIVE = [
     # same operator-only tier as discover/delete. The dry-run is also POST (it
     # writes a plan report), so the whole route is gated.
     ({"POST"},                   re.compile(r"^/models/reconcile$")),
+    # ---------------------------------------------------------------------- #
+    # 2026-08-06 MEMBER TIER — the console-plane mutations that were never in
+    # this inventory at all. They were reachable by ANY valid session (and,
+    # before the roles landed, that meant every member was a full operator).
+    # Each of these spends disk/bandwidth/GPU or destroys state on the box, so
+    # they sit in exactly the same operator-only tier as the model/worker verbs
+    # above. Reads (GET /models, GET /jobs, GET /llm/repos, …) stay OPEN — this
+    # is a MUTATION inventory, and the console must still render for a member.
+    # ---------------------------------------------------------------------- #
+    # Model store writes: pull multi-GB weights, delete a model tree, prune its
+    # revisions, or set the media/poster image the console renders for it.
+    # model_key is a plain segment on these rules (the <path:...> variants live
+    # under /llm/models, covered above).
+    ({"POST"},                   re.compile(r"^/models/[^/]+/download$")),
+    ({"DELETE"},                 re.compile(r"^/models/[^/]+$")),
+    ({"POST"},                   re.compile(r"^/models/[^/]+/(prune|media|media-default)$")),
+    # Bulk re-classification rewrites the image/model split across the whole
+    # store — the same mutating-store tier as reconcile/discover.
+    ({"POST"},                   re.compile(r"^/models/reclassify-images$")),
+    # Job control on the download/maintenance queue: cancelling or retrying
+    # someone else's fleet job is an operator action (the media/studio jobs a
+    # member owns are cancelled through /video/jobs/<id>/cancel, which the
+    # ownership filter guards — deliberately NOT here).
+    ({"POST"},                   re.compile(r"^/jobs/[^/]+/(cancel|retry)$")),
+    # Bulk repo pull — the same "fill the model store from the internet" tier as
+    # /civitai/download and /models/<key>/download.
+    ({"POST"},                   re.compile(r"^/llm/repos/download$")),
+    # Phone-brick pool: enrolling a phone, running/cancelling a task on one, and
+    # deleting a phone row are privileged executor actions on real devices. The
+    # M2M device paths (POST /phone-brick/register, POST /phone-brick/<id>/heartbeat)
+    # are deliberately excluded — their credential is the enroll flow — as are the
+    # installer asset GETs (code.tar.gz / install.sh / files/<...>) the device pulls.
+    ({"POST"},                   re.compile(r"^/phone-brick/run$")),
+    ({"POST"},                   re.compile(r"^/phone-brick/runs/[^/]+/cancel$")),
+    ({"DELETE"},                 re.compile(r"^/phone-brick/phones/[^/]+$")),
 ]
 
 _SESSION_CACHE: dict[str, tuple[bool, float]] = {}
+# The PARSED upstream /me payload for the same cookie hash, same 30s window as
+# _SESSION_CACHE (both are filled by the one _fetch_me call, so adding roles
+# costs ZERO extra round trips to the auth service). Kept as a separate dict so
+# the existing tests that reach in and clear _SESSION_CACHE keep working; the
+# clear helper below empties both.
+_PRINCIPAL_CACHE: dict[str, tuple[Optional[dict], float]] = {}
 _CACHE_TTL = 30.0
+
+# Site grants that make an approved central account a hugpy MEMBER. "clownworld"
+# is here per the 2026-08-06 spec: a registered Clownworld account is entitled to
+# hugpy's studio/media/fleet surface without a second registration.
+MEMBER_SITES = frozenset({"hugpy", "clownworld"})
+
+ROLE_OPERATOR = "operator"
+ROLE_MEMBER = "member"
+ROLE_ANONYMOUS = "anonymous"
+
+
+def _clear_session_caches() -> None:
+    """Drop both cookie-hash caches (used by tests / a forced re-validate)."""
+    _SESSION_CACHE.clear()
+    _PRINCIPAL_CACHE.clear()
 
 
 def _auth_mode() -> str:
@@ -250,33 +360,238 @@ def _provided_token() -> str:
     return ""
 
 
-def _validate_session_external() -> bool:
-    """True iff the request's cookies authenticate against the upstream /me."""
+def _cookie_key() -> str:
+    """Cache key for this request's cookie jar ("" when it carries none)."""
     cookie_hdr = request.headers.get("Cookie", "")
     if not cookie_hdr:
-        return False
-    key = hashlib.sha256(cookie_hdr.encode("utf-8")).hexdigest()
-    now = time.time()
-    cached = _SESSION_CACHE.get(key)
-    if cached and cached[1] > now:
-        return cached[0]
-    ok = False
+        return ""
+    return hashlib.sha256(cookie_hdr.encode("utf-8")).hexdigest()
+
+
+def _site_tokens(sites) -> set:
+    """Normalized (lowercased) site names from a ``/me`` ``sites`` value.
+
+    The central service returns a list of site names today; dict rows are
+    accepted too, so a payload shape we did not expect can never silently read
+    as "zero site grants"."""
+    out: set = set()
+    if isinstance(sites, str):
+        sites = [sites]
+    if not isinstance(sites, (list, tuple, set)):
+        return out
+    for entry in sites:
+        val = None
+        if isinstance(entry, str):
+            val = entry
+        elif isinstance(entry, dict):
+            for k in ("site", "name", "slug", "domain", "id"):
+                if isinstance(entry.get(k), str):
+                    val = entry[k]
+                    break
+        if val:
+            out.add(val.strip().lower())
+    return out
+
+
+def _normalize_principal(data) -> Optional[dict]:
+    """The upstream ``/me`` body -> the principal shape this module exposes, or
+    None when the body is not a usable identity (error envelope / wrong type)."""
+    if not isinstance(data, dict) or data.get("error"):
+        return None
+    username = data.get("username") or data.get("user") or data.get("email")
+    if not isinstance(username, str) or not username.strip():
+        return None
+    return {
+        "username": username.strip(),
+        "email": data.get("email") if isinstance(data.get("email"), str) else None,
+        "is_admin": bool(data.get("is_admin")),
+        "status": (data.get("status") or "").strip().lower()
+                  if isinstance(data.get("status"), str) else "",
+        "sites": sorted(_site_tokens(data.get("sites"))),
+    }
+
+
+def _fetch_me():
+    """(ok, principal|None) for this request's cookies, straight from upstream.
+
+    ``ok`` mirrors the pre-roles boolean EXACTLY (200 + a non-error body), so the
+    console gate's accept set does not move. ``principal`` is the parsed identity
+    when the body is one — that payload used to be fetched and discarded, which
+    is precisely why every session read as a full operator.
+
+    Raises nothing: an unreachable/misbehaving auth service returns
+    ``(False, None)`` and is NOT cached (fail CLOSED, retry next request)."""
     try:
         import requests
         from .routes.auth_proxy_routes import upstream_base
-        resp = requests.get(f"{upstream_base()}/me", cookies=request.cookies, timeout=8)
-        if resp.status_code == 200:
-            try:
-                data = resp.json()
-                ok = bool(data) and not (isinstance(data, dict) and data.get("error"))
-            except Exception:
-                ok = True
-    except Exception as exc:
+        resp = requests.get(f"{upstream_base()}/me", cookies=request.cookies,
+                            timeout=8)
+    except Exception as exc:  # noqa: BLE001
         # Fail closed: a sensitive route must not open up if auth is unreachable.
         logger.warning("operator session validation failed (auth service): %s", exc)
-        return False
+        return None
+    if resp.status_code != 200:
+        return (False, None)
+    try:
+        data = resp.json()
+    except Exception:  # noqa: BLE001 — a 200 with an unparseable body
+        return (True, None)
+    ok = bool(data) and not (isinstance(data, dict) and data.get("error"))
+    return (ok, _normalize_principal(data) if ok else None)
+
+
+def _resolve_session(key: str):
+    """(ok, principal|None) for a cookie hash, through the 30s cache. Returns
+    None (uncached, fail-closed) when the auth service could not be reached."""
+    now = time.time()
+    cached_ok = _SESSION_CACHE.get(key)
+    cached_p = _PRINCIPAL_CACHE.get(key)
+    if cached_ok and cached_ok[1] > now and cached_p and cached_p[1] > now:
+        return (cached_ok[0], cached_p[0])
+    fetched = _fetch_me()
+    if fetched is None:
+        return None
+    ok, principal = fetched
     _SESSION_CACHE[key] = (ok, now + _CACHE_TTL)
-    return ok
+    _PRINCIPAL_CACHE[key] = (principal, now + _CACHE_TTL)
+    return (ok, principal)
+
+
+class _Unset:
+    """Sentinel so a per-request cache of None is a HIT, not a re-fetch."""
+    __slots__ = ()
+
+
+_UNSET = _Unset()
+
+
+def current_principal() -> Optional[dict]:
+    """The authenticated central identity behind THIS request, or None.
+
+    ``{"username", "email", "is_admin", "sites": [...], "status"}``. Cached per
+    request on ``flask.g`` (so a gate, a route and a listing filter that each ask
+    cost one upstream call at most) on top of the 30s cookie-hash cache.
+
+    None for: no cookie at all, an anonymous/expired session, or an auth-service
+    outage (fail CLOSED — never a synthesized identity)."""
+    try:
+        cached = getattr(g, "_hugpy_principal", _UNSET)
+        if cached is not _UNSET:
+            return cached
+    except RuntimeError:      # outside an app context (CLI import, unit call)
+        pass
+    key = _cookie_key()
+    principal = None
+    if key:
+        resolved = _resolve_session(key)
+        if resolved is not None:
+            principal = resolved[1]
+    try:
+        g._hugpy_principal = principal
+    except RuntimeError:
+        pass
+    return principal
+
+
+def _validate_session_external() -> bool:
+    """True iff the request's cookies authenticate against the upstream /me.
+
+    Signature and semantics are UNCHANGED (the boolean the console gate has
+    always used, and the seam tests/test_video_gate.py monkeypatches); it now
+    shares one fetch + cache with current_principal()."""
+    key = _cookie_key()
+    if not key:
+        return False
+    resolved = _resolve_session(key)
+    if resolved is None:
+        return False          # auth service unreachable -> fail closed
+    return resolved[0]
+
+
+def is_member_principal(p) -> bool:
+    """The MEMBER rule: an approved central account holding a hugpy-family site
+    grant (or an admin, who is a member of everything by definition)."""
+    if not isinstance(p, dict):
+        return False
+    if p.get("status") != "approved":
+        return False
+    if p.get("is_admin"):
+        return True
+    return bool(MEMBER_SITES & set(p.get("sites") or ()))
+
+
+def principal_role() -> str:
+    """``"operator" | "member" | "anonymous"`` for THIS request.
+
+    Resolution order (first match wins):
+      1. the configured ``HUGPY_OPERATOR_TOKEN`` presented as ``X-Operator-Token``
+         or a bearer -> operator (CLI/automation; unchanged);
+      2. ``open`` mode with no token configured -> operator (the self-hosted
+         single-operator product; unchanged);
+      3. a session whose ``/me`` says ``is_admin`` -> operator;
+      4. an approved session with a hugpy/clownworld site grant -> member;
+      5. anything else -> anonymous.
+    """
+    tok = _operator_token()
+    provided = _provided_token()
+    if tok and provided and provided == tok:
+        return ROLE_OPERATOR
+    if _auth_mode() == "open" and not tok:
+        return ROLE_OPERATOR
+    p = current_principal()
+    if p is None:
+        # No parseable identity. Either there is no session at all, or the
+        # upstream answered 200 with a body we could not read as an identity —
+        # in which case the legacy boolean is still the authority, and it means
+        # "operator" exactly as it did before roles existed. (This is also the
+        # branch the gate tests exercise when they stub the boolean seam.)
+        return ROLE_OPERATOR if _validate_session_external() else ROLE_ANONYMOUS
+    if p.get("is_admin"):
+        return ROLE_OPERATOR
+    if is_member_principal(p):
+        return ROLE_MEMBER
+    return ROLE_ANONYMOUS
+
+
+def member_authenticated() -> bool:
+    """True for a member OR an operator — the Studio/Media plane's accept rule
+    (see member_auth.py). Never true for anonymous."""
+    return principal_role() in (ROLE_OPERATOR, ROLE_MEMBER)
+
+
+def principal_username() -> Optional[str]:
+    """The central username behind this request, or None (operator-token M2M,
+    a share credential, open mode, or anonymous). This is the ARTIFACT OWNER
+    string threaded onto media jobs and upload namespaces."""
+    p = current_principal()
+    return p.get("username") if isinstance(p, dict) else None
+
+
+# Uploads are namespaced per account (upload_routes): UPLOADS_HOME/<namespace>/…
+# The namespace is derived HERE so the writer (upload_routes) and every reader
+# (video_routes' raw-path ownership check) can never drift on the mapping.
+_NS_UNSAFE = re.compile(r"[^A-Za-z0-9_.@=+-]+")
+# Directory names under UPLOADS_HOME that are NOT account namespaces: the upload
+# session registry and the imagegen runner's output dir. A username that
+# sanitizes onto one of these is prefixed rather than allowed to collide.
+_RESERVED_NAMESPACES = frozenset({".sessions", "sessions", "generated"})
+
+
+def upload_namespace(username: Optional[str]) -> Optional[str]:
+    """The uploads subdirectory name for ``username``, or None when there is no
+    account (operator-token M2M, open mode, a share link) — in which case the
+    caller keeps the historical FLAT upload path.
+
+    Sanitized to a single safe path segment: no separators, no leading dot, and
+    never one of the reserved directory names."""
+    if not username or not isinstance(username, str):
+        return None
+    ns = _NS_UNSAFE.sub("_", username.strip()).lstrip(".")
+    if not ns:
+        return None
+    if ns in _RESERVED_NAMESPACES:
+        ns = "u_" + ns
+    return ns[:64]
 
 
 def operator_authenticated() -> bool:
@@ -287,7 +602,10 @@ def operator_authenticated() -> bool:
     if mode == "open":
         # Self-hosted single-operator default: permissive unless a token is set.
         return not tok
-    return _validate_session_external()
+    # A session is an OPERATOR session only when the upstream says is_admin (or
+    # when there is no parseable principal — the pre-roles boolean, see
+    # principal_role()). A plain member no longer satisfies the console gate.
+    return principal_role() == ROLE_OPERATOR
 
 
 def _agent_gates_open() -> bool:
@@ -306,14 +624,13 @@ def _path_is_sensitive() -> bool:
     method = request.method
     for methods, rx in _SENSITIVE:
         if method in methods and rx.match(path):
-            # The agent-fleet VIEW rules honor the open flag — but never the
-            # install-link rules: those MINT credentials (each link mints a
-            # scoped api key), the same category the 2026-07-16 ruling made
-            # un-waivable on /agent/register. Open mode may open the fleet
-            # view; it can never open a key-minting surface.
-            if (path.startswith("/agent/")
-                    and not path.startswith("/agent/install-links")
-                    and _agent_gates_open()):
+            # The agent-fleet VIEW rules honor the open flag. (The install-link
+            # rules used to be carved out of this waiver because they MINT
+            # credentials; they no longer live in _SENSITIVE at all — see the
+            # note there — and agent_routes' own _require_member_strict does not
+            # honor the waiver either, so that carve-out is preserved where it
+            # is now enforced.)
+            if path.startswith("/agent/") and _agent_gates_open():
                 continue
             return True
     return False
@@ -329,11 +646,41 @@ def install_operator_gate(app) -> None:
     def _operator_gate():
         if request.method == "OPTIONS":
             return None  # never block CORS preflight
+        # ── TESTING LOCKDOWN (operator ask 2026-08-13) ─────────────────────
+        # `HUGPY_TESTING_LOCKDOWN` truthy => the console serves OPERATOR
+        # requests ONLY. Everything else — members, the Discord bot, demo
+        # traffic — gets an honest 503, so a model battery / fleet test runs
+        # with nothing else able to trigger loads or renders mid-measurement.
+        # Exempt: worker seams (heartbeat/registration/eviction ingest — the
+        # fleet must keep breathing) and health probes. Flip on/off via the
+        # service drop-in + restart; no code change.
+        if (os.environ.get("HUGPY_TESTING_LOCKDOWN", "")
+                or "").strip().lower() in ("1", "true", "yes", "on"):
+            _p = request.path or "/"
+            if _p == "/api" or _p.startswith("/api/"):
+                _p = _p[len("/api"):] or "/"
+            # /llm/models covers the worker manifest/list GETs the provision
+            # sweep needs (lockdown 503s here silently broke model registration
+            # on ae, 2026-08-13); mutations under it stay operator-gated by the
+            # _SENSITIVE check below regardless of this exemption.
+            _exempt = ("/health", "/llm/workers", "/llm/evictions", "/llm/models")
+            if not (_p.startswith(_exempt) or principal_role() == ROLE_OPERATOR):
+                return jsonify({"error": (
+                    "console is in TESTING LOCKDOWN — operator key required "
+                    "(model battery / fleet test in progress)")}), 503
         if not _path_is_sensitive():
             return None
-        if not operator_authenticated():
-            abort(401, description="Operator authentication required for this route.")
-        return None
+        role = principal_role()
+        if role == ROLE_OPERATOR:
+            return None
+        if role == ROLE_MEMBER:
+            # A LOGGED-IN member on a console mutation. 403, not 401: the caller
+            # IS authenticated, so bouncing them to the login wall (401 is the
+            # SPA's "you need to log in" signal) would be a lie and a redirect
+            # loop. The console plane is read-mostly for members by design —
+            # their surface is Studio/Media (see member_auth.py).
+            return jsonify({"error": "forbidden: read-only member access"}), 403
+        abort(401, description="Operator authentication required for this route.")
 
     logger.info("operator auth gate installed (mode=%s, token_set=%s)",
                 _auth_mode(), bool(_operator_token()))

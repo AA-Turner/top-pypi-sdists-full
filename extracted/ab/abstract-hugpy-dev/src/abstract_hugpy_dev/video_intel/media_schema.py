@@ -33,6 +33,19 @@ class MediaRef:
     fps_native: Optional[float] = None
     sample_rate: Optional[int] = None
     channels: Optional[int] = None
+    # ATTRIBUTION (2026-08-06): the central-account username this asset was
+    # ingested for, when it was ingested inside a request that had one. NOT a
+    # descriptive property of the pixels — it is carried so an ingested source
+    # can be traced to the member who supplied it, alongside the authoritative
+    # per-job `owner` column in media_bus. None for every asset produced by a
+    # runner (no request context) and for every pre-2026-08-06 spec rehydrated
+    # from JSON — the field is optional and defaults to None, so
+    # ``make_media_ref(**asdict(old_ref))`` still round-trips.
+    #
+    # DELIBERATELY NOT a content-hash input: studio's canonical_inputs() builds
+    # its reproducibility key from explicit fields (never asdict of a MediaRef),
+    # so adding this column re-addresses nothing.
+    owner: Optional[str] = None
 
 
 def make_media_ref(
@@ -46,6 +59,7 @@ def make_media_ref(
     fps_native: Optional[float] = None,
     sample_rate: Optional[int] = None,
     channels: Optional[int] = None,
+    owner: Optional[str] = None,
 ) -> MediaRef:
     """Validate + build a MediaRef. A raise here is fine: it is local to
     construction and never crosses a module boundary (see map §4 / §6).
@@ -69,4 +83,5 @@ def make_media_ref(
         fps_native=fps_native,
         sample_rate=sample_rate,
         channels=channels,
+        owner=owner,
     )

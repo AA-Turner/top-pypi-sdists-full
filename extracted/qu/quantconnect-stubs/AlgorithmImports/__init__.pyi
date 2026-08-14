@@ -99,6 +99,11 @@ from typing import *
 import math
 import json
 
+# "from System import *" shadows Python's builtin Exception with System.Exception, whose
+# except clauses do not catch Python exceptions (TypeError, KeyError, ...).
+# Restore the builtin; "import System" gives explicit access to the CLR type if needed.
+from builtins import Exception
+
 QCAlgorithmFramework = QCAlgorithm
 QCAlgorithmFrameworkBridge = QCAlgorithm
 

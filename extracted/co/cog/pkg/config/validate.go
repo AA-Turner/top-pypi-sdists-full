@@ -395,6 +395,9 @@ func validateFrameworkCompatibility(cfg *configFile, reqs []string, result *Vali
 // findPackageVersion finds a package version in requirements.
 func findPackageVersion(reqs []string, name string) string {
 	for _, req := range reqs {
+		if isLocalPackageArtifactRequirement(req) {
+			continue
+		}
 		pkgName := requirements.PackageName(req)
 		if pkgName == name {
 			versions := requirements.Versions(req)
@@ -685,6 +688,14 @@ func checkDeprecatedFields(cfg *configFile, result *ValidationResult) {
 			Field:       "predict",
 			Replacement: "run",
 			Message:     "use run to point at run.py:Runner",
+		})
+	}
+
+	if cfg.Concurrency != nil && cfg.Concurrency.Max != nil {
+		result.AddWarning(DeprecationWarning{
+			Field:       "concurrency.max",
+			Replacement: "@cog.concurrent(max=...)",
+			Message:     "configure prediction concurrency with @cog.concurrent on your async run() method instead",
 		})
 	}
 

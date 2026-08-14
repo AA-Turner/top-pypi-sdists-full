@@ -12,6 +12,7 @@ nav:
   - Training API: training.md
   - HTTP API: http.md
   - CLI: cli.md
+  - Base images: base-images.md
   - Environment variables: environment.md
   - Private registry: private-package-registry.md
   - Notebooks: notebooks.md
@@ -61,6 +62,7 @@ markdown_extensions:
   - admonition
   - codehilite
   - extra
+  - md_in_html
   - pymdownx.highlight
   - pymdownx.superfences
 extra_css:

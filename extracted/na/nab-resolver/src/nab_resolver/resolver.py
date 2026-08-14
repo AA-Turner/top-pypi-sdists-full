@@ -111,7 +111,16 @@ class ResolverProvider(Protocol[PackageType, VersionType]):
     def get_dependencies(
         self, package: PackageType, version: VersionType
     ) -> Mapping[PackageType, RangeProtocol[VersionType]]:
-        """Return ``{dependency_package: required_range}`` for this version."""
+        """Return ``{dependency_package: required_range}`` for this version.
+
+        Asked only about a version ``choose_version`` returned, immediately
+        after that decision is recorded.  The virtual root sentinel is never
+        passed.
+
+        The same pair is asked more than once: a backjump that re-decides a
+        version asks again, and building the final :class:`Solution` asks once
+        per pin.  Cache by package and version.
+        """
         ...
 
     def begin_decision_scan(self) -> None:
@@ -378,10 +387,12 @@ def _as_root_requirements(
     if _is_root_sequence(requirements):
         return requirements
     # The parameters are spelled out because ``constraint`` is a contravariant
-    # protocol, which gives the version parameter no inference site.
+    # protocol, which gives the version parameter no inference site.  The
+    # suppression is ty's: it reads the sequence member of the union as still
+    # live in the negative branch of a generic ``TypeIs``.
     return [
         RootRequirement[PackageType, VersionType](package, required_range)
-        for package, required_range in requirements.items()
+        for package, required_range in requirements.items()  # ty: ignore[unresolved-attribute]
     ]
 
 
@@ -438,10 +449,21 @@ class Resolver(Generic[PackageType, VersionType]):
         self.root_version = root_version
         self.format_range = format_range
 
+        # The widest value the type expresses is the identity a caller folds
+        # with, but a term needs a top its own difference agrees with, since
+        # conflict resolution relies on ``x.is_subset((x - y) | y)``.
+        self.fold_identity: RangeProtocol[Any] = range_type.full()
+        self.term_top: RangeProtocol[Any] = ~range_type.empty()
+
         self.incompatibilities: list[Incompatibility[Any, Any]] = []
         self.package_to_incompatibilities: defaultdict[Any, list[int]] = defaultdict(
             list
         )
+
+        # Per clause, the contradiction epoch in which one of its terms was
+        # last seen contradicted; unit propagation skips a clause whose stamp
+        # is still current.
+        self.clause_contradicted_at: list[int] = []
 
         # Keyed by (package, dep_package, dep_constraint, dep_positive); used
         # to merge mergeable dependency clauses (pubgrub-rs's merge_dependents).
@@ -464,6 +486,16 @@ class Resolver(Generic[PackageType, VersionType]):
         self.relation_cache: dict[
             tuple[bool, RangeProtocol[Any], RangeProtocol[Any]], SetRelation
         ] = {}
+
+    def as_term_range(self, range_: RangeProtocol[Any]) -> RangeProtocol[VersionType]:
+        """Return the term constraint to record for a supplied range.
+
+        Only a range equal to ``full()`` is substituted.  A range that breaks
+        the identity :class:`~nab_resolver.types.RangeProtocol` documents
+        without equalling ``full()``, such as ``full()`` minus an ``===``
+        literal, passes through and reaches conflict resolution's step budget.
+        """
+        return self.term_top if range_ == self.fold_identity else range_
 
     def resolve(
         self,
@@ -495,6 +527,10 @@ class Resolver(Generic[PackageType, VersionType]):
         it to be installed.  They are injected lazily: only when the
         resolver is about to decide a constrained package (meaning
         something already depends on it).
+
+        A supplied range equal to ``range_type.full()`` is recorded as
+        ``~range_type.empty()``, which may be strictly narrower; see
+        :class:`~nab_resolver.types.RangeProtocol`.
 
         Raises ``ResolutionError`` if no solution exists.
         """
@@ -590,8 +626,9 @@ class Resolver(Generic[PackageType, VersionType]):
             return next_package
         exact_range = self.range_type.singleton(chosen_version)
         widened = self.provider.widen_decision(next_package, chosen_version)
-        parent_range = exact_range if widened is None else widened
-        for dependency_package, dependency_range in dependencies.items():
+        parent_range = exact_range if widened is None else self.as_term_range(widened)
+        for dependency_package, supplied_range in dependencies.items():
+            dependency_range = self.as_term_range(supplied_range)
             cross_package = dependency_package != next_package
             if not cross_package:
                 # An incompatibility holds at most one term per package,
@@ -607,8 +644,13 @@ class Resolver(Generic[PackageType, VersionType]):
                     Term(next_package, parent_range, positive=True),
                     Term(dependency_package, dependency_range, positive=False),
                 ]
+
+            # The merged term drops the required range, so the clause carries
+            # it for the report.
             incompatibility = Incompatibility(
-                terms, cause=IncompatibilityCause.DEPENDENCY
+                terms,
+                cause=IncompatibilityCause.DEPENDENCY,
+                dependency_range=None if cross_package else dependency_range,
             )
             incompat_index.add_incompatibility(self, incompatibility)
 
@@ -639,6 +681,7 @@ class Resolver(Generic[PackageType, VersionType]):
         """Reset solver state for a new resolution."""
         self.incompatibilities.clear()
         self.package_to_incompatibilities.clear()
+        self.clause_contradicted_at.clear()
         self.dependency_index.clear()
         self.solution = PartialSolution(range_type=self.range_type)
         self.stats = ResolverStats()
@@ -654,13 +697,14 @@ class Resolver(Generic[PackageType, VersionType]):
     ) -> None:
         """Create one root incompatibility per requirement, and decide root."""
         for idx, root in enumerate(requirements):
+            term_range = self.as_term_range(root.constraint)
             root_term: Term[Any, Any] = Term(
                 ROOT, self.range_type.singleton(self.root_version), positive=True
             )
             incompat_index.add_incompatibility(
                 self,
                 Incompatibility(
-                    [root_term, Term(root.package, root.constraint, positive=False)],
+                    [root_term, Term(root.package, term_range, positive=False)],
                     cause=IncompatibilityCause.ROOT,
                     origin=root.origin,
                 ),

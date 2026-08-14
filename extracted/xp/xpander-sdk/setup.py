@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="xpander-sdk",
-    version="2.0.454",
+    version="2.0.456",
     author="xpanderAI",
     author_email="dev@xpander.ai",
     description="xpander.ai Backend-as-a-service for AI Agents - SDK",
@@ -27,7 +27,7 @@ setup(
         "strands-agents>=1.20.0",
         "openai-agents>=0.6.4",
         "headroom-ai>=0.26.0",
-        "firecrawl-anydoc>=0.1.7,<0.2",
+        "firecrawl-anydoc>=0.1.7,<0.1.8",
         "python-docx>=1.1.2",
         "openpyxl>=3.1.5",
         "python-pptx>=1.0.2",

@@ -1,7 +1,0 @@
-prompts:
-  - name: review_material_export
-    description: Review material export readiness.
-    arguments: []
-    messages:
-      - role: user
-        content: "Summarize graph health, texture outputs, preview status, and export risks."

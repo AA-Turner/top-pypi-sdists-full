@@ -63,7 +63,7 @@ from abstract_hugpy_dev.imports.src.constants.constants import UPLOADS_HOME, DEF
 
 # STORE isolation — rebind the module globals the store path helpers read. IDENTITIES_HOME
 # must sit under the real DEFAULT_ROOT so the identity-owned ring frames pass the route jail.
-_TMP_IDENTITIES = tempfile.mkdtemp(prefix="hugpy-mvview-store-", dir=DEFAULT_ROOT)
+_TMP_IDENTITIES = tempfile.mkdtemp(prefix="hugpy-mvview-store-", dir=os.path.join(DEFAULT_ROOT, "video_intel", "_scratch"))
 identity_profiles.IDENTITIES_HOME = _TMP_IDENTITIES
 _TMP_PROJECTS = tempfile.mkdtemp(prefix="hugpy-mvview-projects-")
 identity_profiles.PROJECTS_HOME = _TMP_PROJECTS
@@ -90,7 +90,7 @@ vr = importlib.import_module("abstract_hugpy_dev.flask_app.app.routes.video_rout
 _ENQUEUED: list = []
 
 
-def _capture_enqueue(name, spec):
+def _capture_enqueue(name, spec, **kwargs):   # principal/owner attribution
     _ENQUEUED.append((name, spec))
     return f"job_test_{len(_ENQUEUED):03d}"
 

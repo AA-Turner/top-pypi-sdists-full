@@ -431,6 +431,14 @@ ICEBERG_METADATA_TABLE_QUERIES["all_data_files"] = (
     + ") WHERE COALESCE(content, 0) = 0"
 )
 
+# SNOW-3878029: `.all_files` = `.files` across all snapshots (all data and delete
+# files) - the union of `.all_data_files` + `.all_delete_files`. Same projection as
+# `.files`; only the ICEBERG_TABLE_MANIFEST_ENTRIES num_snapshots arg changes
+# (1 = current snapshot, -1 = all). No content filter.
+ICEBERG_METADATA_TABLE_QUERIES["all_files"] = _iceberg_files_query(
+    _ICEBERG_ALL_SNAPSHOTS
+)
+
 # SNOW-3527660: `.all_manifests` spans all snapshots and exposes
 # reference_snapshot_id; `.manifests` (current snapshot) shares the same
 # projection. Both are built by _iceberg_manifests_query.
@@ -438,11 +446,21 @@ ICEBERG_METADATA_TABLE_QUERIES["all_manifests"] = _iceberg_manifests_query(
     all_snapshots=True
 )
 
+# SNOW-3860243: `.all_delete_files` = `.delete_files` across all snapshots. Mirror
+# of `.all_data_files`; reuses the `.files` projection across all snapshots
+# (num_snapshots -1) restricted to delete files (content != 0) so the projections
+# stay in sync.
+ICEBERG_METADATA_TABLE_QUERIES["all_delete_files"] = (
+    "SELECT * FROM ("
+    + _iceberg_files_query(_ICEBERG_ALL_SNAPSHOTS)
+    + ") WHERE COALESCE(content, 0) != 0"
+)
+
 # Times the base table name is bound (one per `?`). `files`/`entries`/`data_files`/
-# `delete_files`/`all_entries`/`all_data_files` call two table functions; `manifests`
-# now also binds ICEBERG_TABLE_METADATA for the current-snapshot filter;
-# `all_manifests` binds once. Explicit so a literal `?` in a regex/comment can't
-# miscount the binding. Kept in sync by a unit test.
+# `delete_files`/`all_entries`/`all_data_files`/`all_delete_files`/`all_files` call two
+# table functions; `manifests` now also binds ICEBERG_TABLE_METADATA for the
+# current-snapshot filter; `all_manifests` binds once. Explicit so a literal `?` in a
+# regex/comment can't miscount the binding. Kept in sync by a unit test.
 ICEBERG_METADATA_TABLE_BIND_COUNTS = {
     "files": 2,
     "entries": 2,
@@ -450,13 +468,14 @@ ICEBERG_METADATA_TABLE_BIND_COUNTS = {
     "delete_files": 2,
     "all_entries": 2,
     "all_data_files": 2,
+    "all_files": 2,
     "manifests": 2,
+    "all_delete_files": 2,
 }
 
 WAP_BRANCH_SPARK_CONFIG = "spark.wap.branch"
 
 UNSUPPORTED_ICEBERG_METADATA_TABLES = {
-    "all_delete_files",
     "partitions",
     "position_deletes",
 }

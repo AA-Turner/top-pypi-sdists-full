@@ -28,11 +28,11 @@ class NoiseThreshold:
     name: str
     noise_threshold_decibels: float
     noise_threshold_id: str
-    noise_threshold_nrs: float
+    noise_threshold_nrs: Optional[float]
     starts_daily_at: str
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]):
+    def from_dict(cls, d: Any):
         return cls(
             device_id=d.get("device_id", None),
             ends_daily_at=d.get("ends_daily_at", None),

@@ -1,4 +1,4 @@
-from typing import Union, Required, TypedDict
+from typing import TypedDict, Required, Union
 
 
 class LlmProxyCost(TypedDict, total=False):

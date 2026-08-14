@@ -28,8 +28,13 @@ from airbyte_ops_mcp.github_actions import (
 )
 from airbyte_ops_mcp.github_api import (
     GITHUB_API_BASE,
+    AgentEnum,
     get_pr_head_ref,
     resolve_ci_trigger_github_token,
+    resolve_copilot_review_github_token,
+)
+from airbyte_ops_mcp.github_api import (
+    request_pr_ai_review as request_pr_ai_review_api,
 )
 
 DOCKERHUB_API_BASE = "https://hub.docker.com/v2"
@@ -218,6 +223,76 @@ class TriggerCIWorkflowResult(BaseModel):
     workflow_url: str
     run_id: int | None = None
     run_url: str | None = None
+
+
+class AIReviewResult(BaseModel):
+    """Response model for `request_pr_ai_review`."""
+
+    requested: bool
+    reviewers: list[str]
+    message: str
+
+
+def _normalize_airbyte_repo(repo: str) -> str:
+    """Normalize an Airbyte repository name and reject other owners."""
+    if not repo or repo.count("/") > 1:
+        raise ValueError(
+            f"Invalid repository '{repo}': expected '<repo>' or 'airbytehq/<repo>'."
+        )
+    if "/" not in repo:
+        return repo
+    owner, repository = repo.split("/")
+    if owner != "airbytehq":
+        raise ValueError(
+            f"Repository owner must be 'airbytehq', but received '{owner}'."
+        )
+    if not repository:
+        raise ValueError(
+            f"Invalid repository '{repo}': repository name cannot be empty."
+        )
+    return repository
+
+
+@mcp_tool(
+    read_only=False,
+    idempotent=False,
+    open_world=True,
+)
+def request_pr_ai_review(
+    repo: Annotated[
+        str,
+        Field(
+            description="Airbyte repository name, optionally prefixed with 'airbytehq/'"
+        ),
+    ],
+    pr_number: Annotated[
+        int,
+        Field(description="Pull request number"),
+    ],
+    request_to: Annotated[
+        AgentEnum | list[AgentEnum],
+        Field(
+            description="AI reviewer to request; defaults to Copilot and accepts "
+            "a single reviewer or a list of reviewers"
+        ),
+    ] = AgentEnum.DEFAULT,
+) -> AIReviewResult:
+    """Request an AI code review on a pull request.
+
+    Requires `GITHUB_CI_WORKFLOW_TRIGGER_PAT`, a PAT for a GitHub user with a
+    Copilot seat. The request is verified through GraphQL `reviewRequests`;
+    a successful mutation response alone is not sufficient.
+    """
+    normalized_repo = _normalize_airbyte_repo(repo)
+    token = resolve_copilot_review_github_token()
+    result = request_pr_ai_review_api(
+        "airbytehq", normalized_repo, pr_number, token, request_to
+    )
+    return AIReviewResult(
+        requested=result.requested,
+        reviewers=result.reviewers,
+        message=result.message,
+    )
 
 
 @mcp_tool(

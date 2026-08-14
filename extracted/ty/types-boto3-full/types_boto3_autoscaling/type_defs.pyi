@@ -785,8 +785,10 @@ class SetInstanceProtectionQueryTypeDef(TypedDict):
     ProtectedFromScaleIn: bool
 
 class TerminateInstanceInAutoScalingGroupTypeTypeDef(TypedDict):
-    InstanceId: str
     ShouldDecrementDesiredCapacity: bool
+    InstanceId: NotRequired[str]
+    InstanceIds: NotRequired[Sequence[str]]
+    AutoScalingGroupName: NotRequired[str]
 
 class ActivitiesTypeTypeDef(TypedDict):
     Activities: list[ActivityTypeDef]
@@ -795,6 +797,7 @@ class ActivitiesTypeTypeDef(TypedDict):
 
 class ActivityTypeTypeDef(TypedDict):
     Activity: ActivityTypeDef
+    Activities: list[ActivityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CancelInstanceRefreshAnswerTypeDef(TypedDict):

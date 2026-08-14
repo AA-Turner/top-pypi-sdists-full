@@ -447,6 +447,65 @@ def _autopilot_config_for(adid: str, rc_version: str) -> _FakeRolloutConfig:
 
 
 @pytest.mark.unit
+def test_run_auto_triage_pauses_failure_threshold_rollout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Failure-threshold triage pauses and records the reason without finalizing."""
+    row = {
+        "rollout_id": "rollout-threshold",
+        "actor_definition_id": "def-1",
+        "state": "in_progress",
+        "rc_docker_repository": "airbyte/source-faker",
+        "rc_docker_image_tag": "7.2.0-rc.1",
+        "tag": "TIER_2",
+        "current_target_rollout_pct": 25,
+        "updated_at": "2020-01-01T00:00:00Z",
+    }
+    monkeypatch.setattr(autopilot, "query_connector_rollouts", lambda **_: [row])
+    monkeypatch.setattr(autopilot, "get_admin_user_id", lambda **_: "user-1")
+    monkeypatch.setattr(
+        autopilot, "get_connector_rollout_config", _autopilot_config_for
+    )
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "get_actor_sync_info",
+        lambda **_: {
+            "data": {
+                "actorSelectionInfo": {"numPinnedToConnectorRollout": 2},
+                "syncs": {"actor-1": {"numFailed": 2}},
+            }
+        },
+    )
+    paused: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "pause_connector_rollout",
+        lambda **kwargs: paused.append(kwargs) or {},
+    )
+    monkeypatch.setattr(
+        autopilot,
+        "_send_failure_threshold_hitl",
+        lambda *_args: True,
+    )
+    monkeypatch.setattr(
+        autopilot.api_client,
+        "finalize_connector_rollout",
+        lambda **_: pytest.fail("threshold triage must not finalize"),
+    )
+
+    result = autopilot.run_auto_triage_failed(
+        auth=ResolvedCloudAuth(bearer_token="t"), dry_run=False
+    )
+
+    assert len(paused) == 1
+    assert paused[0]["paused_reason"].startswith(
+        rollout_constants.FAILURE_THRESHOLD_EXCEEDED_MARKER
+    )
+    assert "2 failures (threshold=1)" in paused[0]["paused_reason"]
+    assert result.actions[0].success is True
+
+
+@pytest.mark.unit
 def test_run_auto_advance_finalizes_empty_workflow_started(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

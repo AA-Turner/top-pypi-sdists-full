@@ -1,13 +1,24 @@
 # ruff: noqa
 
 import argparse
+import configparser
+import getpass
 import json
+import os
 import shutil
 import subprocess
 import sys
 import re
 import webbrowser
 from pathlib import Path
+
+import sync_site_docs
+
+# Optional: only some machines keep the PyPI token in the system keyring.
+try:
+    import keyring
+except ImportError:
+    keyring = None
 
 
 # Check for required dependencies before importing them
@@ -66,16 +77,38 @@ SEMVER_RE = re.compile(r"\d+\.\d+\.\d+")
 # Artifact kinds that must exist in dist/ and be attached to the GitHub release.
 REQUIRED_ARTIFACT_GLOBS = ("*.whl", "*.tar.gz", "*.mcpb")
 
+# Where a PyPI token may live, most explicit first.
+PYPI_REPOSITORY_URL = "https://upload.pypi.org/legacy/"
+PYPI_TOKEN_ENV_VARS = (
+    "TWINE_PASSWORD",
+    "PYPI_API_TOKEN",
+    "PYPI_TOKEN",
+    "UV_PUBLISH_TOKEN",
+)
+
+# mcp-publisher writes its login to the working directory, falling back to $HOME.
+MCP_REGISTRY_TOKEN_FILES = (
+    REPO_ROOT / ".mcpregistry_registry_token",
+    Path.home() / ".mcp_publisher_token",
+)
+
 # --- Helper Functions ---
 
 
-def run_command(command, check=True, interactive=False):
-    """Executes a command, allowing for interactive input if specified."""
+def run_command(command, check=True, interactive=False, env=None):
+    """Executes a command, allowing for interactive input if specified.
+
+    `env` is merged over the inherited environment and is the only channel for
+    secrets: the command line is echoed and is visible to anyone running `ps`,
+    so a token must never be passed as an argument.
+    """
     try:
         print(f"🏃 Running: {' '.join(command)}")
         kwargs = {"check": check, "text": True, "encoding": "utf-8"}
         if not interactive:
             kwargs["capture_output"] = True
+        if env:
+            kwargs["env"] = {**os.environ, **env}
 
         result = subprocess.run(command, **kwargs)
 
@@ -96,6 +129,126 @@ def run_command(command, check=True, interactive=False):
         if not interactive and hasattr(e, "stderr"):
             print(e.stderr, file=sys.stderr)
         sys.exit(1)
+
+
+# --- Credentials ---
+#
+# Every publishing step is checked for credentials during pre-flight, before the
+# first irreversible action. The old script discovered a missing PyPI token at
+# step 7 — after the tag had already been force-pushed — which left the release
+# half-shipped and needing manual repair. Nothing here ever prints a secret or
+# puts one on a command line.
+
+
+class PypiCredentials:
+    """A resolved way to authenticate to PyPI, and where it came from."""
+
+    def __init__(self, source, env):
+        self.source = source
+        self.env = env  # Extra environment for twine; empty when twine self-serves.
+
+
+def _pypirc_has_credentials():
+    """True when ~/.pypirc holds a password twine can use unprompted."""
+    pypirc = Path.home() / ".pypirc"
+    if not pypirc.exists():
+        return False
+    parser = configparser.ConfigParser()
+    try:
+        parser.read(pypirc)
+    except configparser.Error:
+        return False
+    return any(parser.has_option(section, "password") for section in parser.sections())
+
+
+def _keyring_token():
+    """The PyPI token from the system keyring, if there is a keyring at all."""
+    if keyring is None:
+        return None
+    try:
+        return keyring.get_password(PYPI_REPOSITORY_URL, "__token__")
+    except Exception:
+        return None
+
+
+def _token_env(token):
+    """Environment that authenticates twine with an API token."""
+    return {
+        "TWINE_USERNAME": os.environ.get("TWINE_USERNAME", "__token__").strip()
+        or "__token__",
+        "TWINE_PASSWORD": token,
+        "TWINE_NON_INTERACTIVE": "1",
+    }
+
+
+def resolve_pypi_credentials(allow_prompt=True):
+    """Finds a PyPI credential, or returns None if there is nothing to find.
+
+    Ordered by how deliberate the intent is: an environment variable set for
+    this run beats a file on disk, which beats the keyring, which beats asking.
+    Prompting is a last resort and only possible on a terminal — which is why
+    this can be called during pre-flight and trusted to fail early in CI.
+    """
+    for var in PYPI_TOKEN_ENV_VARS:
+        token = os.environ.get(var, "").strip()
+        if token:
+            return PypiCredentials(f"${var}", _token_env(token))
+
+    if _pypirc_has_credentials():
+        return PypiCredentials("~/.pypirc", {"TWINE_NON_INTERACTIVE": "1"})
+
+    token = (_keyring_token() or "").strip()
+    if token:
+        return PypiCredentials("system keyring", _token_env(token))
+
+    if allow_prompt and sys.stdin.isatty():
+        print("🔑 No stored PyPI credential found.")
+        token = getpass.getpass("   PyPI API token (input hidden): ").strip()
+        if token:
+            return PypiCredentials("interactive prompt", _token_env(token))
+
+    return None
+
+
+def check_pypi_credentials():
+    """Pre-flight: resolve a PyPI credential or refuse to start the release."""
+    credentials = resolve_pypi_credentials()
+    if credentials is None:
+        print("❌ Error: no PyPI credential available.", file=sys.stderr)
+        print(
+            "   Set one of "
+            + ", ".join(f"${v}" for v in PYPI_TOKEN_ENV_VARS)
+            + ", add a password to ~/.pypirc, store one in your keyring,",
+            file=sys.stderr,
+        )
+        print(
+            "   or run this from a terminal so it can prompt. Refusing to start:"
+            " the tag would be pushed before the upload could fail.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    token = credentials.env.get("TWINE_PASSWORD", "")
+    if token and not token.startswith("pypi-"):
+        print(
+            "⚠️ Warning: that token does not look like a PyPI API token (no 'pypi-' prefix)."
+        )
+
+    print(f"✅ PyPI credential resolved from {credentials.source}.")
+    return credentials
+
+
+def check_registry_credentials():
+    """Pre-flight: warn early if mcp-publisher has no saved login."""
+    if any(path.exists() for path in MCP_REGISTRY_TOKEN_FILES):
+        print("✅ MCP Registry login found.")
+        return True
+    print(
+        "⚠️ Warning: no MCP Registry token found "
+        f"({', '.join(str(p) for p in MCP_REGISTRY_TOKEN_FILES)})."
+    )
+    print("   Run 'mcp-publisher login github' first, or the publish step will fail.")
+    return False
 
 
 def get_current_version():
@@ -303,6 +456,35 @@ def export_release_notes(tag_name):
     return notes_path
 
 
+def sync_website_docs(tag_name, previous_tag, site_repo):
+    """Re-pins the site's docs version and reports what the release left stale.
+
+    The site is a separate repository, so this edits and reports but never
+    stages or commits — the changes are left in its working tree for review.
+    """
+    try:
+        result = sync_site_docs.sync(
+            tag_name, previous_tag=previous_tag, site_repo=site_repo
+        )
+    except RuntimeError as error:
+        print(f"⚠️ Skipping website docs sync: {error}")
+        return None
+
+    report = sync_site_docs.render_report(result)
+    report_path = DIST_DIR / f"site-docs-sync-{tag_name}.md"
+    report_path.write_text(report, encoding="utf-8")
+    print(report)
+    print(f"📄 Report written to {report_path}")
+
+    if sync_site_docs.needs_review(result):
+        print("⚠️ The site docs need a human pass — see the report above.")
+    else:
+        print("✅ Website docs are consistent with this release.")
+
+    result["report_file"] = str(report_path)
+    return result
+
+
 def get_repo_slug():
     """Returns (owner, repo) parsed from the origin remote, or (None, None)."""
     remote_url = run_command(["git", "remote", "get-url", "origin"]).stdout.strip()
@@ -340,6 +522,18 @@ def parse_args():
         help="Do not open the draft release in a browser",
     )
     parser.add_argument(
+        "--site-repo",
+        help=(
+            "Path to the workspacemcp.com checkout to re-sync "
+            f"(default: ${sync_site_docs.SITE_REPO_ENV} or {sync_site_docs.DEFAULT_SITE_REPO})"
+        ),
+    )
+    parser.add_argument(
+        "--no-site-sync",
+        action="store_true",
+        help="Do not touch the website docs",
+    )
+    parser.add_argument(
         "--json",
         dest="json_summary",
         action="store_true",
@@ -373,6 +567,16 @@ def main():
     print("✅ Git working directory is clean (untracked files are ignored).")
     run_command(["git", "fetch", "--tags"])
     print("✅ Fetched latest git tags.")
+
+    # Resolve every credential up front. Step 6 force-pushes a tag, and there is
+    # no graceful way back from a tag that ships without the package it names.
+    pypi_credentials = check_pypi_credentials()
+    if args.registry:
+        check_registry_credentials()
+
+    previous_tag = run_command(
+        ["git", "describe", "--tags", "--abbrev=0"], check=False
+    ).stdout.strip()
 
     # 2. Version selection
     print("\n--- 2. Selecting Version ---")
@@ -418,11 +622,11 @@ def main():
 
     # 7. Upload to PyPI (only wheels and tarballs, not .mcpb)
     print("\n--- 7. Uploading to PyPI ---")
-    print("🔑 You may be prompted to enter your PyPI API token.")
+    print(f"🔑 Authenticating with the credential from {pypi_credentials.source}.")
     pypi_files = list(DIST_DIR.glob("*.whl")) + list(DIST_DIR.glob("*.tar.gz"))
     run_command(
         ["twine", "upload", "--skip-existing"] + [str(f) for f in pypi_files],
-        interactive=True,
+        env=pypi_credentials.env,
     )
     print("✅ Successfully uploaded to PyPI (or skipped if already present).")
 
@@ -430,10 +634,7 @@ def main():
     if args.registry:
         print("\n--- 8. Publishing to MCP Registry ---")
         run_command(["mcp-publisher", "--version"])
-        print(
-            "🔑 Ensure you're authenticated (run 'mcp-publisher login github' once if needed)."
-        )
-        run_command(["mcp-publisher", "publish"], interactive=True)
+        run_command(["mcp-publisher", "publish"])
         print("✅ Successfully published to MCP Registry.")
     else:
         print("\n--- 8. Skipping MCP Registry (use --registry to publish) ---")
@@ -468,6 +669,13 @@ def main():
     print("\n--- 11. Exporting Autogenerated Release Notes ---")
     notes_path = export_release_notes(tag_name)
 
+    print("\n--- 12. Syncing Website Documentation ---")
+    if args.no_site_sync:
+        site_sync = None
+        print("⏭️ Skipped (--no-site-sync).")
+    else:
+        site_sync = sync_website_docs(tag_name, previous_tag, args.site_repo)
+
     owner, repo = get_repo_slug()
     edit_url = (
         f"https://github.com/{owner}/{repo}/releases/edit/{tag_name}" if owner else None
@@ -492,11 +700,14 @@ def main():
                     "version": new_version,
                     "previous_version": current_version,
                     "tag": tag_name,
+                    "previous_tag": previous_tag,
                     "draft": True,
                     "assets": [f.name for f in artifacts],
                     "notes_file": str(notes_path),
                     "edit_url": edit_url,
                     "registry_published": bool(args.registry),
+                    "pypi_credential_source": pypi_credentials.source,
+                    "site_docs": site_sync,
                 },
                 indent=2,
             )

@@ -79,8 +79,8 @@ def RAND_status() -> bool:
     """
     Returns True if the OpenSSL PRNG has been seeded with enough data and False if not.
 
-    It is necessary to seed the PRNG with RAND_add() on some platforms before
-    using the ssl() function.
+    It is necessary to seed the PRNG with RAND_add() on some platforms
+    before using the ssl() function.
     """
     ...
 def get_default_verify_paths() -> tuple[str, str, str, str]:
@@ -130,11 +130,11 @@ class _SSLContext:
         """
         Returns quantities of loaded X.509 certificates.
 
-        X.509 certificates with a CA extension and certificate revocation lists
-        inside the context's cert store.
+        X.509 certificates with a CA extension and certificate revocation
+        lists inside the context's cert store.
 
-        NOTE: Certificates in a capath directory aren't loaded unless they have
-        been used at least once.
+        NOTE: Certificates in a capath directory aren't loaded unless they
+        have been used at least once.
         """
         ...
 
@@ -143,11 +143,11 @@ class _SSLContext:
         """
         Returns a list of dicts with information of loaded CA certs.
 
-        If the optional argument is True, returns a DER-encoded copy of the CA
-        certificate.
+        If the optional argument is True, returns a DER-encoded copy of the
+        CA certificate.
 
-        NOTE: Certificates in a capath directory aren't loaded unless they have
-        been used at least once.
+        NOTE: Certificates in a capath directory aren't loaded unless they
+        have been used at least once.
         """
         ...
     @overload
@@ -155,11 +155,11 @@ class _SSLContext:
         """
         Returns a list of dicts with information of loaded CA certs.
 
-        If the optional argument is True, returns a DER-encoded copy of the CA
-        certificate.
+        If the optional argument is True, returns a DER-encoded copy of the
+        CA certificate.
 
-        NOTE: Certificates in a capath directory aren't loaded unless they have
-        been used at least once.
+        NOTE: Certificates in a capath directory aren't loaded unless they
+        have been used at least once.
         """
         ...
     @overload
@@ -167,11 +167,11 @@ class _SSLContext:
         """
         Returns a list of dicts with information of loaded CA certs.
 
-        If the optional argument is True, returns a DER-encoded copy of the CA
-        certificate.
+        If the optional argument is True, returns a DER-encoded copy of the
+        CA certificate.
 
-        NOTE: Certificates in a capath directory aren't loaded unless they have
-        been used at least once.
+        NOTE: Certificates in a capath directory aren't loaded unless they
+        have been used at least once.
         """
         ...
 

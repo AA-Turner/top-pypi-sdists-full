@@ -284,13 +284,22 @@ class JDBCUrlUpdateHelper:
         """Validate MongoDB URI format."""
         if disable_update_uri == "true":
             if not (url.startswith("mongodb://") or url.startswith("mongodb+srv://")):
+                # Do not embed the URL in the exception message: customer-supplied
+                # MongoDB URLs may carry `user:pass@` userinfo, and the resulting
+                # exception frequently propagates through Spark's error logging with
+                # credentials attached.
                 raise RuntimeError(
-                    f"Mongo/DocumentDB URL {url} should start with 'mongodb://' or 'mongodb+srv://'"
+                    "Mongo/DocumentDB URL should start with 'mongodb://' or 'mongodb+srv://'. "
+                    "Check the Developer Guide for the list of supported data stores/URL formatting."
                 )
         else:
             pattern = (
                 r"^mongodb(\+srv)?://(?P<host>.*)(:(?P<port>\d+))?(?:/|/(?P<database>[^/]*))?/?$"
             )
             if not re.match(pattern, url):
-                raise RuntimeError(f"Mongo/DocumentDB connection URL {url} is not supported.")
+                # Same rationale as above -- keep the URL out of the exception message.
+                raise RuntimeError(
+                    "Mongo/DocumentDB connection URL is not supported. Check the Developer "
+                    "Guide for the list of supported data stores/URL formatting."
+                )
         return True

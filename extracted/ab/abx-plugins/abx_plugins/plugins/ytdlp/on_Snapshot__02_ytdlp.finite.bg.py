@@ -23,6 +23,7 @@ Environment variables:
 """
 
 import signal
+import sys
 
 # Snapshot cleanup sends SIGTERM to the whole hook process group as the polite
 # shutdown signal before the hard SIGKILL deadline. This hook is a finite
@@ -36,7 +37,6 @@ signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 import os
 import subprocess
-import sys
 import threading
 from pathlib import Path
 

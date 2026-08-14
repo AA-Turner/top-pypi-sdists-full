@@ -1,11 +1,11 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.5
 Name: pyphen
-Version: 0.17.2
+Version: 0.18.0
 Summary: Pure Python module to hyphenate text
 Keywords: hyphenation
 Author-email: Guillaume Ayoub <contact@courtbouillon.org>
 Maintainer-email: CourtBouillon <contact@courtbouillon.org>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
@@ -14,15 +14,19 @@ Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 or l
 Classifier: License :: OSI Approved :: Mozilla Public License 1.1 (MPL 1.1)
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Text Processing
 Classifier: Topic :: Text Processing :: Linguistic
+License-File: COPYING.GPL
+License-File: COPYING.LGPL
+License-File: COPYING.MPL
+License-File: LICENSE
 Requires-Dist: sphinx ; extra == "doc"
 Requires-Dist: sphinx_rtd_theme ; extra == "doc"
 Requires-Dist: pytest ; extra == "test"
@@ -35,6 +39,7 @@ Project-URL: Homepage, https://www.courtbouillon.org/pyphen
 Project-URL: Issues, https://github.com/Kozea/Pyphen/issues
 Provides-Extra: doc
 Provides-Extra: test
+Import-Name: pyphen
 
 Pyphen is a pure Python module to hyphenate text using existing Hunspell
 hyphenation dictionaries.
@@ -49,7 +54,7 @@ for more details.
 https://git.libreoffice.org/dictionaries
 
 * Free software: GPL 2.0+ or LGPL 2.1+ or MPL 1.1 for the code
-* For Python 3.9+, tested on CPython and PyPy
+* For Python 3.10+, tested on CPython and PyPy
 * Documentation: https://doc.courtbouillon.org/pyphen
 * Changelog: https://github.com/Kozea/pyphen/releases
 * Code, issues, tests: https://github.com/Kozea/pyphen

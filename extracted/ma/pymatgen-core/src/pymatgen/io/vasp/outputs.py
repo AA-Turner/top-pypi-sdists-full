@@ -359,25 +359,38 @@ class Vasprun(MSONable):
             with zopen(filename, mode="rb") as file:
                 # Remove parts of the xml file and parse the string
                 content: bytes = file.read()
-                steps: list[bytes] = content.split(b"<calculation>")
+                if b"<calculation>" in content:
+                    steps: list[bytes] = content.split(b"<calculation>")
 
-                # The text before the first <calculation> is the preamble!
-                preamble: bytes = steps.pop(0)
-                self.nionic_steps: int = len(steps)
-                new_steps = steps[ionic_step_offset :: int(ionic_step_skip or 1)]
+                    # The text before the first <calculation> is the preamble!
+                    preamble: bytes = steps.pop(0)
+                    self.nionic_steps: int = len(steps)
+                    new_steps = steps[ionic_step_offset :: int(ionic_step_skip or 1)]
 
-                # Add the tailing information in the last step from the run
-                to_parse: bytes = b"<calculation>".join(new_steps)
-                if steps[-1] != new_steps[-1]:
-                    to_parse = preamble + b"<calculation>" + to_parse + steps[-1].split(b"</calculation>")[-1]
+                    # Add the tailing information in the last step from the run
+                    to_parse: bytes = b"<calculation>".join(new_steps)
+                    if steps[-1] != new_steps[-1]:
+                        to_parse = preamble + b"<calculation>" + to_parse + steps[-1].split(b"</calculation>")[-1]
+                    else:
+                        to_parse = preamble + b"<calculation>" + to_parse
+                    self._parse(
+                        BytesIO(to_parse),
+                        parse_dos=parse_dos,
+                        parse_eigen=parse_eigen,
+                        parse_projected_eigen=parse_projected_eigen,
+                    )
                 else:
-                    to_parse = preamble + b"<calculation>" + to_parse
-                self._parse(
-                    BytesIO(to_parse),
-                    parse_dos=parse_dos,
-                    parse_eigen=parse_eigen,
-                    parse_projected_eigen=parse_projected_eigen,
-                )
+                    # MLFF MD output stores each step as a sequence of top-level
+                    # structure, force, stress, and energy tags rather than in a
+                    # <calculation> tag. Parse it in full, then subsample md_data.
+                    self._parse(
+                        BytesIO(content),
+                        parse_dos=parse_dos,
+                        parse_eigen=parse_eigen,
+                        parse_projected_eigen=parse_projected_eigen,
+                    )
+                    self.nionic_steps = len(self.md_data)
+                    self.md_data: list[dict] = self.md_data[ionic_step_offset :: int(ionic_step_skip or 1)]
         else:
             with zopen(filename, mode="rb") as file:
                 self._parse(
@@ -386,7 +399,7 @@ class Vasprun(MSONable):
                     parse_eigen=parse_eigen,
                     parse_projected_eigen=parse_projected_eigen,
                 )
-                self.nionic_steps = len(self.ionic_steps)
+                self.nionic_steps = len(self.md_data) if self.md_data else len(self.ionic_steps)
 
             if parse_potcar_file:
                 self.update_potcar_spec(parse_potcar_file)
@@ -710,6 +723,11 @@ class Vasprun(MSONable):
     @property
     def converged_electronic(self) -> bool:
         """Whether electronic step converged in the final ionic step."""
+        # MLFF MD output has no electronic steps because forces and energies
+        # are calculated by the machine-learned force field.
+        if self.incar.get("ML_LMLFF"):
+            return True
+
         final_elec_steps: list[dict[str, Any]] | Literal[0] = (
             self.ionic_steps[-1]["electronic_steps"] if self.incar.get("ALGO", "").lower() != "chi" else 0
         )
@@ -4061,19 +4079,23 @@ class VolumetricData(BaseVolumetricData):
             file.write(lines)  # type:ignore[arg-type]
             dim = self.dim
 
-            write_spin("total")
-            write_aug("total")
-            if self.is_spin_polarized:
-                if self.is_soc:
-                    write_spin("diff_x")
-                    write_aug("diff_x")
-                    write_spin("diff_y")
-                    write_aug("diff_y")
-                    write_spin("diff_z")
-                    write_aug("diff_z")
-                else:
-                    write_spin("diff")
-                    write_aug("diff")
+            data_keys = ("spin_up", "spin_down") if {"spin_up", "spin_down"}.issubset(self.data) else ("total",)
+            if self.is_soc:
+                data_keys = ("total", "diff_x", "diff_y", "diff_z")
+            elif self.is_spin_polarized and data_keys == ("total",):
+                data_keys = ("total", "diff")
+            for data_key in data_keys:
+                write_spin(data_key)
+                write_aug(data_key)
+
+
+def _normalize_direct_spin_channels(data: dict[str, NDArray]) -> dict[str, NDArray]:
+    """Map VASP's direct collinear-spin blocks to unambiguous keys."""
+    if {"spin_up", "spin_down"}.issubset(data):
+        return data
+    if set(data) == {"total", "diff"}:
+        return {"spin_up": data["total"], "spin_down": data["diff"]}
+    return data
 
 
 class Locpot(VolumetricData):
@@ -4096,7 +4118,14 @@ class Locpot(VolumetricData):
         else:
             raise TypeError("Unsupported POSCAR type.")
 
-        super().__init__(struct, data, **kwargs)
+        # Normalize legacy "total"/"diff" keys to native "spin_up"/"spin_down" keys
+        data = _normalize_direct_spin_channels(data)
+        deprecated_keys = {"total": "spin_up", "diff": "spin_down"} if "spin_up" in data else None
+        kwargs.pop("data_key", None)
+        super().__init__(struct, data, data_key="spin_up" if "spin_up" in data else "total", **kwargs)
+        if deprecated_keys:
+            # Preserve legacy keys as warning-backed aliases of the native spin-channel keys
+            self.data = type(self.data)(self.data, deprecated_keys=deprecated_keys)
 
     @classmethod
     def from_file(cls, filename: PathLike, **kwargs) -> Self:
@@ -4166,7 +4195,9 @@ class Chgcar(VolumetricData):
 class Elfcar(VolumetricData):
     """Read an ELFCAR file which contains the Electron Localization Function (ELF).
 
-    For ELF, "total" key refers to Spin.up, and "diff" refers to Spin.down.
+    For collinear spin-polarized calculations, the data is stored under the
+    ``"spin_up"`` and ``"spin_down"`` keys. The legacy ``"total"`` and
+    ``"diff"`` aliases are deprecated.
 
     This also contains information on the kinetic energy density.
     """
@@ -4193,12 +4224,14 @@ class Elfcar(VolumetricData):
         else:
             raise TypeError("Unsupported POSCAR type.")
 
-        super().__init__(tmp_struct, data, **kwargs)
-        # TODO: (mkhorton) modify VolumetricData so that the correct keys can be used.
-        # for ELF, instead of "total" and "diff" keys we have
-        # "Spin.up" and "Spin.down" keys
-        # I believe this is correct, but there's not much documentation.
-        self.data = data
+        # Normalize legacy "total"/"diff" keys to native "spin_up"/"spin_down" keys
+        data = _normalize_direct_spin_channels(data)
+        deprecated_keys = {"total": "spin_up", "diff": "spin_down"} if "spin_up" in data else None
+        kwargs.pop("data_key", None)
+        super().__init__(tmp_struct, data, data_key="spin_up" if "spin_up" in data else "total", **kwargs)
+        if deprecated_keys:
+            # Preserve legacy keys as warning-backed aliases of the native spin-channel keys
+            self.data = type(self.data)(self.data, deprecated_keys=deprecated_keys)
 
     @classmethod
     def from_file(cls, filename: str) -> Self:

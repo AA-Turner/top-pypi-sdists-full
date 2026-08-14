@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-07-23T20:46:33.269864                                                            #
+# Generated on 2026-08-13T18:38:42.574424                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,13 +9,13 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
+    import typing
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
+    import datetime
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.deployer
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
-    import datetime
-    import typing
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
 
 from .config.typed_configs import TypedCoreConfig as TypedCoreConfig
 from .perimeters import PerimeterExtractor as PerimeterExtractor
@@ -27,6 +27,7 @@ from .app_config import AppConfigError as AppConfigError
 from .code_package.code_packager import CodePackager as CodePackager
 from .config.unified_config import PackagedCode as PackagedCode
 from .config.unified_config import BakedImage as BakedImage
+from .config.unified_config import CapsuleType as CapsuleType
 from .config.unified_config import AuthType as AuthType
 from .capsule import CapsuleDeployer as CapsuleDeployer
 from .capsule import list_and_filter_capsules as list_and_filter_capsules
@@ -245,7 +246,7 @@ class AppDeployer(metaflow.mf_extensions.outerbounds.plugins.apps.core.config.ty
         The name of the app to deploy.
     
     port : int, optional
-        Port where the app is hosted. When deployed this will be port on which we will deploy the app.
+        Port where the app is hosted. When deployed this will be port on which we will deploy the app. For a `Proxy` capsule this is the port of the pods being proxied, and it is not needed when `proxy.service_url` is used.
     
     description : str, optional
         The description of the app to deploy.
@@ -260,7 +261,7 @@ class AppDeployer(metaflow.mf_extensions.outerbounds.plugins.apps.core.config.ty
         The tags of the app to deploy.
     
     secrets : list, optional
-        Outerbounds integrations to attach to the app. You can use the value you set in the `@secrets` decorator in your code.
+        Outerbounds integrations to attach to the app. You can use the value you set in the `@secrets` decorator in your code without the outerbounds prefix.
     
     compute_pools : list, optional
         A list of compute pools to deploy the app to.
@@ -314,19 +315,29 @@ class AppDeployer(metaflow.mf_extensions.outerbounds.plugins.apps.core.config.ty
         When True, skip providing startup commands and rely on the container's entrypoint/CMD. Only available in the programmatic API. In CLI mode, use `--no-deps` along side passing no command to enable this behavior.
     
     skip_code_package : bool, optional
-        When True, skip code packaging and rely on the container's embedded source code. When running the deployer programmatically, If this field is set, then the user cannot pass `package-code`
+        When True, skip code packaging and rely on the container's embedded source code. When running the deployer programmatically, If this field is set, then the user cannot pass `code_package` parameter to the AppDeployer
+    
+    capsule_type : str, optional
+        What the platform runs for this deployment. `Standard` (the default) runs the image and commands configured here. `Proxy` runs nothing of its own and only fronts a workload that is already running in the cluster, described by `proxy`.
+    
+    proxy : ProxyConfigDict, optional
+        The workload a `Proxy` capsule forwards traffic to. Can only be set when `capsule_type` is `Proxy`.
+            - namespace (str)
+                The namespace where the pods being proxied live. The service fronting them is created here. Required unless `service_url` is set.
+            - selector_labels (dict)
+                The labels of the pods being proxied. They become the selector of the service that fronts those pods, so they must match the labels on them. Required unless `service_url` is set.
+            - service_url (str)
+                The address of a service that already exists, e.g. `my-svc.my-ns.svc.cluster.local:8080`. The scheme is optional and defaults to http, a port must be included if the target isn't on the scheme's default port, and a path may be appended to rewrite requests into a subpath of the target. The address is not checked at deploy time: if it doesn't resolve, the proxy crashloops until it does.
     
     persistence : str, optional
         The persistence mode to deploy the app with.
         [Experimental] May change in the future.
     
     project : str, optional
-        The project name to deploy the app to.
-        [Experimental] May change in the future.
+        The project name for the app. Defaults to __unassigned__.
     
     branch : str, optional
-        The branch name to deploy the app to.
-        [Experimental] May change in the future.
+        The branch name for the app. Defaults to __unassigned__.
     
     models : list, optional
         [Experimental] May change in the future.
@@ -393,6 +404,29 @@ class AppDeployer(metaflow.mf_extensions.outerbounds.plugins.apps.core.config.ty
     deployed = deployer.deploy()
     ```
     
+    Fronting a workload that is already running in the cluster (a proxy app). The app
+    runs no container of its own, so it takes no image, commands or code package:
+    
+    ```python
+    # Point at a service that already exists. Its port is part of the URL.
+    deployer = AppDeployer(
+        name="my-proxy",
+        capsule_type="Proxy",
+        proxy={"service_url": "my-svc.my-ns.svc.cluster.local:8080"},
+        auth={"type": "API"},
+    )
+    deployed = deployer.deploy()
+    
+    # Or point at pods, and let the platform put a service in front of them.
+    deployer = AppDeployer(
+        name="my-pod-proxy",
+        port=8080,
+        capsule_type="Proxy",
+        proxy={"namespace": "jobs-default", "selector_labels": {"app": "my-app"}},
+    )
+    deployed = deployer.deploy()
+    ```
+    
     Interacting with a deployed app:
     
     ```python
@@ -409,7 +443,7 @@ class AppDeployer(metaflow.mf_extensions.outerbounds.plugins.apps.core.config.ty
     deployed.delete()
     ```
     """
-    def __init__(self, name: typing.Union[str, None] = None, port: typing.Union[int, None] = None, description: typing.Union[str, None] = None, app_type: typing.Union[str, None] = None, image: typing.Union[str, None] = None, tags: typing.Union[list, None] = None, secrets: typing.Union[list, None] = None, compute_pools: typing.Union[list, None] = None, environment: typing.Union[dict, None] = None, commands: typing.Union[list, None] = None, resources: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ResourceConfigDict, None] = None, auth: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.AuthConfigDict, None] = None, replicas: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ReplicaConfigDict, None] = None, code_package: typing.Union[tuple, None] = None, force_upgrade: typing.Union[bool, None] = None, use_base_image_command: typing.Union[bool, None] = None, skip_code_package: typing.Union[bool, None] = None, persistence: typing.Union[str, None] = None, project: typing.Union[str, None] = None, branch: typing.Union[str, None] = None, models: typing.Union[list, None] = None, data: typing.Union[list, None] = None, generate_static_url: typing.Union[bool, None] = None, **kwargs):
+    def __init__(self, name: typing.Union[str, None] = None, port: typing.Union[int, None] = None, description: typing.Union[str, None] = None, app_type: typing.Union[str, None] = None, image: typing.Union[str, None] = None, tags: typing.Union[list, None] = None, secrets: typing.Union[list, None] = None, compute_pools: typing.Union[list, None] = None, environment: typing.Union[dict, None] = None, commands: typing.Union[list, None] = None, resources: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ResourceConfigDict, None] = None, auth: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.AuthConfigDict, None] = None, replicas: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ReplicaConfigDict, None] = None, code_package: typing.Union[tuple, None] = None, force_upgrade: typing.Union[bool, None] = None, use_base_image_command: typing.Union[bool, None] = None, skip_code_package: typing.Union[bool, None] = None, capsule_type: typing.Union[str, None] = None, proxy: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ProxyConfigDict, None] = None, persistence: typing.Union[str, None] = None, project: typing.Union[str, None] = None, branch: typing.Union[str, None] = None, models: typing.Union[list, None] = None, data: typing.Union[list, None] = None, generate_static_url: typing.Union[bool, None] = None, **kwargs):
         ...
     @property
     def _deploy_config(self) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config.AppConfig:

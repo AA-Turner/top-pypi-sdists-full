@@ -758,5 +758,154 @@ class TestSqlServerUrlUpdateHelper(unittest.TestCase):
         self.assertEqual(result["aws_iam_role"], "arn:aws:iam::123456789012:role/test-role")
 
 
+# ==========================================================================
+# MongoDB / DocumentDB — authenticationType marker propagation
+#
+# MongoDBConnectionWrapper sets `authenticationType=IAM` on the props map when
+# the Glue Connection has IAM auth. The downstream consumer
+# (GlueSparkConnector-MongoDB's DefaultSource) keys off this marker. Lock in
+# that _update_url_mongodb passes the marker through untranslated for both
+# mongodb and documentdb connection types.
+# ==========================================================================
+
+
+class TestMongoDBAuthenticationTypeMarker(unittest.TestCase):
+    """Test authenticationType marker propagation through update_url_in_props."""
+
+    def test_update_url_in_props_mongodb_propagates_authentication_type_iam(self):
+        """Test updateUrlInProps for MongoDB propagates authenticationType=IAM marker."""
+        url = "mongodb://host:27017"
+        props = {
+            "url": url,
+            "fullUrl": url,
+            "authenticationType": "IAM",
+            "enforceSSL": "false",
+        }
+
+        result = JDBCUrlUpdateHelper.update_url_in_props("mongodb", url, props, {})
+
+        self.assertEqual(
+            result.get("authenticationType"),
+            "IAM",
+            f"authenticationType marker was not propagated. Got: {result}",
+        )
+
+    def test_update_url_in_props_documentdb_propagates_authentication_type_iam(self):
+        """Test updateUrlInProps for DocumentDB propagates authenticationType=IAM marker."""
+        url = "mongodb://docdbhost:27017"
+        props = {
+            "url": url,
+            "fullUrl": url,
+            "authenticationType": "IAM",
+            "enforceSSL": "true",
+        }
+
+        result = JDBCUrlUpdateHelper.update_url_in_props("documentdb", url, props, {})
+
+        self.assertEqual(
+            result.get("authenticationType"),
+            "IAM",
+            f"authenticationType marker was not propagated. Got: {result}",
+        )
+
+    def test_update_url_in_props_mongodb_no_authentication_type_when_absent(self):
+        """Test updateUrlInProps for MongoDB does not add authenticationType when absent."""
+        url = "mongodb://host:27017"
+        props = {"url": url, "fullUrl": url, "enforceSSL": "false"}
+
+        result = JDBCUrlUpdateHelper.update_url_in_props("mongodb", url, props, {})
+
+        self.assertNotIn("authenticationType", result)
+
+
+# ==========================================================================
+# MongoDB / DocumentDB -- validateMongoUri must not embed the URL in the
+# exception message.
+#
+# Customer-supplied Mongo URLs may carry `user:pass@` userinfo. When
+# validation fails, the exception propagates through Spark's error path
+# and lands in driver / executor stdout, event logs, and Py4JJavaError
+# messages. Formatting the URL into the message leaks those credentials.
+# Mirrors GlueSparkConnector-MongoDB commit 3541f5e.
+# ==========================================================================
+
+
+class TestMongoDBUriValidationUrlScrub(unittest.TestCase):
+    """Test that validateMongoUri does not leak URLs in exception messages."""
+
+    def test_validate_mongo_uri_regex_path_exception_does_not_carry_raw_url(self):
+        """validateMongoUri (regex path) -- invalid URL: exception does not carry the raw URL."""
+        bad_url = "postgres://user:secret@host:5432/db"
+        props = {"url": bad_url, "fullUrl": bad_url}
+
+        with self.assertRaises(RuntimeError) as ctx:
+            JDBCUrlUpdateHelper.update_url_in_props("mongodb", bad_url, props, {})
+
+        msg = str(ctx.exception)
+        self.assertNotIn(bad_url, msg, f"Raw URL leaked into exception message: {msg}")
+        self.assertNotIn("user:secret", msg, f"Credentials leaked into exception message: {msg}")
+        # Message stays actionable
+        self.assertIn("Mongo/DocumentDB", msg, f"Vendor context lost: {msg}")
+        self.assertIn("Developer Guide", msg, f"Actionable pointer lost: {msg}")
+
+    def test_validate_mongo_uri_regex_path_exception_message_shape(self):
+        """validateMongoUri (regex path) -- exception message keeps its shape when URL is stripped."""
+        bad_url = "notmongo://host/db"
+        props = {"url": bad_url, "fullUrl": bad_url}
+
+        with self.assertRaises(RuntimeError) as ctx:
+            JDBCUrlUpdateHelper.update_url_in_props("mongodb", bad_url, props, {})
+
+        # Snapshot: the exact message text callers may pattern-match on.
+        expected = (
+            "Mongo/DocumentDB connection URL is not supported. Check the Developer "
+            "Guide for the list of supported data stores/URL formatting."
+        )
+        self.assertEqual(
+            str(ctx.exception),
+            expected,
+            f"Unexpected exception message: {ctx.exception}",
+        )
+
+    def test_validate_mongo_uri_disable_update_uri_path_exception_does_not_carry_raw_url(self):
+        """validateMongoUri (disableUpdateUri path) -- invalid URL: exception does not carry the raw URL."""
+        bad_url = "postgres://user:secret@host:5432/db"
+        props = {"url": bad_url, "fullUrl": bad_url}
+        additional_options = {"disableUpdateUri": "true"}
+
+        with self.assertRaises(RuntimeError) as ctx:
+            JDBCUrlUpdateHelper.update_url_in_props("mongodb", bad_url, props, additional_options)
+
+        msg = str(ctx.exception)
+        self.assertNotIn(bad_url, msg, f"Raw URL leaked into exception message: {msg}")
+        self.assertNotIn("user:secret", msg, f"Credentials leaked into exception message: {msg}")
+        # Message stays actionable
+        self.assertIn("mongodb://", msg, f"Valid prefixes not mentioned: {msg}")
+        self.assertIn("mongodb+srv://", msg, f"Valid prefixes not mentioned: {msg}")
+
+    def test_validate_mongo_uri_documentdb_path_uses_url_scrubbed_messages(self):
+        """validateMongoUri -- DocumentDB path uses the same URL-scrubbed messages."""
+        bad_url = "postgres://user:secret@host:5432/db"
+        props = {"url": bad_url, "fullUrl": bad_url}
+
+        with self.assertRaises(RuntimeError) as ctx:
+            JDBCUrlUpdateHelper.update_url_in_props("documentdb", bad_url, props, {})
+
+        msg = str(ctx.exception)
+        self.assertNotIn(bad_url, msg, f"Raw URL leaked (documentdb): {msg}")
+        self.assertNotIn("user:secret", msg, f"Credentials leaked (documentdb): {msg}")
+
+    def test_validate_mongo_uri_valid_url_round_trips_without_throwing(self):
+        """validateMongoUri -- valid mongodb URL round-trips without throwing."""
+        url = "mongodb://host:27017/db"
+        props = {"url": url, "fullUrl": url}
+
+        result = JDBCUrlUpdateHelper.update_url_in_props("mongodb", url, props, {})
+
+        self.assertIn(
+            "connection.uri", result, f"connection.uri missing after happy path: {result}"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

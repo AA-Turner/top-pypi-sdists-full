@@ -2,10 +2,16 @@ from unittest import TestCase
 from unittest.mock import Mock, patch
 from uuid import UUID
 
+from click.testing import CliRunner
 from pycarlo.core import Client, Session
 
 from montecarlodata.common.user import UserService
-from montecarlodata.integrations.onboarding.fields import ORACLE_DB_TYPE
+from montecarlodata.integrations.commands import add_postgres
+from montecarlodata.integrations.onboarding.fields import (
+    ORACLE_DB_TYPE,
+    POSTGRES_DB_TYPE,
+    TRANSACTIONAL_CONNECTION_TYPE,
+)
 from montecarlodata.integrations.onboarding.transactional.transactional_db import (
     TransactionalOnboardingService,
 )
@@ -103,6 +109,47 @@ class TransactionalOnboardingTest(TestCase):
         self.assertEqual(call_args["connection_type"], ORACLE_DB_TYPE)
         self.assertEqual(call_args["warehouse_type"], ORACLE_DB_TYPE)
         self.assertEqual(call_args["dbType"], ORACLE_DB_TYPE)
+
+    @patch("montecarlodata.integrations.onboarding.base.Path")
+    @patch.object(TransactionalOnboardingService, "test_new_credentials")
+    @patch.object(TransactionalOnboardingService, "add_connection")
+    def test_postgres_ssl_ca_merges_with_rds_proxy(
+        self, add_connection_mock, test_new_credentials_mock, path_mock
+    ):
+        """CA-only SSL options must be nested under connection_settings alongside the
+        rds_proxy flag that add_postgres sets before calling the service (YET-2283)."""
+        ca_cert_content = "-----BEGIN CERTIFICATE-----\nCA_CERT_CONTENT\n-----END CERTIFICATE-----"
+
+        def path_side_effect(path_string):
+            mock_path = Mock()
+            if path_string == "/path/to/ca.pem":
+                mock_path.read_text.return_value = ca_cert_content
+            return mock_path
+
+        path_mock.side_effect = path_side_effect
+        test_new_credentials_mock.return_value = "tmp-string"
+
+        options = {
+            **_SAMPLE_BASE_OPTIONS,
+            "dbType": POSTGRES_DB_TYPE,
+            "dbName": "test_db",
+            # add_postgres pre-populates connection_settings with the rds_proxy flag.
+            "connection_settings": {"rds_proxy": True},
+            "ssl_ca": "/path/to/ca.pem",
+        }
+
+        self._service.onboard_transactional_db(**options)
+
+        call_args = test_new_credentials_mock.call_args[1]
+        # The SSL block is merged in, not overwriting the existing rds_proxy flag.
+        self.assertEqual(
+            call_args["connection_settings"],
+            {"rds_proxy": True, "ssl_options": {"ca_data": ca_cert_content}},
+        )
+        # Postgres is not a promoted subtype, so it stays a generic transactional-db.
+        self.assertEqual(call_args["connection_type"], TRANSACTIONAL_CONNECTION_TYPE)
+        self.assertEqual(call_args["warehouse_type"], TRANSACTIONAL_CONNECTION_TYPE)
+        self.assertEqual(call_args["dbType"], POSTGRES_DB_TYPE)
 
     @patch.object(TransactionalOnboardingService, "create_update_credentials")
     @patch.object(TransactionalOnboardingService, "test_new_credentials_on_existing_connection")
@@ -273,3 +320,97 @@ class TransactionalOnboardingTest(TestCase):
 
             # Verify update was still called
             update_mock.assert_called_once_with(connection_id=connection_id, temp_key="tmp-key")
+
+
+class AddPostgresCliTest(TestCase):
+    """CLI-level coverage for the CA-only SSL options exposed on `add_postgres` (YET-2283)."""
+
+    _BASE_ARGS = [
+        "--name",
+        "pg-warehouse",
+        "--host",
+        "localhost",
+        "--user",
+        "admin",
+        "--password",
+        "secret",
+        "--database",
+        "mydb",
+    ]
+
+    @patch("montecarlodata.integrations.commands.TransactionalOnboardingService")
+    def test_add_postgres_without_ssl_flags(self, service_class_mock):
+        """The default (no-SSL) path is unaffected: no SSL kwargs are populated and
+        connection_settings carries only the rds_proxy flag."""
+        onboard_mock = service_class_mock.return_value.onboard_transactional_db
+
+        runner = CliRunner()
+        result = runner.invoke(
+            add_postgres,
+            obj={"config": _SAMPLE_CONFIG},
+            args=self._BASE_ARGS,
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        onboard_mock.assert_called_once()
+        call_kwargs = onboard_mock.call_args[1]
+        self.assertIsNone(call_kwargs["ssl_ca"])
+        self.assertIsNone(call_kwargs["ssl_disabled"])
+        self.assertEqual(call_kwargs["dbType"], POSTGRES_DB_TYPE)
+        self.assertEqual(call_kwargs["connection_settings"], {"rds_proxy": False})
+
+    @patch("montecarlodata.integrations.commands.TransactionalOnboardingService")
+    def test_add_postgres_ssl_ca_flows_through_with_rds_proxy(self, service_class_mock):
+        """`--ssl-ca` is accepted and forwarded to the service alongside the rds_proxy flag."""
+        onboard_mock = service_class_mock.return_value.onboard_transactional_db
+
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            with open("ca.pem", "w") as ca_file:
+                ca_file.write("-----BEGIN CERTIFICATE-----\nCA\n-----END CERTIFICATE-----")
+            result = runner.invoke(
+                add_postgres,
+                obj={"config": _SAMPLE_CONFIG},
+                args=[*self._BASE_ARGS, "--rds-proxy", "--ssl-ca", "ca.pem"],
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        onboard_mock.assert_called_once()
+        call_kwargs = onboard_mock.call_args[1]
+        self.assertEqual(call_kwargs["ssl_ca"], "ca.pem")
+        self.assertEqual(call_kwargs["dbType"], POSTGRES_DB_TYPE)
+        self.assertEqual(call_kwargs["connection_settings"], {"rds_proxy": True})
+
+    @patch("montecarlodata.integrations.commands.TransactionalOnboardingService")
+    def test_add_postgres_ssl_disabled_flows_through(self, service_class_mock):
+        """`--ssl-disabled` is accepted and forwarded to the service."""
+        onboard_mock = service_class_mock.return_value.onboard_transactional_db
+
+        runner = CliRunner()
+        result = runner.invoke(
+            add_postgres,
+            obj={"config": _SAMPLE_CONFIG},
+            args=[*self._BASE_ARGS, "--ssl-disabled", "true"],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        onboard_mock.assert_called_once()
+        self.assertIs(onboard_mock.call_args[1]["ssl_disabled"], True)
+
+    @patch("montecarlodata.integrations.commands.TransactionalOnboardingService")
+    def test_add_postgres_ssl_ca_and_disabled_are_mutually_exclusive(self, service_class_mock):
+        """`--ssl-ca` and `--ssl-disabled` cannot be combined."""
+        onboard_mock = service_class_mock.return_value.onboard_transactional_db
+
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            with open("ca.pem", "w") as ca_file:
+                ca_file.write("-----BEGIN CERTIFICATE-----\nCA\n-----END CERTIFICATE-----")
+            result = runner.invoke(
+                add_postgres,
+                obj={"config": _SAMPLE_CONFIG},
+                args=[*self._BASE_ARGS, "--ssl-ca", "ca.pem", "--ssl-disabled", "true"],
+            )
+
+        self.assertNotEqual(result.exit_code, 0)
+        onboard_mock.assert_not_called()

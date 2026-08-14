@@ -4,21 +4,52 @@ permissions:
 on:
   push:
     branches: [main]
+    tags: ["v*.*.*"]
   pull_request:
+  # Daily run against the `edge` image to catch breaking changes in upcoming
+  # FalkorDB releases before they reach a stable release.
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      falkordb_image_tag:
+        description: "FalkorDB Docker image tag to test against (defaults to latest)"
+        required: false
+        default: "latest"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Single source of truth for the FalkorDB image tag. It cannot be a plain
+  # `env:` variable because GitHub does not allow the `env` context in
+  # `jobs.<id>.services.<id>.image`, so it is resolved once here and consumed
+  # via `needs.falkordb-version.outputs.version`.
+  falkordb-version:
+    name: Resolve FalkorDB version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - id: resolve
+        env:
+          # Released `latest` for pull requests, pushes and tags; `edge` for the
+          # scheduled daily run; an explicit tag on manual dispatch.
+          FALKORDB_VERSION: ${{ github.event.inputs.falkordb_image_tag || (github.event_name == 'schedule' && 'edge' || 'latest') }}
+        run: |
+          echo "Testing against falkordb/falkordb:$FALKORDB_VERSION"
+          echo "version=$FALKORDB_VERSION" >> "$GITHUB_OUTPUT"
+
   test:
     name: Test with Python ${{ matrix.python }}
     runs-on: ubuntu-latest
+    needs: falkordb-version
 
     services:
       falkordb:
-        # Docker Hub image
-        image: falkordb/falkordb:edge
+        # Docker Hub image, tag resolved by the `falkordb-version` job above.
+        image: falkordb/falkordb:${{ needs.falkordb-version.outputs.version }}
         # Map port 6379 on the Docker host to port 6379 on the FalkorDB container
         ports:
           - 6379:6379
@@ -29,14 +60,14 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{matrix.python}}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
 
@@ -52,3 +83,21 @@ jobs:
         with:
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}    
+
+  # A cron job has nobody watching it: GitHub only emails whoever last touched
+  # the cron line, so a failing daily run would otherwise go unnoticed. The
+  # reporter is shared with the other FalkorDB clients, which all need the same
+  # alert; `permissions` has to stay here because a called workflow can only
+  # downgrade the caller's token.
+  report-scheduled-failure:
+    name: Report scheduled failure
+    needs: [falkordb-version, test]
+    if: ${{ always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure') }}
+    permissions:
+      issues: write
+    # Pinned, and only the one secret it declares is passed: a mutable ref
+    # plus `secrets: inherit` would let a later upstream change run with this
+    # repo's secrets. Dependabot keeps the pin current.
+    uses: FalkorDB/.github/.github/workflows/report-scheduled-failure.yml@126ec30105d98bdfb62b5631e92aa149fc0e5ad1 # 2026-08-13
+    secrets:
+      DRIVERS_GOOGLE_CHAT_WEBHOOK_URL: ${{ secrets.DRIVERS_GOOGLE_CHAT_WEBHOOK_URL }}

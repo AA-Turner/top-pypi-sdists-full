@@ -1,111 +1,58 @@
-"""pgw#1134: the MEASURE-ONLY child — ``python -m gen_worker.measure_child``.
+"""The MEASURE-ONLY child — ``python -m gen_worker.measure_child``.
 
     python -m gen_worker.measure_child <request>.mint.json [<report>.json]
 
-It runs the mint's own load and the mint's own export loop — optionally with
-the INDUCTOR compile — against ONE declared class set, records what the run
-cost on the card, and produces **nothing else**. No cell, no artifact, no
-package, no hub call, no advertisement.
+Runs the mint's own load and export loop — optionally with the INDUCTOR compile
+— against ONE declared class set, records what it cost on the card, and
+produces **nothing else**: no cell, no artifact, no package, no hub call, no
+advertisement.
 
-What ``<request>.mint.json`` actually IS (pgw#1153)
---------------------------------------------------
-The file an operator holds is the one an endpoint repo COMMITS — e.g.
-``ltx-video-2.3/aot/transformer-b200-tv261120-ta126-tat1.mint.json``. That is a
-DECLARATION payload: a flattened compile contract (``family``, ``shapes``,
-``text_lens``, ``specialization``, ``declaration_module``, ``source_ref``)
-generated from the ``@endpoint(compile=...)`` block. It is NOT a runtime
-``MintRequest``, which the hub-driven parent builds in a work root and which
-additionally carries ``function``, ``modules`` and RESOLVED ``slots``.
+``<request>.mint.json`` is the DECLARATION payload an endpoint repo commits
+(``family``, ``shapes``, ``text_lens``, ``specialization``,
+``declaration_module``, ``source_ref``), not the runtime ``MintRequest`` the
+hub-driven parent builds. Both decode through :func:`load_document` ->
+:func:`resolve_job`, so there is ONE decoder. From the committed shape:
+``modules`` <- ``declaration_module``; ``function`` <- the endpoint whose
+``Compile(family=)`` is the payload's ``family`` (``--function`` disambiguates);
+``targets`` <- that endpoint's own ``Compile(targets=)`` when the payload names
+none; ``slots`` <- ``source_ref`` plus ``--slot NAME=...``. Anything the payload
+cannot supply is refused BY NAME before a weight is read, naming the flag that
+supplies it.
 
-pgw#1134 documented the committed file and decoded the runtime one, so the
-documented command — quoted in ltx's OQ-3 ``resolves_when``, i.e. in production
-endpoint source — died on ``ValidationError: Object missing required field
-'function'`` in the first millisecond of a bought B200. This module now reads
-the committed shape, because that is the artifact that exists:
+**Slots resolve OFFLINE** — a ref is looked up in the local store and never
+downloaded, inheriting ``mint_process``'s rule that a mint process which could
+download is one that can stall on a lemon host.
 
-* ``modules``   <- the payload's ``declaration_module``;
-* ``function``  <- the endpoint whose ``Compile(family=)`` IS the payload's
-  ``family`` (``--function`` overrides, and is required only when that is
-  ambiguous across classes);
-* ``targets``   <- the chosen endpoint's own ``Compile(targets=)`` when the
-  payload names none, which since pgw#1107 is every committed file;
-* ``slots``     <- the payload's ``source_ref``, bound to the slot that owns
-  the declared targets, plus ``--slot NAME=...`` for anything else the
-  endpoint's ``setup()`` requires.
+Why a second child exists: both other front doors are shut against a
+measurement run — ``mint_child._assert_family_mintable`` refuses while any
+blocker is open, and ``boot_trace_child`` composes structure-only, whose
+``_refuse_artifact_lanes`` refuses a w8a8/w4a4/svdq tree by name.
 
-Both shapes decode through :func:`load_document` -> :func:`resolve_job`, so
-there is ONE decoder and no second opinion about what a request file is. Every
-piece the payload cannot supply is refused BY NAME, before a weight is read,
-naming the flag that supplies it — the failure this issue exists for is a
-command that could not start, and a typed refusal on a laptop is worth a rented
-hour.
+The three properties that make that safe:
 
-**Slots resolve OFFLINE.** A ref named by the payload or a flag is looked up in
-this machine's local store and never downloaded: ``mint_process`` states the
-rule for the mint child (*"the child never touches the network: a mint is
-compute, and a mint process that could download is one that can stall on a
-lemon host"*) and a measurement of a mint inherits it. On a pod the serving
-process has already materialized every slot; ``--slot NAME=/path`` names a tree
-directly.
-
-Why a second child exists at all
---------------------------------
-A blocker (pgw#1115) is a declared refusal whose exit criterion is often a
-MEASUREMENT, and ltx-video-2.3's OQ-3 is the worked example: *"is a whole-graph
-export of the served w8a8 lane bigger than the card?"*. Both front doors were
-shut against the run that answers it:
-
-* ``mint_child._assert_family_mintable`` refuses while ANY blocker is open —
-  correct, and deliberately so. The measurement that would close OQ-3 was
-  refused BY OQ-3.
-* ``boot_trace_child`` is ungated, but it composes structure-only, and
-  ``structure_only._refuse_artifact_lanes`` refuses a w8a8 / w4a4 / svdq
-  artifact tree BY NAME. The boot child treats that as a hard refusal (it must:
-  §4.27 step 1 forbids weights for identity, and a boot that quietly downloaded
-  42 GiB to state its key would satisfy the letter of the derivation and
-  destroy its purpose).
-
-So the blocker could never gather the evidence that resolves it, and the only
-remaining moves were to guess or to resolve the blocker in order to unblock its
-own run — the circularity pgw#1115 exists to prevent.
-
-The three properties that make this safe
-----------------------------------------
-1. **It is an explicit invocation, never an ambient bypass.** Nothing spawns
-   this child: an operator or a harness runs it, at a request file, on purpose.
+1. **Explicit invocation, never an ambient bypass.** Nothing spawns this child.
    ``_assert_family_mintable`` is untouched and every real mint still fails
-   closed — this module does not call it because it cannot mint, not because it
-   is exempt.
+   closed.
 2. **It cannot produce an artifact, structurally.** :class:`MeasureJob` is a
-   DIFFERENT wire struct from ``MintRequest`` and it declares none of the
+   DIFFERENT wire struct from ``MintRequest`` and declares none of the
    output-side fields (:data:`WITHHELD_FIELDS` — ``target``, ``work_root``,
    ``resume``, ``report``, ``arm_token``). msgspec drops what a struct does not
-   declare, so the artifact destination, the resume bank and the mint's report
-   path never enter this process's memory even when the operator hands it the
-   very same ``*.mint.json`` file. There is no publish call to audit because
-   there is nothing here to publish TO.
-3. **The real-weight fallback is scoped to HERE.** ``mint_child``'s pgw#1080
-   invariants are untouched: ``StructureNotHonored`` still fails a mint closed,
-   and the boot trace still refuses a stranded family rather than downloading
-   its checkpoint. This child accepts real weights because a measurement of the
-   served lane is exactly what it is for — and it REPORTS which lane it
-   measured (:attr:`MeasureReport.weights`), read off the composed pipeline, so
-   a weightless claim can never be implied by a run that was not.
+   declare, so the artifact destination, resume bank and report path never
+   enter this process even when handed the same ``*.mint.json``.
+3. **The real-weight fallback is scoped to HERE**, and the run REPORTS which
+   lane it measured (:attr:`MeasureReport.weights`), read off the composed
+   pipeline, so a weightless claim can never be implied by a run that was not.
 
-What it measures, and against what vocabulary
----------------------------------------------
 ``export_peak_device_bytes`` / ``export_peak_device_reserved_bytes`` are the
-mint's own names for the same two counters (``aot_mint._mint_cell``), read on
-the same allocator, so a number from this child and a number from a real mint
-are comparable without translation. The per-entry figure is the RUNNING
-high-water after that entry — the counter is reset once, before the first row,
-exactly as the mint resets it once before its export phase — so the row that
-raised the water line is the row named beside it.
+mint's own names for the same two counters (``aot_mint._mint_cell``) on the
+same allocator, so numbers are comparable without translation. The per-entry
+figure is the RUNNING high-water after that entry — the counter is reset once
+before the first row, exactly as the mint resets it once before its export
+phase — so the row that raised the water line is the row named beside it.
 
-With ``--export-only`` the inductor half is skipped. That is a cheaper first
-pass and a WEAKER answer: an export-only trace never exercises the whole-graph
-planner an OOM blocker is usually about, which is why the compile runs by
-default.
+``--export-only`` skips the inductor half: cheaper, and a WEAKER answer, since
+an export-only trace never exercises the whole-graph planner an OOM blocker is
+usually about.
 """
 
 from __future__ import annotations
@@ -120,7 +67,14 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import msgspec
 
 from . import activity
-from .mint_process import CompileCellSpec, MintSlot
+from .child_contract import CompileSpec, MintSlot
+from .child_preflight import (
+    PreflightRefused,
+    assert_slots_resolvable,
+    bind_slots,
+    pick_compile_target,
+    select_specs,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -184,7 +138,7 @@ class MeasureJob(msgspec.Struct, frozen=True, kw_only=True):
 
     function: str
     modules: Tuple[str, ...]
-    cfg: CompileCellSpec
+    cfg: CompileSpec
     family: str = ""
     slots: Dict[str, MintSlot] = {}
     device: int = -1
@@ -213,14 +167,14 @@ class MeasureDocument(msgspec.Struct, frozen=True, kw_only=True):
     # The runtime envelope's input half.
     function: str = ""
     modules: Tuple[str, ...] = ()
-    cfg: Optional[CompileCellSpec] = None
+    cfg: Optional[CompileSpec] = None
     slots: Dict[str, MintSlot] = {}
     device: int = -1
     execution_lane: str = ""
     # The committed declaration payload's half. `family` is common to both.
     family: str = ""
     #: The module whose IMPORT registers the family's export declaration
-    #: (pgw#1107). Committed by every endpoint repo and fenced by their own
+    #:. Committed by every endpoint repo and fenced by their own
     #: declaration suites, which is what makes it a safe default for `modules`.
     declaration_module: str = ""
     #: The compile target's checkpoint, as the endpoint repo records it. Bound
@@ -229,7 +183,7 @@ class MeasureDocument(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class MeasureRefused(Exception):
-    """A typed refusal raised while BUILDING the job (pgw#1153).
+    """A typed refusal raised while BUILDING the job.
 
     It carries a :data:`REASONS` token so that a request that cannot start is
     reported in the same vocabulary as a run that started and stopped. The
@@ -366,7 +320,7 @@ def _discard(files: Sequence[str]) -> int:
 
 
 # ---------------------------------------------------------------------------
-# The envelope (pgw#1153): a committed declaration payload -> a MeasureJob.
+# The envelope: a committed declaration payload -> a MeasureJob.
 #
 # Nothing here decides anything about the measurement. It answers the four
 # questions the payload does not spell out — which image, which function,
@@ -375,10 +329,10 @@ def _discard(files: Sequence[str]) -> int:
 # ---------------------------------------------------------------------------
 
 
-def load_document(raw: bytes) -> Tuple[MeasureDocument, CompileCellSpec]:
+def load_document(raw: bytes) -> Tuple[MeasureDocument, CompileSpec]:
     """Decode one request file into ``(document, flattened compile spec)``.
 
-    The committed payload IS a ``CompileCellSpec`` at top level, so the same
+    The committed payload IS a ``CompileSpec`` at top level, so the same
     bytes are read twice against two structs rather than sniffed for a
     discriminator: msgspec drops what each struct does not declare, and a
     document that carries neither half decodes to two empty structs and is
@@ -389,7 +343,7 @@ def load_document(raw: bytes) -> Tuple[MeasureDocument, CompileCellSpec]:
     """
     return (
         msgspec.json.decode(raw, type=MeasureDocument),
-        msgspec.json.decode(raw, type=CompileCellSpec),
+        msgspec.json.decode(raw, type=CompileSpec),
     )
 
 
@@ -509,7 +463,7 @@ def _function_for_family(specs: Sequence[Any], family: str) -> str:
 
 
 def resolve_job(
-    doc: MeasureDocument, flat: CompileCellSpec, *,
+    doc: MeasureDocument, flat: CompileSpec, *,
     function: str = "", slot_flags: Sequence[str] = (),
 ) -> MeasureJob:
     """Build the job the run needs from whichever document arrived.
@@ -519,7 +473,6 @@ def resolve_job(
     omits all live on the declaration, and reading them from anywhere else
     would be a second declaration.
     """
-    from .mint_child import MintChildRefused, select_specs
     from .registry import collect_endpoints
 
     modules = tuple(str(m) for m in doc.modules if str(m).strip())
@@ -567,11 +520,11 @@ def resolve_job(
         specs, family)
     try:
         chosen, _siblings = select_specs(specs, name)
-    except MintChildRefused as exc:
+    except PreflightRefused as exc:
         raise MeasureRefused("function_underivable", str(exc)) from exc
 
     if not cfg.targets:
-        # pgw#1107: targets DERIVE from the declaration, so no committed
+        # targets DERIVE from the declaration, so no committed
         # payload carries them — and `compile_cache.resolve_targets` returns
         # nothing for an empty tuple, which is the same defect one step later.
         declared = tuple(
@@ -634,10 +587,6 @@ def run(
     """Measure this job's declared class set. Never raises, never publishes."""
     from . import aot_declaration, aot_mint, compile_cache as cc, fleet_cells
     from .cli.run import run_setup
-    from .mint_child import (
-        MintChildRefused, assert_slots_resolvable, bind_slots,
-        pick_compile_target, select_specs,
-    )
     from .models import structure_only
     from .registry import collect_endpoints
 
@@ -657,7 +606,7 @@ def run(
                  f"aot/*.mint.json names ONE checkpoint (`source_ref`), so "
                  f"every other slot the endpoint's setup() requires is named "
                  f"with `--slot NAME=/path/to/tree`")
-    except MintChildRefused as exc:
+    except PreflightRefused as exc:
         return _fail(report_path, "slots_unresolvable", str(exc),
                      partial=partial)
 
@@ -702,14 +651,14 @@ def run(
 
     try:
         _slot, pipeline = pick_compile_target(loaded, cfg)
-    except MintChildRefused as exc:
+    except PreflightRefused as exc:
         return _fail(report_path, "no_compile_target", str(exc),
                      partial=partial)
 
     if cfg.lora_bucket:
         # The CONTAINER half and the lane stamp, exactly as `mint_child` and
         # `boot_trace_child` arm the pipeline they hand the export. The LIFTED
-        # half belongs to the loop that needs it (pgw#1132).
+        # half belongs to the loop that needs it.
         cc.apply_lora_execution_lane(pipeline, int(cfg.lora_bucket))
     spec = fleet_cells.aot_export_spec(pipeline, cfg)
     virtual = structure_only.structure_only_components(pipeline)

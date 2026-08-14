@@ -62,6 +62,7 @@ _CARD_TIER_STAGES: list[tuple[CustomerTier, str]] = [
     (CustomerTier.TIER_1, CustomerTier.TIER_1.value),
     (CustomerTier.TIER_0, CustomerTier.TIER_0.value),
 ]
+
 APPLY_ERROR = "Apply change failed. No connector version override was applied."
 SCOPE_PLACEHOLDER_SUFFIX = "_example"
 
@@ -320,7 +321,7 @@ def tier_rollout_status(
 
     - Heavy minus sign — no rollout for the tier, or one that is defined but hasn't
       begun pinning (`initialized` / `pending`).
-    - `⏸️ Paused` — the rollout is paused.
+    - `⏸️ Paused` — the rollout is paused without a failure-threshold hold.
     - `⚠️ Attention` — the rollout failed or crossed its failure threshold.
     - `☑️ Complete` — the rollout succeeded or was intentionally skipped as empty.
     - `🔵 In progress` — the rollout is still rolling out.
@@ -328,11 +329,13 @@ def tier_rollout_status(
     normalized = (state or "").strip().lower()
     if not _is_started(has_rollout, normalized):
         return _STATUS_NOT_STARTED
-    if normalized == "paused":
-        return _STATUS_PAUSED
     reasons = " ".join(
         value for value in (error_msg, failed_reason, paused_reason) if value
     )
+    if normalized == "paused":
+        if FAILURE_THRESHOLD_EXCEEDED_MARKER in reasons:
+            return _STATUS_ATTENTION
+        return _STATUS_PAUSED
     if normalized == "failed_rolled_back" or (
         normalized == "canceled" and FAILURE_THRESHOLD_EXCEEDED_MARKER in reasons
     ):
@@ -676,10 +679,10 @@ def latest_version_rows() -> list[dict[str, Any]]:
     return [asdict(c) for c in connectors]
 
 
-def recent_release_rows() -> list[dict[str, Any]]:
-    """Build DataTable rows for the Recent Releases tab (last 30 days, max 50)."""
+def recent_release_rows(limit: int = 250) -> list[dict[str, Any]]:
+    """Build DataTable rows for the Recent Releases tab."""
     try:
-        releases = get_adapter().list_recent_releases(limit=50)
+        releases = get_adapter().list_recent_releases(days=365, limit=limit)
     except Exception:
         return []
     rows = rows_from_dataclasses(releases)
@@ -1372,6 +1375,7 @@ def build_rollout_summary(
         "connector_name": highest_rollout.get("connector_name", ""),
         "docker_repository": highest_rollout.get("docker_repository", ""),
         "rc_docker_image_tag": highest_rollout.get("rc_docker_image_tag", ""),
+        "initial_docker_image_tag": highest_rollout.get("initial_docker_image_tag", ""),
         "advance_rollout_id": highest_rollout.get("rollout_id", ""),
         "advance_tier": highest_tier_value,
         "advance_pct": str(highest_rollout.get("current_target_rollout_pct", "0")),

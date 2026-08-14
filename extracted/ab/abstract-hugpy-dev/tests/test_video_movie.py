@@ -51,6 +51,13 @@ def _fake_render(*, out_dir, n_frames, on_frame_done, seed=None, start_frame=Non
     RENDER_CALLS.append({
         "seed": seed, "start_frame": start_frame, "n_frames": n_frames,
         "base_prompt": base_prompt, "out_dir": out_dir,
+        # k92 — capture the effective per-goal knobs so tests can assert overrides
+        # actually reach the segment render (extras ride **kw).
+        "model_id": kw.get("model_id"), "width": kw.get("width"),
+        "height": kw.get("height"), "steps": kw.get("steps"),
+        "guidance": kw.get("guidance"), "negative": kw.get("negative"),
+        "strength": kw.get("strength"), "chain": kw.get("chain"),
+        "motion": kw.get("motion"),
     })
     os.makedirs(out_dir, exist_ok=True)
     for i in range(n_frames):
@@ -153,6 +160,19 @@ def test_make_movie_validation():
     assert _bad([(0, 3, "a")], score_threshold=-1), "score_threshold<0 must raise"
     assert _bad([(0, 3, "a")], max_attempts_per_segment=0), "max_attempts<1 must raise"
     assert _bad([(0, 3, "a")], time_budget_s=0), "time_budget_s=0 must raise"
+
+    # k92 — per-goal PROMPT-COMPONENT override invariants (each optional; when
+    # present it must satisfy the same rule as the movie-level field it overrides).
+    assert _bad([GoalInterval(0, 3, "a", steps=-5)]), "per-goal steps<=0 must raise"
+    assert _bad([GoalInterval(0, 3, "a", width=0)]), "per-goal width<=0 must raise"
+    assert _bad([GoalInterval(0, 3, "a", strength=2.0)]), "per-goal strength>1 must raise"
+    assert _bad([GoalInterval(0, 3, "a", model_id="")]), "empty per-goal model_id must raise"
+    assert _bad([GoalInterval(0, 3, "a", chain="yes")]), "non-bool per-goal chain must raise"
+    # a fully-valid set of overrides must BUILD (round-trips through the factory)
+    ok = _spec([GoalInterval(0, 3, "a", model_id="flux-schnell", width=128, height=128,
+                             steps=6, guidance=1.5, seed=9, negative="blur",
+                             strength=0.5, chain=False, motion="pan {i}")])
+    assert ok.goals[0].model_id == "flux-schnell" and ok.goals[0].motion == "pan {i}", ok.goals[0]
 
     # valid, contiguous timeline -> total == max(end_frame)
     spec = _spec([(0, 3, "sunrise"), (3, 7, "noon"), (7, 10, "sunset")])
@@ -296,9 +316,11 @@ def test_segment_bundle_builder():
     assert os.path.isfile(mj), "movie.json must be written"
     with open(mj) as fh:
         manifest = json.load(fh)
+    # k92: the goals summary now carries each goal's EFFECTIVE model (attribution);
+    # here both inherit the movie-level default (sd-turbo) since neither overrides it.
     assert manifest["goals"] == [
-        {"start_frame": 0, "end_frame": 3, "prompt": "sunrise over the sea"},
-        {"start_frame": 3, "end_frame": 6, "prompt": "the sun overhead"},
+        {"start_frame": 0, "end_frame": 3, "prompt": "sunrise over the sea", "model": "sd-turbo"},
+        {"start_frame": 3, "end_frame": 6, "prompt": "the sun overhead", "model": "sd-turbo"},
     ], manifest["goals"]
     assert {"goal", "prompt", "seed", "attempts", "scores", "chosen_take"} <= set(manifest["segments"][0])
     # additive iterative-save keys: a fully-rendered movie is NOT partial and its
@@ -307,6 +329,47 @@ def test_segment_bundle_builder():
     assert manifest["segments_completed"] == 2, manifest["segments_completed"]
     assert manifest["segments_total"] == 2, manifest["segments_total"]
     print("[6] PASS  per-segment scene-spec builder -> assets/<meta>/segment_NN/project.json + movie.json")
+
+
+# --------------------------------------------------------------------------- #
+# 6b) k92 — PER-GOAL prompt-component overrides reach the segment render
+# --------------------------------------------------------------------------- #
+def test_per_goal_overrides():
+    """A goal that pins its OWN model/steps/seed/negative renders with THOSE values;
+    a goal with no overrides inherits the movie-level defaults. Also asserts the
+    deterministic seed bump keys off the goal's effective seed, and that movie.json
+    attributes each goal's effective model."""
+    import json
+    from abstract_hugpy_dev.imports.src.utils import slugify
+    from abstract_hugpy_dev.video_intel.movie_schema import GoalInterval
+    tmp = tempfile.mkdtemp(prefix="hugpy_test_movie_pergoal_")
+    movie, media_bus = _install(tmp, can_carry=False)
+    spec = _spec([
+        GoalInterval(0, 2, "wide establishing shot"),  # inherits everything
+        GoalInterval(2, 4, "tight close-up", model_id="flux-schnell", steps=9,
+                     seed=500, negative="blurry, jpeg", strength=0.3, chain=False),
+    ])
+    job_id = media_bus.enqueue("generate_movie", spec)
+    res = movie.run_generate_movie(spec, job_id)
+    assert res.ok, res.error
+
+    # each render saw its goal's EFFECTIVE knobs (goal 0 inherits, goal 1 overrides)
+    assert RENDER_CALLS[0]["model_id"] == "sd-turbo" and RENDER_CALLS[0]["steps"] == 2, RENDER_CALLS[0]
+    assert RENDER_CALLS[1]["model_id"] == "flux-schnell" and RENDER_CALLS[1]["steps"] == 9, RENDER_CALLS[1]
+    assert RENDER_CALLS[1]["negative"] == "blurry, jpeg", RENDER_CALLS[1]
+    assert RENDER_CALLS[1]["strength"] == 0.3 and RENDER_CALLS[1]["chain"] is False, RENDER_CALLS[1]
+    # deterministic bump: goal0 seed = 1000 + 0*1000 + 0; goal1 uses ITS OWN base
+    # (500) + 1*1000 + 0 = 1500 (NOT the movie seed).
+    assert RENDER_CALLS[0]["seed"] == 1000, RENDER_CALLS[0]["seed"]
+    assert RENDER_CALLS[1]["seed"] == 1500, RENDER_CALLS[1]["seed"]
+
+    # movie.json attributes each goal's effective model
+    with open(os.path.join(tmp, "assets", slugify(spec.project), "movie.json")) as fh:
+        manifest = json.load(fh)
+    assert manifest["goals"][0]["model"] == "sd-turbo", manifest["goals"]
+    assert manifest["goals"][1]["model"] == "flux-schnell", manifest["goals"]
+    assert manifest["segments"][1]["model"] == "flux-schnell", manifest["segments"][1]
+    print("[6b] PASS per-goal model/steps/seed/negative/strength/chain overrides reach the render")
 
 
 # --------------------------------------------------------------------------- #
@@ -506,6 +569,7 @@ def _run_all():
     test_orchestrator_independent_fallback()
     test_orchestrator_vision_retry()
     test_segment_bundle_builder()
+    test_per_goal_overrides()
     test_resume_skip()
     test_concat_stitch()
     test_nested_progress_shape()

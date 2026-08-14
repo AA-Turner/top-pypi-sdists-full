@@ -50,9 +50,9 @@ if sys.version_info >= (3, 14):
         """
         Apply a function of two arguments cumulatively to the items of an iterable, from left to right.
 
-        This effectively reduces the iterable to a single value.  If initial is present,
-        it is placed before the items of the iterable in the calculation, and serves as
-        a default when the iterable is empty.
+        This effectively reduces the iterable to a single value.  If initial is
+        present, it is placed before the items of the iterable in the
+        calculation, and serves as a default when the iterable is empty.
 
         For example, reduce(lambda x, y: x+y, [1, 2, 3, 4, 5])
         calculates ((((1 + 2) + 3) + 4) + 5).
@@ -80,9 +80,9 @@ def reduce(function: Callable[[_T, _T], _T], iterable: Iterable[_T], /) -> _T:
     """
     Apply a function of two arguments cumulatively to the items of an iterable, from left to right.
 
-    This effectively reduces the iterable to a single value.  If initial is present,
-    it is placed before the items of the iterable in the calculation, and serves as
-    a default when the iterable is empty.
+    This effectively reduces the iterable to a single value.  If initial is
+    present, it is placed before the items of the iterable in the
+    calculation, and serves as a default when the iterable is empty.
 
     For example, reduce(lambda x, y: x+y, [1, 2, 3, 4, 5])
     calculates ((((1 + 2) + 3) + 4) + 5).
@@ -234,7 +234,7 @@ class partial(Generic[_T]):
         """Call self as a function."""
         ...
     def __class_getitem__(cls, item: Any, /) -> GenericAlias:
-        """See PEP 585"""
+        """partial is generic over the wrapped function's return type"""
         ...
 
 # With protocols, this could change into a generic protocol that defines __get__ and returns _T
@@ -262,7 +262,8 @@ class partialmethod(Generic[_T]):
         """
         Represent a PEP 585 generic type
 
-        E.g. for t = list[int], t.__origin__ is list and t.__args__ is (int,).
+        For example, for t = list[int], t.__origin__ is list and t.__args__
+        is (int,).
         """
         ...
 
@@ -326,7 +327,8 @@ class cached_property(Generic[_T_co]):
         """
         Represent a PEP 585 generic type
 
-        E.g. for t = list[int], t.__origin__ is list and t.__args__ is (int,).
+        For example, for t = list[int], t.__origin__ is list and t.__args__
+        is (int,).
         """
         ...
 

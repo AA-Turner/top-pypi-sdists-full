@@ -1,6 +1,7 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
 
 
 class AbstractThermostatsSimulate(abc.ABC):
@@ -14,7 +15,7 @@ class AbstractThermostatsSimulate(abc.ABC):
         cooling_set_point_celsius: Optional[float] = None,
         cooling_set_point_fahrenheit: Optional[float] = None,
         heating_set_point_celsius: Optional[float] = None,
-        heating_set_point_fahrenheit: Optional[float] = None
+        heating_set_point_fahrenheit: Optional[float] = None,
     ) -> None:
         """Simulates having adjusted the `HVAC mode <https://docs.seam.co/capability-guides/thermostats/understanding-thermostat-concepts/hvac-mode>`_ for a `thermostat <https://docs.seam.co/capability-guides/thermostats>`_. Only applicable for `sandbox devices <https://docs.seam.co/core-concepts/workspaces#sandbox-workspaces>`_. See also `Testing Your Thermostat App with Simulate Endpoints <https://docs.seam.co/capability-guides/thermostats/testing-your-thermostat-app-with-simulate-endpoints>`_.
 
@@ -29,7 +30,8 @@ class AbstractThermostatsSimulate(abc.ABC):
         :param heating_set_point_celsius: Heating `set point <https://docs.seam.co/capability-guides/thermostats/understanding-thermostat-concepts/set-points>`_ in °C that you want to simulate. You must set ``heating_set_point_celsius`` or ``heating_set_point_fahrenheit``.
 
         :param heating_set_point_fahrenheit: Heating `set point <https://docs.seam.co/capability-guides/thermostats/understanding-thermostat-concepts/set-points>`_ in °F that you want to simulate. You must set ``heating_set_point_fahrenheit`` or ``heating_set_point_celsius``.
-        """
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -38,7 +40,7 @@ class AbstractThermostatsSimulate(abc.ABC):
         *,
         device_id: str,
         temperature_celsius: Optional[float] = None,
-        temperature_fahrenheit: Optional[float] = None
+        temperature_fahrenheit: Optional[float] = None,
     ) -> None:
         """Simulates a `thermostat <https://docs.seam.co/capability-guides/thermostats>`_ reaching a specified temperature. Only applicable for `sandbox devices <https://docs.seam.co/core-concepts/workspaces#sandbox-workspaces>`_. See also `Testing Your Thermostat App with Simulate Endpoints <https://docs.seam.co/capability-guides/thermostats/testing-your-thermostat-app-with-simulate-endpoints>`_.
 
@@ -47,7 +49,8 @@ class AbstractThermostatsSimulate(abc.ABC):
         :param temperature_celsius: Temperature in °C that you want simulate the thermostat reaching. You must set ``temperature_celsius`` or ``temperature_fahrenheit``.
 
         :param temperature_fahrenheit: Temperature in °F that you want simulate the thermostat reaching. You must set ``temperature_fahrenheit`` or ``temperature_celsius``.
-        """
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
 
@@ -56,6 +59,11 @@ class ThermostatsSimulate(AbstractThermostatsSimulate):
         self.client = client
         self.defaults = defaults
 
+    @route_metadata(
+        path="/thermostats/simulate/hvac_mode_adjusted",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def hvac_mode_adjusted(
         self,
         *,
@@ -64,7 +72,7 @@ class ThermostatsSimulate(AbstractThermostatsSimulate):
         cooling_set_point_celsius: Optional[float] = None,
         cooling_set_point_fahrenheit: Optional[float] = None,
         heating_set_point_celsius: Optional[float] = None,
-        heating_set_point_fahrenheit: Optional[float] = None
+        heating_set_point_fahrenheit: Optional[float] = None,
     ) -> None:
         """Simulates having adjusted the `HVAC mode <https://docs.seam.co/capability-guides/thermostats/understanding-thermostat-concepts/hvac-mode>`_ for a `thermostat <https://docs.seam.co/capability-guides/thermostats>`_. Only applicable for `sandbox devices <https://docs.seam.co/core-concepts/workspaces#sandbox-workspaces>`_. See also `Testing Your Thermostat App with Simulate Endpoints <https://docs.seam.co/capability-guides/thermostats/testing-your-thermostat-app-with-simulate-endpoints>`_.
 
@@ -79,8 +87,9 @@ class ThermostatsSimulate(AbstractThermostatsSimulate):
         :param heating_set_point_celsius: Heating `set point <https://docs.seam.co/capability-guides/thermostats/understanding-thermostat-concepts/set-points>`_ in °C that you want to simulate. You must set ``heating_set_point_celsius`` or ``heating_set_point_fahrenheit``.
 
         :param heating_set_point_fahrenheit: Heating `set point <https://docs.seam.co/capability-guides/thermostats/understanding-thermostat-concepts/set-points>`_ in °F that you want to simulate. You must set ``heating_set_point_fahrenheit`` or ``heating_set_point_celsius``.
-        """
-        json_payload = {}
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if device_id is not None:
             json_payload["device_id"] = device_id
@@ -95,16 +104,26 @@ class ThermostatsSimulate(AbstractThermostatsSimulate):
         if heating_set_point_fahrenheit is not None:
             json_payload["heating_set_point_fahrenheit"] = heating_set_point_fahrenheit
 
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /thermostats/simulate/hvac_mode_adjusted"
+            )
+
         self.client.post("/thermostats/simulate/hvac_mode_adjusted", json=json_payload)
 
         return None
 
+    @route_metadata(
+        path="/thermostats/simulate/temperature_reached",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def temperature_reached(
         self,
         *,
         device_id: str,
         temperature_celsius: Optional[float] = None,
-        temperature_fahrenheit: Optional[float] = None
+        temperature_fahrenheit: Optional[float] = None,
     ) -> None:
         """Simulates a `thermostat <https://docs.seam.co/capability-guides/thermostats>`_ reaching a specified temperature. Only applicable for `sandbox devices <https://docs.seam.co/core-concepts/workspaces#sandbox-workspaces>`_. See also `Testing Your Thermostat App with Simulate Endpoints <https://docs.seam.co/capability-guides/thermostats/testing-your-thermostat-app-with-simulate-endpoints>`_.
 
@@ -113,8 +132,9 @@ class ThermostatsSimulate(AbstractThermostatsSimulate):
         :param temperature_celsius: Temperature in °C that you want simulate the thermostat reaching. You must set ``temperature_celsius`` or ``temperature_fahrenheit``.
 
         :param temperature_fahrenheit: Temperature in °F that you want simulate the thermostat reaching. You must set ``temperature_fahrenheit`` or ``temperature_celsius``.
-        """
-        json_payload = {}
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if device_id is not None:
             json_payload["device_id"] = device_id
@@ -122,6 +142,11 @@ class ThermostatsSimulate(AbstractThermostatsSimulate):
             json_payload["temperature_celsius"] = temperature_celsius
         if temperature_fahrenheit is not None:
             json_payload["temperature_fahrenheit"] = temperature_fahrenheit
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /thermostats/simulate/temperature_reached"
+            )
 
         self.client.post("/thermostats/simulate/temperature_reached", json=json_payload)
 

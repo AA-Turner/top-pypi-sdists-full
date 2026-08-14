@@ -126,8 +126,8 @@ class EnumMeta(type):
         """
         Returns a mapping of member name->value.
 
-        This mapping lists all enum members, including aliases. Note that this
-        is a read-only view of the internal mapping.
+        This mapping lists all enum members, including aliases.  Note that
+        this is a read-only view of the internal mapping.
         """
         ...
     def __len__(self) -> int: ...

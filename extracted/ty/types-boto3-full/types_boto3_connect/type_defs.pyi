@@ -221,6 +221,7 @@ __all__ = (
     "AgentsCriteriaTypeDef",
     "AgentsCriteriaUnionTypeDef",
     "AiAgentInfoTypeDef",
+    "AiAgentInputTypeDef",
     "AiAgentSearchCriteriaTypeDef",
     "AiAgentsCriteriaTypeDef",
     "AliasConfigurationTypeDef",
@@ -1375,6 +1376,8 @@ __all__ = (
     "SingleSelectQuestionRuleCategoryAutomationTypeDef",
     "SortTypeDef",
     "SourceCampaignTypeDef",
+    "StartAssistantContactRequestTypeDef",
+    "StartAssistantContactResponseTypeDef",
     "StartAttachedFileUploadRequestTypeDef",
     "StartAttachedFileUploadResponseTypeDef",
     "StartChatContactRequestTypeDef",
@@ -1724,6 +1727,9 @@ class AiAgentInfoTypeDef(TypedDict):
     AiUseCase: NotRequired[AiUseCaseType]
     AiAgentVersionId: NotRequired[str]
     AiAgentEscalated: NotRequired[bool]
+
+class AiAgentInputTypeDef(TypedDict):
+    AiAgentId: str
 
 class AiAgentSearchCriteriaTypeDef(TypedDict):
     Id: NotRequired[str]
@@ -5003,6 +5009,13 @@ class SendChatIntegrationEventResponseTypeDef(TypedDict):
     NewChatCreated: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
+class StartAssistantContactResponseTypeDef(TypedDict):
+    ContactId: str
+    ParticipantId: str
+    ParticipantToken: str
+    ContinuedFromContactId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class StartChatContactResponseTypeDef(TypedDict):
     ContactId: str
     ParticipantId: str
@@ -7092,6 +7105,16 @@ class ParticipantTimerConfigurationTypeDef(TypedDict):
     TimerType: ParticipantTimerTypeType
     TimerValue: ParticipantTimerValueTypeDef
 
+class StartAssistantContactRequestTypeDef(TypedDict):
+    InstanceId: str
+    AiAgent: AiAgentInputTypeDef
+    ParticipantDetails: ParticipantDetailsTypeDef
+    InitialMessage: NotRequired[ChatMessageTypeDef]
+    Attributes: NotRequired[Mapping[str, str]]
+    ClientToken: NotRequired[str]
+    PersistentChat: NotRequired[PersistentChatTypeDef]
+    RelatedContactId: NotRequired[str]
+
 class PreviewOutputTypeDef(TypedDict):
     PostAcceptTimeoutConfig: PostAcceptTimeoutConfigTypeDef
     AllowedUserActions: list[AllowedUserActionType]
@@ -7394,17 +7417,6 @@ class AgentInfoTypeDef(TypedDict):
     AgentInitiatedHoldDuration: NotRequired[int]
     StateTransitions: NotRequired[list[StateTransitionTypeDef]]
     VoiceEnhancementMode: NotRequired[VoiceEnhancementModeType]
-
-class StartWebRTCContactRequestTypeDef(TypedDict):
-    ContactFlowId: str
-    InstanceId: str
-    ParticipantDetails: ParticipantDetailsTypeDef
-    Attributes: NotRequired[Mapping[str, str]]
-    ClientToken: NotRequired[str]
-    AllowedCapabilities: NotRequired[AllowedCapabilitiesTypeDef]
-    RelatedContactId: NotRequired[str]
-    References: NotRequired[Mapping[str, ReferenceTypeDef]]
-    Description: NotRequired[str]
 
 class CreateParticipantRequestTypeDef(TypedDict):
     InstanceId: str
@@ -8220,6 +8232,18 @@ class StartTaskContactRequestTypeDef(TypedDict):
     RelatedContactId: NotRequired[str]
     SegmentAttributes: NotRequired[Mapping[str, SegmentAttributeValueUnionTypeDef]]
     Attachments: NotRequired[Sequence[TaskAttachmentTypeDef]]
+
+class StartWebRTCContactRequestTypeDef(TypedDict):
+    ContactFlowId: str
+    InstanceId: str
+    ParticipantDetails: ParticipantDetailsTypeDef
+    Attributes: NotRequired[Mapping[str, str]]
+    ClientToken: NotRequired[str]
+    AllowedCapabilities: NotRequired[AllowedCapabilitiesTypeDef]
+    RelatedContactId: NotRequired[str]
+    References: NotRequired[Mapping[str, ReferenceTypeDef]]
+    Description: NotRequired[str]
+    SegmentAttributes: NotRequired[Mapping[str, SegmentAttributeValueUnionTypeDef]]
 
 class UpdateContactRequestTypeDef(TypedDict):
     InstanceId: str

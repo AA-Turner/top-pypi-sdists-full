@@ -163,6 +163,15 @@ class FastMCPWithCORS(FastMCP):
         # which we don't use). Add it here directly.
         app = super().streamable_http_app()
 
+        # Added first, so it ends up innermost: Starlette builds the stack with
+        # the last added outermost, and this has to run *after* the
+        # authentication below has put the verified caller in the scope.
+        # Without it a tool cannot tell who it is acting for, and every request
+        # uses the single credential the process was configured with.
+        from jupyter_mcp_server.identity import IdentityMiddleware
+
+        app.add_middleware(IdentityMiddleware)
+
         app.add_middleware(
             ManagementRouteSecurityMiddleware,
             token_verifier=self._token_verifier,
@@ -188,7 +197,21 @@ class FastMCPWithCORS(FastMCP):
         return app
 
 
-mcp = FastMCPWithCORS(name="Jupyter MCP Server", json_response=False, stateless_http=True)
+#: What the server tells a client it is for. Sent in `initialize`, so an agent
+#: reads it before choosing a tool — worth saying what the tools operate on
+#: and what is unusual about them, rather than restating the name.
+INSTRUCTIONS = (
+    "Read, edit and run Jupyter notebooks. Cells are addressed by index within "
+    "a notebook you have opened with use_notebook, and execution happens on the "
+    "server, so a long computation keeps running after this session ends."
+)
+
+mcp = FastMCPWithCORS(
+    name="Jupyter MCP Server",
+    instructions=INSTRUCTIONS,
+    json_response=False,
+    stateless_http=True,
+)
 notebook_manager = NotebookManager()
 server_context = ServerContext.get_instance()
 extension_manager = get_extension_manager()
@@ -274,7 +297,7 @@ async def connect(request: Request):
     logger.info(
         f"Connect endpoint received - code_sandbox_url: {data.get('code_sandbox_url')!r}, "
         f"document_url: {data.get('document_url')!r}, "
-        f"provider: {data.get('provider')}"
+        f"document_provider: {data.get('document_provider')}"
     )
 
     document_code_sandbox = DocumentCodeSandbox(**data)
@@ -289,7 +312,7 @@ async def connect(request: Request):
     # Update configuration with new values
     # String "None" values will be automatically normalized by set_config()
     set_config(
-        provider=document_code_sandbox.provider,
+        document_provider=document_code_sandbox.document_provider,
         code_sandbox_url=document_code_sandbox.code_sandbox_url,
         code_sandbox_id=document_code_sandbox.code_sandbox_id,
         code_sandbox_token=document_code_sandbox.code_sandbox_token,
@@ -1124,7 +1147,9 @@ async def connect_to_jupyter(
     jupyter_token: Annotated[
         str | None, Field(description="Jupyter server authentication token")
     ] = None,
-    provider: Annotated[str, Field(description="Provider type")] = "jupyter",
+    document_provider: Annotated[
+        str, Field(description="Which backend holds the notebook documents")
+    ] = "jupyter",
 ) -> Annotated[str, Field(description="Connection status message")]:
     """Connect to a Jupyter server dynamically with URL and token.
 
@@ -1143,7 +1168,7 @@ async def connect_to_jupyter(
             mode=server_context.mode,
             jupyter_url=jupyter_url,
             jupyter_token=jupyter_token,
-            provider=provider,
+            document_provider=document_provider,
         )
     )
 

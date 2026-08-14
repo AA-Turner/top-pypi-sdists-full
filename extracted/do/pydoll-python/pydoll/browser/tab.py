@@ -28,6 +28,7 @@ from typing import (
 
 import aiofiles
 
+from pydoll.browser.fingerprint_applier import FingerprintApplier
 from pydoll.browser.requests import Request
 from pydoll.commands import (
     DomCommands,
@@ -102,6 +103,7 @@ if TYPE_CHECKING:
         ResolveNodeResponse,
     )
     from pydoll.protocol.fetch.types import AuthChallengeResponseType, HeaderEntry, RequestStage
+    from pydoll.protocol.fingerprint.types import FingerprintConfig
     from pydoll.protocol.network.events import RequestWillBeSentEvent
     from pydoll.protocol.network.methods import GetCookiesResponse as NetworkGetCookiesResponse
     from pydoll.protocol.network.methods import GetResponseBodyResponse
@@ -121,9 +123,13 @@ if TYPE_CHECKING:
     )
     from pydoll.protocol.runtime.methods import CallFunctionOnResponse, EvaluateResponse
     from pydoll.protocol.storage.methods import GetCookiesResponse as StorageGetCookiesResponse
-    from pydoll.protocol.target.methods import AttachToTargetResponse, GetTargetsResponse
+    from pydoll.protocol.target.methods import (
+        AttachToTargetResponse,
+        GetTargetsResponse,
+    )
 
 logger = logging.getLogger(__name__)
+
 
 IFrame: TypeAlias = 'Tab'
 
@@ -180,6 +186,7 @@ class Tab(FindElementsMixin):
         self._runtime_events_enabled = False
         self._intercept_file_chooser_dialog_enabled = False
         self._cloudflare_captcha_callback_id: Optional[int] = None
+        self._fingerprint_applier: Optional[FingerprintApplier] = None
         self._request: Optional[Request] = None
         self._scroll: Optional[ScrollAPI] = None
         self._keyboard: Optional[KeyboardAPI] = None
@@ -624,13 +631,13 @@ class Tab(FindElementsMixin):
         if not timeout:
             return await self._collect_all_shadow_roots(deep)
 
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
         while True:
             shadow_roots = await self._collect_all_shadow_roots(deep)
             if shadow_roots:
                 return shadow_roots
 
-            if asyncio.get_event_loop().time() - start_time > timeout:
+            if asyncio.get_running_loop().time() - start_time > timeout:
                 raise WaitElementTimeout(
                     f'Timed out after {timeout}s waiting for shadow roots in page'
                 )
@@ -701,24 +708,27 @@ class Tab(FindElementsMixin):
     async def _collect_oopif_shadow_roots(self) -> list[ShadowRoot]:
         """Discover shadow roots inside cross-origin iframes (OOPIFs)."""
         browser_handler = ConnectionHandler(connection_port=self._connection_port)
-        targets_response: GetTargetsResponse = await browser_handler.execute_command(
-            TargetCommands.get_targets()
-        )
+        try:
+            targets_response: GetTargetsResponse = await browser_handler.execute_command(
+                TargetCommands.get_targets()
+            )
 
-        target_infos = targets_response.get('result', {}).get('targetInfos', [])
-        iframe_targets = [t for t in target_infos if t.get('type') == 'iframe']
+            target_infos = targets_response.get('result', {}).get('targetInfos', [])
+            iframe_targets = [t for t in target_infos if t.get('type') == 'iframe']
 
-        if not iframe_targets:
-            logger.debug('No OOPIF targets found')
-            return []
+            if not iframe_targets:
+                logger.debug('No OOPIF targets found')
+                return []
 
-        shadow_roots: list[ShadowRoot] = []
-        for target in iframe_targets:
-            roots = await self._collect_shadow_roots_from_oopif_target(target, browser_handler)
-            shadow_roots.extend(roots)
+            shadow_roots: list[ShadowRoot] = []
+            for target in iframe_targets:
+                roots = await self._collect_shadow_roots_from_oopif_target(target, browser_handler)
+                shadow_roots.extend(roots)
 
-        logger.debug(f'Found {len(shadow_roots)} shadow roots in OOPIFs')
-        return shadow_roots
+            logger.debug(f'Found {len(shadow_roots)} shadow roots in OOPIFs')
+            return shadow_roots
+        finally:
+            await browser_handler.close()
 
     async def _collect_shadow_roots_from_oopif_target(
         self,
@@ -952,6 +962,23 @@ class Tab(FindElementsMixin):
         """Delete all cookies from current browser context."""
         logger.info('Clearing all cookies from current browser context')
         return await self._execute_command(StorageCommands.clear_cookies(self._browser_context_id))
+
+    async def apply_fingerprint(self, fingerprint: FingerprintConfig) -> None:
+        """Apply a browser fingerprint profile to this tab.
+
+        Delegates to a per-tab :class:`FingerprintApplier` (created once and
+        reused), which overrides browser identity signals via CDP commands and
+        JavaScript injection and replays them on Web Worker targets. Call before
+        navigating to any page for full effect, since JS overrides register via
+        ``Page.addScriptToEvaluateOnNewDocument``.
+
+        Args:
+            fingerprint: Fingerprint configuration. Only specified fields
+                are overridden; unspecified fields keep real browser values.
+        """
+        if self._fingerprint_applier is None:
+            self._fingerprint_applier = FingerprintApplier(self)
+        await self._fingerprint_applier.apply(fingerprint)
 
     async def go_to(self, url: str, timeout: int = 300):
         """
@@ -1681,7 +1708,7 @@ class Tab(FindElementsMixin):
             _page_events_was_enabled = False
             await self.enable_page_events()
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         will_begin: asyncio.Future[bool] = loop.create_future()
         done: asyncio.Future[bool] = loop.create_future()
         state: dict[str, Any] = {

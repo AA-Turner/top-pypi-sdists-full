@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stagehand
-Version: 4.0.0
+Version: 4.0.1
 Summary: Browserbase's SDK for building browser agents
 Keywords: ai,browser,automation,web-scraping,testing
 Author: Browserbase
@@ -38,7 +38,7 @@ Description-Content-Type: text/markdown
       <img alt="MIT License" src="https://raw.githubusercontent.com/browserbase/stagehand/main/media/light_license.svg" />
     </picture>
   </a>
-  <a href="https://stagehand.dev/discord">
+  <a href="https://discord.gg/stagehand">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/browserbase/stagehand/main/media/dark_discord.svg" />
       <img alt="Discord Community" src="https://raw.githubusercontent.com/browserbase/stagehand/main/media/light_discord.svg" />
@@ -76,23 +76,45 @@ The async Python SDK for Stagehand browser automation:
 
 ```python
 import asyncio
+import os
+
+from pydantic import BaseModel
 
 from stagehand import Stagehand, local_browser
+
+
+class PullRequest(BaseModel):
+    author: str
+    title: str
 
 
 async def main() -> None:
     browser = await local_browser.launch(headless=True)
     try:
-        stagehand = await Stagehand.create(browser=browser)
+        stagehand = await Stagehand.create(
+            browser=browser,
+            model="openai/gpt-5.4-mini",
+            model_api_key=os.environ["OPENAI_API_KEY"],
+        )
         try:
             page = (await browser.context.pages())[0]
-            if page is None:
-                raise RuntimeError("Stagehand initialized without an active page")
-            response = await page.goto("https://example.com")
-            if response is not None:
-                print(response.status, await response.text())
-            await stagehand.observe("Find the more information link")
-            print(await page.title())
+            await page.goto("https://github.com/browserbase")
+
+            # act() executes individual actions
+            await stagehand.act("click on the stagehand repo")
+
+            # observe() reports what is actionable on the page
+            observed = await stagehand.observe("find the latest PR")
+
+            # Locators give deterministic, Playwright-style actions
+            await page.locator(observed.data[0].selector).click()
+
+            # extract() returns structured data validated by a pydantic model
+            result = await stagehand.extract(
+                "extract the author and title of the PR",
+                PullRequest,
+            )
+            print(result.data.author, result.data.title)
         finally:
             await stagehand.close()
     finally:

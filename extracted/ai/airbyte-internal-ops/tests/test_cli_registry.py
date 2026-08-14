@@ -17,6 +17,7 @@ from airbyte_connector_models.metadata.v0.connector_metadata_definition_v0 impor
     ConnectorMetadataDefinitionV0RegistryOverrides,
 )
 
+from airbyte_ops_mcp.cli.registry import _print_release_attribution_list
 from airbyte_ops_mcp.registry import ConnectorMetadata
 from airbyte_ops_mcp.registry._gcs_helpers import get_gcs_credentials_token
 from airbyte_ops_mcp.registry.compile import (
@@ -45,6 +46,11 @@ from airbyte_ops_mcp.registry.metrics import (
     find_latest_connector_metrics_blob,
     parse_connector_metrics_jsonl,
     read_latest_connector_metrics,
+)
+from airbyte_ops_mcp.registry.release_attribution import (
+    ReleaseAttribution,
+    ReleaseAttributionListResult,
+    ReleaseAttributionLookupResult,
 )
 from airbyte_ops_mcp.registry.store import RegistryStore
 
@@ -334,6 +340,132 @@ def test_registry_connector_version_metadata_get_help() -> None:
     result = run_cli("registry", "connector-version", "metadata", "get", "--help")
     assert result.returncode == 0
     assert "metadata" in result.stdout.lower() or "get" in result.stdout.lower()
+
+
+@pytest.mark.unit
+def test_registry_connector_version_releases_help() -> None:
+    """Test registry connector-version releases help output."""
+    result = run_cli("registry", "connector-version", "releases", "--help")
+    assert result.returncode == 0
+    assert "get" in result.stdout.lower()
+    assert "list" in result.stdout.lower()
+
+
+@pytest.mark.parametrize(
+    "attribution_kwargs, expected_fields, error",
+    [
+        pytest.param(
+            {
+                "pr_author_type": "User",
+                "attributed_to": "alice",
+                "pr_number": 123,
+            },
+            ("HUMAN", "@alice", "#123"),
+            None,
+            id="human-with-contact",
+        ),
+        pytest.param(
+            {
+                "pr_author_type": "Bot",
+                "pr_author_login": "release-bot",
+                "pr_number": 122,
+            },
+            ("BOT", "none (bot-authored)", "#122"),
+            None,
+            id="bot-without-human-contact",
+        ),
+        pytest.param(
+            {"pr_author_type": "User", "pr_number": 121},
+            ("HUMAN", "none (human login unavailable)", "#121"),
+            None,
+            id="human-without-contact",
+        ),
+        pytest.param(
+            {"pr_number": 120},
+            ("UNKNOWN", "none (author type unavailable)", "#120"),
+            None,
+            id="missing-author-type",
+        ),
+        pytest.param(
+            None,
+            ("UNKNOWN", "no attribution", "-"),
+            None,
+            id="missing-attribution",
+        ),
+        pytest.param(
+            {"pr_author_type": "User", "attributed_to": "bob"},
+            ("HUMAN", "@bob", "-"),
+            None,
+            id="missing-pr-number",
+        ),
+        pytest.param(
+            {"pr_author_type": "User", "attributed_to": "carol"},
+            ("HUMAN", "@carol", "-"),
+            "index unavailable",
+            id="trailing-error",
+        ),
+    ],
+)
+@pytest.mark.unit
+def test_print_release_attribution_list(
+    attribution_kwargs: dict[str, object] | None,
+    expected_fields: tuple[str, str, str],
+    error: str | None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test text rendering of human and bot release attribution."""
+    attribution = (
+        ReleaseAttribution(source="publish", **attribution_kwargs)
+        if attribution_kwargs is not None
+        else None
+    )
+    result = ReleaseAttributionListResult(
+        connector_name="source-faker",
+        items=[
+            ReleaseAttributionLookupResult(
+                connector_name="source-faker",
+                version="1.2.3",
+                status="found",
+                lookup_path="index",
+                attribution=attribution,
+            )
+        ],
+        error=error,
+    )
+
+    _print_release_attribution_list(result, format="text")
+
+    lines = capsys.readouterr().out.rstrip().splitlines()
+    header = lines[0].split("\t")
+    assert header == [
+        "VERSION",
+        "STATUS",
+        "AUTHOR TYPE",
+        "CONTACT",
+        "PULL REQUEST",
+    ]
+    row = lines[1].split("\t")
+    assert len(row) == len(header)
+    assert row[0:2] == ["1.2.3", "found"]
+    assert row[2:5] == list(expected_fields)
+    if (
+        attribution_kwargs is not None
+        and attribution_kwargs.get("pr_author_type") == "Bot"
+    ):
+        assert "@" not in row[3]
+    if error is not None:
+        assert lines[-1] == f"ERROR\t{error}"
+
+
+@pytest.mark.unit
+def test_registry_release_attribution_help() -> None:
+    """Test registry release-attribution help output."""
+    result = run_cli("registry", "release-attribution", "--help")
+    assert result.returncode == 0
+    assert "build" in result.stdout.lower()
+    assert "show" in result.stdout.lower()
+    assert "get" not in result.stdout.lower()
+    assert "list" not in result.stdout.lower()
 
 
 @pytest.mark.unit

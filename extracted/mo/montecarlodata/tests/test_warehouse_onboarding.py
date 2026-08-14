@@ -2,7 +2,10 @@ import base64
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
+from click.testing import CliRunner
+
 from montecarlodata.common.user import UserService
+from montecarlodata.integrations.commands import add_redshift
 from montecarlodata.integrations.onboarding.warehouse.warehouses import (
     WarehouseOnboardingService,
 )
@@ -44,6 +47,62 @@ class WarehouseOnBoardingTest(TestCase):
             connection_type="redshift",
             **expected_options,
         )
+
+    @patch("montecarlodata.integrations.onboarding.base.Path")
+    @patch.object(WarehouseOnboardingService, "onboard")
+    def test_redshift_ssl_ca_flow(self, onboard_mock, path_mock):
+        """--ssl-ca is loaded into ssl_options as inline CA cert data (CA-only SSL)."""
+        ca_cert_content = "-----BEGIN CERTIFICATE-----\nCA_CERT\n-----END CERTIFICATE-----"
+        path_mock.return_value.read_text.return_value = ca_cert_content
+
+        self._service.onboard_redshift(ssl_ca="/path/to/ca.pem", **_SAMPLE_BASE_OPTIONS)
+
+        call_kwargs = onboard_mock.call_args[1]
+        self.assertEqual(call_kwargs["ssl_options"], {"ca_data": ca_cert_content})
+        self.assertEqual(call_kwargs["connectionType"], "redshift")
+        self.assertEqual(call_kwargs["warehouseType"], "redshift")
+        self.assertEqual(call_kwargs["validation_query"], TEST_DATABASE_CRED_MUTATION)
+        self.assertEqual(call_kwargs["validation_response"], "testDatabaseCredentials")
+        self.assertEqual(call_kwargs["connection_type"], "redshift")
+
+    @patch.object(WarehouseOnboardingService, "onboard")
+    def test_redshift_ssl_disabled_flow(self, onboard_mock):
+        """--ssl-disabled is forwarded as ssl_options.disabled=True."""
+        self._service.onboard_redshift(ssl_disabled=True, **_SAMPLE_BASE_OPTIONS)
+
+        call_kwargs = onboard_mock.call_args[1]
+        self.assertEqual(call_kwargs["ssl_options"], {"disabled": True})
+
+    @patch("montecarlodata.integrations.commands.WarehouseOnboardingService")
+    def test_add_redshift_command_forwards_ssl_ca(self, service_mock):
+        """The add_redshift CLI command exposes --ssl-ca and forwards it to the service."""
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            with open("ca.pem", "w") as ca_file:
+                ca_file.write("-----BEGIN CERTIFICATE-----\nCA\n-----END CERTIFICATE-----")
+            result = runner.invoke(
+                add_redshift,
+                [
+                    "--host",
+                    "redshift.example.com",
+                    "--user",
+                    "admin",
+                    "--password",
+                    "secret",
+                    "--database",
+                    "dev",
+                    "--ssl-ca",
+                    "ca.pem",
+                ],
+                obj={"config": _SAMPLE_CONFIG},
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        service_mock.return_value.onboard_redshift.assert_called_once()
+        call_kwargs = service_mock.return_value.onboard_redshift.call_args[1]
+        self.assertEqual(call_kwargs["ssl_ca"], "ca.pem")
+        self.assertIsNone(call_kwargs["ssl_disabled"])
+        self.assertEqual(call_kwargs["dbName"], "dev")
 
     @patch.object(WarehouseOnboardingService, "onboard")
     def test_snowflake_flow(self, onboard_mock):

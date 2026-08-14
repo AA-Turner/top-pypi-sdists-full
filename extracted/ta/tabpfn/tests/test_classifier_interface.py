@@ -1321,7 +1321,7 @@ def test__create_default_for_version__v2__uses_correct_defaults() -> None:
     estimator = TabPFNClassifier.create_default_for_version(ModelVersion.V2)
 
     assert isinstance(estimator, TabPFNClassifier)
-    assert estimator.n_estimators == 8
+    assert estimator.n_estimators == "auto"
     assert estimator.softmax_temperature == 0.9
     assert isinstance(estimator.model_path, str)
     assert "classifier" in estimator.model_path
@@ -1332,7 +1332,7 @@ def test__create_default_for_version__v2_5__uses_correct_defaults() -> None:
     estimator = TabPFNClassifier.create_default_for_version(ModelVersion.V2_5)
 
     assert isinstance(estimator, TabPFNClassifier)
-    assert estimator.n_estimators == 8
+    assert estimator.n_estimators == "auto"
     assert estimator.softmax_temperature == 0.9
     assert isinstance(estimator.model_path, str)
     assert "classifier" in estimator.model_path
@@ -1343,7 +1343,7 @@ def test__create_default_for_version__v2_6__uses_correct_defaults() -> None:
     estimator = TabPFNClassifier.create_default_for_version(ModelVersion.V2_6)
 
     assert isinstance(estimator, TabPFNClassifier)
-    assert estimator.n_estimators == 8
+    assert estimator.n_estimators == "auto"
     assert estimator.softmax_temperature == 0.9
     assert isinstance(estimator.model_path, str)
     assert "classifier" in estimator.model_path
@@ -1354,7 +1354,7 @@ def test__create_default_for_version__v3__uses_correct_defaults() -> None:
     estimator = TabPFNClassifier.create_default_for_version(ModelVersion.V3)
 
     assert isinstance(estimator, TabPFNClassifier)
-    assert estimator.n_estimators == 8
+    assert estimator.n_estimators == "auto"
     assert estimator.softmax_temperature == 0.9
     assert isinstance(estimator.model_path, str)
     assert "classifier" in estimator.model_path
@@ -1572,6 +1572,24 @@ def test__predict_proba_batched__rejects_balance_probabilities() -> None:
         n_estimators=2, device="cpu", random_state=42, balance_probabilities=True
     )
     with pytest.raises(NotImplementedError, match=r"balance_probabilities"):
+        clf.predict_proba_batched([X, X], [y, y], [X[:3], X[:3]])
+
+
+def test__predict_proba_batched__rejects_float64_precision() -> None:
+    """float64 must raise rather than silently compute at float32.
+
+    The fused batch is built at float32 and predict_proba_batched bypasses the
+    float64 assert in _iter_forward_executor, so without this guard a float64
+    request returns float32-precision numbers while claiming predict parity.
+    """
+    r = np.random.RandomState(0)
+    X = r.randn(40, 4).astype(np.float32)
+    y = (X[:, 0] > 0).astype(int)
+
+    clf = TabPFNClassifier(
+        n_estimators=2, device="cpu", random_state=42, inference_precision=torch.float64
+    )
+    with pytest.raises(NotImplementedError, match=r"float64"):
         clf.predict_proba_batched([X, X], [y, y], [X[:3], X[:3]])
 
 

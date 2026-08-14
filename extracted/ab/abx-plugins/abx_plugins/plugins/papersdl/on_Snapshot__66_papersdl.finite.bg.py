@@ -23,6 +23,7 @@ Environment variables:
 """
 
 import signal
+import sys
 
 # Snapshot cleanup sends SIGTERM to the whole hook process group as the polite
 # shutdown signal before the hard SIGKILL deadline. This hook is a finite
@@ -37,7 +38,6 @@ signal.signal(signal.SIGTERM, signal.SIG_IGN)
 import os
 import re
 import subprocess
-import sys
 import threading
 from pathlib import Path
 
@@ -215,10 +215,10 @@ def save_paper(url: str, binary: str) -> tuple[bool, int, str]:
 def main(url: str):
     """Download scientific paper from a URL using papers-dl."""
 
+    print("papers-dl search started", flush=True)
+
     downloaded_count = 0
     error = ""
-
-    print("papers-dl search started", flush=True)
 
     try:
         # Check if papers-dl is enabled

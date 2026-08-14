@@ -616,6 +616,8 @@ from .type_defs import (
     SendChatIntegrationEventResponseTypeDef,
     SendOutboundEmailRequestTypeDef,
     SendOutboundWebNotificationRequestTypeDef,
+    StartAssistantContactRequestTypeDef,
+    StartAssistantContactResponseTypeDef,
     StartAttachedFileUploadRequestTypeDef,
     StartAttachedFileUploadResponseTypeDef,
     StartChatContactRequestTypeDef,
@@ -3798,6 +3800,16 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/send_outbound_web_notification.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#send_outbound_web_notification)
+        """
+
+    def start_assistant_contact(
+        self, **kwargs: Unpack[StartAssistantContactRequestTypeDef]
+    ) -> StartAssistantContactResponseTypeDef:
+        """
+        Starts a chat contact with an AI agent.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/start_assistant_contact.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#start_assistant_contact)
         """
 
     def start_attached_file_upload(

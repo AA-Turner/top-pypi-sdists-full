@@ -19,6 +19,13 @@ import sys
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.insert(0, os.path.abspath('..'))
+# Only `_ext` -- never `docs` itself. Putting `docs/` on sys.path would let
+# something resolve a plain `import examples` to `docs/examples` instead of
+# the real top-level `examples.py`, permanently shadowing it for the rest
+# of the process once Python caches the wrong module under
+# `sys.modules['examples']` (see docs/_ext/demo.py's `load_docs_examples`
+# for how the demo directive avoids that instead).
+sys.path.insert(0, os.path.abspath('_ext'))
 
 from progressbar import __about__ as metadata
 
@@ -39,10 +46,40 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
+    'demo',
 ]
+
+# `sphinx-autodoc-typehints` is a declared docs dependency but is
+# deliberately NOT enabled. It would move each annotation next to its
+# parameter description, which suits docstrings that never repeat a type
+# in prose -- but it cannot document this package. Enabling it fails the
+# `-W` build with 40 `error while formatting signature ... list assignment
+# index out of range` warnings, one per module-level callable *instance*
+# documented as a data member: every `CSINoArg`/`CSI` escape sequence
+# (`CLEAR_LINE`, `CUP`, `HIDE_CURSOR`, ...) and every `ColorGradient`
+# class attribute (`Bar.fg`, `JobStatusBar.success_fg_color`, ...). The
+# extension tries to resolve hints against the instance rather than its
+# `__call__`, and that pattern is pervasive here. Autodoc already renders
+# the annotations in the signature, so nothing is lost by leaving this
+# off. Do not re-enable without rebuilding from a clean `docs/_build`:
+# an incremental rebuild reuses cached doctrees and reports success.
+
+# Merge each class's `__init__` docstring into its class page. Constructor
+# arguments are user-facing -- `ProgressBar` alone takes more than fifteen
+# -- and without this the default ('class') renders only the class
+# docstring, leaving all of that documentation invisible to readers.
+autoclass_content = 'both'
 
 suppress_warnings = [
     'image.nonlocal_uri',
+    # The ePub builder copies `html_static_path` wholesale and warns about
+    # every file whose extension it does not recognise. That is the vendored
+    # xterm.js licence and README, and the two wheels plus manifest the
+    # in-browser console installs -- all of which belong in the HTML output
+    # and are simply inert in an ePub. Read the Docs builds with
+    # `fail_on_warning`, so without this the ePub fails on files that are
+    # doing exactly what they should.
+    'epub.unknown_project_files',
 ]
 
 needs_sphinx = '1.4'
@@ -101,7 +138,9 @@ exclude_patterns = ['_build']
 show_authors = True
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+# Furo selects its own light/dark Pygments themes; overriding either one
+# breaks the dark-mode contrast it ships with.
+pygments_style = None
 
 # A list of ignored prefixes for module index sorting.
 # modindex_common_prefix = []
@@ -114,15 +153,16 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'wolph'
+html_theme = 'furo'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-# html_theme_options = {}
-
-# Add any paths that contain custom themes here, relative to this directory.
-html_theme_path = ['_theme']
+html_theme_options: dict[str, object] = {
+    'source_repository': 'https://github.com/wolph/python-progressbar/',
+    'source_branch': 'develop',
+    'source_directory': 'docs/',
+}
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".

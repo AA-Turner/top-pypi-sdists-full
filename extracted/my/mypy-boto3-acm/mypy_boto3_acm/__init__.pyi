@@ -21,6 +21,7 @@ Usage::
         ListAcmeDomainValidationsPaginator,
         ListAcmeEndpointsPaginator,
         ListAcmeExternalAccountBindingsPaginator,
+        ListCertificateDomainValidationsPaginator,
         ListCertificatesPaginator,
         SearchCertificatesPaginator,
     )
@@ -38,6 +39,7 @@ Usage::
     list_acme_domain_validations_paginator: ListAcmeDomainValidationsPaginator = client.get_paginator("list_acme_domain_validations")
     list_acme_endpoints_paginator: ListAcmeEndpointsPaginator = client.get_paginator("list_acme_endpoints")
     list_acme_external_account_bindings_paginator: ListAcmeExternalAccountBindingsPaginator = client.get_paginator("list_acme_external_account_bindings")
+    list_certificate_domain_validations_paginator: ListCertificateDomainValidationsPaginator = client.get_paginator("list_certificate_domain_validations")
     list_certificates_paginator: ListCertificatesPaginator = client.get_paginator("list_certificates")
     search_certificates_paginator: SearchCertificatesPaginator = client.get_paginator("search_certificates")
     ```
@@ -49,6 +51,7 @@ from .paginator import (
     ListAcmeDomainValidationsPaginator,
     ListAcmeEndpointsPaginator,
     ListAcmeExternalAccountBindingsPaginator,
+    ListCertificateDomainValidationsPaginator,
     ListCertificatesPaginator,
     SearchCertificatesPaginator,
 )
@@ -74,6 +77,7 @@ __all__ = (
     "ListAcmeDomainValidationsPaginator",
     "ListAcmeEndpointsPaginator",
     "ListAcmeExternalAccountBindingsPaginator",
+    "ListCertificateDomainValidationsPaginator",
     "ListCertificatesPaginator",
     "SearchCertificatesPaginator",
 )

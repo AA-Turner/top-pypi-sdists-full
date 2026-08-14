@@ -1,23 +1,24 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-07-23T20:46:33.314474                                                            #
+# Generated on 2026-08-13T18:38:42.619653                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
-    import typing
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.capsule
     import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
+    import typing
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
 
 from .utils import TODOException as TODOException
 from .utils import safe_requests_wrapper as safe_requests_wrapper
 from .utils import MaximumRetriesExceeded as MaximumRetriesExceeded
 from .app_config import AppConfig as AppConfig
 from .config.unified_config import AuthType as AuthType
+from .config.unified_config import CapsuleType as CapsuleType
 from . import experimental as experimental
 from ._state_machine import CapsuleWorkerSemanticStatus as CapsuleWorkerSemanticStatus
 from ._state_machine import WorkerStatus as WorkerStatus
@@ -38,6 +39,8 @@ CAPSULE_DEBUG: bool
 UNASSIGNED_PROJECT_BRANCH: str
 
 STATE_REFRESH_FREQUENCY: int
+
+SCHEME_DEFAULT_PORTS: dict
 
 class CapsuleStateMachine(object, metaclass=type):
     """

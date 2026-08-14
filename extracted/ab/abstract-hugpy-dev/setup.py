@@ -4,7 +4,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 setuptools.setup(
     name='abstract_hugpy_dev',
-    version='0.1.230',
+    version='0.1.233',
     author='putkoff',
     author_email='partners@abstractendeavors.com',
     description='The `abstract_hugpy_dev` module is designed to facilitate hugging face modules',
@@ -21,7 +21,9 @@ setuptools.setup(
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
         'Topic :: Software Development :: Libraries',
-        'License :: OSI Approved :: MIT License',
+        # 2026-08-13: was the stale 'MIT License' classifier, contradicting
+        # pyproject + LICENSE (hugpy Source-Available). pyproject is the truth.
+        'License :: Other/Proprietary License',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',

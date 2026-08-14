@@ -20,7 +20,8 @@ from .server_models import FileAuthenticationMode, FileInfoPayload, FileInfoReco
 
 
 def get_dataset_as_python_object(
-    ref: DatasetRef,
+    registry_ref: DatasetRef,
+    read_ref: DatasetRef,
     payload: FileInfoPayload,
     *,
     auth: RemoteButlerAuthenticationProvider,
@@ -31,8 +32,15 @@ def get_dataset_as_python_object(
 
     Parameters
     ----------
-    ref : `DatasetRef`
-        Metadata about this artifact.
+    registry_ref : `DatasetRef`
+        Metadata about this artifact using the dataset type definition from
+        the repository, as returned by the server.  This is the ref given to
+        the `Formatter`, so that it never sees a read-time override, matching
+        the behavior of `DirectButler`.  It is never a component.
+    read_ref : `DatasetRef`
+        Metadata about this artifact using the `StorageClass` that the caller
+        wants returned, and naming the component (if any) that they asked
+        for.
     payload : `FileInfoPayload`
         Pre-processed information about each file associated with this
         artifact.
@@ -52,15 +60,20 @@ def get_dataset_as_python_object(
     """
     fileLocations = [_to_dataset_location_information(file_info, auth) for file_info in payload.file_info]
 
+    # The Formatter is constructed with the repository definition of the
+    # dataset, while the component and read StorageClass requested by the
+    # caller travel separately.  DirectButler does the same in
+    # ``FileDatastore._prepare_for_direct_get``.
     datastore_file_info = generate_datastore_get_information(
         fileLocations,
-        ref=ref,
+        registry_ref=registry_ref,
+        read_ref=read_ref,
         parameters=parameters,
     )
     if cache_manager is None:
         cache_manager = DatastoreDisabledCacheManager()
     return get_dataset_as_python_object_from_get_info(
-        datastore_file_info, ref=ref, parameters=parameters, cache_manager=cache_manager
+        datastore_file_info, ref=read_ref, parameters=parameters, cache_manager=cache_manager
     )
 
 

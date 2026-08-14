@@ -42,6 +42,11 @@ from airbyte_ops_mcp.prod_db_access.queries import (
     query_versions_with_pins,
 )
 from airbyte_ops_mcp.registry._constants import PROD_METADATA_SERVICE_BUCKET_NAME
+from airbyte_ops_mcp.registry.progressive_rollout_marker import (
+    ProgressiveRolloutMarkerAnnotationResult,
+    annotate_progressive_rollout_marker,
+    get_progressive_rollout_marker,
+)
 from airbyte_ops_mcp.registry.yank import get_yank_marker, list_yanked_versions
 from airbyte_ops_mcp.tier_cache import (
     enrich_rows_by_org,
@@ -66,6 +71,7 @@ from airbyte_ops_webapp.models import (
     OperationPreview,
     OperationResult,
     OverridePlan,
+    ProgressiveRolloutMarkerDetail,
     RolloutSyncSummary,
     ScopedConfiguration,
     ScopeType,
@@ -238,7 +244,7 @@ class OpsMcpAdapter:
         """List Cloud registry connectors, optionally filtered by `query`."""
         if self._is_local_config_api:
             return self._list_local_connectors(query)
-        data = _fetch_cloud_registry()
+        data = _fetch_cloud_registry(from_gcs=True)
         connectors = [
             *(
                 self._connector_from_registry_entry(source, "source")
@@ -787,6 +793,50 @@ class OpsMcpAdapter:
             raw=marker.raw,
         )
 
+    def get_progressive_rollout_marker(
+        self,
+        connector_name: str,
+        version: str,
+    ) -> ProgressiveRolloutMarkerDetail | None:
+        """Return the active progressive rollout marker for one version."""
+        marker = get_progressive_rollout_marker(
+            connector_name,
+            version,
+            PROD_METADATA_SERVICE_BUCKET_NAME,
+        )
+        if marker is None:
+            return None
+        return ProgressiveRolloutMarkerDetail(
+            connector_id=self._resolve_connector_id(connector_name),
+            connector_name=marker.connector_name,
+            docker_image_tag=marker.version,
+            progressive_rollout=marker.progressive_rollout,
+            created_at=marker.created_at,
+            promotion_requested_at=marker.promotion_requested_at,
+            promotion_requested_by=marker.promotion_requested_by,
+            rollout_id=marker.rollout_id,
+            raw=marker.raw,
+            state=marker.state,
+            marker_date=marker.marker_date,
+        )
+
+    def annotate_progressive_rollout_marker(
+        self,
+        connector_name: str,
+        version: str,
+        *,
+        promotion_requested_by: str,
+        rollout_id: str,
+    ) -> ProgressiveRolloutMarkerAnnotationResult:
+        """Annotate the active progressive rollout marker for one version."""
+        return annotate_progressive_rollout_marker(
+            connector_name=connector_name,
+            version=version,
+            bucket_name=PROD_METADATA_SERVICE_BUCKET_NAME,
+            promotion_requested_by=promotion_requested_by,
+            rollout_id=rollout_id,
+        )
+
     @staticmethod
     def _resolve_connector_id(connector_name: str) -> str:
         """Resolve a connector's canonical name to its definition UUID.
@@ -795,7 +845,10 @@ class OpsMcpAdapter:
         registry (e.g. fully removed), leaving the yanked row non-navigable.
         """
         try:
-            return resolve_canonical_name_to_definition_id(connector_name)
+            return resolve_canonical_name_to_definition_id(
+                connector_name,
+                from_gcs=True,
+            )
         except PyAirbyteInputError:
             return ""
 
@@ -1521,7 +1574,10 @@ class OpsMcpAdapter:
                 connector_type,
                 latest_version,
                 docker_repository,
-            ) = resolve_definition_id_to_registry_info(actor_definition_id)
+            ) = resolve_definition_id_to_registry_info(
+                actor_definition_id,
+                from_gcs=True,
+            )
         except PyAirbyteInputError:
             return None
         typed_connector_type: ConnectorType = (
@@ -1538,7 +1594,8 @@ class OpsMcpAdapter:
     def _connector_from_name(self, connector_name: str) -> ConnectorOption | None:
         try:
             actor_definition_id = resolve_canonical_name_to_definition_id(
-                connector_name
+                connector_name,
+                from_gcs=True,
             )
         except PyAirbyteInputError:
             return None

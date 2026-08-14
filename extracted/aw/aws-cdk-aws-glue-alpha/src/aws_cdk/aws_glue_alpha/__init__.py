@@ -194,7 +194,7 @@ glue.PySparkStreamingJob(stack, "PySparkStreamingJob",
 
 The flexible execution class is appropriate for non-urgent jobs such as
 pre-production jobs, testing, and one-time data loads. Flexible jobs default
-to Glue version 3.0 and worker type `G_2X`. The following best practice
+to Glue version 5.0 and worker type `G_2X`. The following best practice
 features are enabled by default:
 `—enable-metrics, —enable-spark-ui, —enable-continuous-cloudwatch-log`
 
@@ -468,6 +468,13 @@ glue.Connection(self, "RdsConnection",
 )
 ```
 
+Connection `properties` are emitted verbatim into the CloudFormation template, so
+any credential placed there in plaintext is stored in plaintext in the template,
+`cdk.out`, and source control. Reference a Secrets Manager secret through
+`SECRET_ID` (as above) instead. If a property key looks like a credential (for
+example `PASSWORD`, `SECRET`, or `TOKEN`) and holds a plaintext literal, the
+construct emits a synthesis-time warning.
+
 If you need to use a connection type that doesn't exist as a static member on `ConnectionType`, you can instantiate a `ConnectionType` object, e.g: `new glue.ConnectionType('NEW_TYPE')`.
 
 See [Adding a Connection to Your Data Store](https://docs.aws.amazon.com/glue/latest/dg/populate-add-connection.html) and [Connection Structure](https://docs.aws.amazon.com/glue/latest/dg/aws-glue-api-catalog-connections.html#aws-glue-api-catalog-connections-Connection) documentation for more information on the supported data stores and their configurations.
@@ -670,6 +677,20 @@ A `Database` is a logical grouping of `Tables` in the Glue Catalog.
 glue.Database(self, "MyDatabase",
     database_name="my_database",
     description="my_database_description"
+)
+```
+
+Because a database is a container for tables and their metadata, it is retained
+by default when removed from the stack, to avoid accidental data loss. Set
+`removalPolicy` to `RemovalPolicy.DESTROY` to have it deleted instead:
+
+```python
+from aws_cdk import RemovalPolicy
+
+
+glue.Database(self, "MyDatabase",
+    database_name="my_database",
+    removal_policy=RemovalPolicy.DESTROY
 )
 ```
 
@@ -3847,6 +3868,7 @@ class DataFormatProps:
         "target_table": "targetTable",
         "client_token": "clientToken",
         "description": "description",
+        "removal_policy": "removalPolicy",
         "ruleset_name": "rulesetName",
         "tags": "tags",
     },
@@ -3859,6 +3881,7 @@ class DataQualityRulesetProps:
         target_table: "DataQualityTargetTable",
         client_token: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
         ruleset_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -3868,6 +3891,7 @@ class DataQualityRulesetProps:
         :param target_table: (experimental) The target table of the ruleset.
         :param client_token: (experimental) The client token of the ruleset.
         :param description: (experimental) The description of the ruleset.
+        :param removal_policy: (experimental) Policy to apply when the ruleset is removed from the stack. Default: - resource will be destroyed
         :param ruleset_name: (experimental) The name of the ruleset. Default: cloudformation generated name
         :param tags: (experimental) Key-Value pairs that define tags for the ruleset. Default: empty tags
 
@@ -3879,6 +3903,7 @@ class DataQualityRulesetProps:
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             import aws_cdk.aws_glue_alpha as glue_alpha
+            import aws_cdk as cdk
             
             # data_quality_target_table: glue_alpha.DataQualityTargetTable
             
@@ -3889,6 +3914,7 @@ class DataQualityRulesetProps:
                 # the properties below are optional
                 client_token="clientToken",
                 description="description",
+                removal_policy=cdk.RemovalPolicy.DESTROY,
                 ruleset_name="rulesetName",
                 tags={
                     "tags_key": "tags"
@@ -3901,6 +3927,7 @@ class DataQualityRulesetProps:
             check_type(argname="argument target_table", value=target_table, expected_type=type_hints["target_table"])
             check_type(argname="argument client_token", value=client_token, expected_type=type_hints["client_token"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument ruleset_name", value=ruleset_name, expected_type=type_hints["ruleset_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3911,6 +3938,8 @@ class DataQualityRulesetProps:
             self._values["client_token"] = client_token
         if description is not None:
             self._values["description"] = description
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
         if ruleset_name is not None:
             self._values["ruleset_name"] = ruleset_name
         if tags is not None:
@@ -3957,6 +3986,17 @@ class DataQualityRulesetProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"]:
+        '''(experimental) Policy to apply when the ruleset is removed from the stack.
+
+        :default: - resource will be destroyed
+
+        :stability: experimental
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"], result)
 
     @builtins.property
     def ruleset_name(self) -> typing.Optional[builtins.str]:
@@ -4050,6 +4090,7 @@ class DataQualityTargetTable(
         "database_name": "databaseName",
         "description": "description",
         "location_uri": "locationUri",
+        "removal_policy": "removalPolicy",
     },
 )
 class DatabaseProps:
@@ -4060,12 +4101,14 @@ class DatabaseProps:
         database_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         location_uri: typing.Optional[builtins.str] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
     ) -> None:
         '''
         :param catalog: (experimental) The catalog in which the database will be placed. Default: The default, account-wide catalog.
         :param database_name: (experimental) The name of the database. Default: - generated by CDK.
         :param description: (experimental) A description of the database. Default: - no database description
         :param location_uri: (experimental) The location of the database (for example, an HDFS path). Default: undefined. This field is optional in AWS::Glue::Database DatabaseInput
+        :param removal_policy: (experimental) Policy to apply when the database is removed from the stack. A database is a container for tables and their metadata, so it is retained by default to avoid accidental data loss when it is removed from a stack. Default: RemovalPolicy.RETAIN
 
         :stability: experimental
         :exampleMetadata: infused
@@ -4083,6 +4126,7 @@ class DatabaseProps:
             check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument location_uri", value=location_uri, expected_type=type_hints["location_uri"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if catalog is not None:
             self._values["catalog"] = catalog
@@ -4092,6 +4136,8 @@ class DatabaseProps:
             self._values["description"] = description
         if location_uri is not None:
             self._values["location_uri"] = location_uri
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
 
     @builtins.property
     def catalog(self) -> typing.Optional["ICatalog"]:
@@ -4137,6 +4183,20 @@ class DatabaseProps:
         '''
         result = self._values.get("location_uri")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"]:
+        '''(experimental) Policy to apply when the database is removed from the stack.
+
+        A database is a container for tables and their metadata, so it is retained
+        by default to avoid accidental data loss when it is removed from a stack.
+
+        :default: RemovalPolicy.RETAIN
+
+        :stability: experimental
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7047,7 +7107,7 @@ class JobProps:
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -7217,6 +7277,11 @@ class JobProps:
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+
+        These are emitted verbatim into the CloudFormation template, so avoid
+        placing secrets here in plaintext. Pass secrets to the job at runtime
+        through AWS Secrets Manager instead. A synthesis-time warning is emitted
+        when an argument key looks like a credential and holds a plaintext literal.
 
         :default: - no arguments
 
@@ -8116,7 +8181,7 @@ class PythonShellJobProps(JobProps):
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -8264,6 +8329,11 @@ class PythonShellJobProps(JobProps):
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+
+        These are emitted verbatim into the CloudFormation template, so avoid
+        placing secrets here in plaintext. Pass secrets to the job at runtime
+        through AWS Secrets Manager instead. A synthesis-time warning is emitted
+        when an argument key looks like a credential and holds a plaintext literal.
 
         :default: - no arguments
 
@@ -8586,7 +8656,7 @@ class RayJobProps(JobProps):
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -8782,6 +8852,11 @@ class RayJobProps(JobProps):
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+
+        These are emitted verbatim into the CloudFormation template, so avoid
+        placing secrets here in plaintext. Pass secrets to the job at runtime
+        through AWS Secrets Manager instead. A synthesis-time warning is emitted
+        when an argument key looks like a credential and holds a plaintext literal.
 
         :default: - no arguments
 
@@ -9478,6 +9553,7 @@ class SecurityConfiguration(
         *,
         cloud_watch_encryption: typing.Optional[typing.Union["CloudWatchEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
         job_bookmarks_encryption: typing.Optional[typing.Union["JobBookmarksEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
         s3_encryption: typing.Optional[typing.Union["S3Encryption", typing.Dict[builtins.str, typing.Any]]] = None,
         security_configuration_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -9486,6 +9562,7 @@ class SecurityConfiguration(
         :param id: -
         :param cloud_watch_encryption: (experimental) The encryption configuration for Amazon CloudWatch Logs. Default: no cloudwatch logs encryption.
         :param job_bookmarks_encryption: (experimental) The encryption configuration for Glue Job Bookmarks. Default: no job bookmarks encryption.
+        :param removal_policy: (experimental) Policy to apply when the security configuration is removed from the stack. Default: - resource will be destroyed
         :param s3_encryption: (experimental) The encryption configuration for Amazon Simple Storage Service (Amazon S3) data. Default: no s3 encryption.
         :param security_configuration_name: (experimental) The name of the security configuration. Default: - generated by CDK.
 
@@ -9498,6 +9575,7 @@ class SecurityConfiguration(
         props = SecurityConfigurationProps(
             cloud_watch_encryption=cloud_watch_encryption,
             job_bookmarks_encryption=job_bookmarks_encryption,
+            removal_policy=removal_policy,
             s3_encryption=s3_encryption,
             security_configuration_name=security_configuration_name,
         )
@@ -9585,6 +9663,7 @@ class SecurityConfiguration(
     name_mapping={
         "cloud_watch_encryption": "cloudWatchEncryption",
         "job_bookmarks_encryption": "jobBookmarksEncryption",
+        "removal_policy": "removalPolicy",
         "s3_encryption": "s3Encryption",
         "security_configuration_name": "securityConfigurationName",
     },
@@ -9595,6 +9674,7 @@ class SecurityConfigurationProps:
         *,
         cloud_watch_encryption: typing.Optional[typing.Union["CloudWatchEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
         job_bookmarks_encryption: typing.Optional[typing.Union["JobBookmarksEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
         s3_encryption: typing.Optional[typing.Union["S3Encryption", typing.Dict[builtins.str, typing.Any]]] = None,
         security_configuration_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -9602,6 +9682,7 @@ class SecurityConfigurationProps:
 
         :param cloud_watch_encryption: (experimental) The encryption configuration for Amazon CloudWatch Logs. Default: no cloudwatch logs encryption.
         :param job_bookmarks_encryption: (experimental) The encryption configuration for Glue Job Bookmarks. Default: no job bookmarks encryption.
+        :param removal_policy: (experimental) Policy to apply when the security configuration is removed from the stack. Default: - resource will be destroyed
         :param s3_encryption: (experimental) The encryption configuration for Amazon Simple Storage Service (Amazon S3) data. Default: no s3 encryption.
         :param security_configuration_name: (experimental) The name of the security configuration. Default: - generated by CDK.
 
@@ -9632,6 +9713,7 @@ class SecurityConfigurationProps:
             type_hints = cached_type_hints(_typecheckingstub__3b8dd2838cd56b87c144ac347e4b66a78dd0c85a6196f1282adce12bd2e94f36)
             check_type(argname="argument cloud_watch_encryption", value=cloud_watch_encryption, expected_type=type_hints["cloud_watch_encryption"])
             check_type(argname="argument job_bookmarks_encryption", value=job_bookmarks_encryption, expected_type=type_hints["job_bookmarks_encryption"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument s3_encryption", value=s3_encryption, expected_type=type_hints["s3_encryption"])
             check_type(argname="argument security_configuration_name", value=security_configuration_name, expected_type=type_hints["security_configuration_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -9639,6 +9721,8 @@ class SecurityConfigurationProps:
             self._values["cloud_watch_encryption"] = cloud_watch_encryption
         if job_bookmarks_encryption is not None:
             self._values["job_bookmarks_encryption"] = job_bookmarks_encryption
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
         if s3_encryption is not None:
             self._values["s3_encryption"] = s3_encryption
         if security_configuration_name is not None:
@@ -9665,6 +9749,17 @@ class SecurityConfigurationProps:
         '''
         result = self._values.get("job_bookmarks_encryption")
         return typing.cast(typing.Optional["JobBookmarksEncryption"], result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"]:
+        '''(experimental) Policy to apply when the security configuration is removed from the stack.
+
+        :default: - resource will be destroyed
+
+        :stability: experimental
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"], result)
 
     @builtins.property
     def s3_encryption(self) -> typing.Optional["S3Encryption"]:
@@ -10002,7 +10097,7 @@ class SparkJobProps(JobProps):
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -10194,6 +10289,11 @@ class SparkJobProps(JobProps):
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+
+        These are emitted verbatim into the CloudFormation template, so avoid
+        placing secrets here in plaintext. Pass secrets to the job at runtime
+        through AWS Secrets Manager instead. A synthesis-time warning is emitted
+        when an argument key looks like a credential and holds a plaintext literal.
 
         :default: - no arguments
 
@@ -11289,12 +11389,17 @@ class TableBase(
         grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
         actions: typing.Sequence[builtins.str],
     ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
-        '''(experimental) Grant the given identity custom permissions.
+        '''(experimental) Grant the given identity custom permissions on this table.
 
+        This is a low-level escape hatch: the ``actions`` are applied verbatim,
+        scoped to this table's ARN. Prefer the intent-based ``grantRead`` /
+        ``grantWrite`` / ``grantReadWrite`` methods, which grant a curated set of
+        actions and also cover the underlying S3 data. Only pass the specific
+        actions the grantee needs - avoid service wildcards such as ``glue:*``.
         [disable-awslint:no-grants]
 
-        :param grantee: -
-        :param actions: -
+        :param grantee: the principal.
+        :param actions: the set of Glue actions to allow (for example ``glue:GetTable``).
 
         :stability: experimental
         '''
@@ -11336,13 +11441,19 @@ class TableBase(
         grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
         actions: typing.Sequence[builtins.str],
     ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
-        '''(experimental) Grant the given identity custom permissions to ALL underlying resources of the table.
+        '''(experimental) Grant the given identity custom permissions on this table AND its parent catalog and database.
 
-        Permissions will be granted to the catalog, the database, and the table.
+        This is a low-level escape hatch for actions (such as certain Lake
+        Formation or crawler operations) that must be authorized against the
+        catalog and database in addition to the table. The ``actions`` are applied
+        verbatim to all three ARNs (table, catalog, database), so scope them
+        tightly: pass only the specific actions the grantee needs and avoid
+        service wildcards such as ``glue:*``, which would grant broad access across
+        every resource in the catalog and database.
         [disable-awslint:no-grants]
 
-        :param grantee: -
-        :param actions: -
+        :param grantee: the principal.
+        :param actions: the set of Glue actions to allow (for example ``glue:GetTable``).
 
         :stability: experimental
         '''
@@ -13509,6 +13620,7 @@ class DataQualityRuleset(
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         import aws_cdk.aws_glue_alpha as glue_alpha
+        import aws_cdk as cdk
         
         # data_quality_target_table: glue_alpha.DataQualityTargetTable
         
@@ -13519,6 +13631,7 @@ class DataQualityRuleset(
             # the properties below are optional
             client_token="clientToken",
             description="description",
+            removal_policy=cdk.RemovalPolicy.DESTROY,
             ruleset_name="rulesetName",
             tags={
                 "tags_key": "tags"
@@ -13535,6 +13648,7 @@ class DataQualityRuleset(
         target_table: "DataQualityTargetTable",
         client_token: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
         ruleset_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -13545,6 +13659,7 @@ class DataQualityRuleset(
         :param target_table: (experimental) The target table of the ruleset.
         :param client_token: (experimental) The client token of the ruleset.
         :param description: (experimental) The description of the ruleset.
+        :param removal_policy: (experimental) Policy to apply when the ruleset is removed from the stack. Default: - resource will be destroyed
         :param ruleset_name: (experimental) The name of the ruleset. Default: cloudformation generated name
         :param tags: (experimental) Key-Value pairs that define tags for the ruleset. Default: empty tags
 
@@ -13559,6 +13674,7 @@ class DataQualityRuleset(
             target_table=target_table,
             client_token=client_token,
             description=description,
+            removal_policy=removal_policy,
             ruleset_name=ruleset_name,
             tags=tags,
         )
@@ -13650,76 +13766,13 @@ class Database(
 
     Example::
 
-        from aws_cdk.aws_glue_alpha import Column, Column
-        import aws_cdk as cdk
-        from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
-        from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
-        
-        # stack: cdk.Stack
-        # account_id: str
+        from aws_cdk import RemovalPolicy
         
         
-        tag_key = "aws"
-        tag_values = ["dev"]
-        
-        database = Database(self, "Database")
-        
-        table = S3Table(self, "Table",
-            database=database,
-            columns=[Column(
-                name="col1",
-                type=Schema.STRING
-            ), Column(
-                name="col2",
-                type=Schema.STRING
-            )
-            ],
-            data_format=DataFormat.CSV
+        glue.Database(self, "MyDatabase",
+            database_name="my_database",
+            removal_policy=RemovalPolicy.DESTROY
         )
-        
-        synthesizer = stack.synthesizer
-        CfnDataLakeSettings(self, "DataLakeSettings",
-            admins=[CfnDataLakeSettings.DataLakePrincipalProperty(
-                data_lake_principal_identifier=stack.format_arn(
-                    service="iam",
-                    resource="role",
-                    region="",
-                    account=account_id,
-                    resource_name="Admin"
-                )
-            ), CfnDataLakeSettings.DataLakePrincipalProperty(
-                # The CDK cloudformation execution role.
-                data_lake_principal_identifier=synthesizer.cloud_formation_execution_role_arn.replace("${AWS::Partition}", "aws")
-            )
-            ]
-        )
-        
-        tag = CfnTag(self, "Tag",
-            catalog_id=account_id,
-            tag_key=tag_key,
-            tag_values=tag_values
-        )
-        
-        lf_tag_pair_property = CfnTagAssociation.LFTagPairProperty(
-            catalog_id=account_id,
-            tag_key=tag_key,
-            tag_values=tag_values
-        )
-        
-        tag_association = CfnTagAssociation(self, "TagAssociation",
-            lf_tags=[lf_tag_pair_property],
-            resource=CfnTagAssociation.ResourceProperty(
-                table_with_columns=CfnTagAssociation.TableWithColumnsResourceProperty(
-                    database_name=database.database_name,
-                    column_names=["col1", "col2"],
-                    catalog_id=account_id,
-                    name=table.table_name
-                )
-            )
-        )
-        
-        tag_association.node.add_dependency(tag)
-        tag_association.node.add_dependency(table)
     '''
 
     def __init__(
@@ -13731,6 +13784,7 @@ class Database(
         database_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         location_uri: typing.Optional[builtins.str] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -13739,6 +13793,7 @@ class Database(
         :param database_name: (experimental) The name of the database. Default: - generated by CDK.
         :param description: (experimental) A description of the database. Default: - no database description
         :param location_uri: (experimental) The location of the database (for example, an HDFS path). Default: undefined. This field is optional in AWS::Glue::Database DatabaseInput
+        :param removal_policy: (experimental) Policy to apply when the database is removed from the stack. A database is a container for tables and their metadata, so it is retained by default to avoid accidental data loss when it is removed from a stack. Default: RemovalPolicy.RETAIN
 
         :stability: experimental
         '''
@@ -13751,6 +13806,7 @@ class Database(
             database_name=database_name,
             description=description,
             location_uri=location_uri,
+            removal_policy=removal_policy,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -14863,7 +14919,7 @@ class PySparkEtlJobProps(SparkJobProps):
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -15047,6 +15103,11 @@ class PySparkEtlJobProps(SparkJobProps):
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+
+        These are emitted verbatim into the CloudFormation template, so avoid
+        placing secrets here in plaintext. Pass secrets to the job at runtime
+        through AWS Secrets Manager instead. A synthesis-time warning is emitted
+        when an argument key looks like a credential and holds a plaintext literal.
 
         :default: - no arguments
 
@@ -15379,7 +15440,7 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -15545,6 +15606,11 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+
+        These are emitted verbatim into the CloudFormation template, so avoid
+        placing secrets here in plaintext. Pass secrets to the job at runtime
+        through AWS Secrets Manager instead. A synthesis-time warning is emitted
+        when an argument key looks like a credential and holds a plaintext literal.
 
         :default: - no arguments
 
@@ -15860,7 +15926,7 @@ class PySparkStreamingJobProps(SparkJobProps):
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -16026,6 +16092,11 @@ class PySparkStreamingJobProps(SparkJobProps):
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+
+        These are emitted verbatim into the CloudFormation template, so avoid
+        placing secrets here in plaintext. Pass secrets to the job at runtime
+        through AWS Secrets Manager instead. A synthesis-time warning is emitted
+        when an argument key looks like a credential and holds a plaintext literal.
 
         :default: - no arguments
 
@@ -16343,7 +16414,7 @@ class PythonShellJob(
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -16541,7 +16612,7 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -16698,7 +16769,7 @@ class S3Table(
         :param bucket: (experimental) S3 bucket in which to store data. Default: one is created for you
         :param encryption: (experimental) The kind of encryption to secure the data with. You can only provide this option if you are not explicitly passing in a bucket. If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``. If you choose ``CSE-KMS``, you *must* provide an un-managed KMS key with ``encryptionKey``. Default: BucketEncryption.S3_MANAGED
         :param encryption_key: (experimental) External KMS key to use for bucket encryption. The ``encryption`` property must be ``SSE-KMS`` or ``CSE-KMS``. Default: key is managed by KMS.
-        :param s3_prefix: (experimental) S3 prefix under which table objects are stored. Default: - No prefix. The data will be stored under the root of the bucket.
+        :param s3_prefix: (experimental) S3 prefix under which table objects are stored. When the table shares a bucket with other tables or consumers, set this so that the ``grant*`` methods scope S3 access to this table's data. Without a prefix, those grants cover the entire bucket. Default: - No prefix. The data will be stored under the root of the bucket.
         :param columns: (experimental) Columns of the table.
         :param database: (experimental) Database in which to store the table.
         :param data_format: (experimental) Storage type of the table's data.
@@ -16947,7 +17018,7 @@ class S3TableProps(TableBaseProps):
         :param bucket: (experimental) S3 bucket in which to store data. Default: one is created for you
         :param encryption: (experimental) The kind of encryption to secure the data with. You can only provide this option if you are not explicitly passing in a bucket. If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``. If you choose ``CSE-KMS``, you *must* provide an un-managed KMS key with ``encryptionKey``. Default: BucketEncryption.S3_MANAGED
         :param encryption_key: (experimental) External KMS key to use for bucket encryption. The ``encryption`` property must be ``SSE-KMS`` or ``CSE-KMS``. Default: key is managed by KMS.
-        :param s3_prefix: (experimental) S3 prefix under which table objects are stored. Default: - No prefix. The data will be stored under the root of the bucket.
+        :param s3_prefix: (experimental) S3 prefix under which table objects are stored. When the table shares a bucket with other tables or consumers, set this so that the ``grant*`` methods scope S3 access to this table's data. Without a prefix, those grants cover the entire bucket. Default: - No prefix. The data will be stored under the root of the bucket.
 
         :stability: experimental
         :exampleMetadata: infused
@@ -17257,6 +17328,10 @@ class S3TableProps(TableBaseProps):
     def s3_prefix(self) -> typing.Optional[builtins.str]:
         '''(experimental) S3 prefix under which table objects are stored.
 
+        When the table shares a bucket with other tables or consumers, set this so
+        that the ``grant*`` methods scope S3 access to this table's data. Without a
+        prefix, those grants cover the entire bucket.
+
         :default: - No prefix. The data will be stored under the root of the bucket.
 
         :stability: experimental
@@ -17343,7 +17418,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -17564,6 +17639,11 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+
+        These are emitted verbatim into the CloudFormation template, so avoid
+        placing secrets here in plaintext. Pass secrets to the job at runtime
+        through AWS Secrets Manager instead. A synthesis-time warning is emitted
+        when an argument key looks like a credential and holds a plaintext literal.
 
         :default: - no arguments
 
@@ -17904,7 +17984,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -18120,6 +18200,11 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+
+        These are emitted verbatim into the CloudFormation template, so avoid
+        placing secrets here in plaintext. Pass secrets to the job at runtime
+        through AWS Secrets Manager instead. A synthesis-time warning is emitted
+        when an argument key looks like a credential and holds a plaintext literal.
 
         :default: - no arguments
 
@@ -18435,7 +18520,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -18651,6 +18736,11 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+
+        These are emitted verbatim into the CloudFormation template, so avoid
+        placing secrets here in plaintext. Pass secrets to the job at runtime
+        through AWS Secrets Manager instead. A synthesis-time warning is emitted
+        when an argument key looks like a credential and holds a plaintext literal.
 
         :default: - no arguments
 
@@ -18966,7 +19056,7 @@ class SparkJob(
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -19041,7 +19131,7 @@ class SparkJob(
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -19214,7 +19304,7 @@ class Table(
         :param bucket: (experimental) S3 bucket in which to store data. Default: one is created for you
         :param encryption: (experimental) The kind of encryption to secure the data with. You can only provide this option if you are not explicitly passing in a bucket. If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``. If you choose ``CSE-KMS``, you *must* provide an un-managed KMS key with ``encryptionKey``. Default: BucketEncryption.S3_MANAGED
         :param encryption_key: (experimental) External KMS key to use for bucket encryption. The ``encryption`` property must be ``SSE-KMS`` or ``CSE-KMS``. Default: key is managed by KMS.
-        :param s3_prefix: (experimental) S3 prefix under which table objects are stored. Default: - No prefix. The data will be stored under the root of the bucket.
+        :param s3_prefix: (experimental) S3 prefix under which table objects are stored. When the table shares a bucket with other tables or consumers, set this so that the ``grant*`` methods scope S3 access to this table's data. Without a prefix, those grants cover the entire bucket. Default: - No prefix. The data will be stored under the root of the bucket.
         :param columns: (experimental) Columns of the table.
         :param database: (experimental) Database in which to store the table.
         :param data_format: (experimental) Storage type of the table's data.
@@ -19329,7 +19419,7 @@ class TableProps(S3TableProps):
         :param bucket: (experimental) S3 bucket in which to store data. Default: one is created for you
         :param encryption: (experimental) The kind of encryption to secure the data with. You can only provide this option if you are not explicitly passing in a bucket. If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``. If you choose ``CSE-KMS``, you *must* provide an un-managed KMS key with ``encryptionKey``. Default: BucketEncryption.S3_MANAGED
         :param encryption_key: (experimental) External KMS key to use for bucket encryption. The ``encryption`` property must be ``SSE-KMS`` or ``CSE-KMS``. Default: key is managed by KMS.
-        :param s3_prefix: (experimental) S3 prefix under which table objects are stored. Default: - No prefix. The data will be stored under the root of the bucket.
+        :param s3_prefix: (experimental) S3 prefix under which table objects are stored. When the table shares a bucket with other tables or consumers, set this so that the ``grant*`` methods scope S3 access to this table's data. Without a prefix, those grants cover the entire bucket. Default: - No prefix. The data will be stored under the root of the bucket.
 
         :stability: experimental
         :exampleMetadata: fixture=_generated
@@ -19676,6 +19766,10 @@ class TableProps(S3TableProps):
     @builtins.property
     def s3_prefix(self) -> typing.Optional[builtins.str]:
         '''(experimental) S3 prefix under which table objects are stored.
+
+        When the table shares a bucket with other tables or consumers, set this so
+        that the ``grant*`` methods scope S3 access to this table's data. Without a
+        prefix, those grants cover the entire bucket.
 
         :default: - No prefix. The data will be stored under the root of the bucket.
 
@@ -20617,7 +20711,7 @@ class PySparkEtlJob(
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -20770,7 +20864,7 @@ class PySparkFlexEtlJob(
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -20922,7 +21016,7 @@ class PySparkStreamingJob(
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -21128,7 +21222,7 @@ class ScalaSparkEtlJob(
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -21332,7 +21426,7 @@ class ScalaSparkFlexEtlJob(
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -21535,7 +21629,7 @@ class ScalaSparkStreamingJob(
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
@@ -21923,6 +22017,7 @@ def _typecheckingstub__abda2570732c667a87dd412c9aa6c70d5db49ac0b525ecc9c3c801e12
     target_table: DataQualityTargetTable,
     client_token: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
     ruleset_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -21942,6 +22037,7 @@ def _typecheckingstub__d07df31a9d41958f45422a1d7914c5016d66ed0e46a7e97ab37e2dd3d
     database_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     location_uri: typing.Optional[builtins.str] = None,
+    removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22374,6 +22470,7 @@ def _typecheckingstub__cd628a6199f5b5fb7644771f78b6cc6d9230e3c38bba0463810d192bc
     *,
     cloud_watch_encryption: typing.Optional[typing.Union[CloudWatchEncryption, typing.Dict[builtins.str, typing.Any]]] = None,
     job_bookmarks_encryption: typing.Optional[typing.Union[JobBookmarksEncryption, typing.Dict[builtins.str, typing.Any]]] = None,
+    removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
     s3_encryption: typing.Optional[typing.Union[S3Encryption, typing.Dict[builtins.str, typing.Any]]] = None,
     security_configuration_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -22392,6 +22489,7 @@ def _typecheckingstub__3b8dd2838cd56b87c144ac347e4b66a78dd0c85a6196f1282adce12bd
     *,
     cloud_watch_encryption: typing.Optional[typing.Union[CloudWatchEncryption, typing.Dict[builtins.str, typing.Any]]] = None,
     job_bookmarks_encryption: typing.Optional[typing.Union[JobBookmarksEncryption, typing.Dict[builtins.str, typing.Any]]] = None,
+    removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
     s3_encryption: typing.Optional[typing.Union[S3Encryption, typing.Dict[builtins.str, typing.Any]]] = None,
     security_configuration_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -22883,6 +22981,7 @@ def _typecheckingstub__9e874ec3f48fcb87408229a566f69396601cc87f18c40fa5579a09664
     target_table: DataQualityTargetTable,
     client_token: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
     ruleset_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -22913,6 +23012,7 @@ def _typecheckingstub__2f4b410df1b0bf1116ce03c0e8a707776efd2f03da87fd718bf64b6a4
     database_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     location_uri: typing.Optional[builtins.str] = None,
+    removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass

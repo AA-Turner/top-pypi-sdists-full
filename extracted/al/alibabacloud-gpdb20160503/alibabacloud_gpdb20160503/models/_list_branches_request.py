@@ -33,11 +33,11 @@ class ListBranchesRequest(DaraModel):
         # 
         # Default value: 20.
         self.page_size = page_size
-        # The parent branch ID. This parameter specifies the parent branch for a new branch or as a query filter condition.
+        # The parent branch ID. Specifies the parent branch for a new branch or as a query filter condition.
         self.parent_branch_id = parent_branch_id
         # The region ID. This parameter is required when you create a primary branch. When you create a sub-branch, the region is inherited from the primary branch by default.
         self.region_id = region_id
-        # The search keyword. Fuzzy search by branch ID or branch name is supported.
+        # The search keyword. Supports fuzzy search by branch ID or branch name.
         self.search = search
         # The sort field.
         # 

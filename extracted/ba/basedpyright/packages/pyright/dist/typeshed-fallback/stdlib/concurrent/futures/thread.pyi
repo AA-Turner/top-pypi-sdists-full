@@ -63,7 +63,8 @@ if sys.version_info >= (3, 14):
             """
             Represent a PEP 585 generic type
 
-            E.g. for t = list[int], t.__origin__ is list and t.__args__ is (int,).
+            For example, for t = list[int], t.__origin__ is list and t.__args__
+            is (int,).
             """
             ...
 
@@ -81,7 +82,8 @@ else:
             """
             Represent a PEP 585 generic type
 
-            E.g. for t = list[int], t.__origin__ is list and t.__args__ is (int,).
+            For example, for t = list[int], t.__origin__ is list and t.__args__
+            is (int,).
             """
             ...
 

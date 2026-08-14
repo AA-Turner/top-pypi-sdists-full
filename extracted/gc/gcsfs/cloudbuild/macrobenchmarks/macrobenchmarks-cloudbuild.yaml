@@ -25,19 +25,33 @@ substitutions:
   # auto-generated per-run seed; with _SEED_CHECKPOINT=false, fresh run / no restore.
   _CHECKPOINT_LOAD_PATH: ""
   _REQUIREMENTS: ""
-  _IMAGE: "nvcr.io/nvidia/pytorch:25.01-py3"
+  _IMAGE: "nvcr.io/nvidia/pytorch:26.05-py3"
   _TRAINING_STRATEGY: "ddp"
+  # ModelParallelStrategy mesh (model_parallel_* only). TP x DP must equal
+  # _NODES x _RANKS_PER_NODE. Default: TP=4 intra-node, DP=2 across nodes.
+  _TENSOR_PARALLEL_SIZE: "4"
+  _DATA_PARALLEL_SIZE: "2"
   # Auto-generate a per-run seed checkpoint and restore from it (measures the
   # restore IO path) when no external _CHECKPOINT_LOAD_PATH is supplied. Set to
   # "false" for a fresh-run baseline with no restore.
   _SEED_CHECKPOINT: "true"
   _SIMULATED_STEP_COMPUTE_SECONDS: "1.0"
   # Per-rank micro-batch, optimizer-step accumulation, and dataloader workers.
-  # _GRAD_ACCUM defaults to 1 to match the launcher's effective value (and the
-  # GPU a4_v1 run); the sim's getenv default is overridden by the launcher.
+  # _GRAD_ACCUM defaults to 1 to match the launcher's effective value; the
+  # sim's getenv default is overridden by the launcher.
   _PER_DEVICE_BATCH: "8"
   _GRAD_ACCUM: "1"
   _DATALOADER_WORKERS: "16"
+  # Passes over the dataset. Binds only if _STEPS: "-1".
+  _EPOCHS: "3"
+  # HF streaming shuffle buffer size (0 to disable). Seed is fixed at 42.
+  _SHUFFLE_BUFFER_SIZE: "10000"
+  # Shards the shuffle buffer interleaves. Higher = better mixing, but it divides
+  # the shard count; keep the result a multiple of _NODES x _RANKS_PER_NODE or
+  # every rank re-reads the whole dataset.
+  _SHUFFLE_MAX_BUFFER_INPUT_SHARDS: "10"
+  # Batches to prefetch per dataloader worker.
+  _DATALOADER_PREFETCH_FACTOR: "2"
   _JOBSET_VERSION: "v0.12.0"
   _SKIP_CLEANUP: "false"
 
@@ -67,12 +81,18 @@ steps:
       - "_CHECKPOINT_LOAD_PATH=${_CHECKPOINT_LOAD_PATH}"
       - "_MODEL_ID=${_MODEL_ID}"
       - "_TRAINING_STRATEGY=${_TRAINING_STRATEGY}"
+      - "_TENSOR_PARALLEL_SIZE=${_TENSOR_PARALLEL_SIZE}"
+      - "_DATA_PARALLEL_SIZE=${_DATA_PARALLEL_SIZE}"
       - "_SEED_CHECKPOINT=${_SEED_CHECKPOINT}"
       - "_ENABLE_TIER1_NETWORKING=${_ENABLE_TIER1_NETWORKING}"
       - "_SIMULATED_STEP_COMPUTE_SECONDS=${_SIMULATED_STEP_COMPUTE_SECONDS}"
       - "_PER_DEVICE_BATCH=${_PER_DEVICE_BATCH}"
       - "_GRAD_ACCUM=${_GRAD_ACCUM}"
       - "_DATALOADER_WORKERS=${_DATALOADER_WORKERS}"
+      - "_EPOCHS=${_EPOCHS}"
+      - "_SHUFFLE_BUFFER_SIZE=${_SHUFFLE_BUFFER_SIZE}"
+      - "_SHUFFLE_MAX_BUFFER_INPUT_SHARDS=${_SHUFFLE_MAX_BUFFER_INPUT_SHARDS}"
+      - "_DATALOADER_PREFETCH_FACTOR=${_DATALOADER_PREFETCH_FACTOR}"
     args: ["cloudbuild/macrobenchmarks/scripts/init_variables.sh"]
     waitFor: ["-"]
 
@@ -95,6 +115,7 @@ steps:
       - "LOCATION=${LOCATION}"
       - "_BUCKET_TYPE=${_BUCKET_TYPE}"
       - "_ZONE=${_ZONE}"
+      - "_DATASET_PATH=${_DATASET_PATH}"
     args: ["cloudbuild/macrobenchmarks/scripts/create_buckets.sh"]
     waitFor: ["init-variables"]
 
@@ -125,6 +146,8 @@ steps:
       - "_MODEL_ID=${_MODEL_ID}"
       - "_IMAGE=${_IMAGE}"
       - "_TRAINING_STRATEGY=${_TRAINING_STRATEGY}"
+      - "_TENSOR_PARALLEL_SIZE=${_TENSOR_PARALLEL_SIZE}"
+      - "_DATA_PARALLEL_SIZE=${_DATA_PARALLEL_SIZE}"
       - "_HF_TOKEN=${_HF_TOKEN}"
       - "_NODES=${_NODES}"
       - "_RANKS_PER_NODE=${_RANKS_PER_NODE}"
@@ -132,6 +155,12 @@ steps:
       - "_REQUIREMENTS=${_REQUIREMENTS}"
       - "_SEED_CHECKPOINT=${_SEED_CHECKPOINT}"
       - "_CHECKPOINT_LOAD_PATH=${_CHECKPOINT_LOAD_PATH}"
+      # Seed and measured runs must use identical shard order for restore.
+      - "_EPOCHS=${_EPOCHS}"
+      - "_SHUFFLE_BUFFER_SIZE=${_SHUFFLE_BUFFER_SIZE}"
+      - "_SHUFFLE_MAX_BUFFER_INPUT_SHARDS=${_SHUFFLE_MAX_BUFFER_INPUT_SHARDS}"
+      - "_DATALOADER_PREFETCH_FACTOR=${_DATALOADER_PREFETCH_FACTOR}"
+      - "_DATALOADER_WORKERS=${_DATALOADER_WORKERS}"
     args: ["cloudbuild/macrobenchmarks/scripts/seed_checkpoint.sh"]
     waitFor: ["create-cluster", "create-buckets"]
 
@@ -147,6 +176,8 @@ steps:
       - "_CHECKPOINT_LOAD_PATH=${_CHECKPOINT_LOAD_PATH}"
       - "_MODEL_ID=${_MODEL_ID}"
       - "_TRAINING_STRATEGY=${_TRAINING_STRATEGY}"
+      - "_TENSOR_PARALLEL_SIZE=${_TENSOR_PARALLEL_SIZE}"
+      - "_DATA_PARALLEL_SIZE=${_DATA_PARALLEL_SIZE}"
       - "_SIMULATED_STEP_COMPUTE_SECONDS=${_SIMULATED_STEP_COMPUTE_SECONDS}"
       - "_HF_TOKEN=${_HF_TOKEN}"
       - "_STEPS=${_STEPS}"
@@ -161,6 +192,10 @@ steps:
       - "_PER_DEVICE_BATCH=${_PER_DEVICE_BATCH}"
       - "_GRAD_ACCUM=${_GRAD_ACCUM}"
       - "_DATALOADER_WORKERS=${_DATALOADER_WORKERS}"
+      - "_EPOCHS=${_EPOCHS}"
+      - "_SHUFFLE_BUFFER_SIZE=${_SHUFFLE_BUFFER_SIZE}"
+      - "_SHUFFLE_MAX_BUFFER_INPUT_SHARDS=${_SHUFFLE_MAX_BUFFER_INPUT_SHARDS}"
+      - "_DATALOADER_PREFETCH_FACTOR=${_DATALOADER_PREFETCH_FACTOR}"
     args: ["cloudbuild/macrobenchmarks/scripts/run_workload.sh"]
     waitFor: ["seed-checkpoint"]
 
@@ -186,10 +221,16 @@ steps:
       - "_DATASET_PATH=${_DATASET_PATH}"
       - "_MODEL_ID=${_MODEL_ID}"
       - "_TRAINING_STRATEGY=${_TRAINING_STRATEGY}"
+      - "_TENSOR_PARALLEL_SIZE=${_TENSOR_PARALLEL_SIZE}"
+      - "_DATA_PARALLEL_SIZE=${_DATA_PARALLEL_SIZE}"
       - "_SIMULATED_STEP_COMPUTE_SECONDS=${_SIMULATED_STEP_COMPUTE_SECONDS}"
       - "_PER_DEVICE_BATCH=${_PER_DEVICE_BATCH}"
       - "_GRAD_ACCUM=${_GRAD_ACCUM}"
       - "_DATALOADER_WORKERS=${_DATALOADER_WORKERS}"
+      - "_EPOCHS=${_EPOCHS}"
+      - "_SHUFFLE_BUFFER_SIZE=${_SHUFFLE_BUFFER_SIZE}"
+      - "_SHUFFLE_MAX_BUFFER_INPUT_SHARDS=${_SHUFFLE_MAX_BUFFER_INPUT_SHARDS}"
+      - "_DATALOADER_PREFETCH_FACTOR=${_DATALOADER_PREFETCH_FACTOR}"
     args: ["cloudbuild/macrobenchmarks/scripts/scrape_metrics.sh"]
     waitFor: ["run-workload"]
 

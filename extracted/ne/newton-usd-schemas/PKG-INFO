@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: newton-usd-schemas
-Version: 0.4.1
+Version: 0.5.0
 Summary: OpenUSD schema definitions for the Newton physics engine
 Project-URL: Homepage, https://github.com/newton-physics/newton-usd-schemas
 Project-URL: Repository, https://github.com/newton-physics/newton-usd-schemas

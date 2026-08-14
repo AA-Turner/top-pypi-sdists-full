@@ -16,7 +16,6 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from connector_sdk_types.generated.models.credential_status import CredentialStatus
-from connector_sdk_types.generated.models.credential_type import CredentialType
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -35,8 +34,8 @@ class Credential(BaseModel):
         json_schema_extra={"x-semantic": "credential-id"},
     )
     label: StrictStr = Field(description="A human-readable label for the credential.")
-    credential_type: CredentialType = Field(
-        description="The normalized class of the credential (maps 1:1 to RFC-37)."
+    credential_type: StrictStr = Field(
+        description="The normalized class of the credential (maps 1:1 to the RFC-37 credential type). Known values: `unspecified`, `api_key`, `oauth_grant`, `certificate`, `oidc_trust_policy`."
     )
     status: Optional[CredentialStatus] = Field(
         default=None, description="The lifecycle status of the credential."

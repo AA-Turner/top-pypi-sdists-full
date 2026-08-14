@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: smithy-core
-Version: 0.7.0
+Version: 0.8.0
 Summary: Core components for implementing Smithy tooling in Python.
 Project-URL: Changelog, https://github.com/smithy-lang/smithy-python/blob/develop/packages/smithy-core/CHANGELOG.md
 Project-URL: Code, https://github.com/smithy-lang/smithy-python/blob/develop/packages/smithy-core/

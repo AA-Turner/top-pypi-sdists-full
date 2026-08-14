@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: airbyte-internal-ops
-Version: 0.94.4
+Version: 0.98.2
 Summary: MCP and API interfaces that let the agents do the admin work
 Author-email: Aaron Steers <aj@airbyte.io>
 Keywords: admin,airbyte,api,mcp
@@ -23,7 +23,7 @@ Requires-Dist: cyclopts<5.0,>=4.0.0
 Requires-Dist: deepdiff<7.0,>=6.3.0
 Requires-Dist: docker<7.0,>=6.0
 Requires-Dist: dpath<3.0,>=2.1.5
-Requires-Dist: fastmcp-extensions[cli]<1.0,>=0.14.0
+Requires-Dist: fastmcp-extensions[cli]<1.0,>=0.17.0
 Requires-Dist: fastmcp<4.0,>=3.0
 Requires-Dist: fsspec>=2024.0.0
 Requires-Dist: gcsfs>=2024.0.0
@@ -52,7 +52,6 @@ Requires-Dist: slack-sdk<4.0,>=3.36.0
 Requires-Dist: sqlalchemy<3.0,>=2.0.0
 Requires-Dist: starlette
 Requires-Dist: toml<1.0,>=0.10.2
-Requires-Dist: uvicorn<1.0,>=0.30.0
 Description-Content-Type: text/markdown
 
 # airbyte-ops-mcp
@@ -117,6 +116,85 @@ This config example will help you add the MCP server to your client:
   }
 }
 ```
+
+## Connecting to the hosted MCP servers
+
+Use interactive OAuth by default. The client opens a browser to complete the
+login flow; do not add a `headers` block:
+
+```json
+{
+  "mcpServers": {
+    "airbyte-ops-mcp": {
+      "type": "http",
+      "url": "https://mcp.internal.airbyte.ai/ops-mcp"
+    },
+    "airbyte-cloud-mcp": {
+      "type": "http",
+      "url": "https://mcp.internal.airbyte.ai/cloud-mcp"
+    }
+  }
+}
+```
+
+MCP client configuration syntax is client-specific. The block above uses the
+common `type: "http"` and `url` spelling. For Goose, use
+`type: "streamable_http"` and `uri` instead:
+
+```json
+{
+  "mcpServers": {
+    "airbyte-ops-mcp": {
+      "type": "streamable_http",
+      "uri": "https://mcp.internal.airbyte.ai/ops-mcp"
+    },
+    "airbyte-cloud-mcp": {
+      "type": "streamable_http",
+      "uri": "https://mcp.internal.airbyte.ai/cloud-mcp"
+    }
+  }
+}
+```
+
+Use the hosted endpoint path exactly as shown; do not append `/mcp`.
+
+For a headless client, use the two credential headers instead:
+
+```json
+{
+  "mcpServers": {
+    "airbyte-ops-mcp": {
+      "type": "http",
+      "url": "https://mcp.internal.airbyte.ai/ops-mcp",
+      "headers": {
+        "Client-Id": "${AIRBYTE_CLOUD_CLIENT_ID}",
+        "Client-Secret": "${AIRBYTE_CLOUD_CLIENT_SECRET}"
+      }
+    },
+    "airbyte-cloud-mcp": {
+      "type": "http",
+      "url": "https://mcp.internal.airbyte.ai/cloud-mcp",
+      "headers": {
+        "Client-Id": "${AIRBYTE_CLOUD_CLIENT_ID}",
+        "Client-Secret": "${AIRBYTE_CLOUD_CLIENT_SECRET}"
+      }
+    }
+  }
+}
+```
+
+Whether `${ENV}` references are expanded inside a `headers` block depends on the
+client; if not, provide the credential values through that client's supported
+secret configuration.
+
+The credential-header form is enabled on `airbyte-ops-mcp`. It is not yet
+enabled on `airbyte-cloud-mcp`; sending those headers there currently triggers
+the client's OAuth fallback, which opens a browser consent page at
+`https://mcp.internal.airbyte.ai/cloud-mcp/consent` and can leave the client
+waiting instead of showing the underlying `401`. The PyAirbyte server must
+first receive the corresponding support. See
+[`docs/authentication.md`](./docs/authentication.md) for the full
+authentication model and security guidance.
 
 Your `.env` file should include the following values:
 

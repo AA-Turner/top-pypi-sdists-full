@@ -92,13 +92,13 @@ class UnmanagedDevice:
 
         created_at: str
         error_code: str
-        is_connected_account_error: bool
-        is_device_error: bool
+        is_connected_account_error: Optional[bool]
+        is_device_error: Optional[bool]
         message: str
-        is_bridge_error: bool
+        is_bridge_error: Optional[bool]
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 created_at=d.get("created_at", None),
                 error_code=d.get("error_code", None),
@@ -114,19 +114,23 @@ class UnmanagedDevice:
 
         :ivar location_name: Name of the device location.
 
+        :ivar room_name: Name of the room within the device location, when the provider reports one.
+
         :ivar time_zone: Time zone of the device location.
 
         :ivar timezone: Deprecated: Use ``time_zone`` instead. Time zone of the device location.
         """
 
-        location_name: str
-        time_zone: str
-        timezone: str
+        location_name: Optional[str]
+        room_name: Optional[str]
+        time_zone: Optional[str]
+        timezone: Optional[str]
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 location_name=d.get("location_name", None),
+                room_name=d.get("room_name", None),
                 time_zone=d.get("time_zone", None),
                 timezone=d.get("timezone", None),
             )
@@ -176,16 +180,16 @@ class UnmanagedDevice:
                 level: float
 
                 @classmethod
-                def from_dict(cls, d: Dict[str, Any]):
+                def from_dict(cls, d: Any):
                     return cls(
                         level=d.get("level", None),
                     )
 
-            battery: Battery
+            battery: Optional[Battery]
             is_connected: bool
 
             @classmethod
-            def from_dict(cls, d: Dict[str, Any]):
+            def from_dict(cls, d: Any):
                 return cls(
                     battery=(
                         cls.Battery.from_dict(d.get("battery"))
@@ -208,7 +212,7 @@ class UnmanagedDevice:
             status: str
 
             @classmethod
-            def from_dict(cls, d: Dict[str, Any]):
+            def from_dict(cls, d: Any):
                 return cls(
                     level=d.get("level", None),
                     status=d.get("status", None),
@@ -233,16 +237,16 @@ class UnmanagedDevice:
             :ivar online_access_codes_supported: Deprecated: use device.can_program_online_access_codes.
             """
 
-            accessory_keypad_supported: bool
-            can_connect_accessory_keypad: bool
+            accessory_keypad_supported: Optional[bool]
+            can_connect_accessory_keypad: Optional[bool]
             display_name: str
-            has_built_in_keypad: bool
+            has_built_in_keypad: Optional[bool]
             manufacturer_display_name: str
-            offline_access_codes_supported: bool
-            online_access_codes_supported: bool
+            offline_access_codes_supported: Optional[bool]
+            online_access_codes_supported: Optional[bool]
 
             @classmethod
-            def from_dict(cls, d: Dict[str, Any]):
+            def from_dict(cls, d: Any):
                 return cls(
                     accessory_keypad_supported=d.get(
                         "accessory_keypad_supported", None
@@ -261,20 +265,20 @@ class UnmanagedDevice:
                     ),
                 )
 
-        accessory_keypad: AccessoryKeypad
-        battery: Battery
-        battery_level: float
-        image_alt_text: str
-        image_url: str
-        manufacturer: str
-        model: Model
+        accessory_keypad: Optional[AccessoryKeypad]
+        battery: Optional[Battery]
+        battery_level: Optional[float]
+        image_alt_text: Optional[str]
+        image_url: Optional[str]
+        manufacturer: Optional[str]
+        model: Optional[Model]
         name: str
-        offline_access_codes_enabled: bool
+        offline_access_codes_enabled: Optional[bool]
         online: bool
-        online_access_codes_enabled: bool
+        online_access_codes_enabled: Optional[bool]
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 accessory_keypad=(
                     cls.AccessoryKeypad.from_dict(d.get("accessory_keypad"))
@@ -321,11 +325,11 @@ class UnmanagedDevice:
         created_at: str
         message: str
         warning_code: str
-        active_access_code_count: int
-        max_active_access_code_count: int
+        active_access_code_count: Optional[int]
+        max_active_access_code_count: Optional[int]
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 created_at=d.get("created_at", None),
                 message=d.get("message", None),
@@ -336,26 +340,26 @@ class UnmanagedDevice:
                 ),
             )
 
-    can_configure_auto_lock: bool
-    can_hvac_cool: bool
-    can_hvac_heat: bool
-    can_hvac_heat_cool: bool
-    can_program_offline_access_codes: bool
-    can_program_online_access_codes: bool
-    can_program_thermostat_programs_as_different_each_day: bool
-    can_program_thermostat_programs_as_same_each_day: bool
-    can_program_thermostat_programs_as_weekday_weekend: bool
-    can_remotely_lock: bool
-    can_remotely_unlock: bool
-    can_run_thermostat_programs: bool
-    can_simulate_connection: bool
-    can_simulate_disconnection: bool
-    can_simulate_hub_connection: bool
-    can_simulate_hub_disconnection: bool
-    can_simulate_paid_subscription: bool
-    can_simulate_removal: bool
-    can_turn_off_hvac: bool
-    can_unlock_with_code: bool
+    can_configure_auto_lock: Optional[bool]
+    can_hvac_cool: Optional[bool]
+    can_hvac_heat: Optional[bool]
+    can_hvac_heat_cool: Optional[bool]
+    can_program_offline_access_codes: Optional[bool]
+    can_program_online_access_codes: Optional[bool]
+    can_program_thermostat_programs_as_different_each_day: Optional[bool]
+    can_program_thermostat_programs_as_same_each_day: Optional[bool]
+    can_program_thermostat_programs_as_weekday_weekend: Optional[bool]
+    can_remotely_lock: Optional[bool]
+    can_remotely_unlock: Optional[bool]
+    can_run_thermostat_programs: Optional[bool]
+    can_simulate_connection: Optional[bool]
+    can_simulate_disconnection: Optional[bool]
+    can_simulate_hub_connection: Optional[bool]
+    can_simulate_hub_disconnection: Optional[bool]
+    can_simulate_paid_subscription: Optional[bool]
+    can_simulate_removal: Optional[bool]
+    can_turn_off_hvac: Optional[bool]
+    can_unlock_with_code: Optional[bool]
     capabilities_supported: List[str]
     connected_account_id: str
     created_at: str
@@ -364,13 +368,13 @@ class UnmanagedDevice:
     device_type: str
     errors: List[Errors]
     is_managed: bool
-    location: Location
-    properties: Properties
+    location: Optional[Location]
+    properties: Optional[Properties]
     warnings: List[Warnings]
     workspace_id: str
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]):
+    def from_dict(cls, d: Any):
         return cls(
             can_configure_auto_lock=d.get("can_configure_auto_lock", None),
             can_hvac_cool=d.get("can_hvac_cool", None),

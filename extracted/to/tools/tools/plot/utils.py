@@ -11,6 +11,8 @@ from .. import numpy as tnp
 __all__ = [
 'get_xtick_seconds',
 'multisave',
+'plot_values',
+'plot_trainval',
 'squaresubplots',
 ]
 

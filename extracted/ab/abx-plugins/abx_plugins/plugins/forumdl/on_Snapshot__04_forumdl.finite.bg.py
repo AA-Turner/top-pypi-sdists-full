@@ -11,6 +11,7 @@
 #     ./on_Snapshot__04_forumdl.finite.bg.py --url=<url>
 
 import signal
+import sys
 
 # Snapshot cleanup sends SIGTERM to the whole hook process group as the polite
 # shutdown signal before the hard SIGKILL deadline. This hook is a finite
@@ -24,7 +25,6 @@ signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 import os
 import subprocess
-import sys
 import tempfile
 import textwrap
 import threading
@@ -186,10 +186,10 @@ def save_forum(url: str, binary: str) -> tuple[bool, str | None, str]:
 def main(url: str):
     """Download forum content from a URL using forum-dl."""
 
+    print("forum-dl download started", flush=True)
+
     output = None
     error = ""
-
-    print("forum-dl download started", flush=True)
 
     try:
         config = load_config()

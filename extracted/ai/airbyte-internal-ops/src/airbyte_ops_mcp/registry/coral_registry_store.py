@@ -39,6 +39,9 @@ from airbyte_ops_mcp.registry.publish_artifacts import (
 )
 from airbyte_ops_mcp.registry.rebuild import OutputMode, RebuildResult, rebuild_registry
 from airbyte_ops_mcp.registry.registry_store_base import Registry
+from airbyte_ops_mcp.registry.release_attribution import (
+    read_release_attribution_index,
+)
 from airbyte_ops_mcp.registry.store import RegistryStore
 from airbyte_ops_mcp.registry.yank import (
     YankedVersion,
@@ -211,7 +214,14 @@ class CoralRegistry(Registry):
         with_legacy_migration: str | None = None,
         with_metrics: bool = True,
         force: bool = False,
+        with_full_restate: bool = False,
+        release_attribution_index: Path | None = None,
     ) -> CompileResult:
+        attribution_index = None
+        if release_attribution_index is not None:
+            attribution_index = read_release_attribution_index(
+                release_attribution_index
+            )
         return compile_registry(
             store=self.store,
             connector_name=connector_name,
@@ -220,6 +230,8 @@ class CoralRegistry(Registry):
             with_legacy_migration=with_legacy_migration,
             with_metrics=with_metrics,
             force=force,
+            with_full_restate=with_full_restate,
+            release_attribution_index=attribution_index,
         )
 
     def marketing_stubs_check(self, repo_root: Path) -> dict[str, Any]:

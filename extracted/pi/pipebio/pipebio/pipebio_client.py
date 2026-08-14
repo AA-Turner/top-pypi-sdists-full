@@ -25,10 +25,11 @@ Example:
 import importlib.metadata
 import os
 import re
+import shutil
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.request import urlopen
 from zipfile import ZipFile
 
@@ -39,6 +40,7 @@ from requests_toolbelt.sessions import BaseUrlSession
 from pipebio.entities import Entities
 from pipebio.jobs import Jobs
 from pipebio.models.export_format import ExportFormat
+from pipebio.models.job_status import JobStatus
 from pipebio.models.job_type import JobType
 from pipebio.models.upload_detail import UploadDetail
 from pipebio.multipart_upload import (
@@ -50,6 +52,11 @@ from pipebio.sequences import Sequences
 from pipebio.shareables import Shareables
 from pipebio.util import Util
 from pipebio.workflows import Workflows
+
+# Per-socket-operation timeout for export downloads. Without it, urlopen
+# inherits the global socket default of None and a stalled connection hangs
+# the caller (typically a notebook kernel) indefinitely.
+DOWNLOAD_READ_TIMEOUT_SECONDS = 300
 
 
 class PipebioClient:
@@ -303,6 +310,7 @@ class PipebioClient:
         destination_filename: Optional[str] = None,
         params: Optional[dict] = None,
         timeout_seconds: Optional[int] = None,
+        read_timeout_seconds: int = DOWNLOAD_READ_TIMEOUT_SECONDS,
     ) -> List[str]:
         """Export an entity to a file and download the result.
 
@@ -313,13 +321,18 @@ class PipebioClient:
             entity_id: Id of the entity to export.
             format: The :class:`~pipebio.models.export_format.ExportFormat` to
                 produce (e.g. GenBank, FASTA).
-            destination_folder: Local folder to write the downloaded file(s) to.
+            destination_folder: Local folder to write the downloaded file(s) to;
+                it is created if it does not already exist. Defaults to the
+                current working directory.
             destination_filename: Optional output filename; defaults to the
                 entity name.
             params: Optional extra export parameters merged into the job params.
             timeout_seconds: Maximum time to wait for the export job to complete.
                 Defaults to 600 seconds. Raise this for large tables whose export
                 takes longer than the default.
+            read_timeout_seconds: Per-socket-operation timeout for the download.
+                Defaults to 300 seconds, so a stalled connection raises rather
+                than hanging forever. Raise it for a slow link.
 
         Returns:
             The list of local file paths that were downloaded.
@@ -337,6 +350,12 @@ class PipebioClient:
         destination_filename = (
             destination_filename if destination_filename else entity_name
         )
+
+        # Create the folder before the job is created: a missing folder would
+        # otherwise cost a complete export before open() fails, hours later.
+        destination_folder = destination_folder or os.getcwd()
+        os.makedirs(destination_folder, exist_ok=True)
+
         print(f"Exporting {entity_id} to {destination_folder}/{destination_filename}")
         job_id = self.jobs.create(
             owner_id=user["org"]["id"],
@@ -347,18 +366,151 @@ class PipebioClient:
             params=params,
         )
 
+        # Print the resume invocation before we start waiting: if polling or
+        # downloading fails, the user can copy-paste this rather than re-running
+        # the whole export. Note this resumes the *job*; an interrupted download
+        # still restarts from byte zero.
+        # !r rather than hand-quoting: a Windows path in a double-quoted literal
+        # is a SyntaxError (destination_folder="C:\Users\..." is a truncated
+        # \U escape), and it quotes the job id correctly whether int or str.
+        print(
+            f"Export job id: {job_id}\n"
+            f"If this is interrupted, resume the download with:\n"
+            f"    client.download_export_output({job_id!r}, "
+            f"destination_folder={destination_folder!r}, "
+            f"destination_filename={destination_filename!r})"
+        )
+
+        return self.download_export_output(
+            job_id,
+            destination_folder=destination_folder,
+            destination_filename=destination_filename,
+            timeout_seconds=timeout_seconds,
+            read_timeout_seconds=read_timeout_seconds,
+        )
+
+    def download_export_output(
+        self,
+        job_id: Union[int, str],
+        destination_folder: Optional[str] = None,
+        destination_filename: Optional[str] = None,
+        timeout_seconds: Optional[int] = None,
+        read_timeout_seconds: int = DOWNLOAD_READ_TIMEOUT_SECONDS,
+    ) -> List[str]:
+        """Wait for an export job to finish and download its output links.
+
+        Split out of :meth:`export` so that a download interrupted by a dropped
+        connection, a timeout or a dead kernel can be retried against an
+        already-running (or already-finished) job. Note that this resumes the
+        *job*: the download itself restarts from the beginning.
+
+        The window is not unlimited: an ``ExportJob`` presigns its output links
+        for 24 hours, so retrying a day later fails with a bare ``HTTPError:
+        403`` from storage rather than anything mentioning expiry. Past that
+        point, re-run :meth:`export`.
+
+        Each file is streamed to a ``.part`` sibling and moved into place only
+        once it has been downloaded in full, so no returned path ever holds a
+        truncated file. Atomicity is per file, not per export: if a job with
+        several output links fails partway, the files already downloaded stay on
+        disk and are named in the raised error. Retrying overwrites them.
+
+        Args:
+            job_id: Id of the ``ExportJob`` to poll, as printed by :meth:`export`.
+            destination_folder: Local folder to write the downloaded file(s) to;
+                it is created if it does not already exist. Defaults to the
+                current working directory.
+            destination_filename: Output filename. Defaults to the exported
+                file name recorded on the job. When the job produces more than
+                one output link, an index is appended to the stem
+                (``name_1.tsv``, ``name_2.tsv``, ...).
+            timeout_seconds: Maximum time to wait for the export job to complete.
+                Defaults to 600 seconds.
+            read_timeout_seconds: Per-socket-operation timeout for the download.
+                Defaults to 300 seconds, so a stalled connection raises rather
+                than hanging forever.
+
+        Returns:
+            The list of local file paths that were downloaded.
+
+        Raises:
+            Exception: If the export job failed, or produced no output links.
+        """
         # Wait for the file to be exported.
         job = self.jobs.poll_job(job_id, timeout_seconds=timeout_seconds)
 
-        links = job["outputLinks"]
+        # poll_job returns normally for FAILED as well as COMPLETE, so check the
+        # status explicitly rather than reporting success with nothing downloaded.
+        status = job.get("status")
+        if status != JobStatus.COMPLETE.value:
+            messages = job.get("messages") or []
+            detail = f": {'; '.join(messages)}" if messages else ""
+            raise Exception(f"Export job {job_id} did not complete ({status}){detail}")
+
+        links = job.get("outputLinks") or []
+        if len(links) == 0:
+            raise Exception(f"Export job {job_id} produced no output links.")
+
+        if destination_filename is None:
+            destination_filename = (job.get("params") or {}).get("fileName")
+        if not destination_filename:
+            raise Exception(
+                f"No destination_filename given and export job {job_id} does not "
+                f"record one; pass destination_filename explicitly."
+            )
+
+        destination_folder = destination_folder or os.getcwd()
+        os.makedirs(destination_folder, exist_ok=True)
 
         outputs = []
 
-        for link in links:
-            destination = os.path.join(destination_folder, destination_filename)
-            response = urlopen(link["url"])
-            with open(destination, "wb") as file:
-                file.write(response.read())
+        for index, link in enumerate(links):
+            filename = destination_filename
+            if len(links) > 1:
+                stem, extension = Util.split_extension(destination_filename)
+                filename = f"{stem}_{index + 1}{extension}"
+            destination = os.path.join(destination_folder, filename)
+            partial = f"{destination}.part"
+
+            # Stream the response to disk; exports can be tens of gigabytes and
+            # must never be buffered in memory. Write to a .part file and rename
+            # only on success, so a truncated download cannot masquerade as a
+            # complete export at the path we promise to produce.
+            try:
+                with urlopen(link["url"], timeout=read_timeout_seconds) as response:
+                    expected = response.headers.get("Content-Length")
+                    with open(partial, "wb") as file:
+                        shutil.copyfileobj(response, file, length=1024 * 1024)
+                        copied = file.tell()
+
+                if expected is not None and copied != int(expected):
+                    raise Exception(
+                        f"Incomplete download of {destination}: expected "
+                        f"{expected} bytes, got {copied}."
+                    )
+
+                os.replace(partial, destination)
+            except BaseException as error:
+                # Leave nothing behind that could be mistaken for the export.
+                # Swallow cleanup failures (read-only dir, Windows file lock, a
+                # .part that never got created): the download error is the one
+                # the user needs to see, so it must stay the primary exception.
+                try:
+                    os.remove(partial)
+                except OSError:
+                    pass
+                # Earlier links are already on disk and the caller has no return
+                # value to learn that from, so name them. Only for Exception:
+                # wrapping KeyboardInterrupt would break Ctrl-C.
+                if outputs and isinstance(error, Exception):
+                    raise Exception(
+                        f"Export download failed on link {index + 1} of "
+                        f"{len(links)}. These files were already downloaded and "
+                        f"are still on disk: {', '.join(outputs)}. Retrying "
+                        f"overwrites them."
+                    ) from error
+                raise
+
             outputs.append(destination)
 
         return outputs

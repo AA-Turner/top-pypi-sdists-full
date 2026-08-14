@@ -50,7 +50,7 @@ from abstract_hugpy_dev.imports.src.constants.constants import UPLOADS_HOME, DEF
 
 # STORE isolation — same lever test_identity_profiles.py uses: rebind the module
 # globals the store's path helpers read so the whole registry lands in temp dirs.
-_TMP_IDENTITIES = tempfile.mkdtemp(prefix="hugpy-fromgroups-identity-store-", dir=DEFAULT_ROOT)
+_TMP_IDENTITIES = tempfile.mkdtemp(prefix="hugpy-fromgroups-identity-store-", dir=os.path.join(DEFAULT_ROOT, "video_intel", "_scratch"))
 identity_profiles.IDENTITIES_HOME = _TMP_IDENTITIES
 _TMP_PROJECTS = tempfile.mkdtemp(prefix="hugpy-fromgroups-identity-projects-")
 identity_profiles.PROJECTS_HOME = _TMP_PROJECTS

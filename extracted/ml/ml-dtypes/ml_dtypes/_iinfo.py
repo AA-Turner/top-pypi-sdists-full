@@ -14,12 +14,16 @@
 
 """Overload of numpy.iinfo to handle dtypes defined in ml_dtypes."""
 
+from ml_dtypes._ml_dtypes_ext import int1
 from ml_dtypes._ml_dtypes_ext import int2
 from ml_dtypes._ml_dtypes_ext import int4
+from ml_dtypes._ml_dtypes_ext import uint1
 from ml_dtypes._ml_dtypes_ext import uint2
 from ml_dtypes._ml_dtypes_ext import uint4
 import numpy as np
 
+_int1_dtype = np.dtype(int1)
+_uint1_dtype = np.dtype(uint1)
 _int2_dtype = np.dtype(int2)
 _uint2_dtype = np.dtype(uint2)
 _int4_dtype = np.dtype(int4)
@@ -34,7 +38,24 @@ class iinfo:  # pylint: disable=invalid-name,missing-class-docstring
   dtype: np.dtype
 
   def __init__(self, int_type):
-    if int_type == _int2_dtype:
+    # Check for dtype attribute in order to handle finfo(arr), as required by
+    # the Python Array API standard.
+    if hasattr(int_type, "dtype") and isinstance(int_type.dtype, np.dtype):
+      int_type = int_type.dtype
+
+    if int_type == _int1_dtype:
+      self.dtype = _int1_dtype
+      self.kind = "i"
+      self.bits = 1
+      self.min = -1
+      self.max = 0
+    elif int_type == _uint1_dtype:
+      self.dtype = _uint1_dtype
+      self.kind = "u"
+      self.bits = 1
+      self.min = 0
+      self.max = 1
+    elif int_type == _int2_dtype:
       self.dtype = _int2_dtype
       self.kind = "i"
       self.bits = 2

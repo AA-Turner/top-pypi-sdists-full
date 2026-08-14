@@ -1,8 +1,4 @@
-"""Array views.
-
-`Array(list)` backs inline TOML arrays. `AoT(list[Table])` backs
-array-of-tables entries via `AoTEntry` records.
-"""
+"""Array views: `Array` for inline arrays, `AoT` for arrays-of-tables."""
 
 from __future__ import annotations
 
@@ -77,7 +73,34 @@ class Array(_View, list[Any]):
     it can be passed wherever a `list` or `Sequence` is expected.
     """
 
-    __slots__ = ("_layout_root", "_value")
+    __slots__ = ("_host", "_layout_root", "_name", "_value")
+
+    _inline = True
+
+    @classmethod
+    def _view(
+        cls,
+        value: ArrayValue,
+        layout_root: Document | None,
+        name: str | None = None,
+        host: Array | Container | None = None,
+    ) -> Array:
+        """View over existing CST, holding no items yet.
+
+        The public constructor goes the other way: it synthesises CST from
+        Python items. This is for callers that already have CST and fill
+        the items in themselves. ``name`` is the key the array is bound
+        under and ``host`` is where it is bound -- its containing array
+        when it is an element, else its hosting container. A caller that
+        does not yet know where the array lands leaves ``host`` unset for
+        the value funnel to stamp later (see `_file_host`).
+        """
+        arr = cls.__new__(cls)
+        arr._value = value  # noqa: SLF001
+        arr._layout_root = layout_root  # noqa: SLF001
+        arr._host = host  # noqa: SLF001
+        arr._name = name or ""  # noqa: SLF001
+        return arr
 
     def __init__(
         self,
@@ -93,29 +116,29 @@ class Array(_View, list[Any]):
         """
         super().__init__()
 
-        indent_str = " " * indent
-        self._value: ArrayValue = ArrayValue()
+        val = ArrayValue()
+        self._value: ArrayValue = val
         self._layout_root: Document | None = None
+        self._host: Array | Container | None = None
+        self._name: str = ""
         items_list = list(items)
-        if not items_list:
-            if multiline:
-                self._value.final_trivia = f"\n{indent_str}"
-            return
-        from tomlrt._container import _synth_inline_array  # noqa: PLC0415
+        if items_list:
+            from tomlrt._container import _fill_inline_array  # noqa: PLC0415
 
-        val, arr = _synth_inline_array(items_list, layout_root=None, owner=None)
-        self._value = val
-        for v in arr:
-            list.append(self, v)
-        if multiline and val.items:
-            row_indent = f"\n{indent_str}"
-            val.header_trivia = row_indent
-            val.final_trivia = "\n"
-            for k, it in enumerate(val.items):
-                it.leading = "" if k == 0 else row_indent
-                it.post_comma_trivia = ""
-                it.trailing = ""
-                it.has_comma = True
+            _fill_inline_array(self, items_list, layout_root=None, owner=None)
+        if not multiline:
+            return
+        row_indent = f"\n{' ' * indent}"
+        if not val.items:
+            val.final_trivia = row_indent
+            return
+        val.header_trivia = row_indent
+        val.final_trivia = "\n"
+        for k, it in enumerate(val.items):
+            it.leading = "" if k == 0 else row_indent
+            it.post_comma_trivia = ""
+            it.trailing = ""
+            it.has_comma = True
 
     def to_list(self) -> list[Any]:
         """Materialise a plain-Python ``list`` (recursive)."""
@@ -174,30 +197,11 @@ class Array(_View, list[Any]):
 
     @override
     def _reset_displaced(self) -> None:
-        # ``_value`` stays: the displaced ``ArrayValue`` is reused if
-        # this view is attached somewhere else.
+        # ``_value`` stays: it's reused if this view is attached elsewhere.
         self._layout_root = None
 
-    @property
-    def _attached(self) -> bool:
-        """True iff this array is wired to a user-visible document.
-
-        Mirrors :attr:`Container._attached` — see that docstring.
-        """
-        lr = self._layout_root
-        return lr is not None and not lr._is_private  # noqa: SLF001
-
-    @property
-    def _doc_newline(self) -> str:
-        r"""The active newline of the owning document, or ``"\n"`` if detached.
-
-        Mirrors :attr:`Container._doc_newline`.
-        """
-        lr = self._layout_root
-        return lr._newline if lr is not None else "\n"  # noqa: SLF001
-
     def _style(self) -> CommaStyle:
-        return detect_style(self._value, nl=self._doc_newline)
+        return detect_style(self._value)
 
     @property
     def multiline(self) -> bool:
@@ -238,20 +242,29 @@ class Array(_View, list[Any]):
 
         Rewrites whitespace, indentation, separators, and newlines
         while preserving shape (single-line stays single-line, multi-line
-        stays multi-line) and orphan comment text.
+        stays multi-line) and orphan comment text. A multi-line array's
+        closing bracket lines up with the row the array starts on.
 
         ``comments=`` is deprecated; use
         ``FormatOptions(normalize_comments=...)`` instead. Supplying both
         arguments raises ``ValueError``.
         """
         resolved = _resolve_format_options(options=options, comments=comments)
-        format_inline_root(self._value, nl=self._doc_newline, options=resolved)
+        from tomlrt._container import _host_kv_slot  # noqa: PLC0415
+
+        format_inline_root(
+            self._value,
+            nl=self._doc_newline,
+            options=resolved,
+            host=_host_kv_slot(self),
+        )
 
     def set_multiline(self, *, multiline: bool, indent: int = 4) -> Array:
         """Switch this array between flush single-line and multi-line form.
 
         When laying out multi-line, items are indented by ``indent``
-        spaces.
+        spaces and the closing bracket lines up with the row the array
+        starts on.
 
         Raises ``TOMLError`` when collapsing a multi-line array that
         carries comments anywhere in it, including inside nested values,
@@ -259,13 +272,25 @@ class Array(_View, list[Any]):
 
         Returns ``self`` for chaining.
         """
+        from tomlrt._container import _host_kv_slot  # noqa: PLC0415
+
         set_comma_value_multiline(
-            self._value, multiline=multiline, nl=self._doc_newline, indent=" " * indent
+            self._value,
+            multiline=multiline,
+            nl=self._doc_newline,
+            indent=" " * indent,
+            host=_host_kv_slot(self),
         )
         return self
 
     def _synth_item(self, value: object) -> tuple[Value, object]:
-        """Synthesise one value accepted by an inline array."""
+        """Synthesise one value accepted by an inline array.
+
+        The synthesised element is uplinked to this array (``array_host``)
+        so it can later derive its hosting KV slot: an element has no key
+        of its own, so it derives it from the array object (see
+        `_host_kv_slot`).
+        """
         from tomlrt._container import _synth_value  # noqa: PLC0415
 
         if isinstance(value, AoT):
@@ -275,18 +300,16 @@ class Array(_View, list[Any]):
             value,
             layout_root=self._layout_root,
             parent=None,
-            path=(),
+            name=None,
             owner=None,
+            array_host=self,
         )
 
     def _prepare_values(self, values: list[Any]) -> list[tuple[Value, Any]]:
-        """Validate all values, then synthesise each exactly once."""
+        """Validate every value before synthesising: synthesis live-attaches."""
         from tomlrt._container import _validate_input  # noqa: PLC0415
 
         for value in values:
-            if isinstance(value, AoT):
-                msg = "cannot store an array-of-tables inside an inline array"
-                raise TOMLError(msg)
             _validate_input(value, inline_only=True)
         return [self._synth_item(value) for value in values]
 
@@ -298,8 +321,8 @@ class Array(_View, list[Any]):
     def _append_with_style(self, cst: Value, decoded: Any, style: CommaStyle) -> None:
         """Append ``cst`` / ``decoded`` using a precomputed ``style``.
 
-        `__imul__` snapshots style before mutating so trailing-comma
-        decisions reflect the original layout, not a half-mutated one.
+        Precomputing avoids re-deriving style from array state that
+        mutation has already changed (e.g. mid-``__imul__``).
         """
         new_item = _make_item(cst, has_comma=False)
         splice_in(self._value, new_item, style, self._doc_newline)
@@ -443,9 +466,8 @@ class Array(_View, list[Any]):
             for offset, (cst, decoded) in enumerate(prepared):
                 self._insert_synthesised(start + offset, cst, decoded)
             return
-        # int index: just replace the value CST in place.
-        # Reject before synthesising or mutating any CST, matching the
-        # IndexError that ``list.__setitem__`` raises for a bad index.
+        # int index: reject before synthesising or mutating any CST, to
+        # match the IndexError ``list.__setitem__`` raises for a bad index.
         i = _norm_index(index, len(self._value.items), "list assignment")
         cst, dec = self._synth_item(value)
         self._replace_synthesised(i, cst, dec)
@@ -491,13 +513,7 @@ class Array(_View, list[Any]):
         for _ in range(n - 1):
             for src in src_items:
                 cst = deepcopy(src.value)
-                decoded = _decode_value(
-                    cst,
-                    layout_root=self._layout_root,
-                    parent=None,
-                    name=None,
-                    owner=None,
-                )
+                decoded = _decode_value(cst, self._layout_root, None, None, None, self)
                 self._append_with_style(cst, decoded, style)
         return self
 
@@ -541,7 +557,9 @@ class AoT(_View, list["Table"]):
     and it can be passed wherever a `list` or `Sequence` is expected.
     """
 
-    __slots__ = ("_layout_root", "_parent", "_path")
+    __slots__ = ("_host", "_layout_root", "_path")
+
+    _inline = False
 
     @override
     def _view_children(self) -> Iterable[object]:
@@ -552,21 +570,19 @@ class AoT(_View, list["Table"]):
         super().__init__()
         self._layout_root: Document | None = None
         self._path: tuple[str, ...] = ()
-        self._parent: Container | None = None
+        self._host: Container | None = None
         for entry in entries:
             e = _validate_mapping(entry, label="AoT entry")
             list.append(self, _make_unattached_entry(e))
 
     def _unbind_from_document(self) -> None:
-        """Stop being a view onto any document.
+        """Detach from the owning document.
 
-        Used when the array this view stood for has left the document
-        that named it, so that a caller still holding the view cannot
-        write through it into a document that no longer accounts for
-        what it writes.
+        Called once this AoT has left its document, so a caller still
+        holding the view can no longer write through it.
         """
         self._layout_root = None
-        self._parent = None
+        self._host = None
         self._path = ()
 
     @property
@@ -602,8 +618,8 @@ class AoT(_View, list["Table"]):
     def _add_entry_attached(self, value: Mapping[str, Any]) -> Table:
         """Dispatch a new attached AoT entry from ``value``.
 
-        Pre: attached AoT. Selects the trivia-preserving clone path for
-        attached AoT entries or sections.
+        Precondition: attached AoT. Prefers the trivia-preserving clone
+        path for an existing AoT entry or section.
         """
         from tomlrt._container import Table as TableType  # noqa: PLC0415
 
@@ -627,8 +643,8 @@ class AoT(_View, list["Table"]):
             return
         _layout_ops.replace_aot_entry(self, index, value)
 
-    # Unsupported list mutators fail closed rather than corrupt the
-    # doc-stream via inherited `list` behaviour.
+    # Each of these must route attached vs. detached AoTs differently:
+    # inherited `list` behaviour alone would corrupt the doc-stream.
 
     @override
     def pop(self, index: SupportsIndex = -1) -> Table:
@@ -713,7 +729,7 @@ class AoT(_View, list["Table"]):
                 if cur != list(self):
                     _layout_ops.renormalise_aot_order(self, cur)
                 return
-            # Extended slice with matching length: replace in place.
+            # Extended slice: length already matched, so replace in place.
             for i, v in zip(indices, typed_values, strict=True):
                 self._replace_entry_attached(i, v)
             return

@@ -133,14 +133,14 @@ class TestWorkdayIcebergRestCatalogConnectionWrapper(unittest.TestCase):
             wrapper.get_catalog_configs()
 
     @patch("sagemaker_studio.connections.glue_connection_lib.connections.wrapper.local.workday_irc_wrapper.requests")
-    @patch("sagemaker_studio.connections.glue_connection_lib.connections.wrapper.local.workday_irc_wrapper.jwt")
+    @patch("jwt.encode")
     @patch("sagemaker_studio.connections.glue_connection_lib.connections.wrapper.local.workday_irc_wrapper.uuid")
     @patch("sagemaker_studio.connections.glue_connection_lib.connections.wrapper.local.workday_irc_wrapper.time")
-    def test_get_access_token_success(self, mock_time, mock_uuid, mock_jwt, mock_requests):
+    def test_get_access_token_success(self, mock_time, mock_uuid, mock_jwt_encode, mock_requests):
         """Test _get_access_token returns options with ACCESS_TOKEN on success."""
         mock_time.time.return_value = 1000
         mock_uuid.uuid4.return_value = "test-uuid"
-        mock_jwt.encode.return_value = "encoded-jwt"
+        mock_jwt_encode.return_value = "encoded-jwt"
         mock_resp = Mock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {"access_token": "workday-access-token"}
@@ -159,7 +159,7 @@ class TestWorkdayIcebergRestCatalogConnectionWrapper(unittest.TestCase):
         result = wrapper._get_access_token(options)
 
         self.assertEqual(result["ACCESS_TOKEN"], "workday-access-token")
-        mock_jwt.encode.assert_called_once_with(
+        mock_jwt_encode.assert_called_once_with(
             {
                 "iss": "cid",
                 "sub": "user",
@@ -174,12 +174,12 @@ class TestWorkdayIcebergRestCatalogConnectionWrapper(unittest.TestCase):
         mock_requests.post.assert_called_once()
 
     @patch("sagemaker_studio.connections.glue_connection_lib.connections.wrapper.local.workday_irc_wrapper.requests")
-    @patch("sagemaker_studio.connections.glue_connection_lib.connections.wrapper.local.workday_irc_wrapper.jwt")
+    @patch("jwt.encode")
     @patch("sagemaker_studio.connections.glue_connection_lib.connections.wrapper.local.workday_irc_wrapper.time")
-    def test_get_access_token_failure(self, mock_time, mock_jwt, mock_requests):
+    def test_get_access_token_failure(self, mock_time, mock_jwt_encode, mock_requests):
         """Test _get_access_token raises on non-200 response."""
         mock_time.time.return_value = 1000
-        mock_jwt.encode.return_value = "encoded-jwt"
+        mock_jwt_encode.return_value = "encoded-jwt"
         mock_resp = Mock()
         mock_resp.status_code = 401
         mock_resp.text = "Unauthorized"

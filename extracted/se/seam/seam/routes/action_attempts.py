@@ -1,6 +1,8 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
+from ..null import Null
 from ..resources import ActionAttempt
 from ..modules.action_attempts import resolve_action_attempt
 
@@ -12,7 +14,7 @@ class AbstractActionAttempts(abc.ABC):
         self,
         *,
         action_attempt_id: str,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Returns a specified `action attempt <https://docs.seam.co/core-concepts/action-attempts>`_.
 
@@ -20,7 +22,9 @@ class AbstractActionAttempts(abc.ABC):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -30,7 +34,7 @@ class AbstractActionAttempts(abc.ABC):
         action_attempt_ids: Optional[List[str]] = None,
         device_id: Optional[str] = None,
         limit: Optional[int] = None,
-        page_cursor: Optional[str] = None
+        page_cursor: Optional[Union[str, Null]] = None,
     ) -> List[ActionAttempt]:
         """Returns a list of the `action attempts <https://docs.seam.co/core-concepts/action-attempts>`_ that you specify as an array of ``action_attempt_id``s.
 
@@ -51,11 +55,14 @@ class ActionAttempts(AbstractActionAttempts):
         self.client = client
         self.defaults = defaults
 
+    @route_metadata(
+        path="/action_attempts/get", has_required_parameters=True, has_pagination=False
+    )
     def get(
         self,
         *,
         action_attempt_id: str,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Returns a specified `action attempt <https://docs.seam.co/core-concepts/action-attempts>`_.
 
@@ -63,13 +70,20 @@ class ActionAttempts(AbstractActionAttempts):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if action_attempt_id is not None:
-            json_payload["action_attempt_id"] = action_attempt_id
+            params["action_attempt_id"] = action_attempt_id
 
-        res = self.client.post("/action_attempts/get", json=json_payload)
+        if not params:
+            raise ValueError(
+                "At least one parameter is required for /action_attempts/get"
+            )
+
+        res = self.client.get("/action_attempts/get", params=params)
 
         wait_for_action_attempt = (
             self.defaults.get("wait_for_action_attempt")
@@ -83,13 +97,16 @@ class ActionAttempts(AbstractActionAttempts):
             wait_for_action_attempt=wait_for_action_attempt,
         )
 
+    @route_metadata(
+        path="/action_attempts/list", has_required_parameters=False, has_pagination=True
+    )
     def list(
         self,
         *,
         action_attempt_ids: Optional[List[str]] = None,
         device_id: Optional[str] = None,
         limit: Optional[int] = None,
-        page_cursor: Optional[str] = None
+        page_cursor: Optional[Union[str, Null]] = None,
     ) -> List[ActionAttempt]:
         """Returns a list of the `action attempts <https://docs.seam.co/core-concepts/action-attempts>`_ that you specify as an array of ``action_attempt_id``s.
 
@@ -102,7 +119,7 @@ class ActionAttempts(AbstractActionAttempts):
         :param page_cursor: Identifies the specific page of results to return, obtained from the previous page's ``next_page_cursor``.
 
         :returns: OK"""
-        json_payload = {}
+        json_payload: Dict[str, Any] = {}
 
         if action_attempt_ids is not None:
             json_payload["action_attempt_ids"] = action_attempt_ids

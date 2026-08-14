@@ -1,4 +1,5 @@
 # Standard
+import multiprocessing
 import os
 import signal
 import socket
@@ -39,6 +40,10 @@ from django_q.status import Stat, Status
 from django_q.worker import worker
 
 
+def get_mp_context():
+    return multiprocessing.get_context("fork")
+
+
 class Cluster:
     def __init__(self, broker: Broker = None):
         # Cluster do not need an init or default broker except for testing,
@@ -60,7 +65,7 @@ class Cluster:
         # Start Sentinel
         self.stop_event = Event()
         self.start_event = Event()
-        self.sentinel = Process(
+        self.sentinel = get_mp_context().Process(
             target=Sentinel,
             name=f"Process-{uuid.uuid4().hex}",
             args=(
@@ -73,7 +78,30 @@ class Cluster:
         )
         self.sentinel.start()
         logger.info(_("Q Cluster %(name)s starting.") % {"name": self.name})
-        while not self.start_event.is_set():
+        # Wait for the sentinel to set start_event by polling the event's state. We
+        # cannot call wait() as that will deadlock if a signal is received while blocked
+        # in wait(), as the sentinel will block in start_event.set() while this process
+        # is blocked in sentinel.join(). It is also necessary to check for start_event
+        # being set to None by the signal handler.
+        while self.start_event and not self.start_event.is_set():
+            # While waiting for the sentinel to start, also check for sentinel premature
+            # death
+            if not self.sentinel.is_alive():
+                if self.sentinel.exitcode == 0:
+                    # the cluster was stopped via SIGTERM/SIGINT and sentinel early
+                    # termination was intentional -- exit quietly
+                    break
+                logger.error(
+                    _(
+                        "Q Cluster %(name)s failed to start. Sentinel exited "
+                        "with exit code %(exitcode)s."
+                    )
+                    % {"name": self.name, "exitcode": self.sentinel.exitcode}
+                )
+                raise RuntimeError(
+                    f"Q Cluster {self.name} failed to start: sentinel exited "
+                    f"with code {self.sentinel.exitcode}"
+                )
             sleep(0.1)
         return self.pid
 
@@ -190,7 +218,9 @@ class Sentinel:
         """
         :type target: function or class
         """
-        p = Process(target=target, args=args, name=f"Process-{uuid.uuid4().hex}")
+        p = get_mp_context().Process(
+            target=target, args=args, name=f"Process-{uuid.uuid4().hex}"
+        )
         p.daemon = True
         if target == worker:
             p.daemon = Conf.DAEMONIZE_WORKERS
@@ -313,7 +343,7 @@ class Sentinel:
         counter = 0
         cycle = Conf.GUARD_CYCLE  # guard loop sleep in seconds
         # Guard loop. Runs at least once
-        while not self.stop_event.is_set() or not counter:
+        while True:
             # Check Workers
             for p in self.pool:
                 with p.timer.get_lock():
@@ -337,7 +367,8 @@ class Sentinel:
                 scheduler(broker=self.broker)
             # Save current status
             Stat(self).save()
-            sleep(cycle)
+            if self.stop_event.wait(cycle):
+                break
         self.stop()
 
     def stop(self):

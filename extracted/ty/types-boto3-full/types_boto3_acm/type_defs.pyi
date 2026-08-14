@@ -49,6 +49,7 @@ from .literals import (
     SearchCertificatesSortOrderType,
     SortOrderType,
     TimeTypeType,
+    UpdateStatusType,
     ValidationMethodType,
 )
 
@@ -112,9 +113,13 @@ __all__ = (
     "DnsNameFilterTypeDef",
     "DnsPrevalidationDetailsTypeDef",
     "DnsPrevalidationOptionsTypeDef",
+    "DnsValidationChallengeTypeDef",
     "DomainScopeTypeDef",
+    "DomainValidationMethodUpdateSummaryTypeDef",
     "DomainValidationOptionTypeDef",
+    "DomainValidationSummaryTypeDef",
     "DomainValidationTypeDef",
+    "EmailValidationChallengeTypeDef",
     "EmptyResponseMetadataTypeDef",
     "ExpirationTypeDef",
     "ExpiryEventsConfigurationTypeDef",
@@ -145,6 +150,9 @@ __all__ = (
     "ListAcmeExternalAccountBindingsRequestPaginateTypeDef",
     "ListAcmeExternalAccountBindingsRequestTypeDef",
     "ListAcmeExternalAccountBindingsResponseTypeDef",
+    "ListCertificateDomainValidationsRequestPaginateTypeDef",
+    "ListCertificateDomainValidationsRequestTypeDef",
+    "ListCertificateDomainValidationsResponseTypeDef",
     "ListCertificatesRequestPaginateTypeDef",
     "ListCertificatesRequestTypeDef",
     "ListCertificatesResponseTypeDef",
@@ -184,6 +192,9 @@ __all__ = (
     "UpdateAcmeDomainValidationRequestTypeDef",
     "UpdateAcmeEndpointRequestTypeDef",
     "UpdateCertificateOptionsRequestTypeDef",
+    "UpdateSummaryTypeDef",
+    "ValidationChallengeTypeDef",
+    "ValidationConfigurationTypeDef",
     "WaiterConfigTypeDef",
     "X509AttributeFilterTypeDef",
     "X509AttributesTypeDef",
@@ -284,6 +295,7 @@ class CertificateOptionsTypeDef(TypedDict):
         CertificateTransparencyLoggingPreferenceType
     ]
     Export: NotRequired[CertificateExportType]
+    ValidationMethod: NotRequired[ValidationMethodType]
 
 class ExtendedKeyUsageTypeDef(TypedDict):
     Name: NotRequired[ExtendedKeyUsageNameType]
@@ -392,6 +404,10 @@ ResourceRecordTypeDef = TypedDict(
     },
 )
 
+class DomainValidationMethodUpdateSummaryTypeDef(TypedDict):
+    From: NotRequired[ValidationMethodType]
+    To: NotRequired[ValidationMethodType]
+
 class DomainValidationOptionTypeDef(TypedDict):
     DomainName: str
     ValidationDomain: str
@@ -399,6 +415,10 @@ class DomainValidationOptionTypeDef(TypedDict):
 class HttpRedirectTypeDef(TypedDict):
     RedirectFrom: NotRequired[str]
     RedirectTo: NotRequired[str]
+
+class EmailValidationChallengeTypeDef(TypedDict):
+    ValidationEmails: NotRequired[list[str]]
+    ValidationDomain: NotRequired[str]
 
 class ExpiryEventsConfigurationTypeDef(TypedDict):
     DaysBeforeExpiry: NotRequired[int]
@@ -443,6 +463,11 @@ class ListAcmeExternalAccountBindingsRequestTypeDef(TypedDict):
     AcmeEndpointArn: str
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+class ListCertificateDomainValidationsRequestTypeDef(TypedDict):
+    CertificateArn: str
+    NextToken: NotRequired[str]
+    MaxItems: NotRequired[int]
 
 class ListTagsForCertificateRequestTypeDef(TypedDict):
     CertificateArn: str
@@ -645,6 +670,22 @@ class DnsPrevalidationDetailsTypeDef(TypedDict):
     HostedZoneId: NotRequired[str]
     ResourceRecord: NotRequired[ResourceRecordTypeDef]
 
+class DnsValidationChallengeTypeDef(TypedDict):
+    ResourceRecord: NotRequired[ResourceRecordTypeDef]
+
+UpdateSummaryTypeDef = TypedDict(
+    "UpdateSummaryTypeDef",
+    {
+        "Status": NotRequired[UpdateStatusType],
+        "Type": NotRequired[Literal["DOMAIN_VALIDATION_METHOD"]],
+        "DomainValidationMethodUpdateSummary": NotRequired[
+            DomainValidationMethodUpdateSummaryTypeDef
+        ],
+        "RequestedAt": NotRequired[datetime],
+        "UpdatedAt": NotRequired[datetime],
+    },
+)
+
 class RequestCertificateRequestTypeDef(TypedDict):
     DomainName: str
     ValidationMethod: NotRequired[ValidationMethodType]
@@ -696,6 +737,10 @@ class ListAcmeEndpointsRequestPaginateTypeDef(TypedDict):
 
 class ListAcmeExternalAccountBindingsRequestPaginateTypeDef(TypedDict):
     AcmeEndpointArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListCertificateDomainValidationsRequestPaginateTypeDef(TypedDict):
+    CertificateArn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListCertificatesRequestPaginateTypeDef(TypedDict):
@@ -752,6 +797,10 @@ class PrevalidationOptionsTypeDef(TypedDict):
 
 class PrevalidationDetailsTypeDef(TypedDict):
     DnsPrevalidation: NotRequired[DnsPrevalidationDetailsTypeDef]
+
+class ValidationChallengeTypeDef(TypedDict):
+    EmailValidationChallenge: NotRequired[EmailValidationChallengeTypeDef]
+    DnsValidationChallenge: NotRequired[DnsValidationChallengeTypeDef]
 
 class RenewalSummaryTypeDef(TypedDict):
     RenewalStatus: RenewalStatusType
@@ -836,6 +885,11 @@ class AcmeDomainValidationTypeDef(TypedDict):
     CreatedAt: NotRequired[datetime]
     UpdatedAt: NotRequired[datetime]
 
+class ValidationConfigurationTypeDef(TypedDict):
+    ValidationMethod: NotRequired[ValidationMethodType]
+    ValidationChallenge: NotRequired[ValidationChallengeTypeDef]
+    ValidationStatus: NotRequired[DomainStatusType]
+
 CertificateDetailTypeDef = TypedDict(
     "CertificateDetailTypeDef",
     {
@@ -866,6 +920,7 @@ CertificateDetailTypeDef = TypedDict(
         "CertificateAuthorityArn": NotRequired[str],
         "RenewalEligibility": NotRequired[RenewalEligibilityType],
         "Options": NotRequired[CertificateOptionsTypeDef],
+        "UpdateSummary": NotRequired[UpdateSummaryTypeDef],
         "CertificateKeyPairOrigin": NotRequired[CertificateKeyPairOriginType],
         "AcmeEndpointArn": NotRequired[str],
         "AcmeAccountId": NotRequired[str],
@@ -891,6 +946,11 @@ class DescribeAcmeDomainValidationResponseTypeDef(TypedDict):
     AcmeDomainValidation: AcmeDomainValidationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DomainValidationSummaryTypeDef(TypedDict):
+    DomainName: str
+    ActiveValidationConfiguration: NotRequired[ValidationConfigurationTypeDef]
+    RequestedValidationConfiguration: NotRequired[ValidationConfigurationTypeDef]
+
 class DescribeCertificateResponseTypeDef(TypedDict):
     Certificate: CertificateDetailTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -909,6 +969,11 @@ class CertificateFilterStatementTypeDef(TypedDict):
 
 class SearchCertificatesResponseTypeDef(TypedDict):
     Results: list[CertificateSearchResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListCertificateDomainValidationsResponseTypeDef(TypedDict):
+    DomainValidationSummaryList: list[DomainValidationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

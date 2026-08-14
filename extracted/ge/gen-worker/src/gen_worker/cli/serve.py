@@ -28,8 +28,6 @@ Transport-fidelity caveat: production dispatch is gRPC-from-the-orchestrator.
 ``serve`` mirrors setup, context wiring, memory management, and GPU
 serialization faithfully (shared code) but the transport differs. The right
 trade for warm-model local iteration.
-
-The full design lives in ``progress.json`` issue #340.
 """
 
 from __future__ import annotations
@@ -55,10 +53,10 @@ from ..discovery.names import slugify_name
 from ..models import memory
 from ..models.residency import Residency, Tier
 from . import run as run_mod
-from . import transport
+from . import sockaddr
 from .local_context import _stderr_emitter, build_local_context
 from .protocol import PROTOCOL_VERSION, gen_worker_version
-from .transport import DEFAULT_SOCKET_PATH
+from .sockaddr import DEFAULT_SOCKET_PATH
 from ..api.binding import BINDING_TYPES
 from ..models import provision
 
@@ -327,7 +325,7 @@ class _Endpoint:
         """Cancel ONE in-flight request by id (worker-internal ctx._cancel).
 
         Returns True if a matching active request was found. The server keeps
-        running — only that request is canceled (#352).
+        running — only that request is canceled.
         """
         if not request_id:
             return False
@@ -339,7 +337,7 @@ class _Endpoint:
         return True
 
     def cancel_all(self) -> int:
-        """Cancel every in-flight request (server SIGINT/SIGTERM drain, #353).
+        """Cancel every in-flight request (server SIGINT/SIGTERM drain).
 
         Returns how many were signaled. Each tenant handler observes the cancel
         and unwinds cooperatively; teardown then runs shutdown().
@@ -382,9 +380,8 @@ class _Endpoint:
                 )
             fn_name = sel.fn_name
             if fn_name in self.functions:
-                # Function names are unique within an endpoint by contract
-                # (#340). Defensive: surface the collision instead of silently
-                # shadowing.
+                # Function names are unique within an endpoint by contract;
+                # surface the collision instead of silently shadowing.
                 raise run_mod._UsageError(
                     f"duplicate @inference.function name {fn_name!r} "
                     f"(hosted by {sel.cls.__name__ if sel.cls else '<function>'}.{sel.attr_name})"
@@ -420,10 +417,9 @@ class _Endpoint:
                 before = memory.cuda_allocated_bytes()
                 run_mod.run_setup(
                     inst, resolved, device=self.device,
-                    # pgw#1127: `cozy serve` is the machine §4.28 was written
-                    # about. Naming the function here is what lets its first
-                    # run mint an AOT cell into this machine's own store and
-                    # every later run arm it from disk.
+                    # Naming the function here is what lets the first run mint
+                    # an AOT cell into this machine's own store and every later
+                    # run arm it from disk.
                     selected=served.selected)
                 measured = max(0, memory.cuda_allocated_bytes() - before)
                 self._setup_done.add(iid)
@@ -490,7 +486,7 @@ class _Endpoint:
         request's ctx in the cancellation registry so a concurrent cancel frame
         (or server SIGINT) can trip ``ctx._cancel()`` while the handler runs.
 
-        ``on_event`` (streaming, #344): if given, each event is delivered to it
+        ``on_event`` (streaming): if given, each event is delivered to it
         as a frame ``{"event","value","request_id"}`` AS PRODUCED, and the return
         value is the terminal envelope (``{"ok":true,"done":true}`` or an error).
         If absent, events are buffered and returned in ``{"ok":true,"events":[...]}``.
@@ -581,7 +577,7 @@ class _Endpoint:
         return {"ok": True, "events": events}
 
     def shutdown(self) -> None:
-        """Call shutdown() on each instance that was actually set up (per #339).
+        """Call shutdown() on each instance that was actually set up.
 
         Lazy: an instance whose setup() never ran (its function was never
         invoked) has nothing to tear down — and its shutdown() may assume setup
@@ -628,9 +624,9 @@ def _build_residency(vram_budget_gb: float = 0.0) -> Optional[Residency]:
 
     Eviction is driven by measured FREE VRAM; ``vram_budget_gb`` (>0) replaces
     the probe with a fixed slice so a HOST (cozy-local in local-provider mode)
-    can co-reside several serves on one card with deterministic budgets (#347 /
-    cozy #15). Returns ``None`` on a CPU-only host — there is no VRAM to
-    manage, so serve falls back to plain warm-instance behavior.
+    can co-reside several serves on one card with deterministic budgets. Returns
+    ``None`` on a CPU-only host — there is no VRAM to manage, so serve falls back
+    to plain warm-instance behavior.
     """
     if vram_budget_gb and vram_budget_gb > 0.0:
         return Residency(vram_budget_bytes=int(vram_budget_gb * (1024 ** 3)))
@@ -705,10 +701,9 @@ def _parse_frame(line: bytes) -> Dict[str, Any]:
     if not isinstance(obj, dict):
         return {"kind": "error", "message": "request must be a JSON object"}
     if "posture" in obj:
-        # pgw#1142 / §4.32 item 4: the cozy-local half of the eager-only
-        # command. It rides the control-frame shape `cancel` already
-        # established rather than opening a second channel — one socket, one
-        # protocol, and `cozy` learns one more frame instead of a new client.
+        # The cozy-local half of the eager-only command. It rides the
+        # control-frame shape `cancel` already established rather than opening a
+        # second channel — one socket, one protocol.
         p = obj.get("posture") or {}
         if not isinstance(p, dict) or not isinstance(p.get("eager_only"), bool):
             return {
@@ -791,12 +786,12 @@ def _serve_stdin(endpoint: _Endpoint, stop: threading.Event) -> None:
 
 
 def _sidecar_path(listen_spec: str) -> Path:
-    """Where the machine-readable serve handle lives (#349).
+    """Where the machine-readable serve handle lives.
 
     Adjacent to the Unix socket (``<sock>.json``) so several serves don't
     collide; in cwd for TCP (no socket file).
     """
-    addr = transport.parse_addr(listen_spec)
+    addr = sockaddr.parse_addr(listen_spec)
     if addr.scheme == "unix":
         return Path(addr.host + ".json")
     return Path.cwd() / ".gen-worker.serve.json"
@@ -810,7 +805,7 @@ def _write_sidecar(listen_spec: str, endpoint: _Endpoint, idle_timeout: float) -
         "protocol_version": PROTOCOL_VERSION,
         "gen_worker_version": gen_worker_version(),
         "pid": os.getpid(),
-        "listen": transport.display(listen_spec),
+        "listen": sockaddr.display(listen_spec),
         "ready_at": time.time(),
         "idle_timeout": idle_timeout or 0.0,
         "functions": endpoint.function_names(),
@@ -831,12 +826,12 @@ def _serve_socket(
     Each connection is handled on its own thread so the accept loop stays free
     to receive a cancel control frame WHILE a request runs.
     """
-    srv = transport.create_listener(listen_spec, backlog=8)
+    srv = sockaddr.create_listener(listen_spec, backlog=8)
     srv.settimeout(0.5)  # so we can poll `stop`
 
     sidecar = _write_sidecar(listen_spec, endpoint, idle_timeout)
     sys.stderr.write(
-        f"gen-worker serve: listening on {transport.display(listen_spec)} "
+        f"gen-worker serve: listening on {sockaddr.display(listen_spec)} "
         f"(functions: {', '.join(endpoint.function_names())})\n"
     )
     sys.stderr.write("gen-worker serve: ready\n")
@@ -858,7 +853,7 @@ def _serve_socket(
         try:
             srv.close()
         finally:
-            transport.cleanup_listener(listen_spec)
+            sockaddr.cleanup_listener(listen_spec)
             try:
                 sidecar.unlink()
             except OSError:
@@ -882,7 +877,7 @@ def _handle_conn(endpoint: _Endpoint, conn: socket.socket) -> None:
     A cancel control frame (``{"cancel":{"request_id"}}``) is the CLI analog of
     the orchestrator's ``interrupt_job_cmd``: it trips ``ctx._cancel()`` for the
     named in-flight request on ANOTHER connection's dispatch thread and returns
-    immediately — the server keeps running (#352).
+    immediately — the server keeps running.
     """
     buf = bytearray()
     # Bound only the request-LINE read (the client sends it immediately); the
@@ -893,9 +888,9 @@ def _handle_conn(endpoint: _Endpoint, conn: socket.socket) -> None:
             chunk = conn.recv(65536)
             if not chunk:
                 break
-            if len(buf) + len(chunk) > transport.MAX_NDJSON_LINE_BYTES:
-                # pgw#1013: refuse at the byte that passes the bound, not after
-                # the peer has finished deciding how much to send.
+            if len(buf) + len(chunk) > sockaddr.MAX_NDJSON_LINE_BYTES:
+                # Refuse at the byte that passes the bound, not after the peer
+                # has finished deciding how much to send.
                 return
             buf.extend(chunk)
     except (socket.timeout, OSError):
@@ -918,10 +913,10 @@ def _handle_conn(endpoint: _Endpoint, conn: socket.socket) -> None:
             pass
         return
     if frame["kind"] == "posture":
-        # pgw#1142 / §4.32 item 4, the RUNTIME half: a warm serve holding a
-        # broken cell can be told to stop using it without being restarted,
-        # and told to use it again afterwards. The reply reports the posture
-        # that now stands, so a client never has to infer it.
+        # The RUNTIME half: a warm serve holding a broken cell can be told to
+        # stop using it without being restarted, and told to use it again
+        # afterwards. The reply reports the posture that now stands, so a client
+        # never has to infer it.
         changed = serve_posture.apply_command(
             bool(frame["eager_only"]),
             actor="cozy-local-cli",
@@ -948,8 +943,8 @@ def _handle_conn(endpoint: _Endpoint, conn: socket.socket) -> None:
     rid = frame.get("request_id")
     if frame.get("stream"):
         # Stream each event as its own frame as produced; a write failure means
-        # the client is gone -> cancel the in-flight request (the disconnect
-        # backstop deferred from #352) and let the handler unwind.
+        # the client is gone -> cancel the in-flight request and let the handler
+        # unwind.
         def _on_event(ev: Dict[str, Any]) -> None:
             try:
                 _send(ev)
@@ -1051,10 +1046,9 @@ def _serve_inner(args: argparse.Namespace) -> int:
         candidates, getattr(args, "functions", None),
     )
 
-    # pgw#1142 / §4.32 item 4: the order is installed BEFORE setup(), because
-    # setup() is where a cozy-local serve arms and (on a miss) mints. A flag
-    # that only took effect afterwards would still have spent the compile the
-    # operator asked us not to spend.
+    # The order is installed BEFORE setup(), because setup() is where a
+    # cozy-local serve arms and (on a miss) mints. A flag taking effect
+    # afterwards would still have spent the compile it exists to prevent.
     if bool(getattr(args, "eager_only", False)):
         serve_posture.apply_command(
             True, actor="cozy-local-cli", reason="--eager-only")
@@ -1071,13 +1065,13 @@ def _serve_inner(args: argparse.Namespace) -> int:
     # Listen address: --listen overrides --socket. Resolve a Unix path to an
     # absolute form so teardown unlinks the right file regardless of cwd.
     listen_spec = getattr(args, "listen", None) or args.socket_path
-    if transport.is_unix(listen_spec):
-        listen_spec = str(Path(transport.parse_addr(listen_spec).host).resolve())
+    if sockaddr.is_unix(listen_spec):
+        listen_spec = str(Path(sockaddr.parse_addr(listen_spec).host).resolve())
     stop = threading.Event()
 
     # 3. SIGINT / SIGTERM -> cancel in-flight requests, then clean teardown.
     #    Stopping the worker and cancelling a request both funnel through the
-    #    same ctx.cancel() (#353): here we cancel ALL in-flight requests so each
+    #    same ctx.cancel(): here we cancel ALL in-flight requests so each
     #    tenant handler unwinds cooperatively, then drain + shutdown(). SIGTERM
     #    (k8s/orchestrator graceful stop) maps to the identical drain path.
     #    SIGKILL is uncatchable — it bypasses all cleanup (no shutdown / GPU
@@ -1150,7 +1144,7 @@ def _serve_inner(args: argparse.Namespace) -> int:
                     pass
         endpoint.shutdown()
         # Belt-and-suspenders: ensure a Unix socket file is gone (no-op for TCP).
-        transport.cleanup_listener(listen_spec)
+        sockaddr.cleanup_listener(listen_spec)
 
     sys.stderr.write("gen-worker serve: stopped\n")
     sys.stderr.flush()

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-07-23T20:46:33.318515                                                            #
+# Generated on 2026-08-13T18:38:42.623765                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils
     import typing
     import metaflow._vendor.click.types
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils
 
 from ......._vendor import click as click
 
@@ -254,8 +254,10 @@ class ConfigField(object, metaclass=type):
         CLIOption instance defining CLI option generation parameters.
     field_type : type, optional
         Expected type of the field value (used for validation and nesting).
-    required : bool, optional
-        Whether the field must have a non-None value after configuration.
+    required : bool or Callable[[Any], bool], optional
+        Whether the field must have a non-None value after configuration. Can be a
+        callable that receives the config instance holding the field, for fields whose
+        requirement depends on the rest of the config.
     help : str, optional
         Help text describing the field's purpose.
     behavior : str, optional

@@ -53,11 +53,11 @@ class AcsAccessGroup:
         :ivar starts_at: Date and time at which the user's access starts, in `ISO 8601 <https://www.iso.org/iso-8601-date-and-time-format.html>`_ format.
         """
 
-        ends_at: str
+        ends_at: Optional[str]
         starts_at: str
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 ends_at=d.get("ends_at", None),
                 starts_at=d.get("starts_at", None),
@@ -79,7 +79,7 @@ class AcsAccessGroup:
         message: str
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 created_at=d.get("created_at", None),
                 error_code=d.get("error_code", None),
@@ -119,14 +119,14 @@ class AcsAccessGroup:
 
             :ivar acs_entrance_id: Old entrance ID."""
 
-            name: str
-            ends_at: str
-            starts_at: str
-            acs_user_id: str
-            acs_entrance_id: str
+            name: Optional[str]
+            ends_at: Optional[str]
+            starts_at: Optional[str]
+            acs_user_id: Optional[str]
+            acs_entrance_id: Optional[str]
 
             @classmethod
-            def from_dict(cls, d: Dict[str, Any]):
+            def from_dict(cls, d: Any):
                 return cls(
                     name=d.get("name", None),
                     ends_at=d.get("ends_at", None),
@@ -149,14 +149,14 @@ class AcsAccessGroup:
 
             :ivar acs_entrance_id: New entrance ID."""
 
-            name: str
-            ends_at: str
-            starts_at: str
-            acs_user_id: str
-            acs_entrance_id: str
+            name: Optional[str]
+            ends_at: Optional[str]
+            starts_at: Optional[str]
+            acs_user_id: Optional[str]
+            acs_entrance_id: Optional[str]
 
             @classmethod
-            def from_dict(cls, d: Dict[str, Any]):
+            def from_dict(cls, d: Any):
                 return cls(
                     name=d.get("name", None),
                     ends_at=d.get("ends_at", None),
@@ -168,13 +168,13 @@ class AcsAccessGroup:
         created_at: str
         message: str
         mutation_code: str
-        from_: From
-        to: To
-        acs_user_id: str
-        variant: str
+        from_: Optional[From]
+        to: Optional[To]
+        acs_user_id: Optional[str]
+        variant: Optional[str]
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 created_at=d.get("created_at", None),
                 message=d.get("message", None),
@@ -205,7 +205,7 @@ class AcsAccessGroup:
         warning_code: str
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 created_at=d.get("created_at", None),
                 message=d.get("message", None),
@@ -214,7 +214,7 @@ class AcsAccessGroup:
 
     access_group_type: str
     access_group_type_display_name: str
-    access_schedule: AccessSchedule
+    access_schedule: Optional[AccessSchedule]
     acs_access_group_id: str
     acs_system_id: str
     connected_account_id: str
@@ -230,7 +230,7 @@ class AcsAccessGroup:
     workspace_id: str
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]):
+    def from_dict(cls, d: Any):
         return cls(
             access_group_type=d.get("access_group_type", None),
             access_group_type_display_name=d.get(

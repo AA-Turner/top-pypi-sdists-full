@@ -23,8 +23,9 @@ case "${_BUCKET_TYPE}" in
 esac
 # Reject an unknown parallel strategy before provisioning anything.
 case "${_TRAINING_STRATEGY:-ddp}" in
-  ddp) ;;
-  *) echo "ERROR: _TRAINING_STRATEGY must be ddp (got '${_TRAINING_STRATEGY}')."; exit 1 ;;
+  ddp|fsdp_sharded|fsdp_full) ;;
+  model_parallel_sharded|model_parallel_full) ;;
+  *) echo "ERROR: _TRAINING_STRATEGY must be ddp, fsdp_sharded, fsdp_full, or a model_parallel_* value (got '${_TRAINING_STRATEGY}')."; exit 1 ;;
 esac
 # Reject an unknown seed-checkpoint toggle before provisioning anything.
 case "${_SEED_CHECKPOINT:-true}" in
@@ -53,15 +54,35 @@ fi
 # the worker-pool LOCATION, which may differ from _ZONE.
 ZONE="${_ZONE}"
 REGION="${ZONE%-*}"
-for pair in "_NODES=${_NODES}" "_RANKS_PER_NODE=${_RANKS_PER_NODE}" "_STEPS=${_STEPS}" \
+for pair in "_NODES=${_NODES}" "_RANKS_PER_NODE=${_RANKS_PER_NODE}" \
   "_CHECKPOINT_INTERVAL=${_CHECKPOINT_INTERVAL}" "_CKPT_TO_KEEP=${_CKPT_TO_KEEP}" \
   "_PER_DEVICE_BATCH=${_PER_DEVICE_BATCH}" "_GRAD_ACCUM=${_GRAD_ACCUM}" \
-  "_DATALOADER_WORKERS=${_DATALOADER_WORKERS}"; do
+  "_TENSOR_PARALLEL_SIZE=${_TENSOR_PARALLEL_SIZE}" \
+  "_DATA_PARALLEL_SIZE=${_DATA_PARALLEL_SIZE}" \
+  "_DATALOADER_WORKERS=${_DATALOADER_WORKERS}" "_EPOCHS=${_EPOCHS}" \
+  "_SHUFFLE_MAX_BUFFER_INPUT_SHARDS=${_SHUFFLE_MAX_BUFFER_INPUT_SHARDS}" \
+  "_DATALOADER_PREFETCH_FACTOR=${_DATALOADER_PREFETCH_FACTOR}"; do
   key=${pair%%=*}; val=${pair#*=}
   if ! echo "$val" | grep -Eq '^[1-9][0-9]*$'; then
     echo "ERROR: $key must be a positive integer (got '$val')."; exit 1
   fi
 done
+# model_parallel mesh must tile the world (TP * DP == nodes * ranks_per_node);
+# fail fast before provisioning.
+case "${_TRAINING_STRATEGY:-ddp}" in
+  model_parallel_*)
+    WORLD=$(( _NODES * _RANKS_PER_NODE ))
+    MESH=$(( _TENSOR_PARALLEL_SIZE * _DATA_PARALLEL_SIZE ))
+    if [ "${MESH}" -ne "${WORLD}" ]; then
+      echo "ERROR: _TENSOR_PARALLEL_SIZE * _DATA_PARALLEL_SIZE (${_TENSOR_PARALLEL_SIZE} * ${_DATA_PARALLEL_SIZE} = ${MESH}) must equal _NODES * _RANKS_PER_NODE (${_NODES} * ${_RANKS_PER_NODE} = ${WORLD})."
+      exit 1
+    fi
+    ;;
+esac
+# Validated non-negative (0 disables shuffling).
+if ! echo "${_SHUFFLE_BUFFER_SIZE}" | grep -Eq '^(0|[1-9][0-9]*)$'; then
+  echo "ERROR: _SHUFFLE_BUFFER_SIZE must be a non-negative integer (got '${_SHUFFLE_BUFFER_SIZE}')."; exit 1
+fi
 # Validate that operator-supplied buckets actually match _BUCKET_TYPE and the
 # run's region/zone. Project-owned buckets are describable by the build SA
 # (storage admin), so these are hard fail-fast (nothing is provisioned yet).
@@ -73,11 +94,16 @@ validate_bucket() {
   JSON=$(gcloud storage buckets describe "gs://$BUCKET" --project=${PROJECT_ID} --format=json 2>/dev/null) || {
     echo "ERROR: cannot describe $KIND bucket gs://$BUCKET (missing or no read access)."; exit 1; }
   LOC=$(echo "$JSON" | python3 -c "import sys,json;print((json.load(sys.stdin).get('location') or '').lower())")
+  IS_RAPID=no; echo "$JSON" | grep -qiF 'RAPID' && IS_RAPID=yes
+  if [ "$KIND" = dataset ]; then
+    echo "export DATASET_SRC_IS_RAPID=${IS_RAPID}" >> "${BUILD_VARS_FILE}"
+    echo "OK: dataset source gs://$BUCKET ($LOC, rapid=$IS_RAPID) will be copied into a fresh ${_BUCKET_TYPE} bucket in ${REGION}."
+    return 0
+  fi
   case "$LOC" in
     $REGION|$REGION-*) : ;;
     *) echo "ERROR: $KIND bucket gs://$BUCKET is in '$LOC', not region '$REGION'."; exit 1 ;;
   esac
-  IS_RAPID=no; echo "$JSON" | grep -qiF 'RAPID' && IS_RAPID=yes
   case "${_BUCKET_TYPE}" in
     regional)
       if [ "$IS_RAPID" = yes ]; then echo "ERROR: regional run but $KIND bucket gs://$BUCKET is RAPID/zonal."; exit 1; fi ;;
@@ -105,5 +131,6 @@ echo "export CLUSTER_NAME=${_INFRA_PREFIX}-gke-${SHORT_BUILD_ID}" >> "${BUILD_VA
 echo "export NETWORK_NAME=${_INFRA_PREFIX}-net-${SHORT_BUILD_ID}" >> "${BUILD_VARS_FILE}"
 echo "export SUBNET_NAME=${_INFRA_PREFIX}-subnet-${SHORT_BUILD_ID}" >> "${BUILD_VARS_FILE}"
 echo "export CHECKPOINT_BUCKET=${_INFRA_PREFIX}-macrobench-checkpoint-${SHORT_BUILD_ID}" >> "${BUILD_VARS_FILE}"
+echo "export DATASET_BUCKET=${_INFRA_PREFIX}-macrobench-dataset-${SHORT_BUILD_ID}" >> "${BUILD_VARS_FILE}"
 echo "export RESULTS_BUCKET=${_INFRA_PREFIX}-macrobench-results" >> "${BUILD_VARS_FILE}"
 echo "export REGION=${REGION}" >> "${BUILD_VARS_FILE}"

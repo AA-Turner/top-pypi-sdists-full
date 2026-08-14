@@ -71,7 +71,7 @@ from abstract_hugpy_dev.imports.src.constants.constants import (  # noqa: E402
 # --------------------------------------------------------------------------- #
 # STORE + BUS isolation (mirrors test_identity_render_relay.py exactly).
 # --------------------------------------------------------------------------- #
-_TMP_IDENTITIES = tempfile.mkdtemp(prefix="hugpy-pose-store-", dir=DEFAULT_ROOT)
+_TMP_IDENTITIES = tempfile.mkdtemp(prefix="hugpy-pose-store-", dir=os.path.join(DEFAULT_ROOT, "video_intel", "_scratch"))
 identity_profiles.IDENTITIES_HOME = _TMP_IDENTITIES
 _TMP_PROJECTS = tempfile.mkdtemp(prefix="hugpy-pose-projects-")
 identity_profiles.PROJECTS_HOME = _TMP_PROJECTS
@@ -393,7 +393,7 @@ def test_pose_none_no_render_no_pose_stage():
 def _capture_generate(slug: str, body: dict):
     captured = {}
 
-    def _fake_enqueue(name, spec):
+    def _fake_enqueue(name, spec, **kwargs):   # principal/owner attribution
         captured["name"] = name
         captured["spec"] = spec
         return "job-fake-pose"

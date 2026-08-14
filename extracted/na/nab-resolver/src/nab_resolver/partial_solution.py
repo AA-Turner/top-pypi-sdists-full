@@ -71,9 +71,6 @@ class Assignment(Generic[PackageType, VersionType]):
     cum_negative: RangeProtocol[VersionType] | None = None
     """Latest negative accumulated range for the package as of this entry."""
 
-    package_index: int = 0
-    """Position in the package's own assignment trail."""
-
 
 class PartialSolution(Generic[PackageType, VersionType]):
     """Tracks the resolver's current partial solution as a decision trail.
@@ -82,8 +79,19 @@ class PartialSolution(Generic[PackageType, VersionType]):
     See: https://en.wikipedia.org/wiki/Conflict-driven_clause_learning#Organization
     """
 
-    def __init__(self, range_type: type[RangeProtocol[Any]] = Range) -> None:
-        """Initialize an empty partial solution."""
+    def __init__(
+        self,
+        range_type: type[RangeProtocol[Any]] = Range,
+        *,
+        contradiction_epoch: int = 0,
+    ) -> None:
+        """Initialize an empty partial solution.
+
+        ``contradiction_epoch`` carries on from a solution this one replaces,
+        so a stamp taken against the old trail cannot look current against the
+        new one.
+        """
+        self._contradiction_epoch = contradiction_epoch
         self._range_type = range_type
         self._assignments: list[Assignment[PackageType, VersionType]] = []
         self._decision_level = 0
@@ -108,6 +116,17 @@ class PartialSolution(Generic[PackageType, VersionType]):
     def decision_level(self) -> int:
         """Return the current decision depth."""
         return self._decision_level
+
+    @property
+    def contradiction_epoch(self) -> int:
+        """Return the epoch a contradicted term stays contradicted for.
+
+        It advances on a rollback, and on any assignment that empties a
+        package's range: an empty range is both a subset of and disjoint from
+        every constraint, so terms on that package stop reading as
+        contradicted.
+        """
+        return self._contradiction_epoch
 
     @property
     def trail_length(self) -> int:
@@ -153,6 +172,14 @@ class PartialSolution(Generic[PackageType, VersionType]):
         self._effective_range_cache[package] = result
         return result
 
+    def _refresh_effective_range(self, package: PackageType) -> None:
+        """Recompute the package's range, advancing the epoch if it emptied."""
+        self._effective_range_cache.pop(package, None)
+        effective = self.get(package)
+        assert effective is not None
+        if effective.is_empty:
+            self._contradiction_epoch += 1
+
     def decide(self, package: PackageType, version: VersionType) -> None:
         """Record a decision: pick a specific version for a package."""
         self._decision_level += 1
@@ -160,10 +187,9 @@ class PartialSolution(Generic[PackageType, VersionType]):
 
         self._positive_ranges[package] = exact_range
         self._decided_versions[package] = version
-        self._effective_range_cache.pop(package, None)
+        self._refresh_effective_range(package)
         self._undecided.discard(package)
 
-        package_entries = self._assignments_by_package[package]
         assignment = Assignment(
             package=package,
             accumulated_range=exact_range,
@@ -174,10 +200,9 @@ class PartialSolution(Generic[PackageType, VersionType]):
             positive=True,
             cum_positive=exact_range,
             cum_negative=self._negative_ranges.get(package),
-            package_index=len(package_entries),
         )
         self._assignments.append(assignment)
-        package_entries.append(assignment)
+        self._assignments_by_package[package].append(assignment)
 
     def derive(
         self,
@@ -208,9 +233,8 @@ class PartialSolution(Generic[PackageType, VersionType]):
                 new_range = self._range_type.empty() | constraint
             self._negative_ranges[package] = new_range
 
-        self._effective_range_cache.pop(package, None)
+        self._refresh_effective_range(package)
 
-        package_entries = self._assignments_by_package[package]
         assignment = Assignment(
             package=package,
             accumulated_range=new_range,
@@ -221,10 +245,9 @@ class PartialSolution(Generic[PackageType, VersionType]):
             positive=positive,
             cum_positive=self._positive_ranges.get(package),
             cum_negative=self._negative_ranges.get(package),
-            package_index=len(package_entries),
         )
         self._assignments.append(assignment)
-        package_entries.append(assignment)
+        self._assignments_by_package[package].append(assignment)
 
     def backtrack(self, target_level: int) -> None:
         """Remove all assignments above target_level.
@@ -235,6 +258,8 @@ class PartialSolution(Generic[PackageType, VersionType]):
         package's surviving state can be rebuilt without re-intersecting.
         See: https://github.com/dart-lang/pub/blob/master/doc/solver.md#conflict-resolution
         """
+        self._contradiction_epoch += 1
+
         while self._assignments and self._assignments[-1].decision_level > target_level:
             self._assignments.pop()
 

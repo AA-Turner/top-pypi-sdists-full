@@ -64,6 +64,22 @@ _CORE_MESSAGES = {
         "ru": "у части компонентов размер без явного запрета растягивания работает законно (у родителя нет свободного места по этой оси, статически это не решается) – предупреждение дало бы ложные. Зовите точечно, когда видите симптом: пустое место или раздутые соседи",
         "en": "for some components a size without an explicit stretch ban is perfectly valid (the parent has no leftover space along that axis, which is not statically decidable) - a warning would be false. Enable it point-blank when you see the symptom: blank space or inflated neighbours",
     },
+    "yaml/matrix-group-max-width.off": {
+        "ru": "числовой максимум законен, пока группа не попадает на узкий экран: страница только для десктопа живёт с ним нормально. Включайте, когда на телефоне контент уходит за правый край",
+        "en": "a numeric maximum is legitimate until the group reaches a narrow screen: a desktop-only page lives with it fine. Enable it when a phone shows content running off the right edge",
+    },
+    "yaml/card-literal-stretch-weight.off": {
+        "ru": "карточка, живущая только в широком ряду, носит литеральный вес законно – там нулевая база относится к ширине и делит её поровну. Включайте, когда на телефоне карточка схлопнулась в строку",
+        "en": "a card that lives only in a wide row carries a literal weight legitimately - there the zero basis applies to the width and shares it evenly. Enable it when a phone collapses a card into one line",
+    },
+    "yaml/dynlist-column-sort-lost.off": {
+        "ru": "находка верна (заголовок такой колонки правда не сортирует), но нужна ли сортировка именно ей – из файла не видно: значок статуса или служебная колонка не сортируются законно. Включайте, когда заголовок не реагирует и вы ищете причину",
+        "en": "the finding is true (such a header really does not sort), but whether that column was meant to sort is not visible from the file: a status badge or a service column is legitimately unsortable. Enable it when a header does not react and you are looking for the reason",
+    },
+    "code/url-params-partial-encoding.off": {
+        "ru": "видны ли статически '&' и '=' в значениях – нет: вызов с заведомо простыми значениями (state, фиксированный scope, случайный токен) легален и обычен. Включайте точечно, когда среди значений может оказаться адрес",
+        "en": "whether a value carries '&' or '=' is not statically visible: a call with known-plain values (a state, a fixed scope, a random token) is legitimate and common. Enable it point-wise when an address can end up among the values",
+    },
     "typography/em-dash.off": {
         "ru": "типографика – соглашение ПРОЕКТА, а не платформы: у одной команды длинное тире запрещено, у другой принято. Движок правило несёт, но включает его профиль проекта (точка расширения xbsl.severity), а не умолчание",
         "en": "typography is a PROJECT convention rather than a platform one: one team bans the em dash, another uses it. The engine ships the rule but a project profile turns it on (the xbsl.severity entry point), not the default",

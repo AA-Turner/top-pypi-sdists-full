@@ -70,7 +70,7 @@ class ReferenceType(Generic[_T]):  # "weakref"
         """Return hash(self)."""
         ...
     def __class_getitem__(cls, item: Any, /) -> GenericAlias:
-        """See PEP 585"""
+        """Weakrefs are generic over the type of the referenced object."""
         ...
 
 ref = ReferenceType

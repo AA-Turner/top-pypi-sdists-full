@@ -9,7 +9,7 @@
 
 This environment is part of the <a href='..'>Atari environments</a>. Please read that page first for general information.
 
-| Import               | `from pettingzoo.atari import maze_craze_v3` |
+| Creation             | `make("aec", "atari/maze_craze-v3")`         |
 |----------------------|----------------------------------------------|
 | Actions              | Discrete                                     |
 | Parallel API         | Yes                                          |
@@ -41,8 +41,10 @@ Some environment parameters are common to all Atari environments and are describ
 
 Parameters specific to Maze Craze are
 
-``` python
-maze_craze_v3.env(game_version="robbers", visibilty_level=0)
+```python
+from pettingzoo import make
+
+make("aec", "atari/maze_craze-v3", game_version="robbers", visibilty_level=0)
 ```
 
 `game_version`:  Possibilities are "robbers", "race", "capture", corresponding to the 3 game versions described above
@@ -105,12 +107,12 @@ avaliable_versions = {
 def raw_env(
     game_version: str = "robbers", visibilty_level: int = 0, **kwargs: Any
 ) -> AtariAECEnv:
-    assert (
-        game_version in avaliable_versions
-    ), f"`game_version` parameter must be one of {avaliable_versions.keys()}"
-    assert (
-        0 <= visibilty_level < 4
-    ), "visibility level must be between 0 and 4, where 0 is 100% visibility and 3 is 0% visibility"
+    assert game_version in avaliable_versions, (
+        f"`game_version` parameter must be one of {avaliable_versions.keys()}"
+    )
+    assert 0 <= visibilty_level < 4, (
+        "visibility level must be between 0 and 4, where 0 is 100% visibility and 3 is 0% visibility"
+    )
     base_mode = (avaliable_versions[game_version] - 1) * 4
     mode = base_mode + visibilty_level
     name = os.path.basename(__file__).split(".")[0]

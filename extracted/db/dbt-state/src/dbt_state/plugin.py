@@ -40,6 +40,7 @@ ORIGINALS: t.Dict[str, t.Callable] = {
     "CompileRunner.compile": CompileRunner.compile,
     "ModelRunner.compile": ModelRunner.compile,
     "ModelRunner.execute": ModelRunner.execute,
+    "ModelRunner.run_with_hooks": ModelRunner.run_with_hooks,
     "SeedRunner.compile": SeedRunner.compile,
     "SeedRunner.execute": SeedRunner.execute,
     "TestRunner.print_result_line": TestRunner.print_result_line,
@@ -78,6 +79,7 @@ def set_runner_overrides() -> None:
 
     runner_override = RunnerOverride(
         ORIGINALS["ModelRunner.execute"],
+        ORIGINALS["ModelRunner.run_with_hooks"],
         ORIGINALS.get("MicrobatchModelRunner.execute"),
         ORIGINALS["dbt_test.generate_runtime_model_context"],
     )
@@ -89,6 +91,9 @@ def set_runner_overrides() -> None:
         self: ModelRunner, node: ModelOrSnapshotNode, manifest: Manifest
     ) -> RunResult:
         return runner_override.execute_override(self, node, manifest)
+
+    def run_with_hooks_override(self: ModelRunner, manifest: Manifest) -> RunResult:
+        return runner_override.run_with_hooks_override(self, manifest)
 
     def print_result_line(self: TestRunner, result: RunResult) -> None:
         return runner_override.print_result_line_override(self, result)
@@ -115,6 +120,7 @@ def set_runner_overrides() -> None:
     CompileRunner.compile = compile_override  # ty: ignore[invalid-assignment]
     ModelRunner.compile = compile_override  # ty: ignore[invalid-assignment]
     ModelRunner.execute = execute_override  # ty: ignore[invalid-assignment]
+    ModelRunner.run_with_hooks = run_with_hooks_override  # ty: ignore[invalid-assignment]
     SeedRunner.compile = compile_override  # ty: ignore[invalid-assignment]
     SeedRunner.execute = execute_override  # ty: ignore[invalid-assignment]
     TestRunner.print_result_line = print_result_line  # ty: ignore[invalid-assignment]
@@ -167,6 +173,7 @@ def remove_runner_overrides() -> None:
     CompileRunner.compile = ORIGINALS["CompileRunner.compile"]  # ty: ignore[invalid-assignment]
     ModelRunner.compile = ORIGINALS["ModelRunner.compile"]  # ty: ignore[invalid-assignment]
     ModelRunner.execute = ORIGINALS["ModelRunner.execute"]  # ty: ignore[invalid-assignment]
+    ModelRunner.run_with_hooks = ORIGINALS["ModelRunner.run_with_hooks"]  # ty: ignore[invalid-assignment]
     SeedRunner.compile = ORIGINALS["SeedRunner.compile"]  # ty: ignore[invalid-assignment]
     SeedRunner.execute = ORIGINALS["SeedRunner.execute"]  # ty: ignore[invalid-assignment]
     TestRunner.print_result_line = ORIGINALS["TestRunner.print_result_line"]  # ty: ignore[invalid-assignment]

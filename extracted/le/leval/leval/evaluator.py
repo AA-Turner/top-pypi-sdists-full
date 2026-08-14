@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import ast
 import time
 from functools import partial
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable
 
 from leval.excs import (
     InvalidConstant,
@@ -20,8 +22,8 @@ except ImportError:
     NoneType = type(None)  # type: ignore
 
 
-DEFAULT_ALLOWED_CONTAINER_TYPES = frozenset((tuple, set))
-DEFAULT_ALLOWED_CONSTANT_TYPES = frozenset(
+DEFAULT_ALLOWED_CONTAINER_TYPES: frozenset[type] = frozenset((tuple, set))
+DEFAULT_ALLOWED_CONSTANT_TYPES: frozenset[type] = frozenset(
     (
         str,
         int,  # NB: this implicitly includes bool
@@ -49,26 +51,29 @@ class Evaluator(ast.NodeTransformer):
     default_allowed_constant_types: Iterable[type] = DEFAULT_ALLOWED_CONSTANT_TYPES
     default_allowed_container_types: Iterable[type] = DEFAULT_ALLOWED_CONTAINER_TYPES
     default_max_depth = 10
+    default_max_length = 100_000
 
     def __init__(
         self,
         universe: BaseEvaluationUniverse,
         *,
-        max_depth: Optional[int] = None,
-        max_time: Optional[float] = None,
-        allowed_constant_types: Optional[Iterable[type]] = None,
-        allowed_container_types: Optional[Iterable[type]] = None,
+        max_depth: int | None = None,
+        max_time: float | None = None,
+        max_length: int | None = None,
+        allowed_constant_types: Iterable[type] | None = None,
+        allowed_container_types: Iterable[type] | None = None,
         loose_is_operator: bool = True,
         loose_not_operator: bool = True,
     ):
         """
         Initialize an evaluator with access to the given evaluation universe.
         """
-        self.depth = None  # type: Optional[int]
-        self.start_time = None  # type: Optional[float]
+        self.depth: int | None = None
+        self.start_time: float | None = None
         self.universe = universe
         self.max_depth = _default_if_none(max_depth, self.default_max_depth)
         self.max_time = float(max_time or 0)
+        self.max_length = _default_if_none(max_length, self.default_max_length)
         self.loose_is_operator = bool(loose_is_operator)
         self.loose_not_operator = bool(loose_not_operator)
         self.allowed_constant_types = frozenset(
@@ -88,6 +93,10 @@ class Evaluator(ast.NodeTransformer):
         """
         Evaluate the given expression and return the ultimate result.
         """
+        if self.max_length and len(expression) > self.max_length:
+            raise TooComplex(
+                f"Expression is too long ({len(expression)} > {self.max_length})",
+            )
         self.depth = 0
         self.start_time = time.time()
         return self.visit(self.parse(expression))

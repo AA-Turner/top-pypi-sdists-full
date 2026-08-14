@@ -1,6 +1,8 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
+from ..null import Null
 from ..resources import Device, DeviceProvider
 from .devices_simulate import AbstractDevicesSimulate, DevicesSimulate
 from .devices_unmanaged import AbstractDevicesUnmanaged, DevicesUnmanaged
@@ -30,7 +32,9 @@ class AbstractDevices(abc.ABC):
 
         :param name: Name of the device that you want to get.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -48,11 +52,11 @@ class AbstractDevices(abc.ABC):
         device_types: Optional[List[str]] = None,
         limit: Optional[float] = None,
         manufacturer: Optional[str] = None,
-        page_cursor: Optional[str] = None,
+        page_cursor: Optional[Union[str, Null]] = None,
         search: Optional[str] = None,
         space_id: Optional[str] = None,
-        unstable_location_id: Optional[str] = None,
-        user_identifier_key: Optional[str] = None
+        unstable_location_id: Optional[Union[str, Null]] = None,
+        user_identifier_key: Optional[str] = None,
     ) -> List[Device]:
         """Returns a list of all `devices <https://docs.seam.co/core-concepts/devices>`_.
 
@@ -110,7 +114,9 @@ class AbstractDevices(abc.ABC):
     def report_provider_metadata(self, *, devices: List[Dict[str, Any]]) -> None:
         """Updates provider-specific metadata for devices.
 
-        :param devices: Array of devices with provider metadata to update"""
+        :param devices: Array of devices with provider metadata to update
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -121,8 +127,8 @@ class AbstractDevices(abc.ABC):
         backup_access_code_pool_enabled: Optional[bool] = None,
         custom_metadata: Optional[Dict[str, Any]] = None,
         is_managed: Optional[bool] = None,
-        name: Optional[str] = None,
-        properties: Optional[Dict[str, Any]] = None
+        name: Optional[Union[str, Null]] = None,
+        properties: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Updates a specified `device <https://docs.seam.co/core-concepts/devices>`_.
 
@@ -138,7 +144,9 @@ class AbstractDevices(abc.ABC):
 
         :param name: Name for the device.
 
-        :param properties:"""
+        :param properties:
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
 
@@ -157,6 +165,9 @@ class Devices(AbstractDevices):
     def unmanaged(self) -> DevicesUnmanaged:
         return self._unmanaged
 
+    @route_metadata(
+        path="/devices/get", has_required_parameters=True, has_pagination=False
+    )
     def get(
         self, *, device_id: Optional[str] = None, name: Optional[str] = None
     ) -> Device:
@@ -168,18 +179,26 @@ class Devices(AbstractDevices):
 
         :param name: Name of the device that you want to get.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if device_id is not None:
-            json_payload["device_id"] = device_id
+            params["device_id"] = device_id
         if name is not None:
-            json_payload["name"] = name
+            params["name"] = name
 
-        res = self.client.post("/devices/get", json=json_payload)
+        if not params:
+            raise ValueError("At least one parameter is required for /devices/get")
+
+        res = self.client.get("/devices/get", params=params)
 
         return Device.from_dict(res["device"])
 
+    @route_metadata(
+        path="/devices/list", has_required_parameters=False, has_pagination=True
+    )
     def list(
         self,
         *,
@@ -194,11 +213,11 @@ class Devices(AbstractDevices):
         device_types: Optional[List[str]] = None,
         limit: Optional[float] = None,
         manufacturer: Optional[str] = None,
-        page_cursor: Optional[str] = None,
+        page_cursor: Optional[Union[str, Null]] = None,
         search: Optional[str] = None,
         space_id: Optional[str] = None,
-        unstable_location_id: Optional[str] = None,
-        user_identifier_key: Optional[str] = None
+        unstable_location_id: Optional[Union[str, Null]] = None,
+        user_identifier_key: Optional[str] = None,
     ) -> List[Device]:
         """Returns a list of all `devices <https://docs.seam.co/core-concepts/devices>`_.
 
@@ -235,7 +254,7 @@ class Devices(AbstractDevices):
         :param user_identifier_key: Your own internal user ID for the user for which you want to list devices.
 
         :returns: OK"""
-        json_payload = {}
+        json_payload: Dict[str, Any] = {}
 
         if connect_webview_id is not None:
             json_payload["connect_webview_id"] = connect_webview_id
@@ -274,6 +293,11 @@ class Devices(AbstractDevices):
 
         return [Device.from_dict(item) for item in res["devices"]]
 
+    @route_metadata(
+        path="/devices/list_device_providers",
+        has_required_parameters=False,
+        has_pagination=False,
+    )
     def list_device_providers(
         self, *, provider_category: Optional[str] = None
     ) -> List[DeviceProvider]:
@@ -286,28 +310,43 @@ class Devices(AbstractDevices):
         :param provider_category: Category for which you want to list providers.
 
         :returns: OK"""
-        json_payload = {}
+        params: Dict[str, Any] = {}
 
         if provider_category is not None:
-            json_payload["provider_category"] = provider_category
+            params["provider_category"] = provider_category
 
-        res = self.client.post("/devices/list_device_providers", json=json_payload)
+        res = self.client.get("/devices/list_device_providers", params=params)
 
         return [DeviceProvider.from_dict(item) for item in res["device_providers"]]
 
+    @route_metadata(
+        path="/devices/report_provider_metadata",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def report_provider_metadata(self, *, devices: List[Dict[str, Any]]) -> None:
         """Updates provider-specific metadata for devices.
 
-        :param devices: Array of devices with provider metadata to update"""
-        json_payload = {}
+        :param devices: Array of devices with provider metadata to update
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if devices is not None:
             json_payload["devices"] = devices
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /devices/report_provider_metadata"
+            )
 
         self.client.post("/devices/report_provider_metadata", json=json_payload)
 
         return None
 
+    @route_metadata(
+        path="/devices/update", has_required_parameters=True, has_pagination=False
+    )
     def update(
         self,
         *,
@@ -315,8 +354,8 @@ class Devices(AbstractDevices):
         backup_access_code_pool_enabled: Optional[bool] = None,
         custom_metadata: Optional[Dict[str, Any]] = None,
         is_managed: Optional[bool] = None,
-        name: Optional[str] = None,
-        properties: Optional[Dict[str, Any]] = None
+        name: Optional[Union[str, Null]] = None,
+        properties: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Updates a specified `device <https://docs.seam.co/core-concepts/devices>`_.
 
@@ -332,8 +371,10 @@ class Devices(AbstractDevices):
 
         :param name: Name for the device.
 
-        :param properties:"""
-        json_payload = {}
+        :param properties:
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if device_id is not None:
             json_payload["device_id"] = device_id
@@ -350,6 +391,9 @@ class Devices(AbstractDevices):
         if properties is not None:
             json_payload["properties"] = properties
 
-        self.client.post("/devices/update", json=json_payload)
+        if not json_payload:
+            raise ValueError("At least one parameter is required for /devices/update")
+
+        self.client.patch("/devices/update", json=json_payload)
 
         return None

@@ -14,16 +14,17 @@ import threading
 import requests
 from airbyte.exceptions import PyAirbyteInputError
 from cachetools import TTLCache, cached
+from cachetools.keys import hashkey
 
-from airbyte_ops_mcp.constants import CLOUD_REGISTRY_URL
+from airbyte_ops_mcp.constants import CLOUD_REGISTRY_GCS_URL, CLOUD_REGISTRY_URL
 
 _REGISTRY_TTL_SECONDS = 300  # 5 minutes
-_registry_cache: TTLCache = TTLCache(maxsize=1, ttl=_REGISTRY_TTL_SECONDS)
+_registry_cache: TTLCache = TTLCache(maxsize=2, ttl=_REGISTRY_TTL_SECONDS)
 _registry_lock = threading.Lock()
 
 
 @cached(cache=_registry_cache, lock=_registry_lock)
-def _fetch_cloud_registry() -> dict:
+def _fetch_registry_by_url(url: str) -> dict:
     """Fetch and parse the cloud connector registry (TTL-cached).
 
     Results are cached for `_REGISTRY_TTL_SECONDS` (5 min). Short-lived
@@ -35,11 +36,11 @@ def _fetch_cloud_registry() -> dict:
     callers receive a consistent error type.
     """
     try:
-        response = requests.get(CLOUD_REGISTRY_URL, timeout=60)
+        response = requests.get(url, timeout=60)
     except requests.RequestException as e:
         raise PyAirbyteInputError(
             message="Cloud connector registry request failed.",
-            context={"url": CLOUD_REGISTRY_URL, "error": str(e)},
+            context={"url": url, "error": str(e)},
         ) from e
 
     if response.status_code != 200:
@@ -53,11 +54,38 @@ def _fetch_cloud_registry() -> dict:
     except ValueError as e:
         raise PyAirbyteInputError(
             message="Cloud connector registry returned a malformed JSON response.",
-            context={"url": CLOUD_REGISTRY_URL, "error": str(e)},
+            context={"url": url, "error": str(e)},
         ) from e
 
 
-def resolve_canonical_name_to_definition_id(canonical_name: str) -> str:
+def _fetch_cloud_registry(
+    *,
+    from_gcs: bool = False,
+    bypass_cache: bool = False,
+) -> dict:
+    """Fetch the cloud registry from the CDN or its public GCS object.
+
+    The two transport URLs have independent five-minute cache entries. Set
+    `bypass_cache` to drop the selected transport's entry before fetching it.
+    """
+    url = CLOUD_REGISTRY_GCS_URL if from_gcs else CLOUD_REGISTRY_URL
+    if bypass_cache:
+        with _registry_lock:
+            _registry_cache.pop(hashkey(url), None)
+    return _fetch_registry_by_url(url)
+
+
+def invalidate_cloud_registry_cache() -> None:
+    """Drop all cached cloud registry transport responses."""
+    with _registry_lock:
+        _registry_cache.clear()
+
+
+def resolve_canonical_name_to_definition_id(
+    canonical_name: str,
+    *,
+    from_gcs: bool = False,
+) -> str:
     """Resolve a canonical connector name to a definition ID.
 
     Auto-detects whether the connector is a source or destination based on the
@@ -72,7 +100,7 @@ def resolve_canonical_name_to_definition_id(canonical_name: str) -> str:
 
     Raises `PyAirbyteInputError` if the canonical name cannot be resolved.
     """
-    data = _fetch_cloud_registry()
+    data = _fetch_cloud_registry(from_gcs=from_gcs)
     normalized_input = canonical_name.lower().strip()
 
     is_source = normalized_input.startswith("source-")
@@ -139,6 +167,8 @@ def resolve_canonical_name_to_definition_id(canonical_name: str) -> str:
 
 def resolve_definition_id_to_canonical_info(
     actor_definition_id: str,
+    *,
+    from_gcs: bool = False,
 ) -> tuple[str, str]:
     """Resolve a definition UUID to a canonical name and connector type.
 
@@ -152,12 +182,17 @@ def resolve_definition_id_to_canonical_info(
 
     Raises `PyAirbyteInputError` if the UUID is not present in the registry.
     """
-    info = resolve_definition_id_to_registry_info(actor_definition_id)
+    info = resolve_definition_id_to_registry_info(
+        actor_definition_id,
+        from_gcs=from_gcs,
+    )
     return info[0], info[1]
 
 
 def resolve_definition_id_to_registry_info(
     actor_definition_id: str,
+    *,
+    from_gcs: bool = False,
 ) -> tuple[str, str, str, str]:
     """Resolve a definition UUID to connector metadata from the registry.
 
@@ -167,7 +202,7 @@ def resolve_definition_id_to_registry_info(
 
     Raises `PyAirbyteInputError` if the UUID is not present in the registry.
     """
-    data = _fetch_cloud_registry()
+    data = _fetch_cloud_registry(from_gcs=from_gcs)
     normalized_id = actor_definition_id.strip().lower()
 
     for source in data.get("sources", []):

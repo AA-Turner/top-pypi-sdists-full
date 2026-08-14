@@ -88,6 +88,7 @@ class RolloutSummary(BaseModel):
     connector_name: str = ""
     docker_repository: str = ""
     rc_docker_image_tag: str = ""
+    initial_docker_image_tag: str = ""
     advance_rollout_id: str = ""
     advance_tier: str = ""
     advance_pct: str = ""
@@ -153,11 +154,16 @@ class ConnectorContextResult(BaseModel):
 
 
 class TabRowsResult(BaseModel):
-    """Typed output for the lazy tab loaders that return a single `rows` list."""
+    """Typed output for the lazy tab loaders.
+
+    `rows` is the loaded page. `limit` is the row count that was requested.
+    Tabs that load everything at once leave `limit` at its default.
+    """
 
     model_config = ConfigDict(frozen=True)
 
     rows: list[dict[str, object]] = Field(default_factory=list)
+    limit: int = 0
 
 
 class SearchConnectorsResult(BaseModel):
@@ -212,6 +218,10 @@ class ConnectorVersionContextResult(CompoundContextResult):
     latest_version_release_date: str = ""
     selected_version_display: str = ""
     default_version_display: str = ""
+    default_version_tag: str = ""
+    ga_default_version_display: str = ""
+    ga_default_version_tag: str = ""
+    promoting_version_display: str = ""
     version_pins: list[dict[str, object]] = Field(default_factory=list)
     version_pins_total: int = 0
     version_pins_offset: int = 0
@@ -223,6 +233,14 @@ class ConnectorVersionContextResult(CompoundContextResult):
     selected_version_yank_reason: str = ""
     selected_version_yank_approval_url: str = ""
     selected_version_yank_raw: str = ""
+    selected_version_promotion_pending: bool = False
+    selected_version_promotion_requested_at: str = ""
+    selected_version_promotion_requested_at_display: str = ""
+    selected_version_promotion_requested_by: str = ""
+    selected_version_promotion_rollout_id: str = ""
+    selected_version_promotion_raw: str = ""
+    selected_version_promotion_state: str = ""
+    selected_version_promotion_marker_date: str = ""
 
 
 class VersionPinsResult(BaseModel):
@@ -263,6 +281,12 @@ class RolloutActionResult(BaseModel):
     rollout_action_success: bool = False
 
 
+class RegistryCacheInvalidationResult(BaseModel):
+    """Typed output of the registry cache invalidation tool."""
+
+    invalidated: bool = False
+
+
 class ConnectorVersionManagerPageState(OpsPageState, OrgLookupModalState):
     """Complete initial Prefab state for the Connector Version Manager page."""
 
@@ -282,6 +306,7 @@ class ConnectorVersionManagerPageState(OpsPageState, OrgLookupModalState):
     pin_origin_filter: str = "all"
     yanked_version_rows: list[dict[str, object]] = Field(default_factory=list)
     recent_release_rows_loaded: bool = False
+    recent_release_limit: int = 250
     progressive_rollout_rows_loaded: bool = False
     pinned_version_rows_loaded: bool = False
     yanked_version_rows_loaded: bool = False
@@ -375,6 +400,14 @@ class ConnectorVersionManagerPageState(OpsPageState, OrgLookupModalState):
     selected_version_yank_reason: str = ""
     selected_version_yank_approval_url: str = ""
     selected_version_yank_raw: str = ""
+    selected_version_promotion_pending: bool = False
+    selected_version_promotion_requested_at: str = ""
+    selected_version_promotion_requested_at_display: str = ""
+    selected_version_promotion_requested_by: str = ""
+    selected_version_promotion_rollout_id: str = ""
+    selected_version_promotion_raw: str = ""
+    selected_version_promotion_state: str = ""
+    selected_version_promotion_marker_date: str = ""
 
     # Version pin detail state
     context_loading: bool = False
@@ -384,6 +417,10 @@ class ConnectorVersionManagerPageState(OpsPageState, OrgLookupModalState):
     latest_version_release_date: str = ""
     selected_version_display: str = ""
     default_version_display: str = ""
+    default_version_tag: str = ""
+    ga_default_version_display: str = ""
+    ga_default_version_tag: str = ""
+    promoting_version_display: str = ""
     version_pins: list[dict[str, object]] = Field(default_factory=list)
     version_pins_total: int = 0
     version_pins_offset: int = 0

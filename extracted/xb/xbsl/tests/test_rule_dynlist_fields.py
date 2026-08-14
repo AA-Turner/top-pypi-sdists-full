@@ -148,3 +148,149 @@ def test_qualified_expression_and_alias_count_as_present():
     form += "                    Псевдоним: Опубликован\n"
     d = _lint_form(form)
     assert d == []
+
+
+# --- yaml/dynlist-row-editing ----------------------------------------------------------
+
+EDIT_RULE = "yaml/dynlist-row-editing"
+
+_FLAT_CATALOG = "ВидЭлемента: Справочник\nИмя: Подписки\n"
+_HIER_CATALOG = "ВидЭлемента: Справочник\nИмя: Категории\nИерархический: Истина\n"
+
+
+def _event_form(type_text: str, event_key: str = "ПриРедактированииСтроки") -> str:
+    return (
+        "ВидЭлемента: КомпонентИнтерфейса\n"
+        "Имя: Ф\n"
+        "Содержимое:\n"
+        "    -\n"
+        f"        Тип: {type_text}\n"
+        "        Имя: Список\n"
+        f"        {event_key}: СтрокаПриРедактировании\n"
+    )
+
+
+def _lint_edit(*files: tuple[str, str]):
+    sources = [engine.load_text(name, content) for name, content in files]
+    return engine.run_sources(sources, select={EDIT_RULE})
+
+
+def test_row_edit_on_a_flat_dynlist_flagged():
+    """The registry case: the handler looks like working code, the platform never calls it."""
+    d = _lint_edit(
+        ("Подписки.yaml", _FLAT_CATALOG),
+        ("Ф.yaml", _event_form("Таблица<ДинамическийСписок<Подписки>>")),
+    )
+    assert [x.rule_id for x in d] == [EDIT_RULE]
+    assert "Подписки" in d[0].message and "не вызывает" in d[0].message
+    assert (d[0].line, d[0].col) == (7, 34)  # the handler name, not the top of the file
+
+
+def test_a_hierarchical_source_is_left_alone():
+    """Node rows of a hierarchy are what the event is documented for."""
+    d = _lint_edit(
+        ("Категории.yaml", _HIER_CATALOG),
+        ("Ф.yaml", _event_form("Таблица<ДинамическийСписок<Категории>>")),
+    )
+    assert d == []
+
+
+def test_an_untyped_dynlist_is_not_guessed():
+    """The untyped list of a list form implies its entity - resolving that would guess."""
+    d = _lint_edit(
+        ("Подписки.yaml", _FLAT_CATALOG),
+        ("Ф.yaml", _event_form("Таблица<ДинамическийСписок>")),
+    )
+    assert d == []
+
+
+def test_an_entity_outside_the_project_is_left_alone():
+    d = _lint_edit(("Ф.yaml", _event_form("Таблица<ДинамическийСписок<Чужая>>")))
+    assert d == []
+
+
+def test_the_row_form_chain_resolves_the_entity():
+    chain = "Таблица<ДинамическийСписок<Подписки.АвтоматическаяФормаСписка.ДанныеСтрокиСписка>>"
+    d = _lint_edit(("Подписки.yaml", _FLAT_CATALOG), ("Ф.yaml", _event_form(chain)))
+    assert [x.rule_id for x in d] == [EDIT_RULE]
+
+
+def test_an_array_source_is_not_judged():
+    d = _lint_edit(
+        ("Подписки.yaml", _FLAT_CATALOG),
+        ("Ф.yaml", _event_form("Таблица<ИсточникДанныхМассив<Строка>>")),
+    )
+    assert d == []
+
+
+def test_other_row_events_are_legal_on_a_flat_list():
+    d = _lint_edit(
+        ("Подписки.yaml", _FLAT_CATALOG),
+        ("Ф.yaml", _event_form(
+            "Таблица<ДинамическийСписок<Подписки>>", event_key="ПриНажатииСтроки"
+        )),
+    )
+    assert d == []
+
+
+# --- yaml/dynlist-column-sort-lost -----------------------------------------------------
+
+SORT_RULE = "yaml/dynlist-column-sort-lost"
+
+
+def _column_form(value: str, *, table="Таблица<ДинамическийСписок<Подписки>>") -> str:
+    return (
+        "ВидЭлемента: КомпонентИнтерфейса\n"
+        "Имя: Ф\n"
+        "Содержимое:\n"
+        "    -\n"
+        f"        Тип: {table}\n"
+        "        Имя: Список\n"
+        "        Колонки:\n"
+        "            -\n"
+        "                Тип: СтандартнаяКолонкаТаблицы<СтрокаДинамическогоСписка<Подписки>>\n"
+        f"                Значение: {value}\n"
+    )
+
+
+def _lint_sort(form: str):
+    return engine.run_sources([engine.load_text("Ф.yaml", form)], select={SORT_RULE})
+
+
+def test_a_computed_column_is_reported():
+    """The live case: a status badge built by a form method never sorts by its header."""
+    d = _lint_sort(_column_form("=ТекстСтатуса(ДанныеСтроки.Данные.Состояние)"))
+    assert [(x.rule_id, x.line) for x in d] == [(SORT_RULE, 10)]
+    assert "ТекстСтатуса" in d[0].message
+
+
+def test_a_qualified_call_is_reported_too():
+    d = _lint_sort(_column_form("=СтатусПриложения.Текст(ДанныеСтроки.Данные.Статус)"))
+    assert len(d) == 1 and "СтатусПриложения.Текст" in d[0].message
+
+
+def test_a_bare_field_binding_is_the_sortable_form():
+    """A second, computed column stands next to it on purpose: without a call anywhere in
+    the file the cheap text gate would carry the test, and a broken pattern would pass."""
+    form = _column_form("=ДанныеСтроки.Данные.Начало")
+    form += (
+        "            -\n"
+        "                Тип: СтандартнаяКолонкаТаблицы<СтрокаДинамическогоСписка<Подписки>>\n"
+        "                Значение: =ТекстСтатуса(ДанныеСтроки.Данные.Состояние)\n"
+    )
+    d = _lint_sort(form)
+    assert [x.line for x in d] == [13], [x.message for x in d]  # only the computed one
+
+
+def test_an_array_backed_list_has_no_header_sorting_to_lose():
+    d = _lint_sort(_column_form(
+        "=ТекстСтатуса(ДанныеСтроки.Данные.Состояние)",
+        table="Таблица<ИсточникДанныхМассив<Строка>>",
+    ))
+    assert d == []
+
+
+def test_the_rule_is_off_by_default():
+    info = next(r for r in engine.RULES if r.id == SORT_RULE)
+    assert info.enabled_by_default is False
+    assert info.off_reason

@@ -1,3 +1,4 @@
+import pytest
 from metrics.parsers import hf
 
 # Log lines exactly as llama_3_1_8b_cpu_sim.py emits them (the strings whose
@@ -5,7 +6,7 @@ from metrics.parsers import hf
 # compatibility guard.
 STEP_LINE = (
     "Global Rank: 0 | Step: 5 | Loss: 0.1234 | Step Time: 1.5000s | "
-    "Throughput: 42.67 samples/s"
+    "Throughput: 42.67 samples/s | Local Throughput: 10.67 samples/s | Epoch: 0"
 )
 SAVE_START = (
     "Checkpoint Save : Rank: 0 : Step: 25 : Start time: 100.0 "
@@ -107,3 +108,154 @@ def test_accelerator_blocked_time():
     dl = parsed.data_loading_metrics[0]
     assert dl.accelerator_blocked_time == 12.5
     assert dl.accelerator_blocked_percent == 4.2
+
+
+DATA_WAIT_SETUP_LINE = (
+    "Data Wait : Rank : 3 : Fetch : 1 : Action : setup_train_dataloader : "
+    "Duration : 12.500000 seconds : Total : 12.500000 seconds"
+)
+DATA_WAIT_FETCH_LINE = (
+    "Data Wait : Rank : 3 : Fetch : 2 : Action : "
+    "[_TrainingEpochLoop].train_dataloader_next : "
+    "Duration : 0.250000 seconds : Total : 12.750000 seconds"
+)
+
+
+def test_data_wait_spans_parsed():
+    parsed = _parse([DATA_WAIT_SETUP_LINE, DATA_WAIT_FETCH_LINE])
+    assert len(parsed.data_wait_metrics) == 2
+    setup, fetch = parsed.data_wait_metrics
+    assert setup.global_rank == 3
+    assert setup.fetch_index == 1
+    assert setup.action == "setup_train_dataloader"
+    assert setup.duration == 12.5
+    assert setup.cumulative_total == 12.5
+    assert fetch.action == "[_TrainingEpochLoop].train_dataloader_next"
+    assert fetch.duration == 0.25
+    assert fetch.cumulative_total == 12.75
+
+
+SIZE_LINE = (
+    "Checkpoint Size : Rank : 0 : Step : 25 : Bytes : 17179869184 : "
+    "Path: gs://b/ckpt/r/llama-00-25.ckpt"
+)
+
+DATASET_BUILD_LINE = (
+    "Dataset Build : Rank : 2 : Duration : 3.456789 seconds : "
+    "Path: gs://ds/parquet-dir"
+)
+
+
+def test_dataset_build_parsed():
+    parsed = _parse([DATASET_BUILD_LINE])
+    assert len(parsed.dataset_build_metrics) == 1
+    row = parsed.dataset_build_metrics[0]
+    assert row.global_rank == 2
+    assert row.duration == 3.456789
+    assert row.dataset_path == "gs://ds/parquet-dir"
+
+
+def test_step_line_captures_samples_per_second():
+    parsed = _parse([STEP_LINE])
+    assert parsed.step_metrics[0].samples_per_second == 42.67
+
+
+def test_checkpoint_size_parsed():
+    parsed = _parse([SIZE_LINE])
+    assert len(parsed.checkpoint_sizes) == 1
+    row = parsed.checkpoint_sizes[0]
+    assert row.checkpoint_step == 25
+    assert row.size_bytes == 17179869184
+    assert row.checkpoint_location == "gs://b/ckpt/r/llama-00-25.ckpt"
+    assert row.global_rank == 0
+
+
+class _FakeGapicPage:
+    def __init__(self, entries, next_page_token):
+        self.entries = entries
+        self.next_page_token = next_page_token
+
+
+class _FakeGapicPager:
+    def __init__(self, pages, fail=False):
+        self._pages = pages
+        self._fail = fail
+
+    @property
+    def pages(self):
+        if self._fail:
+            from google.api_core import exceptions as gexc
+
+            raise gexc.ResourceExhausted("quota exceeded")
+        yield from self._pages
+
+
+class _FakeClient:
+    def __init__(self):
+        from datetime import datetime, timezone
+        from unittest.mock import MagicMock
+
+        self.project = "test-proj"
+        self.calls = 0
+        self.logging_api = MagicMock()
+        ts1 = datetime.fromtimestamp(1.0, tz=timezone.utc)
+        ts2 = datetime.fromtimestamp(2.0, tz=timezone.utc)
+
+        page1 = _FakeGapicPage(
+            [
+                MagicMock(
+                    text_payload="hello",
+                    json_payload=None,
+                    timestamp=ts1,
+                    spec=["text_payload", "json_payload", "timestamp"],
+                ),
+                MagicMock(
+                    text_payload="world",
+                    json_payload=None,
+                    timestamp=ts2,
+                    spec=["text_payload", "json_payload", "timestamp"],
+                ),
+            ],
+            next_page_token="",
+        )
+
+        def _list_log_entries(request):
+            assert request["page_size"] == hf._MAX_PAGE_SIZE
+            fail = self.calls == 0
+            self.calls += 1
+            return _FakeGapicPager([page1], fail=fail)
+
+        self.list_log_entries = _list_log_entries
+
+
+def test_iter_log_entries_retries_on_quota_error():
+    retries = pytest.importorskip("google.api_core.retry")
+    gexc = pytest.importorskip("google.api_core.exceptions")
+
+    fast_retry = retries.Retry(
+        predicate=retries.if_exception_type(gexc.ResourceExhausted),
+        initial=0.0,
+        maximum=0.0,
+        multiplier=1.0,
+        deadline=30.0,
+    )
+    client = _FakeClient()
+    entries = list(
+        hf.iter_log_entries(client, "test-proj", "some-filter", retry=fast_retry)
+    )
+
+    assert client.calls == 2
+    assert [e.message for e in entries] == ["hello", "world"]
+    assert [e.timestamp for e in entries] == [1.0, 2.0]
+
+
+def test_build_filter_includes_all_patterns():
+    filter_str = hf.build_filter(
+        project="p",
+        run_id="r",
+        start_time="2026-01-01T00:00:00Z",
+        end_time="2026-01-01T01:00:00Z",
+    )
+    for pattern in hf.ALL_PATTERNS:
+        assert pattern in filter_str
+    assert hf.CHECKPOINT_SIZE_PATTERN in hf.ALL_PATTERNS

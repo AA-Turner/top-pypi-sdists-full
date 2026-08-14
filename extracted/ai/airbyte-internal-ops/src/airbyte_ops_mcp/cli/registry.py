@@ -11,10 +11,13 @@ Command groups:
     airbyte-ops registry connector-version yank - Mark a connector version as yanked
     airbyte-ops registry connector-version unyank - Remove yank marker from a connector version
     airbyte-ops registry connector-version metadata get - Read connector metadata from GCS
+    airbyte-ops registry connector-version releases get - Read release attribution info for one connector version
+    airbyte-ops registry connector-version releases list - List release attribution info for connector versions
     airbyte-ops registry connector-version artifacts generate - Generate version artifacts locally via docker
     airbyte-ops registry connector-version artifacts publish - Publish version artifacts to GCS
     airbyte-ops registry store mirror --local|--gcs-bucket|--s3-bucket - Mirror entire registry for testing
     airbyte-ops registry store compile --store coral:dev|coral:prod - Compile registry indexes and sync latest/ dirs
+    airbyte-ops registry release-attribution build - Build a Git release attribution index
     airbyte-ops registry marketing-stubs sync --store coral:prod - Sync connector_stubs.json to GCS
     airbyte-ops registry marketing-stubs check --store coral:prod - Compare local file with GCS
 
@@ -78,6 +81,15 @@ from airbyte_ops_mcp.registry.registry_store_base import (
     Registry,
     get_registry,
 )
+from airbyte_ops_mcp.registry.release_attribution import (
+    ReleaseAttributionListResult,
+    enrich_release_attribution,
+    list_release_attribution,
+    lookup_release_attribution,
+    read_release_attribution_index,
+    scan_release_attribution,
+    write_release_attribution_index,
+)
 
 error_console = Console(stderr=True)
 
@@ -104,6 +116,13 @@ metadata_app = App(
     help="Connector metadata inspection.",
 )
 connector_version_app.command(metadata_app)
+
+# Create the releases sub-app under connector-version
+releases_app = App(
+    name="releases",
+    help="Inspect which pull request and author released each connector version.",
+)
+connector_version_app.command(releases_app)
 
 # Create the artifacts sub-app under connector-version
 artifacts_app = App(
@@ -133,11 +152,206 @@ marketing_stubs_app = App(
 )
 registry_app.command(marketing_stubs_app)
 
+# Create the release-attribution sub-app under registry
+release_attribution_app = App(
+    name="release-attribution",
+    help="Connector release attribution from Git history.",
+)
+registry_app.command(release_attribution_app)
+
 
 AIRBYTE_REPO_OWNER = "airbytehq"
 AIRBYTE_ENTERPRISE_REPO_NAME = "airbyte-enterprise"
 AIRBYTE_REPO_NAME = "airbyte"
 CONNECTOR_PATH_PREFIX = "airbyte-integrations/connectors"
+
+
+@release_attribution_app.command(name="build")
+def build_release_attribution_cmd(
+    repo_path: Annotated[
+        Path,
+        Parameter(help="Path to a full airbyte monorepo checkout."),
+    ],
+    output_path: Annotated[
+        Path,
+        Parameter(help="Local JSON path to write the attribution index."),
+    ],
+    *,
+    connector: Annotated[
+        str | None,
+        Parameter(help="Limit the scan to one connector."),
+    ] = None,
+    with_github_enrichment: Annotated[
+        bool,
+        Parameter(
+            help="Enrich missing PR author metadata through GitHub GraphQL.",
+            negative="--no-github-enrichment",
+        ),
+    ] = False,
+) -> None:
+    """Build a connector release attribution index from Git history."""
+    try:
+        index = scan_release_attribution(repo_path, connector=connector)
+        if with_github_enrichment:
+            index = enrich_release_attribution(index)
+        write_release_attribution_index(index, output_path)
+    except (OSError, ValueError) as exc:
+        exit_with_error(str(exc))
+    summary = index.summary
+    print_json(
+        {
+            **summary.model_dump(),
+            "pr_percentage": summary.pr_percentage,
+            "author_login_percentage": summary.author_login_percentage,
+            "output_path": str(output_path),
+        }
+    )
+
+
+@release_attribution_app.command(name="show")
+def show_release_attribution_cmd(
+    index_path: Annotated[
+        Path,
+        Parameter(help="Attribution index JSON path."),
+    ],
+    connector: Annotated[
+        str,
+        Parameter(help="Connector name, for example `source-faker`."),
+    ],
+    version: Annotated[
+        str,
+        Parameter(help="Connector version, for example `7.2.1`."),
+    ],
+) -> None:
+    """Show attribution for one connector version."""
+    try:
+        index = read_release_attribution_index(index_path)
+    except (OSError, ValueError) as exc:
+        exit_with_error(f"Could not read attribution index {index_path}: {exc}")
+    if connector not in index.connectors:
+        exit_with_error(
+            f"Attribution not found for connector `{connector}` in `{index_path}`."
+        )
+    if version not in index.connectors[connector]:
+        exit_with_error(
+            f"Attribution not found for `{connector}@{version}` in `{index_path}`."
+        )
+    record = index.connectors[connector][version]
+    print_json(record.model_dump(mode="json"))
+
+
+@releases_app.command(name="get")
+def release_attribution_get_cmd(
+    connector: Annotated[
+        str,
+        Parameter(help="Connector name, for example `source-faker`."),
+    ],
+    version: Annotated[
+        str,
+        Parameter(help="Connector version, for example `7.2.1`."),
+    ],
+    store: Annotated[
+        str,
+        Parameter(help="Registry store target, for example `coral:prod`."),
+    ] = "coral:prod",
+) -> None:
+    """Read which pull request and author released one connector version."""
+    try:
+        result = lookup_release_attribution(
+            resolve_registry_store(store=store),
+            connector,
+            version,
+        )
+    except (OSError, ValueError) as exc:
+        exit_with_error(str(exc))
+    print_json(result.model_dump(mode="json"))
+
+
+def _print_release_attribution_list(
+    result: ReleaseAttributionListResult,
+    *,
+    format: Literal["json", "text"],
+) -> None:
+    """Render release attribution as JSON or an author-focused text table."""
+    if format == "json":
+        print_json(result.model_dump(mode="json"))
+        return
+
+    print("VERSION\tSTATUS\tAUTHOR TYPE\tCONTACT\tPULL REQUEST")
+    for item in result.items:
+        attribution = item.attribution
+        if attribution is None:
+            author_type = "UNKNOWN"
+            contact = "no attribution"
+            pull_request = "-"
+        else:
+            author_type = {
+                "User": "HUMAN",
+                "Bot": "BOT",
+            }.get(attribution.pr_author_type or "", "UNKNOWN")
+            if attribution.attributed_to:
+                contact = f"@{attribution.attributed_to}"
+            elif attribution.pr_author_type == "Bot":
+                contact = "none (bot-authored)"
+            elif attribution.pr_author_type == "User":
+                contact = "none (human login unavailable)"
+            else:
+                contact = "none (author type unavailable)"
+            pull_request = (
+                f"#{attribution.pr_number}"
+                if attribution.pr_number is not None
+                else "-"
+            )
+        print(
+            f"{item.version}\t{item.status}\t{author_type}\t{contact}\t{pull_request}"
+        )
+    if result.error:
+        print(f"ERROR\t{result.error}")
+
+
+@releases_app.command(name="list")
+def release_attribution_list_cmd(
+    connector: Annotated[
+        str,
+        Parameter(help="Connector name, for example `source-faker`."),
+    ],
+    limit: Annotated[
+        int,
+        Parameter(help="Maximum number of versions to return, newest first."),
+    ] = 50,
+    with_metadata_fallback: Annotated[
+        bool,
+        Parameter(
+            help="Read metadata for entries without release attribution info.",
+            negative="--no-metadata-fallback",
+        ),
+    ] = False,
+    format: Annotated[
+        Literal["json", "text"],
+        Parameter(
+            help="Output format: 'json' for machine-readable data, 'text' for a readable PR/author summary."
+        ),
+    ] = "text",
+    store: Annotated[
+        str,
+        Parameter(help="Registry store target, for example `coral:prod`."),
+    ] = "coral:prod",
+) -> None:
+    """List which pull request and author released each connector version.
+
+    The default text output labels human and bot authors explicitly. Listing
+    reads only the version index unless `--with-metadata-fallback` is supplied.
+    """
+    try:
+        result = list_release_attribution(
+            resolve_registry_store(store=store),
+            connector,
+            limit=limit,
+            with_metadata_fallback=with_metadata_fallback,
+        )
+    except (OSError, ValueError) as exc:
+        exit_with_error(str(exc))
+    _print_release_attribution_list(result, format=format)
 
 
 def _resolve_store(store: str) -> Registry:
@@ -1100,6 +1314,15 @@ def generate_version_artifacts_cmd(
             negative="--no-dependency-dump",
         ),
     ] = True,
+    pr_number: Annotated[
+        int | None,
+        Parameter(
+            help=(
+                "Pull request number for prerelease attribution. "
+                "When provided, it overrides the commit subject."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Generate version artifacts for a connector locally.
 
@@ -1134,6 +1357,7 @@ def generate_version_artifacts_cmd(
         with_validate=with_validate,
         with_dependency_dump=with_dependency_dump,
         with_sbom=with_sbom,
+        pr_number=pr_number,
     )
 
     print_json(result.to_dict())
@@ -1236,6 +1460,8 @@ def publish_version_artifacts_cmd(
             "files_uploaded": result.files_uploaded,
             "errors": result.errors,
             "validation_errors": result.validation_errors,
+            "progressive_rollout_overridden_by_breaking_change": result.progressive_rollout_overridden_by_breaking_change,
+            "progressive_rollout_overridden_by_published_ga": result.progressive_rollout_overridden_by_published_ga,
             "dry_run": result.dry_run,
         }
     )
@@ -1319,6 +1545,27 @@ def compile_cmd(
             ),
         ),
     ] = False,
+    with_full_restate: Annotated[
+        bool,
+        Parameter(
+            help=(
+                "Re-derive every version's release attribution from metadata.yaml. "
+                "Expensive for all connectors (~33.5k reads). Without "
+                "--release-attribution-index, historical blocks unavailable "
+                "from metadata.yaml are discarded."
+            ),
+            negative="--no-full-restate",
+        ),
+    ] = False,
+    release_attribution_index: Annotated[
+        Path | None,
+        Parameter(
+            help=(
+                "Seed missing release blocks from a Phase 1 attribution index "
+                "without rewriting historical metadata.yaml files."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Compile the registry: sync latest/ dirs, write global and per-connector indexes.
 
@@ -1345,6 +1592,13 @@ def compile_cmd(
     With `--force`, resyncs all latest/ directories even if the version marker
     matches the computed latest version.
 
+    With `--with-full-restate`, re-reads every version's metadata.yaml to
+    re-derive release attribution. This is an expensive operation at roughly
+    33.5k reads for the full registry.
+
+    With `--release-attribution-index`, seeds historical `release` blocks
+    directly into versions.json from a Phase 1 Git backfill index.
+
     Uses efficient glob patterns for scanning (no file downloads during discovery).
 
     Requires GCS_CREDENTIALS environment variable to be set.
@@ -1369,6 +1623,8 @@ def compile_cmd(
         with_legacy_migration=with_legacy_migration,
         with_metrics=with_metrics,
         force=force,
+        with_full_restate=with_full_restate,
+        release_attribution_index=release_attribution_index,
     )
 
     print_json(
@@ -1388,6 +1644,7 @@ def compile_cmd(
             "metrics_source": result.metrics_source,
             "metrics_error": result.metrics_error,
             "version_indexes_written": result.version_indexes_written,
+            "version_indexes_skipped": result.version_indexes_skipped,
             "specs_secrets_mask_properties": result.specs_secrets_mask_properties,
             "errors": result.errors,
             "dry_run": result.dry_run,

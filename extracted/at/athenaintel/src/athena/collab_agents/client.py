@@ -32,6 +32,7 @@ class CollabAgentsClient:
         *,
         message: str,
         client_thread_key: typing.Optional[str] = OMIT,
+        voice_update_handle: typing.Optional[str] = OMIT,
         wait: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CollabAgentSendMessageResponseOut:
@@ -48,6 +49,9 @@ class CollabAgentsClient:
 
         client_thread_key : typing.Optional[str]
             Optional caller-chosen conversation key. Submissions from the same caller with the same key continue one agent session (until 24 hours of inactivity); different keys hold independent conversations. Omitted, all of a caller's submissions to this agent share one 'default' thread.
+
+        voice_update_handle : typing.Optional[str]
+            Reserved for Athena voice surfaces (the OpenAI Live Console). An opaque callback handle for a live voice conversation that delegated this submission: the run gains a send_voice_update tool that streams interim updates back to that conversation. Requires wait=true. Leave unset for ordinary submissions.
 
         wait : typing.Optional[bool]
             When false (default), the submission is queued and the endpoint returns 202 immediately. When true, the request long-polls: the connection is held open while the agent runs (typically seconds to a few minutes) and the final reply is returned in the response.
@@ -75,7 +79,12 @@ class CollabAgentsClient:
         )
         """
         _response = self._raw_client.send_message(
-            asset_id, message=message, client_thread_key=client_thread_key, wait=wait, request_options=request_options
+            asset_id,
+            message=message,
+            client_thread_key=client_thread_key,
+            voice_update_handle=voice_update_handle,
+            wait=wait,
+            request_options=request_options,
         )
         return _response.data
 
@@ -101,6 +110,7 @@ class AsyncCollabAgentsClient:
         *,
         message: str,
         client_thread_key: typing.Optional[str] = OMIT,
+        voice_update_handle: typing.Optional[str] = OMIT,
         wait: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CollabAgentSendMessageResponseOut:
@@ -117,6 +127,9 @@ class AsyncCollabAgentsClient:
 
         client_thread_key : typing.Optional[str]
             Optional caller-chosen conversation key. Submissions from the same caller with the same key continue one agent session (until 24 hours of inactivity); different keys hold independent conversations. Omitted, all of a caller's submissions to this agent share one 'default' thread.
+
+        voice_update_handle : typing.Optional[str]
+            Reserved for Athena voice surfaces (the OpenAI Live Console). An opaque callback handle for a live voice conversation that delegated this submission: the run gains a send_voice_update tool that streams interim updates back to that conversation. Requires wait=true. Leave unset for ordinary submissions.
 
         wait : typing.Optional[bool]
             When false (default), the submission is queued and the endpoint returns 202 immediately. When true, the request long-polls: the connection is held open while the agent runs (typically seconds to a few minutes) and the final reply is returned in the response.
@@ -152,6 +165,11 @@ class AsyncCollabAgentsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.send_message(
-            asset_id, message=message, client_thread_key=client_thread_key, wait=wait, request_options=request_options
+            asset_id,
+            message=message,
+            client_thread_key=client_thread_key,
+            voice_update_handle=voice_update_handle,
+            wait=wait,
+            request_options=request_options,
         )
         return _response.data

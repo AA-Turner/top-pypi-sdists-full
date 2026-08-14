@@ -162,8 +162,12 @@ class VisionCoder:
             cfg.max_tokens,
         )
 
-        Qwen2_5_VLForConditionalGeneration = get_transformers(
-            "Qwen2_5_VLForConditionalGeneration"
+        # AutoModelForImageTextToText dispatches on the checkpoint's own
+        # model_type — a hardcoded Qwen2_5_VL class loaded ANY vision
+        # checkpoint, which shape-mismatched every non-Qwen VLM (MiniCPM-V-4.6
+        # died with ignore_mismatched_sizes on worker ae, 2026-08-06).
+        AutoModelForImageTextToText = get_transformers(
+            "AutoModelForImageTextToText"
         )
         AutoProcessor = get_transformers("AutoProcessor")
 
@@ -197,12 +201,12 @@ class VisionCoder:
                 "max_memory": max_memory,
             })
 
-            self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            self.model = AutoModelForImageTextToText.from_pretrained(
                 cfg.model_dir,
                 **model_kwargs,
             )
         else:
-            self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            self.model = AutoModelForImageTextToText.from_pretrained(
                 cfg.model_dir,
                 **model_kwargs,
             ).to(cfg.device)

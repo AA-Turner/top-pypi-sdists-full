@@ -656,6 +656,14 @@ class HeartbeatRequest(BaseModel):
     # vram_freed,at}, last_at} — the GPU evict-to-fit churn the operator watches,
     # surfaced beside the disk reaps. None on a pre-slice-10 worker.
     vram_evictions: dict | None = None
+    # VRAM-HOLDER METER (incident 2026-08-05): the worker's read-only per-card
+    # VRAM breakdown + a row per holder {pid, name, vram_bytes, kind, model_key?,
+    # serving?, reapable, squatter, reason, work_state}, plus {cards, gpu_util_pct,
+    # gpu_util_source, squatters, min_age_s}. Central stores it verbatim and
+    # derives the per-worker vram_squatters summary in _public_view. Additive +
+    # optional (extra='ignore' drops it for older central; None on a pre-feature
+    # or no-GPU worker).
+    vram_holders: dict | None = None
     # t28 load-and-learn: compact prediction-vs-measured observations the worker
     # emits on load-success (measured VRAM/RSS) and load-fail (refusal). Central
     # persists + aggregates them into per-model correction factors. Additive +
@@ -760,6 +768,42 @@ def workers_list():
     except Exception:  # noqa: BLE001 — attribution enrichment never 5xxes /llm/workers
         logger.debug("pid_registry relay attribution hook failed", exc_info=True)
     return jsonify(rows)
+
+
+@worker_bp.route("/llm/vram", methods=["GET"])
+def vram_meter():
+    """VRAM-HOLDER METER (incident 2026-08-05) — the small read the UI meter
+    polls. Per worker: its reported per-card breakdown + row-per-holder
+    (``vram_holders``) and the derived explicit ``vram_squatters``. Fleet-wide:
+    a flat ``squatters`` list (every idle own-venv holder that holds VRAM, has no
+    live slot claim and is not serving — reapable but NEVER auto-reaped; p27
+    gates the reaper) plus a rollup. Central-only facts; no worker I/O on this
+    read (the meter is derived from the last heartbeat, exactly like the honest
+    bars). This surfaces the leak; it never kills anything."""
+    workers: list = []
+    squatters: list = []
+    for w in list_workers():
+        holders = w.get("vram_holders") if isinstance(w.get("vram_holders"), dict) else None
+        rows = w.get("vram_squatters") or []
+        squatters.extend(rows)
+        workers.append({
+            "id": w.get("id"),
+            "name": w.get("name"),
+            "status": w.get("status"),
+            "vram_total": w.get("vram_total"),
+            "vram_used": w.get("vram_used"),
+            "vram_free": w.get("vram_free"),
+            "gpu_util_pct": (holders or {}).get("gpu_util_pct"),
+            "holders": (holders or {}).get("holders") or [],
+            "squatters": rows,
+        })
+    squat_bytes = sum(int(r.get("vram_bytes") or 0) for r in squatters)
+    return jsonify({
+        "workers": workers,
+        "squatters": squatters,
+        "squatter_count": len(squatters),
+        "squatter_vram_bytes": squat_bytes,
+    })
 
 
 @worker_bp.route("/llm/workers/required-version", methods=["GET"])
@@ -1275,6 +1319,7 @@ def workers_heartbeat(worker_id):
         slot_incapable_reason=body.slot_incapable_reason,
         task_capabilities=body.task_capabilities,
         vram_evictions=body.vram_evictions,
+        vram_holders=body.vram_holders,
         aggregate=body.aggregate,
     )
     if worker is None:
@@ -2125,6 +2170,57 @@ def workers_evict(worker_id):
     return _relay_worker_op(worker_id, "/ops/evict",
                             request.get_json(silent=True) or {},
                             timeout=45.0, action="evict")
+
+
+@worker_bp.route("/llm/workers/<worker_id>/external", methods=["GET"])
+def workers_external(worker_id):
+    """Read this worker's EXTERNAL gpu_lease residents (wildcard processes —
+    batch jobs like the bluebook OCR sharing the card as pseudo-models). Pulls
+    the worker's live /ops/residents view and returns only the external rows,
+    each carrying the operator-adjustable policy pair the console renders as
+    toggles: ``evictable`` (bool) and ``resume`` ("enabled"|"disabled").
+    Read-only — the write lever is POST .../external-set below."""
+    from ..functions.imports.utils import worker_http
+    worker = get_worker(worker_id)
+    if worker is None:
+        abort(404, description="Unknown worker id.")
+    try:
+        r = worker_http.get(worker, "/ops/residents", read_timeout=10.0)
+        data = r.json() if r.status_code == 200 else {}
+    except worker_http.WorkerUnreachable as exc:
+        return jsonify({"ok": False, "error": exc.as_error()}), 503
+    except Exception as exc:  # noqa: BLE001
+        cause = getattr(exc, "__cause__", None) or exc
+        return jsonify({"ok": False,
+                        "error": {"code": type(cause).__name__,
+                                  "message": str(cause)}}), 502
+    return jsonify({"ok": True,
+                    "external": data.get("external") or [],
+                    "free_vram": data.get("free_vram"),
+                    "total_vram": data.get("total_vram")})
+
+
+@worker_bp.route("/llm/workers/<worker_id>/external-set", methods=["POST"])
+def workers_external_set(worker_id):
+    """Adjust a RUNNING external lease's policy — the console twin of the
+    ``hugpy-lease-set`` CLI. Body: ``{"model_key": ..., "evictable"?: bool,
+    "resume"?: "enabled"|"disabled"}``. Relays to the worker's
+    /ops/external/set, which updates the authoritative worker-side registry
+    AND forwards to the lease supervisor's control URL so its heartbeats
+    agree (operator sets stick — a client heartbeat can't undo them).
+    Operator-gated in operator_auth._SENSITIVE + audited like evict."""
+    body = request.get_json(silent=True) or {}
+    model_key = str(body.get("model_key") or "").strip()
+    if not model_key:
+        return jsonify({"ok": False, "error": {
+            "code": "BadValue", "message": "model_key required"}}), 400
+    payload = {"model_key": model_key}
+    if body.get("evictable") is not None:
+        payload["evictable"] = bool(body["evictable"])
+    if body.get("resume") is not None:
+        payload["resume"] = body["resume"]
+    return _relay_worker_op(worker_id, "/ops/external/set", payload,
+                            timeout=15.0, action="external-set")
 
 
 @worker_bp.route("/llm/workers/<worker_id>/reap-orphans", methods=["POST"])

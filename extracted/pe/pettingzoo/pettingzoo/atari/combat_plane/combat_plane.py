@@ -9,7 +9,7 @@
 
 This environment is part of the <a href='..'>Atari environments</a>. Please read that page first for general information.
 
-| Import             | `from pettingzoo.atari import combat_jet_v1` |
+| Creation           | `make("aec", "atari/combat_plane-v2")`       |
 |--------------------|----------------------------------------------|
 | Actions            | Discrete                                     |
 | Parallel API       | Yes                                          |
@@ -43,8 +43,10 @@ Some environment parameters are common to all Atari environments and are describ
 
 Parameters specific to combat-plane are
 
-``` python
-combat_plane_v2.env(game_version="jet", guided_missile=True)
+```python
+from pettingzoo import make
+
+make("aec", "atari/combat_plane-v2", game_version="jet", guided_missile=True)
 ```
 
 `game_version`:  Accepted arguments are "jet" or "bi-plane". Whether the plane is a bi-plane or a jet. (Jets move faster)
@@ -105,9 +107,9 @@ avaliable_versions = {
 def raw_env(
     game_version: str = "bi-plane", guided_missile: bool = True, **kwargs: Any
 ) -> AtariAECEnv:
-    assert (
-        game_version in avaliable_versions
-    ), "game_version must be either 'jet' or 'bi-plane'"
+    assert game_version in avaliable_versions, (
+        "game_version must be either 'jet' or 'bi-plane'"
+    )
     mode = avaliable_versions[game_version] + (0 if guided_missile else 1)
     name = os.path.basename(__file__).split(".")[0]
     parent_file = glob(

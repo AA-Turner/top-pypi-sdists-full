@@ -48,6 +48,10 @@ class ClickHouseRelation(BaseRelation):
     mvs_pointing_to_it: List[Dict[str, str]] = field(
         default_factory=list
     )  # List of {'schema', 'name', 'sql'}
+    # Populated from the deployed DDL when the relation is loaded from the database cache;
+    # relations built any other way default to False.
+    is_refreshable: bool = False
+    refreshable_append: bool = False
 
     def __post_init__(self):
         if self.database != self.schema and self.database:
@@ -108,9 +112,10 @@ class ClickHouseRelation(BaseRelation):
     def get_on_cluster(
         cls: Type[Self],
         cluster: str = '',
-        database_engine: str = '',
+        database_engine: Optional[str] = None,
     ) -> bool:
         # not using ternary expression for simplicity
+        database_engine = database_engine or ''
         if not cluster.strip() or 'replicated' in database_engine.lower():
             return False
         else:

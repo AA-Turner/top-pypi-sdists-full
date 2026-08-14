@@ -57,6 +57,7 @@ class TestSharedTriggersModelsTriggerModel(unittest.TestCase):
                 last_drift_measurement = { },
                 last_volume_measurement = { },
                 last_condition_check_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
+                name = '',
                 description = '',
                 created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),

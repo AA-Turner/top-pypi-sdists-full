@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+from typing_extensions import override
 
 from pettingzoo.utils.env import (
     ActionType,
@@ -29,17 +30,18 @@ class OrderEnforcingWrapper(BaseWrapper[AgentID, ObsType, ActionType]):
     """
 
     def __init__(self, env: AECEnv[AgentID, ObsType, ActionType]):
-        assert isinstance(
-            env, AECEnv
-        ), "OrderEnforcingWrapper is only compatible with AEC environments"
+        assert isinstance(env, AECEnv), (
+            "OrderEnforcingWrapper is only compatible with AEC environments"
+        )
         self._has_reset = False
         self._has_updated = False
         super().__init__(env)
 
-    def __getattr__(self, value: str) -> Any:
+    @override
+    def __getattr__(self, name: str) -> Any:
         """Raises an error if certain data is accessed before reset."""
         if (
-            value
+            name
             in {
                 "rewards",
                 "terminations",
@@ -51,14 +53,16 @@ class OrderEnforcingWrapper(BaseWrapper[AgentID, ObsType, ActionType]):
             }
             and not self._has_reset
         ):
-            raise AttributeError(f"{value} cannot be accessed before reset")
-        return super().__getattr__(value)
+            raise AttributeError(f"{name} cannot be accessed before reset")
+        return super().__getattr__(name)
 
-    def render(self) -> None | np.ndarray | str | list:
+    @override
+    def render(self) -> None | np.ndarray | str | list[Any]:
         if not self._has_reset:
             EnvLogger.error_render_before_reset()
         return super().render()
 
+    @override
     def step(self, action: ActionType) -> None:
         if not self._has_reset:
             EnvLogger.error_step_before_reset()
@@ -69,16 +73,19 @@ class OrderEnforcingWrapper(BaseWrapper[AgentID, ObsType, ActionType]):
             self._has_updated = True
             super().step(action)
 
+    @override
     def observe(self, agent: AgentID) -> ObsType | None:
         if not self._has_reset:
             EnvLogger.error_observe_before_reset()
         return super().observe(agent)
 
+    @override
     def state(self) -> np.ndarray:
         if not self._has_reset:
             EnvLogger.error_state_before_reset()
         return super().state()
 
+    @override
     def agent_iter(
         self, max_iter: int = 2**63
     ) -> AECOrderEnforcingIterable[AgentID, ObsType, ActionType]:
@@ -86,22 +93,27 @@ class OrderEnforcingWrapper(BaseWrapper[AgentID, ObsType, ActionType]):
             EnvLogger.error_agent_iter_before_reset()
         return AECOrderEnforcingIterable(self, max_iter)
 
-    def reset(self, seed: int | None = None, options: dict | None = None) -> None:
+    @override
+    def reset(
+        self, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> None:
         self._has_reset = True
         self._has_updated = True
         super().reset(seed=seed, options=options)
 
+    @override
     def __str__(self) -> str:
         if hasattr(self, "metadata"):
             return (
                 str(self.env)
                 if self.__class__ is OrderEnforcingWrapper
-                else f"{type(self).__name__}<{str(self.env)}>"
+                else f"{type(self).__name__}<{self.env!s}>"
             )
         return repr(self)
 
 
 class AECOrderEnforcingIterable(AECIterable[AgentID, ObsType, ActionType]):
+    @override
     def __iter__(self) -> AECOrderEnforcingIterator[AgentID, ObsType, ActionType]:
         return AECOrderEnforcingIterator(self.env, self.max_iter)
 
@@ -110,15 +122,16 @@ class AECOrderEnforcingIterator(AECIterator[AgentID, ObsType, ActionType]):
     def __init__(
         self, env: OrderEnforcingWrapper[AgentID, ObsType, ActionType], max_iter: int
     ):
-        assert isinstance(
-            env, OrderEnforcingWrapper
-        ), "env must be wrapped by OrderEnforcingWrapper"
+        assert isinstance(env, OrderEnforcingWrapper), (
+            "env must be wrapped by OrderEnforcingWrapper"
+        )
         super().__init__(env, max_iter)
 
+    @override
     def __next__(self) -> AgentID:
         agent = super().__next__()
         assert (
-            self.env._has_updated  # pyright: ignore[reportGeneralTypeIssues]
+            self.env._has_updated  # type: ignore
         ), "need to call step() or reset() in a loop over `agent_iter`"
-        self.env._has_updated = False  # pyright: ignore[reportGeneralTypeIssues]
+        self.env._has_updated = False  # type: ignore
         return agent

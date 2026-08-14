@@ -1,6 +1,7 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
 from ..resources import ActionAttempt, Device
 from .locks_simulate import AbstractLocksSimulate, LocksSimulate
 from ..modules.action_attempts import resolve_action_attempt
@@ -20,7 +21,7 @@ class AbstractLocks(abc.ABC):
         auto_lock_enabled: bool,
         device_id: str,
         auto_lock_delay_seconds: Optional[float] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Configures the auto-lock setting for a specified `lock <https://docs.seam.co/low-level-apis/smart-locks>`_.
 
@@ -32,7 +33,9 @@ class AbstractLocks(abc.ABC):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -47,6 +50,8 @@ class AbstractLocks(abc.ABC):
 
         :returns: OK
 
+        :raises ValueError: At least one parameter must be provided.
+
         .. deprecated::
            Use ``/devices/get`` instead."""
         raise NotImplementedError()
@@ -57,20 +62,10 @@ class AbstractLocks(abc.ABC):
         *,
         connect_webview_id: Optional[str] = None,
         connected_account_id: Optional[str] = None,
-        connected_account_ids: Optional[List[str]] = None,
-        created_before: Optional[str] = None,
-        custom_metadata_has: Optional[Dict[str, Any]] = None,
         customer_key: Optional[str] = None,
-        device_ids: Optional[List[str]] = None,
         device_type: Optional[str] = None,
         device_types: Optional[List[str]] = None,
-        limit: Optional[float] = None,
         manufacturer: Optional[str] = None,
-        page_cursor: Optional[str] = None,
-        search: Optional[str] = None,
-        space_id: Optional[str] = None,
-        unstable_location_id: Optional[str] = None,
-        user_identifier_key: Optional[str] = None
     ) -> List[Device]:
         """Returns a list of all `locks <https://docs.seam.co/low-level-apis/smart-locks>`_.
 
@@ -78,33 +73,13 @@ class AbstractLocks(abc.ABC):
 
         :param connected_account_id: ID of the connected account for which you want to list devices.
 
-        :param connected_account_ids: Array of IDs of the connected accounts for which you want to list devices.
-
-        :param created_before: Timestamp by which to limit returned devices. Returns devices created before this timestamp.
-
-        :param custom_metadata_has: Set of key:value `custom metadata <https://docs.seam.co/core-concepts/devices/adding-custom-metadata-to-a-device>`_ pairs for which you want to list devices.
-
         :param customer_key: Customer key for which you want to list devices.
-
-        :param device_ids: Array of device IDs for which you want to list devices.
 
         :param device_type: Device type of the locks that you want to list.
 
         :param device_types: Device types of the locks that you want to list.
 
-        :param limit: Numerical limit on the number of devices to return.
-
         :param manufacturer: Manufacturer of the locks that you want to list.
-
-        :param page_cursor: Identifies the specific page of results to return, obtained from the previous page's ``next_page_cursor``.
-
-        :param search: String for which to search. Filters returned devices to include all records that satisfy a partial match using ``device_id`` (full or partial UUID prefix, minimum 4 characters), ``connected_account_id``, ``display_name``, ``custom_metadata`` or ``location.location_name``.
-
-        :param space_id: ID of the space for which you want to list devices.
-
-        :param unstable_location_id: Deprecated: Use ``space_id``.
-
-        :param user_identifier_key: Your own internal user ID for the user for which you want to list devices.
 
         :returns: OK"""
         raise NotImplementedError()
@@ -114,7 +89,7 @@ class AbstractLocks(abc.ABC):
         self,
         *,
         device_id: str,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Locks a `lock <https://docs.seam.co/low-level-apis/smart-locks>`_. See also `Locking and Unlocking Smart Locks <https://docs.seam.co/low-level-apis/smart-locks/lock-and-unlock>`_.
 
@@ -122,7 +97,9 @@ class AbstractLocks(abc.ABC):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -130,7 +107,7 @@ class AbstractLocks(abc.ABC):
         self,
         *,
         device_id: str,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Unlocks a `lock <https://docs.seam.co/low-level-apis/smart-locks>`_. See also `Locking and Unlocking Smart Locks <https://docs.seam.co/low-level-apis/smart-locks/lock-and-unlock>`_.
 
@@ -138,7 +115,9 @@ class AbstractLocks(abc.ABC):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
 
@@ -152,13 +131,18 @@ class Locks(AbstractLocks):
     def simulate(self) -> LocksSimulate:
         return self._simulate
 
+    @route_metadata(
+        path="/locks/configure_auto_lock",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def configure_auto_lock(
         self,
         *,
         auto_lock_enabled: bool,
         device_id: str,
         auto_lock_delay_seconds: Optional[float] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Configures the auto-lock setting for a specified `lock <https://docs.seam.co/low-level-apis/smart-locks>`_.
 
@@ -170,8 +154,10 @@ class Locks(AbstractLocks):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if auto_lock_enabled is not None:
             json_payload["auto_lock_enabled"] = auto_lock_enabled
@@ -179,6 +165,11 @@ class Locks(AbstractLocks):
             json_payload["device_id"] = device_id
         if auto_lock_delay_seconds is not None:
             json_payload["auto_lock_delay_seconds"] = auto_lock_delay_seconds
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /locks/configure_auto_lock"
+            )
 
         res = self.client.post("/locks/configure_auto_lock", json=json_payload)
 
@@ -194,6 +185,9 @@ class Locks(AbstractLocks):
             wait_for_action_attempt=wait_for_action_attempt,
         )
 
+    @route_metadata(
+        path="/locks/get", has_required_parameters=True, has_pagination=False
+    )
     def get(
         self, *, device_id: Optional[str] = None, name: Optional[str] = None
     ) -> Device:
@@ -205,38 +199,36 @@ class Locks(AbstractLocks):
 
         :returns: OK
 
+        :raises ValueError: At least one parameter must be provided.
+
         .. deprecated::
            Use ``/devices/get`` instead."""
-        json_payload = {}
+        params: Dict[str, Any] = {}
 
         if device_id is not None:
-            json_payload["device_id"] = device_id
+            params["device_id"] = device_id
         if name is not None:
-            json_payload["name"] = name
+            params["name"] = name
 
-        res = self.client.post("/locks/get", json=json_payload)
+        if not params:
+            raise ValueError("At least one parameter is required for /locks/get")
+
+        res = self.client.get("/locks/get", params=params)
 
         return Device.from_dict(res["device"])
 
+    @route_metadata(
+        path="/locks/list", has_required_parameters=False, has_pagination=False
+    )
     def list(
         self,
         *,
         connect_webview_id: Optional[str] = None,
         connected_account_id: Optional[str] = None,
-        connected_account_ids: Optional[List[str]] = None,
-        created_before: Optional[str] = None,
-        custom_metadata_has: Optional[Dict[str, Any]] = None,
         customer_key: Optional[str] = None,
-        device_ids: Optional[List[str]] = None,
         device_type: Optional[str] = None,
         device_types: Optional[List[str]] = None,
-        limit: Optional[float] = None,
         manufacturer: Optional[str] = None,
-        page_cursor: Optional[str] = None,
-        search: Optional[str] = None,
-        space_id: Optional[str] = None,
-        unstable_location_id: Optional[str] = None,
-        user_identifier_key: Optional[str] = None
     ) -> List[Device]:
         """Returns a list of all `locks <https://docs.seam.co/low-level-apis/smart-locks>`_.
 
@@ -244,79 +236,42 @@ class Locks(AbstractLocks):
 
         :param connected_account_id: ID of the connected account for which you want to list devices.
 
-        :param connected_account_ids: Array of IDs of the connected accounts for which you want to list devices.
-
-        :param created_before: Timestamp by which to limit returned devices. Returns devices created before this timestamp.
-
-        :param custom_metadata_has: Set of key:value `custom metadata <https://docs.seam.co/core-concepts/devices/adding-custom-metadata-to-a-device>`_ pairs for which you want to list devices.
-
         :param customer_key: Customer key for which you want to list devices.
-
-        :param device_ids: Array of device IDs for which you want to list devices.
 
         :param device_type: Device type of the locks that you want to list.
 
         :param device_types: Device types of the locks that you want to list.
 
-        :param limit: Numerical limit on the number of devices to return.
-
         :param manufacturer: Manufacturer of the locks that you want to list.
 
-        :param page_cursor: Identifies the specific page of results to return, obtained from the previous page's ``next_page_cursor``.
-
-        :param search: String for which to search. Filters returned devices to include all records that satisfy a partial match using ``device_id`` (full or partial UUID prefix, minimum 4 characters), ``connected_account_id``, ``display_name``, ``custom_metadata`` or ``location.location_name``.
-
-        :param space_id: ID of the space for which you want to list devices.
-
-        :param unstable_location_id: Deprecated: Use ``space_id``.
-
-        :param user_identifier_key: Your own internal user ID for the user for which you want to list devices.
-
         :returns: OK"""
-        json_payload = {}
+        json_payload: Dict[str, Any] = {}
 
         if connect_webview_id is not None:
             json_payload["connect_webview_id"] = connect_webview_id
         if connected_account_id is not None:
             json_payload["connected_account_id"] = connected_account_id
-        if connected_account_ids is not None:
-            json_payload["connected_account_ids"] = connected_account_ids
-        if created_before is not None:
-            json_payload["created_before"] = created_before
-        if custom_metadata_has is not None:
-            json_payload["custom_metadata_has"] = custom_metadata_has
         if customer_key is not None:
             json_payload["customer_key"] = customer_key
-        if device_ids is not None:
-            json_payload["device_ids"] = device_ids
         if device_type is not None:
             json_payload["device_type"] = device_type
         if device_types is not None:
             json_payload["device_types"] = device_types
-        if limit is not None:
-            json_payload["limit"] = limit
         if manufacturer is not None:
             json_payload["manufacturer"] = manufacturer
-        if page_cursor is not None:
-            json_payload["page_cursor"] = page_cursor
-        if search is not None:
-            json_payload["search"] = search
-        if space_id is not None:
-            json_payload["space_id"] = space_id
-        if unstable_location_id is not None:
-            json_payload["unstable_location_id"] = unstable_location_id
-        if user_identifier_key is not None:
-            json_payload["user_identifier_key"] = user_identifier_key
 
         res = self.client.post("/locks/list", json=json_payload)
 
         return [Device.from_dict(item) for item in res["devices"]]
 
+    @route_metadata(
+        path="/locks/lock_door", has_required_parameters=True, has_pagination=False
+    )
     def lock_door(
         self,
         *,
         device_id: str,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Locks a `lock <https://docs.seam.co/low-level-apis/smart-locks>`_. See also `Locking and Unlocking Smart Locks <https://docs.seam.co/low-level-apis/smart-locks/lock-and-unlock>`_.
 
@@ -324,11 +279,16 @@ class Locks(AbstractLocks):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if device_id is not None:
             json_payload["device_id"] = device_id
+
+        if not json_payload:
+            raise ValueError("At least one parameter is required for /locks/lock_door")
 
         res = self.client.post("/locks/lock_door", json=json_payload)
 
@@ -344,11 +304,14 @@ class Locks(AbstractLocks):
             wait_for_action_attempt=wait_for_action_attempt,
         )
 
+    @route_metadata(
+        path="/locks/unlock_door", has_required_parameters=True, has_pagination=False
+    )
     def unlock_door(
         self,
         *,
         device_id: str,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Unlocks a `lock <https://docs.seam.co/low-level-apis/smart-locks>`_. See also `Locking and Unlocking Smart Locks <https://docs.seam.co/low-level-apis/smart-locks/lock-and-unlock>`_.
 
@@ -356,11 +319,18 @@ class Locks(AbstractLocks):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if device_id is not None:
             json_payload["device_id"] = device_id
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /locks/unlock_door"
+            )
 
         res = self.client.post("/locks/unlock_door", json=json_payload)
 

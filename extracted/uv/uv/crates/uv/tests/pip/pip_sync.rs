@@ -1403,7 +1403,9 @@ fn install_build_system_no_backend() -> Result<()> {
 /// Check that we show the right messages on cached, direct URL source distribution installs.
 #[test]
 fn install_url_source_dist_cached() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
+    let context = uv_test::test_context!("3.12")
+        .with_filtered_file_counts()
+        .with_filtered_sizes_and_units();
 
     let requirements_txt = context.temp_dir.child("requirements.txt");
     requirements_txt.write_str("source_distribution @ https://files.pythonhosted.org/packages/10/1f/57aa4cce1b1abf6b433106676e15f9fa2c92ed2bd4cf77c3b50a9e9ac773/source_distribution-0.0.1.tar.gz")?;
@@ -1446,11 +1448,8 @@ fn install_url_source_dist_cached() -> Result<()> {
     // Clear the cache, then re-run the installation in a new virtual environment.
     context.reset_venv();
 
-    let filters = std::iter::once(("Removed \\d+ files?", "Removed [N] files"))
-        .chain(context.filters())
-        .collect::<Vec<_>>();
     uv_snapshot!(
-        filters,
+        context.filters(),
         context.clean().arg("source_distribution"), @"
     exit_code: 0 (success)
     ----- stderr -----
@@ -1563,7 +1562,10 @@ fn install_git_source_dist_cached() -> Result<()> {
 /// Check that we show the right messages on cached, registry source distribution installs.
 #[test]
 fn install_registry_source_dist_cached() -> Result<()> {
-    let context = uv_test::test_context!("3.12").with_exclude_newer("2025-01-29T00:00:00Z");
+    let context = uv_test::test_context!("3.12")
+        .with_exclude_newer("2025-01-29T00:00:00Z")
+        .with_filtered_file_counts()
+        .with_filtered_sizes_and_units();
 
     let requirements_txt = context.temp_dir.child("requirements.txt");
     requirements_txt.write_str("source_distribution==0.0.1")?;
@@ -1606,10 +1608,7 @@ fn install_registry_source_dist_cached() -> Result<()> {
     // Clear the cache, then re-run the installation in a new virtual environment.
     context.reset_venv();
 
-    let filters = std::iter::once(("Removed \\d+ files?", "Removed [N] files"))
-        .chain(context.filters())
-        .collect::<Vec<_>>();
-    uv_snapshot!(filters, context.clean()
+    uv_snapshot!(context.filters(), context.clean()
         .arg("source_distribution"), @"
     exit_code: 0 (success)
     ----- stderr -----
@@ -1640,7 +1639,9 @@ fn install_registry_source_dist_cached() -> Result<()> {
 /// Check that we show the right messages on cached, local source distribution installs.
 #[test]
 fn install_path_source_dist_cached() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
+    let context = uv_test::test_context!("3.12")
+        .with_filtered_file_counts()
+        .with_filtered_sizes_and_units();
 
     // Download a source distribution.
     let archive = context.temp_dir.child("source_distribution-0.0.1.tar.gz");
@@ -1693,11 +1694,8 @@ fn install_path_source_dist_cached() -> Result<()> {
     // Clear the cache, then re-run the installation in a new virtual environment.
     context.reset_venv();
 
-    let filters = std::iter::once(("Removed \\d+ files?", "Removed [N] files"))
-        .chain(context.filters())
-        .collect::<Vec<_>>();
     uv_snapshot!(
-        filters,
+        context.filters(),
         context.clean().arg("source-distribution"), @"
     exit_code: 0 (success)
     ----- stderr -----
@@ -1728,7 +1726,9 @@ fn install_path_source_dist_cached() -> Result<()> {
 /// Check that we show the right messages on cached, local source distribution installs.
 #[test]
 fn install_path_built_dist_cached() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
+    let context = uv_test::test_context!("3.12")
+        .with_filtered_file_counts()
+        .with_filtered_sizes_and_units();
 
     // Download a wheel.
     let archive = context.temp_dir.child("tomli-2.0.1-py3-none-any.whl");
@@ -1775,11 +1775,8 @@ fn install_path_built_dist_cached() -> Result<()> {
     // Clear the cache, then re-run the installation in a new virtual environment.
     context.reset_venv();
 
-    let filters = std::iter::once(("Removed \\d+ files?", "Removed [N] files"))
-        .chain(context.filters())
-        .collect::<Vec<_>>();
     uv_snapshot!(
-        filters,
+        context.filters(),
         context.clean().arg("tomli"), @"
     exit_code: 0 (success)
     ----- stderr -----
@@ -1808,7 +1805,9 @@ fn install_path_built_dist_cached() -> Result<()> {
 /// Check that we show the right messages on cached, direct URL built distribution installs.
 #[test]
 fn install_url_built_dist_cached() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
+    let context = uv_test::test_context!("3.12")
+        .with_filtered_file_counts()
+        .with_filtered_sizes_and_units();
 
     let requirements_txt = context.temp_dir.child("requirements.txt");
     requirements_txt.write_str("tqdm @ https://files.pythonhosted.org/packages/00/e5/f12a80907d0884e6dff9c16d0c0114d81b8cd07dc3ae54c5e962cc83037e/tqdm-4.66.1-py3-none-any.whl")?;
@@ -1855,11 +1854,8 @@ fn install_url_built_dist_cached() -> Result<()> {
     // Clear the cache, then re-run the installation in a new virtual environment.
     context.reset_venv();
 
-    let filters = std::iter::once(("Removed \\d+ files?", "Removed [N] files"))
-        .chain(context_filters.clone())
-        .collect::<Vec<_>>();
     uv_snapshot!(
-        filters,
+        context_filters,
         context.clean().arg("tqdm"), @"
     exit_code: 0 (success)
     ----- stderr -----
@@ -3453,7 +3449,7 @@ fn require_hashes_source_no_binary() -> Result<()> {
 
     let requirements_txt = context.temp_dir.child("requirements.txt");
     requirements_txt.write_str(
-        "a==1.0.0 --hash=sha256:3d2b4c28a4e112f3a1cef1db4dc5efa33fcbbcc38bc11ccc80321097db86c097",
+        "a==1.0.0 --hash=sha256:957f99ff1d65ce0d7883d50f4e67ed8d4b42e76d2c2b5e62384ff0ba538647b5",
     )?;
 
     uv_snapshot!(context.pip_sync()
@@ -5722,12 +5718,12 @@ fn pep_751_validates_remote_archive_size() -> Result<()> {
 
     uv_snapshot!(context.filters(), context.pip_sync()
         .arg("--preview")
-        .arg("pylock.toml"), @r#"
+        .arg("pylock.toml"), @"
     exit_code: 1 (failure)
     ----- stderr -----
       × Failed to download and build `a==1.0.0`
-      ╰─▶ Size mismatch for `a==1.0.0`: expected 1 bytes, but downloaded 453 bytes
-    "#);
+      ╰─▶ Size mismatch for `a==1.0.0`: expected 1 bytes, but downloaded 607 bytes
+    ");
 
     Ok(())
 }

@@ -16,13 +16,13 @@ class Webhook:
 
     :ivar webhook_id: ID of the webhook."""
 
-    event_types: List[str]
-    secret: str
+    event_types: Optional[List[str]]
+    secret: Optional[str]
     url: str
     webhook_id: str
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]):
+    def from_dict(cls, d: Any):
         return cls(
             event_types=d.get("event_types", None),
             secret=d.get("secret", None),

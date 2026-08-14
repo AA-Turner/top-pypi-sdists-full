@@ -8,6 +8,7 @@ import atexit
 import platform
 import functools
 import os
+import signal
 import tempfile
 import json
 import warnings
@@ -43,7 +44,7 @@ def fork_shim(sci):
     return wrapper
 
 
-def get_coverage(sci):
+def merged_coverage(sci):
     """Combines this process' coverage with that of any previously forked children and xdist workers."""
     global input_tmpfiles, output_tmpfile
 
@@ -52,8 +53,8 @@ def get_coverage(sci):
     # Merge coverage from forked children (pytest-forked)
     if input_tmpfiles:
         for f in input_tmpfiles:
+            fname = f.name
             try:
-                fname = f.name
                 f.seek(0, os.SEEK_END)
                 # If the file is empty, it was likely closed, possibly upon exec
                 if f.tell() != 0:
@@ -100,7 +101,7 @@ def exit_shim(sci):
         global output_tmpfile
 
         if output_tmpfile:
-            json.dump(get_coverage(sci), output_tmpfile)
+            json.dump(merged_coverage(sci), output_tmpfile)
             output_tmpfile.flush()
 
         original_exit(*pargs, **kwargs)
@@ -118,6 +119,7 @@ def merge_files(args, base_path):
         warnings.warn(f"Error reading in {args.merge[0]}: {e}")
         return 1
 
+    f = None
     try:
         for f in args.merge[1:]:
             with f.open() as jf:
@@ -128,9 +130,13 @@ def merge_files(args, base_path):
 
     try:
         with args.out.open("w", encoding='utf-8') as jf:
-            if args.xml:
+            if args.format == 'xml':
                 sc.print_xml(merged, source_paths=[str(base_path)], with_branches=args.branch,
                              xml_package_depth=args.xml_package_depth, outfile=jf)
+            elif args.format == 'lcov':
+                sc.print_lcov(merged, with_branches=args.branch,
+                             test_name=args.lcov_test_name, comments=args.lcov_comments,
+                             outfile=jf)
             else:
                 json.dump(merged, jf, indent=(4 if args.pretty_print else None))
 
@@ -150,7 +156,38 @@ def merge_files(args, base_path):
     return 0
 
 
-def main():
+def _detect_explicit_args(ap, argv):
+    """Returns the set of argparse dest names explicitly provided on the command line."""
+    import argparse
+
+    explicit = set()
+
+    class _Track(argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            explicit.add(self.dest)
+            setattr(namespace, self.dest, values)
+
+    shadow = argparse.ArgumentParser(add_help=False)
+    for action in ap._actions:
+        if action.option_strings:
+            kwargs = {
+                "dest": action.dest,
+                "nargs": action.nargs,
+                "default": action.default,
+            }
+            if isinstance(action, argparse._StoreTrueAction):
+                kwargs["nargs"] = 0
+                kwargs["const"] = True
+            elif isinstance(action, argparse._VersionAction):
+                continue
+            kwargs["action"] = _Track
+            shadow.add_argument(*action.option_strings, **kwargs)
+
+    shadow.parse_known_args(argv)
+    return explicit
+
+
+def build_parser():
     import argparse
 
     #
@@ -163,16 +200,27 @@ def main():
     #
     ap = argparse.ArgumentParser(prog='SlipCover')
     ap.add_argument('--branch', action='store_true', help="measure both branch and line coverage")
-    ap.add_argument('--json', action='store_true', help="select JSON output")
+    fmt = ap.add_mutually_exclusive_group()
+    fmt.add_argument('--format', choices=['text', 'json', 'xml', 'lcov'], default='text',
+                     help="select output format")
+    fmt.add_argument('--json', dest='format', action='store_const', const='json',
+                     help="select JSON output (shortcut for --format=json)")
     ap.add_argument('--pretty-print', action='store_true', help="pretty-print JSON output")
-    ap.add_argument('--xml', action='store_true', help="select XML output")
+    fmt.add_argument('--xml', dest='format', action='store_const', const='xml',
+                     help="select XML output (shortcut for --format=xml)")
     ap.add_argument('--xml-package-depth', type=int, default=99, help=(
         "Controls which directories are identified as packages in the report. "
         "Directories deeper than this depth are not reported as packages. "
         "The default is that all directories are reported as packages."))
+    fmt.add_argument('--lcov', dest='format', action='store_const', const='lcov',
+                     help="select LCOV output (shortcut for --format=lcov)")
+    ap.add_argument('--lcov-test-name', type=str, help="test name for LCOV TN: entries")
+    ap.add_argument('--lcov-comment', action='append', dest='lcov_comments', help="add comment lines at the beginning of LCOV output (can be used multiple times)")
     ap.add_argument('--out', type=Path, help="specify output file name")
-    ap.add_argument('--source', help="specify directories to cover")
-    ap.add_argument('--omit', help="specify file(s) to omit")
+    ap.add_argument('--source', metavar='SRC1,SRC2,...',
+                     help="specify directories to cover; comma-separated for multiple")
+    ap.add_argument('--omit', metavar='PAT1,PAT2,...',
+                     help="specify file pattern(s) to omit; comma-separated for multiple")
     ap.add_argument('--immediate', action='store_true',
                     help=(argparse.SUPPRESS if platform.python_implementation() == "PyPy" else "request immediate de-instrumentation"))
     ap.add_argument('--skip-covered', action='store_true', help="omit fully covered files (from text, non-JSON output)")
@@ -180,6 +228,7 @@ def main():
     ap.add_argument('--threshold', type=int, default=50, metavar="T",
                     help="threshold for de-instrumentation (if not immediate)")
     ap.add_argument('--missing-width', type=int, default=80, metavar="WIDTH", help="maximum width for `missing' column")
+    ap.add_argument('--sigterm', action='store_true', help="if true, register a SIGTERM signal handler to capture data when the process ends due to a SIGTERM signal.")
 
     # intended for slipcover development only
     ap.add_argument('--silent', action='store_true', help=argparse.SUPPRESS)
@@ -195,12 +244,40 @@ def main():
     g.add_argument('script', nargs='?', type=Path, help="the script to run")
     ap.add_argument('script_or_module_args', nargs=argparse.REMAINDER)
 
+    return ap
+
+
+def main():
+    import argparse
+    from slipcover.config import read_config, apply_config
+
+    ap = build_parser()
+
+    # Figure out which CLI flags were explicitly provided, so that
+    # pyproject.toml values don't override them.
+    if '-m' in sys.argv:
+        minus_m = sys.argv.index('-m')
+        cli_argv = sys.argv[1:minus_m+2]
+    else:
+        cli_argv = sys.argv[1:]
+
+    explicit_args = _detect_explicit_args(ap, cli_argv)
+
     if '-m' in sys.argv: # work around exclusive group not handled properly
         minus_m = sys.argv.index('-m')
         args = ap.parse_args(sys.argv[1:minus_m+2])
         args.script_or_module_args = sys.argv[minus_m+2:]
     else:
         args = ap.parse_args(sys.argv[1:])
+
+    # Apply [tool.slipcover] from pyproject.toml; CLI flags take precedence
+    try:
+        config = read_config()
+        if config:
+            apply_config(config, args, explicit_args)
+    except (ValueError, TypeError) as e:
+        print(f"slipcover: error in pyproject.toml configuration: {e}", file=sys.stderr)
+        return 1
 
 
     base_path = Path(args.script).resolve().parent if args.script \
@@ -212,24 +289,27 @@ def main():
         return merge_files(args, base_path=base_path)
 
 
-    file_matcher = sc.FileMatcher()
-
     if args.source:
         args.source = args.source.split(',')
-        for s in args.source:
-            file_matcher.addSource(s)
-    elif args.script:
-        file_matcher.addSource(Path(args.script).resolve().parent)
 
-    if args.omit:
-        for o in args.omit.split(','):
-            file_matcher.addOmit(o)
+    file_matcher = sc.FileMatcher(
+        sources=args.source,
+        omit=args.omit.split(',') if args.omit else None,
+        default_dir=Path(args.script).resolve().parent if args.script else None,
+    )
 
 
     omit_list = args.omit.split(',') if args.omit else None
+    # exclude_lines/exclude_also have no CLI flag -- [tool.slipcover]
+    # exclude-lines/exclude-also in pyproject.toml are the only way to set
+    # them, so args won't have these attributes at all unless apply_config()
+    # set them from a config file.
+    exclude_lines = getattr(args, 'exclude_lines', None)
+    exclude_also = getattr(args, 'exclude_also', None)
     sci = sc.Slipcover(immediate=args.immediate,
                        d_miss_threshold=args.threshold, branch=args.branch,
-                       disassemble=args.dis, source=args.source, omit=omit_list)
+                       disassemble=args.dis, source=args.source, omit=omit_list,
+                       exclude_lines=exclude_lines, exclude_also=exclude_also)
 
 
     if not args.dont_wrap_pytest:
@@ -247,6 +327,18 @@ def main():
             os.environ["SLIPCOVER_SOURCE"] = source_str
         if args.omit:
             os.environ["SLIPCOVER_OMIT"] = args.omit
+        if exclude_lines is not None or exclude_also:
+            # Propagate the already-resolved pattern list (sci's own
+            # compiled patterns, read back as strings) rather than the raw
+            # exclude_lines/exclude_also, so a worker doesn't need to redo
+            # the replace-then-add resolution itself -- it just gets the
+            # final list as plain exclude_lines. Newline-joined, not
+            # comma-joined: regex patterns can contain commas. Set even
+            # when empty (exclude-lines = [] in config): the var's mere
+            # presence -- not its truthiness -- is what tells a worker
+            # "this was resolved, don't fall back to defaults" (see
+            # pytest_plugin.py's _activate_worker()).
+            os.environ["SLIPCOVER_EXCLUDE_LINES"] = "\n".join(p.pattern for p in sci._exclude_patterns)
 
     if platform.system() != 'Windows':
         os.fork = fork_shim(sci)
@@ -256,17 +348,21 @@ def main():
         global output_tmpfile
 
         def printit(coverage, outfile):
-            if args.json:
+            if args.format == 'json':
                 print(json.dumps(coverage, indent=(4 if args.pretty_print else None)), file=outfile)
-            elif args.xml:
+            elif args.format == 'xml':
                 sc.print_xml(coverage, source_paths=[str(base_path)], with_branches=args.branch,
                              xml_package_depth=args.xml_package_depth, outfile=outfile)
+            elif args.format == 'lcov':
+                sc.print_lcov(coverage, with_branches=args.branch,
+                             test_name=args.lcov_test_name, comments=args.lcov_comments,
+                             outfile=outfile)
             else:
                 sc.print_coverage(coverage, outfile=outfile, skip_covered=args.skip_covered,
                                   missing_width=args.missing_width)
 
         if not args.silent:
-            coverage = get_coverage(sci)
+            coverage = merged_coverage(sci)
             if args.out:
                 with open(args.out, "w") as outfile:
                     printit(coverage, outfile)
@@ -275,6 +371,25 @@ def main():
 
     atexit.register(sci_atexit)
 
+    # Windows doesn't have a SIGTERM signal.
+    if args.sigterm and platform.system() != 'Windows':
+        def sci_sigterm_handler(signum, frame):
+            # A forked child's correct exit path is os._exit(), already
+            # shimmed (exit_shim) to write its own coverage to a tempfile
+            # for the parent to merge -- going through sys.exit()/atexit
+            # here instead would run the top-level sci_atexit() in the
+            # child too, racing the real parent for the same --out file.
+            if output_tmpfile:
+                os._exit(0)
+            else:
+                # atexit.register(sci_atexit) above already runs sci_atexit()
+                # on any normal interpreter shutdown, including one
+                # triggered by this SystemExit -- no need to call it here.
+                sys.exit(0)
+
+        signal.signal(signal.SIGTERM, sci_sigterm_handler)
+
+    return_code = 0
     if args.script:
         # python 'globals' for the script being executed
         script_globals: Dict[Any, Any] = dict()
@@ -300,20 +415,25 @@ def main():
             code = sci.instrument(code)
 
         with sc.ImportManager(sci, file_matcher):
-            exec(code, script_globals)
-
+            try:
+                exec(code, script_globals)
+            except SystemExit as e:
+                return_code = e.code if e.code is not None else 0
     else:
         import runpy
         sys.argv = [*args.module, *args.script_or_module_args]
         with sc.ImportManager(sci, file_matcher):
-            runpy.run_module(*args.module, run_name='__main__', alter_sys=True)
+            try:
+                runpy.run_module(*args.module, run_name='__main__', alter_sys=True)
+            except SystemExit as e:
+                return_code = e.code if e.code is not None else 0
 
     if args.fail_under:
-        cov = sci.get_coverage()
+        cov = merged_coverage(sci)
         if cov['summary']['percent_covered'] < args.fail_under:
             return 2
     
-    return 0
+    return return_code
 
 
 if __name__ == "__main__":

@@ -15,13 +15,12 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar
 
-from fastmcp.apps import UI_EXTENSION_ID
-from fastmcp.server.dependencies import (
-    get_access_token,
-    get_context,
-    get_http_headers,
+from fastmcp.server.dependencies import get_access_token, get_http_headers
+from fastmcp_extensions import (
+    ANNOTATION_INTERACTIVE_UI,
+    MCPServerConfigArg,
+    get_mcp_config,
 )
-from fastmcp_extensions import MCPServerConfigArg, get_mcp_config
 from fastmcp_extensions import mcp_tool as _mcp_tool
 from fastmcp_extensions.decorators import (
     _REGISTERED_PROVIDERS,  # noqa: PLC2701
@@ -65,16 +64,14 @@ from airbyte.exceptions import PyAirbyteInputError
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
-    from fastmcp.server.context import Context
     from mcp.types import Tool
 
 _MCP_TOOL_FUNC = TypeVar("_MCP_TOOL_FUNC", bound=Callable[..., object])
 _TOOL_APP_KEY = "_airbyte_tool_app"
 _TOOL_META_KEY = "_airbyte_tool_meta"
 
-INTERACTIVE_UI_ANNOTATION = "interactive-ui"
+INTERACTIVE_UI_ANNOTATION = ANNOTATION_INTERACTIVE_UI
 """Annotation indicating the tool requires MCP Apps UI support."""
-
 
 # =============================================================================
 # Safe Mode Configuration
@@ -508,22 +505,3 @@ def validate_airbyte_domains(app: FastMCP) -> None:
                 "known_domains": sorted(known_modules),
             },
         )
-
-
-def airbyte_ui_support_filter(tool: Tool, _app: FastMCP) -> bool:
-    """Filter tools that require MCP Apps UI support."""
-    if not get_annotation(tool, INTERACTIVE_UI_ANNOTATION, default=False):
-        return True
-    return _client_supports_ui()
-
-
-def _client_supports_ui() -> bool:
-    try:
-        context = get_context()
-    except RuntimeError:
-        return False
-    return _fastmcp_context_supports_ui(context)
-
-
-def _fastmcp_context_supports_ui(context: Context) -> bool:
-    return context.client_supports_extension(UI_EXTENSION_ID)

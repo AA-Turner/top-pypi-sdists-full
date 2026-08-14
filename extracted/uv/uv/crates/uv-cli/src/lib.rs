@@ -411,6 +411,16 @@ pub enum ColorChoice {
 }
 
 impl ColorChoice {
+    /// Return the command-line representation of this color choice.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Always => "always",
+            Self::Never => "never",
+        }
+    }
+
     /// Combine self (higher priority) with an [`anstream::ColorChoice`] (lower priority).
     ///
     /// This method allows prioritizing the user choice, while using the inferred choice for a
@@ -835,19 +845,19 @@ impl TypedValueParser for VersionBumpSpecValueParser {
 
     fn parse_ref(
         &self,
-        _cmd: &clap::Command,
+        command: &clap::Command,
         _arg: Option<&clap::Arg>,
         value: &std::ffi::OsStr,
     ) -> Result<Self::Value, clap::Error> {
         let raw = value.to_str().ok_or_else(|| {
-            clap::Error::raw(
+            command.clone().error(
                 ErrorKind::InvalidUtf8,
                 "`--bump` values must be valid UTF-8",
             )
         })?;
 
         VersionBumpSpec::from_str(raw)
-            .map_err(|message| clap::Error::raw(ErrorKind::InvalidValue, message))
+            .map_err(|message| command.clone().error(ErrorKind::InvalidValue, message))
     }
 
     fn possible_values(&self) -> Option<Box<dyn Iterator<Item = PossibleValue> + '_>> {
@@ -4996,6 +5006,15 @@ pub struct CheckArgs {
     #[arg(long)]
     pub no_sync: bool,
 
+    /// Do not install the current project [env: UV_NO_INSTALL_PROJECT=]
+    ///
+    /// By default, the current project is installed into the environment with all of its
+    /// dependencies. The `--no-install-project` option excludes the project itself while still
+    /// installing its dependencies, which is useful when the project can be type-checked from its
+    /// source tree without building native extensions.
+    #[arg(long, conflicts_with_all = ["no_sync", "script", "no_project"])]
+    pub no_install_project: bool,
+
     /// Run checks without mutating project state [env: UV_ISOLATED=]
     ///
     /// Uses a temporary virtual environment and leaves existing environments and the project
@@ -5033,6 +5052,10 @@ pub struct CheckArgs {
     /// Display the version of ty that will be used for type checking.
     #[arg(long, hide = true)]
     pub show_version: bool,
+
+    /// Display the ty command that will be used for type checking.
+    #[arg(long, hide = true)]
+    pub show_command: bool,
 
     /// Avoid discovering a project or workspace.
     ///

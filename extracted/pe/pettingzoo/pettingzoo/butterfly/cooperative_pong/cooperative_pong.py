@@ -9,7 +9,7 @@
 
 This environment is part of the <a href='..'>butterfly environments</a>. Please read that page first for general information.
 
-| Import               | `from pettingzoo.butterfly import cooperative_pong_v6` |
+| Creation             | `make("aec", "butterfly/cooperative_pong-v6")`         |
 |----------------------|--------------------------------------------------------|
 | Actions              | Discrete                                               |
 | Parallel API         | Yes                                                    |
@@ -36,8 +36,10 @@ Move the left paddle using the 'W' and 'S' keys. Move the right paddle using 'UP
 
 ### Arguments
 
-``` python
-cooperative_pong_v6.env(
+```python
+from pettingzoo import make
+
+make("aec", "butterfly/cooperative_pong-v6",
     ball_speed = 9,
     left_paddle_speed = 12,
     right_paddle_speed = 12,
@@ -108,7 +110,7 @@ from pettingzoo.utils.conversions import parallel_wrapper_fn
 FPS = 15
 
 
-__all__ = ["env", "raw_env", "parallel_env"]
+__all__ = ["env", "parallel_env", "raw_env"]
 
 
 AgentID = NewType("AgentID", str)
@@ -205,7 +207,6 @@ class CooperativePong:
         """
         super().__init__()
 
-        pygame.init()
         self.num_agents = 2
 
         self.render_ratio = render_ratio
@@ -331,6 +332,7 @@ class CooperativePong:
 
         if self.screen is None:
             if self.render_mode == "human":
+                pygame.display.init()
                 self.screen = pygame.display.set_mode((self.s_width, self.s_height))
                 pygame.display.set_caption("Cooperative Pong")
         assert self.screen is not None
@@ -396,7 +398,7 @@ class CooperativePong:
         # action: 1: p[i] move up
         # action: 2: p[i] move down
         if agent == self.agents[0]:
-            self.rewards = {a: 0 for a in self.agents}
+            self.rewards = dict.fromkeys(self.agents, 0)
             self.p0.update(self.area, action)
         elif agent == self.agents[1]:
             self.p1.update(self.area, action)
@@ -504,7 +506,7 @@ class raw_env(AECEnv[AgentID, ObsType, ActionType], EzPickle):
         self.agents = self.possible_agents[:]
         self.agent_selection = self._agent_selector.reset()
         self.rewards = self.env.rewards
-        self._cumulative_rewards = {a: 0 for a in self.agents}
+        self._cumulative_rewards = dict.fromkeys(self.agents, 0)
         self.terminations = self.env.terminations
         self.truncations = self.env.truncations
         self.infos = self.env.infos

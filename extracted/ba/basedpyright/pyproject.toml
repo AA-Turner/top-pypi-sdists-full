@@ -21,7 +21,7 @@ requires-python = ">=3.8"
 dependencies = [
     "nodejs-wheel-binaries>=20.13.1",
 ]
-version = "1.39.9"
+version = "1.39.10"
 
 [project.urls]
 repository = "https://github.com/detachhead/basedpyright"
@@ -58,17 +58,9 @@ lochelper = [
 build-backend = "pdm.backend"
 requires = [
     "pdm-backend>=2.3.0",
-    "nodejs-wheel>=20.13.1,<25",
     "typing_extensions>=4.12.2",
     "docify>=1.0.0",
 ]
-
-[tool.pyprojectx]
-lock-python-version = "3.8"
-main = [
-    "uv",
-]
-mypy_primer = "-e ./mypy_primer"
 
 [tool.uv]
 default-groups = [
@@ -99,6 +91,8 @@ source-includes = [
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
     "tsconfig.json",
+    "gg.cmd",
+    "gg.toml",
 ]
 
 [tool.pylint.MASTER]
@@ -111,7 +105,7 @@ bad-names = [
 ]
 load-plugins = [
     "pylint.extensions.bad_builtin",
-    "pylint.extensions.broad_try_caluse",
+    "pylint.extensions.broad_try_clause",
     "pylint.extensions.check_elif",
     "pylint.extensions.code_style",
     "pylint.extensions.comparetozero",
@@ -216,22 +210,20 @@ max-line-length = 200
 [tool.basedpyright]
 pythonVersion = "3.8"
 ignore = [
-    "pw",
     "basedpyright/dist",
     "packages",
     "docstubs",
     "node_modules",
-    ".pyprojectx",
     ".venv",
+    "mypy_primer/build",
 ]
 exclude = [
-    "pw",
     "basedpyright/dist",
     "packages",
     "docstubs",
     "node_modules",
-    ".pyprojectx",
     ".venv",
+    "mypy_primer/build",
 ]
 reportImplicitStringConcatenation = false
 reportIncompatibleUnannotatedOverride = "error"
@@ -249,9 +241,9 @@ line-length = 100
 preview = true
 unsafe-fixes = true
 extend-exclude = [
-    "pw",
     "packages/pyright-internal/typeshed-fallback",
     "docstubs",
+    "packages/pyright-internal/src/typeServer",
     "packages/pyright-internal/src/tests/samples",
     "packages/pyright-internal/src/tests/benchmarkData",
     "build/py_latest/upstream",
@@ -264,47 +256,47 @@ extend-select = [
 ]
 ignore = [
     "ANN",
-    "PLE0605",
-    "RUF013",
-    "RUF016",
-    "D418",
-    "ISC001",
-    "COM812",
-    "PLC0414",
-    "UP035",
-    "UP006",
-    "UP007",
+    "invalid-all-format",
+    "implicit-optional",
+    "invalid-index-type",
+    "overload-with-docstring",
+    "single-line-implicit-string-concatenation",
+    "missing-trailing-comma",
+    "useless-import-alias",
+    "deprecated-import",
+    "non-pep585-annotation",
+    "non-pep604-annotation-union",
     "EM",
     "FIX",
-    "PLR0913",
-    "PLR0912",
-    "PLR0915",
-    "PLR2004",
-    "PLR1722",
-    "PLW2901",
-    "PLR0911",
-    "PLW0603",
-    "PLC0105",
-    "TRY002",
-    "TRY003",
+    "too-many-arguments",
+    "too-many-branches",
+    "too-many-statements",
+    "magic-value-comparison",
+    "sys-exit-alias",
+    "redefined-loop-name",
+    "too-many-return-statements",
+    "global-statement",
+    "type-name-incorrect-variance",
+    "raise-vanilla-class",
+    "raise-vanilla-args",
     "D10",
-    "D203",
-    "D205",
-    "D212",
-    "D400",
-    "D401",
-    "D403",
-    "D404",
-    "D405",
-    "D406",
-    "D415",
-    "PT013",
-    "TD002",
-    "CPY001",
-    "C901",
-    "DOC402",
-    "DOC201",
-    "TC006",
+    "incorrect-blank-line-before-class",
+    "missing-blank-line-after-summary",
+    "multi-line-summary-first-line",
+    "missing-trailing-period",
+    "non-imperative-mood",
+    "first-word-uncapitalized",
+    "docstring-starts-with-this",
+    "non-capitalized-section-name",
+    "missing-new-line-after-section-name",
+    "missing-terminal-punctuation",
+    "pytest-incorrect-pytest-import",
+    "missing-todo-author",
+    "missing-copyright-notice",
+    "complex-structure",
+    "docstring-missing-yields",
+    "docstring-missing-returns",
+    "runtime-cast-value",
 ]
 
 [tool.ruff.lint.pycodestyle]
@@ -312,13 +304,13 @@ ignore-overlong-task-comments = true
 
 [tool.ruff.lint.per-file-ignores]
 "*.pyi" = [
-    "A001",
-    "A002",
+    "builtin-variable-shadowing",
+    "builtin-argument-shadowing",
     "N",
 ]
 "{tests,build}/**/*.py" = [
     "S",
-    "T201",
+    "print",
 ]
 
 [tool.ruff.lint.isort]

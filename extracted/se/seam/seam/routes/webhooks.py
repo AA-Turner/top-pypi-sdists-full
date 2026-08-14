@@ -1,6 +1,7 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
 from ..resources import Webhook
 
 
@@ -14,14 +15,18 @@ class AbstractWebhooks(abc.ABC):
 
         :param event_types: Types of events that you want the new webhook to receive.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
     def delete(self, *, webhook_id: str) -> None:
         """Deletes a specified `webhook <https://docs.seam.co/developer-tools/webhooks>`_.
 
-        :param webhook_id: ID of the webhook that you want to delete."""
+        :param webhook_id: ID of the webhook that you want to delete.
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -30,7 +35,9 @@ class AbstractWebhooks(abc.ABC):
 
         :param webhook_id: ID of the webhook that you want to get.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -46,7 +53,9 @@ class AbstractWebhooks(abc.ABC):
 
         :param event_types: Types of events that you want the webhook to receive.
 
-        :param webhook_id: ID of the webhook that you want to update."""
+        :param webhook_id: ID of the webhook that you want to update.
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
 
@@ -55,6 +64,9 @@ class Webhooks(AbstractWebhooks):
         self.client = client
         self.defaults = defaults
 
+    @route_metadata(
+        path="/webhooks/create", has_required_parameters=True, has_pagination=False
+    )
     def create(self, *, url: str, event_types: Optional[List[str]] = None) -> Webhook:
         """Creates a new `webhook <https://docs.seam.co/developer-tools/webhooks>`_.
 
@@ -62,69 +74,101 @@ class Webhooks(AbstractWebhooks):
 
         :param event_types: Types of events that you want the new webhook to receive.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if url is not None:
             json_payload["url"] = url
         if event_types is not None:
             json_payload["event_types"] = event_types
 
+        if not json_payload:
+            raise ValueError("At least one parameter is required for /webhooks/create")
+
         res = self.client.post("/webhooks/create", json=json_payload)
 
         return Webhook.from_dict(res["webhook"])
 
+    @route_metadata(
+        path="/webhooks/delete", has_required_parameters=True, has_pagination=False
+    )
     def delete(self, *, webhook_id: str) -> None:
         """Deletes a specified `webhook <https://docs.seam.co/developer-tools/webhooks>`_.
 
-        :param webhook_id: ID of the webhook that you want to delete."""
-        json_payload = {}
+        :param webhook_id: ID of the webhook that you want to delete.
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if webhook_id is not None:
-            json_payload["webhook_id"] = webhook_id
+            params["webhook_id"] = webhook_id
 
-        self.client.post("/webhooks/delete", json=json_payload)
+        if not params:
+            raise ValueError("At least one parameter is required for /webhooks/delete")
+
+        self.client.delete("/webhooks/delete", params=params)
 
         return None
 
+    @route_metadata(
+        path="/webhooks/get", has_required_parameters=True, has_pagination=False
+    )
     def get(self, *, webhook_id: str) -> Webhook:
         """Gets a specified `webhook <https://docs.seam.co/developer-tools/webhooks>`_.
 
         :param webhook_id: ID of the webhook that you want to get.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if webhook_id is not None:
-            json_payload["webhook_id"] = webhook_id
+            params["webhook_id"] = webhook_id
 
-        res = self.client.post("/webhooks/get", json=json_payload)
+        if not params:
+            raise ValueError("At least one parameter is required for /webhooks/get")
+
+        res = self.client.get("/webhooks/get", params=params)
 
         return Webhook.from_dict(res["webhook"])
 
+    @route_metadata(
+        path="/webhooks/list", has_required_parameters=False, has_pagination=False
+    )
     def list(self) -> List[Webhook]:
         """Returns a list of all `webhooks <https://docs.seam.co/developer-tools/webhooks>`_.
 
         :returns: OK"""
-        json_payload = {}
+        params: Dict[str, Any] = {}
 
-        res = self.client.post("/webhooks/list", json=json_payload)
+        res = self.client.get("/webhooks/list", params=params)
 
         return [Webhook.from_dict(item) for item in res["webhooks"]]
 
+    @route_metadata(
+        path="/webhooks/update", has_required_parameters=True, has_pagination=False
+    )
     def update(self, *, event_types: List[str], webhook_id: str) -> None:
         """Updates a specified `webhook <https://docs.seam.co/developer-tools/webhooks>`_.
 
         :param event_types: Types of events that you want the webhook to receive.
 
-        :param webhook_id: ID of the webhook that you want to update."""
-        json_payload = {}
+        :param webhook_id: ID of the webhook that you want to update.
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if event_types is not None:
             json_payload["event_types"] = event_types
         if webhook_id is not None:
             json_payload["webhook_id"] = webhook_id
 
-        self.client.post("/webhooks/update", json=json_payload)
+        if not json_payload:
+            raise ValueError("At least one parameter is required for /webhooks/update")
+
+        self.client.put("/webhooks/update", json=json_payload)
 
         return None

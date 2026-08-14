@@ -106,6 +106,104 @@ cluster = docdb.DatabaseCluster(self, "Database",
 )
 ```
 
+## AWS Secrets Manager Integration
+
+DocumentDB clusters can integrate with AWS Secrets Manager to automatically manage master user passwords. This provides enhanced security through automatic password generation and rotation capabilities.
+
+### Managed Master User Password
+
+To enable AWS Secrets Manager to manage the master user password, set `manageMasterUserPassword` to `true`:
+
+```python
+# vpc: ec2.Vpc
+
+
+cluster = docdb.DatabaseCluster(self, "Database",
+    manage_master_user_password=True,
+    master_user=docdb.Login(
+        username="myuser"
+    ),
+    instance_type=ec2.InstanceType.of(ec2.InstanceClass.MEMORY5, ec2.InstanceSize.LARGE),
+    vpc=vpc
+)
+```
+
+When `manageMasterUserPassword` is enabled:
+
+* Amazon DocumentDB automatically generates a secure password
+* The password is stored in AWS Secrets Manager
+* You cannot specify `masterUser.password` (it will be auto-generated)
+* The secret is automatically rotated every 7 days by default
+
+By default (without `manageMasterUserPassword`), the construct creates and manages a Secrets Manager
+secret for the master password, and rotation must be configured explicitly with `addRotationSingleUser()`,
+which deploys a rotation Lambda function. The `manageMasterUserPassword` option delegates password management
+entirely to the DocumentDB service, which includes built-in automatic rotation every 7 days without requiring
+Lambda functions.
+
+### Custom KMS Key for Secret Encryption
+
+You can specify a custom KMS key to encrypt the managed secret:
+
+```python
+# vpc: ec2.Vpc
+# my_kms_key: kms.Key
+
+
+cluster = docdb.DatabaseCluster(self, "Database",
+    manage_master_user_password=True,
+    master_user=docdb.Login(
+        username="myuser"
+    ),
+    master_user_secret_kms_key=my_kms_key,  # KMS Key for secret encryption
+    instance_type=ec2.InstanceType.of(ec2.InstanceClass.MEMORY5, ec2.InstanceSize.LARGE),
+    vpc=vpc
+)
+```
+
+### Accessing the Managed Secret
+
+The ARN of the secret created by `manageMasterUserPassword` is not provided by CloudFormation currently
+(unlike `AWS::RDS::DBCluster`, the `AWS::DocDB::DBCluster` resource has no `MasterUserSecret.SecretArn`
+attribute), so the `secret` property of the cluster remains `undefined` and cannot be used to grant
+access to the managed secret.
+
+You can retrieve the secret ARN dynamically using a custom resource:
+
+```python
+import aws_cdk.custom_resources as cr
+import aws_cdk.aws_iam as iam
+import aws_cdk.aws_secretsmanager as secretsmanager
+
+# cluster: docdb.DatabaseCluster
+# role: iam.Role
+
+
+# Call rds:DescribeDBClusters to retrieve the managed secret ARN at deploy time
+get_secret_arn = cr.AwsCustomResource(self, "GetManagedSecretArn",
+    on_update=cr.AwsSdkCall(
+        service="DocDB",
+        action="describeDBClusters",
+        parameters={
+            "DBClusterIdentifier": cluster.cluster_identifier
+        },
+        physical_resource_id=cr.PhysicalResourceId.of("GetManagedSecretArn")
+    ),
+    policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
+        resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE
+    )
+)
+
+managed_secret = secretsmanager.Secret.from_secret_attributes(self, "ManagedSecret",
+    secret_complete_arn=get_secret_arn.get_response_field("DBClusters.0.MasterUserSecret.SecretArn")
+)
+managed_secret.grant_read(role)
+```
+
+If the secret is encrypted with a customer managed KMS key (`masterUserSecretKmsKey`), also pass
+`encryptionKey` to `Secret.fromSecretAttributes()` so that `grantRead()` grants `kms:Decrypt` on the
+key as well.
+
 ## Rotating credentials
 
 When the master password is generated and stored in AWS Secrets Manager, it can be rotated automatically:
@@ -4516,6 +4614,8 @@ class DatabaseClusterAttributes:
         "instances": "instances",
         "instance_type": "instanceType",
         "kms_key": "kmsKey",
+        "manage_master_user_password": "manageMasterUserPassword",
+        "master_user_secret_kms_key": "masterUserSecretKmsKey",
         "parameter_group": "parameterGroup",
         "port": "port",
         "preferred_maintenance_window": "preferredMaintenanceWindow",
@@ -4551,6 +4651,8 @@ class DatabaseClusterProps:
         instances: typing.Optional[jsii.Number] = None,
         instance_type: typing.Optional["_aws_ec2_09840e12.InstanceType"] = None,
         kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
+        manage_master_user_password: typing.Optional[builtins.bool] = None,
+        master_user_secret_kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         parameter_group: typing.Optional["_aws_docdb_31f231dc.IDBClusterParameterGroupRef"] = None,
         port: typing.Optional[jsii.Number] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
@@ -4583,6 +4685,8 @@ class DatabaseClusterProps:
         :param instances: Number of DocDB compute instances. Default: 1
         :param instance_type: What type of instance to start for the replicas. Required for provisioned clusters, not applicable for serverless clusters. Default: None
         :param kms_key: The KMS key for storage encryption. Default: - default master key.
+        :param manage_master_user_password: Specifies whether to manage the master user password with AWS Secrets Manager. When set to true, Amazon DocumentDB will automatically generate and manage the master user password in AWS Secrets Manager. This provides enhanced security and automatic password rotation capabilities. Constraint: You can't manage the master user password with AWS Secrets Manager if ``masterUser.password`` is specified. The ``secret`` property of the cluster is not set when using this option. See the module README for how to access the managed secret. Default: false
+        :param master_user_secret_kms_key: The AWS KMS key to encrypt a secret that is automatically generated and managed in AWS Secrets Manager. This setting is valid only if the master user password is managed by Amazon DocumentDB in AWS Secrets Manager for the DB cluster (i.e. when ``manageMasterUserPassword`` is true). If you don't specify this property, then the ``aws/secretsmanager`` KMS key is used to encrypt the secret. Default: - default AWS managed key ``aws/secretsmanager``
         :param parameter_group: The DB parameter group to associate with the instance. Default: no parameter group
         :param port: The port the DocumentDB cluster will listen on. Default: DatabaseCluster.DEFAULT_PORT
         :param preferred_maintenance_window: A weekly time range in which maintenance should preferably execute. Must be at least 30 minutes long. Example: 'tue:04:17-tue:04:47' Default: - 30-minute window selected at random from an 8-hour block of time for each AWS Region, occurring on a random day of the week.
@@ -4641,6 +4745,8 @@ class DatabaseClusterProps:
             check_type(argname="argument instances", value=instances, expected_type=type_hints["instances"])
             check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
             check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+            check_type(argname="argument manage_master_user_password", value=manage_master_user_password, expected_type=type_hints["manage_master_user_password"])
+            check_type(argname="argument master_user_secret_kms_key", value=master_user_secret_kms_key, expected_type=type_hints["master_user_secret_kms_key"])
             check_type(argname="argument parameter_group", value=parameter_group, expected_type=type_hints["parameter_group"])
             check_type(argname="argument port", value=port, expected_type=type_hints["port"])
             check_type(argname="argument preferred_maintenance_window", value=preferred_maintenance_window, expected_type=type_hints["preferred_maintenance_window"])
@@ -4689,6 +4795,10 @@ class DatabaseClusterProps:
             self._values["instance_type"] = instance_type
         if kms_key is not None:
             self._values["kms_key"] = kms_key
+        if manage_master_user_password is not None:
+            self._values["manage_master_user_password"] = manage_master_user_password
+        if master_user_secret_kms_key is not None:
+            self._values["master_user_secret_kms_key"] = master_user_secret_kms_key
         if parameter_group is not None:
             self._values["parameter_group"] = parameter_group
         if port is not None:
@@ -4938,6 +5048,40 @@ class DatabaseClusterProps:
         :default: - default master key.
         '''
         result = self._values.get("kms_key")
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
+
+    @builtins.property
+    def manage_master_user_password(self) -> typing.Optional[builtins.bool]:
+        '''Specifies whether to manage the master user password with AWS Secrets Manager.
+
+        When set to true, Amazon DocumentDB will automatically generate and manage the master user password in AWS Secrets Manager.
+        This provides enhanced security and automatic password rotation capabilities.
+
+        Constraint: You can't manage the master user password with AWS Secrets Manager if ``masterUser.password`` is specified.
+
+        The ``secret`` property of the cluster is not set when using this option. See the
+        module README for how to access the managed secret.
+
+        :default: false
+
+        :see: https://docs.aws.amazon.com/documentdb/latest/developerguide/docdb-secrets-manager.html
+        '''
+        result = self._values.get("manage_master_user_password")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def master_user_secret_kms_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
+        '''The AWS KMS key to encrypt a secret that is automatically generated and managed in AWS Secrets Manager.
+
+        This setting is valid only if the master user password is managed by Amazon DocumentDB in AWS Secrets Manager
+        for the DB cluster (i.e. when ``manageMasterUserPassword`` is true).
+        If you don't specify this property, then the ``aws/secretsmanager`` KMS key is used to encrypt the secret.
+
+        :default: - default AWS managed key ``aws/secretsmanager``
+
+        :see: https://docs.aws.amazon.com/documentdb/latest/developerguide/docdb-secrets-manager.html
+        '''
+        result = self._values.get("master_user_secret_kms_key")
         return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
 
     @builtins.property
@@ -6295,6 +6439,8 @@ class DatabaseCluster(
         instances: typing.Optional[jsii.Number] = None,
         instance_type: typing.Optional["_aws_ec2_09840e12.InstanceType"] = None,
         kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
+        manage_master_user_password: typing.Optional[builtins.bool] = None,
+        master_user_secret_kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         parameter_group: typing.Optional["_aws_docdb_31f231dc.IDBClusterParameterGroupRef"] = None,
         port: typing.Optional[jsii.Number] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
@@ -6328,6 +6474,8 @@ class DatabaseCluster(
         :param instances: Number of DocDB compute instances. Default: 1
         :param instance_type: What type of instance to start for the replicas. Required for provisioned clusters, not applicable for serverless clusters. Default: None
         :param kms_key: The KMS key for storage encryption. Default: - default master key.
+        :param manage_master_user_password: Specifies whether to manage the master user password with AWS Secrets Manager. When set to true, Amazon DocumentDB will automatically generate and manage the master user password in AWS Secrets Manager. This provides enhanced security and automatic password rotation capabilities. Constraint: You can't manage the master user password with AWS Secrets Manager if ``masterUser.password`` is specified. The ``secret`` property of the cluster is not set when using this option. See the module README for how to access the managed secret. Default: false
+        :param master_user_secret_kms_key: The AWS KMS key to encrypt a secret that is automatically generated and managed in AWS Secrets Manager. This setting is valid only if the master user password is managed by Amazon DocumentDB in AWS Secrets Manager for the DB cluster (i.e. when ``manageMasterUserPassword`` is true). If you don't specify this property, then the ``aws/secretsmanager`` KMS key is used to encrypt the secret. Default: - default AWS managed key ``aws/secretsmanager``
         :param parameter_group: The DB parameter group to associate with the instance. Default: no parameter group
         :param port: The port the DocumentDB cluster will listen on. Default: DatabaseCluster.DEFAULT_PORT
         :param preferred_maintenance_window: A weekly time range in which maintenance should preferably execute. Must be at least 30 minutes long. Example: 'tue:04:17-tue:04:47' Default: - 30-minute window selected at random from an 8-hour block of time for each AWS Region, occurring on a random day of the week.
@@ -6363,6 +6511,8 @@ class DatabaseCluster(
             instances=instances,
             instance_type=instance_type,
             kms_key=kms_key,
+            manage_master_user_password=manage_master_user_password,
+            master_user_secret_kms_key=master_user_secret_kms_key,
             parameter_group=parameter_group,
             port=port,
             preferred_maintenance_window=preferred_maintenance_window,
@@ -7566,6 +7716,8 @@ def _typecheckingstub__bb24ec128a97ca07df15f55d4e96dda851d4300951806a7a3d7f391cc
     instances: typing.Optional[jsii.Number] = None,
     instance_type: typing.Optional[_aws_ec2_09840e12.InstanceType] = None,
     kms_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
+    manage_master_user_password: typing.Optional[builtins.bool] = None,
+    master_user_secret_kms_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     parameter_group: typing.Optional[_aws_docdb_31f231dc.IDBClusterParameterGroupRef] = None,
     port: typing.Optional[jsii.Number] = None,
     preferred_maintenance_window: typing.Optional[builtins.str] = None,
@@ -7705,6 +7857,8 @@ def _typecheckingstub__3fef762ebf4d69195051e79f76d91c6d9e93e2a84a6c1e71f7b4a0b8c
     instances: typing.Optional[jsii.Number] = None,
     instance_type: typing.Optional[_aws_ec2_09840e12.InstanceType] = None,
     kms_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
+    manage_master_user_password: typing.Optional[builtins.bool] = None,
+    master_user_secret_kms_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     parameter_group: typing.Optional[_aws_docdb_31f231dc.IDBClusterParameterGroupRef] = None,
     port: typing.Optional[jsii.Number] = None,
     preferred_maintenance_window: typing.Optional[builtins.str] = None,

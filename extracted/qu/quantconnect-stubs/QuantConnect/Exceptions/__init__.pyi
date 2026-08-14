@@ -160,6 +160,39 @@ class UnsupportedOperandPythonExceptionInterpreter(QuantConnect.Exceptions.Pytho
         ...
 
 
+class AttributeErrorPythonExceptionInterpreter(QuantConnect.Exceptions.PythonExceptionInterpreter):
+    """
+    Interprets Python AttributeError exceptions caused by accessing an attribute of the wrong bar type,
+    e.g. reading 'volume' off a QuoteBar (quote-only subscriptions deliver QuoteBars in the slice) or
+    bid/ask attributes off a TradeBar. Only fires when it has a targeted hint for the failed attribute;
+    all other AttributeErrors keep the default interpretation.
+    """
+
+    @property
+    def order(self) -> int:
+        """Determines the order that an instance of this class should be called"""
+        ...
+
+    def can_interpret(self, exception: System.Exception) -> bool:
+        """
+        Determines if this interpreter should be applied to the specified exception.
+        
+        :param exception: The exception to check
+        :returns: True if the exception can be interpreted, false otherwise.
+        """
+        ...
+
+    def interpret(self, exception: System.Exception, inner_interpreter: QuantConnect.Exceptions.IExceptionInterpreter) -> System.Exception:
+        """
+        Interprets the specified exception into a new exception
+        
+        :param exception: The exception to be interpreted
+        :param inner_interpreter: An interpreter that should be applied to the inner exception.
+        :returns: The interpreted exception.
+        """
+        ...
+
+
 class ScheduledEventExceptionInterpreter(System.Object, QuantConnect.Exceptions.IExceptionInterpreter):
     """Interprets ScheduledEventException instances"""
 
@@ -369,6 +402,34 @@ class InvalidTokenPythonExceptionInterpreter(QuantConnect.Exceptions.PythonExcep
 
 class DllNotFoundPythonExceptionInterpreter(System.Object, QuantConnect.Exceptions.IExceptionInterpreter):
     """Interprets DllNotFoundPythonExceptionInterpreter instances"""
+
+    @property
+    def order(self) -> int:
+        """Determines the order that an instance of this class should be called"""
+        ...
+
+    def can_interpret(self, exception: System.Exception) -> bool:
+        """
+        Determines if this interpreter should be applied to the specified exception.
+        
+        :param exception: The exception to check
+        :returns: True if the exception can be interpreted, false otherwise.
+        """
+        ...
+
+    def interpret(self, exception: System.Exception, inner_interpreter: QuantConnect.Exceptions.IExceptionInterpreter) -> System.Exception:
+        """
+        Interprets the specified exception into a new exception
+        
+        :param exception: The exception to be interpreted
+        :param inner_interpreter: An interpreter that should be applied to the inner exception.
+        :returns: The interpreted exception.
+        """
+        ...
+
+
+class DatetimeDateComparisonPythonExceptionInterpreter(QuantConnect.Exceptions.PythonExceptionInterpreter):
+    """Interprets TypeError exceptions raised when comparing datetime.datetime and datetime.date objects"""
 
     @property
     def order(self) -> int:

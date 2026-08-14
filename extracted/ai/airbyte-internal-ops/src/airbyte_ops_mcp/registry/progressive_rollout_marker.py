@@ -4,14 +4,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Literal
 
+import gcsfs
+import yaml
+from google.cloud.exceptions import GoogleCloudError
+
 from airbyte_ops_mcp.registry._constants import METADATA_FOLDER
-from airbyte_ops_mcp.registry._gcs_helpers import get_gcs_storage_client
+from airbyte_ops_mcp.registry._gcs_helpers import (
+    get_gcs_credentials_token,
+    get_gcs_storage_client,
+)
 from airbyte_ops_mcp.registry._resolve_gcs_paths import versioned_blob_root
 from airbyte_ops_mcp.registry.markers import (
     PROGRESSIVE_ROLLOUT_MARKER_FILE,
     inactive_progressive_rollout_marker_file,
+    inactive_progressive_rollout_marker_parts,
 )
 from airbyte_ops_mcp.registry.store import RegistryStore
 
@@ -44,6 +53,220 @@ class ProgressiveRolloutMarkerResult:
             "target_path": self.target_path,
             "dry_run": self.dry_run,
         }
+
+
+@dataclass
+class ProgressiveRolloutMarkerDetail:
+    """Parsed contents of an active or finalized progressive rollout marker."""
+
+    connector_name: str
+    version: str
+    progressive_rollout: bool = False
+    created_at: str = ""
+    promotion_requested_at: str = ""
+    promotion_requested_by: str = ""
+    rollout_id: str = ""
+    raw: str = ""
+    state: Literal["active", "promoted", "aborted"] = "active"
+    marker_date: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the marker detail to a dictionary."""
+        return {
+            "connector_name": self.connector_name,
+            "version": self.version,
+            "progressive_rollout": self.progressive_rollout,
+            "created_at": self.created_at,
+            "promotion_requested_at": self.promotion_requested_at,
+            "promotion_requested_by": self.promotion_requested_by,
+            "rollout_id": self.rollout_id,
+            "raw": self.raw,
+            "state": self.state,
+            "marker_date": self.marker_date,
+        }
+
+
+@dataclass
+class ProgressiveRolloutMarkerAnnotationResult:
+    """Result of annotating an active progressive rollout marker."""
+
+    connector_name: str
+    version: str
+    bucket_name: str
+    action: str
+    success: bool
+    message: str
+    marker: ProgressiveRolloutMarkerDetail | None = None
+    dry_run: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the annotation result to a dictionary."""
+        return {
+            "connector_name": self.connector_name,
+            "version": self.version,
+            "bucket_name": self.bucket_name,
+            "action": self.action,
+            "success": self.success,
+            "message": self.message,
+            "marker": self.marker.to_dict() if self.marker else None,
+            "dry_run": self.dry_run,
+        }
+
+
+def get_progressive_rollout_marker(
+    connector_name: str,
+    version: str,
+    bucket_name: str,
+) -> ProgressiveRolloutMarkerDetail | None:
+    """Read an active or finalized progressive rollout marker.
+
+    Returns `None` when no marker is present. Unparseable YAML is tolerated and
+    still returns the marker with its raw contents.
+    """
+    fs = gcsfs.GCSFileSystem(
+        token=get_gcs_credentials_token(),
+        skip_instance_cache=True,
+        use_listings_cache=False,
+    )
+    marker_prefix = (
+        f"{bucket_name}/{METADATA_FOLDER}/airbyte/{connector_name}/{version}/"
+    )
+    marker_path = f"{marker_prefix}{PROGRESSIVE_ROLLOUT_MARKER_FILE}"
+    state: Literal["active", "promoted", "aborted"] = "active"
+    marker_date = ""
+    if not fs.exists(marker_path):
+        dated_paths = []
+        for path in fs.glob(f"{marker_prefix}progressive-rollout-*.yml"):
+            parts = inactive_progressive_rollout_marker_parts(path.rsplit("/", 1)[-1])
+            if parts is not None:
+                dated_paths.append((parts[1], path, parts[0]))
+        if not dated_paths:
+            return None
+        marker_date, marker_path, state = max(dated_paths)
+    try:
+        raw = fs.cat_file(marker_path).decode("utf-8")
+    except (GoogleCloudError, OSError, UnicodeDecodeError):
+        return ProgressiveRolloutMarkerDetail(
+            connector_name=connector_name,
+            version=version,
+            state=state,
+            marker_date=marker_date,
+        )
+    try:
+        marker = yaml.safe_load(raw) or {}
+    except yaml.YAMLError:
+        marker = {}
+    detail = ProgressiveRolloutMarkerDetail(
+        connector_name=connector_name,
+        version=version,
+        raw=raw,
+        state=state,
+        marker_date=marker_date,
+    )
+    if isinstance(marker, dict):
+        detail.progressive_rollout = bool(marker.get("progressive_rollout", False))
+        detail.created_at = str(marker.get("created_at", "") or "")
+        detail.promotion_requested_at = str(
+            marker.get("promotion_requested_at", "") or ""
+        )
+        detail.promotion_requested_by = str(
+            marker.get("promotion_requested_by", "") or ""
+        )
+        detail.rollout_id = str(marker.get("rollout_id", "") or "")
+    return detail
+
+
+def annotate_progressive_rollout_marker(
+    *,
+    connector_name: str,
+    version: str,
+    bucket_name: str,
+    promotion_requested_at: str | None = None,
+    promotion_requested_by: str,
+    rollout_id: str,
+    dry_run: bool = False,
+) -> ProgressiveRolloutMarkerAnnotationResult:
+    """Annotate an active rollout marker without changing its path."""
+    active_marker_path = (
+        f"{bucket_name}/{METADATA_FOLDER}/airbyte/{connector_name}/{version}/"
+        f"{PROGRESSIVE_ROLLOUT_MARKER_FILE}"
+    )
+    fs = gcsfs.GCSFileSystem(
+        token=get_gcs_credentials_token(),
+        skip_instance_cache=True,
+        use_listings_cache=False,
+    )
+    if not fs.exists(active_marker_path):
+        return ProgressiveRolloutMarkerAnnotationResult(
+            connector_name=connector_name,
+            version=version,
+            bucket_name=bucket_name,
+            action="annotate",
+            success=False,
+            message=(
+                f"No active progressive rollout marker found for "
+                f"{connector_name}:{version}."
+            ),
+            dry_run=dry_run,
+        )
+    marker = get_progressive_rollout_marker(connector_name, version, bucket_name)
+    if marker is None or marker.state != "active":
+        return ProgressiveRolloutMarkerAnnotationResult(
+            connector_name=connector_name,
+            version=version,
+            bucket_name=bucket_name,
+            action="annotate",
+            success=False,
+            message=(
+                f"No active progressive rollout marker found for "
+                f"{connector_name}:{version}."
+            ),
+            dry_run=dry_run,
+        )
+    requested_at = promotion_requested_at or datetime.now(timezone.utc).isoformat()
+    try:
+        values = yaml.safe_load(marker.raw) if marker.raw else {}
+    except yaml.YAMLError:
+        values = {}
+    if not isinstance(values, dict):
+        values = {}
+    values["promotion_requested_at"] = requested_at
+    values["promotion_requested_by"] = promotion_requested_by
+    values["rollout_id"] = rollout_id
+    content = yaml.safe_dump(values, sort_keys=False)
+    if not dry_run:
+        storage_client = get_gcs_storage_client()
+        blob_path = (
+            f"{METADATA_FOLDER}/airbyte/{connector_name}/{version}/"
+            f"{PROGRESSIVE_ROLLOUT_MARKER_FILE}"
+        )
+        storage_client.bucket(bucket_name).blob(blob_path).upload_from_string(
+            content,
+            content_type="application/x-yaml",
+        )
+    annotated_marker = ProgressiveRolloutMarkerDetail(
+        connector_name=connector_name,
+        version=version,
+        progressive_rollout=marker.progressive_rollout,
+        created_at=marker.created_at,
+        promotion_requested_at=requested_at,
+        promotion_requested_by=promotion_requested_by,
+        rollout_id=rollout_id,
+        raw=content,
+    )
+    return ProgressiveRolloutMarkerAnnotationResult(
+        connector_name=connector_name,
+        version=version,
+        bucket_name=bucket_name,
+        action="annotate",
+        success=True,
+        message=(
+            f"{'[DRY RUN] Would annotate' if dry_run else 'Annotated'} "
+            f"active progressive rollout marker for {connector_name}:{version}."
+        ),
+        marker=annotated_marker,
+        dry_run=dry_run,
+    )
 
 
 def _active_marker_blob_path(

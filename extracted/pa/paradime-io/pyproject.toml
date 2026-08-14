@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "paradime-io"
-version = "6.4.0"
+version = "6.6.0"
 description = "Paradime - Python SDK"
 authors = [
     { name = "Bhuvan Singla", email = "bhuvan@paradime.io" },
@@ -52,6 +52,7 @@ dev = [
     "isort>=5.13.2,<6.0.0",
     "ruff>=0.3.5,<0.4.0",
     "flake8>=7.1.0,<8.0.0",
+    "pytest>=8.0.0,<9.0.0",
 ]
 
 [tool.hatch.build.targets.wheel]

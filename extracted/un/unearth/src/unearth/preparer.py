@@ -11,8 +11,9 @@ import shutil
 import stat
 import tarfile
 import zipfile
+from collections.abc import Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable, cast
+from typing import TYPE_CHECKING, cast
 
 import httpx
 
@@ -79,10 +80,29 @@ def zip_item_is_executable(info: zipfile.ZipInfo) -> bool:
 
 def is_within_directory(directory: str | Path, path: str | Path) -> bool:
     try:
-        Path(path).relative_to(directory)
+        Path(os.path.realpath(path)).relative_to(os.path.realpath(directory))
     except ValueError:
         return False
     return True
+
+
+def safe_makedirs(dest_dir: str | Path, location: str | Path) -> None:
+    """Create directory, then verify the resolved path is still within location.
+
+    The post-creation check is necessary because ``is_within_directory`` uses
+    ``os.path.realpath``, which cannot resolve symlinks along a path that does
+    not yet exist.  A malicious archive can first extract a symlink pointing
+    outside ``location`` and then reference a path through that symlink.  By
+    re-checking *after* ``os.makedirs`` has materialised the directory (and
+    any intermediate symlinks have landed on disk), we catch traversals that
+    the pre-creation check misses.
+    """
+    os.makedirs(dest_dir, exist_ok=True)
+    if not is_within_directory(location, dest_dir):
+        raise UnpackError(
+            f"Path traversal detected: {dest_dir!r} resolves outside "
+            f"target directory ({location!r})"
+        )
 
 
 def split_leading_dir(path: str) -> list[str]:
@@ -187,8 +207,7 @@ def unpack_archive(
 
 def _unzip_archive(filename: Path, location: Path, reporter: UnpackReporter) -> None:
     os.makedirs(location, exist_ok=True)
-    zipfp = open(filename, "rb")
-    with zipfile.ZipFile(zipfp, allowZip64=True) as zip:
+    with zipfile.ZipFile(filename, allowZip64=True) as zip:
         leading = has_leading_dir(zip.namelist())
         callback = functools.partial(reporter, filename, total=len(zip.infolist()))
         for info in iter_with_callback(zip.infolist(), callback):
@@ -204,11 +223,11 @@ def _unzip_archive(filename: Path, location: Path, reporter: UnpackReporter) -> 
                     f"outside target directory ({location})"
                 )
                 raise UnpackError(message)
-            if fn.endswith("/") or fn.endswith("\\"):
+            if fn.endswith(("/", "\\")):
                 # A directory
-                os.makedirs(fn, exist_ok=True)
+                safe_makedirs(fn, location)
             else:
-                os.makedirs(dir, exist_ok=True)
+                safe_makedirs(dir, location)
                 # Don't use read() to avoid allocating an arbitrarily large
                 # chunk of memory for the file's content
                 with zip.open(name) as fp, open(fn, "wb") as destfp:
@@ -222,7 +241,7 @@ def _untar_archive(filename: Path, location: Path, reporter: UnpackReporter) -> 
     """Untar the file (with path `filename`) to the destination `location`."""
     os.makedirs(location, exist_ok=True)
     lower_fn = str(filename).lower()
-    if lower_fn.endswith(".gz") or lower_fn.endswith(".tgz"):
+    if lower_fn.endswith((".gz", ".tgz")):
         mode = "r:gz"
     elif lower_fn.endswith(BZ2_EXTENSIONS):
         mode = "r:bz2"
@@ -251,11 +270,24 @@ def _untar_archive(filename: Path, location: Path, reporter: UnpackReporter) -> 
                 )
                 raise UnpackError(message)
             if member.isdir():
-                os.makedirs(path, exist_ok=True)
+                safe_makedirs(path, location)
             elif member.issym():
+                if os.path.isabs(member.linkname):
+                    link_target = member.linkname
+                else:
+                    link_target = os.path.join(os.path.dirname(path), member.linkname)
+                if not is_within_directory(location, link_target):
+                    logger.warning(
+                        "In the tar file %s the member %s -> %s points outside %s, skipping",
+                        filename,
+                        member.name,
+                        member.linkname,
+                        location,
+                    )
+                    continue
                 try:
                     tar._extract_member(member, path)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001
                     # Some corrupt tar files seem to produce this
                     # (specifically bad symlinks)
                     logger.warning(
@@ -278,7 +310,7 @@ def _untar_archive(filename: Path, location: Path, reporter: UnpackReporter) -> 
                         exc,
                     )
                     continue
-                os.makedirs(os.path.dirname(path), exist_ok=True)
+                safe_makedirs(os.path.dirname(path), location)
                 assert fp is not None
                 with open(path, "wb") as destfp:
                     shutil.copyfileobj(fp, destfp)
@@ -323,6 +355,40 @@ def unpack_link(
         download_reporter(link, 1, 1)
         return location
 
+    artifact = download_link(
+        session,
+        link,
+        download_dir,
+        hashes,
+        download_reporter=download_reporter,
+    )
+    if artifact.is_dir():
+        return artifact
+    if link.is_wheel:
+        if link.is_file:
+            # Use the local file directly
+            return artifact
+        target_file = location / link.filename
+        if target_file != artifact:
+            # For wheels downloaded from remote locations, move it to the destination.
+            os.replace(artifact, target_file)
+        return target_file
+
+    unpack_archive(artifact, location, reporter=unpack_reporter)
+    return location
+
+
+def download_link(
+    session: Fetcher,
+    link: Link,
+    download_dir: Path,
+    hashes: dict[str, list[str]] | None = None,
+    download_reporter: DownloadReporter = noop_download_reporter,
+) -> Path:
+    """Download an artifact link without unpacking it."""
+    if link.is_vcs:
+        raise UnpackError("VCS links cannot be downloaded without unpacking")
+
     validator = HashValidator(link, hashes)
     if link.is_file:
         if link.file_path.is_dir():
@@ -334,7 +400,8 @@ def unpack_link(
         artifact = link.file_path
         validator.validate_path(artifact)
     else:
-        # A remote artfiact link, check the download dir first
+        # A remote artifact link, check the download dir first.
+        download_dir.mkdir(parents=True, exist_ok=True)
         artifact = download_dir / link.filename
         if not _check_downloaded(artifact, hashes):
             with session.get_stream(link.normalized) as resp:
@@ -362,15 +429,4 @@ def unpack_link(
                             validator.update(chunk)
                             f.write(chunk)
             validator.validate()
-    if link.is_wheel:
-        if link.is_file:
-            # Use the local file directly
-            return artifact
-        target_file = location / link.filename
-        if target_file != artifact:
-            # For wheels downloaded from remote locations, move it to the destination.
-            os.replace(artifact, target_file)
-        return target_file
-
-    unpack_archive(artifact, location, reporter=unpack_reporter)
-    return location
+    return artifact

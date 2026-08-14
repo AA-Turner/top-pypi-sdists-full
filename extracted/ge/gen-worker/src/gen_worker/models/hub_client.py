@@ -15,12 +15,12 @@ import requests
 # and ships the manifest + presigned URLs via
 # JobExecutionRequest.resolved_repos_by_id over gRPC. STANDALONE clients
 # (gen-worker run/serve/prefetch under cozy, #379) resolve the same shape over
-# HTTP via ``resolve_repo`` against tensorhub's public resolve route (th#560).
+# HTTP via ``resolve_repo`` against tensorhub's public resolve route.
 
 
 @dataclass(frozen=True)
 class WorkerResolvedChunk:
-    """One CAS object of a chunked file (manifest v2, th#1303).
+    """One CAS object of a chunked file (manifest v2).
 
     ``sha256`` is bare lowercase hex; ``length`` comes from the manifest so a
     chunk's cumulative offset is arithmetic, not an assumption about the
@@ -37,7 +37,6 @@ class WorkerResolvedRepoFile:
     path: str
     size_bytes: int
     url: Optional[str]
-    transfer_grant: Optional[dict[str, Any]] = None
     #: Algorithm-tagged whole-file digest ("sha256:<hex>"). Every resolved
     #: entry carries one; an entry that does not is refused, not skipped.
     digest: str = ""
@@ -68,7 +67,7 @@ def resolved_entry_digest(
     rather than reaching for a field name. Raises on an absent or untagged
     digest: an integrity check with no digest is a REFUSAL, never a skip.
 
-    th#1303 S1: the legacy ``blake3`` mirror is no longer read. Before the
+    the legacy ``blake3`` mirror is no longer read. Before the
     repoint an entry could carry bare blake3 hex and nothing else; after it,
     an entry with no ``digest`` is a stale pointer, and the only safe answer
     is to refuse it. Reinstating the mirror arm here re-opens the vacuous
@@ -89,17 +88,13 @@ def resolved_entry_digest(
 class WorkerResolvedRepo:
     snapshot_digest: str
     files: List[WorkerResolvedRepoFile]
-    # th#697: total checkpoint size. pgw#1148: `sibling_flavors` is GONE —
-    # th#1803 re-keyed `repo_tags` to (repo, tag, checkpoint) and dropped the
-    # flavor column, so the hub emits `tag_members` (checkpoint rows) and no
-    # flavor row exists to parse. Nothing in the SDK reads the group today:
-    # selection within a tag group is contract compatibility (§1.33), and the
-    # local pickers that consumed these rows died with them.
+    # Total checkpoint size. There is deliberately no `sibling_flavors`: the
+    # hub emits `tag_members` (checkpoint rows) and no flavor row exists to
+    # parse. Selection within a tag group is contract compatibility (§1.33).
     size_bytes: int = 0
-    # th#964: the resolved checkpoint's architecture family ("sdxl-pony",
+    # The resolved checkpoint's architecture family ("sdxl-pony",
     # ...) — drives the local family lane policy. "" on hubs not sending it.
-    model_family: str = ""
-    # pgw#654/th#1566: resolved objective and distillation value plus the
+    # resolved objective and distillation value plus the
     # evidence status that distinguishes explicit false from unknown. Empty
     # status is the backward-compatible shape from an older hub.
     objective: str = ""
@@ -220,7 +215,7 @@ def resolve_repo(
         raise HubResolveError(f"tensorhub resolve failed for {ref.canonical()}: {e}") from e
 
     if resp.status_code == 404:
-        # te#125/th#1238: only the HUB's own 404 means "no such repo". A proxy
+        # Only the HUB's own 404 means "no such repo". A proxy
         # answering 404 means the hub is unreachable (restarting), and calling
         # that "repo not found" sends the operator hunting a catalog problem
         # that does not exist.
@@ -290,7 +285,6 @@ def resolve_repo(
     return WorkerResolvedRepo(
         snapshot_digest=digest, files=files,
         size_bytes=int(body.get("size_bytes") or 0),
-        model_family=str(body.get("model_family") or "").strip(),
         objective=str(body.get("objective") or "").strip(),
         distilled=bool(body.get("distilled") or False),
         distilled_status=distilled_status,

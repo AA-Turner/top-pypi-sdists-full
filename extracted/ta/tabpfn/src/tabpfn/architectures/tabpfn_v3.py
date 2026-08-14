@@ -262,7 +262,7 @@ def get_cache_size(
     n_features: int,
     model_config: TabPFNV3Config,
     base_dtype: torch.dtype | Literal["autocast"],
-    kv_cache_precision: Literal["auto", "int8"] = "int8",
+    kv_cache_precision: Literal["auto", "int8", "fp8"] = "int8",
 ) -> int:
     """Calculate the cached memory in bytes for a single TabPFN v3 estimator.
 
@@ -306,21 +306,20 @@ def get_cache_size(
             ``"autocast"`` (GPU autocast path -- KV and ``train_embeddings`` are
             sized at fp16 while ``inducing_hidden`` and ``scaler_cache`` stay
             fp32, since autocast keeps those ops in fp32).
-        kv_cache_precision: If ``"int8"`` (default), the KV cache is sized at
-            :data:`~tabpfn.architectures.kv_cache.QUANTIZED_KV_DTYPE` plus
-            per-tensor scales; if ``"auto"``, K/V are sized at the compute
-            dtype with no scales.
+        kv_cache_precision: If ``"int8"`` (default) or ``"fp8"``, the KV cache
+            is sized at one byte per element plus scales; if ``"auto"``, K/V
+            are sized at the compute dtype with no scales.
 
     Returns:
         Per-estimator cache size in bytes. Multiply by the ensemble size for the
         total (each estimator holds its own cache); divide by ``1024 ** 2`` for MB.
     """
-    if kv_cache_precision not in ("auto", "int8"):
+    if kv_cache_precision not in ("auto", "int8", "fp8"):
         raise ValueError(
             f"Invalid kv_cache_precision: {kv_cache_precision}. "
-            "Must be one of 'auto' or 'int8'."
+            "Must be one of 'auto', 'int8' or 'fp8'."
         )
-    quantize_kv_cache = kv_cache_precision == "int8"
+    quantize_kv_cache = kv_cache_precision in ("int8", "fp8")
 
     # Set the stored dtype of each cached component up front. On the forced-
     # precision path the model and inputs are cast to ``dtype``, so every
@@ -509,20 +508,33 @@ class ManyClassDecoder(nn.Module):
         self.k_projection = nn.Linear(self.input_size, self.attention_size)
         self.softmax_scaling_layer = softmax_scaling_layer
 
+    def _project_qk(
+        self,
+        train_embeddings: torch.Tensor,  # (B, N, E)
+        test_embeddings: torch.Tensor,  # (B, M, E)
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Project inputs to per-head queries/keys: (B, M, H, D), (B, N, H, D)."""
+        q_BME = self.q_projection(test_embeddings)
+        # Mirrors the dtype guard in ICLAttention's cached path.
+        if train_embeddings.dtype != q_BME.dtype:
+            train_embeddings = train_embeddings.to(q_BME.dtype)
+        k_BNE = self.k_projection(train_embeddings)
+        h, d = self.num_heads, self.head_dim
+        q_BMHD = q_BME.view(*q_BME.shape[:2], h, d).contiguous()
+        k_BNHD = k_BNE.view(*k_BNE.shape[:2], h, d).contiguous()
+        return q_BMHD, k_BNHD
+
     @override
     def forward(
         self,
         train_embeddings: torch.Tensor,  # (B, N, E)
         test_embeddings: torch.Tensor,  # (B, M, E)
         targets: torch.Tensor,  # (B, N) - class indices
+        highest_target: int | None = None,  # max(targets), if already on the host
     ) -> torch.Tensor:
         """Perform a forward pass."""
         B, M, _ = test_embeddings.shape
-        q_BME = self.q_projection(test_embeddings)
-        # Mirrors the dtype guard in ICLAttention's cached path.
-        if train_embeddings.dtype != q_BME.dtype:
-            train_embeddings = train_embeddings.to(q_BME.dtype)
-        k_BNE = self.k_projection(train_embeddings)
+        q_BMHD, k_BNHD = self._project_qk(train_embeddings, test_embeddings)
 
         if M == 0:
             # OOM checks at training start run with no test rows. Flash attention
@@ -530,18 +542,14 @@ class ManyClassDecoder(nn.Module):
             # Both dummy terms keep the output in the computation graph so that
             # gradients flow through both projections during memory estimation.
             empty = test_embeddings.new_empty((0, B, self.max_num_classes))
-            return empty + (q_BME.sum() + k_BNE.sum()) * 0.0
+            return empty + (q_BMHD.sum() + k_BNHD.sum()) * 0.0
 
-        one_hot_targets_BNT = (
-            F.one_hot(targets.long(), num_classes=self.max_num_classes)
-            .to(dtype=q_BME.dtype)
-            .contiguous()
-        )
-
-        q_BMHD = q_BME.view(B, M, self.num_heads, self.head_dim).contiguous()
-        k_BNHD = k_BNE.view(B, -1, self.num_heads, self.head_dim).contiguous()
+        if highest_target is None:
+            highest_target = int(targets.max())
         one_hot_targets_BNHT = (
-            one_hot_targets_BNT.unsqueeze(2)
+            F.one_hot(targets.long(), num_classes=highest_target + 1)
+            .to(dtype=q_BMHD.dtype)
+            .unsqueeze(2)
             .expand(-1, -1, self.num_heads, -1)
             .contiguous()
         )
@@ -553,9 +561,36 @@ class ManyClassDecoder(nn.Module):
         )
         test_output_BMT = test_output_BMHT.mean(2)  # average over heads
 
+        # Restore the architectural width in case classes were missing
+        missing = self.max_num_classes - test_output_BMT.shape[-1]
+        if missing:
+            test_output_BMT = F.pad(test_output_BMT, (0, missing))
+
         test_output_MBT = test_output_BMT.transpose(0, 1)
         # convert to logits:
         return torch.log(torch.clamp(test_output_MBT, min=1e-5) + 3e-5)
+
+    def attention_weights(
+        self,
+        train_embeddings: torch.Tensor,  # (B, N, E)
+        test_embeddings: torch.Tensor,  # (B, M, E)
+    ) -> torch.Tensor:
+        """Per-train-row attention weights, averaged over heads: `(B, M, N)`.
+
+        `weights[..., n]` is the vote mass placed on train row `n` for a
+        test row; non-negative and summing to 1 over the training axis.
+        Collapsing by training label recovers the pre-log class average that
+        `forward` turns into logits.
+
+        `forward` fuses this into a single attention kernel to avoid
+        materializing an O(N*M) tensor.
+        """
+        q_BMHD, k_BNHD = self._project_qk(train_embeddings, test_embeddings)
+        if self.softmax_scaling_layer is not None:
+            q_BMHD = self.softmax_scaling_layer(q_BMHD, k_BNHD.shape[1])
+        scores_BHMN = torch.einsum("bmhd,bnhd->bhmn", q_BMHD, k_BNHD).float()
+        scores_BHMN /= math.sqrt(self.head_dim)
+        return torch.softmax(scores_BHMN, dim=-1).mean(dim=1)  # over heads -> (B, M, N)
 
 
 def _chunked_class_attention(
@@ -612,7 +647,10 @@ def _chunked_class_attention(
 
     # Single flash-attention call across all chunks
     out_folded = _batched_scaled_dot_product_attention(
-        q_folded, k_folded, v_folded, softmax_scaling_layer=softmax_scaling_layer
+        q_folded,
+        k_folded,
+        v_folded,
+        softmax_scaling_layer=softmax_scaling_layer,
     )
 
     # Unfold and trim padding: (B*K, S, H, D) -> (B, S, H, T)
@@ -741,16 +779,29 @@ class SoftmaxScalingMLP(nn.Module):
 
 def _batched_scaled_dot_product_attention(
     q_BSHD: torch.Tensor,
-    k_BSJD: torch.Tensor,
-    v_BSJD: torch.Tensor,
+    k_BSJD: torch.Tensor | None,
+    v_BSJD: torch.Tensor | None,
     softmax_scaling_layer: nn.Module | None = None,
     _backends_override: list[SDPBackend] | None = None,
+    quantized_kv: QuantizedKVCacheEntry | None = None,
 ) -> torch.Tensor:
-    """SDPA with optional query scaling."""
+    """SDPA with optional query scaling.
+
+    ``n`` for the scaling is the KV sequence length, read from ``k_BSJD`` or
+    the quantized cache entry.
+    """
     if softmax_scaling_layer is not None:
-        src_len = k_BSJD.shape[1]
+        k = quantized_kv.key if quantized_kv is not None else k_BSJD
+        assert k is not None
+        src_len = k.shape[1]
         q_BSHD = softmax_scaling_layer(q_BSHD, src_len)
-    return scaled_dot_product_attention(q_BSHD, k_BSJD, v_BSJD, _backends_override)
+    return scaled_dot_product_attention(
+        q_BSHD,
+        k_BSJD,
+        v_BSJD,
+        _backends_override,
+        quantized_kv=quantized_kv,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -846,7 +897,10 @@ class CrossAttention(nn.Module):
         v = self.v_projection(x_for_key_and_value_BVE).view(B, V, -1, self.head_dim)
 
         out = _batched_scaled_dot_product_attention(
-            q, k, v, softmax_scaling_layer=self.softmax_scaling_layer
+            q,
+            k,
+            v,
+            softmax_scaling_layer=self.softmax_scaling_layer,
         )
 
         return self.out_projection(out.reshape(B, Q, self.head_dim * self.num_heads))
@@ -931,28 +985,36 @@ class ICLAttention(nn.Module):
 
         if cached_kv is not None:
             # Use pre-computed K/V from cache (test-only path)
-            if isinstance(cached_kv, QuantizedKVCacheEntry):
-                cached_kv = cached_kv.dequantize(q.dtype)
             k = cached_kv.key
             v = cached_kv.value
             assert k is not None, "cached key is None"
             assert v is not None, "cached value is None"
-            # Match dtype in case of autocast (e.g. fp32 cache under fp16)
-            if k.dtype != q.dtype:
-                k = k.to(q.dtype)
-                v = v.to(q.dtype)
             # The cache already stores only the test KV heads (sliced at
             # cache-build time), so no slicing is needed here.
             if self.num_kv_heads_test is not None:
                 nh_test_heads = self.num_kv_heads_test
                 assert k.shape[2] == nh_test_heads, "cached key has wrong num heads"
                 assert v.shape[2] == nh_test_heads, "cached value has wrong num heads"
-            out = _batched_scaled_dot_product_attention(
-                q,
-                k,
-                v,
-                softmax_scaling_layer=self.softmax_scaling_layer,
-            )
+            if isinstance(cached_kv, QuantizedKVCacheEntry):
+                # The SDPA wrapper dequantizes unless a backend takes it as is.
+                out = _batched_scaled_dot_product_attention(
+                    q,
+                    None,
+                    None,
+                    softmax_scaling_layer=self.softmax_scaling_layer,
+                    quantized_kv=cached_kv,
+                )
+            else:
+                # Match dtype in case of autocast (e.g. fp32 cache under fp16)
+                if k.dtype != q.dtype:
+                    k = k.to(q.dtype)
+                    v = v.to(q.dtype)
+                out = _batched_scaled_dot_product_attention(
+                    q,
+                    k,
+                    v,
+                    softmax_scaling_layer=self.softmax_scaling_layer,
+                )
         else:
             N = R if single_eval_pos is None else single_eval_pos
             x_train = x_BRE[:, :N]
@@ -1792,16 +1854,17 @@ class TabPFNV3(Architecture):
                 "the non-cache forward needs the full train+test tensor."
             )
 
-        if (
-            not self.training
-            and self.task_type == "multiclass"
-            and (y > self.n_out - 1).any()
-        ):
-            raise ValueError(
-                "Target is out of range. Make sure to use an ordinal encoded target. "
-                f"Expected target values between 0 and {self.n_out - 1}, but got "
-                f"values greater than {self.n_out - 1}."
-            )
+        # One read of the largest target serves both the range check below and the
+        # decoder's one-hot width, so the pair costs a single synchronisation.
+        highest_target: int | None = None
+        if self.task_type == "multiclass":
+            highest_target = int(y.max())
+            if not self.training and highest_target > self.n_out - 1:
+                raise ValueError(
+                    "Target is out of range. Make sure to use an ordinal encoded "
+                    f"target. Expected target values between 0 and {self.n_out - 1}, "
+                    f"but got values greater than {self.n_out - 1}."
+                )
         x_RiBC = x
         B = x_RiBC.shape[1]
         num_train = y.shape[0]
@@ -1909,6 +1972,7 @@ class TabPFNV3(Architecture):
                 train_emb,
                 test_emb,
                 y_BN[:, :num_train],
+                highest_target=highest_target,
             )
         else:
             test_out = self.output_projection(test_emb.transpose(0, 1))
@@ -1938,7 +2002,7 @@ class TabPFNV3(Architecture):
 
     @override
     def get_supported_kv_cache_precisions(self) -> tuple[str, ...]:
-        return ("auto", "int8")
+        return ("auto", "int8", "fp8")
 
     def _prepare_y(
         self,

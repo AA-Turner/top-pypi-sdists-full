@@ -1033,11 +1033,18 @@ fn python_install_freethreaded() {
     );
 
     #[cfg(windows)]
-    assert!(
-        scripts
-            .join(format!("pythonw{}", std::env::consts::EXE_SUFFIX))
-            .exists()
-    );
+    {
+        let pythonw = scripts.join(format!("pythonw{}", std::env::consts::EXE_SUFFIX));
+        assert!(pythonw.exists());
+
+        insta::with_settings!({
+            filters => context.filters(),
+        }, {
+            insta::assert_snapshot!(
+                read_link(&pythonw), @"[TEMP_DIR]/managed/cpython-3.13+freethreaded-[PLATFORM]/pythonw"
+            );
+        });
+    }
 
     #[cfg(unix)]
     assert!(
@@ -1060,11 +1067,18 @@ fn python_install_freethreaded() {
     );
 
     #[cfg(windows)]
-    assert!(
-        scripts
-            .join(format!("pythonw3.13t{}", std::env::consts::EXE_SUFFIX))
-            .exists()
-    );
+    {
+        let pythonw = scripts.join(format!("pythonw3.13t{}", std::env::consts::EXE_SUFFIX));
+        assert!(pythonw.exists());
+
+        insta::with_settings!({
+            filters => context.filters(),
+        }, {
+            insta::assert_snapshot!(
+                read_link(&pythonw), @"[TEMP_DIR]/managed/cpython-3.13+freethreaded-[PLATFORM]/pythonw"
+            );
+        });
+    }
 
     // Remove the virtual environment
     fs_err::remove_dir_all(&context.venv).unwrap();
@@ -2745,6 +2759,22 @@ fn install_transparent_patch_upgrade_uv_venv() {
     "
     );
 
+    #[cfg(windows)]
+    {
+        let scripts = context.venv.join("Scripts");
+
+        insta::with_settings!({
+            filters => context.filters(),
+        }, {
+            insta::assert_snapshot!(
+                read_link(&scripts.join("python.exe")), @"[TEMP_DIR]/managed/cpython-3.12-[PLATFORM]/python"
+            );
+            insta::assert_snapshot!(
+                read_link(&scripts.join("pythonw.exe")), @"[TEMP_DIR]/managed/cpython-3.12-[PLATFORM]/pythonw"
+            );
+        });
+    }
+
     uv_snapshot!(context.filters(), context.run().arg("python").arg("--version"), @"
     exit_code: 0 (success)
     ----- stdout -----
@@ -3734,6 +3764,21 @@ fn python_install_armv7() {
 
     // Explicitly request a gnuabi build for armv7l
     uv_snapshot!(context.filters(), context.python_install().arg("cpython-3.12.12-linux-armv7-gnueabi"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Installed Python 3.12.12 in [TIME]
+     + cpython-3.12.12-[PLATFORM] (python3.12)
+    ");
+
+    context.python_uninstall().arg("--all").assert().success();
+
+    // Exercise the tar-codec symlink handling against the armv7 archive that contains duplicate
+    // terminfo symlinks.
+    uv_snapshot!(context.filters(), context
+        .python_install()
+        .arg("--preview-features")
+        .arg("tar-codec")
+        .arg("cpython-3.12.12-linux-armv7-gnueabi"), @"
     exit_code: 0 (success)
     ----- stderr -----
     Installed Python 3.12.12 in [TIME]

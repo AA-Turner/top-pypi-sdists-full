@@ -40,6 +40,26 @@ def _server_bin() -> Optional[str]:
     return server_bin()
 
 
+def _child_env(binary: str) -> dict:
+    """os.environ + the managed engine's lib dirs on LD_LIBRARY_PATH (k94).
+
+    A llama-server resolved from a hugpy-managed engine dir links sibling .so
+    files (libllama/libggml/…) the child's loader can't otherwise find — it died
+    with "libggml.so: cannot open shared object file" and callers silently fell
+    back to the projector-less python path. A system/PATH binary is left alone.
+    """
+    env = dict(os.environ)
+    try:
+        from .....engine.resolve import ld_library_path_with_engine
+        ld = ld_library_path_with_engine(env.get("LD_LIBRARY_PATH"),
+                                         bin_path=binary)
+        if ld:
+            env["LD_LIBRARY_PATH"] = ld
+    except Exception:  # noqa: BLE001 — never block a spawn on lib-path derivation
+        logger.warning("lib-path derivation failed for %s", binary, exc_info=True)
+    return env
+
+
 def _resolve_mmproj(model_dir: str, cfg, main_path: Optional[str] = None) -> Optional[str]:
     """Find a multimodal projector (mmproj) for a vision GGUF, or None.
 
@@ -162,6 +182,7 @@ def ensure_shard_server(
             from ....._platform.procutil import popen_detached
             proc = popen_detached(                 # detaches so it survives reloads (cross-OS)
                 cmd,
+                env=_child_env(binary),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
@@ -287,6 +308,7 @@ def ensure_vision_server(model_key: str) -> Optional[str]:
             from ....._platform.procutil import popen_detached
             proc = popen_detached(
                 cmd,
+                env=_child_env(binary),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )

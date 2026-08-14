@@ -447,7 +447,7 @@ class Array(_CData, Generic[_CT], metaclass=_PyCArrayType):
         """Return len(self)."""
         ...
     def __class_getitem__(cls, item: Any, /) -> GenericAlias:
-        """See PEP 585"""
+        """Arrays are generic over the type of their elements"""
         ...
 
 def addressof(obj: _CData | _CDataType, /) -> int:

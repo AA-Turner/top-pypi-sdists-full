@@ -16002,6 +16002,22 @@ class String(System.Object, System.IComparable[str], System.IConvertible, System
         ...
 
     @overload
+    def string(self, value: typing.List[str]) -> typing.Any:
+        ...
+
+    @overload
+    def string(self, value: typing.List[str], start_index: int, length: int) -> typing.Any:
+        ...
+
+    @overload
+    def string(self, c: str, count: int) -> typing.Any:
+        ...
+
+    @overload
+    def string(self, value: System.ReadOnlySpan[str]) -> typing.Any:
+        ...
+
+    @overload
     def substring(self, start_index: int) -> str:
         ...
 

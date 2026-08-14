@@ -50,17 +50,18 @@ optional-dependencies.dev = [
     "interrogate==1.7.0",
     "mypy[faster-cache]==2.3.0",
     "mypy-strict-kwargs==2026.7.19.1",
-    "prek==0.4.11",
+    "no-defaults==2.1.0",
+    "prek==0.4.12",
     "pydocstringformatter==1.0.0",
     "pylint[spelling]==4.0.6",
-    "pyproject-fmt==2.26.0",
+    "pyproject-fmt==2.27.0",
     "pyrefly==1.2.0",
     "pyright==1.1.411",
     "pyroma==5.0.1",
     "pytest==9.1.1",
     "pytest-beartype-tests==2026.4.26",
     "pytest-cov==7.1.0",
-    "ruff==0.16.1",
+    "ruff==0.16.2",
     # We add shellcheck-py not only for shell scripts and shell code blocks,
     # but also because having it installed means that ``actionlint-py`` will
     # use it to lint shell commands in GitHub workflow files.
@@ -71,8 +72,9 @@ optional-dependencies.dev = [
     "sphinx-toolbox==4.3.0",
     "strict-kwargs==2026.7.24",
     "towncrier==25.8.0",
-    "ty==0.0.65",
+    "ty==0.0.69",
     "types-docutils==0.22.3.20260724",
+    "vale==3.13.0.0",
     "vulture==2.16",
     "yamlfix==1.19.1",
     "zizmor==1.29.0",
@@ -134,6 +136,7 @@ lint.per-file-ignores."doccmd_*.py" = [
 lint.unfixable = [
     "ERA001",
 ]
+lint.external = [ "NOD" ]
 lint.flake8-tidy-imports.banned-api."typing.cast".msg = "typing.cast is banned: use explicit type narrowing or a typed variable instead."
 lint.pydocstyle.convention = "google"
 
@@ -255,6 +258,7 @@ ignore = [
     ".git_archival.txt",
     ".pre-commit-config.yaml",
     ".prettierrc",
+    ".vale.ini",
     ".yamlfmt",
     "CHANGELOG.rst",
     "ci",
@@ -336,6 +340,7 @@ max_supported_python = "3.14"
 [tool.mypy]
 files = [ "." ]
 exclude = [ "build" ]
+exclude_gitignore = true
 follow_untyped_imports = true
 strict = true
 plugins = [
@@ -416,3 +421,7 @@ ignore_path = [
 [tool.yamlfix]
 section_whitelines = 1
 whitelines = 1
+
+[tool.no_defaults]
+private_only = true
+per_file_enforcement."tests/**" = "all"

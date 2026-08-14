@@ -47,6 +47,7 @@ class BatchesApi:
     def cancel_batch_by_id_batches(
         self,
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -66,6 +67,8 @@ class BatchesApi:
 
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -90,6 +93,7 @@ class BatchesApi:
 
         _param = self._cancel_batch_by_id_batches_serialize(
             batch_id=batch_id,
+            reason=reason,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -120,6 +124,7 @@ class BatchesApi:
     def cancel_batch_by_id_batches_with_http_info(
         self,
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -139,6 +144,8 @@ class BatchesApi:
 
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -163,6 +170,7 @@ class BatchesApi:
 
         _param = self._cancel_batch_by_id_batches_serialize(
             batch_id=batch_id,
+            reason=reason,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -193,6 +201,7 @@ class BatchesApi:
     def cancel_batch_by_id_batches_without_preload_content(
         self,
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -212,6 +221,8 @@ class BatchesApi:
 
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -236,6 +247,7 @@ class BatchesApi:
 
         _param = self._cancel_batch_by_id_batches_serialize(
             batch_id=batch_id,
+            reason=reason,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -261,6 +273,7 @@ class BatchesApi:
     def _cancel_batch_by_id_batches_serialize(
         self,
         batch_id,
+        reason,
         _request_auth,
         _content_type,
         _headers,
@@ -285,6 +298,10 @@ class BatchesApi:
         if batch_id is not None:
             _path_params['batch_id'] = batch_id
         # process the query parameters
+        if reason is not None:
+            
+            _query_params.append(('reason', reason))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter

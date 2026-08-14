@@ -1,5 +1,7 @@
 """Checks of the yaml/size-needs-no-stretch rule (a fixed size without Растягивать*: Ложь)."""
 
+import pytest
+
 from xbsl import engine
 
 RULE = "yaml/size-needs-no-stretch"
@@ -164,3 +166,128 @@ def test_non_object_yaml_skipped():
 
 def test_xbsl_file_skipped():
     assert _lint("М.xbsl", "метод Ф()\n;\n", select={RULE}) == []
+
+
+# --- yaml/matrix-group-max-width --------------------------------------------------------
+
+MATRIX_RULE = "yaml/matrix-group-max-width"
+
+
+def test_a_numeric_maximum_on_a_matrix_group_is_reported():
+    """The live case: on a phone the row lays out by the maximum, and the root overflows."""
+    body = (
+        "        -\n"
+        "            Тип: Группа\n"
+        "            Компоновка: Матричная\n"
+        "            МаксимальнаяШирина: 2000\n"
+    )
+    d = _lint("Ф.yaml", _form(body), select={MATRIX_RULE})
+    assert [(x.rule_id, x.line) for x in d] == [(MATRIX_RULE, 11)]
+    assert "2000" in d[0].message
+
+
+def test_the_matrix_settings_block_marks_the_group_too():
+    """A group may name the matrix layout through its settings rather than the value."""
+    body = (
+        "        -\n"
+        "            Тип: Группа\n"
+        "            МаксимальнаяШирина: 1200\n"
+        "            НастройкиМатричнойКомпоновки:\n"
+        "                ОписаниеАвтоматическихКолонок:\n"
+        "                    МинимальнаяШирина: 260\n"
+    )
+    d = _lint("Ф.yaml", _form(body), select={MATRIX_RULE})
+    assert len(d) == 1
+
+
+def test_auto_and_bindings_are_the_cure_not_the_defect():
+    for value in ("Авто", "=Оформление.ШиринаКолонки()"):
+        body = (
+            "        -\n"
+            "            Тип: Группа\n"
+            "            Компоновка: Матричная\n"
+            f"            МаксимальнаяШирина: {value}\n"
+        )
+        assert _lint("Ф.yaml", _form(body), select={MATRIX_RULE}) == [], value
+
+
+def test_a_plain_group_keeps_its_maximum():
+    body = (
+        "        -\n"
+        "            Тип: Группа\n"
+        "            Компоновка: Вертикальная\n"
+        "            МаксимальнаяШирина: 720\n"
+    )
+    assert _lint("Ф.yaml", _form(body), select={MATRIX_RULE}) == []
+
+
+# --- yaml/card-literal-stretch-weight ---------------------------------------------------
+
+CARD_RULE = "yaml/card-literal-stretch-weight"
+
+
+@pytest.mark.needs_data  # the card list comes from the ui schema
+def test_a_literal_weight_on_a_card_is_reported():
+    body = (
+        "        -\n"
+        "            Тип: СтандартнаяКарточка\n"
+        "            ВесПриРастягивании: 1\n"
+    )
+    d = _lint("Ф.yaml", _form(body), select={CARD_RULE})
+    assert [(x.rule_id, x.line) for x in d] == [(CARD_RULE, 10)]
+    assert "СтандартнаяКарточка" in d[0].message
+
+
+@pytest.mark.needs_data  # the card list comes from the ui schema
+def test_an_inner_column_of_a_card_is_reported_as_well():
+    """The cure had to cover the inner columns too - so they are judged."""
+    body = (
+        "        -\n"
+        "            Тип: СтандартнаяКарточка\n"
+        "            Содержимое:\n"
+        "                Тип: Группа\n"
+        "                Компоновка: Вертикальная\n"
+        "                ВесПриРастягивании: 1\n"
+    )
+    d = _lint("Ф.yaml", _form(body), select={CARD_RULE})
+    assert len(d) == 1 and d[0].line == 13
+
+
+def test_a_label_inside_a_card_keeps_its_weight():
+    """Reconnaissance: a live project carries literal weights on labels inside cards - a
+    text sharing the width of its row, which the collapse does not touch."""
+    body = (
+        "        -\n"
+        "            Тип: СтандартнаяКарточка\n"
+        "            Содержимое:\n"
+        "                Тип: Надпись\n"
+        "                Значение: Текст\n"
+        "                ВесПриРастягивании: 1\n"
+    )
+    assert _lint("Ф.yaml", _form(body), select={CARD_RULE}) == []
+
+
+def test_a_group_outside_any_card_keeps_its_weight():
+    body = (
+        "        -\n"
+        "            Тип: Группа\n"
+        "            Компоновка: Вертикальная\n"
+        "            ВесПриРастягивании: 1\n"
+    )
+    assert _lint("Ф.yaml", _form(body), select={CARD_RULE}) == []
+
+
+def test_a_binding_weight_is_the_cure():
+    body = (
+        "        -\n"
+        "            Тип: СтандартнаяКарточка\n"
+        "            ВесПриРастягивании: =Устройство.ЭтоТелефон()?Авто:1\n"
+    )
+    assert _lint("Ф.yaml", _form(body), select={CARD_RULE}) == []
+
+
+def test_both_mobile_rules_are_off_by_default():
+    for rule_id in (MATRIX_RULE, CARD_RULE):
+        info = next(r for r in engine.RULES if r.id == rule_id)
+        assert info.enabled_by_default is False, rule_id
+        assert info.off_reason, rule_id

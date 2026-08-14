@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semgrep
-Version: 1.172.0
+Version: 1.173.0
 Summary: Lightweight static analysis for many languages. Find bug variants with patterns that look like source code.
 Author-email: "Semgrep Inc." <support@semgrep.com>
 License-Expression: LGPL-2.1-or-later
@@ -31,7 +31,7 @@ Requires-Dist: colorama~=0.4.0
 Requires-Dist: exceptiongroup~=1.2.0
 Requires-Dist: glom>=23.3
 Requires-Dist: jsonschema~=4.25.1
-Requires-Dist: mcp==1.23.3
+Requires-Dist: mcp==1.29.0
 Requires-Dist: opentelemetry-api~=1.37.0
 Requires-Dist: opentelemetry-sdk~=1.37.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http~=1.37.0

@@ -1,18 +1,11 @@
 """Mutate inline-array / inline-table item lists structurally.
 
 All structural changes to a :class:`tomlrt._values.CommaValue` pass
-through this module so the canonical model stays central: per-item
-trivia ownership, ``header_trivia`` / ``final_trivia`` bracket-pad
-attachment, one-row-break-per-row, EOL section placement, and
-trailing-comma policy. :mod:`tomlrt._format` is the counterpart that
-canonicalises an existing layout without changing structure.
-
-The small public surface covers append, removal, reorder, comma-state
-flips, and EOL-section helpers for arrays and inline tables.
-
-Inline-array and inline-table mutation both drive structural changes
-through these helpers, so a future change to the comma-value model only
-needs to land here.
+through this module: per-item trivia ownership, ``header_trivia`` /
+``final_trivia`` bracket-pad attachment, one-row-break-per-row, EOL
+section placement, and trailing-comma policy. :mod:`tomlrt._format` is
+the counterpart that canonicalises an existing layout without changing
+structure.
 """
 
 from __future__ import annotations
@@ -21,8 +14,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from tomlrt._trivia import (
-    indent_from_trivia,
-    join_above_block,
     leading_break,
     leading_ws,
     restamp_bracket_pad_for_first,
@@ -40,7 +31,7 @@ from tomlrt._values import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterator, Sequence
 
     from tomlrt._values import (
         ArrayValue,
@@ -246,11 +237,6 @@ class Boundary:
         return None if lane is None else self.above_parts[lane]
 
     @property
-    def target_tail(self) -> str:
-        tails = self.before.tail, self.following.tail
-        return tails[self.target_lane()]
-
-    @property
     def target_above(self) -> str:
         return self.above_parts[self.target_lane()]
 
@@ -265,9 +251,13 @@ class Boundary:
             else (False if self.is_head else self.row_closed)
         )
         if block:
-            if not upstream and "\n" not in head:
+            # A lane whose row is still open has to break for the block;
+            # whatever followed then leads a row of its own, so its old
+            # intra-row pad gives way to the value indent.
+            promotes = not upstream and "\n" not in head
+            if promotes:
                 head += nl
-            if not tail:
+            if promotes or not tail:
                 tail = indent
         target.head = head
         target.above = block
@@ -494,12 +484,11 @@ def flip_to_terminal(item: CommaItem, style: CommaStyle) -> None:
 class CommaStyle:
     """Hold inferred layout policy for inline array/table append paths.
 
-    Carries the inter-item separator, whether the value is multi-line, and
-    whether the terminal item should keep a trailing comma. A non-empty
-    ``pre_comma_break`` marks a *break-before-comma* (comma-first) value:
-    one that parks each row break in the item's own ``trailing`` ahead of
-    its comma rather than downstream in the next item's ``leading``, so
-    ``inter_separator`` is just the post-comma pad.
+    A non-empty ``pre_comma_break`` marks a *break-before-comma*
+    (comma-first) value: one that parks each row break in the item's
+    own ``trailing`` ahead of its comma rather than downstream in the
+    next item's ``leading``, so ``inter_separator`` is just the
+    post-comma pad.
     """
 
     is_multiline: bool
@@ -524,24 +513,24 @@ def _pre_comma_break(item: CommaItem) -> str:
     return ("\r\n" if t[i - 1 : i] == "\r" else "\n") + trailing_ws(t)
 
 
-def detect_style(value: ArrayValue | InlineTableValue, *, nl: str) -> CommaStyle:
+def detect_style(value: ArrayValue | InlineTableValue) -> CommaStyle:
     """Infer a :class:`CommaStyle` for ``value``.
 
-    Multi-line shape is read from the value's own trivia
-    (:meth:`CommaValue.is_multiline`) — the value is the single source of
-    truth, so there is no separate "force multi-line" flag. The inter-item
-    separator is sampled from ``items[1].leading``; a comma-last multi-line
-    value that cannot sample one (single item) falls back to
-    :func:`_canonical_separator`. When item 0 parks its break before its comma
-    the value is comma-first: the post-comma pad is kept and ``pre_comma_break``
-    seeded from that item. ``nl`` is the owning document's newline.
+    Multi-line shape comes from the value's own trivia
+    (:meth:`CommaValue.is_multiline`) -- there is no separate "force
+    multi-line" flag. The inter-item separator is sampled from
+    ``items[1].leading``, falling back to :func:`_canonical_separator`
+    for a comma-last multi-line value with only one item to sample
+    from. When item 0 parks its break before its comma the value is
+    comma-first: the post-comma pad is kept and ``pre_comma_break``
+    seeded from that item.
     """
     items = value.items
     is_multiline = value.is_multiline()
     inter_sep = inter_item_separator(items)
     leader = items[0] if items and item_breaks_before_comma(items[0]) else None
     if is_multiline and leader is None and "\n" not in inter_sep:
-        inter_sep = _canonical_separator(value, nl)
+        inter_sep = _canonical_separator(value)
     trailing_comma = items[-1].has_comma if items else is_multiline
     pad_ft, _above_ft = split_above_block(value.final_trivia)
     trailing_post = pad_ft or value.final_trivia
@@ -554,54 +543,62 @@ def detect_style(value: ArrayValue | InlineTableValue, *, nl: str) -> CommaStyle
     )
 
 
-def _first_indent_after_newline(trivia: str) -> str:
-    """Indent of the first line after a newline that carries one."""
-    for line in trivia.split("\n")[1:]:
-        if ws := leading_ws(line):
-            return ws
-    return ""
+def _row_runs(value: CommaValue[Any]) -> Iterator[str]:
+    """Yield ``value``'s interior trivia as physically contiguous runs.
 
-
-def _value_newline(value: CommaValue[Any], nl: str) -> str:
-    """Return the newline text sampled from ``value`` bracket pads, else ``nl``.
-
-    ``nl`` is the owning document's newline: the fallback for a value whose
-    bracket pads carry no break to sample (e.g. a multi-line array whose only
-    newline lives in an item's EOL section), so a synthesised break matches
-    the document instead of defaulting to LF.
+    One run per boundary, in document order: the bracket pad, then each
+    item's render tail glued to the next item's leading -- or, past the
+    last item, to the closing bracket pad. Gluing what a boundary owns
+    keeps a row break and the indent it opens in one string however
+    ownership splits them.
     """
-    for trivia in (value.header_trivia, value.final_trivia):
-        i = trivia.find("\n")
-        if i != -1:
-            return "\r\n" if trivia[i - 1 : i] == "\r" else "\n"
-    return nl
+    items = value.items
+    run = value.header_trivia
+    for i, item in enumerate(items):
+        yield run
+        run = item.render_tail()
+        if i + 1 < len(items):
+            run += items[i + 1].leading
+    yield run + value.final_trivia
+
+
+def _value_newline(value: CommaValue[Any]) -> str:
+    """Return the newline text ``value`` already breaks its rows with.
+
+    The first break wins, wherever it lives -- an item's EOL section
+    included. Only a multi-line value has a break to sample, and always
+    has one: the runs cover every region `CommaValue.is_multiline` reads
+    bar a comma-less item's ``post_comma_trivia``, which the item does
+    not render either and so is always empty.
+    """
+    run = next(run for run in _row_runs(value) if "\n" in run)
+    i = run.index("\n")
+    return "\r\n" if run[i - 1 : i] == "\r" else "\n"
 
 
 def _value_indent(value: CommaValue[Any]) -> str:
-    """Return the row indent sampled from ``value`` (4 spaces if none)."""
-    return (
-        _first_indent_after_newline(value.header_trivia)
-        or indent_from_trivia(value.final_trivia)
-        or "    "
-    )
+    """Return the row indent sampled from ``value`` (4 spaces if none).
 
-
-def _canonical_separator(value: CommaValue[Any], nl: str) -> str:
-    """Return the fallback inter-item newline plus value indent."""
-    return _value_newline(value, nl) + _value_indent(value)
-
-
-def migrate_bracket_above(bracket: str, separator: str) -> tuple[str, str]:
-    """Migrate any above-bracket comment block onto a new item's leading.
-
-    An above-block in ``header_trivia`` / ``final_trivia`` conceptually
-    belongs to the item below it. Inserting a boundary item moves that
-    block from the bracket pad onto the item's leading.
-
-    Returns ``(new_bracket, new_leading)``.
+    The first indented row the value opens wins, wherever its break
+    lives -- so a value that already breaks rows lends its own indent
+    even when its opening row packs several items, and a row at column
+    zero yields to a later indented one, as when a comment sits hard
+    against the bracket. Only a value whose rows are all flush left
+    means column zero.
     """
-    pad, above = split_above_block(bracket)
-    return pad, join_above_block(separator, above)
+    opens_row = False
+    for run in _row_runs(value):
+        rows = run.split("\n")[1:]
+        opens_row = opens_row or bool(rows)
+        for row in rows:
+            if ws := leading_ws(row):
+                return ws
+    return "" if opens_row else "    "
+
+
+def _canonical_separator(value: CommaValue[Any]) -> str:
+    """Return the fallback inter-item newline plus value indent."""
+    return _value_newline(value) + _value_indent(value)
 
 
 def _carry_above(
@@ -634,6 +631,40 @@ def _replace_above(
     )
 
 
+def _detach_above(cv: CommaValue[Any], b: int) -> Boundary:
+    """Snapshot boundary ``b``, stripping any comment block it owns.
+
+    An above-block belongs to the item below it, so an insertion here
+    has to lift the block out of the way and re-home it (with
+    :func:`_rehome_above`) once the items have moved. :class:`Boundary`
+    finds the block wherever the row break ahead of it lives, so every
+    spelling of a layout is treated alike. The returned snapshot retains
+    the block.
+    """
+    boundary = Boundary.capture(cv, b)
+    if "#" in boundary.above:
+        boundary.copy().remove_above().restore(cv, b)
+    return boundary
+
+
+def _rehome_above(
+    cv: CommaValue[Any], i: int, source: Boundary, style: CommaStyle, nl: str
+) -> None:
+    """Put the block ``source`` was detached from above the item at ``i``.
+
+    A comma-first item sits on its comma's row, so that row's authored
+    indent -- possibly none -- is the one the block aligns with.
+    """
+    if "#" not in source.above:
+        return
+    indent = (
+        trailing_ws(style.pre_comma_break)
+        if style.break_before_comma
+        else _value_indent(cv)
+    )
+    _carry_above(cv, i, source, nl, indent)
+
+
 # ---------------------------------------------------------------------------
 # Append / remove / reorder orchestration
 # ---------------------------------------------------------------------------
@@ -655,11 +686,9 @@ def splice_in(
         items.append(new_item)
         flip_to_terminal(new_item, style)
         return
-    cv.final_trivia, new_item.leading = migrate_bracket_above(
-        cv.final_trivia, style.inter_separator
-    )
     old_tail = items[-1]
-    old_final = Boundary.capture(cv, len(items))
+    old_final = _detach_above(cv, len(items))
+    new_item.leading = style.inter_separator
     if style.break_before_comma:
         # Comma-first: the former tail keeps its EOL comment but yields its
         # terminal break (re-homed before the closing bracket) and gains its
@@ -672,20 +701,23 @@ def splice_in(
             cv.final_trivia = nl + cv.final_trivia
         items.append(new_item)
         flip_to_terminal(new_item, style)
-        return
-    flip_to_internal(old_tail)
-    items.append(new_item)
-    flip_to_terminal(new_item, style)
-    if style.is_multiline:
-        # Fresh boundary onto the new item; carried final boundary, whose
-        # predecessor changes from the old tail to the new item.
-        _structural_break(old_tail, new_item, nl)
-        _shift_carried_boundary(
-            cv,
-            len(items),
-            nl,
-            old=old_final,
-        )
+    else:
+        flip_to_internal(old_tail)
+        items.append(new_item)
+        flip_to_terminal(new_item, style)
+        if style.is_multiline:
+            # Fresh boundary onto the new item; carried final boundary, whose
+            # predecessor changes from the old tail to the new item.
+            _structural_break(old_tail, new_item, nl)
+            _shift_carried_boundary(
+                cv,
+                len(items),
+                nl,
+                old=old_final,
+            )
+    # A block that sat above the closing bracket belongs above the
+    # appended item, at the seam the append created.
+    _rehome_above(cv, len(items) - 1, old_final, style, nl)
 
 
 def splice_insert(
@@ -697,10 +729,7 @@ def splice_insert(
 ) -> None:
     """Insert ``new_item`` before the existing item at ``index``."""
     items = cv.items
-    displaced = Boundary.capture(cv, index)
-    carry_above = "#" in displaced.above
-    if carry_above:
-        displaced.copy().remove_above().restore(cv, index)
+    displaced = _detach_above(cv, index)
     if style.break_before_comma:
         new_item.trailing = style.pre_comma_break
         new_item.leading = "" if index == 0 else style.inter_separator
@@ -708,36 +737,37 @@ def splice_insert(
         if index == 0:
             # Item 0 keeps an empty leading; the displaced item takes the pad.
             items[1].leading = style.inter_separator
-        if carry_above:
-            # A comma-first item sits on its comma's row, so that row's
-            # authored indent -- possibly none -- is the one to match.
-            _carry_above(
-                cv, index + 1, displaced, nl, trailing_ws(style.pre_comma_break)
-            )
-        return
-    if index == 0:
-        cv.header_trivia, items[0].leading = migrate_bracket_above(
-            cv.header_trivia, style.inter_separator
-        )
+    elif index == 0:
+        items[0].leading = style.inter_separator
         items.insert(0, new_item)
         if style.is_multiline:
             _structural_break(new_item, items[1], nl)
-        if carry_above:
-            _carry_above(cv, 1, displaced, nl, _value_indent(cv))
-        return
-    pred = items[index - 1]
-    new_item.leading = style.inter_separator
-    items.insert(index, new_item)
-    if style.is_multiline:
-        _structural_break(pred, new_item, nl)
-        _shift_carried_boundary(
-            cv,
-            index + 1,
-            nl,
-            old=displaced,
-        )
-    if carry_above:
-        _carry_above(cv, index + 1, displaced, nl, _value_indent(cv))
+    else:
+        pred = items[index - 1]
+        new_item.leading = style.inter_separator
+        items.insert(index, new_item)
+        if style.is_multiline:
+            _structural_break(pred, new_item, nl)
+            _shift_carried_boundary(
+                cv,
+                index + 1,
+                nl,
+                old=displaced,
+            )
+    # The block belongs to the displaced item, which has moved down past
+    # the new one.
+    _rehome_above(cv, index + 1, displaced, style, nl)
+
+
+def _removed_runs(sorted_removed: Sequence[int]) -> Iterator[tuple[int, int]]:
+    """Yield ``(first, last)`` of each maximal run of consecutive indices."""
+    start = prev = sorted_removed[0]
+    for idx in sorted_removed[1:]:
+        if idx != prev + 1:
+            yield start, prev
+            start = idx
+        prev = idx
+    yield start, prev
 
 
 def splice_out(
@@ -758,27 +788,41 @@ def splice_out(
         cv.reset_multiline_cache()
     orig_len = len(items)
     sorted_removed = sorted(removed_indices)
-    removed_set = set(sorted_removed)
     last_idx = orig_len - 1
-    zero_removed = 0 in removed_set
-    tail_removed = last_idx in removed_set
 
-    survivors = [i for i in range(orig_len) if i not in removed_set]
-    seams = [j for j in range(1, len(survivors)) if survivors[j] - survivors[j - 1] > 1]
-    needed = {survivors[j] for j in seams}
-    if survivors and zero_removed:
-        needed.add(survivors[0])
-    if survivors and tail_removed:
-        needed.update((survivors[-1] + 1, orig_len))
+    # Removal only disturbs the boundaries adjacent to a run of removed
+    # items, so walk the runs: the cost is in what is removed, not in how
+    # many items the value holds. A run bounded by survivors on both sides
+    # leaves a seam, recorded as (position after removal, boundary before);
+    # a run reaching an end of the value exposes the survivor beyond it.
+    seams: list[tuple[int, int]] = []
+    first_survivor: int | None = None
+    last_survivor: int | None = None
+    dropped = 0
+    for start, end in _removed_runs(sorted_removed):
+        if start == 0:
+            first_survivor = end + 1 if end < last_idx else None
+        elif end == last_idx:
+            last_survivor = start - 1
+        else:
+            seams.append((start - dropped, end + 1))
+        dropped += end - start + 1
+
+    needed = {boundary for _, boundary in seams}
+    if first_survivor is not None:
+        needed.add(first_survivor)
+    if last_survivor is not None:
+        needed.update((last_survivor + 1, orig_len))
     boundaries_before = {b: Boundary.capture(cv, b) for b in needed}
     new_last_eol = ""
-    if survivors and tail_removed:
-        left_boundary = survivors[-1] + 1
+    new_terminal_has_comma = False
+    if last_survivor is not None:
+        left_boundary = last_survivor + 1
         boundaries_before[left_boundary].copy().remove_above().restore(
             cv, left_boundary
         )
-        new_last_eol = _take_eol(items[survivors[-1]])
-    new_terminal_has_comma = items[last_idx].has_comma if tail_removed else False
+        new_last_eol = _take_eol(items[last_survivor])
+        new_terminal_has_comma = items[last_idx].has_comma
 
     for i in reversed(sorted_removed):
         items.pop(i)
@@ -788,7 +832,7 @@ def splice_out(
             cv.header_trivia, cv.final_trivia
         )
         return
-    if tail_removed:
+    if last_survivor is not None:
         new_last = items[-1]
         new_last.post_comma_trivia = ""
         new_last.has_comma = new_terminal_has_comma
@@ -803,19 +847,14 @@ def splice_out(
                 old=boundaries_before[orig_len],
             )
     if is_multiline:
-        for j in seams:
-            _shift_carried_boundary(
-                cv,
-                j,
-                nl,
-                old=boundaries_before[survivors[j]],
-            )
+        for pos, boundary in seams:
+            _shift_carried_boundary(cv, pos, nl, old=boundaries_before[boundary])
     indent = _value_indent(cv)
-    if zero_removed:
-        _replace_above(cv, 0, boundaries_before[survivors[0]], nl, indent)
-    for j in seams:
-        _replace_above(cv, j, boundaries_before[survivors[j]], nl, indent)
-    if tail_removed:
+    if first_survivor is not None:
+        _replace_above(cv, 0, boundaries_before[first_survivor], nl, indent)
+    for pos, boundary in seams:
+        _replace_above(cv, pos, boundaries_before[boundary], nl, indent)
+    if last_survivor is not None:
         _replace_above(cv, len(items), boundaries_before[orig_len], nl)
 
 
@@ -877,7 +916,6 @@ __all__ = [
     "CommaStyle",
     "boundary_break_holder",
     "detect_style",
-    "migrate_bracket_above",
     "reindent_as_leader",
     "reorder_owned",
     "shift_breaks",

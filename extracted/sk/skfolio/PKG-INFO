@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skfolio
-Version: 0.20.1
+Version: 0.20.2
 Summary: Portfolio optimization built on top of scikit-learn
 Author-email: Hugo Delatte <hugo.delatte@skfoliolabs.com>
 Maintainer-email: Hugo Delatte <hugo.delatte@skfoliolabs.com>, Matteo Manzi <matteomanzi09@gmail.com>, Carlo Nicolini <c.nicolini@ipazia.com>
@@ -72,7 +72,7 @@ Requires-Dist: ruff; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: PySCIPOpt<6.0.0; extra == "docs"
-Requires-Dist: Sphinx; extra == "docs"
+Requires-Dist: Sphinx>=7.2; extra == "docs"
 Requires-Dist: sphinx-gallery; extra == "docs"
 Requires-Dist: pydata-sphinx-theme~=0.16; extra == "docs"
 Requires-Dist: matplotlib; extra == "docs"
@@ -86,6 +86,7 @@ Requires-Dist: jupyterlite-sphinx; extra == "docs"
 Requires-Dist: jupyterlite-pyodide-kernel; extra == "docs"
 Requires-Dist: nbformat; extra == "docs"
 Requires-Dist: sphinx-last-updated-by-git; extra == "docs"
+Requires-Dist: sphinx-llm>=0.4.1; extra == "docs"
 Dynamic: license-file
 
 .. -*- mode: rst -*-

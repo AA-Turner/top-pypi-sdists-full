@@ -77,7 +77,6 @@ from .models.created_effect import CreatedEffect
 from .models.credential import Credential
 from .models.credential_last_activity import CredentialLastActivity
 from .models.credential_status import CredentialStatus
-from .models.credential_type import CredentialType
 from .models.custom_attribute import CustomAttribute
 from .models.custom_attribute_customized_type import CustomAttributeCustomizedType
 from .models.custom_attribute_parameter import CustomAttributeParameter
@@ -411,7 +410,6 @@ __all__ = [
     "Credential",
     "CredentialLastActivity",
     "CredentialStatus",
-    "CredentialType",
     "CustomAttribute",
     "CustomAttributeCustomizedType",
     "CustomAttributeParameter",

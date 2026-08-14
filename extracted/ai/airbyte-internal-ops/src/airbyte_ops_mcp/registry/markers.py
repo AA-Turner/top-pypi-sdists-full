@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import re
 from datetime import date
-from typing import Literal
+from typing import Literal, cast
 
 PROGRESSIVE_ROLLOUT_MARKER_FILE = "progressive-rollout.yml"
 YANK_MARKER_FILE = "version-yank.yml"
@@ -33,6 +33,19 @@ def inactive_progressive_rollout_marker_file(
 ) -> str:
     """Return the inactive rollout audit marker filename for an outcome/date."""
     return f"progressive-rollout-{outcome}-{marker_date(value)}.yml"
+
+
+def inactive_progressive_rollout_marker_parts(
+    filename: str,
+) -> tuple[Literal["promoted", "aborted"], str] | None:
+    """Return the outcome and date encoded in an inactive rollout marker."""
+    match = _INACTIVE_ROLLOUT_MARKER_RE.match(filename)
+    if match is None:
+        return None
+    return (
+        cast(Literal["promoted", "aborted"], match.group(1)),
+        filename.rsplit("-", maxsplit=1)[1].removesuffix(".yml"),
+    )
 
 
 def is_registry_state_marker_file(filename: str) -> bool:

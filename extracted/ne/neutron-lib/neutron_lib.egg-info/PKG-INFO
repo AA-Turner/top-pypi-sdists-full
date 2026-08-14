@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neutron-lib
-Version: 4.2.0
+Version: 5.0.0
 Summary: Neutron shared routines and utilities
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License-Expression: Apache-2.0
@@ -35,7 +35,7 @@ Requires-Dist: oslo.db>=12.1.0
 Requires-Dist: oslo.i18n>=3.20.0
 Requires-Dist: oslo.log>=4.3.0
 Requires-Dist: oslo.messaging>=14.2.0
-Requires-Dist: oslo.policy>=4.5.0
+Requires-Dist: oslo.policy>=6.0.0
 Requires-Dist: oslo.serialization>=2.25.0
 Requires-Dist: oslo.service>=1.24.0
 Requires-Dist: oslo.utils>=7.0.0

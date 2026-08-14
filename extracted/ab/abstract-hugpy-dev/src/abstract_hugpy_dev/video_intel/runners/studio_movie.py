@@ -61,7 +61,29 @@ in timeline order:
      (this runner owns its OWN wall-clock — the bus has no timeout/reaper). The
      cancel probe is also threaded DOWN into ``produce_clip`` so a mid-render cancel
      aborts before a clip is written (Err(CANCELLED), errors-as-data).
-  d. Emit NESTED movie progress via ``media_bus.set_progress``.
+  d. Emit NESTED movie progress via ``media_bus.set_progress`` — which is ALSO this
+     job's HEARTBEAT (k91). The blob carries a monotonic 0..1 ``progress`` (completed
+     segments + the in-flight segment's denoise step) and a human ``message``
+     ("segment 2/14 - step 18/32"), which ``job_bridge.on_progress`` relays into the
+     comms Job record. Without them a movie's bus row showed no forward progress for
+     its whole run and ``comms/jobs.py::expire_pending_orphans`` retired a LIVE render
+     as wedged. See ``_emit``.
+
+SESSIONS (k91). A movie DIR is a resumable session, described by two sidecars:
+``spec.json`` (the SUBMITTED spec + the CURRENT job id, written at enqueue and at every
+resume — see ``write_movie_spec``) and ``movie.json`` (the manifest: what has actually
+rendered, plus a coarse ``status`` of running/partial/paused/done). ``movie_root_for``
+is the single definition of where that dir is, shared with the submit route so the two
+cannot drift. Resume is a plain RE-ENQUEUE of the persisted spec: content-addressed
+reuse inside ``produce_clip`` returns every completed segment as ``resumed=True``
+without re-rendering, so the clips ARE the checkpoint and there is no separate
+checkpoint format to keep honest.
+
+That reuse is a lookup BY PATH, which makes the dir load-bearing: a resume mints a NEW
+bus job id, and an UNNAMED movie's dir leaf IS its job id, so the dir would move on
+every resume and every segment would re-render while the run reported success. The
+resume route therefore stamps ``spec.session_id`` — a pin on the leaf — and
+``movie_root_for`` prefers it over the derived name. See that function.
 
 NON-DESTRUCTIVE TRIM (metadata, honored at ASSEMBLY only). The per-segment clip
 files stay WHOLE — they are content-addressed and never modified. A mid-frame
@@ -190,6 +212,168 @@ _DRIFT_NOTE = ("still-mode splices condition each segment on ONE frame of its pa
 # graceful Err. NOTE: vace-1.3b tops out at 480p, so a movie wider/taller than 832x480
 # surfaces an honest VRAM_EXCEEDED (a bigger VACE model needs a bigger movie budget).
 _VACE_MIN_BUDGET_GB = 6.0
+
+# The two sidecars that make a movie DIR a resumable session (k91). ``movie.json`` is
+# the manifest the runner (re)writes after every segment — what HAS been rendered.
+# ``spec.json`` is the SUBMITTED REQUEST, persisted at enqueue time — what was ASKED
+# for. They answer different questions and only the pair is enough to resume: the
+# manifest alone cannot rebuild a spec (it records outcomes, not the goal tree), and
+# the spec alone cannot say what is already done. Content-addressed reuse inside
+# ``produce_clip`` then makes a re-enqueue of the persisted spec skip every completed
+# segment (``resumed=True``), which is what "resume" physically is here — there is no
+# checkpoint file, the clips ARE the checkpoint.
+MOVIE_MANIFEST_FILENAME = "movie.json"
+MOVIE_SPEC_FILENAME = "spec.json"
+
+# Manifest ``status`` vocabulary (a projection of the run, NOT a second source of
+# truth — segments_completed/segments_total stay authoritative for counts):
+#   * "running"  — a job is in flight over this dir (the runner set it at start);
+#   * "partial"  — the run stopped with some segments done (cancel/error/pause);
+#   * "paused"   — an operator PAUSED it (POST .../pause): the in-flight job was
+#                  cancelled cooperatively and the dir is waiting to be resumed;
+#   * "done"     — every segment rendered and the movie assembled.
+# "paused" is deliberately distinct from "partial": both are resumable, but only one
+# was the operator's choice, and a session list that cannot tell them apart cannot
+# say which movies are waiting on a person.
+MOVIE_STATUS_RUNNING = "running"
+MOVIE_STATUS_PARTIAL = "partial"
+MOVIE_STATUS_PAUSED = "paused"
+MOVIE_STATUS_DONE = "done"
+
+
+def _ensure_shared_dir(path: str) -> None:
+    """makedirs + the GROUP-WRITABLE (2775/setgid) mode the shared studio tree needs.
+
+    Factored out of the runner's inline hotfix so the SUBMIT-time spec.json write lands
+    with the same permissions: central (uid 1000) creates these dirs but DELEGATED
+    segments are written into them by the WORKER's uid through the shared llmstorage
+    group, and a default-umask 0755 dir EPERMs that write. A chmod refusal (tests, tmp,
+    a non-shared root) is harmless and swallowed."""
+    os.makedirs(path, exist_ok=True)
+    try:
+        os.chmod(path, 0o2775)
+    except OSError:
+        pass
+
+
+def movie_root_for(spec: StudioMovieSpec, job_id: str) -> str:
+    """The directory THIS movie's segments, sidecars and assembled mp4 live in.
+
+    The ONE definition of that path. The submit route persists ``spec.json`` here
+    BEFORE the runner ever claims the job, and the session/pause/resume routes read
+    both sidecars back out of it, so "where does this movie live" must not be an
+    expression that exists in two places waiting to drift.
+
+    The DIR is: an explicit ``out_root`` else the default studio-movies root, with a
+    per-movie LEAF resolved in this order:
+
+      1. ``spec.session_id`` — the RESUME pin. A resume mints a NEW bus job id, and for
+         an UNNAMED movie the leaf would otherwise BE that job id, so every resume would
+         silently relocate the dir: ``produce_clip`` looks for a completed segment's clip
+         by PATH (``<dir>/segment_NN/<content_hash>/clip.mp4``), so a moved dir finds
+         nothing and re-renders the entire movie while reporting success. Pinning the
+         leaf is what makes "the clips are the checkpoint" actually true (k91). Validated
+         as a bare directory leaf at spec construction, never a caller-shaped path.
+      2. the slugified project NAME, when the caller named the movie — so a named
+         session is findable by name (the historical rule, unchanged).
+      3. the bus job id — the historical fallback for an unnamed, never-resumed movie.
+    """
+    leaf = spec.session_id or (slugify(spec.project) if spec.project else job_id)
+    return os.path.join(
+        os.path.abspath(spec.out_root) if spec.out_root else STUDIO_MOVIE_ROOT,
+        leaf)
+
+
+def write_movie_spec(movie_root: str, spec: StudioMovieSpec, job_id: str) -> "str | None":
+    """Persist the FULL submitted spec as ``<movie_root>/spec.json`` and return its path
+    (None if it could not be written).
+
+    Called at SUBMIT time (the route, before the job is claimed) and again by the runner
+    at start, so a movie enqueued by any path is resumable — including one that dies
+    during segment 0, which is precisely the run that has no manifest yet and is
+    therefore invisible to every recovery that reads only ``movie.json``.
+
+    The envelope wraps the spec rather than dumping it bare so the file can carry the
+    CURRENT job id: pause has to cancel the job that is actually running, and after a
+    resume that is a NEW job id — a bare spec dump would leave the only recorded id
+    pointing at a terminal run. ``job_id`` is rewritten on every submit/resume for
+    exactly that reason. Best-effort — a sidecar write must never fail an enqueue."""
+    payload = {
+        "kind": "studio_movie_spec",
+        "version": 1,
+        "job_id": job_id,
+        "submitted_at": time.time(),
+        "spec": asdict(spec),
+    }
+    path = os.path.join(movie_root, MOVIE_SPEC_FILENAME)
+    try:
+        _ensure_shared_dir(movie_root)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, indent=2)
+        return path
+    except Exception as exc:  # noqa: BLE001 — best-effort sidecar, never fatal
+        logger.warning("studio movie %s: spec.json write FAILED (non-fatal): %s: %s",
+                       job_id, type(exc).__name__, exc)
+        return None
+
+
+def read_movie_spec(movie_root: str) -> "dict | None":
+    """The persisted submit envelope (``{kind, version, job_id, submitted_at, spec}``)
+    for a movie dir, or None when there is none / it is unreadable. Total by
+    construction: the session list calls this for every dir on the root and a single
+    corrupt sidecar must not 500 the listing."""
+    try:
+        with open(os.path.join(movie_root, MOVIE_SPEC_FILENAME), "r",
+                  encoding="utf-8") as fh:
+            payload = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    return payload if isinstance(payload, dict) and isinstance(payload.get("spec"), dict) else None
+
+
+def read_movie_manifest(movie_root: str) -> "dict | None":
+    """The ``movie.json`` manifest for a movie dir, or None (missing/unreadable). Same
+    total-by-construction contract as ``read_movie_spec`` — a movie whose first segment
+    has not landed yet simply has no manifest, which is a normal state, not an error."""
+    try:
+        with open(os.path.join(movie_root, MOVIE_MANIFEST_FILENAME), "r",
+                  encoding="utf-8") as fh:
+            manifest = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    return manifest if isinstance(manifest, dict) else None
+
+
+def mark_movie_status(movie_root: str, status: str, **extra) -> "dict | None":
+    """Read-modify-write ``movie.json``'s ``status`` (plus a ``<status>_at`` stamp and
+    any ``extra`` fields) and return the updated manifest, or None if it could not be
+    written.
+
+    Used by PAUSE/RESUME, which change what a session IS without re-rendering anything,
+    so they must not touch the segment records the runner owns. When there is no
+    manifest yet — a movie paused during segment 0 — a MINIMAL one is created rather
+    than silently doing nothing: a paused session that does not appear as paused is the
+    same invisible-work failure this whole slice exists to end. The runner's next
+    ``_write_movie_json`` overwrites the stub wholesale, so the stub can never outlive
+    the real thing."""
+    manifest = read_movie_manifest(movie_root)
+    if manifest is None:
+        manifest = {"kind": "studio_movie", "segments": [], "joints": [],
+                    "assembly": {"movie": None, "total_frames": 0},
+                    "segments_completed": 0, "segments_total": None, "partial": True}
+    manifest["status"] = status
+    manifest[f"{status}_at"] = time.time()
+    manifest.update(extra)
+    try:
+        _ensure_shared_dir(movie_root)
+        with open(os.path.join(movie_root, MOVIE_MANIFEST_FILENAME), "w",
+                  encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2)
+    except Exception as exc:  # noqa: BLE001 — best-effort, mirrors _write_movie_json
+        logger.warning("studio movie: marking %s status=%s FAILED (non-fatal): %s: %s",
+                       movie_root, status, type(exc).__name__, exc)
+        return None
+    return manifest
 
 
 def _seg_budget(movie_budget, floor: float):
@@ -487,10 +671,25 @@ def _write_movie_json(movie_root: str, spec: StudioMovieSpec, seg_records: "list
     ``{branch_frame, trim_frames, mode, context_frames}`` (``mode`` labels each splice
     "still" vs "vace_extend"; ``context_frames`` is the vace kept-context length) +
     assembly + drift note. Returns the manifest dict (for ``JobResult.movie``).
-    Best-effort — never raises across the job boundary."""
+    Best-effort — never raises across the job boundary.
+
+    Also carries the three SESSION fields the movies list + pause/resume read (k91):
+    the human ``title``, the ``job_id`` of the run that wrote this manifest, and a
+    coarse ``status``. ``status`` is DERIVED from ``partial`` here rather than tracked
+    separately — the runner only ever writes running/partial/done — while PAUSED is
+    written exclusively by ``mark_movie_status`` from the pause route. That split keeps
+    one writer per state: the runner cannot accidentally un-pause a session, and pause
+    cannot invent a completion."""
     manifest = {
         "kind": "studio_movie",
         "drift": _DRIFT_NOTE,
+        # SESSION identity: the operator's own name for this work (None when unnamed —
+        # the UI warns and offers to name it) and the bus job that produced this state.
+        "title": spec.title,
+        "project": spec.project,
+        "job_id": job_id,
+        "status": (MOVIE_STATUS_PARTIAL if partial else MOVIE_STATUS_DONE),
+        "updated_at": time.time(),
         "fps": spec.fps,
         "width": spec.width,
         "height": spec.height,
@@ -534,25 +733,25 @@ def run_generate_studio_movie(spec: StudioMovieSpec, job_id: str) -> JobResult:
     run_nonce = uuid.uuid4().hex[:8]
 
     seg_total = len(spec.goals)
-    projectmeta = slugify(spec.project) if spec.project else job_id
-    movie_root = os.path.join(
-        os.path.abspath(spec.out_root) if spec.out_root else STUDIO_MOVIE_ROOT,
-        projectmeta)
+    movie_root = movie_root_for(spec, job_id)
     work_dir = os.path.join(movie_root, "_assembly")
-    os.makedirs(movie_root, exist_ok=True)
-    os.makedirs(work_dir, exist_ok=True)
     # GROUP-WRITABLE out_root (2026-07-12 hotfix, first delegated id-movie):
     # central (uid 1000) creates these dirs, but DELEGATED segments are written
     # by the WORKER's uid (ae runs as 988) through the shared llmstorage group.
     # Default umask 022 yields 0755 dirs -> the worker EPERMs writing its clip
     # ("[Errno 13] Permission denied ... segment_00"). The canonical studio
     # tree is 2775/setgid by design; make what we create match it, so cross-box
-    # writes work regardless of the service's umask.
-    for _d in (movie_root, work_dir):
-        try:
-            os.chmod(_d, 0o2775)
-        except OSError:
-            pass  # non-shared roots (tests, tmp) may not permit; harmless
+    # writes work regardless of the service's umask. (_ensure_shared_dir.)
+    _ensure_shared_dir(movie_root)
+    _ensure_shared_dir(work_dir)
+    # RESUMABILITY (k91): stamp the submitted spec + THIS job's id into the dir before
+    # a single frame is rendered. The submit route already wrote this at enqueue; the
+    # runner rewrites it because a movie can be enqueued by paths that are not that
+    # route (a bus retry, a headless caller), and a session that cannot be re-enqueued
+    # is a session that dies with whatever killed its job.
+    write_movie_spec(movie_root, spec, job_id)
+    mark_movie_status(movie_root, MOVIE_STATUS_RUNNING, job_id=job_id,
+                      title=spec.title, project=spec.project, segments_total=seg_total)
 
     _tier = ("autofit" if spec.vram_budget_gb is None
              else f"<={spec.vram_budget_gb:.2f}GB")
@@ -571,15 +770,88 @@ def run_generate_studio_movie(spec: StudioMovieSpec, job_id: str) -> JobResult:
         for i, g in enumerate(spec.goals)
     ]
 
+    # ---- BUS JOB HEARTBEAT (k91) ---------------------------------------------- #
+    # A movie is ONE bus job that can run for HOURS across many segments, and it used
+    # to publish a blob whose only /llm/jobs-visible field was stage="generating" for
+    # the entire run. comms' movement clock (``Job.progressed_at``) advances on a status
+    # transition, a numeric progress ADVANCE, or a stage change — none of which a
+    # mid-movie tick produced. So ``comms/jobs.py::expire_pending_orphans`` did exactly
+    # what it says on the tin ("no forward progress for 900s -> wedged") and RETIRED the
+    # bus record of a LIVE 14-segment render. The runner kept rendering into a job row
+    # nobody believed in.
+    #
+    # Every _emit now also carries:
+    #   * ``progress`` — a MONOTONIC 0..1 fraction folding completed segments AND the
+    #     in-flight segment's own denoise step, so even a single 46-minute segment moves
+    #     the number roughly every poll instead of once per segment;
+    #   * ``message``  — "segment 2/14 - step 18/32", the human line /llm/jobs shows.
+    # ``job_bridge.on_progress`` relays both and stamps ``progressed_at`` when the
+    # authored message changes, so a movie that is rendering can no longer be mistaken
+    # for a movie that is wedged. The nested per-segment blob below is UNCHANGED — these
+    # are additive keys, so every existing console reader is untouched.
+    #
+    # Monotonicity is enforced by a floor rather than trusted: the fraction is derived
+    # from a worker-reported step counter that can restart (a segment retried, a resumed
+    # segment reporting nothing), and a progress number that goes BACKWARDS is not read
+    # as movement by the JobStore's advance rule — it would silently stop heartbeating
+    # at the worst possible moment.
+    progress_floor = [0.0]
+
+    def _fraction_in_segment(current: "dict | None") -> float:
+        """0..1 through the IN-FLIGHT segment, from whatever counter is visible in the
+        nested worker/render blob (``step``/``steps``). 0.0 when nothing is countable —
+        queued, resumed, or a runner that reports no step — which is honest: no step
+        information means no evidence of within-segment movement."""
+        if not isinstance(current, dict):
+            return 0.0
+        blob = current.get("worker")
+        if not isinstance(blob, dict):
+            return 0.0
+        step, steps = blob.get("step"), blob.get("steps")
+        if not isinstance(step, (int, float)) or not isinstance(steps, (int, float)):
+            return 0.0
+        if steps <= 0:
+            return 0.0
+        return max(0.0, min(1.0, float(step) / float(steps)))
+
+    def _human_message(stage: str, seg_done: int, current: "dict | None") -> str:
+        """The operator-facing one-liner for /llm/jobs: "segment 2/14 - step 18/32"
+        while a segment renders, the queue position while it waits, and the coarse
+        stage + completed count otherwise. Segment numbers are 1-BASED here (and only
+        here) because this string is read by a person counting shots, not by code."""
+        idx = None
+        if isinstance(current, dict) and isinstance(current.get("index"), int):
+            idx = current["index"]
+        if idx is None:
+            return f"{stage} - {seg_done}/{seg_total} segment(s) complete"
+        head = f"segment {idx + 1}/{seg_total}"
+        blob = current.get("worker") if isinstance(current, dict) else None
+        if isinstance(blob, dict):
+            step, steps = blob.get("step"), blob.get("steps")
+            if isinstance(step, (int, float)) and isinstance(steps, (int, float)) and steps:
+                return f"{head} - step {int(step)}/{int(steps)}"
+            if blob.get("phase") == "queued":
+                pos = blob.get("position")
+                return f"{head} - queued" + (f" (position {pos})" if pos is not None else "")
+        return head
+
     def _emit(stage: str, current: "dict | None" = None) -> None:
         """Build + persist the NESTED movie progress blob (best-effort)."""
         seg_done = sum(1 for s in segments_meta if s["status"] in ("done", "resumed"))
         elapsed = time.time() - started_at
         eta = round((elapsed / seg_done) * (seg_total - seg_done), 2) if seg_done > 0 else None
+        # Fold completed segments + the in-flight segment's step fraction into ONE
+        # 0..1 number, clamped to a never-decreasing floor (see the note above).
+        raw = (seg_done + _fraction_in_segment(current)) / seg_total if seg_total else 1.0
+        fraction = max(progress_floor[0], min(1.0, raw))
+        progress_floor[0] = fraction
         blob = {
             "stage": stage, "segment_done": seg_done, "segment_total": seg_total,
             "segments": segments_meta, "current": current,
             "started_at": started_at, "eta_s": eta,
+            # The two heartbeat fields job_bridge relays into the comms Job record.
+            "progress": fraction,
+            "message": _human_message(stage, seg_done, current),
         }
         try:
             set_progress(job_id, blob)
@@ -680,7 +952,8 @@ def run_generate_studio_movie(spec: StudioMovieSpec, job_id: str) -> JobResult:
             # FRESH render (id_lock in an id-movie so the subject carries, else t2v). The parent
             # plays in FULL: resolved_branch stays None so assembly does NOT trim it.
             seg_joint_mode = "cut"
-            _emit("branching", {"segment_id": goal.segment_id, "mode": "cut"})
+            _emit("branching", {"segment_id": goal.segment_id, "index": seg_i,
+                                "mode": "cut"})
         else:
             # still / vace_extend splice onto the parent at a branch frame.
             # branch_frame null -> the parent's LAST frame (prev_frames - 1).
@@ -707,7 +980,8 @@ def run_generate_studio_movie(spec: StudioMovieSpec, job_id: str) -> JobResult:
                 # In an id-movie the references ALSO ride along (identity + motion-carry both).
                 k = goal.context_frames if goal.context_frames is not None else spec.context_frames
                 ctx_dir = os.path.join(seg_out_root, "context")
-                _emit("branching", {"segment_id": goal.segment_id, "branch_frame": resolved_branch,
+                _emit("branching", {"segment_id": goal.segment_id, "index": seg_i,
+                                    "branch_frame": resolved_branch,
                                     "mode": "vace_extend", "context_frames": k})
                 paths, tail, idxs = _extract_context_frames(
                     prev_clip_path, resolved_branch, k, ctx_dir)
@@ -730,7 +1004,7 @@ def run_generate_studio_movie(spec: StudioMovieSpec, job_id: str) -> JobResult:
                 # VACE runner ACCEPTS but IGNORES (references win) — the still governs only the
                 # parent TRIM at assembly. In a plain movie it is the historical i2v.
                 branch_png = os.path.join(seg_out_root, "branch.png")
-                _emit("branching", {"segment_id": goal.segment_id,
+                _emit("branching", {"segment_id": goal.segment_id, "index": seg_i,
                                     "branch_frame": resolved_branch, "mode": "still"})
                 ok, tail = _extract_frame_at(prev_clip_path, resolved_branch, branch_png)
                 if not ok:
@@ -774,6 +1048,13 @@ def run_generate_studio_movie(spec: StudioMovieSpec, job_id: str) -> JobResult:
             project=spec.project,
             steps=(goal.steps if goal.steps is not None else spec.steps),
             cfg=(goal.cfg if goal.cfg is not None else spec.cfg),
+            # CLIP LENGTH (2026-08-13, threaded together with the schema field —
+            # see studio_movie_schema's header rule): per-goal frames, else the
+            # movie-level default, else None -> the bound model's own default.
+            # getattr keeps an old pickled/dict spec without the field working.
+            requested_frames=(getattr(goal, "frames", None)
+                              if getattr(goal, "frames", None) is not None
+                              else getattr(spec, "frames", None)),
             # PER-CAPABILITY pin (k58): the explicit per-goal choice, else the movie-level
             # pin ONLY where it serves this segment's capability, else None (unpinned —
             # the router resolves a capable model for THIS capability).

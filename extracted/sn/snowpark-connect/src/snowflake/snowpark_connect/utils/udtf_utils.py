@@ -8,6 +8,8 @@ import builtins
 import datetime
 import decimal
 import inspect
+import os
+import threading
 from typing import Any
 
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
@@ -23,6 +25,107 @@ TELEMETRY_PACKAGE = "snowflake-telemetry-python"
 # Flag to enable/disable automatic telemetry wrapper for UDTFs
 # When True, UDTFs will automatically emit telemetry events at start/completion
 ENABLE_UDTF_TELEMETRY = True
+
+# Guards apply_version_stage_import_passthrough's check-then-wrap against concurrent
+# double-wrapping. Lives here (with the patch) because this module is inlined verbatim into
+# the create-UDTF stored procedure, which lacks snowpark_connect.
+_VERSION_STAGE_IMPORT_PATCH_LOCK = threading.Lock()
+
+
+def _is_version_stage_relative(path: str) -> bool:
+    """A ``/...`` path that is not an existing local file. A local absolute path also starts
+    with ``/`` but exists on disk and must upload normally, so it is excluded."""
+    trimmed = path.strip()
+    return trimmed.startswith("/") and not os.path.exists(trimmed)
+
+
+def apply_version_stage_import_passthrough() -> None:
+    """Make Snowpark's import resolver emit version-stage-relative (``/...``) imports verbatim
+    rather than treating them as missing local files. This is the single source of the patch:
+    it lives here because this module is inlined verbatim into the create-UDTF stored procedure
+    (which lacks snowpark_connect); the server-side native_app_mode callback imports and reuses
+    it. Idempotent and lock-guarded; only ``/``-paths that aren't local files are intercepted."""
+    import snowflake.snowpark.session as _sp_session
+
+    session_cls = _sp_session.Session
+    with _VERSION_STAGE_IMPORT_PATCH_LOCK:
+        if getattr(session_cls, "_scos_version_stage_import_patch", False):
+            return
+
+        _orig_resolve_import_path = session_cls._resolve_import_path
+        _orig_resolve_imports = session_cls._resolve_imports
+
+        def _resolve_import_path(
+            path: str,
+            import_path: str | None = None,
+            chunk_size: int = 8192,
+            whole_file_hash: bool = False,
+        ) -> tuple[str, None, None]:
+            if _is_version_stage_relative(path):
+                return path.strip(), None, None
+            return _orig_resolve_import_path(
+                path, import_path, chunk_size, whole_file_hash
+            )
+
+        def _resolve_imports(
+            self,
+            import_only_stage: str,
+            upload_and_import_stage: str,
+            udf_level_import_paths: dict[str, tuple] | None = None,
+            *,
+            statement_params: dict[str, str] | None = None,
+        ) -> list[str]:
+            if udf_level_import_paths:
+                version_stage = [
+                    p for p in udf_level_import_paths if _is_version_stage_relative(p)
+                ]
+                rest = {
+                    p: v
+                    for p, v in udf_level_import_paths.items()
+                    if not _is_version_stage_relative(p)
+                }
+            else:
+                version_stage = []
+                rest = udf_level_import_paths
+            resolved = list(version_stage)
+            if rest or udf_level_import_paths is None:
+                resolved += _orig_resolve_imports(
+                    self,
+                    import_only_stage,
+                    upload_and_import_stage,
+                    rest if udf_level_import_paths is not None else None,
+                    statement_params=statement_params,
+                )
+            return resolved
+
+        session_cls._resolve_import_path = staticmethod(_resolve_import_path)
+        session_cls._resolve_imports = _resolve_imports
+        session_cls._scos_version_stage_import_patch = True
+
+
+def _ensure_version_stage_imports_passthrough(imports: list[str]) -> None:
+    """Sproc path: apply the passthrough when a version-stage import is present. Keyed on the
+    ``/`` import (not is_native_app_mode, which is unavailable in the inlined sproc)."""
+    if any(_is_version_stage_relative(i) for i in imports):
+        apply_version_stage_import_passthrough()
+
+
+def _reraise_missing_version_stage_import(err: Exception, imports: list[str]) -> None:
+    """Turn Snowflake's generic "Remote file not found" at CREATE FUNCTION into an
+    actionable message when a version-stage (``/...``) import is unresolved; otherwise
+    re-raise unchanged. In a Native App the imported file must be bundled at the version
+    stage root, since addArtifact only stages to a session stage."""
+    version_stage = [i for i in imports if i.strip().startswith("/")]
+    msg = str(err).lower()
+    if version_stage and ("not found" in msg or "does not exist" in msg):
+        raise RuntimeError(
+            "[snowpark_connect::invalid_operation] Version-stage import(s) "
+            f"{version_stage} were not found at the version stage root. In a Native App, a "
+            "file imported by a UDF/UDTF must be bundled as an app artifact at the version "
+            "stage root (e.g. snowflake.yml `dest: ./`) — spark.addArtifact() alone stages "
+            "to a session stage, which a versioned schema cannot import from."
+        ) from err
+    raise err
 
 
 # DUPLICATED CODE from pandas_udtf_utils.py to avoid incorrect loading for stored procedure UDTF creation
@@ -246,51 +349,60 @@ def create_udtf(
         custom_packages=custom_packages,
     )
     imports = process_dependencies_string_array(imports)
-    match called_from:
-        case "register_udtf":
-            return session.udtf.register(
-                handler=callable_func,
-                output_schema=output_schema,
-                input_types=input_types,
-                replace=True,
-                packages=packages,
-                imports=imports,
-                artifact_repository=artifact_repository,
-                resource_constraint=resource_constraint,
-            )
-        case "map_common_inline_user_defined_table_function":
-            # Check if the number of arguments provided matches the function signature
-            expected_arg_count = len(func_signature.parameters) - 1  # Skip self
-            actual_arg_count = len(udtf_proto.arguments)
+    # Native App: '/'-relative imports must pass through Snowpark verbatim. Applied here
+    # (not only server-side) so it also covers the in-sproc UDTF-creation path, which
+    # inlines this module but lacks the server's snowpark_connect patch.
+    _ensure_version_stage_imports_passthrough(imports)
+    try:
+        match called_from:
+            case "register_udtf":
+                return session.udtf.register(
+                    handler=callable_func,
+                    output_schema=output_schema,
+                    input_types=input_types,
+                    replace=True,
+                    packages=packages,
+                    imports=imports,
+                    artifact_repository=artifact_repository,
+                    resource_constraint=resource_constraint,
+                )
+            case "map_common_inline_user_defined_table_function":
+                # Check if the number of arguments provided matches the function signature
+                expected_arg_count = len(func_signature.parameters) - 1  # Skip self
+                actual_arg_count = len(udtf_proto.arguments)
 
-            # Missing arguments
-            if actual_arg_count < expected_arg_count:
-                param_names = list(func_signature.parameters.keys())[1:]  # Skip self
-                missing_params = param_names[actual_arg_count:]
-                missing_param_str = ", ".join(f"'{p}'" for p in missing_params)
-                return f"eval() missing {len(missing_params)} required positional argument: {missing_param_str}"
-            # Too many arguments
-            elif actual_arg_count > expected_arg_count:
-                total_expected = expected_arg_count + 1  # Add 1 for self
-                total_given = actual_arg_count + 1  # Add 1 for self
+                # Missing arguments
+                if actual_arg_count < expected_arg_count:
+                    param_names = list(func_signature.parameters.keys())[
+                        1:
+                    ]  # Skip self
+                    missing_params = param_names[actual_arg_count:]
+                    missing_param_str = ", ".join(f"'{p}'" for p in missing_params)
+                    return f"eval() missing {len(missing_params)} required positional argument: {missing_param_str}"
+                # Too many arguments
+                elif actual_arg_count > expected_arg_count:
+                    total_expected = expected_arg_count + 1  # Add 1 for self
+                    total_given = actual_arg_count + 1  # Add 1 for self
 
-                return f"eval() takes {total_expected} positional arguments but {total_given} were given"
+                    return f"eval() takes {total_expected} positional arguments but {total_given} were given"
 
-            return snowpark_fn.udtf(
-                handler=callable_func,
-                output_schema=output_schema,
-                input_types=input_types,
-                name=udtf_proto.function_name,
-                replace=True,
-                packages=packages,
-                imports=imports,
-                artifact_repository=artifact_repository,
-                resource_constraint=resource_constraint,
-            )
-        case _:
-            raise NotImplementedError(
-                f"[snowpark_connect::unsupported_operation] {called_from}"
-            )
+                return snowpark_fn.udtf(
+                    handler=callable_func,
+                    output_schema=output_schema,
+                    input_types=input_types,
+                    name=udtf_proto.function_name,
+                    replace=True,
+                    packages=packages,
+                    imports=imports,
+                    artifact_repository=artifact_repository,
+                    resource_constraint=resource_constraint,
+                )
+            case _:
+                raise NotImplementedError(
+                    f"[snowpark_connect::unsupported_operation] {called_from}"
+                )
+    except Exception as e:
+        _reraise_missing_version_stage_import(e, imports)
 
 
 def artifacts_reader_wrapper(user_udtf_cls: type) -> type:

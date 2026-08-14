@@ -42,9 +42,10 @@ _RE_LITERAL_STR_BODY: Final = re.compile(r"[^'\n\r\x00-\x08\x0b-\x1f\x7f]+")
 # so the caller handles them; stop at \r to verify CRLF before emitting it.
 _RE_ML_BASIC_BODY: Final = re.compile(r'[^"\\\r\n\x00-\x08\x0b-\x1f\x7f]+')
 _RE_ML_LITERAL_BODY: Final = re.compile(r"[^'\r\n\x00-\x08\x0b-\x1f\x7f]+")
-# Bare key: ASCII alphanum + underscore + dash. (TOML 1.1 broadens
-# this; if/when tomlrt opts in, widen the pattern here.)
-_RE_BARE_KEY: Final = re.compile(r"[A-Za-z0-9_\-]+")
+# Bare key (ASCII letters, digits, underscore, dash — the same set in
+# TOML 1.0 and 1.1), plus the inline whitespace that follows it: one
+# scan of adjacent source rather than two.
+_RE_BARE_KEY: Final = re.compile(r"([A-Za-z0-9_\-]+)([ \t]*)")
 
 # Per-flavour multi-line string body pattern and name for diagnostics.
 _ML_FLAVOURS: Final = {
@@ -67,8 +68,9 @@ def _is_ascii_digits(s: str) -> bool:
     return bool(s) and s.isascii() and s.isdecimal()
 
 
-# First character that ends a bare-value token.
-_RE_VALUE_END: Final = re.compile(r"[ \t\n\r,\]}#]")
+# A bare-value token: everything up to the first character that can end
+# one. Matches empty, which the caller reports as a missing value.
+_RE_VALUE_TOKEN: Final = re.compile(r"[^ \t\n\r,\]}#]*")
 
 # Shared simple backslash-escape map.
 _SIMPLE_ESCAPES: Final[dict[str, str]] = {
@@ -90,8 +92,7 @@ class _Scanner:
         self.src = src
         self.end = len(src)
         self.pos = 0
-        # Track newline kinds during scanning so Document needn't walk
-        # the CST. Report CRLF only when every emitted newline was CRLF.
+        # Track newline kinds during scanning so Document needn't walk the CST.
         self._seen_lf = False
         self._seen_crlf = False
 
@@ -106,15 +107,15 @@ class _Scanner:
         return "\n"
 
     def line_col(self, pos: int) -> tuple[int, int]:
-        """Return the 1-based (line, column) for source offset `pos`."""
-        line = 1
-        last_nl = -1
-        for i in range(pos):
-            if self.src[i] == "\n":
-                line += 1
-                last_nl = i
-        col = pos - last_nl
-        return line, col
+        r"""Return the 1-based (line, column) for source offset `pos`.
+
+        Columns count code points, and a `\r` counts as one of them, so
+        both halves of a CRLF belong to the line they terminate.
+        """
+        src = self.src
+        # rfind gives -1 when `pos` is on the first line, which is
+        # exactly the "column base" that makes offset 0 column 1.
+        return src.count("\n", 0, pos) + 1, pos - src.rfind("\n", 0, pos)
 
     def error(self, message: str, *, at: int | None = None) -> TOMLParseError:
         """Build a `TOMLParseError` pointing at `at` (default: cursor)."""
@@ -144,11 +145,7 @@ class _Scanner:
         return src[start:end_pos]
 
     def scan_doc_trivia(self) -> str:
-        """Consume a document-scope trivia block.
-
-        Whitespace, blank lines and full-line comments are consumed.
-        Stops before the next structural token (or EOF).
-        """
+        """Consume whitespace, blank lines and comments up to the next token."""
         start = self.pos
         src = self.src
         end = self.end
@@ -177,10 +174,9 @@ class _Scanner:
         return src[start:pos]
 
     def scan_inline_ws_text(self) -> str:
-        """Consume one run of inline whitespace; return raw text (or "").
+        """Consume a run of spaces/tabs; return raw text (or "").
 
-        Newlines and comments are not whitespace here; the cursor stops
-        at the first character that is neither space nor tab.
+        Unlike `scan_array_trivia`, newlines and comments don't count here.
         """
         src = self.src
         end = self.end
@@ -203,8 +199,7 @@ class _Scanner:
     def scan_array_trivia(self) -> str:
         """Consume trivia inside an array (or TOML 1.1 inline table).
 
-        Whitespace, newlines and comments are all permitted. Stops
-        before the next structural character.
+        Unlike `scan_inline_ws_text`, newlines and comments are permitted.
         """
         start = self.pos
         src = self.src
@@ -260,15 +255,13 @@ class _Scanner:
         return EolTrivia(trailing, comment, newline)
 
     def scan_string(self, *, allow_multiline: bool = True) -> StringValue:
-        """Scan a string starting at the cursor; populate `raw`.
+        """Scan a string starting at the cursor and return its `StringValue`.
 
-        Dispatches on the opening quote character and returns a
-        `StringValue` with verbatim source (for round-tripping), decoded
-        value, and style. Key parsers pass ``allow_multiline=False`` to
-        reject multi-line strings.
+        Dispatches on the opening quote character. Key parsers pass
+        ``allow_multiline=False`` to reject multi-line strings.
 
-        Precondition: cursor is at `"` or `'`. Callers look at the
-        character first; this is asserted, not validated.
+        Precondition: cursor is at `"` or `'`; callers check the
+        character first, so this only asserts it.
         """
         src = self.src
         start = self.pos
@@ -463,41 +456,55 @@ class _Scanner:
             raise self.error(msg)
         return chr(cp)
 
-    def scan_key(self) -> tuple[list[KeyPart], list[str], str]:
-        """Scan a dotted key; return its parts, separators, trailing ws.
+    def scan_key(
+        self,
+    ) -> tuple[tuple[KeyPart, ...], tuple[str, ...], str, tuple[str, ...]]:
+        """Scan a dotted key; return parts, separators, trailing ws, path.
 
         Each part is bare, basic-quoted or literal-quoted; each
         separator is the literal ``ws "." ws`` between two parts. The
         whitespace after the last part is consumed too, and can be used
         directly as ``pre_eq`` / ``inner_post``.
+
+        The decoded path is accumulated here, rather than derived from
+        ``parts`` separately by each caller, because every caller needs
+        it to hand to the validator.
         """
         src = self.src
-        parts: list[KeyPart] = []
-        seps: list[str] = []
+        end = self.end
+        parts: tuple[KeyPart, ...] = ()
+        seps: tuple[str, ...] = ()
+        path: list[str] = []
         while True:
             start = self.pos
-            ch = src[start] if start < self.end else ""
+            ch = src[start] if start < end else ""
             if ch == '"' or ch == "'":
                 quoted = self.scan_string(allow_multiline=False)
-                parts.append(KeyPart(quoted.lexeme, quoted.value))
+                parts += (KeyPart(quoted.lexeme, quoted.value),)
+                path.append(quoted.value)
+                ws = self.scan_inline_ws_text()
             else:
                 m = _RE_BARE_KEY.match(src, start)
                 if m is None:
                     msg = f"expected key, got {ch!r}"
                     raise self.error(msg)
+                raw = m[1]
+                ws = m[2]
+                parts += (KeyPart(raw, raw),)
+                path.append(raw)
                 self.pos = m.end()
-                raw = src[start : self.pos]
-                parts.append(KeyPart(raw, raw))
-            sep_start = self.pos
-            ws = self.scan_inline_ws_text()
-            if self.pos >= self.end or src[self.pos] != ".":
-                return parts, seps, ws
-            self.pos += 1
+            pos = self.pos
+            if pos >= end or src[pos] != ".":
+                return parts, seps, ws, tuple(path)
+            # The separator runs from the end of the part just scanned,
+            # which is where the whitespace already consumed began.
+            sep_start = pos - len(ws)
+            self.pos = pos + 1
             self.scan_inline_ws_text()
-            seps.append(src[sep_start : self.pos])
+            seps += (src[sep_start : self.pos],)
 
-    # Bare value tokens: bool, special floats, numbers, and date/time values.
-    # The parser dispatches strings, arrays, and inline tables itself.
+    # Bare value tokens (bool, special float, number, date/time); the parser
+    # dispatches strings, arrays and inline tables itself.
 
     def scan_value_atom(self) -> Value:
         """Scan a non-container, non-string value at the cursor.
@@ -507,14 +514,11 @@ class _Scanner:
         ``true`` / ``inf`` followed by garbage.
         """
         start = self.pos
-        end = self._scan_value_end(start)
-        token = self.src[start:end]
+        token = self._scan_value_token()
         if not token:
             msg = f"expected value, got {self.src[start : start + 1]!r}"
             raise self.error(msg)
-        self.pos = end
 
-        # Whole-token keyword classification.
         if token in ("true", "false"):
             return BoolValue(token, token == "true")  # noqa: S105
         if token in ("inf", "+inf"):
@@ -535,10 +539,12 @@ class _Scanner:
 
         return self._parse_integer_token(token, at=start)
 
-    def _scan_value_end(self, start: int) -> int:
-        """Return the offset of the first char that ends a bare value."""
-        m = _RE_VALUE_END.search(self.src, start)
-        return m.start() if m is not None else len(self.src)
+    def _scan_value_token(self) -> str:
+        """Consume the bare-value token at the cursor and return its text."""
+        m = _RE_VALUE_TOKEN.match(self.src, self.pos)
+        assert m is not None  # the pattern matches empty
+        self.pos = m.end()
+        return m[0]
 
     @staticmethod
     def _looks_like_datetime(token: str) -> bool:
@@ -552,7 +558,7 @@ class _Scanner:
     def _looks_like_float(token: str) -> bool:
         # Decimal floats contain ``.``, ``e`` or ``E``; hex/oct/bin
         # integers never do.
-        body = token[1:] if token[:1] in "+-" else token
+        body = token[1:] if token[0] in "+-" else token
         if body.startswith(("0x", "0o", "0b")):
             return False
         return "." in body or "e" in body or "E" in body
@@ -580,23 +586,25 @@ class _Scanner:
             return IntegerValue(token, value)
 
         sign = ""
-        if body and body[0] in "+-":
+        if body[0] in "+-":
             sign = body[0]
             body = body[1:]
         if not body:
             msg = f"invalid integer {token!r}"
             raise self.error(msg, at=at)
-        if body.startswith("_") or body.endswith("_"):
-            msg = f"invalid integer {token!r}"
-            raise self.error(msg, at=at)
-        if "__" in body:
-            msg = f"consecutive underscores in {token!r}"
-            raise self.error(msg, at=at)
-        digits_only = body.replace("_", "")
+        digits_only = body
+        if "_" in body:
+            if body.startswith("_") or body.endswith("_"):
+                msg = f"invalid integer {token!r}"
+                raise self.error(msg, at=at)
+            if "__" in body:
+                msg = f"consecutive underscores in {token!r}"
+                raise self.error(msg, at=at)
+            digits_only = body.replace("_", "")
         if not _is_ascii_digits(digits_only):
             msg = f"invalid integer {token!r}"
             raise self.error(msg, at=at)
-        if len(digits_only) > 1 and digits_only.startswith("0"):
+        if len(digits_only) > 1 and digits_only[0] == "0":
             msg = f"leading zeros are not allowed in {token!r}"
             raise self.error(msg, at=at)
         try:
@@ -609,31 +617,30 @@ class _Scanner:
     def _parse_float_token(self, token: str, *, at: int) -> FloatValue:
         body = token
         sign = ""
-        if body and body[0] in "+-":
+        if body[0] in "+-":
             sign = body[0]
             body = body[1:]
-        if "__" in body:
-            msg = f"consecutive underscores in {token!r}"
-            raise self.error(msg, at=at)
-        for i, c in enumerate(body):
-            if c == "_" and not (
-                0 < i < len(body) - 1
-                and body[i - 1] in _DEC_DIGITS
-                and body[i + 1] in _DEC_DIGITS
-            ):
-                msg = f"misplaced underscore in {token!r}"
+        norm = body
+        if "_" in body:
+            if "__" in body:
+                msg = f"consecutive underscores in {token!r}"
                 raise self.error(msg, at=at)
+            for i, c in enumerate(body):
+                if c == "_" and not (
+                    0 < i < len(body) - 1
+                    and body[i - 1] in _DEC_DIGITS
+                    and body[i + 1] in _DEC_DIGITS
+                ):
+                    msg = f"misplaced underscore in {token!r}"
+                    raise self.error(msg, at=at)
+            norm = body.replace("_", "")
 
         # Validate structure manually; ``float`` accepts forms TOML doesn't.
-        norm = body.replace("_", "")
-        exp_pos = -1
-        for i, c in enumerate(norm):
-            if c in ("e", "E"):
-                exp_pos = i
-                break
-        if exp_pos != -1:
-            mantissa = norm[:exp_pos]
-            exponent = norm[exp_pos + 1 :]
+        # A decimal float carries at most one ``e``/``E`` marker.
+        mantissa, marker, exponent = norm.partition("e")
+        if not marker:
+            mantissa, marker, exponent = norm.partition("E")
+        if marker:
             if not exponent or (exponent[0] in "+-" and len(exponent) == 1):
                 msg = f"invalid float exponent in {token!r}"
                 raise self.error(msg, at=at)
@@ -642,8 +649,6 @@ class _Scanner:
             if not _is_ascii_digits(exponent):
                 msg = f"invalid float exponent in {token!r}"
                 raise self.error(msg, at=at)
-        else:
-            mantissa = norm
 
         if "." in mantissa:
             int_part, _, frac_part = mantissa.partition(".")
@@ -680,10 +685,8 @@ class _Scanner:
             and src[pos + 1] in _DEC_DIGITS
             and src[pos + 3] == ":"
         ):
-            pos += 1
-            extra_end = self._scan_value_end(pos)
-            extra = src[pos:extra_end]
-            self.pos = extra_end
+            self.pos = pos + 1
+            extra = self._scan_value_token()
             return self._parse_datetime_text(token + " " + extra, at=at)
         return self._parse_datetime_text(token, at=at)
 

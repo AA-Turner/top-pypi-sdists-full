@@ -1,30 +1,27 @@
 Metadata-Version: 2.4
 Name: ml_dtypes
-Version: 0.5.4
+Version: 0.6.0
 Summary: ml_dtypes is a stand-alone implementation of several NumPy dtype extensions used in machine learning.
-Author-email: ml_dtypes authors <ml_dtypes@google.com>
+Author-Email: ml_dtypes authors <ml_dtypes@google.com>
 License-Expression: Apache-2.0
-Project-URL: homepage, https://github.com/jax-ml/ml_dtypes
-Project-URL: repository, https://github.com/jax-ml/ml_dtypes
+License-File: LICENSE
+License-File: LICENSE.eigen
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Intended Audience :: Science/Research
-Requires-Python: >=3.9
-Description-Content-Type: text/markdown
-License-File: LICENSE
-License-File: LICENSE.eigen
-Requires-Dist: numpy>=1.21
-Requires-Dist: numpy>=1.21.2; python_version >= "3.10"
-Requires-Dist: numpy>=1.23.3; python_version >= "3.11"
-Requires-Dist: numpy>=1.26.0; python_version >= "3.12"
+Project-URL: homepage, https://github.com/jax-ml/ml_dtypes
+Project-URL: repository, https://github.com/jax-ml/ml_dtypes
+Requires-Python: >=3.10
+Requires-Dist: numpy>=2.0.0
 Requires-Dist: numpy>=2.1.0; python_version >= "3.13"
+Requires-Dist: numpy>=2.3.0; python_version >= "3.14"
 Provides-Extra: dev
 Requires-Dist: absl-py; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: pylint>=2.6.0; extra == "dev"
 Requires-Dist: pyink; extra == "dev"
-Dynamic: license-file
+Description-Content-Type: text/markdown
 
 # ml_dtypes
 
@@ -52,8 +49,10 @@ Dynamic: license-file
   * `float6_e2m3fn`
   * `float6_e3m2fn`
 - Narrow integer encodings:
+  * `int1`
   * `int2`
   * `int4`
+  * `uint1`
   * `uint2`
   * `uint4`
 
@@ -199,9 +198,9 @@ scale format E8M0, which has the following properties:
   * No zero and infinity
   * Single NaN value (0xFF).
 
-## `int2`, `int4`, `uint2` and `uint4`
+## `int1`, `uint1`, `int2`, `int4`, `uint2` and `uint4`
 
-2 and 4-bit integer types, where each element is represented unpacked (i.e.,
+1, 2 and 4-bit integer types, where each element is represented unpacked (i.e.,
 padded up to a byte in memory).
 
 NumPy does not support types smaller than a single byte: for example, the

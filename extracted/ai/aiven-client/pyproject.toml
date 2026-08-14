@@ -56,7 +56,11 @@ source = "vcs"
 [tool.hatch.build.hooks.vcs]
 version-file = "aiven/client/version.py"
 
+[tool.hatch.build.targets.sdist]
+core-metadata-version = "2.4"
+
 [tool.hatch.build.targets.wheel]
+core-metadata-version = "2.4"
 packages = ["aiven"]
 
 [tool.ruff]
@@ -76,6 +80,7 @@ extend-select = [
 ]
 ignore = [
   "PLR0913",  # It is too difficult to avoid "Too many arguments" error in the codebase
+  "PLR0917",  # Legacy client APIs pass many positional arguments
   "UP032",  # Downstream has different rules for f-strings
 ]
 

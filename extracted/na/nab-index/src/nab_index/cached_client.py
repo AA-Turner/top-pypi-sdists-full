@@ -19,6 +19,8 @@ from datetime import timezone
 from email.utils import parsedate_to_datetime
 from typing import TYPE_CHECKING
 
+from nab_provider.serialization import SimpleSerialization, simple_accept_header
+
 from .cache import CacheBackend, CachePolicy, OfflineError
 from .client import (
     _HTTP_NOT_FOUND,
@@ -50,7 +52,6 @@ from .parsed_listing import (
 from .parsed_listing import (
     encode as _encode_parsed,
 )
-from .serialization import SimpleSerialization, simple_accept_header
 from .transport import IDENTITY_HEADERS, raise_unless_ok
 
 if TYPE_CHECKING:
@@ -303,6 +304,7 @@ class CachedAsyncSimpleClient:
         self._parsed_stats = (
             parsed_stats if parsed_stats is not None else ParsedCacheStats()
         )
+        self._parsed_store_failed = False
 
     async def aclose(self) -> None:
         """Close the underlying transport."""
@@ -461,10 +463,22 @@ class CachedAsyncSimpleClient:
         records is skipped too: :meth:`_parsed_hit` declines a blob holding
         none, so writing one would rebuild and rewrite it on every later read
         without ever serving it.
+
+        A refused write is dropped: the blob only accelerates a read the raw
+        body already answers. Only the first refusal warns.
         """
         if digest is None or not files:
             return
-        self._cache.put_simple_parsed(package, _encode_parsed(files, digest))
+
+        blob = _encode_parsed(files, digest)
+        try:
+            self._cache.put_simple_parsed(package, blob)
+        except OSError as exc:
+            if not self._parsed_store_failed:
+                self._parsed_store_failed = True
+                logger.warning(
+                    "cannot store parsed listings for %s: %s", self._index_url, exc
+                )
 
     def _rebuild_parsed(
         self,
@@ -561,7 +575,8 @@ class CachedAsyncSimpleClient:
     ) -> list[WheelFile | SdistFile]:
         url = f"{self._index_url}{package}/"
         headers = {"Accept": simple_accept_header(self._serialization)}
-        if policy.etag is not None:
+        # httpx raises on a non-ASCII header value.
+        if policy.etag is not None and policy.etag.isascii():
             headers["If-None-Match"] = policy.etag
         response = await self._transport.get(url, headers=headers)
         if response.status_code == _HTTP_NOT_MODIFIED:

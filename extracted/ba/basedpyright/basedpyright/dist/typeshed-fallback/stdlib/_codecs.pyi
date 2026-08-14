@@ -19,9 +19,10 @@ def register(search_function: _SearchFunction, /) -> None:
     """
     Register a codec search function.
 
-    Search functions are expected to take one argument, the encoding name in
-    all lower case letters, and either return None, or a tuple of functions
-    (encoder, decoder, stream_reader, stream_writer) (or a CodecInfo object).
+    Search functions are expected to take one argument, the encoding
+    name in all lower case letters, and either return None, or a tuple
+    of functions (encoder, decoder, stream_reader, stream_writer) (or
+    a CodecInfo object).
     """
     ...
 def unregister(search_function: _SearchFunction, /) -> None:
@@ -36,16 +37,17 @@ def register_error(errors: str, handler: _Handler, /) -> None:
     Register the specified error handler under the name errors.
 
     handler must be a callable object, that will be called with an exception
-    instance containing information about the location of the encoding/decoding
-    error and must return a (replacement, new position) tuple.
+    instance containing information about the location of the
+    encoding/decoding error and must return a (replacement, new position)
+    tuple.
     """
     ...
 def lookup_error(name: str, /) -> _Handler:
     """
     lookup_error(errors) -> handler
 
-    Return the error handler for the specified error handling name or raise a
-    LookupError, if no handler exists under this name.
+    Return the error handler for the specified error handling name or raise
+    a LookupError, if no handler exists under this name.
     """
     ...
 
@@ -78,10 +80,10 @@ def encode(obj: ReadableBuffer, encoding: _BytesToBytesEncoding, errors: str = "
     Encodes obj using the codec registered for encoding.
 
     The default encoding is 'utf-8'.  errors may be given to set a
-    different error handling scheme.  Default is 'strict' meaning that encoding
-    errors raise a ValueError.  Other possible values are 'ignore', 'replace'
-    and 'backslashreplace' as well as any other name registered with
-    codecs.register_error that can handle ValueErrors.
+    different error handling scheme.  Default is 'strict' meaning that
+    encoding errors raise a ValueError.  Other possible values are 'ignore',
+    'replace' and 'backslashreplace' as well as any other name registered
+    with codecs.register_error that can handle ValueErrors.
     """
     ...
 @overload
@@ -90,10 +92,10 @@ def encode(obj: str, encoding: _StrToStrEncoding, errors: str = "strict") -> str
     Encodes obj using the codec registered for encoding.
 
     The default encoding is 'utf-8'.  errors may be given to set a
-    different error handling scheme.  Default is 'strict' meaning that encoding
-    errors raise a ValueError.  Other possible values are 'ignore', 'replace'
-    and 'backslashreplace' as well as any other name registered with
-    codecs.register_error that can handle ValueErrors.
+    different error handling scheme.  Default is 'strict' meaning that
+    encoding errors raise a ValueError.  Other possible values are 'ignore',
+    'replace' and 'backslashreplace' as well as any other name registered
+    with codecs.register_error that can handle ValueErrors.
     """
     ...
 @overload
@@ -102,10 +104,10 @@ def encode(obj: str, encoding: str = "utf-8", errors: str = "strict") -> bytes:
     Encodes obj using the codec registered for encoding.
 
     The default encoding is 'utf-8'.  errors may be given to set a
-    different error handling scheme.  Default is 'strict' meaning that encoding
-    errors raise a ValueError.  Other possible values are 'ignore', 'replace'
-    and 'backslashreplace' as well as any other name registered with
-    codecs.register_error that can handle ValueErrors.
+    different error handling scheme.  Default is 'strict' meaning that
+    encoding errors raise a ValueError.  Other possible values are 'ignore',
+    'replace' and 'backslashreplace' as well as any other name registered
+    with codecs.register_error that can handle ValueErrors.
     """
     ...
 
@@ -115,10 +117,10 @@ def decode(obj: ReadableBuffer, encoding: _BytesToBytesEncoding, errors: str = "
     Decodes obj using the codec registered for encoding.
 
     Default encoding is 'utf-8'.  errors may be given to set a
-    different error handling scheme.  Default is 'strict' meaning that encoding
-    errors raise a ValueError.  Other possible values are 'ignore', 'replace'
-    and 'backslashreplace' as well as any other name registered with
-    codecs.register_error that can handle ValueErrors.
+    different error handling scheme.  Default is 'strict' meaning that
+    encoding errors raise a ValueError.  Other possible values are 'ignore',
+    'replace' and 'backslashreplace' as well as any other name registered
+    with codecs.register_error that can handle ValueErrors.
     """
     ...
 @overload
@@ -127,10 +129,10 @@ def decode(obj: str, encoding: _StrToStrEncoding, errors: str = "strict") -> str
     Decodes obj using the codec registered for encoding.
 
     Default encoding is 'utf-8'.  errors may be given to set a
-    different error handling scheme.  Default is 'strict' meaning that encoding
-    errors raise a ValueError.  Other possible values are 'ignore', 'replace'
-    and 'backslashreplace' as well as any other name registered with
-    codecs.register_error that can handle ValueErrors.
+    different error handling scheme.  Default is 'strict' meaning that
+    encoding errors raise a ValueError.  Other possible values are 'ignore',
+    'replace' and 'backslashreplace' as well as any other name registered
+    with codecs.register_error that can handle ValueErrors.
     """
     ...
 
@@ -145,10 +147,10 @@ def decode(
     Decodes obj using the codec registered for encoding.
 
     Default encoding is 'utf-8'.  errors may be given to set a
-    different error handling scheme.  Default is 'strict' meaning that encoding
-    errors raise a ValueError.  Other possible values are 'ignore', 'replace'
-    and 'backslashreplace' as well as any other name registered with
-    codecs.register_error that can handle ValueErrors.
+    different error handling scheme.  Default is 'strict' meaning that
+    encoding errors raise a ValueError.  Other possible values are 'ignore',
+    'replace' and 'backslashreplace' as well as any other name registered
+    with codecs.register_error that can handle ValueErrors.
     """
     ...
 
@@ -159,10 +161,10 @@ def decode(obj: str, encoding: Literal["hex", "hex_codec"], errors: str = "stric
     Decodes obj using the codec registered for encoding.
 
     Default encoding is 'utf-8'.  errors may be given to set a
-    different error handling scheme.  Default is 'strict' meaning that encoding
-    errors raise a ValueError.  Other possible values are 'ignore', 'replace'
-    and 'backslashreplace' as well as any other name registered with
-    codecs.register_error that can handle ValueErrors.
+    different error handling scheme.  Default is 'strict' meaning that
+    encoding errors raise a ValueError.  Other possible values are 'ignore',
+    'replace' and 'backslashreplace' as well as any other name registered
+    with codecs.register_error that can handle ValueErrors.
     """
     ...
 @overload
@@ -171,10 +173,10 @@ def decode(obj: ReadableBuffer, encoding: str = "utf-8", errors: str = "strict")
     Decodes obj using the codec registered for encoding.
 
     Default encoding is 'utf-8'.  errors may be given to set a
-    different error handling scheme.  Default is 'strict' meaning that encoding
-    errors raise a ValueError.  Other possible values are 'ignore', 'replace'
-    and 'backslashreplace' as well as any other name registered with
-    codecs.register_error that can handle ValueErrors.
+    different error handling scheme.  Default is 'strict' meaning that
+    encoding errors raise a ValueError.  Other possible values are 'ignore',
+    'replace' and 'backslashreplace' as well as any other name registered
+    with codecs.register_error that can handle ValueErrors.
     """
     ...
 

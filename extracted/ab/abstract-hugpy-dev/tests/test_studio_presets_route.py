@@ -293,7 +293,7 @@ def test_v2v_restyle_request_body_with_source_posts_200():
         print("      (ffmpeg/ffprobe unavailable — skipping v2v route enqueue check)")
         return
     preset = get_studio_preset("restyle-480p-v2v")
-    work = tempfile.mkdtemp(prefix="studio-presets-v2v-", dir=DEFAULT_ROOT)  # inside jail
+    work = tempfile.mkdtemp(prefix="studio-presets-v2v-", dir=os.path.join(DEFAULT_ROOT, "video_intel", "_scratch"))  # inside jail
     src = os.path.join(work, "restyle_source.mp4")
     try:
         _make_tiny_mp4(src)

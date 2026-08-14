@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: airbyte
-Version: 0.53.3
+Version: 0.55.2
 Summary: PyAirbyte
 Author-email: Airbyte <contact@airbyte.io>
 License-File: LICENSE.md
@@ -12,7 +12,7 @@ Requires-Dist: cryptography!=45.0.0,!=45.0.1,<47.0.0,>=44.0.0
 Requires-Dist: cyclopts<5.0,>=4.0
 Requires-Dist: duckdb-engine==0.17.0
 Requires-Dist: duckdb==1.4.3
-Requires-Dist: fastmcp-extensions<1.0.0,>=0.14.0
+Requires-Dist: fastmcp-extensions<1.0.0,>=0.19.0
 Requires-Dist: fastmcp<4.0,>=3.0
 Requires-Dist: google-auth<3.0,>=2.27.0
 Requires-Dist: google-cloud-bigquery-storage<3.0,>=2.25.0

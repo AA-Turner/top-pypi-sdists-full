@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: weave
-Version: 0.53.4
+Version: 0.53.6
 Summary: A toolkit for building composable interactive data driven applications.
 Project-URL: Company, https://wandb.com
 Project-URL: Documentation, https://docs.wandb.ai
@@ -239,6 +239,7 @@ Requires-Dist: opentelemetry-sdk>=1.28.0
 Requires-Dist: packaging>=21.0
 Requires-Dist: polyfile-weave>=0.5.9
 Requires-Dist: pydantic>=2.0.0
+Requires-Dist: pyyaml>=6.0
 Requires-Dist: sentry-sdk<3.0.0,>=2.0.0
 Requires-Dist: tenacity!=8.4.0,>=8.3.0
 Requires-Dist: tzdata; platform_system == 'Windows'

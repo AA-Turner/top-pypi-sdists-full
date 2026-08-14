@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: workspace-mcp
-Version: 1.24.0
+Version: 1.24.1
 Summary: Comprehensive, highly performant Google Workspace Streamable HTTP & SSE MCP Server for Calendar, Gmail, Docs, Sheets, Slides & Drive
 Author-email: Taylor Wilsdon <taylor@taylorwilsdon.com>
 License-Expression: MIT
@@ -30,7 +30,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: fastapi>=0.115.12
-Requires-Dist: fastmcp>=3.4.4
+Requires-Dist: fastmcp>=3.4.7
 Requires-Dist: google-api-python-client>=2.168.0
 Requires-Dist: google-auth-httplib2>=0.2.0
 Requires-Dist: google-auth-oauthlib>=1.2.2
@@ -268,16 +268,17 @@ uvx workspace-mcp --tools gmail drive calendar
 </td>
 <td valign="top" width="50%">
 
-**Secretless / Public OAuth 2.1 (PKCE)**
+**OAuth 2.1 (PKCE)**
 
 ```bash
-# 1. Credentials
+# 1. Credentials - MCP clients connect with PKCE and no
+#    secret, but Google still requires one server-side
 export MCP_ENABLE_OAUTH21=true
 export GOOGLE_OAUTH_CLIENT_ID="..."
+export GOOGLE_OAUTH_CLIENT_SECRET="..."
 export WORKSPACE_MCP_PORT=8000
 export GOOGLE_OAUTH_REDIRECT_URI="http://localhost:${WORKSPACE_MCP_PORT}/oauth2callback"
 export OAUTHLIB_INSECURE_TRANSPORT=1
-export FASTMCP_SERVER_AUTH_GOOGLE_JWT_SIGNING_KEY="$(openssl rand -hex 32)"
 
 # 2. Launch - OAuth 2.1 requires HTTP transport
 uvx workspace-mcp --transport streamable-http --tool-tier core
@@ -287,7 +288,7 @@ uvx workspace-mcp --transport streamable-http --tool-tier core
 </tr>
 </table>
 
-**Tool tiers** keep context windows lean: `core` is the essential set, `extended` adds management operations, `complete` loads everything. Combine with `--tools <service> ...`, `--read-only`, or per-service `--permissions` - details in the [server modes docs](https://workspacemcp.com/docs?utm_source=github.com&utm_medium=referral&utm_campaign=readme&utm_content=tiers-server-modes#server-modes).
+**Tool tiers** keep context windows lean: `core` is the essential set, `extended` adds management operations, `complete` loads everything. Combine with `--tools <service> ...`, `--read-only`, or per-service `--permissions`, and subtract individual tools with `--disabled-tools <name> ...` - details in the [server modes docs](https://workspacemcp.com/docs?utm_source=github.com&utm_medium=referral&utm_campaign=readme&utm_content=tiers-server-modes#server-modes).
 
 ## Connect Your Client
 
@@ -361,4 +362,3 @@ MIT - see [`LICENSE`](LICENSE). The license is 21 lines and says what it means.
 
 Validations:
 [![MCP Badge](https://lobehub.com/badge/mcp/taylorwilsdon-google_workspace_mcp)](https://lobehub.com/mcp/taylorwilsdon-google_workspace_mcp)
-

@@ -9,7 +9,7 @@
 
 This environment is part of the <a href='..'>classic environments</a>. Please read that page first for general information.
 
-| Import             | `from pettingzoo.classic import chess_v6` |
+| Creation           | `make("aec", "classic/chess-v6")`  |
 |--------------------|------------------------------------|
 | Actions            | Discrete                           |
 | Parallel API       | Yes                                |
@@ -102,6 +102,7 @@ Note: the coordinates (6, 0, 12) correspond to column 6, row 0, plane 12. In che
 * v0: Initial versions release (1.0.0)
 
 """
+
 from __future__ import annotations
 
 from os import path
@@ -163,8 +164,8 @@ class raw_env(AECEnv, EzPickle):
 
         self.rewards = None
         self.infos = {name: {} for name in self.agents}
-        self.truncations = {name: False for name in self.agents}
-        self.terminations = {name: False for name in self.agents}
+        self.truncations = dict.fromkeys(self.agents, False)
+        self.terminations = dict.fromkeys(self.agents, False)
 
         self.agent_selection = None
 
@@ -241,10 +242,10 @@ class raw_env(AECEnv, EzPickle):
         self._agent_selector = AgentSelector(self.agents)
         self.agent_selection = self._agent_selector.reset()
 
-        self.rewards = {name: 0 for name in self.agents}
-        self._cumulative_rewards = {name: 0 for name in self.agents}
-        self.terminations = {name: False for name in self.agents}
-        self.truncations = {name: False for name in self.agents}
+        self.rewards = dict.fromkeys(self.agents, 0)
+        self._cumulative_rewards = dict.fromkeys(self.agents, 0)
+        self.terminations = dict.fromkeys(self.agents, False)
+        self.truncations = dict.fromkeys(self.agents, False)
         self.infos = {name: {} for name in self.agents}
 
         self.board_history = np.zeros((8, 8, 104), dtype=bool)
@@ -320,9 +321,8 @@ class raw_env(AECEnv, EzPickle):
 
     def _render_gui(self):
         if self.screen is None:
-            pygame.init()
-
             if self.render_mode == "human":
+                pygame.display.init()
                 pygame.display.set_caption("Chess")
                 self.screen = pygame.display.set_mode(self.BOARD_SIZE)
             elif self.render_mode == "rgb_array":

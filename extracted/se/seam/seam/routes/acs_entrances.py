@@ -1,6 +1,8 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
+from ..null import Null
 from ..resources import AcsEntrance, AcsCredential, ActionAttempt
 from ..modules.action_attempts import resolve_action_attempt
 
@@ -13,7 +15,9 @@ class AbstractAcsEntrances(abc.ABC):
 
         :param acs_entrance_id: ID of the entrance that you want to get.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -22,7 +26,7 @@ class AbstractAcsEntrances(abc.ABC):
         *,
         acs_entrance_id: str,
         acs_user_id: Optional[str] = None,
-        user_identity_id: Optional[str] = None
+        user_identity_id: Optional[str] = None,
     ) -> None:
         """Grants a specified `access system user <https://docs.seam.co/low-level-apis/access-systems/user-management>`_ access to a specified `access system entrance <https://docs.seam.co/low-level-apis/access-systems/retrieving-entrance-details>`_.
 
@@ -31,7 +35,8 @@ class AbstractAcsEntrances(abc.ABC):
         :param acs_user_id: ID of the access system user to whom you want to grant access to an entrance. You can only provide one of acs_user_id or user_identity_id.
 
         :param user_identity_id: ID of the user identity to whom you want to grant access to an entrance. You can only provide one of acs_user_id or user_identity_id. If the ACS system contains an ACS user with the same ``email_address`` or ``phone_number`` as the user identity that you specify, they are linked, and the access group membership belongs to the ACS user. If the ACS system does not have a corresponding ACS user, one is created.
-        """
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -45,10 +50,10 @@ class AbstractAcsEntrances(abc.ABC):
         connected_account_id: Optional[str] = None,
         customer_key: Optional[str] = None,
         limit: Optional[int] = None,
-        location_id: Optional[str] = None,
-        page_cursor: Optional[str] = None,
+        location_id: Optional[Union[str, Null]] = None,
+        page_cursor: Optional[Union[str, Null]] = None,
         search: Optional[str] = None,
-        space_id: Optional[str] = None
+        space_id: Optional[str] = None,
     ) -> List[AcsEntrance]:
         """Returns a list of all `access system entrances <https://docs.seam.co/low-level-apis/access-systems/retrieving-entrance-details>`_.
 
@@ -87,7 +92,9 @@ class AbstractAcsEntrances(abc.ABC):
 
         :param include_if: Conditions that credentials must meet to be included in the returned list.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -96,7 +103,7 @@ class AbstractAcsEntrances(abc.ABC):
         *,
         acs_credential_id: str,
         acs_entrance_id: str,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Remotely unlocks a specified `entrance <https://docs.seam.co/low-level-apis/access-systems/retrieving-entrance-details>`_ using a cloud_key credential. Returns an action attempt that tracks the progress of the unlock operation.
 
@@ -106,7 +113,9 @@ class AbstractAcsEntrances(abc.ABC):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
 
@@ -115,27 +124,42 @@ class AcsEntrances(AbstractAcsEntrances):
         self.client = client
         self.defaults = defaults
 
+    @route_metadata(
+        path="/acs/entrances/get", has_required_parameters=True, has_pagination=False
+    )
     def get(self, *, acs_entrance_id: str) -> AcsEntrance:
         """Returns a specified `access system entrance <https://docs.seam.co/low-level-apis/access-systems/retrieving-entrance-details>`_.
 
         :param acs_entrance_id: ID of the entrance that you want to get.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if acs_entrance_id is not None:
-            json_payload["acs_entrance_id"] = acs_entrance_id
+            params["acs_entrance_id"] = acs_entrance_id
 
-        res = self.client.post("/acs/entrances/get", json=json_payload)
+        if not params:
+            raise ValueError(
+                "At least one parameter is required for /acs/entrances/get"
+            )
+
+        res = self.client.get("/acs/entrances/get", params=params)
 
         return AcsEntrance.from_dict(res["acs_entrance"])
 
+    @route_metadata(
+        path="/acs/entrances/grant_access",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def grant_access(
         self,
         *,
         acs_entrance_id: str,
         acs_user_id: Optional[str] = None,
-        user_identity_id: Optional[str] = None
+        user_identity_id: Optional[str] = None,
     ) -> None:
         """Grants a specified `access system user <https://docs.seam.co/low-level-apis/access-systems/user-management>`_ access to a specified `access system entrance <https://docs.seam.co/low-level-apis/access-systems/retrieving-entrance-details>`_.
 
@@ -144,8 +168,9 @@ class AcsEntrances(AbstractAcsEntrances):
         :param acs_user_id: ID of the access system user to whom you want to grant access to an entrance. You can only provide one of acs_user_id or user_identity_id.
 
         :param user_identity_id: ID of the user identity to whom you want to grant access to an entrance. You can only provide one of acs_user_id or user_identity_id. If the ACS system contains an ACS user with the same ``email_address`` or ``phone_number`` as the user identity that you specify, they are linked, and the access group membership belongs to the ACS user. If the ACS system does not have a corresponding ACS user, one is created.
-        """
-        json_payload = {}
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if acs_entrance_id is not None:
             json_payload["acs_entrance_id"] = acs_entrance_id
@@ -154,10 +179,18 @@ class AcsEntrances(AbstractAcsEntrances):
         if user_identity_id is not None:
             json_payload["user_identity_id"] = user_identity_id
 
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /acs/entrances/grant_access"
+            )
+
         self.client.post("/acs/entrances/grant_access", json=json_payload)
 
         return None
 
+    @route_metadata(
+        path="/acs/entrances/list", has_required_parameters=False, has_pagination=True
+    )
     def list(
         self,
         *,
@@ -168,10 +201,10 @@ class AcsEntrances(AbstractAcsEntrances):
         connected_account_id: Optional[str] = None,
         customer_key: Optional[str] = None,
         limit: Optional[int] = None,
-        location_id: Optional[str] = None,
-        page_cursor: Optional[str] = None,
+        location_id: Optional[Union[str, Null]] = None,
+        page_cursor: Optional[Union[str, Null]] = None,
         search: Optional[str] = None,
-        space_id: Optional[str] = None
+        space_id: Optional[str] = None,
     ) -> List[AcsEntrance]:
         """Returns a list of all `access system entrances <https://docs.seam.co/low-level-apis/access-systems/retrieving-entrance-details>`_.
 
@@ -198,7 +231,7 @@ class AcsEntrances(AbstractAcsEntrances):
         :param space_id: ID of the space for which you want to list entrances.
 
         :returns: OK"""
-        json_payload = {}
+        json_payload: Dict[str, Any] = {}
 
         if access_method_id is not None:
             json_payload["access_method_id"] = access_method_id
@@ -227,6 +260,11 @@ class AcsEntrances(AbstractAcsEntrances):
 
         return [AcsEntrance.from_dict(item) for item in res["acs_entrances"]]
 
+    @route_metadata(
+        path="/acs/entrances/list_credentials_with_access",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def list_credentials_with_access(
         self, *, acs_entrance_id: str, include_if: Optional[List[str]] = None
     ) -> List[AcsCredential]:
@@ -236,13 +274,20 @@ class AcsEntrances(AbstractAcsEntrances):
 
         :param include_if: Conditions that credentials must meet to be included in the returned list.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if acs_entrance_id is not None:
             json_payload["acs_entrance_id"] = acs_entrance_id
         if include_if is not None:
             json_payload["include_if"] = include_if
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /acs/entrances/list_credentials_with_access"
+            )
 
         res = self.client.post(
             "/acs/entrances/list_credentials_with_access", json=json_payload
@@ -250,12 +295,15 @@ class AcsEntrances(AbstractAcsEntrances):
 
         return [AcsCredential.from_dict(item) for item in res["acs_credentials"]]
 
+    @route_metadata(
+        path="/acs/entrances/unlock", has_required_parameters=True, has_pagination=False
+    )
     def unlock(
         self,
         *,
         acs_credential_id: str,
         acs_entrance_id: str,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Remotely unlocks a specified `entrance <https://docs.seam.co/low-level-apis/access-systems/retrieving-entrance-details>`_ using a cloud_key credential. Returns an action attempt that tracks the progress of the unlock operation.
 
@@ -265,13 +313,20 @@ class AcsEntrances(AbstractAcsEntrances):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if acs_credential_id is not None:
             json_payload["acs_credential_id"] = acs_credential_id
         if acs_entrance_id is not None:
             json_payload["acs_entrance_id"] = acs_entrance_id
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /acs/entrances/unlock"
+            )
 
         res = self.client.post("/acs/entrances/unlock", json=json_payload)
 

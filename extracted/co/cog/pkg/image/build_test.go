@@ -14,7 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/replicate/cog/pkg/config"
+	"github.com/replicate/cog/pkg/docker/command"
+	"github.com/replicate/cog/pkg/docker/dockertest"
 	"github.com/replicate/cog/pkg/dotcog"
+	"github.com/replicate/cog/pkg/schema"
 	"github.com/replicate/cog/pkg/weights/lockfile"
 )
 
@@ -60,6 +63,103 @@ func TestIsGitWorkTree(t *testing.T) {
 
 	r.False(isGitWorkTree(ctx, "/dev/null"))
 	r.True(isGitWorkTree(ctx, setupGitWorkTree(t)))
+}
+
+func TestConfigWithDecoratorConcurrencyAppliesWhenYAMLAbsent(t *testing.T) {
+	concurrencyMax := 4
+	cfg := &config.Config{}
+	info := &schema.PredictorInfo{ConcurrencyMax: &concurrencyMax, IsAsync: true}
+
+	got, err := configWithDecoratorConcurrency(cfg, info)
+
+	require.NoError(t, err)
+	require.NotSame(t, cfg, got)
+	require.Nil(t, cfg.Concurrency)
+	require.NotNil(t, got.Concurrency)
+	require.Equal(t, 4, got.Concurrency.Max)
+}
+
+func TestConfigWithDecoratorConcurrencyPreservesYAMLPrecedence(t *testing.T) {
+	concurrencyMax := 4
+	cfg := &config.Config{Concurrency: &config.Concurrency{Max: 2}}
+	info := &schema.PredictorInfo{ConcurrencyMax: &concurrencyMax, IsAsync: true}
+
+	got, err := configWithDecoratorConcurrency(cfg, info)
+
+	require.NoError(t, err)
+	require.Same(t, cfg, got)
+	require.Equal(t, 2, got.Concurrency.Max)
+}
+
+func TestConfigWithDecoratorConcurrencyRejectsSyncYAMLConcurrency(t *testing.T) {
+	cfg := &config.Config{Concurrency: &config.Concurrency{Max: 2}}
+	info := &schema.PredictorInfo{IsAsync: false}
+
+	_, err := configWithDecoratorConcurrency(cfg, info)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "requires an async")
+}
+
+func TestConfigWithDecoratorConcurrencyRejectsOldPythonVersion(t *testing.T) {
+	concurrencyMax := 2
+	cfg := &config.Config{Build: &config.Build{PythonVersion: "3.10"}}
+	info := &schema.PredictorInfo{ConcurrencyMax: &concurrencyMax, IsAsync: true}
+
+	_, err := configWithDecoratorConcurrency(cfg, info)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Python 3.11 or higher")
+}
+
+func TestConcurrencyDockerfileSetsEnv(t *testing.T) {
+	dockerfile := concurrencyDockerfile("my-image", 4)
+
+	require.Equal(t, "FROM my-image\nENV COG_MAX_CONCURRENCY=4\n", dockerfile)
+}
+
+type recordingCommand struct {
+	*dockertest.MockCommand
+	builds []command.ImageBuildOptions
+}
+
+func (c *recordingCommand) ImageBuild(ctx context.Context, options command.ImageBuildOptions) (string, error) {
+	c.builds = append(c.builds, options)
+	return "sha256:test", nil
+}
+
+func TestAddConcurrencyToCustomDockerfileImageBuildsWrapperLayer(t *testing.T) {
+	dockerCommand := &recordingCommand{MockCommand: dockertest.NewMockCommand()}
+	concurrency := &config.Concurrency{Max: 4}
+
+	err := addConcurrencyToCustomDockerfileImage(t.Context(), dockerCommand, "my-image", concurrency, "plain", "/tmp/build-cache")
+
+	require.NoError(t, err)
+	require.Len(t, dockerCommand.builds, 1)
+	require.Equal(t, "FROM my-image\nENV COG_MAX_CONCURRENCY=4\n", dockerCommand.builds[0].DockerfileContents)
+	require.Equal(t, "my-image", dockerCommand.builds[0].ImageName)
+	require.Equal(t, "plain", dockerCommand.builds[0].ProgressOutput)
+	require.Equal(t, "/tmp/build-cache", dockerCommand.builds[0].BuildCacheDir)
+}
+
+func TestGeneratePredictorMetadataDoesNotRequireValidOutputSchema(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "predict.py"), []byte(`
+from cog import BasePredictor, concurrent
+
+class Predictor(BasePredictor):
+    @concurrent(max=3)
+    async def predict(self) -> NotARealType:
+        return "hello"
+`), 0o644))
+	cfg := &config.Config{Predict: "predict.py:Predictor"}
+
+	info, err := generatePredictorMetadata(cfg, dir)
+
+	require.NoError(t, err)
+	require.NotNil(t, info.ConcurrencyMax)
+	require.Equal(t, 3, *info.ConcurrencyMax)
+	require.True(t, info.IsAsync)
 }
 
 func TestGitHead(t *testing.T) {
@@ -140,61 +240,32 @@ func TestBuildCodeDoesNotReferenceLegacyRuntimeSchemaGeneration(t *testing.T) {
 	}
 }
 
-func TestValidateStaticSchemaSDKVersion(t *testing.T) {
-	tests := []struct {
-		name     string
-		cfg      *config.Config
-		sdkWheel string
-		wantErr  string
-	}{
-		{
-			name:    "allows unpinned SDK",
-			cfg:     &config.Config{},
-			wantErr: "",
-		},
-		{
-			name: "allows minimum SDK from config",
-			cfg: &config.Config{
-				Build: &config.Build{SDKVersion: "0.17.0"},
-			},
-			wantErr: "",
-		},
-		{
-			name: "rejects old SDK from config",
-			cfg: &config.Config{
-				Build: &config.Build{SDKVersion: "0.16.12"},
-			},
-			wantErr: "SDK version 0.16.12 is not supported by static schema generation",
-		},
-		{
-			name:     "rejects old SDK from env wheel",
-			cfg:      &config.Config{},
-			sdkWheel: "pypi:0.16.12",
-			wantErr:  "SDK version 0.16.12 is not supported by static schema generation",
-		},
-		{
-			name: "env wheel takes precedence over config",
-			cfg: &config.Config{
-				Build: &config.Build{SDKVersion: "0.16.12"},
-			},
-			sdkWheel: "pypi:0.17.0",
-			wantErr:  "",
-		},
-	}
+func TestResolveBuildSchema_PrefersPreGenerated(t *testing.T) {
+	pre := []byte(`{"openapi":"3.0.2","x":"pre"}`)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("COG_SDK_WHEEL", tt.sdkWheel)
+	// A pre-generated schema is reused verbatim, even when needsSchema is true,
+	// so the build does not regenerate (and cannot drift from) the schema used
+	// for preflight validation.
+	got, err := resolveBuildSchema(&config.Config{Predict: "predict.py:Predictor"}, t.TempDir(), "", pre, true, false)
+	require.NoError(t, err)
+	assert.Equal(t, pre, got)
+}
 
-			err := validateStaticSchemaSDKVersion(tt.cfg)
-			if tt.wantErr == "" {
-				require.NoError(t, err)
-				return
-			}
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), tt.wantErr)
-		})
-	}
+func TestResolveBuildSchema_ReadsSchemaFile(t *testing.T) {
+	dir := t.TempDir()
+	schemaPath := filepath.Join(dir, "schema.json")
+	contents := []byte(`{"openapi":"3.0.2","x":"file"}`)
+	require.NoError(t, os.WriteFile(schemaPath, contents, 0o644))
+
+	got, err := resolveBuildSchema(&config.Config{}, dir, schemaPath, nil, false, false)
+	require.NoError(t, err)
+	assert.Equal(t, contents, got)
+}
+
+func TestResolveBuildSchema_SkipValidation(t *testing.T) {
+	got, err := resolveBuildSchema(&config.Config{}, t.TempDir(), "", nil, false, true)
+	require.NoError(t, err)
+	assert.Nil(t, got)
 }
 
 func TestWriteRuntimeWeightsManifest(t *testing.T) {

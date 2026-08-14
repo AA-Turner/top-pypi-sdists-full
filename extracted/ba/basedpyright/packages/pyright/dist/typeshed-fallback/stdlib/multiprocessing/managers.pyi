@@ -76,7 +76,8 @@ class ValueProxy(BaseProxy, Generic[_T]):
         """
         Represent a PEP 585 generic type
 
-        E.g. for t = list[int], t.__origin__ is list and t.__args__ is (int,).
+        For example, for t = list[int], t.__origin__ is list and t.__args__
+        is (int,).
         """
         ...
 
@@ -136,7 +137,8 @@ if sys.version_info >= (3, 13):
             """
             Represent a PEP 585 generic type
 
-            E.g. for t = list[int], t.__origin__ is list and t.__args__ is (int,).
+            For example, for t = list[int], t.__origin__ is list and t.__args__
+            is (int,).
             """
             ...
 
@@ -262,7 +264,8 @@ class ListProxy(BaseListProxy[_T]):
             """
             Represent a PEP 585 generic type
 
-            E.g. for t = list[int], t.__origin__ is list and t.__args__ is (int,).
+            For example, for t = list[int], t.__origin__ is list and t.__args__
+            is (int,).
             """
             ...
 

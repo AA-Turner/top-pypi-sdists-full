@@ -706,6 +706,7 @@ class BucketBatchesApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -727,6 +728,8 @@ class BucketBatchesApi:
         :type bucket_identifier: str
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -752,6 +755,7 @@ class BucketBatchesApi:
         _param = self._cancel_batch_buckets_batches_serialize(
             bucket_identifier=bucket_identifier,
             batch_id=batch_id,
+            reason=reason,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -783,6 +787,7 @@ class BucketBatchesApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -804,6 +809,8 @@ class BucketBatchesApi:
         :type bucket_identifier: str
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -829,6 +836,7 @@ class BucketBatchesApi:
         _param = self._cancel_batch_buckets_batches_serialize(
             bucket_identifier=bucket_identifier,
             batch_id=batch_id,
+            reason=reason,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -860,6 +868,7 @@ class BucketBatchesApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -881,6 +890,8 @@ class BucketBatchesApi:
         :type bucket_identifier: str
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -906,6 +917,7 @@ class BucketBatchesApi:
         _param = self._cancel_batch_buckets_batches_serialize(
             bucket_identifier=bucket_identifier,
             batch_id=batch_id,
+            reason=reason,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -932,6 +944,7 @@ class BucketBatchesApi:
         self,
         bucket_identifier,
         batch_id,
+        reason,
         _request_auth,
         _content_type,
         _headers,
@@ -958,6 +971,10 @@ class BucketBatchesApi:
         if batch_id is not None:
             _path_params['batch_id'] = batch_id
         # process the query parameters
+        if reason is not None:
+            
+            _query_params.append(('reason', reason))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
@@ -1003,6 +1020,7 @@ class BucketBatchesApi:
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         tier_num: Annotated[int, Field(strict=True, ge=0, description="Zero-based tier number.")],
         ray_job_id: Annotated[StrictStr, Field(description="Ray job ID to cancel.")],
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1028,6 +1046,8 @@ class BucketBatchesApi:
         :type tier_num: int
         :param ray_job_id: Ray job ID to cancel. (required)
         :type ray_job_id: str
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1055,6 +1075,7 @@ class BucketBatchesApi:
             batch_id=batch_id,
             tier_num=tier_num,
             ray_job_id=ray_job_id,
+            reason=reason,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1088,6 +1109,7 @@ class BucketBatchesApi:
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         tier_num: Annotated[int, Field(strict=True, ge=0, description="Zero-based tier number.")],
         ray_job_id: Annotated[StrictStr, Field(description="Ray job ID to cancel.")],
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1113,6 +1135,8 @@ class BucketBatchesApi:
         :type tier_num: int
         :param ray_job_id: Ray job ID to cancel. (required)
         :type ray_job_id: str
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1140,6 +1164,7 @@ class BucketBatchesApi:
             batch_id=batch_id,
             tier_num=tier_num,
             ray_job_id=ray_job_id,
+            reason=reason,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1173,6 +1198,7 @@ class BucketBatchesApi:
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         tier_num: Annotated[int, Field(strict=True, ge=0, description="Zero-based tier number.")],
         ray_job_id: Annotated[StrictStr, Field(description="Ray job ID to cancel.")],
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1198,6 +1224,8 @@ class BucketBatchesApi:
         :type tier_num: int
         :param ray_job_id: Ray job ID to cancel. (required)
         :type ray_job_id: str
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1225,6 +1253,7 @@ class BucketBatchesApi:
             batch_id=batch_id,
             tier_num=tier_num,
             ray_job_id=ray_job_id,
+            reason=reason,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1253,6 +1282,7 @@ class BucketBatchesApi:
         batch_id,
         tier_num,
         ray_job_id,
+        reason,
         _request_auth,
         _content_type,
         _headers,
@@ -1283,6 +1313,10 @@ class BucketBatchesApi:
         if ray_job_id is not None:
             _path_params['ray_job_id'] = ray_job_id
         # process the query parameters
+        if reason is not None:
+            
+            _query_params.append(('reason', reason))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
@@ -1327,6 +1361,7 @@ class BucketBatchesApi:
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         tier_num: Annotated[int, Field(strict=True, ge=0, description="Zero-based tier number to cancel.")],
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1350,6 +1385,8 @@ class BucketBatchesApi:
         :type batch_id: str
         :param tier_num: Zero-based tier number to cancel. (required)
         :type tier_num: int
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1376,6 +1413,7 @@ class BucketBatchesApi:
             bucket_identifier=bucket_identifier,
             batch_id=batch_id,
             tier_num=tier_num,
+            reason=reason,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1408,6 +1446,7 @@ class BucketBatchesApi:
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         tier_num: Annotated[int, Field(strict=True, ge=0, description="Zero-based tier number to cancel.")],
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1431,6 +1470,8 @@ class BucketBatchesApi:
         :type batch_id: str
         :param tier_num: Zero-based tier number to cancel. (required)
         :type tier_num: int
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1457,6 +1498,7 @@ class BucketBatchesApi:
             bucket_identifier=bucket_identifier,
             batch_id=batch_id,
             tier_num=tier_num,
+            reason=reason,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1489,6 +1531,7 @@ class BucketBatchesApi:
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         tier_num: Annotated[int, Field(strict=True, ge=0, description="Zero-based tier number to cancel.")],
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1512,6 +1555,8 @@ class BucketBatchesApi:
         :type batch_id: str
         :param tier_num: Zero-based tier number to cancel. (required)
         :type tier_num: int
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1538,6 +1583,7 @@ class BucketBatchesApi:
             bucket_identifier=bucket_identifier,
             batch_id=batch_id,
             tier_num=tier_num,
+            reason=reason,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1565,6 +1611,7 @@ class BucketBatchesApi:
         bucket_identifier,
         batch_id,
         tier_num,
+        reason,
         _request_auth,
         _content_type,
         _headers,
@@ -1593,6 +1640,10 @@ class BucketBatchesApi:
         if tier_num is not None:
             _path_params['tier_num'] = tier_num
         # process the query parameters
+        if reason is not None:
+            
+            _query_params.append(('reason', reason))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter

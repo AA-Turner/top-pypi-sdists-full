@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-harness
-Version: 0.18.1
+Version: 0.20.0
 Summary: The batteries for your Pydantic AI agent
 Project-URL: Homepage, https://github.com/pydantic/pydantic-ai-harness
 Project-URL: Source, https://github.com/pydantic/pydantic-ai-harness
@@ -22,7 +22,7 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: genai-prices>=0.0.71
 Requires-Dist: httpx>=0.28.1
-Requires-Dist: pydantic-ai-slim>=2.23.0
+Requires-Dist: pydantic-ai-slim>=2.28.0
 Provides-Extra: acp
 Requires-Dist: agent-client-protocol<0.12,>=0.11; extra == 'acp'
 Provides-Extra: browser-use

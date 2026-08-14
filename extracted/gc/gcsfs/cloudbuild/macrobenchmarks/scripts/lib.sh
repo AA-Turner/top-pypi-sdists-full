@@ -30,9 +30,25 @@ skip_if_failed() {
   fi
 }
 
+# Create a per-run bucket per _BUCKET_TYPE (regional | zonal-RAPID | hns).
+create_typed_bucket() {
+  local bucket="$1"
+  case "${_BUCKET_TYPE}" in
+    regional)
+      gcloud storage buckets create "gs://$bucket" --project="${PROJECT_ID}" --location="$REGION" ;;
+    zonal)
+      gcloud storage buckets create "gs://$bucket" --project="${PROJECT_ID}" --location="$REGION" --placement="${_ZONE}" --default-storage-class=RAPID --enable-hierarchical-namespace --uniform-bucket-level-access ;;
+    hns)
+      gcloud storage buckets create "gs://$bucket" --project="${PROJECT_ID}" --location="$REGION" --enable-hierarchical-namespace --uniform-bucket-level-access ;;
+    *)
+      echo "ERROR: unknown _BUCKET_TYPE='${_BUCKET_TYPE}' (expected regional|zonal|hns)" >&2
+      return 1 ;;
+  esac
+}
+
 shared_workload_helm_args() {
   SHARED_HELM_ARGS=(
-    --set gcsfs.datasetPath="${_DATASET_PATH}"
+    --set gcsfs.datasetPath="${RUN_DATASET_PATH:-${_DATASET_PATH}}"
     --set workload.modelId="${_MODEL_ID}"
     --set-string workload.image="${_IMAGE}"
     --set workload.hfToken="${_HF_TOKEN}"
@@ -40,6 +56,13 @@ shared_workload_helm_args() {
     --set workload.ranksPerNode="${_RANKS_PER_NODE}"
     --set workload.requirements="${_REQUIREMENTS}"
     --set workload.trainingStrategy="${_TRAINING_STRATEGY}"
+    --set workload.tensorParallelSize="${_TENSOR_PARALLEL_SIZE}"
+    --set workload.dataParallelSize="${_DATA_PARALLEL_SIZE}"
+    --set workload.epochs="${_EPOCHS}"
+    --set workload.shuffleBufferSize="${_SHUFFLE_BUFFER_SIZE}"
+    --set workload.shuffleMaxBufferInputShards="${_SHUFFLE_MAX_BUFFER_INPUT_SHARDS}"
+    --set workload.dataloaderPrefetchFactor="${_DATALOADER_PREFETCH_FACTOR}"
+    --set workload.dataloaderWorkers="${_DATALOADER_WORKERS}"
     --set "nodeSelector.cloud\.google\.com/gke-nodepool=${_MACHINE_TYPE}"
     --set serviceAccount=default
   )

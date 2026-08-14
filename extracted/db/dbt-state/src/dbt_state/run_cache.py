@@ -104,6 +104,11 @@ if t.TYPE_CHECKING:
 RequestId = str
 FailedToClone = bool
 
+
+class _RunResultWithStateDecisionId(t.Protocol):
+    state_decision_id: t.Optional[str]
+
+
 # Semantic-extras keys used to fold a microbatch model run's whole resolved event-time
 # window into the model-level cache key, so the run's outcome is keyed to the window it
 # was computed for.
@@ -276,6 +281,8 @@ class RunCache:
         # map of node.unique_id -> CacheBypassedResponse
         # collected in _process_query_cache_response and published as write-only executions
         self._cache_bypass_responses: t.Dict[str, CacheBypassedResponse] = {}
+        self._execution_decision_ids: t.Dict[str, str] = {}
+        self._execution_decision_ids_lock = threading.Lock()
 
     @classmethod
     def create(
@@ -655,6 +662,32 @@ class RunCache:
         )
 
         self._publish_write_only_execution(bypass_response=bypass_response, outcome=outcome)
+
+    def attach_state_decision_id(self, node: ManifestNode, result: RunResult) -> None:
+        """Attach the node's latest State decision ID to its structured dbt result.
+
+        Newer dbt Core versions include ``RunResult.state_decision_id`` in the per-node
+        ``NodeFinished`` event. Feature-detect the field so older supported versions continue
+        without emitting it.
+        """
+        with self._execution_decision_ids_lock:
+            execution_decision_id = self._execution_decision_ids.get(node.unique_id)
+        if execution_decision_id and hasattr(result, "state_decision_id"):
+            result_with_state_decision_id = t.cast(_RunResultWithStateDecisionId, result)
+            result_with_state_decision_id.state_decision_id = execution_decision_id
+
+    def _record_execution_decision_id(
+        self,
+        node: ManifestNode,
+        execution_decision_id: t.Optional[str],
+    ) -> None:
+        if not execution_decision_id:
+            return
+        self._decision_logger.log_execution_decision_id(
+            node_name=node.name, execution_decision_id=execution_decision_id
+        )
+        with self._execution_decision_ids_lock:
+            self._execution_decision_ids[node.unique_id] = execution_decision_id
 
     def on_state_request_failed(self, node: ModelOrSnapshotOrTestOrSeedNode) -> None:
         """Invalidates cached metadata for a node's target table after an execution whose
@@ -1071,10 +1104,7 @@ class RunCache:
             response,
             (sql_service_models.SkipExecutionResponse, clone_service_models.ReadyToCloneResponse),
         ):
-            if response.execution_decision_id:
-                self._decision_logger.log_execution_decision_id(
-                    node_name=node.name, execution_decision_id=response.execution_decision_id
-                )
+            self._record_execution_decision_id(node, response.execution_decision_id)
             return response
         if isinstance(response, sql_service_models.ReadyToExecuteUntrackedResponse):
             return response
@@ -1181,10 +1211,7 @@ class RunCache:
                 )
 
             response = self._query_cache_client.submit_sql(request, request_id)
-            if response.execution_decision_id:
-                self._decision_logger.log_execution_decision_id(
-                    node_name=node.name, execution_decision_id=response.execution_decision_id
-                )
+            self._record_execution_decision_id(node, response.execution_decision_id)
 
             return response
 
@@ -1224,10 +1251,7 @@ class RunCache:
                 return CacheBypassedResponse(request, node)
 
             response = self._query_cache_client.submit_values(request, request_id)
-            if response.execution_decision_id:
-                self._decision_logger.log_execution_decision_id(
-                    node_name=node.name, execution_decision_id=response.execution_decision_id
-                )
+            self._record_execution_decision_id(node, response.execution_decision_id)
             return response
         except Exception as e:
             events.fire_warn_event_with_cache_bypass(

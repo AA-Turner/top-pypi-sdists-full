@@ -883,9 +883,26 @@ def map_read_json(
             from snowflake.snowpark_connect.nss.nss_infer_schema import (
                 infer_via_stage_file_schema,
             )
+            from snowflake.snowpark_connect.nss.nss_scan_options import (
+                filter_reader_options,
+            )
 
             nss_multiline = str(options.config.get("multiline", "false")).lower()
             nss_mode = str(options.config.get("mode", "PERMISSIVE")).upper()
+            # Override the seeded _corrupt_record default with the resolved name so
+            # inference bakes the right column into DATA_SCHEMA (SNOW-3899671).
+            nss_infer_reader_options = filter_reader_options(
+                "json", dict(options.config)
+            )
+            if corrupt_record_column_name:
+                nss_infer_reader_options[
+                    "columnnameofcorruptrecord"
+                ] = corrupt_record_column_name
+            # SNOW-3717231: forward the Spark JSON read options (allowUnquotedFieldNames,
+            # allowNumericLeadingZeros, allowBackslashEscapingAnyCharacter, ...) into inference
+            # as well as the read (map_read_csv already does this). Otherwise INFER_STAGE_FILE_SCHEMA
+            # runs with default JSONOptions, treats lenient JSON as malformed, and (in PERMISSIVE)
+            # infers a _corrupt_record column instead of the real fields.
             nss_columns = infer_via_stage_file_schema(
                 session,
                 nss_stage_path,
@@ -899,10 +916,12 @@ def map_read_json(
                 sampling_ratio=str(options.config.get("samplingratio", "1")),
                 mode=nss_mode,
                 corrupt_record_column=corrupt_record_column_name,
+                reader_options=nss_infer_reader_options,
             )
         else:
             from snowflake.snowpark_connect.nss.nss_scan_options import (
                 columns_from_spark_schema,
+                py_schema_as_nullable,
             )
             from snowflake.snowpark_connect.relation.read.map_read import (
                 parse_data_source_schema_to_spark,
@@ -926,13 +945,19 @@ def map_read_json(
                 )
                 attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
                 raise exception
-            nss_columns = columns_from_spark_schema(parsed_spark_schema)
+            # Mirror the unconditional _make_schema_nullable applied to ``schema``
+            # above: a NOT-NULL DATA_SCHEMA column turns a legitimate missing/null
+            # JSON field into error 100072 (SNOW-3891605).
+            nss_columns = columns_from_spark_schema(
+                py_schema_as_nullable(parsed_spark_schema)
+            )
 
     if nss_enabled and nss_columns is not None:
         # STAGE_FILE_READER produces the file's data columns directly from
         # DATA_SCHEMA — no per-schema decoder UDTF.
         from snowflake.snowpark_connect.nss.nss_scan_options import (
             _unquote_name,
+            cache_if_corrupt_record_present,
             filter_reader_options,
         )
         from snowflake.snowpark_connect.nss.nss_stage_file_reader import (
@@ -958,12 +983,17 @@ def map_read_json(
                 "snowpark.connect.nss.stage_file_reader_fqn"
             ),
         )
+        df = cache_if_corrupt_record_present(
+            df, corrupt_record_column_name, nss_columns
+        )
 
         # Column names are already known from nss_columns (the TVF output order), so derive the
         # Spark names from them rather than mapping back from Snowflake's uppercased df.columns.
         # (This doesn't avoid a describe round-trip — rename_columns_as_snowflake_standard reads
         # df.columns anyway — but it uses the authoritative original names.)
-        spark_column_names = [_unquote_name(c.name) for c in nss_columns]
+        spark_column_names = [
+            _unquote_name(c.name) or f"_c{i}" for i, c in enumerate(nss_columns)
+        ]
         renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
             df, rel.common.plan_id
         )

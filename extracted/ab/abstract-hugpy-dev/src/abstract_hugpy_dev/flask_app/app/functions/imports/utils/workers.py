@@ -550,6 +550,15 @@ def _public_view_fields(worker: Dict[str, Any]) -> Dict[str, Any]:
         "spill_inert": {mk: "blocked"
                         for mk in (worker.get("spill_by_model") or {})
                         if _model_blocked(mk)},
+        # VRAM-HOLDER METER (incident 2026-08-05). ``vram_holders`` rides through
+        # verbatim from **worker (the worker's read-only per-card breakdown + a
+        # row per holder). ``vram_squatters`` is the DERIVED explicit summary:
+        # the idle own-venv holders the worker flagged reapable-but-not-serving,
+        # re-shaped with worker identity — and the seam that shouts ONE warning
+        # per distinct squatter so a silent VRAM leak (the 8GB studio fork that
+        # wedged the card) can never happen again. Read-time and pure like every
+        # other derivation here; never raises into a worker read.
+        "vram_squatters": _vram_squatters(worker),
     }
 
 
@@ -769,6 +778,78 @@ _GIB = 2 ** 30
 # dedupe for the guard-chain diagnostic below (per-process, like the sibling
 # module-level caches here).
 _RECLAIM_COLLAPSE_SEEN: Dict[str, tuple] = {}
+
+# VRAM-SQUATTER warning dedup (incident 2026-08-05). Per worker, the SET of
+# squatter pids already warned about — so a distinct idle own-venv VRAM holder
+# is shouted about EXACTLY ONCE (never silent, never a per-read spam storm),
+# re-warned only if it disappears and comes back. Same once-per-state discipline
+# as _RECLAIM_COLLAPSE_SEEN above.
+_VRAM_SQUATTER_SEEN: Dict[str, set] = {}
+
+
+def _vram_squatters(worker: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """The EXPLICIT idle-squatter rows for one worker, from its reported
+    ``vram_holders`` meter, plus a deduped WARNING per distinct squatter.
+
+    A squatter is the operator's "not evictable AND not doing work, made
+    EXPLICIT" case: an own-venv VRAM holder past the reaper's min-age with no
+    live slot claim that is not serving — reapable, but (p27) never auto-reaped.
+    The WORKER already applied the reaper's four gates and flagged these rows;
+    central only re-shapes them with the worker's identity and shouts once each
+    so the leak is never silent. Never raises into a read (pure telemetry)."""
+    holders = worker.get("vram_holders")
+    if not isinstance(holders, dict):
+        return []
+    wname = worker.get("name") or (worker.get("id") or "?")[:8]
+    rows: List[Dict[str, Any]] = []
+    for h in (holders.get("squatters") or []):
+        if not isinstance(h, dict):
+            continue
+        rows.append({
+            "worker": wname,
+            "worker_id": worker.get("id"),
+            "pid": h.get("pid"),
+            "name": h.get("name"),
+            "vram_bytes": h.get("vram_bytes"),
+            "age_s": h.get("age_s"),
+            "reason": h.get("reason") or (
+                "holds VRAM, no live slot claim, not serving — reapable but "
+                "not auto-reaped"),
+        })
+    try:
+        seen = _VRAM_SQUATTER_SEEN.setdefault(wname, set())
+        current = {r.get("pid") for r in rows if r.get("pid") is not None}
+        for r in rows:
+            pid = r.get("pid")
+            if pid is None or pid in seen:
+                continue
+            seen.add(pid)
+            logger.warning(
+                "VRAM SQUATTER on %s: pid %s (%s) holds %s of VRAM but no live "
+                "slot claims it and it is not serving — reapable, NOT auto-reaped "
+                "(p27 gates the reaper). Surface it or reap it explicitly.",
+                wname, pid, r.get("name") or "?",
+                _human_bytes_central(r.get("vram_bytes")))
+        # Drop pids that are no longer squatting so a genuine reappearance later
+        # re-warns rather than staying silent forever.
+        _VRAM_SQUATTER_SEEN[wname] = current & seen
+    except Exception:  # noqa: BLE001 — a warning must never break a worker read
+        logger.debug("vram-squatter warn dedup failed", exc_info=True)
+    return rows
+
+
+def _human_bytes_central(n: Any) -> str:
+    """Compact byte formatter for the squatter warning (central has no
+    _human_bytes; keep this local and tiny)."""
+    try:
+        v = float(n)
+    except (TypeError, ValueError):
+        return "?"
+    for u in ("B", "KB", "MB", "GB", "TB"):
+        if v < 1024 or u == "TB":
+            return f"{v:.1f} {u}"
+        v /= 1024
+    return f"{n} B"
 
 # Spill keys that constitute a PERSISTED placement intent. If a (worker, model)
 # spill carries ANY of these, it is NOT blank — the capability-aware default is
@@ -2910,6 +2991,7 @@ class WorkerStore:
         slot_incapable_reason: Optional[str] = None,
         task_capabilities: Optional[Dict[str, bool]] = None,
         vram_evictions: Optional[Dict[str, Any]] = None,
+        vram_holders: Optional[Dict[str, Any]] = None,
         aggregate: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
         """Mark a worker alive and refresh its live GPU / loaded-model stats."""
@@ -3044,6 +3126,14 @@ class WorkerStore:
                 # VRAM eviction churn (slice 10): stored verbatim so the console
                 # can surface GPU evict-to-fit churn beside the disk reaps.
                 worker["vram_evictions"] = vram_evictions
+            if vram_holders is not None:
+                # VRAM-HOLDER METER (incident 2026-08-05): the worker's read-only
+                # per-card breakdown + row-per-holder, with idle own-venv
+                # squatters flagged. Stored verbatim; _public_view spreads it and
+                # derives the per-worker vram_squatters summary (+ a deduped
+                # WARNING per distinct squatter). Absent on a pre-feature worker
+                # -> the key simply stays unset (meter reads "not reporting").
+                worker["vram_holders"] = vram_holders
             if storage is not None:
                 # Worker-reported local-storage survey (per-model on-disk bytes +
                 # protection flags + cache_used_bytes). Stored verbatim; the

@@ -645,6 +645,9 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "snowpark.connect.enableInputTypeCheckForJsonTupleFunction",
     "snowpark.connect.enableInputTypeCheckForExtractValueFunction",
     "spark.sql.columnNameOfCorruptRecord",
+    # SNOW-3898459: forwarded to the NSS sandbox reader via SPARK_CONF.
+    "spark.sql.datetime.java8API.enabled",
+    "spark.sql.json.enablePartialResults",
     # SNOW-3674169: Spark's read-side partition-bytes hint; SCOS uses it as a
     # session-scoped default for Iceberg ``TARGET_FILE_SIZE`` on subsequent
     # CREATE ICEBERG TABLE writes (see ``_build_iceberg_config``).
@@ -764,6 +767,9 @@ class SessionConfig:
         # Spark default for the corrupt-record column injected/used by CSV/JSON
         # readers in PERMISSIVE mode. See SQLConf.COLUMN_NAME_OF_CORRUPT_RECORD.
         "spark.sql.columnNameOfCorruptRecord": "_corrupt_record",
+        # SNOW-3898459: Spark 3.5.3 defaults; non-empty so they are always forwarded.
+        "spark.sql.datetime.java8API.enabled": "false",
+        "spark.sql.json.enablePartialResults": "true",
         # SNOW-3674169: ``""`` means unset — the Iceberg writer falls back to
         # Snowflake's own ``TARGET_FILE_SIZE`` default (``AUTO``).
         "spark.sql.files.maxPartitionBytes": "",
@@ -1663,7 +1669,8 @@ def parse_imports(
     if is_native_app_mode() and language == "java":
         # Java imports are version-stage relative paths resolved inside the helper
         # proc's IMPORTS clause; session.add_import() would treat them as local
-        # filesystem paths → FileNotFoundError.  Python imports are unaffected.
+        # filesystem paths → FileNotFoundError.  Python imports are handled at
+        # UDxF-creation time (get_python_udxf_import_files), not here.
         return
     for udf_import in imports.strip("[] ").split(","):
         udf_import = udf_import.strip()
@@ -1874,8 +1881,13 @@ def _force_python_udxf_inline_on_native_app_mode(session, value) -> None:
     from snowflake.snowpark_connect.utils.udf_utils import (
         _force_inline_python_udf_in_native_app,
     )
+    from snowflake.snowpark_connect.utils.udtf_utils import (
+        apply_version_stage_import_passthrough,
+    )
 
     _force_inline_python_udf_in_native_app()
+    # Emit version-stage-relative ('/...') Python IMPORTS verbatim (093023 otherwise).
+    apply_version_stage_import_passthrough()
 
     import sys
 

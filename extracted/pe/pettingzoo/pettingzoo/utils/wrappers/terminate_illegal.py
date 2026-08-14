@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from typing import Any
+
+from typing_extensions import override
+
 from pettingzoo.utils.env import ActionType, AECEnv, AgentID, ObsType
 from pettingzoo.utils.env_logger import EnvLogger
 from pettingzoo.utils.wrappers.base import BaseWrapper
@@ -17,16 +21,20 @@ class TerminateIllegalWrapper(BaseWrapper[AgentID, ObsType, ActionType]):
     ):
         super().__init__(env)
         self._illegal_value = illegal_reward
-        self._prev_obs = None
-        self._prev_info = None
+        self._prev_obs: Any = None
+        self._prev_info: Any = None
         self._terminated = False  # terminated by an illegal move
 
-    def reset(self, seed: int | None = None, options: dict | None = None) -> None:
+    @override
+    def reset(
+        self, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> None:
         self._terminated = False
         self._prev_obs = None
         self._prev_info = None
         super().reset(seed=seed, options=options)
 
+    @override
     def observe(self, agent: AgentID) -> ObsType | None:
         obs = super().observe(agent)
         if agent == self.agent_selection:
@@ -37,21 +45,22 @@ class TerminateIllegalWrapper(BaseWrapper[AgentID, ObsType, ActionType]):
                 self._prev_info = {}
         return obs
 
+    @override
     def step(self, action: ActionType) -> None:
         current_agent = self.agent_selection
         if self._prev_obs is None:
             self.observe(self.agent_selection)
         if isinstance(self._prev_obs, dict):
-            assert (
-                "action_mask" in self._prev_obs
-            ), f"`action_mask` not found in dictionary observation: {self._prev_obs}. Action mask must either be in `observation['action_mask']` or `info['action_mask']` to use TerminateIllegalWrapper."
+            assert "action_mask" in self._prev_obs, (
+                f"`action_mask` not found in dictionary observation: {self._prev_obs}. Action mask must either be in `observation['action_mask']` or `info['action_mask']` to use TerminateIllegalWrapper."
+            )
             _prev_action_mask = self._prev_obs["action_mask"]
 
         else:
             assert self._prev_info is not None
-            assert (
-                "action_mask" in self._prev_info
-            ), f"`action_mask` not found in info for non-dictionary observation: {self._prev_info}. Action mask must either be in observation['action_mask'] or info['action_mask'] to use TerminateIllegalWrapper."
+            assert "action_mask" in self._prev_info, (
+                f"`action_mask` not found in info for non-dictionary observation: {self._prev_info}. Action mask must either be in observation['action_mask'] or info['action_mask'] to use TerminateIllegalWrapper."
+            )
             _prev_action_mask = self._prev_info["action_mask"]
         self._prev_obs = None
         self._prev_info = None
@@ -67,9 +76,9 @@ class TerminateIllegalWrapper(BaseWrapper[AgentID, ObsType, ActionType]):
         ):
             EnvLogger.warn_on_illegal_move()
             self.env.unwrapped._cumulative_rewards[self.agent_selection] = 0
-            self.env.unwrapped.terminations = {d: True for d in self.agents}
-            self.env.unwrapped.truncations = {d: True for d in self.agents}
-            self.env.unwrapped.rewards = {d: 0 for d in self.truncations}
+            self.env.unwrapped.terminations = dict.fromkeys(self.agents, True)
+            self.env.unwrapped.truncations = dict.fromkeys(self.agents, True)
+            self.env.unwrapped.rewards = dict.fromkeys(self.truncations, 0)
             self.env.unwrapped.rewards[current_agent] = float(self._illegal_value)
             self.env.unwrapped._accumulate_rewards()
             self.env.unwrapped._deads_step_first()
@@ -77,5 +86,6 @@ class TerminateIllegalWrapper(BaseWrapper[AgentID, ObsType, ActionType]):
         else:
             super().step(action)
 
+    @override
     def __str__(self) -> str:
         return str(self.env)

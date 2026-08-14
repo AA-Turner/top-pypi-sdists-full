@@ -95,6 +95,12 @@ class ReaderWriterConfig:
         self.int_config_list = [option.lower() for option in config.int_config_list]
         self.float_config_list = [option.lower() for option in config.float_config_list]
 
+        # SNOW-3861940: the NSS reader forwards these options to a real Spark reader, which
+        # applies its own defaults and its own alias precedence (``sep`` before
+        # ``delimiter``). A SCOS default that survives into that payload therefore
+        # shadows the user's choice, so record which keys the caller actually set.
+        self.user_option_keys = frozenset(key.lower() for key in options)
+
         for key, value in options.items():
             self.config[key.lower()] = value
 

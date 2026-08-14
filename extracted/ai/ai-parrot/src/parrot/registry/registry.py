@@ -1,0 +1,1382 @@
+# agents/registry.py
+"""
+Agent Auto-Registration System for AI-Parrot.
+
+This module provides multiple approaches for automatically discovering
+and registering agents from the agents/ directory.
+"""
+from __future__ import annotations
+import sys
+import asyncio
+from typing import Dict, Iterable, List, Literal, Type, Set, Union, Optional, Any, Protocol
+from pathlib import Path
+import hashlib
+from types import ModuleType
+import importlib
+import inspect
+from dataclasses import dataclass, field
+import yaml
+try:
+    from parrot import yaml_rs
+    yaml = yaml_rs
+except ImportError:
+    pass
+from navconfig.logging import logging
+from navconfig import BASE_DIR
+from pydantic import BaseModel, Field
+from aiohttp import web
+from ..bots.abstract import AbstractBot
+from ..mcp import MCPServerConfig
+from ..models.stores import StoreConfig
+from ..models.basic import ModelConfig, ToolConfig
+from ..conf import AGENTS_DIR
+from ..auth.models import PolicyRuleConfig
+from ..auth.agent_guard import enforce_agent_access, AgentAccessDenied  # noqa: F401
+
+
+class AgentFactory(Protocol):
+    """Protocol for agent factory callable."""
+    def __call__(self, **kwargs: Any) -> AbstractBot: ...
+
+
+@dataclass(slots=True)
+class BotMetadata:
+    """
+    Metadata about a discovered Bot or Agent.
+
+    This class holds information about agents found during discovery,
+    making it easier to manage and validate them before registration.
+    """
+    name: str
+    factory: Union[Type[AbstractBot], AgentFactory]
+    module_path: str
+    file_path: Path
+    singleton: bool = False
+    tags: Optional[Set[str]] = field(default_factory=set)
+    priority: int = 0
+    at_startup: bool = False
+    dependencies: List[str] = field(default_factory=list)
+    startup_config: Dict[str, Any] = field(default_factory=dict)  # Config for startup instantiation
+    bot_config: Optional[Any] = None  # Optional[BotConfig] – declarative agent configuration
+    events_block: Optional[Dict[str, Any]] = None  # FEAT-176: parsed 'events:' YAML block
+    _instance: Optional[AbstractBot] = None
+    _lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
+
+    def __post_init__(self):
+        """Validate bot metadata after creation."""
+        # Check if factory is a class (subclass of AbstractBot) or a callable (AgentFactory)
+        is_class = inspect.isclass(self.factory) and issubclass(self.factory, AbstractBot)
+        is_factory = callable(self.factory)
+
+        if not (is_class or is_factory):
+            raise ValueError(
+                f"Bot {self.name} factory must be AbstractBot subclass or callable"
+            )
+        # If at_startup=True, automatically make it singleton
+        if self.at_startup:
+            self.singleton = True
+
+    async def get_instance(self, *args, **kwargs) -> AbstractBot:
+        """
+        Get or create an instance of the bot.
+
+        This implements lazy instantiation - instances are only created when needed.
+        For singleton bots, the same instance is returned on subsequent calls.
+        """
+        # Singleton path
+        if self.singleton and self._instance is not None:
+            return self._instance
+
+        async with self._lock:
+            # Double-check pattern for singletons
+            if self.singleton and self._instance is not None:
+                return self._instance
+
+            # Merge startup config with runtime kwargs
+            merged_kwargs = {**self.startup_config, **kwargs}
+
+            # Prevent duplicate argument error for 'name'
+            if 'name' in merged_kwargs:
+                merged_kwargs.pop('name')
+
+            # --- Logic for handling new BotConfig attributes ---
+            # 1. Tools handling
+            # Extract lists
+            tools_list = merged_kwargs.get('tools', [])
+            toolkits_list = merged_kwargs.get('toolkits', [])
+            mcp_servers_config = merged_kwargs.pop('mcp_servers', [])
+
+            # If toolkits are present, we might want to pass them explicitly if the bot supports it
+            # or merge them into 'tools' depending on how the Bot factory expects them.
+            # Standard AbstractBot takes 'tools' list.
+            if toolkits_list:
+                # Append toolkits to tools if not already there?
+                # Or pass as 'toolkits' kwarg if supported.
+                # Let's pass as config to be safe if the Bot handles it,
+                # otherwise extend tools if they are just strings.
+                if 'toolkits' not in merged_kwargs:
+                     merged_kwargs['toolkits'] = toolkits_list
+
+            # 2. Model handling
+            model_conf = merged_kwargs.get('model')
+            if isinstance(model_conf, dict):
+                client = model_conf.get('client', 'openai')
+                model_name = model_conf.get('model', 'gpt-4')
+                # Format: "client:model" - AbstractBot uses 'llm' for client usually.
+                if 'llm' not in merged_kwargs:
+                    merged_kwargs['llm'] = f"{client}:{model_name}"
+                # Update model reference
+                merged_kwargs['model'] = model_name
+
+            # 3. System Prompt - already in merged_kwargs
+
+            # 4. Vector Store — check both key names for backwards compatibility:
+            # - 'vector_store': set directly (e.g. legacy YAML path)
+            # - 'vector_store_config': set by _parse_agent_definition() for YAML bots
+            vector_store_conf = (
+                merged_kwargs.pop('vector_store', None)
+                or merged_kwargs.pop('vector_store_config', None)
+            )
+
+            # Create new instance
+            try:
+                if inspect.iscoroutinefunction(self.factory):
+                    instance = await self.factory(name=self.name, **merged_kwargs)
+                else:
+                    instance = self.factory(name=self.name, **merged_kwargs)
+                    if inspect.iscoroutine(instance):
+                        instance = await instance
+            except Exception as e:
+                # `from e` keeps the original traceback reachable: without it
+                # the only surviving evidence of a startup failure is this
+                # one-line message, which is rarely enough to locate the
+                # offending frame.
+                raise ValueError(
+                    f"Error creating instance for {self.name}: {e}"
+                ) from e
+
+            if not isinstance(instance, AbstractBot):
+                raise ValueError(
+                    f"Factory for {self.name} returned {type(instance)!r}, expected AbstractBot."
+                )
+
+            # --- Post-Instantiation Configuration ---
+
+            # 5. MCP Servers
+            if mcp_servers_config:
+                server_configs = []
+                for srv in mcp_servers_config:
+                     try:
+                         server_configs.append(MCPServerConfig(**srv))
+                     except Exception as e:
+                         logging.error(f"Invalid MCP config for {self.name}: {e}")
+
+                if server_configs and hasattr(instance, 'setup_mcp_servers'):
+                    await instance.setup_mcp_servers(server_configs)
+
+            # 6. Vector Store
+            if vector_store_conf:
+                 try:
+                     store_config = StoreConfig(**vector_store_conf)
+                     if hasattr(instance, '_apply_store_config'):
+                         instance._apply_store_config(store_config)
+                         instance._use_vector = True
+                 except Exception as e:
+                     logging.error(f"Invalid Store config for {self.name}: {e}")
+
+            # Configure instance if needed:
+            if not self.at_startup:
+                await instance.configure()
+
+            # FEAT-176: wire YAML-declared lifecycle subscribers onto the bot's
+            # event registry.  Must run AFTER configure() so all bot attributes
+            # are initialised before the first event may fire.
+            if self.events_block:
+                try:
+                    from parrot.core.events.lifecycle.yaml_loader import wire_events
+                    wire_events(instance, self.events_block)
+                except Exception as _wire_exc:
+                    logging.error(
+                        "Failed to wire lifecycle events for bot '%s': %s",
+                        self.name, _wire_exc,
+                    )
+
+            # Store instance if singleton
+            if self.singleton:
+                self._instance = instance
+
+            return instance
+
+class PromptConfig(BaseModel):
+    """Declarative prompt layer configuration from YAML.
+
+    Supports preset selection, layer removal, domain layer addition,
+    and layer template customization.
+    """
+    preset: str = "default"
+    remove: List[str] = Field(default_factory=list)
+    add: List[Union[str, Dict[str, Any]]] = Field(default_factory=list)
+    customize: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+
+
+class BotConfig(BaseModel):
+    """Configuration for the bot in config-based discovery."""
+    name: str
+    class_name: str
+    module: str
+    enabled: bool = True
+    # "repo": curated YAML committed to the repo. "factory": written at runtime
+    # by AgentFactory and deletable via DELETE /api/v1/bots/{id}.
+    origin: Literal["repo", "factory"] = "repo"
+    config: Dict[str, Any] = Field(default_factory=dict)
+    # New attributes
+    tools: Optional[ToolConfig] = Field(default=None)
+    toolkits: List[str] = Field(default_factory=list)
+    mcp_servers: List[Dict[str, Any]] = Field(default_factory=list)
+    model: Optional[ModelConfig] = Field(default=None)
+    system_prompt: Optional[Union[str, Dict[str, Any]]] = Field(default=None)
+    prompt: Optional[PromptConfig] = Field(default=None)
+    vector_store: Optional[StoreConfig] = Field(default=None)
+
+    tags: Optional[Set[str]] = Field(default_factory=set)
+    singleton: bool = False
+    at_startup: bool = False
+    startup_config: Dict[str, Any] = Field(default_factory=dict)
+    priority: int = 0
+    # PBAC policy rules declared inline in agents.yaml
+    # Each entry is a dict matching PolicyRuleConfig schema:
+    #   {action: "agent:chat", effect: "allow", groups: ["engineering"]}
+    policies: Optional[List["PolicyRuleConfig"]] = Field(default=None)
+
+
+class AgentRegistry:
+    """
+    Central registry for managing Bo/Agent discovery and registration.
+
+    This class maintains a registry of all discovered agents and provides
+    methods for discovering, validating, and instantiating them.
+
+    - register(): programmatic registration
+    - register_agent decorator: declarative registration on class definition
+
+    We can use several strategies for discovery:
+    - decorators to mark classes for auto-registration.
+    - Configuration-Based Discovery, use a YAML config to define agents.
+
+    Decorator Usage:
+        @register_agent(name="MySpecialAgent", priority=10)
+        class MyAgent(AbstractBot):
+            pass
+
+    # Programmatic registration
+        agent_registry.register("CustomAgent", CustomAgentClass)
+
+    Configuration agents.yaml:
+    agents:
+      - name: "ReportGenerator"
+        class_name: "ReportGeneratorAgent"
+        module: "agents.reporting"
+        enabled: true
+        config:
+          templates_dir: "./templates"
+      - name: "DataAnalyzer"
+        class_name: "DataAnalyzerAgent"
+        module: "agents.analysis"
+        enabled: true
+
+    # Get instances
+        agent = await agent_registry.get_instance("MyAgent")
+    """
+
+    def __init__(
+        self,
+        agents_dir: Optional[Path] = None,
+        *,
+        extra_agent_dirs: Optional[Iterable[Path]] = None,
+    ):
+        self.logger = logging.getLogger('Parrot.AgentRegistry')
+        self.agents_dir = agents_dir or BASE_DIR / "agents"
+        self._registered_agents: Dict[str, BotMetadata] = {}
+        self._config_file: Optional[Path] = None
+        self._discovery_paths: List[Path] = []
+        # PBAC: app and evaluator references (set via setup())
+        self._app: Any = None
+        self._evaluator: Any = None
+
+        # Ensure primary discovery directory exists
+        primary_dir = self._prepare_discovery_dir(self.agents_dir)
+        self._discovery_paths.append(primary_dir)
+
+        self._extra_agent_dirs: List[Path] = []
+        if extra_agent_dirs:
+            for directory in extra_agent_dirs:
+                prepared_dir = self._prepare_discovery_dir(directory)
+                self._extra_agent_dirs.append(prepared_dir)
+                self._discovery_paths.append(prepared_dir)
+        # Create config file if it doesn't exist
+        self._config_file: Optional[Path] = self.agents_dir / "agents.yaml"
+        if not self._config_file.exists():
+            self._config_file.write_text(
+                "# Auto-generated agents configuration\nagents: []\n"
+            )
+        self.logger.info(
+            f"AgentRegistry initialized with agents_dir={self.agents_dir}, config_file={self._config_file}"
+        )
+
+    def _prepare_discovery_dir(self, directory: Path) -> Path:
+        """Ensure a discovery directory exists and is importable."""
+        resolved = Path(directory).resolve()
+        resolved.mkdir(parents=True, exist_ok=True)
+        init_file = resolved / "__init__.py"
+        if not init_file.exists():
+            init_file.write_text("# Auto-generated agents module")
+        if str(resolved) not in sys.path:
+            sys.path.append(str(resolved))
+        return resolved
+
+    # ------------------------------------------------------------------
+    # PBAC Integration — setup() and policy collection
+    # ------------------------------------------------------------------
+
+    @property
+    def evaluator(self) -> Any:
+        """Return the PBAC evaluator, or None if not configured.
+
+        Use this property instead of accessing ``_evaluator`` directly so
+        that callers (e.g. ``BotManager``) are insulated from any future
+        rename of the private attribute.
+
+        Returns:
+            The shared ``PolicyEvaluator`` instance, or ``None`` when PBAC
+            has not been initialised via :meth:`setup`.
+        """
+        return self._evaluator
+
+    def setup(self, app: Any) -> None:
+        """Store aiohttp Application reference for PDP policy registration.
+
+        Must be called AFTER ``setup_pbac(app)`` so that ``app['abac']`` is
+        already populated. Typically called from ``BotManager.load_bots(app)``
+        at the beginning of the startup sequence.
+
+        Args:
+            app: The aiohttp ``web.Application`` instance.
+        """
+        self._app = app
+        pdp = app.get('abac') if app is not None else None
+        # NOTE: accesses _evaluator (private) on the navigator-auth PDP object.
+        # If navigator-auth renames this attribute, PBAC wiring silently fails open.
+        self._evaluator = getattr(pdp, '_evaluator', None) if pdp is not None else None
+        if self._evaluator is not None:
+            self.logger.info(
+                "AgentRegistry: PDP evaluator available for policy registration"
+            )
+        else:
+            self.logger.info(
+                "AgentRegistry: No PDP evaluator — bot policies will not be auto-registered"
+            )
+
+    def _collect_and_register_policies(
+        self,
+        name: str,
+        factory: type,
+        bot_config: Optional["BotConfig"],
+    ) -> None:
+        """Collect policy_rules from class attribute and BotConfig, register with PDP.
+
+        Collects rules from two sources (class attribute + BotConfig.policies),
+        converts them to policy dicts via ``PolicyRuleConfig.to_resource_policy()``,
+        and loads them into the PDP evaluator via ``evaluator.load_policies()``.
+
+        Invalid rule entries are logged as warnings and skipped (not fatal).
+
+        Args:
+            name: The agent/bot name (used as resource identifier).
+            factory: The bot class (checked for ``policy_rules`` attribute).
+            bot_config: Optional BotConfig with ``policies`` list.
+        """
+        if self._evaluator is None:
+            return  # No evaluator, skip silently
+
+        policy_dicts: List[Dict[str, Any]] = []
+
+        # 1. Collect from factory class attribute.
+        # Note: get_policy_rules() is an instance method on AbstractBot, so it
+        # cannot be called on the class (factory) at registration time.
+        # At registration we only have the class, not an instance, so we read
+        # the class-level policy_rules attribute directly.
+        class_rules = getattr(factory, 'policy_rules', []) or []
+        for rule_data in class_rules:
+            try:
+                if isinstance(rule_data, dict):
+                    rule = PolicyRuleConfig(**rule_data)
+                elif isinstance(rule_data, PolicyRuleConfig):
+                    rule = rule_data
+                else:
+                    self.logger.warning(
+                        "AgentRegistry: skipping invalid policy rule for %s: %r",
+                        name, rule_data,
+                    )
+                    continue
+                policy_dicts.append(rule.to_resource_policy(name))
+            except Exception as exc:  # pylint: disable=broad-except
+                self.logger.warning(
+                    "AgentRegistry: skipping invalid policy rule for %s: %s",
+                    name, exc,
+                )
+
+        # 2. Collect from BotConfig.policies
+        if bot_config is not None:
+            config_policies = getattr(bot_config, 'policies', None) or []
+            for rule in config_policies:
+                try:
+                    if isinstance(rule, dict):
+                        rule = PolicyRuleConfig(**rule)
+                    policy_dicts.append(rule.to_resource_policy(name))
+                except Exception as exc:  # pylint: disable=broad-except
+                    self.logger.warning(
+                        "AgentRegistry: skipping invalid BotConfig policy for %s: %s",
+                        name, exc,
+                    )
+
+        if not policy_dicts:
+            return
+
+        # 3. Register with the PDP evaluator
+        try:
+            self._evaluator.load_policies(policy_dicts)
+            self.logger.info(
+                "AgentRegistry: registered %d policy rule(s) for agent '%s'",
+                len(policy_dicts), name,
+            )
+        except Exception as exc:  # pylint: disable=broad-except
+            self.logger.warning(
+                "AgentRegistry: failed to register policies for %s: %s",
+                name, exc,
+            )
+
+    def register_db_bot_policies(
+        self,
+        name: str,
+        permissions: "dict | list | None",
+    ) -> int:
+        """Register policies for a DB-loaded bot into the shared ``PolicyEvaluator``.
+
+        Mirrors :meth:`_collect_and_register_policies` for the DB path.
+        Takes the raw value of ``navigator.ai_bots.permissions``, parses it via
+        :func:`parrot.auth.agent_guard.parse_bot_permissions`, converts each rule
+        to a policy dict via :meth:`parrot.auth.models.PolicyRuleConfig.to_resource_policy`,
+        and loads the result into ``self._evaluator`` via ``load_policies()``.
+
+        Args:
+            name: The bot name (used as resource identifier — matches the same
+                convention as the YAML/code path, producing ``agent:<name>``).
+            permissions: Raw value of ``BotModel.permissions``.  Accepted shapes
+                are documented in :func:`parrot.auth.agent_guard.parse_bot_permissions`.
+
+        Returns:
+            Number of policy dicts loaded into the evaluator.  ``0`` means the bot
+            is public (no rules) or PBAC is disabled.
+
+        Raises:
+            ValueError: When ``permissions`` has a malformed shape.  The caller
+                (``BotManager._load_database_bots``) is responsible for catching
+                this, logging a WARNING, and skipping that bot.
+        """
+        if self._evaluator is None:
+            return 0
+
+        from parrot.auth.agent_guard import parse_bot_permissions  # noqa: PLC0415
+
+        rules = parse_bot_permissions(permissions)  # may raise ValueError
+        if not rules:
+            return 0
+
+        policy_dicts = [rule.to_resource_policy(name) for rule in rules]
+
+        try:
+            self._evaluator.load_policies(policy_dicts)
+        except Exception as exc:  # pylint: disable=broad-except
+            self.logger.warning(
+                "AgentRegistry: failed to register DB policies for %s: %s",
+                name, exc,
+            )
+            return 0
+
+        self.logger.info(
+            "AgentRegistry: registered %d DB policy rule(s) for agent '%s'",
+            len(policy_dicts), name,
+        )
+        return len(policy_dicts)
+
+    def get_bot_instance(self, name: str) -> Optional[AbstractBot]:
+        """Get a cached bot instance by name (sync, returns None if not yet instantiated)."""
+        metadata = self._registered_agents.get(name)
+        if metadata is None:
+            return None
+        return metadata._instance
+
+    def get_metadata(self, name: str) -> Optional[BotMetadata]:
+        return self._registered_agents.get(name)
+
+    def register(
+        self,
+        name: str,
+        factory: Type[AbstractBot],
+        *,
+        singleton: bool = False,
+        tags: Optional[Iterable[str]] = None,
+        priority: int = 0,
+        dependencies: Optional[List[str]] = None,
+        replace: bool = False,
+        at_startup: bool = False,
+        startup_config: Optional[Dict[str, Any]] = None,
+        bot_config: Optional["BotConfig"] = None,
+        **kwargs: Any
+    ) -> None:
+        """Register a bot class with the registry."""
+        if name in self._registered_agents and not replace:
+            self.logger.warning(
+                f"Bot {name} already registered, use replace=True to overwrite"
+            )
+            return
+
+        if not issubclass(factory, AbstractBot):
+            raise ValueError(
+                f"Bot {name} must inherit from AbstractBot"
+            )
+
+        # Get module information
+        module = inspect.getmodule(factory)
+        module_path = module.__name__ if module else "unknown"
+        file_path = Path(module.__file__) if module and module.__file__ else Path("unknown")
+
+        if not startup_config:
+            startup_config = {}
+        merged_kwargs = {**startup_config, **kwargs}
+
+        metadata = BotMetadata(
+            name=name,
+            factory=factory,
+            module_path=module_path,
+            file_path=file_path,
+            singleton=singleton,
+            at_startup=at_startup,
+            startup_config=merged_kwargs or {},
+            tags=set(tags or []),
+            priority=priority,
+            dependencies=dependencies or [],
+            bot_config=bot_config,
+        )
+
+        self._registered_agents[name] = metadata
+        self.logger.info(
+            f"Registered bot: {name}"
+        )
+
+        # PBAC: collect and register policy rules for this agent
+        self._collect_and_register_policies(name, factory, bot_config)
+
+    def register_instance(
+        self,
+        name: str,
+        instance: AbstractBot,
+        *,
+        tags: Optional[Iterable[str]] = None,
+        priority: int = 0,
+        replace: bool = False,
+    ) -> None:
+        """Register a pre-built agent instance."""
+        if name in self._registered_agents and not replace:
+            self.logger.warning(
+                f"Bot {name} already registered, use replace=True to overwrite"
+            )
+            return
+
+        if not isinstance(instance, AbstractBot):
+            raise TypeError(
+                f"Instance for {name} must be an AbstractBot, got {type(instance).__name__}"
+            )
+
+        module = inspect.getmodule(type(instance))
+        module_path = module.__name__ if module else "unknown"
+        file_path = (
+            Path(module.__file__) if module and module.__file__ else Path("unknown")
+        )
+
+        metadata = BotMetadata(
+            name=name,
+            factory=type(instance),
+            module_path=module_path,
+            file_path=file_path,
+            singleton=True,
+            tags=set(tags or []),
+            priority=priority,
+        )
+        metadata._instance = instance
+
+        self._registered_agents[name] = metadata
+        self.logger.info(f"Registered bot instance: {name}")
+
+    def has(self, name: str) -> bool:
+        return name in self._registered_agents
+
+    def get_metadata(self, name: str) -> Optional[BotMetadata]:
+        """Return the :class:`BotMetadata` for ``name`` or ``None`` if absent.
+
+        Public read-only accessor — prefer this over reaching into
+        ``_registered_agents`` directly. Useful for callers that need to
+        inspect non-instance attributes (``bot_config``, ``file_path``,
+        ``tags``, …) without paying the lazy-instantiation cost of
+        :meth:`get_instance`.
+        """
+        return self._registered_agents.get(name)
+
+    async def get_instance(
+        self,
+        name: str,
+        request: Optional[web.Request] = None,
+        **kwargs,
+    ) -> Optional[AbstractBot]:
+        """Get an instance of a registered bot.
+
+        This method handles lazy instantiation — bots are only created when
+        needed.  When *request* is provided the PBAC evaluator is consulted
+        to decide whether the caller is allowed to resolve the bot.
+
+        Args:
+            name: Name of the bot to instantiate.
+            request: Optional aiohttp request.  When ``None`` (programmatic
+                invocation) the PBAC check is skipped unconditionally.
+            **kwargs: Additional arguments to pass to the bot constructor.
+
+        Returns:
+            Bot instance or ``None`` if not found / failed to instantiate.
+
+        Raises:
+            AgentAccessDenied: When *request* is provided and the caller's
+                subject does not match the bot's PBAC policies.
+        """
+        if name not in self._registered_agents:
+            self.logger.warning(f"Bot {name} not found in registry")
+            return None
+
+        metadata = self._registered_agents[name]
+        try:
+            instance = await metadata.get_instance(**kwargs)
+            self.logger.debug(f"Retrieved instance for bot: {name}")
+        except Exception as e:
+            self.logger.error(f"Failed to instantiate bot {name}: {str(e)}")
+            return None
+
+        # PBAC enforcement runs OUTSIDE the try/except above so that
+        # AgentAccessDenied propagates to the caller rather than being
+        # swallowed as "Failed to instantiate".
+        await enforce_agent_access(self._evaluator, name, request)
+        return instance
+
+    def load_config(self) -> List[BotConfig]:
+        """Load bot configuration from YAML file."""
+        if not self._config_file or not self._config_file.exists():
+            self.logger.debug(
+                "No config file found, skipping config-based discovery"
+            )
+            return []
+
+        try:
+            with open(self._config_file, 'r') as f:
+                config_data = yaml.safe_load(f)
+
+            configs = []
+            agents_list = config_data.get('agents', [])
+            self.logger.debug(f"Loading {len(agents_list)} agents from config: {agents_list}")
+            for agent_data in agents_list:
+                try:
+                    config = BotConfig(**agent_data)
+                    if config.enabled:
+                        configs.append(config)
+                except Exception as e:
+                    self.logger.error(
+                        f"Invalid config entry: {agent_data}, error: {e}"
+                    )
+                    continue
+
+            return configs
+
+        except ImportError:
+            self.logger.error("PyYAML not installed. Install with: pip install pyyaml")
+            return []
+        except Exception as e:
+            self.logger.error(f"Failed to load config: {str(e)}")
+            return []
+
+    def discover_config_agents(self) -> List[BotMetadata]:
+        """
+        Register agents from configuration file.
+
+        This method loads the config file and registers all enabled agents.
+
+        Returns:
+            Number of agents successfully registered from config
+        """
+        configs = self.load_config()
+        registered_count = 0
+
+        for config in configs:
+            if not config.enabled:
+                continue
+
+            try:
+                # Import the module
+                module = importlib.import_module(config.module)
+
+                # Get the class
+                agent_class = getattr(module, config.class_name)
+
+                # Validate it's an AbstractBot subclass
+                if not issubclass(agent_class, AbstractBot):
+                    self.logger.error(
+                        f"{config.class_name} is not an AbstractBot subclass"
+                    )
+                    continue
+
+                # Register using core register method
+                self.register(
+                    name=config.name,
+                    factory=agent_class,
+                    singleton=config.singleton,
+                    tags=config.tags,
+                    priority=config.priority,
+                    at_startup=config.at_startup,
+                    startup_config=config.config,
+                    bot_config=config,
+                    replace=True
+                )
+
+                registered_count += 1
+                self.logger.info(
+                    f"Registered bot from config: {config.name}"
+                )
+
+            except Exception as e:
+                self.logger.error(
+                    f"Failed to load bot {config.name}: {str(e)}"
+                )
+                continue
+
+        return registered_count
+
+    @staticmethod
+    def _apply_prompt_config(bot: AbstractBot, prompt_config: PromptConfig) -> None:
+        """Apply prompt layer mutations from YAML config to a bot's PromptBuilder.
+
+        Handles remove, add (by name or inline dict), and customize operations.
+
+        Args:
+            bot: The bot instance with an initialized _prompt_builder.
+            prompt_config: The parsed PromptConfig from YAML.
+        """
+        from ..bots.prompts.layers import PromptLayer, LayerPriority, RenderPhase
+        from ..bots.prompts.domain_layers import get_domain_layer
+
+        builder = bot._prompt_builder
+        has_prompt_mutations = bool(
+            prompt_config.remove
+            or prompt_config.add
+            or prompt_config.customize
+        )
+        if builder is None and has_prompt_mutations:
+            from ..bots.prompts.presets import get_preset
+            builder = get_preset(prompt_config.preset or "default")
+            bot._prompt_builder = builder
+        if builder is None:
+            return
+
+        # Remove layers
+        for layer_name in prompt_config.remove:
+            builder.remove(layer_name)
+
+        # Add layers (by domain name or inline dict)
+        for item in prompt_config.add:
+            if isinstance(item, str):
+                # Look up registered domain layer
+                layer = get_domain_layer(item)
+                builder.add(layer)
+            elif isinstance(item, dict):
+                # Inline layer definition
+                name = item["name"]
+                priority = item.get("priority", LayerPriority.CUSTOM)
+                phase_str = item.get("phase", "configure")
+                phase = (
+                    RenderPhase.CONFIGURE
+                    if phase_str == "configure"
+                    else RenderPhase.REQUEST
+                )
+                template = item.get("template", "")
+                layer = PromptLayer(
+                    name=name,
+                    priority=priority,
+                    phase=phase,
+                    template=template,
+                )
+                builder.add(layer)
+
+        # Customize existing layer templates
+        for layer_name, overrides in prompt_config.customize.items():
+            existing = builder.get(layer_name)
+            if existing:
+                new_template = overrides.get("template", existing.template)
+                replacement = PromptLayer(
+                    name=existing.name,
+                    priority=existing.priority,
+                    phase=existing.phase,
+                    template=new_template,
+                    condition=existing.condition,
+                    required_vars=existing.required_vars,
+                )
+                builder.replace(layer_name, replacement)
+
+    def create_agent_factory(self, config: BotConfig) -> AgentFactory:
+        """
+        Create a factory function that instantiates an agent from BotConfig.
+        Handles the translation from declarative config to AbstractBot arguments.
+        """
+        # Import module and class dynamically
+        try:
+            module = importlib.import_module(config.module)
+            agent_class = getattr(module, config.class_name)
+        except (ImportError, AttributeError) as e:
+            raise ValueError(
+                f"Could not load agent class {config.class_name} "
+                f"from {config.module}: {e}"
+            ) from e
+
+        async def factory(**kwargs) -> AbstractBot:
+             # Merge startup_config with kwargs
+            merged_args = {**config.startup_config, **kwargs}
+            merged_args['name'] = config.name
+
+            # 1. Handle System Prompt
+            if config.system_prompt:
+                # If it's a dict, we might need to process it, but AbstractBot expects str usually
+                # or a template. If it's a dict, maybe we extract 'template'?
+                # For now, assuming string or let AbstractBot handle it if it supports dict
+                if isinstance(config.system_prompt, str):
+                    merged_args['system_prompt'] = config.system_prompt
+                elif isinstance(config.system_prompt, dict):
+                     merged_args['system_prompt'] = config.system_prompt.get('template', '')
+                     # Pass other keys as prompt vars?
+                     merged_args.update(config.system_prompt)
+
+                # When no explicit `prompt:` block is declared, route the
+                # YAML system_prompt through PromptBuilder.from_system_prompt
+                # so the agent picks up the security/knowledge/tools/output/
+                # behavior layers without colliding with IDENTITY_LAYER.
+                if not config.prompt:
+                    from ..bots.prompts.builder import PromptBuilder
+                    merged_args['prompt_builder'] = PromptBuilder.from_system_prompt(
+                        merged_args['system_prompt']
+                    )
+
+            # 2. Handle ModelConfig
+            if config.model:
+                # Convert ModelConfig to llm args
+                # "provider:model" format or objects
+                merged_args['llm'] = f"{config.model.provider}:{config.model.model}"
+                # We can also pass other params via kwargs or model_config
+                # AbstractBot uses 'llm_kwargs' or direct args
+                merged_args['temperature'] = config.model.temperature
+                merged_args['max_tokens'] = config.model.max_tokens
+
+            # 3. Handle Tools
+            # AbstractBot expects 'tools' list in init
+            tools_list = []
+            if config.tools:
+                 # Add direct tools (list of dicts or strings)
+                 if config.tools.tools:
+                     for tool_def in config.tools.tools:
+                         if isinstance(tool_def, str):
+                             tools_list.append(tool_def)
+                         elif isinstance(tool_def, dict) and 'name' in tool_def:
+                             tools_list.append(tool_def['name'])
+                             # TODO: Handle detailed tool config if needed
+
+            merged_args['tools'] = tools_list
+
+            # 4. Handle Vector Store
+            if config.vector_store:
+                # Pass vector store config AND signal that it should be used.
+                # Without use_vectorstore=True, AbstractBot.configure() would skip
+                # configure_store() even with a valid config (FEAT-072 bug fix).
+                # StoreConfig is a dataclass — use dataclasses.asdict() not .dict().
+                import dataclasses as _dc
+                merged_args['vector_store_config'] = _dc.asdict(config.vector_store)
+                merged_args['use_vectorstore'] = True
+
+            # 5. Handle Prompt Config — pass preset through init
+            if config.prompt:
+                has_prompt_mutations = bool(
+                    config.prompt.remove
+                    or config.prompt.add
+                    or config.prompt.customize
+                )
+                merged_args['prompt_preset'] = (
+                    config.prompt.preset
+                    or ("default" if has_prompt_mutations else None)
+                )
+
+            # Instantiate
+            bot = agent_class(**merged_args)
+
+            # Post-init: apply prompt layer mutations (remove, add, customize)
+            if config.prompt and bot._prompt_builder:
+                self._apply_prompt_config(bot, config.prompt)
+
+            # Handle MCP Servers from ToolConfig
+            if config.tools and config.tools.mcp_servers:
+                for mcp_conf in config.tools.mcp_servers:
+                    try:
+                        # Convert dict to MCPServerConfig
+                        mcp_obj = MCPServerConfig(**mcp_conf)
+                        await bot.add_mcp_server(mcp_obj)
+                    except Exception as e:
+                        self.logger.error(f"Failed to add MCP server to {config.name}: {e}")
+
+            # Handle Toolkits
+            if config.tools and config.tools.toolkits:
+                # If the bot has a tool_manager, we can use it to load toolkits
+                if hasattr(bot, 'tool_manager'):
+                    for toolkit_name in config.tools.toolkits:
+                        try:
+                            # This assumes tool_manager has a way to load toolkits or we need to resolve them here
+                            pass
+                        except Exception as e:
+                            self.logger.error(
+                                f"Failed to load toolkit {toolkit_name} for {config.name}: {e}"
+                            )
+
+            return bot
+
+        return factory
+
+    def load_agent_definitions(self, definitions_dir: Optional[Path] = None) -> int:
+        """
+        Scan directory for YAML agent definitions and register them.
+        """
+        if not definitions_dir:
+            definitions_dir = AGENTS_DIR.joinpath('agents')
+
+        if not definitions_dir.exists():
+            self.logger.debug(f"Agent definitions directory {definitions_dir} does not exist.")
+            return 0
+
+        count = 0
+        for yaml_file in definitions_dir.rglob("*.yaml"):
+            self.logger.debug("Found YAML file: %s", yaml_file)
+            try:
+                # Load YAML
+                content = yaml.safe_load(yaml_file.read_text())
+                if not content:
+                    continue
+
+                # Check if it has 'agent' Section
+                agent_def = content.get('agent')
+                if not agent_def:
+                    continue
+
+                self.logger.debug(f"Loading agent definition from {yaml_file}: {agent_def}")
+
+                # Construct BotConfig
+                # We need to map YAML structure to BotConfig fields
+                # YAML:
+                # agent: {name, class_name, ...}
+                # model: {provider, model, ...}
+                # tools: { ... }
+
+                bot_config_data = agent_def.copy()
+
+                # Map 'model' section
+                if 'model' in content:
+                    bot_config_data['model'] = ModelConfig(**content['model'])
+
+                # Map 'tools' section to ToolConfig
+                if 'tools' in content:
+                    bot_config_data['tools'] = ToolConfig(**content['tools'])
+
+                # Map 'system_prompt'
+                if 'system_prompt' in content:
+                    bot_config_data['system_prompt'] = content['system_prompt']
+
+                # Map 'prompt' section (composable prompt layers)
+                if 'prompt' in content:
+                    bot_config_data['prompt'] = PromptConfig(**content['prompt'])
+
+                # Create BotConfig
+                config = BotConfig(**bot_config_data)
+
+                if not config.enabled:
+                    continue
+
+                # FEAT-176: parse optional top-level 'events:' block
+                events_block = content.get('events') or None
+
+                # Create Factory
+                factory = self.create_agent_factory(config)
+
+                # Register
+                self._registered_agents[config.name] = BotMetadata(
+                    name=config.name,
+                    factory=factory,
+                    module_path=config.module,
+                    file_path=yaml_file,
+                    singleton=config.singleton,
+                    at_startup=config.at_startup,
+                    startup_config=config.config,
+                    tags=config.tags,
+                    priority=config.priority,
+                    bot_config=config,
+                    events_block=events_block,
+                )
+
+                count += 1
+                self.logger.info(
+                    f"Loaded agent definition from {yaml_file}: {config.name}"
+                )
+
+            except Exception as e:
+                self.logger.error(
+                    f"Failed to load agent definition from {yaml_file}: {e}"
+                )
+
+        return count
+
+    def create_agent_definition(self, config: BotConfig, category: str = "general") -> Path:
+        """
+        Save a BotConfig as a YAML definition file.
+        """
+        base_dir = AGENTS_DIR.joinpath('agents', category)
+        base_dir.mkdir(parents=True, exist_ok=True)
+
+        filename = f"{config.name.lower()}.yaml"
+        file_path = base_dir / filename
+
+        # Construct YAML structure
+        data = {
+            "agent": {
+                "name": config.name,
+                "class_name": config.class_name,
+                "module": config.module,
+                "description": config.config.get('description', ''),
+                "enabled": config.enabled,
+                "origin": config.origin,
+                "version": "1.0.0"
+            }
+        }
+
+        if config.model:
+            data["model"] = config.model.dict()
+
+        if config.tools:
+             data["tools"] = config.tools.dict(exclude_none=True)
+
+        if config.system_prompt:
+             data["system_prompt"] = config.system_prompt
+
+        with open(file_path, 'w') as f:
+            yaml.dump(data, f)
+
+        return file_path
+
+    def delete_factory_agent(self, name: str) -> tuple[bool, str]:
+        """Delete a factory-created agent: remove its YAML file and unregister.
+
+        Refuses to delete agents whose ``origin`` is not ``"factory"`` so that
+        repo-committed YAMLs cannot be wiped via HTTP. The on-disk YAML path
+        is read from the agent's ``BotMetadata.file_path`` to avoid guessing
+        the category subdirectory.
+
+        Args:
+            name: Registered agent name.
+
+        Returns:
+            A ``(deleted, reason)`` tuple. ``deleted`` is True only when both
+            the YAML file was removed and the agent was popped from
+            ``_registered_agents``.
+        """
+        metadata = self.get_metadata(name)
+        if metadata is None:
+            return False, f"Agent '{name}' is not registered"
+
+        bot_config = getattr(metadata, "bot_config", None)
+        origin = getattr(bot_config, "origin", "repo") if bot_config else "repo"
+        if origin != "factory":
+            return False, (
+                f"Agent '{name}' has origin='{origin}'; only factory-created "
+                "agents can be deleted via this API"
+            )
+
+        yaml_path = metadata.file_path
+        try:
+            if yaml_path and Path(yaml_path).exists():
+                Path(yaml_path).unlink()
+        except OSError as exc:
+            return False, f"Failed to remove YAML at {yaml_path}: {exc}"
+
+        self._registered_agents.pop(name, None)
+        self.logger.info(
+            "Deleted factory agent '%s' (yaml=%s)", name, yaml_path
+        )
+        return True, "deleted"
+
+    def _import_module_from_path(
+        self,
+        path: Path,
+        *,
+        base_dir: Optional[Path] = None,
+        package_hint: str = "parrot.dynamic_agents",
+    ) -> ModuleType:
+        """
+        Import a Python module from an arbitrary filesystem path.
+        Ensures decorators run at import time.
+        """
+        base = (base_dir or self.agents_dir).resolve()
+        resolved_path = path.resolve()
+        try:
+            rel = resolved_path.relative_to(base)
+        except ValueError:
+            rel = Path(resolved_path.name)
+        rel_path = rel if isinstance(rel, Path) else Path(rel)
+        module_suffix = ".".join(rel_path.with_suffix('').parts)
+        if module_suffix:
+            mod_name = f"{package_hint}.{module_suffix}"
+        else:
+            mod_name = package_hint
+
+        spec = importlib.util.spec_from_file_location(mod_name, str(path))
+        if spec is None or spec.loader is None:
+            raise ImportError(
+                f"Could not load spec for {path}"
+            )
+
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[mod_name] = module
+        spec.loader.exec_module(module)  # type: ignore[attr-defined]
+        self.logger.debug(
+            f"Imported agent module: {mod_name} from {path}"
+        )
+        return module
+
+    def _namespace_for_directory(self, directory: Path) -> str:
+        digest = hashlib.md5(str(directory.resolve()).encode('utf-8')).hexdigest()
+        return f"parrot.dynamic_agents.dir_{digest}"
+
+    def _load_modules_from_directory(self, directory: Path) -> int:
+        if not directory.exists() or not directory.is_dir():
+            self.logger.debug(
+                f"Agents directory {directory} does not exist, skipping"
+            )
+            return 0
+
+        package_hint = self._namespace_for_directory(directory)
+        module_files = list(directory.glob("*.py"))
+        imported_count = 0
+
+        for file_path in module_files:
+            if file_path.name == "__init__.py":
+                continue  # Skip __init__.py
+
+            try:
+                self._import_module_from_path(
+                    file_path,
+                    base_dir=directory,
+                    package_hint=package_hint
+                )
+                imported_count += 1
+            except Exception as e:
+                self.logger.error(f"Failed to import {file_path}: {e}")
+        return imported_count
+
+    async def load_modules(self) -> int:
+        """
+        Dynamically import all Python modules from every discovery directory.
+
+        This triggers any decorators in those modules to register agents.
+        """
+        total_imported = 0
+        for directory in self._discovery_paths:
+            total_imported += self._load_modules_from_directory(directory)
+
+        self.logger.info(
+            f"Discovered (decorator) agent modules: {total_imported} across {len(self._discovery_paths)} directories"
+        )
+        return total_imported
+
+    def register_bot_decorator(
+        self,
+        *,
+        name: Optional[str] = None,
+        priority: int = 0,
+        dependencies: Optional[List[str]] = None,
+        singleton: bool = False,
+        at_startup: bool = False,
+        startup_config: Optional[Dict[str, Any]] = None,
+        tags: Optional[Iterable[str]] = None,
+        **kwargs
+    ):
+        """
+        Decorator to register an AbstractBot subclass.
+
+        This decorator immediately calls self.register() to register the agent,
+        rather than storing it separately for later processing.
+
+        Args:
+            name: Agent name (defaults to class name)
+            priority: Registration priority (higher = earlier)
+            dependencies: List of required dependencies
+            singleton: Whether to enforce singleton instance
+            tags: Optional tags for categorization
+            **kwargs: Additional registration parameters
+
+        Usage:
+            @register_agent(name="CriticalAgent", at_startup=True, startup_config={"db_pool_size": 10})
+            class MyBot(AbstractBot):
+                pass
+        """
+        def _decorator(cls: Type[AbstractBot]) -> Type[AbstractBot]:
+            if not inspect.isclass(cls):
+                raise TypeError("@register_agent can only be used on classes.")
+
+            if not issubclass(cls, AbstractBot):
+                raise TypeError("@register_agent can only be used on AbstractBot subclasses.")
+
+            # Determine agent name
+            bot_name = (name or cls.__name__).strip()
+
+            _system_prompt = None
+            _sp_raw = cls.__dict__.get('system_prompt')
+            if isinstance(_sp_raw, (str, dict)):
+                _system_prompt = _sp_raw
+
+            _model_config = None
+            _model_raw = cls.__dict__.get('model')
+            if isinstance(_model_raw, str):
+                _max_tokens = cls.__dict__.get('max_tokens', 8192)
+                _temperature = cls.__dict__.get('temperature', 0.1)
+                _model_config = ModelConfig(
+                    provider='google',
+                    model=_model_raw,
+                    temperature=_temperature if isinstance(_temperature, (int, float)) else 0.1,
+                    max_tokens=_max_tokens if isinstance(_max_tokens, int) else 8192,
+                )
+
+            _description = (cls.__doc__ or '').strip() or None
+
+            _bot_config = BotConfig(
+                name=bot_name,
+                class_name=cls.__name__,
+                module=cls.__module__,
+                enabled=True,
+                config=startup_config or {},
+                model=_model_config,
+                system_prompt=_system_prompt,
+                singleton=singleton,
+                at_startup=at_startup,
+                startup_config=startup_config or {},
+                tags=set(tags or []),
+                priority=priority,
+            )
+
+            # Register immediately using the core register method
+            self.register(
+                name=bot_name,
+                factory=cls,
+                singleton=singleton,
+                at_startup=at_startup,
+                startup_config=startup_config,
+                tags=tags,
+                priority=priority,
+                dependencies=dependencies,
+                bot_config=_bot_config,
+                **kwargs
+            )
+
+            # Mark the class with metadata for introspection
+            cls._parrot_agent_metadata = self._registered_agents[bot_name]
+
+            return cls
+
+        return _decorator
+
+    def list_bots_by_priority(self) -> List[BotMetadata]:
+        """Get all registered bots sorted by priority (highest first)."""
+        return sorted(
+            self._registered_agents.values(),
+            key=lambda x: x.priority,
+            reverse=True
+        )
+
+    def get_bots_by_tag(self, tag: str) -> List[BotMetadata]:
+        """Get all bots that have a specific tag."""
+        return [
+            metadata for metadata in self._registered_agents.values()
+            if tag in metadata.tags
+        ]
+
+    def clear_registry(self) -> None:
+        """Clear all registered bots. Useful for testing."""
+        self._registered_agents.clear()
+        self.logger.info("Registry cleared")
+
+    def get_registration_info(self) -> Dict[str, Any]:
+        """Get detailed information about the registry state."""
+        return {
+            "total_registered": len(self._registered_agents),
+            "by_priority": {
+                metadata.name: metadata.priority
+                for metadata in self._registered_agents.values()
+            },
+            "by_tags": {
+                tag: [name for name, metadata in self._registered_agents.items() if tag in metadata.tags]
+                for tag in set().union(*(metadata.tags for metadata in self._registered_agents.values()))
+            },
+            "singletons": [
+                name for name, metadata in self._registered_agents.items()
+                if metadata.singleton
+            ]
+        }
+
+    async def instantiate_startup_agents(self, app: Optional[Any] = None, **kwargs: Any) -> Dict[str, Any]:
+        """
+        Create instances for agents marked at_startup=True (implies singleton).
+        """
+        results = {}
+        startup_agents = [bot for bot in self.list_bots_by_priority() if bot.at_startup]
+
+        startup_agents.sort(
+            key=lambda meta: meta.priority,
+            reverse=True
+        )
+        for metadata in startup_agents:
+            try:
+                instance = await metadata.get_instance(**kwargs)
+                if callable(getattr(instance, 'configure', None)):
+                    await instance.configure(app)
+                results[metadata.name] = {
+                    "status": "success",
+                    "instance": instance,
+                    "instance_id": id(instance),
+                    "priority": metadata.priority
+                }
+            except Exception as e:
+                # exc_info=True: startup instantiation is the one place where
+                # the traceback is the whole diagnosis — the agent never
+                # reaches a request, so nothing later can surface the cause.
+                self.logger.error(
+                    f"Failed startup instantiate {metadata.name}: {e}",
+                    exc_info=True,
+                )
+                results[metadata.name] = {
+                    "status": "error",
+                    "error": str(e)
+                }
+        return results

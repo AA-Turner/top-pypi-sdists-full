@@ -215,6 +215,27 @@ def _summary(stage: str, progress) -> str:
     return ""
 
 
+def _mark_progressed(store, job) -> None:
+    """Stamp ``job.progressed_at`` to now and re-sync the mirror — the movement-only
+    clock ``comms.jobs`` ages its stalled/wedged decisions on.
+
+    Written HERE rather than by widening ``JobStore.update``'s advance rule, because
+    that rule is deliberately narrow (a status transition, a numeric progress ADVANCE,
+    a stage change — never a log line) and the narrowness is load-bearing: a wedged
+    render that keeps spewing retry lines must still age out. This is the ONE extra
+    movement signal, gated on a runner having authored a message that CHANGED.
+    Best-effort like the rest of the bridge — a private/renamed field degrades to
+    "no extra movement signal", never an exception into a render."""
+    try:
+        import time
+        job.progressed_at = time.time()
+        mirror = getattr(store, "mirror", None)
+        if mirror is not None:
+            mirror.upsert(job.to_dict())
+    except Exception:
+        logger.debug("job_bridge._mark_progressed failed", exc_info=True)
+
+
 def on_progress(job_id: str, progress: dict) -> None:
     """running -> running, carrying live per-stage progress into the comms Job so
     GET /llm/jobs shows a render's stage + rolling log tail + an honest stall
@@ -223,10 +244,21 @@ def on_progress(job_id: str, progress: dict) -> None:
     swallows everything, exactly like the other bridge points.
 
     The blob is a runner's own free-form dict; we defensively pull only the keys
-    the /llm/jobs contract carries (stage/progress/log_tail) and update just those.
-    A store.update on an unknown/terminal id is a safe no-op (returns None), so a
-    progress push that races a terminal write can never resurrect or corrupt a
-    finished job. log_tail capping lives in the JobStore (LOG_TAIL_CAP)."""
+    the /llm/jobs contract carries (stage/progress/log_tail/message) and update
+    just those. A store.update on an unknown/terminal id is a safe no-op (returns
+    None), so a progress push that races a terminal write can never resurrect or
+    corrupt a finished job. log_tail capping lives in the JobStore (LOG_TAIL_CAP).
+
+    RUNNER-AUTHORED MESSAGE (k91). A runner MAY publish its own human ``message``
+    in the blob ("segment 2/14 - step 18/32"); it wins over the ``_summary``
+    derived from stage+percent, which cannot say anything a one-stage job hasn't
+    already said. It is also treated as FORWARD PROGRESS when it CHANGES — the
+    JobStore's own advance rule (status transition / numeric progress advance /
+    stage change) is blind to a job whose every tick happens INSIDE one stage, and
+    that blindness is what let ``expire_pending_orphans`` retire a live 14-segment
+    movie as "wedged". This is deliberately opt-in per blob rather than a blanket
+    relaxation: only a runner that authors a movement message gets it, so the
+    "a wedged render still spews log lines" guard is untouched."""
     try:
         if not isinstance(progress, dict):
             return
@@ -242,6 +274,10 @@ def on_progress(job_id: str, progress: dict) -> None:
         lt = progress.get("log_tail")
         if isinstance(lt, (list, tuple)):
             changes["log_tail"] = [str(x) for x in lt]
+        authored = progress.get("message")
+        authored = str(authored) if isinstance(authored, str) and authored.strip() else None
+        if authored is not None:
+            changes["message"] = authored
         # Nothing recognizable in the blob -> nothing to mirror (a runner may
         # write a private progress shape we don't surface). No-op, no message.
         if not changes:
@@ -253,10 +289,26 @@ def on_progress(job_id: str, progress: dict) -> None:
         placement = _placement(job_id, None)
         if placement:
             changes["placement"] = placement
-        msg = _summary(changes.get("stage", ""), changes.get("progress"))
-        if msg:
-            changes["message"] = msg
-        _store().update(job_id, **changes)
+        if authored is None:
+            msg = _summary(changes.get("stage", ""), changes.get("progress"))
+            if msg:
+                changes["message"] = msg
+        store = _store()
+        # Snapshot the PRIOR message before the write, so "did the runner report
+        # something new" is answerable afterwards (update overwrites it in place).
+        prior_msg = None
+        if authored is not None:
+            existing = store.get(job_id)
+            prior_msg = getattr(existing, "message", None) if existing is not None else None
+        job = store.update(job_id, **changes)
+        # A CHANGED runner-authored message is forward progress the JobStore's own
+        # advance rule cannot see (same stage, and a progress float that may be
+        # equal for two consecutive ticks). Bump progressed_at here so the honest
+        # stall clock — and therefore expire_pending_orphans — sees the movement the
+        # runner just reported. ``job is None`` (unknown/terminal id) is a no-op,
+        # exactly like every other bridge write.
+        if authored is not None and job is not None and authored != prior_msg:
+            _mark_progressed(store, job)
     except Exception:
         logger.warning("job_bridge.on_progress failed for %s", job_id,
                        exc_info=True)

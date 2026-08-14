@@ -71,4 +71,7 @@ def build_from_source(*, cuda: bool = False, tag: Optional[str] = None,
         "server_bin": server,
         "rpc_bin": resolve.rpc_bin(),
         "cli_bin": resolve.cli_bin(),
+        # k94: same persistence as fetch.install — see fetch._resolved.
+        "persisted_to": (resolve.persist_install(root, server)
+                         if resolve.managed_engine_root(server) else None),
     }

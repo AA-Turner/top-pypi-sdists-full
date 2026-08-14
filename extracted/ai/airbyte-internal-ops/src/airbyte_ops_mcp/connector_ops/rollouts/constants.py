@@ -118,7 +118,7 @@ FINALIZING_GRACE_MINUTES = 20
 # operator review instead of another automatic recovery attempt.
 WORKFLOW_STARTED_STALE_MINUTES = 60
 
-# Recorded by `auto-triage-failed` when it cancels a rollout after the health
+# Recorded by `auto-triage-failed` when it pauses a rollout after the health
 # gate recommends rollback. This is intentionally an outcome marker, not a
 # health re-check performed while evaluating sibling rollouts.
 FAILURE_THRESHOLD_EXCEEDED_MARKER = "Failure threshold exceeded:"

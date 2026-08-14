@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-copilotstudio
-Version: 1.0.0b260730
+Version: 1.0.0b260813
 Summary: Copilot Studio integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -17,7 +17,9 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 License-File: LICENSE
 Requires-Dist: agent-framework-core>=1.13.0,<2
-Requires-Dist: microsoft-agents-copilotstudio-client>=0.3.1,<0.3.2
+Requires-Dist: aiohttp>=3.9,<4
+Requires-Dist: msal>=1.31,<2
+Requires-Dist: microsoft-agents-copilotstudio-client>=1.2.0,<2
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
 Project-URL: release_notes, https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true
@@ -90,7 +92,10 @@ async def main():
         agent_identifier=os.environ["COPILOTSTUDIOAGENT__SCHEMANAME"],
         cloud=PowerPlatformCloud.PROD,
         copilot_agent_type=AgentType.PUBLISHED,
-        custom_power_platform_cloud=None
+        custom_power_platform_cloud=None,
+        # Raise aiohttp's per-line buffer above the 512 KB default so large Copilot Studio
+        # activities (for example, sizeable connector payloads) don't raise LineTooLong.
+        client_session_settings={"read_bufsize": 1024 * 1024},
     )
 
     # Create client and agent

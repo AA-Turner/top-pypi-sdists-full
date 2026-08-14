@@ -326,18 +326,26 @@ def _response_to_llm_response(response: ChatCompletion) -> LlmResponse:
 class OpenAILlm(BaseLlm):
   """Integration with OpenAI models.
 
+  For configuration beyond the defaults (api_key, base_url, organization,
+  timeout, retries, custom headers, ...), pass a pre-configured ``AsyncOpenAI``
+  instance as ``client``. Pointing its ``base_url`` at an OpenAI-compatible
+  host is how this model reaches a non-OpenAI backend.
+
   Attributes:
       model: The name of the OpenAI model.
       max_tokens: The maximum number of tokens to generate.
+      client: A pre-configured OpenAI client. When unset, a default client is
+        constructed, which reads its configuration from the environment.
   """
 
   model: str = "gpt-4o"
   max_tokens: int = 4096
+  client: AsyncOpenAI | None = None
 
   @classmethod
   @override
   def supported_models(cls) -> list[str]:
-    return [r"gpt-.*", r"o1-.*", r"o3-.*"]
+    return [r"gpt-.*", r"o\d+-.*"]
 
   @override
   async def generate_content_async(
@@ -493,4 +501,6 @@ class OpenAILlm(BaseLlm):
 
   @cached_property
   def _openai_client(self) -> AsyncOpenAI:
+    if self.client is not None:
+      return self.client
     return AsyncOpenAI()

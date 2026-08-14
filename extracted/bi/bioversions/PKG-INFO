@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bioversions
-Version: 0.10.109
+Version: 0.11.1
 Summary: Get the current version for biological databases
 Keywords: snekpack,cookiecutter,databases,biological databases,biomedical databases
 Author: Charles Tapley Hoyt
@@ -16,7 +16,6 @@ Classifier: Framework :: tox
 Classifier: Framework :: Sphinx
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -25,14 +24,14 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Typing :: Typed
 Requires-Dist: requests
 Requires-Dist: beautifulsoup4
-Requires-Dist: pystow[bs4]>=0.8.0
+Requires-Dist: pystow[bs4]>=0.9.0
 Requires-Dist: click
 Requires-Dist: click-default-group
 Requires-Dist: tabulate
 Requires-Dist: more-click
 Requires-Dist: pyyaml
 Requires-Dist: tqdm
-Requires-Dist: bioregistry[align]>=0.13.47
+Requires-Dist: bioregistry[align]>=0.14.0
 Requires-Dist: lxml
 Requires-Dist: pydantic>=2.0
 Requires-Dist: psycopg2-binary
@@ -47,7 +46,7 @@ Requires-Dist: flask ; extra == 'web'
 Requires-Dist: bootstrap-flask ; extra == 'web'
 Maintainer: Charles Tapley Hoyt
 Maintainer-email: Charles Tapley Hoyt <cthoyt@gmail.com>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Project-URL: Bug Tracker, https://github.com/biopragmatics/bioversions/issues
 Project-URL: Homepage, https://github.com/biopragmatics/bioversions
 Project-URL: Repository, https://github.com/biopragmatics/bioversions.git
@@ -102,11 +101,11 @@ can be found at https://biopragmatics.github.io/bioversions.
 ```python
 import bioversions
 
-assert bioversions.get_version('biogrid') == '4.2.192', 'This was true on Dec 5th, 2020!'
+assert bioversions.get_version("biogrid") == "4.2.192", "This was true on Dec 5th, 2020!"
 
 # If you want more information, use the resolve() function
-bioversion = bioversions.resolve('biogrid')
-assert bioversion.version == '4.2.192'
+bioversion = bioversions.resolve("biogrid")
+assert bioversion.version == "4.2.192"
 ```
 
 By default, the results are cached and only refreshed once per day with the help
@@ -134,10 +133,10 @@ programmatically resolve given databases with the
 ```python
 import requests
 
-res = requests.get('http://localhost:5000/database/biogrid').json()
-assert res['success']
-assert res['result']['name'] == 'BioGRID'
-assert res['result']['version'] == '4.2.192', 'This was true on Dec 5th, 2020!'
+res = requests.get("http://localhost:5000/database/biogrid").json()
+assert res["success"]
+assert res["result"]["name"] == "BioGRID"
+assert res["result"]["version"] == "4.2.192", "This was true on Dec 5th, 2020!"
 ```
 
 ## CLI Usage

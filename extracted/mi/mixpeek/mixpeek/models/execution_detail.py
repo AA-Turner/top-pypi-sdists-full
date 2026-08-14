@@ -37,6 +37,7 @@ class ExecutionDetail(BaseModel):
     results: Optional[List[Dict[str, Any]]] = Field(default=None, description="DEPRECATED alias for `documents`. Previously a computed field that duplicated `documents` byte-for-byte in every response (~half the payload). It is no longer populated by default to cut response size; pass `?include_legacy_results=true` to restore it during migration. Prefer `documents` — it is and has always been the canonical field. OMITTED from the response when unpopulated while `documents` has data (an empty `results` next to populated `documents` misled readers into 'no results' — 2026-07-06 and again 2026-07-08). When present it is ALWAYS a JSON array, never null. See FRUSTRATIONS.md 2026-04-02 / 2026-06-29 / 2026-06-30.")
     pagination: Optional[Dict[str, Any]] = Field(default=None, description="REQUIRED. Pagination metadata structure. Format varies by pagination method: Offset: {method, page_number, page_size, returned, total, has_next}, Cursor: {method, limit, returned, total, cursor, has_next}, Scroll: {method, scroll_id, limit, returned, total, has_next}, Keyset: {method, limit, returned, total, after}. Every method reports 'total', the number of documents the pipeline computed for this execution BEFORE the page slice, so compare total against returned to detect that a page is a subset. Use this to navigate through result pages.")
     stage_statistics: Optional[RetrieverExecutionStatistics] = Field(default=None, description="REQUIRED. Per-stage execution statistics including timing, document counts, cache hit rates, and stage-specific metrics. Use this to understand retriever performance and identify bottlenecks.")
+    facets: Optional[List[Dict[str, Any]]] = Field(default=None, description="Facet value-lists + counts computed by the feature_search stage(s), surfaced at the TOP LEVEL for discoverability (BACKE-3310 / TS UF-25): each entry is a FacetResult (a facet `key` plus value/count buckets). The same data also appears per-stage under `stage_statistics.stages.<stage>.metadata.facets`; this field is the predictable place a facet consumer looks. When more than one stage computes facets, the last stage's facets are surfaced here. None when no facets were requested.")
     budget: Optional[Dict[str, Any]] = Field(default=None, description="REQUIRED. Budget usage snapshot for this execution. Contains: credits_used (credits consumed), credits_remaining (remaining budget), time_used_ms (execution time), and budget limits. Use this to track resource consumption and enforce budget limits.")
     cached_at: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="OPTIONAL. Unix timestamp (seconds) when this result was cached. Present only when the full response was served from the retriever-level cache. Compute freshness as: time.time() - cached_at.")
     warnings: Optional[List[StrictStr]] = Field(default=None, description="OPTIONAL. Execution warnings that did not prevent results but indicate potential issues — e.g. filtering on unindexed fields. Empty when there are no warnings.")
@@ -49,7 +50,7 @@ class ExecutionDetail(BaseModel):
     current_stage: Optional[StrictStr] = Field(default=None, description="Stage currently running when execution in-flight")
     stages_completed: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Number of stages finished so far")
     total_stages: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Total stages configured")
-    __properties: ClassVar[List[str]] = ["retriever_id", "execution_id", "status", "documents", "results", "pagination", "stage_statistics", "budget", "cached_at", "warnings", "error", "optimization_applied", "optimization_summary", "learned_fusion_context", "created_at", "completed_at", "current_stage", "stages_completed", "total_stages"]
+    __properties: ClassVar[List[str]] = ["retriever_id", "execution_id", "status", "documents", "results", "pagination", "stage_statistics", "facets", "budget", "cached_at", "warnings", "error", "optimization_applied", "optimization_summary", "learned_fusion_context", "created_at", "completed_at", "current_stage", "stages_completed", "total_stages"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -112,6 +113,7 @@ class ExecutionDetail(BaseModel):
             "results": obj.get("results"),
             "pagination": obj.get("pagination"),
             "stage_statistics": RetrieverExecutionStatistics.from_dict(obj["stage_statistics"]) if obj.get("stage_statistics") is not None else None,
+            "facets": obj.get("facets"),
             "budget": obj.get("budget"),
             "cached_at": obj.get("cached_at"),
             "warnings": obj.get("warnings"),

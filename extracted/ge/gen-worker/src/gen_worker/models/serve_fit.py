@@ -1,4 +1,4 @@
-"""Serve-time adaptive fit (th#683 P3).
+"""Serve-time adaptive fit.
 
 The worker NEVER hard-refuses a function on the recommended-VRAM hint. On
 whatever card it is actually on, it serves the function by the best available
@@ -11,7 +11,6 @@ means and is HONEST about the trade. The full ladder, best-first:
   fp8 storage   -> runtime fp8-E4M3 weight storage + bf16 compute
                   (loading.apply_fp8_storage; no fp8 silicon required):
                   near-native quality, weights ~halve
-  emergency nf4 -> runtime 4-bit, below-platform quality, still on-GPU
   offload       -> weights spill to CPU/disk, slower but valid (the PRIMARY
                   lever at the low end where weights exceed VRAM even quantized)
   cpu           -> no GPU at all: very slow, offered behind a loud warning
@@ -21,20 +20,17 @@ A function is UNSERVEABLE only when a genuine incompatibility bars it (compute
 capability / required quant library / a stored flavor outside its SM window)
 OR the author opted out of the CPU-touching rungs with
 ``Resources(strict_vram=True)`` (a binding that cannot tolerate CPU-resident
-weights — compiled fixed-shape graphs — and would rather refuse
-than serve slowly). It is never refused on hardware inadequacy alone: gen
-workers don't offload to CPU because we want them to, they do it out of
-necessity — better to run degraded than not run at all (Paul's ruling,
-2026-07-10). The orchestrator hears about every degraded serve (FnDegraded)
-and owns moving the workload to a bigger card.
+weights — compiled fixed-shape graphs — and would rather refuse than serve
+slowly). It is never refused on hardware inadequacy alone: better to run
+degraded than not run at all. The orchestrator hears about every degraded serve
+(FnDegraded) and owns moving the workload to a bigger card.
 
 Selection ACROSS stored flavors stays upstream: this planner marks each
-function serveable/unserveable + how-it-runs, and the hub's routing (th#597
-ranking) picks the highest-quality fitting flavor. bf16 -> fp8 -> nvfp4 ->
-int4 falls out of that ranking over the serveable set; this planner adds the
-RUNTIME rungs (fp8 storage / nf4 / offload / cpu) for the one function it
-was given, plus an honest hint when a stored flavor would have served
-natively.
+function serveable/unserveable + how-it-runs, and the hub's routing ranking
+picks the highest-quality fitting flavor. bf16 -> fp8 -> nvfp4 -> int4 falls out
+of that ranking over the serveable set; this planner adds the RUNTIME rungs (fp8
+storage / offload / cpu) for the one function it was given, plus an honest hint
+when a stored flavor would have served natively.
 
 Every degraded plan carries ``wanted`` (what the function declares) and
 ``ran`` (what actually runs) so the worker can report the degradation
@@ -47,7 +43,6 @@ from dataclasses import dataclass, replace
 from typing import Any, Optional
 
 from .hub_policy import (
-    FIT_EMERGENCY,
     FIT_EMERGENCY_FP8,
     FIT_FITS,
     FIT_FP8,
@@ -59,25 +54,15 @@ from .hub_policy import (
     variant_fit,
 )
 
-# Run modes, cheapest(fastest)-first. Mirrors the profiling.RunMode vocabulary
-# on the hub side so the two speak the same language.
-RUN_NATIVE = "native"
-RUN_FP8_STORAGE = "fp8_storage"
-RUN_EMERGENCY = "emergency_quant"
-RUN_OFFLOAD = "offload"
-RUN_CPU = "cpu"
-
-# Coarse latency multipliers vs a native GPU run, for honest-guidance. These are
-# order-of-magnitude guides (the hub's measured fit-matrix latency is the
-# authoritative source when available); they exist so the worker never stays
-# silent about a slow trade.
-_LATENCY_MULTIPLIER = {
-    RUN_NATIVE: 1.0,
-    RUN_FP8_STORAGE: 1.05,  # per-layer upcast overhead; near-native quality
-    RUN_EMERGENCY: 1.1,     # quality hit, not much slower
-    RUN_OFFLOAD: 2.5,       # weights stream from CPU/disk
-    RUN_CPU: 40.0,          # no GPU: dramatically slower
-}
+# Run modes and prices are the One Rung ladder's; re-exported here because
+# this module is the hub-vocabulary projection.
+from .rung import (
+    RUN_CPU as RUN_CPU,
+    RUN_FP8_STORAGE as RUN_FP8_STORAGE,
+    RUN_NATIVE as RUN_NATIVE,
+    RUN_OFFLOAD as RUN_OFFLOAD,
+    price as price,
+)
 
 # The FIT verdicts that run natively: full residency at the binding's own
 # stored precision on supported silicon.
@@ -101,7 +86,7 @@ class ServePlan:
     @property
     def degraded(self) -> bool:
         """True when it runs, but not as planned: non-native placement,
-        or (th#737) a precision pick that could not be applied
+        or a precision pick that could not be applied
         (``ran`` != ``wanted``, e.g. a dropped fp8 cast serving bf16)."""
         if not self.serveable:
             return False
@@ -112,13 +97,12 @@ class ServePlan:
 
 def _wanted(binding: Any) -> str:
     """The precision the (post-resolution) binding plans to run: its cast
-    directive (storage_dtype — a hub pick folds in as one, gw#491), else base
+    directive (storage_dtype — a hub pick folds in as one), else base
     bf16. Counting the cast here makes a SUCCESSFUL cast visible (wanted=fp8
     ran=fp8) instead of masquerading as bf16.
 
-    pgw#1148 dropped the STORED half: it read `binding.flavor`, and §1.32(d)
-    deleted that field. What the stored bytes are is the checkpoint's
-    tensor-layout contract, not a token on the binding."""
+    What the stored bytes are is the checkpoint's tensor-layout contract, not a
+    token on the binding (§1.32(d))."""
     storage = str(getattr(binding, "storage_dtype", "") or "").strip().lower()
     return storage or "bf16"
 
@@ -162,7 +146,7 @@ def plan_serve(
             run_mode=RUN_CPU,
             fit=FIT_INCOMPATIBLE,
             warning=_honest_warning(RUN_CPU, recommended),
-            est_latency_multiplier=_LATENCY_MULTIPLIER[RUN_CPU],
+            est_latency_multiplier=price(RUN_CPU),
             recommended_vram_gb=recommended,
             wanted=wanted,
             ran=RUN_CPU,
@@ -193,15 +177,10 @@ def plan_serve(
             ran=wanted,
         )
 
-    # Runs, but degraded: runtime fp8 storage, emergency 4-bit, or the offload
-    # ladder. At the low end offload is the PRIMARY lever (weights exceed VRAM
-    # even quantized) — fit over speed. Only offload is CPU-touching.
-    if verdict == FIT_EMERGENCY_FP8:
-        run_mode = RUN_FP8_STORAGE
-    elif verdict == FIT_EMERGENCY:
-        run_mode = RUN_EMERGENCY
-    else:
-        run_mode = RUN_OFFLOAD
+    # Runs, but degraded: runtime fp8 storage or the offload ladder. Offload
+    # is the PRIMARY lever whenever the weights exceed VRAM — fit over speed.
+    # Only offload is CPU-touching. Nothing quantizes at runtime.
+    run_mode = RUN_FP8_STORAGE if verdict == FIT_EMERGENCY_FP8 else RUN_OFFLOAD
     if run_mode == RUN_OFFLOAD and strict_vram:
         return ServePlan(
             serveable=False,
@@ -220,85 +199,43 @@ def plan_serve(
         run_mode=run_mode,
         fit=verdict,
         warning=_honest_warning(run_mode, recommended, detail),
-        est_latency_multiplier=_LATENCY_MULTIPLIER[run_mode],
+        est_latency_multiplier=price(run_mode),
         recommended_vram_gb=recommended,
         wanted=wanted,
         ran=run_mode,
     )
 
 
-def demoted(
+def replan(
     plan: Optional[ServePlan],
     *,
+    run_mode: str = "",
+    wanted: str = "",
+    ran: str = "",
     detail: str,
-    placement_mode: str = "",
 ) -> ServePlan:
-    """The reactive ladder transition (gw#463): a runtime CUDA OOM demoted this
-    function to the offload rung. Produces the updated ServePlan so plan-time
-    and reactive degradation share one vocabulary, warning, and FnDegraded
-    shape. ``placement_mode`` (model_offload/group_offload/sequential) rides
-    ``ran`` as ``offload:<mode>`` so each deeper sub-rung re-reports."""
+    """The ONE runtime re-projection: demotion, load-rung engagement and
+    cast-drop all fold into this seam.
+
+    A runtime ladder transition re-prices the plan at ``run_mode`` and reports
+    it structurally (FnDegraded) with the SAME vocabulary as plan-time.
+    ``ran`` stays inside the hub's exact-match RunMode vocabulary — placement
+    detail travels in ``detail``/``warning``, never decorates the token
+    tensorhub switches on (degradation_reschedule.go). A cast that could not
+    apply passes ``wanted``/``ran`` dtype tokens with no ``run_mode`` change.
+    """
     base = plan if plan is not None else ServePlan(
         serveable=True, run_mode=RUN_NATIVE, fit="", wanted="bf16", ran="bf16",
     )
-    ran = f"{RUN_OFFLOAD}:{placement_mode}" if placement_mode else RUN_OFFLOAD
+    mode = run_mode or base.run_mode
     return replace(
         base,
         serveable=True,
-        run_mode=RUN_OFFLOAD,
+        run_mode=mode,
+        wanted=(wanted or base.wanted),
+        ran=(ran or (mode if run_mode else base.ran)),
         warning=detail,
-        est_latency_multiplier=_LATENCY_MULTIPLIER[RUN_OFFLOAD],
-        ran=ran,
-    )
-
-
-def cast_dropped(
-    plan: Optional[ServePlan],
-    *,
-    wanted: str,
-    detail: str,
-    ran: str = "bf16",
-) -> ServePlan:
-    """th#737: a resolved cast (``storage_dtype``) could not be applied —
-    the pipeline has no denoiser/cast surface (latent upsamplers, VAE-only
-    repos). The function still runs natively at base precision (``ran``,
-    default bf16), but the recipe budgeted the cast's VRAM: report it
-    structurally (FnDegraded wanted=fp8 ran=bf16), never as a silent
-    fallback."""
-    base = plan if plan is not None else ServePlan(
-        serveable=True, run_mode=RUN_NATIVE, fit="", wanted="", ran="",
-    )
-    return replace(
-        base,
-        serveable=True,
-        wanted=(wanted or base.wanted or "fp8"),
-        ran=(ran or "bf16"),
-        warning=detail,
-    )
-
-
-def load_rung_engaged(
-    plan: Optional[ServePlan],
-    *,
-    rung: str,
-    detail: str,
-) -> ServePlan:
-    """gw#491: the load-time adaptive fit ladder engaged an emergency rung
-    (runtime fp8 storage or nf4) because free VRAM at load was tighter than
-    gate-time planning assumed. Same ServePlan/FnDegraded shape as the
-    plan-time emergency rungs — a 4-bit pipeline must never report
-    RUN_NATIVE wanted==ran."""
-    run_mode = RUN_FP8_STORAGE if rung == "fp8" else RUN_EMERGENCY
-    base = plan if plan is not None else ServePlan(
-        serveable=True, run_mode=RUN_NATIVE, fit="", wanted="bf16", ran="bf16",
-    )
-    return replace(
-        base,
-        serveable=True,
-        run_mode=run_mode,
-        warning=detail,
-        est_latency_multiplier=_LATENCY_MULTIPLIER[run_mode],
-        ran=run_mode,
+        est_latency_multiplier=price(mode),
     )
 
 
@@ -308,7 +245,7 @@ def _honest_warning(run_mode: str, recommended_vram_gb: Optional[float], detail:
         if recommended_vram_gb
         else ""
     )
-    mult = _LATENCY_MULTIPLIER.get(run_mode, 1.0)
+    mult = price(run_mode)
     if run_mode == RUN_CPU:
         return (
             "running on CPU (no GPU detected): expect dramatically slower "
@@ -324,11 +261,5 @@ def _honest_warning(run_mode: str, recommended_vram_gb: Optional[float], detail:
             "does not fit at full precision; running fp8-E4M3 weight storage: "
             "near-native quality. A stored #fp8 flavor of this model would "
             "serve natively here." + ideal
-        )
-    if run_mode == RUN_EMERGENCY:
-        return (
-            "does not fit at full precision; running 4-bit emergency "
-            "quantization: below-platform quality. A stored 4-bit flavor "
-            "(#nvfp4 / #svdq-int4) would serve natively here." + ideal
         )
     return detail

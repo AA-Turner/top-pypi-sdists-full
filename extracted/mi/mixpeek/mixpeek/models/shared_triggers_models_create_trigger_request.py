@@ -34,9 +34,10 @@ class SharedTriggersModelsCreateTriggerRequest(BaseModel):
     action_config: Dict[str, Any] = Field(description="Action-specific configuration")
     trigger_type: SharedTriggersModelsTriggerType = Field(description="Type of schedule")
     schedule_config: Dict[str, Any] = Field(description="Schedule-specific configuration")
+    name: Optional[StrictStr] = Field(default=None, description="Human-readable trigger name")
     description: Optional[StrictStr] = Field(default=None, description="Human-readable description")
     status: Optional[SharedTriggersModelsTriggerStatus] = Field(default=None, description="Initial status (active or paused)")
-    __properties: ClassVar[List[str]] = ["action_type", "action_config", "trigger_type", "schedule_config", "description", "status"]
+    __properties: ClassVar[List[str]] = ["action_type", "action_config", "trigger_type", "schedule_config", "name", "description", "status"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -93,6 +94,7 @@ class SharedTriggersModelsCreateTriggerRequest(BaseModel):
             "action_config": obj.get("action_config"),
             "trigger_type": obj.get("trigger_type"),
             "schedule_config": obj.get("schedule_config"),
+            "name": obj.get("name"),
             "description": obj.get("description"),
             "status": obj.get("status")
         })

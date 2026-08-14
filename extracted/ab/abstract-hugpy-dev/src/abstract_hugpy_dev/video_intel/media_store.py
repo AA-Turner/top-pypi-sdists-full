@@ -158,12 +158,23 @@ def _guess_mime(path: str, kind: str, streams) -> str:
     return "video/octet-stream"
 
 
-def ingest(path: str, kind_hint: Optional[str] = None, sid: Optional[str] = None) -> MediaRef:
+def ingest(path: str, kind_hint: Optional[str] = None, sid: Optional[str] = None,
+           owner: Optional[str] = None) -> MediaRef:
     """Ingest an absolute file path already under a storage root -> MediaRef.
 
     Metadata is resolved exactly once via ffprobe. `kind_hint` may break a tie
-    but the probe is authoritative. `sid` (session id) is accepted for Phase 3
-    call-site compatibility; it is not part of the immutable MediaRef.
+    but the probe is authoritative.
+
+    `sid` (the per-browser-TAB session id) is accepted for Phase 3 call-site
+    compatibility and is still deliberately discarded: it identifies a tab, not
+    a person, so it can never answer "whose asset is this".
+
+    `owner` (2026-08-06) is the answer to that question — the central-account
+    USERNAME, resolved by the caller in the request context (this module has no
+    Flask coupling) and recorded on the MediaRef. None for every runner-produced
+    ref (no request, no user) and for open-mode/self-hosted calls; the
+    authoritative ownership record for a produced artifact is the media_bus
+    row's `owner` column, which the /video routes filter on.
 
     Raises locally (FileNotFoundError / ValueError / RuntimeError) — ingest is
     a helper, not a boundary runner, so a raise here never crosses the job
@@ -225,4 +236,5 @@ def ingest(path: str, kind_hint: Optional[str] = None, sid: Optional[str] = None
         fps_native=fps_native,
         sample_rate=sample_rate,
         channels=channels,
+        owner=owner,
     )

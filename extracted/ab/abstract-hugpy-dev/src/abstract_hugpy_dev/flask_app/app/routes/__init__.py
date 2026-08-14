@@ -16,5 +16,9 @@ from .video_routes import video_bp
 from .fleet_routes import fleet_bp
 from .agent_routes import agent_bp
 from .review_routes import review_bp
+from .pypi_routes import pypi_bp
 from .eviction_routes import eviction_bp
 from .group_routes import group_bp
+from .model_group_routes import model_group_bp
+from .oracle_routes import oracle_bp
+from .keeper_help_routes import keeper_help_bp

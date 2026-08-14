@@ -9,7 +9,7 @@
 
 This environment is part of the <a href='..'>Atari environments</a>. Please read that page first for general information.
 
-| Import               | `from pettingzoo.atari import pong_v3` |
+| Creation             | `make("aec", "atari/pong-v3")`         |
 |----------------------|----------------------------------------|
 | Actions              | Discrete                               |
 | Parallel API         | Yes                                    |
@@ -38,8 +38,10 @@ Some environment parameters are common to all Atari environments and are describ
 
 Parameters specific to Pong are
 
-``` python
-pong_v3.env(num_players=2)
+```python
+from pettingzoo import make
+
+make("aec", "atari/pong-v3", num_players=2)
 ```
 
 `num_players`:  Number of players (must be either 2 or 4)
@@ -106,9 +108,9 @@ def raw_env(
 ) -> AtariAECEnv:
     assert num_players == 2 or num_players == 4, "pong only supports 2 or 4 players"
     versions = avaliable_2p_versions if num_players == 2 else avaliable_4p_versions
-    assert (
-        game_version in versions
-    ), f"pong version {game_version} not supported for number of players {num_players}. Available options are {list(versions)}"
+    assert game_version in versions, (
+        f"pong version {game_version} not supported for number of players {num_players}. Available options are {list(versions)}"
+    )
     mode = versions[game_version]
     name = os.path.basename(__file__).split(".")[0]
     parent_file = glob(

@@ -9,7 +9,7 @@
 
 This environment is part of the <a href='..'>SISL environments</a>. Please read that page first for general information.
 
-| Import               | `from pettingzoo.sisl import pursuit_v4`               |
+| Creation             | `make("aec", "sisl/pursuit-v5")`                       |
 |----------------------|--------------------------------------------------------|
 | Actions              | Discrete                                               |
 | Parallel API         | Yes                                                    |
@@ -20,6 +20,8 @@ This environment is part of the <a href='..'>SISL environments</a>. Please read 
 | Action Values        | Discrete(5)                                            |
 | Observation Shape    | (7, 7, 3)                                              |
 | Observation Values   | [0, 30]                                                |
+| State Shape          | (16, 16, 3)                                            |
+| State Values         | (0, 30)                                                |
 
 
 By default 30 blue evader agents and 8 red pursuer agents are placed in a 16 x 16 grid with an obstacle, shown in white, in the center. The evaders move randomly, and the pursuers are controlled. Every time the pursuers fully surround an evader each of the surrounding agents receives a reward of 5
@@ -28,6 +30,8 @@ the red pursuer agents. The environment terminates when every evader has been ca
 
 Observation shape takes the full form of `(obs_range, obs_range, 3)` where the first channel is 1s where there is a wall, the second channel indicates the number of allies in each coordinate and the third channel indicates the number of opponents in each coordinate.
 
+The state takes the full form of `(y_size, x_size, 3)`, with the same three channels as the observations, but covering the whole map instead of the `obs_range` box around each agent.
+
 ### Manual Control
 
 Select different pursuers with 'J' and 'K'. The selected pursuer can be moved with the arrow keys.
@@ -35,9 +39,11 @@ Select different pursuers with 'J' and 'K'. The selected pursuer can be moved wi
 
 ### Arguments
 
-``` python
-pursuit_v4.env(max_cycles=500, x_size=16, y_size=16, shared_reward=True, n_evaders=30,
-n_pursuers=8,obs_range=7, n_catch=2, freeze_evaders=False, tag_reward=0.01,
+```python
+from pettingzoo import make
+
+make("aec", "sisl/pursuit-v5", max_cycles=500, x_size=16, y_size=16, shared_reward=True,
+n_evaders=30, n_pursuers=8, obs_range=7, n_catch=2, freeze_evaders=False, tag_reward=0.01,
 catch_reward=5.0, urgency_reward=-0.1, surround=True, constraint_window=1.0)
 ```
 
@@ -70,6 +76,7 @@ catch_reward=5.0, urgency_reward=-0.1, surround=True, constraint_window=1.0)
 
 ### Version History
 
+* v5: Add state() and state space support (1.27.0)
 * v4: Change the reward sharing, fix a collection bug, add agent counts to the rendering (1.14.0)
 * v3: Observation space bug fixed (1.5.0)
 * v2: Misc bug fixes (1.4.0)
@@ -79,7 +86,6 @@ catch_reward=5.0, urgency_reward=-0.1, surround=True, constraint_window=1.0)
 """
 
 import numpy as np
-import pygame
 from gymnasium.utils import EzPickle
 
 from pettingzoo import AECEnv
@@ -104,7 +110,7 @@ parallel_env = parallel_wrapper_fn(env)
 class raw_env(AECEnv, EzPickle):
     metadata = {
         "render_modes": ["human", "rgb_array"],
-        "name": "pursuit_v4",
+        "name": "pursuit_v5",
         "is_parallelizable": True,
         "render_fps": 5,
         "has_manual_policy": True,
@@ -114,7 +120,6 @@ class raw_env(AECEnv, EzPickle):
         EzPickle.__init__(self, *args, **kwargs)
         self.env = _env(*args, **kwargs)
         self.render_mode = kwargs.get("render_mode")
-        pygame.init()
         self.agents = ["pursuer_" + str(a) for a in range(self.env.num_agents)]
         self.possible_agents = self.agents[:]
         self.agent_name_mapping = dict(zip(self.agents, list(range(self.num_agents))))
@@ -123,6 +128,7 @@ class raw_env(AECEnv, EzPickle):
         self.n_act_agents = self.env.act_dims[0]
         self.action_spaces = dict(zip(self.agents, self.env.action_space))
         self.observation_spaces = dict(zip(self.agents, self.env.observation_space))
+        self.state_space = self.env.state_space
         self.steps = 0
         self.closed = False
 
@@ -148,6 +154,9 @@ class raw_env(AECEnv, EzPickle):
     def render(self):
         if not self.closed:
             return self.env.render()
+
+    def state(self):
+        return self.env.state()
 
     def step(self, action):
         if (

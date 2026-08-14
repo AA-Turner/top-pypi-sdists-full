@@ -25,6 +25,30 @@ from .base import BaseService
 _TEMPLATE_NAME_RE = re.compile(r"^\{([A-Z0-9_]+)\}$")
 
 
+async def build_plugin_process_env(
+    bus: EventBus,
+    *,
+    plugins: dict[str, Plugin],
+    plugin: Plugin,
+    runtime_env: dict[str, str],
+) -> dict[str, str]:
+    """Project resolved binary environments exactly as hook processes receive them."""
+    env = runtime_env
+    env_plugin_names = set(filter_plugins(plugins, [plugin.name], include_providers=True))
+    binary_events = await bus.filter(
+        BinaryEvent,
+        past=True,
+        where=lambda candidate: str(candidate.extra_context.get("plugin_name") or "") in env_plugin_names,
+    )
+    for binary_event in reversed(binary_events):
+        if binary_event.env:
+            env = BinProvider.build_exec_env(
+                base_env=env,
+                extra_env=binary_event.env,
+            )
+    return BinProvider.build_exec_env(base_env=env, extra_env=runtime_env)
+
+
 def _is_app_bundle_binary(path: Path) -> bool:
     parts = path.expanduser().parts
     try:
@@ -261,7 +285,6 @@ class PluginBinariesService(BaseService):
         if current_user_config.DRY_RUN or current_user_config.ABXPKG_NO_CACHE:
             return
         current_config = await get_config(self.bus)
-        binary_events = await self.bus.filter(BinaryEvent, past=True)
         for plugin in self.plugins.values():
             if not _plugin_enabled_from_user_config(plugin, current_config):
                 continue
@@ -270,22 +293,16 @@ class PluginBinariesService(BaseService):
                 plugin=plugin,
                 run_output_dir=self.output_dir,
                 config=current_config,
-                hydrate_binaries=False,
             )
-            env = runtime.to_env()
-            env_plugin_names = set(
-                filter_plugins(
-                    self.plugins,
-                    [plugin.name],
-                    include_providers=True,
-                ),
+            # BinaryEvents are process-local install state. Prepared plans must
+            # match the persisted environment available after a cold restart.
+            runtime_env = runtime.to_env()
+            env = await build_plugin_process_env(
+                self.bus,
+                plugins=self.plugins,
+                plugin=plugin,
+                runtime_env=runtime_env,
             )
-            for binary_event in reversed(binary_events):
-                if str(binary_event.extra_context.get("plugin_name") or "") in env_plugin_names and binary_event.env:
-                    env = BinProvider.build_exec_env(
-                        base_env=env,
-                        extra_env=binary_event.env,
-                    )
             if plugin.path.is_dir():
                 for script_path in plugin.path.iterdir():
                     if script_path.is_file() and os.access(script_path, os.X_OK):

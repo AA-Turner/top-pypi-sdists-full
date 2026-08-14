@@ -44,6 +44,25 @@ unreachable AT KICK-OFF falls back to the in-process path (which on central is t
 graceful NO_GPU/DEPS preflight); a worker that dies or times out AFTER accepting
 the job returns a retryable ``JobError`` (worker_lost / delegation_timeout).
 
+THE DELEGATION DEADLINE IS PROGRESS-AWARE (k91, 2026-08-06). It used to be a pure
+WALL CLOCK on the render: ``HUGPY_STUDIO_DELEGATE_TIMEOUT_S`` (30 min) started at the
+RUNNING transition and cancelled whatever was on the card when it expired. That killed
+a LIVE render — a 14-segment Cinema movie whose segment 0 was at step 19/32 with the
+worker reporting ~86 s/step under GPU contention, i.e. ~46 min of honest work for that
+one segment. A clock that cannot tell "wedged" from "slow" answers the wrong question:
+the thing worth ending is a render that has STOPPED MOVING, not one that is merely
+long. So the loop now tracks the last time the worker's own progress ADVANCED (phase /
+step / steps / queue position — the blob it already publishes) and produces
+``delegation_timeout`` when there has been NO advance for ``HUGPY_STUDIO_STALL_TIMEOUT_S``
+(default 900s). ``HUGPY_STUDIO_DELEGATE_TIMEOUT_S`` is RETAINED, unrenamed and at its
+existing 1800s default, but demoted to an ABSOLUTE CEILING on a running render — the
+backstop for a worker that keeps emitting plausible movement forever. Its default is
+therefore SMALLER than a single real long render, and an operator running long renders
+raises it (the live drop-in
+``/etc/systemd/system/hugpy-api-dev.service.d/studio-worker.conf`` sets 14400); the
+stall window is what should normally fire. The overall cap (queue wait + render) is
+unchanged.
+
 Heavy studio imports (which transitively pull numpy/PIL via the synthetic runner)
 are LAZY — done inside the functions — so importing this module (which the bus does
 at boot, via ``runners/__init__``) stays cheap and can never break app boot.
@@ -74,18 +93,32 @@ _RETRYABLE_CODES = frozenset({"oom", "nan_in_vae", "assembly_failed", "io_error"
 _WORKER_ENV = "HUGPY_STUDIO_WORKER"            # base URL of the studio GPU worker
 _FORCE_REMOTE_ENV = "HUGPY_STUDIO_FORCE_REMOTE"  # TEST-ONLY: delegate even synthetic
 _POLL_ENV = "HUGPY_STUDIO_POLL_INTERVAL_S"     # status poll cadence (s)
-_TIMEOUT_ENV = "HUGPY_STUDIO_DELEGATE_TIMEOUT_S"  # RENDER budget once RUNNING (s)
+_TIMEOUT_ENV = "HUGPY_STUDIO_DELEGATE_TIMEOUT_S"  # ABSOLUTE render ceiling once RUNNING (s)
+_STALL_ENV = "HUGPY_STUDIO_STALL_TIMEOUT_S"       # no-forward-progress window (s)
 _OVERALL_CAP_ENV = "HUGPY_STUDIO_OVERALL_CAP_S"   # overall wall-clock cap incl. queue wait (s)
 # Kick-off retry (item 2): a ConnectionReset/refused at kick-off (the post-restart /
 # converge socket window) retries within this window before falling back in-process.
 _KICKOFF_RETRY_WINDOW_ENV = "HUGPY_STUDIO_KICKOFF_RETRY_WINDOW_S"
 _KICKOFF_RETRY_INTERVAL_ENV = "HUGPY_STUDIO_KICKOFF_RETRY_INTERVAL_S"
 _DEFAULT_POLL_S = 2.0
-# TWO clocks (item 1): the RENDER budget bounds a render once it is actually RUNNING
-# on the worker (it does NOT penalize time a job spent WAITING in the worker's queue);
-# the OVERALL cap is a separate wall-clock ceiling over the whole delegation (queue
-# wait + kick-off-409 retries + render) so a wedged worker can never hang a job forever.
-_DEFAULT_TIMEOUT_S = 1800.0                     # 30 min: a real Wan render fits well under
+# THREE clocks, in the order they should fire (see the header's k91 note):
+#   * the STALL window is the PRIMARY deadline — silence from the worker's own progress
+#     blob (no phase/step/steps/queue-position advance) for this long means the render
+#     has stopped moving, which is the only thing worth cancelling. A render that is
+#     merely SLOW keeps resetting this clock and is never touched. 900s mirrors comms'
+#     own wedged-active retirement window (comms/jobs.py::_stalled_expiry_seconds), so
+#     "this job is wedged" means the same number on both sides of the bridge.
+#   * the RENDER ceiling is the ABSOLUTE backstop on a render that is actually RUNNING
+#     (it does NOT penalize time a job spent WAITING in the worker's queue) — for a
+#     worker that emits plausible-but-meaningless movement forever. ⚠ Its 1800s default
+#     is DELIBERATELY retained (never renamed, never widened under an operator) but is
+#     SMALLER than a single real long render: a 32-step Wan segment at ~86 s/step under
+#     GPU contention is ~46 min. An operator who runs long renders RAISES it — the live
+#     drop-in /etc/systemd/system/hugpy-api-dev.service.d/studio-worker.conf sets 14400.
+#   * the OVERALL cap is a separate wall-clock ceiling over the WHOLE delegation (queue
+#     wait + kick-off-409 retries + render) so a wedged worker can never hang a job forever.
+_DEFAULT_STALL_TIMEOUT_S = 900.0               # 15 min of NO forward progress = wedged
+_DEFAULT_TIMEOUT_S = 1800.0                     # absolute ceiling on a RUNNING render
 _DEFAULT_OVERALL_CAP_S = 7200.0                # 2 h: render budget + a few queued jobs ahead
 _DEFAULT_KICKOFF_RETRY_WINDOW_S = 30.0         # retry a reset/refused kick-off for ~30s
 _DEFAULT_KICKOFF_RETRY_INTERVAL_S = 5.0        # ...every ~5s (also the queue-full retry cadence)
@@ -589,26 +622,57 @@ def _http_get_json(url: str, timeout: float):
         return resp.getcode(), (json.loads(body) if body else {})
 
 
-def _timeout_outcome(render_id: str, base: str, cancel_url: str) -> ClipOutcome:
-    """Overall wall-clock budget exceeded: best-effort tell the worker to stop, then
-    return a retryable delegation_timeout ``ClipOutcome`` (never a stuck 'running' row).
-    The delegation loop returns this so BOTH callers settle it their own way."""
+def _timeout_outcome(render_id: str, base: str, cancel_url: str,
+                     reason: str = "exceeded the delegation timeout") -> ClipOutcome:
+    """A delegation deadline fired: best-effort tell the worker to stop, then return a
+    retryable delegation_timeout ``ClipOutcome`` (never a stuck 'running' row). The
+    delegation loop returns this so BOTH callers settle it their own way.
+
+    ``reason`` names WHICH of the three clocks fired (stall window / absolute render
+    ceiling / overall cap) and carries into the JobError message, because "timed out"
+    alone does not tell an operator whether to raise a knob or go look at the worker —
+    the exact ambiguity that made the k91 incident read as a healthy 30-min budget doing
+    its job. Defaulted so the retained ``_timeout_result`` shape is unchanged."""
     try:
         _http_post_json(cancel_url, {}, timeout=_CANCEL_TIMEOUT_S)
     except Exception:  # noqa: BLE001
         pass
-    logger.warning("studio render %s exceeded delegation timeout on %s", render_id, base)
+    logger.warning("studio render %s cancelled on %s — %s", render_id, base, reason)
     return ClipOutcome(ok=False, error=JobError(
         code="delegation_timeout",
-        message=f"studio render on {base} exceeded the delegation timeout",
+        message=f"studio render on {base} was cancelled: {reason}",
         retryable=True))
 
 
 def _timeout_result(job_id: str, base: str, cancel_url: str) -> JobResult:
-    """JobResult wrapper over ``_timeout_outcome`` (retained public shape). Overall
-    wall-clock budget exceeded -> best-effort stop the worker + a retryable JobError."""
+    """JobResult wrapper over ``_timeout_outcome`` (retained public shape). A delegation
+    deadline fired -> best-effort stop the worker + a retryable JobError."""
     outcome = _timeout_outcome(job_id, base, cancel_url)
     return JobResult(job_id=job_id, ok=False, error=outcome.error)
+
+
+# The worker-published fields that constitute FORWARD PROGRESS. Deliberately an
+# ALLOW-LIST, not "the blob changed": a worker that stamps a wall-clock timestamp (or
+# any other free-running field) into its progress dict would otherwise keep the stall
+# clock alive forever and re-create the very hang the stall window exists to bound.
+# These are the fields the worker actually moves — the denoise step, the coarse phase,
+# a frame counter, and the queue position it counts down while WAITING.
+_PROGRESS_ADVANCE_KEYS = ("phase", "stage", "step", "steps", "frame", "frames",
+                          "position", "progress")
+
+
+def _progress_key(status, st: dict):
+    """A comparable fingerprint of everything the worker says it has ACHIEVED for this
+    render: the coarse status plus the allow-listed fields of its progress blob. The
+    delegation loop resets its stall clock whenever this value CHANGES, so "moving" is
+    defined by the worker's own published movement and nothing else. Total by
+    construction — a missing/ill-typed progress blob simply contributes nothing (the
+    status alone still fingerprints), never a raise inside the poll loop."""
+    prog = st.get("progress") if isinstance(st, dict) else None
+    fields = ()
+    if isinstance(prog, dict):
+        fields = tuple((k, prog.get(k)) for k in _PROGRESS_ADVANCE_KEYS if k in prog)
+    return (status, (st.get("position") if isinstance(st, dict) else None), fields)
 
 
 def _delegate_to_worker(base: str, spec, render_id: str, *,
@@ -654,6 +718,7 @@ def _delegate_to_worker(base: str, spec, render_id: str, *,
 
     poll_s = _float_env(_POLL_ENV, _DEFAULT_POLL_S)
     render_budget = _float_env(_TIMEOUT_ENV, _DEFAULT_TIMEOUT_S)
+    stall_window = _float_env(_STALL_ENV, _DEFAULT_STALL_TIMEOUT_S)
     overall_cap = _float_env(_OVERALL_CAP_ENV, _DEFAULT_OVERALL_CAP_S)
     reset_window = _float_env(_KICKOFF_RETRY_WINDOW_ENV, _DEFAULT_KICKOFF_RETRY_WINDOW_S)
     retry_interval = _float_env(_KICKOFF_RETRY_INTERVAL_ENV, _DEFAULT_KICKOFF_RETRY_INTERVAL_S)
@@ -723,19 +788,38 @@ def _delegate_to_worker(base: str, spec, render_id: str, *,
                 worker_version or "?")
 
     # ---- poll to settlement ----------------------------------------------------
-    # TWO clocks: the RENDER budget clock starts only at the RUNNING transition (a
-    # queued job is not charged for its wait); the OVERALL cap is the absolute ceiling
-    # over queue wait + render.
+    # THREE clocks (see the module header's k91 note + the _DEFAULT_* block):
+    #   * STALL — the primary deadline. ``last_advance_at`` is the last time the worker's
+    #     own progress fingerprint (_progress_key) CHANGED; silence past ``stall_window``
+    #     means the render stopped moving. A slow-but-advancing render never trips it.
+    #   * RENDER ceiling — absolute, starts only at the RUNNING transition (a queued job
+    #     is not charged for its wait).
+    #   * OVERALL cap — the ceiling over queue wait + render.
     status_url = base + "/studio/render/" + render_id
     cancel_sent = False
     consecutive_errors = 0
     render_deadline = None            # set when we first observe status == "running"
+    last_advance_at = time.time()     # the worker has just ACCEPTED — that is movement
+    last_key = None                   # last observed _progress_key (None = nothing yet)
 
-    def _past_budget() -> bool:
+    def _deadline_reason() -> "str | None":
+        """WHICH deadline (if any) has fired right now, phrased for the operator, or
+        None while the render is still inside all three. Named clocks rather than a
+        bare bool so ``delegation_timeout`` says whether to raise a knob or go look at
+        the worker."""
         now = time.time()
         if now > overall_deadline:
-            return True
-        return render_deadline is not None and now > render_deadline
+            return (f"the overall delegation cap of {overall_cap:.0f}s "
+                    f"({_OVERALL_CAP_ENV}, queue wait + render) elapsed")
+        if render_deadline is not None and now > render_deadline:
+            return (f"the absolute render ceiling of {render_budget:.0f}s "
+                    f"({_TIMEOUT_ENV}) elapsed while it was running — raise that env "
+                    f"if this render is legitimately longer")
+        idle = now - last_advance_at
+        if idle > stall_window:
+            return (f"the worker reported no forward progress for {idle:.0f}s "
+                    f"(stall window {stall_window:.0f}s, {_STALL_ENV})")
+        return None
 
     while True:
         time.sleep(poll_s)
@@ -781,17 +865,34 @@ def _delegate_to_worker(base: str, spec, render_id: str, *,
                     message=f"studio worker {base} unreachable after "
                             f"{consecutive_errors} status polls",
                     retryable=True))
-            if _past_budget():
-                return _timeout_outcome(render_id, base, cancel_url)
+            # A FAILED poll is not movement — the stall clock keeps ticking through it
+            # (a worker we cannot reach is, by definition, not reporting progress).
+            reason = _deadline_reason()
+            if reason is not None:
+                return _timeout_outcome(render_id, base, cancel_url, reason)
             continue
 
         status = st.get("status")
 
+        # FORWARD PROGRESS: reset the stall clock whenever the worker's own published
+        # fingerprint changes (a new denoise step, a phase transition, a queue position
+        # counting down). This — not the wall clock — is what decides whether a render
+        # is alive, so a 46-minute 32-step segment ticking one step every ~86s is never
+        # cancelled while it advances (k91).
+        key = _progress_key(status, st)
+        if key != last_key:
+            last_key = key
+            last_advance_at = time.time()
+
         # QUEUED (item 1): the render is WAITING behind another on the worker. Keep
         # polling, forward the queue position as progress so the console shows it, and
         # bound the wait by the OVERALL cap only (the render budget hasn't started).
+        # WAITING IS NOT STALLING: a job sitting at a stable position behind a long
+        # render is healthy, so the stall clock is held open across the whole queue
+        # wait — preserving this branch's pre-k91 "overall cap only" bound exactly.
         if status == "queued":
             position = st.get("position")
+            last_advance_at = time.time()
             try:
                 progress_sink({"phase": "queued", "position": position})
             except Exception:  # noqa: BLE001
@@ -799,7 +900,10 @@ def _delegate_to_worker(base: str, spec, render_id: str, *,
             if time.time() > overall_deadline:
                 logger.warning("studio render %s queued past overall cap on %s",
                                render_id, base)
-                return _timeout_outcome(render_id, base, cancel_url)
+                return _timeout_outcome(
+                    render_id, base, cancel_url,
+                    f"it was still QUEUED when the overall delegation cap of "
+                    f"{overall_cap:.0f}s ({_OVERALL_CAP_ENV}) elapsed")
             continue
 
         # RUNNING transition: start the render budget clock (not charged for the wait).
@@ -825,9 +929,11 @@ def _delegate_to_worker(base: str, spec, render_id: str, *,
                 message=f"studio worker {base} no longer knows render {render_id} "
                         f"(worker restarted?)",
                 retryable=True))
-        # status == "running" -> keep polling until settled or timed out.
-        if _past_budget():
-            return _timeout_outcome(render_id, base, cancel_url)
+        # status == "running" -> keep polling until it settles, it STOPS MOVING (the
+        # stall window), or it outlives the absolute ceiling / overall cap.
+        reason = _deadline_reason()
+        if reason is not None:
+            return _timeout_outcome(render_id, base, cancel_url, reason)
 
 
 def render_clip(spec, *, render_id: str, should_cancel=None, progress_sink=None,

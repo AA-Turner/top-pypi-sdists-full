@@ -14,6 +14,7 @@ from xpander_sdk.models.shared import (
     Tokens,
     XPanderSharedModel,
 )
+from xpander_sdk.models.principal import Principal
 from xpander_sdk.models.user import User
 
 
@@ -63,6 +64,7 @@ class AgentExecutionInput(BaseModel):
         text (Optional[str]): Textual input for the agent task.
         files (Optional[List[str]]): List of file URLs to provide as input.
         user (Optional[User]): User details associated with task execution.
+        principal (Optional[Principal]): Typed caller identity behind the task.
 
     Validators:
         validate_at_least_one: Ensures that either text or files are provided.
@@ -75,6 +77,14 @@ class AgentExecutionInput(BaseModel):
     text: Optional[str] = ""
     files: Optional[List[str]] = []
     user: Optional[User] = None
+    principal: Optional[Principal] = None
+
+    def to_request_dict(self) -> dict:
+        """Wire dict for task creation; the principal key rides only when set, keeping the legacy shape."""
+        data = self.model_dump()
+        if data.get("principal") is None:
+            data.pop("principal", None)
+        return data
 
 
 class PendingECARequest(BaseModel):

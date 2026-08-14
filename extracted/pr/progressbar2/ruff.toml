@@ -1,16 +1,23 @@
 # We keep the ruff configuration separate so it can easily be shared across
 # all projects
 
-target-version = 'py38'
+target-version = 'py310'
 
 #src = ['progressbar']
 exclude = [
     '.venv',
     '.tox',
+    # Ignore local test files/directories/old-stuff
     'test.py',
+    '*_old.py',
+    # Benchmark/tooling scripts are not held to the package lint standard
+    'benchmarks',
 ]
 
-lint.ignore = [
+line-length = 79
+
+[lint]
+ignore = [
     'A001', # Variable {name} is shadowing a Python builtin
     'A002', # Argument {name} is shadowing a Python builtin
     'A003', # Class attribute {name} is shadowing a Python builtin
@@ -28,12 +35,14 @@ lint.ignore = [
     'RET506', # Unnecessary `else` after `raise` statement
     'Q001', # Remove bad quotes
     'Q002', # Remove bad quotes
+    'FA100', # Missing `from __future__ import annotations`, but uses `typing.Optional`
     'COM812', # Missing trailing comma in a list
     'ISC001', # String concatenation with implicit str conversion
     'SIM108', # Ternary operators are not always more readable
+    'RUF100', # Unused noqa directives. Due to multiple Python versions, we need to keep them
 ]
-line-length = 79
-lint.select = [
+
+select = [
     'A', # flake8-builtins
     'ASYNC', # flake8 async checker
     'B', # flake8-bugbear
@@ -41,8 +50,11 @@ lint.select = [
     'C90', # mccabe
     'COM', # flake8-commas
 
-    ## Require docstrings for all public methods, would be good to enable at some point
-    # 'D',     # pydocstyle
+    # Docstrings are required throughout `progressbar/`, which is fully
+    # documented. Everything else is exempted below: test names are
+    # already the documentation, and docs/scripts/tools are not the
+    # published API.
+    'D', # pydocstyle
 
     'E', # pycodestyle error ('W' for warning)
     'F', # pyflakes
@@ -67,9 +79,14 @@ lint.select = [
 ]
 
 [lint.per-file-ignores]
-'tests/*' = ['INP001', 'T201', 'T203']
-'examples.py' = ['T201', 'N806']
-'docs/conf.py' = ['E501', 'INP001']
+'tests/*' = ['D', 'INP001', 'T201', 'T203']
+'tests/**' = ['D']
+'examples.py' = ['D', 'T201', 'N806']
+'docs/examples/**' = ['D', 'T201']
+'docs/**' = ['D']
+'scripts/*' = ['D', 'T201']
+'tools/**' = ['D']
+'docs/conf.py' = ['D', 'E501', 'INP001']
 'docs/_theme/flask_theme_support.py' = ['RUF012', 'INP001']
 
 [lint.pydocstyle]
@@ -85,7 +102,9 @@ combine-as-imports = true
 force-wrap-aliases = true
 
 [lint.flake8-quotes]
-docstring-quotes = 'single'
+# No `docstring-quotes` setting: it used to ask for `'''`, which
+# contradicts pydocstyle's D300 and was contradicted by the code itself:
+# every one of the 666 docstring markers in `progressbar/` is `"""`.
 inline-quotes = 'single'
 multiline-quotes = 'single'
 
@@ -104,4 +123,3 @@ max-line-length = 79
 
 [lint.flake8-pytest-style]
 mark-parentheses = true
-

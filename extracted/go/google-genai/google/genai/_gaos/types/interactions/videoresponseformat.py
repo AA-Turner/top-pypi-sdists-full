@@ -56,8 +56,8 @@ class VideoResponseFormatParam(TypedDict):
     duration: NotRequired[str]
     r"""The duration for the video output."""
     gcs_uri: NotRequired[str]
-    r"""The GCS URI to store the video output. Required for Vertex if delivery mode
-    is URI.
+    r"""The Cloud Storage URI to store the video output. Required for Vertex if
+    delivery mode is URI.
     """
     type: Literal["video"]
 
@@ -75,8 +75,8 @@ class VideoResponseFormat(BaseModel):
     r"""The duration for the video output."""
 
     gcs_uri: Optional[str] = None
-    r"""The GCS URI to store the video output. Required for Vertex if delivery mode
-    is URI.
+    r"""The Cloud Storage URI to store the video output. Required for Vertex if
+    delivery mode is URI.
     """
 
     type: Annotated[

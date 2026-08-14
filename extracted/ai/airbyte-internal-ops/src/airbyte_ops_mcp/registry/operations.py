@@ -43,6 +43,7 @@ def get_registry_entry(
     connector_name: str,
     bucket_name: str,
     version: str = LATEST_GCS_FOLDER_NAME,
+    prefix: str = "",
 ) -> dict[str, Any]:
     """Get a connector's registry entry from GCS.
 
@@ -52,6 +53,8 @@ def get_registry_entry(
         connector_name: The connector name (e.g., "source-faker", "destination-postgres")
         bucket_name: Name of the GCS bucket containing the registry
         version: Version folder name (e.g., "latest", "1.2.3")
+        prefix: Optional path prefix within the bucket; leading and trailing
+            slashes are ignored.
 
     Returns:
         dict: The connector's metadata as a dictionary
@@ -66,8 +69,11 @@ def get_registry_entry(
 
     # Construct the path to the metadata file
     # Pattern: metadata/airbyte/{connector_name}/{version}/metadata.yaml
+    normalized_prefix = prefix.strip("/")
+    prefix_part = f"{normalized_prefix}/" if normalized_prefix else ""
     blob_path = (
-        f"{METADATA_FOLDER}/airbyte/{connector_name}/{version}/{METADATA_FILE_NAME}"
+        f"{prefix_part}{METADATA_FOLDER}/airbyte/"
+        f"{connector_name}/{version}/{METADATA_FILE_NAME}"
     )
     blob = bucket.blob(blob_path)
 

@@ -59,6 +59,7 @@ except ImportError:
 from mcp import ClientSession
 from mcp import SamplingCapability
 from mcp import StdioServerParameters
+from mcp.client.session import ElicitationFnT
 from mcp.client.session import SamplingFnT
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
@@ -137,9 +138,14 @@ class _StreamableHttpClientWrapper:
       await self.http_client.__aenter__()
     try:
       return await self.ctx_mgr.__aenter__()
-    except Exception:
+    except BaseException as e:
+      # BaseException, not Exception: a caller that bounds session creation
+      # cancels this task while the connect is still in flight, and
+      # `CancelledError` is not an `Exception`. Nothing else closes the client
+      # on that path -- an exit stack only registers a context manager once
+      # its `__aenter__` has returned -- so it would stay open forever.
       if hasattr(self.http_client, '__aexit__'):
-        await self.http_client.__aexit__(None, None, None)
+        await self.http_client.__aexit__(type(e), e, e.__traceback__)
       raise
 
   async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -536,6 +542,7 @@ class MCPSessionManager:
       *,
       sampling_callback: SamplingFnT | None = None,
       sampling_capabilities: SamplingCapability | None = None,
+      elicitation_callback: ElicitationFnT | None = None,
   ):
     """Initializes the MCP session manager.
 
@@ -545,12 +552,16 @@ class MCPSessionManager:
           parameters but it's not configurable for now.
         errlog: (Optional) TextIO stream for error logging. Use only for
           initializing a local stdio MCP session.
-        sampling_callback: Optional callback to handle sampling requests from the
-          MCP server.
+        sampling_callback: Optional callback to handle sampling requests from
+          the MCP server.
         sampling_capabilities: Optional capabilities for sampling.
+        elicitation_callback: Optional callback to handle elicitation requests
+          from the MCP server (``elicitation/create``), including URL-mode
+          elicitations used for out-of-band flows such as auth challenges.
     """
     self._sampling_callback = sampling_callback
     self._sampling_capabilities = sampling_capabilities
+    self._elicitation_callback = elicitation_callback
 
     if isinstance(connection_params, StdioServerParameters):
       # So far timeout is not configurable. Given MCP is still evolving, we
@@ -698,6 +709,22 @@ class MCPSessionManager:
     else:
       return 'session_no_headers'
 
+  def _session_key_for(self, headers: Optional[Dict[str, str]] = None) -> str:
+    """Returns the pool key that ``create_session`` would use for these headers.
+
+    Two calls that produce the same key talk to the same MCP server with the
+    same effective credentials, so callers can use it to key per-connection
+    caches without duplicating the header-merging rules.
+
+    Args:
+        headers: Optional headers to merge with the connection headers, exactly
+          as they would be passed to ``create_session``.
+
+    Returns:
+        The session pool key.
+    """
+    return self._generate_session_key(self._merge_headers(headers))
+
   def _merge_headers(
       self, additional_headers: Optional[Dict[str, str]] = None
   ) -> Optional[Dict[str, str]]:
@@ -754,9 +781,7 @@ class MCPSessionManager:
     Returns:
         The SessionContext if a matching session exists, None otherwise.
     """
-    merged_headers = self._merge_headers(headers)
-    session_key = self._generate_session_key(merged_headers)
-    return self._session_contexts.get(session_key)
+    return self._session_contexts.get(self._session_key_for(headers))
 
   async def _cleanup_session(
       self,
@@ -990,6 +1015,7 @@ class MCPSessionManager:
             is_stdio=is_stdio,
             sampling_callback=self._sampling_callback,
             sampling_capabilities=self._sampling_capabilities,
+            elicitation_callback=self._elicitation_callback,
         )
 
         if is_feature_enabled(FeatureName._MCP_GRACEFUL_ERROR_HANDLING):  # pylint: disable=protected-access

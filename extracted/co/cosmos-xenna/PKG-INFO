@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cosmos-xenna
-Version: 0.5.6
+Version: 0.5.7
 Requires-Dist: attrs
 Requires-Dist: cattrs
 Requires-Dist: jinja2

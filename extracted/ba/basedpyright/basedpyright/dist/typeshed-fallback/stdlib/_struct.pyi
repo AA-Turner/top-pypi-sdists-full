@@ -47,8 +47,8 @@ def pack_into(fmt: str | bytes, buffer: WriteableBuffer, offset: int, /, *v: Any
 
     Pack the values v1, v2, ... according to the format string and write
     the packed bytes into the writable buffer buf starting at offset.  Note
-    that the offset is a required argument.  See help(struct) for more
-    on format strings.
+    that the offset is a required argument.  A negative offset counts from
+    the end of the buffer.  See help(struct) for more on format strings.
     """
     ...
 def unpack(format: str | bytes, buffer: ReadableBuffer, /) -> tuple[Any, ...]:
@@ -65,6 +65,7 @@ def unpack_from(format: str | bytes, /, buffer: ReadableBuffer, offset: int = 0)
     Return a tuple containing values unpacked according to the format string.
 
     The buffer's size, minus offset, must be at least calcsize(format).
+    A negative offset counts from the end of the buffer.
 
     See help(struct) for more on format strings.
     """
@@ -110,8 +111,9 @@ class Struct:
 
         Pack the values v1, v2, ... according to the format string S.format
         and write the packed bytes into the writable buffer buf starting at
-        offset.  Note that the offset is a required argument.  See
-        help(struct) for more on format strings.
+        offset.  Note that the offset is a required argument.  A negative
+        offset counts from the end of the buffer.  See help(struct) for more
+        on format strings.
         """
         ...
     def unpack(self, buffer: ReadableBuffer, /) -> tuple[Any, ...]:
@@ -131,7 +133,8 @@ class Struct:
         Values are unpacked according to the format string Struct.format.
 
         The buffer's size in bytes, starting at position offset, must be
-        at least Struct.size.
+        at least Struct.size.  A negative offset counts from the end of the
+        buffer.
 
         See help(struct) for more on format strings.
         """

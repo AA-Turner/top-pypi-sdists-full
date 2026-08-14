@@ -24,6 +24,8 @@ class AcsCredential:
 
     :ivar acs_user_id: ID of the `ACS user <https://docs.seam.co/low-level-apis/access-systems/user-management>`_ to whom the `credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_ belongs.
 
+    :ivar akiles_metadata: Akiles-specific metadata for the `credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_.
+
     :ivar assa_abloy_vostio_metadata: Vostio-specific metadata for the `credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_.
 
     :ivar card_number: Number of the card associated with the `credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_.
@@ -72,6 +74,20 @@ class AcsCredential:
     """
 
     @dataclass
+    class AkilesMetadata(ResourceMapping):
+        """Akiles-specific metadata for the `credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_.
+
+        :ivar member_pin_id: ID of the Akiles member PIN."""
+
+        member_pin_id: Optional[str]
+
+        @classmethod
+        def from_dict(cls, d: Any):
+            return cls(
+                member_pin_id=d.get("member_pin_id", None),
+            )
+
+    @dataclass
     class AssaAbloyVostioMetadata(ResourceMapping):
         """Vostio-specific metadata for the `credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_.
 
@@ -88,15 +104,15 @@ class AcsCredential:
         :ivar override_guest_acs_entrance_ids: IDs of the guest entrances to override in the Vostio access system.
         """
 
-        auto_join: bool
-        door_names: List[str]
-        endpoint_id: str
-        key_id: str
-        key_issuing_request_id: str
-        override_guest_acs_entrance_ids: List[str]
+        auto_join: Optional[bool]
+        door_names: Optional[List[str]]
+        endpoint_id: Optional[str]
+        key_id: Optional[str]
+        key_issuing_request_id: Optional[str]
+        override_guest_acs_entrance_ids: Optional[List[str]]
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 auto_join=d.get("auto_join", None),
                 door_names=d.get("door_names", None),
@@ -123,7 +139,7 @@ class AcsCredential:
         message: str
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 created_at=d.get("created_at", None),
                 error_code=d.get("error_code", None),
@@ -151,17 +167,17 @@ class AcsCredential:
         :ivar joiner_acs_credential_ids: IDs of the credentials to which you want to join.
         """
 
-        auto_join: bool
-        card_function_type: str
-        card_id: str
-        common_acs_entrance_ids: List[str]
-        credential_id: str
-        guest_acs_entrance_ids: List[str]
-        is_valid: bool
-        joiner_acs_credential_ids: List[str]
+        auto_join: Optional[bool]
+        card_function_type: Optional[str]
+        card_id: Optional[str]
+        common_acs_entrance_ids: Optional[List[str]]
+        credential_id: Optional[str]
+        guest_acs_entrance_ids: Optional[List[str]]
+        is_valid: Optional[bool]
+        joiner_acs_credential_ids: Optional[List[str]]
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 auto_join=d.get("auto_join", None),
                 card_function_type=d.get("card_function_type", None),
@@ -182,57 +198,71 @@ class AcsCredential:
         :ivar message: Detailed description of the warning. Provides insights into the issue and potentially how to rectify it.
 
         :ivar warning_code: Unique identifier of the type of warning. Enables quick recognition and categorization of the issue.
+
+        :ivar new_code: The PIN code that was assigned instead.
+
+        :ivar original_code: The originally requested PIN code that could not be used.
         """
 
         created_at: str
         message: str
         warning_code: str
+        new_code: Optional[str]
+        original_code: Optional[str]
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 created_at=d.get("created_at", None),
                 message=d.get("message", None),
                 warning_code=d.get("warning_code", None),
+                new_code=d.get("new_code", None),
+                original_code=d.get("original_code", None),
             )
 
     access_method: str
     acs_credential_id: str
-    acs_credential_pool_id: str
+    acs_credential_pool_id: Optional[str]
     acs_system_id: str
-    acs_user_id: str
-    assa_abloy_vostio_metadata: AssaAbloyVostioMetadata
-    card_number: str
-    code: str
+    acs_user_id: Optional[str]
+    akiles_metadata: Optional[AkilesMetadata]
+    assa_abloy_vostio_metadata: Optional[AssaAbloyVostioMetadata]
+    card_number: Optional[str]
+    code: Optional[str]
     connected_account_id: str
     created_at: str
     display_name: str
-    ends_at: str
+    ends_at: Optional[str]
     errors: List[Errors]
-    external_type: str
-    external_type_display_name: str
-    is_issued: bool
-    is_latest_desired_state_synced_with_provider: bool
+    external_type: Optional[str]
+    external_type_display_name: Optional[str]
+    is_issued: Optional[bool]
+    is_latest_desired_state_synced_with_provider: Optional[bool]
     is_managed: bool
-    is_multi_phone_sync_credential: bool
-    is_one_time_use: bool
-    issued_at: str
-    latest_desired_state_synced_with_provider_at: str
-    parent_acs_credential_id: str
-    starts_at: str
-    user_identity_id: str
-    visionline_metadata: VisionlineMetadata
+    is_multi_phone_sync_credential: Optional[bool]
+    is_one_time_use: Optional[bool]
+    issued_at: Optional[str]
+    latest_desired_state_synced_with_provider_at: Optional[str]
+    parent_acs_credential_id: Optional[str]
+    starts_at: Optional[str]
+    user_identity_id: Optional[str]
+    visionline_metadata: Optional[VisionlineMetadata]
     warnings: List[Warnings]
     workspace_id: str
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]):
+    def from_dict(cls, d: Any):
         return cls(
             access_method=d.get("access_method", None),
             acs_credential_id=d.get("acs_credential_id", None),
             acs_credential_pool_id=d.get("acs_credential_pool_id", None),
             acs_system_id=d.get("acs_system_id", None),
             acs_user_id=d.get("acs_user_id", None),
+            akiles_metadata=(
+                cls.AkilesMetadata.from_dict(d.get("akiles_metadata"))
+                if d.get("akiles_metadata") is not None
+                else None
+            ),
             assa_abloy_vostio_metadata=(
                 cls.AssaAbloyVostioMetadata.from_dict(
                     d.get("assa_abloy_vostio_metadata")

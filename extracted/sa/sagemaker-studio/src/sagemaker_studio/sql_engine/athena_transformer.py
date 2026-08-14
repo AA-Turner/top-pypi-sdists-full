@@ -13,7 +13,8 @@ class AthenaTransformer(DatabaseTransformer):
 
     This transformer converts Athena connection configuration into SQLAlchemy-compatible
     format using the PyAthena driver. It handles Athena-specific requirements including
-    workgroup configuration and S3 staging directories.
+    workgroup configuration. The S3 query result location is resolved by the
+    workgroup rather than passed client-side.
     """
 
     @classmethod
@@ -76,10 +77,11 @@ class AthenaTransformer(DatabaseTransformer):
         Get required fields for Athena connections.
 
         Returns:
-            List[str]: List containing "work_group" and "s3_staging_dir"
-                as mandatory fields for Athena connections.
+            List[str]: List containing "work_group" as the mandatory field
+                for Athena connections. The S3 query result location is supplied
+                by the workgroup configuration rather than client-side.
         """
-        return ["work_group", "s3_staging_dir"]
+        return ["work_group"]
 
     @staticmethod
     def to_sqlalchemy_config(connection_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -91,7 +93,7 @@ class AthenaTransformer(DatabaseTransformer):
 
         Args:
             connection_data (Dict[str, Any]): Athena connection configuration containing
-                work_group, s3_staging_dir, region, and AWS credentials.
+                work_group, region, and AWS credentials.
 
         Returns:
             Dict[str, Any]: SQLAlchemy configuration with:
@@ -99,7 +101,7 @@ class AthenaTransformer(DatabaseTransformer):
                 - connect_args: Original connection_data passed to PyAthena driver
 
         Raises:
-            ValueError: If required fields (work_group, s3_staging_dir) are missing.
+            ValueError: If required fields (work_group) are missing.
         """
         AthenaTransformer.validate_required_fields(
             AthenaTransformer.get_required_fields(), connection_data

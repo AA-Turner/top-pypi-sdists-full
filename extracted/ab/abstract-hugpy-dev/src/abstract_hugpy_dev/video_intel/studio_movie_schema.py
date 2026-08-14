@@ -39,7 +39,14 @@ V0 SIMPLIFICATIONS (stated here + in the runner header + the report):
   * ``model_id`` / ``steps`` / ``cfg`` are movie-level defaults, but a node MAY
     OVERRIDE them per segment (honored when set — not dead fields). ``negative``
     and ``seed`` are likewise per-segment-overridable over the movie default.
-  * NO PER-SEGMENT DURATION/FRAMES FIELD — STILL, BUT FOR A NARROWER REASON NOW.
+  * PER-SEGMENT + MOVIE-LEVEL ``frames`` EXIST NOW (2026-08-13, operator: "the
+    length of the video generations has been ambiguous") — added TOGETHER with
+    the runner thread (studio_movie.py sets ``requested_frames`` per segment:
+    goal.frames else spec.frames else None -> the bound model's default), per
+    the rule below. The spine clamps to the model ceiling and snaps to the 4k+1
+    temporal cadence, so an out-of-envelope ask degrades honestly, never lies.
+  * (HISTORICAL NOTE — the reasoning that kept this field OUT until the thread
+    existed:)
     Clip length is a pure function of the manifest, derived by the studio spine
     (``RenderManifest.requested_frames`` when the caller asks for a length, else the
     bound model's default — 81 frames for a real model, ``fps * 2`` FRAMES for the
@@ -152,6 +159,10 @@ class StudioMovieGoal:
                            carry: the parent plays in FULL and the child is a fresh render;
                            INCOMPATIBLE with ``branch_frame`` / ``context_frames``). goal 0
                            (the root) MUST be "still".
+        frames             optional per-segment CLIP LENGTH in frames; None ⇒ the
+                           movie-level ``frames`` (else the bound model's default,
+                           81 for real models). Clamped to the model ceiling and
+                           snapped to the 4k+1 cadence by the spine at render.
         context_frames     optional per-segment override of how many trailing parent
                            frames condition a ``vace_extend`` splice; None ⇒ the
                            movie-level ``context_frames``. Only consulted when
@@ -183,6 +194,7 @@ class StudioMovieGoal:
     cfg: Optional[float] = None
     joint_mode: str = _DEFAULT_JOINT_MODE
     context_frames: Optional[int] = None
+    frames: Optional[int] = None
     reference_images: Optional[Tuple[str, ...]] = None
 
 
@@ -204,7 +216,44 @@ class StudioMovieSpec:
                          = router auto-pick).
         steps/cfg        movie-level default sampler overrides (a node may override;
                          None = the bound model's family default).
+        title            optional human NAME for this movie SESSION (k91) — free text,
+                         non-canonical, purely for the operator ("the lighthouse
+                         cut"). OPTIONAL BY CONTRACT: every pre-k91 caller omits it
+                         and gets None, and nothing downstream branches on it, so an
+                         unnamed movie behaves exactly as it always has. It is
+                         DELIBERATELY not ``project``: ``project`` is a SLUG that
+                         becomes the on-disk movie dir (``movie_root_for``), so
+                         renaming it would move the session's directory and orphan
+                         every rendered segment. ``title`` is display-only and can
+                         therefore be changed freely — which is the whole point,
+                         since the UI warns about an unnamed movie AFTER the render
+                         is already under way.
         project          optional human auto-archive NAME (non-canonical metadata).
+                         ⚠ Also the movie DIR's leaf name (slugified) — see
+                         ``runners.studio_movie.movie_root_for``.
+        session_id       optional PIN for the movie dir's leaf name (k91). None — the
+                         only value a SUBMIT ever sets — means "derive the leaf as
+                         always": the slugified ``project``, else the bus job id.
+                         RESUME sets it, and must.
+
+                         WHY IT HAS TO EXIST. A movie DIR is the resumable session, and
+                         resume works by re-enqueueing this spec so ``produce_clip``
+                         finds each completed segment's clip already sitting at
+                         ``<movie_dir>/segment_NN/<content_hash>/clip.mp4``. That lookup
+                         is BY PATH — so if the dir moves, nothing is found and every
+                         segment re-renders from scratch. For an UNNAMED movie the leaf
+                         is the job id, and a resume mints a NEW job id, which would
+                         move the dir on every single resume: the feature would appear
+                         to work while silently re-rendering the whole movie. Pinning
+                         the leaf is what makes "the clips are the checkpoint" true.
+
+                         Deliberately NOT folded into ``project``: ``project`` is
+                         auto-archive metadata that threads down into every per-segment
+                         studio spec, and overloading it would put a hex session id in
+                         front of the operator as their project name.
+
+                         Constrained to a bare path LEAF (no separators, not "."/"..")
+                         because it becomes a directory name.
         out_root         output location (a dir under the media-store root); None
                          resolves to the studio-movie default in the runner.
         start_image      optional conditioning still for SEGMENT 0 (a MediaRef of
@@ -213,6 +262,8 @@ class StudioMovieSpec:
         time_budget_s    optional wall-clock budget the runner owns itself (the
                          single-daemon bus has no timeout/reaper), honored BETWEEN
                          segments — mirrors ``MovieSpec.time_budget_s``.
+        frames           movie-level default CLIP LENGTH per segment (a goal's own
+                         ``frames`` overrides); None ⇒ each bound model's default.
         context_frames   movie-level default number of trailing parent frames that
                          condition a ``vace_extend`` splice (a node may override via
                          its own ``context_frames``). Only consulted for vace_extend
@@ -242,11 +293,18 @@ class StudioMovieSpec:
     model_id: Optional[str] = None
     steps: Optional[int] = None
     cfg: Optional[float] = None
+    # SESSION NAME (k91). Optional, display-only, never load-bearing — see the class
+    # docstring for why this is separate from ``project`` (which names the DIR).
+    title: Optional[str] = None
     project: Optional[str] = None
+    # SESSION DIR PIN (k91). None on every submit; set by RESUME so the re-enqueued run
+    # lands on the SAME dir and finds the already-rendered clips. See the docstring.
+    session_id: Optional[str] = None
     out_root: Optional[str] = None
     start_image: Optional[MediaRef] = None
     time_budget_s: Optional[int] = None
     context_frames: int = _DEFAULT_CONTEXT_FRAMES
+    frames: Optional[int] = None
     reference_images: Tuple[str, ...] = ()
 
 
@@ -265,6 +323,16 @@ def _check_steps_cfg(where: str, steps, cfg) -> None:
             raise ValueError(
                 f"{where} cfg must be a number in [{_MIN_CFG}, {_MAX_CFG}] or None; "
                 f"got {cfg!r}")
+
+
+def _check_frames(where: str, value) -> None:
+    """Clip-length guard (movie-level + per-goal): a positive int or None.
+    The UPPER bound is deliberately not here — the spine clamps to the bound
+    model's ceiling at render (per-model, unknowable at construction)."""
+    if value is None:
+        return
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        raise ValueError(f"{where}: frames must be a positive int or None; got {value!r}")
 
 
 def _check_context_frames(where: str, value) -> None:
@@ -288,11 +356,14 @@ def make_studio_movie(
     model_id: Optional[str] = None,
     steps: Optional[int] = None,
     cfg: Optional[float] = None,
+    title: Optional[str] = None,
     project: Optional[str] = None,
+    session_id: Optional[str] = None,
     out_root: Optional[str] = None,
     start_image: Optional[MediaRef] = None,
     time_budget_s: Optional[int] = None,
     context_frames: int = _DEFAULT_CONTEXT_FRAMES,
+    frames: Optional[int] = None,
     reference_images: Optional[Tuple[str, ...]] = None,
 ) -> StudioMovieSpec:
     """Validate every field and build the frozen ``StudioMovieSpec``. Raises
@@ -318,6 +389,9 @@ def make_studio_movie(
         ``context_frames`` (both must be None) — rejected LOCALLY.
       * CONTEXT FRAMES: the movie-level + any per-node ``context_frames`` is an int in
         [1, 32] (a splice needs >=1 context frame; the cap keeps room to generate).
+      * TITLE (k91): None or a string; whitespace-only normalizes to None (an unnamed
+        session), mirroring ``project``'s normalization. Never required — a movie
+        submitted without one is valid and renders identically.
       * REFERENCE IMAGES: movie-level ``reference_images`` is None/() or a tuple of
         non-empty path strings, at most ``_MAX_REFERENCE_IMAGES`` (an identity movie).
         Each node's OPTIONAL ``reference_images`` (the per-goal id_lock override) is
@@ -352,9 +426,35 @@ def make_studio_movie(
     if model_id is not None and not (isinstance(model_id, str) and model_id.strip()):
         raise ValueError(f"model_id must be a non-empty string or None; got {model_id!r}")
     _check_steps_cfg("movie-level", steps, cfg)
+    # SESSION NAME (k91): free text, normalized the SAME way ``project`` is — a
+    # whitespace-only name is not a name, so it collapses to None rather than being
+    # stored as "   ". That matters because the UI's "warn if unnamed" test is a plain
+    # truthiness check on this field, and a blank-but-present title would defeat it
+    # while looking named in the session list.
+    if title is not None and not isinstance(title, str):
+        raise ValueError(f"title must be a string or None; got {title!r}")
+    title = (title.strip() or None) if isinstance(title, str) else None
     if project is not None and not isinstance(project, str):
         raise ValueError(f"project must be a string or None; got {project!r}")
     project = (project.strip() or None) if isinstance(project, str) else None
+    # SESSION DIR PIN (k91): None (derive as always) or a bare path LEAF. It becomes a
+    # DIRECTORY NAME, so a separator or a parent ref is rejected LOCALLY here rather
+    # than turned into a path the runner would then write through — the same
+    # never-build-a-path-from-unvalidated-input rule the routes' jail enforces, applied
+    # at the one place this value can enter the system.
+    if session_id is not None:
+        if not (isinstance(session_id, str) and session_id.strip()):
+            raise ValueError(
+                f"session_id must be a non-empty string or None; got {session_id!r}")
+        session_id = session_id.strip()
+        # Separators spelled out rather than reached for via ``os.sep`` — this module
+        # is pure data and imports no os (see the header), and both spellings are
+        # rejected regardless of platform.
+        if ("/" in session_id or "\\" in session_id or "\0" in session_id
+                or session_id in (".", "..")):
+            raise ValueError(
+                f"session_id must be a bare directory leaf (no path separators, "
+                f"not '.'/'..'); got {session_id!r}")
     if out_root is not None and not (isinstance(out_root, str) and out_root.strip()):
         raise ValueError(f"out_root must be a non-empty string or None; got {out_root!r}")
     if start_image is not None:
@@ -486,6 +586,9 @@ def make_studio_movie(
                     f"got {g.parent_segment_id!r}")
         prev_id = g.segment_id
 
+        _check_frames("movie", frames)
+    for _g in goals:
+        _check_frames(f"goal {_g.segment_id!r}", _g.frames)
     return StudioMovieSpec(
         goals=tuple(norm_goals),
         width=width,
@@ -498,11 +601,14 @@ def make_studio_movie(
         model_id=model_id,
         steps=steps,
         cfg=(float(cfg) if cfg is not None else None),
+        title=title,
         project=project,
+        session_id=session_id,
         out_root=out_root,
         start_image=start_image,
         time_budget_s=time_budget_s,
         context_frames=context_frames,
+        frames=frames,
         reference_images=reference_images,
     )
 
@@ -549,7 +655,14 @@ def studio_movie_from_dict(d: dict) -> StudioMovieSpec:
         model_id=d.get("model_id"),
         steps=d.get("steps"),
         cfg=d.get("cfg"),
+        # SESSION NAME (k91) — absent in every spec persisted before this field
+        # existed, so ``.get`` (not ``[]``) is what keeps a pre-k91 spec.json / bus
+        # row rehydratable. None is the correct value for an unnamed movie.
+        title=d.get("title"),
         project=d.get("project"),
+        # SESSION DIR PIN (k91) — absent on every pre-k91 spec and on every submit;
+        # present on a spec.json that has been resumed at least once.
+        session_id=d.get("session_id"),
         out_root=d.get("out_root"),
         start_image=ref,
         time_budget_s=d.get("time_budget_s"),

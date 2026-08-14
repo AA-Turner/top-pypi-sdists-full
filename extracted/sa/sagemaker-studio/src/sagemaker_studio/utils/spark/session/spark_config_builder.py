@@ -115,6 +115,36 @@ def apply_compatibility_mode_configs(spark_configs: dict) -> dict:
     return spark_configs
 
 
+def generate_s3_access_grants_configs(proj) -> dict:
+    """Get S3 Access Grants spark configs if enabled for the project's tooling environment.
+
+    Shared by the Glue, EMR Serverless and EMR on EC2 session managers. Checks
+    enableS3AccessGrantsForTools in the tooling environment's provisionedResources,
+    consistent with SageMakerStudioDataEngineeringSessions.
+
+    Returns an empty dict when S3AG is disabled, absent, or the lookup fails, so
+    callers can merge the result unconditionally.
+    """
+    try:
+        default_env = proj._sagemaker_studio_api.project_api.get_project_default_environment(
+            proj.domain_id, proj.id
+        )
+        provisioned_resources = default_env.get("provisionedResources", [])
+        s3ag_enabled = any(
+            r.get("name") == "enableS3AccessGrantsForTools" and r.get("value", "").lower() == "true"
+            for r in provisioned_resources
+        )
+        if s3ag_enabled:
+            logger.info("S3 Access Grants enabled for Spark configuration")
+            return {
+                "spark.hadoop.fs.s3.s3AccessGrants.enabled": "true",
+                "spark.hadoop.fs.s3.s3AccessGrants.fallbackToIAM": "true",
+            }
+    except Exception as e:
+        logger.warning(f"Failed to check S3 Access Grants status: {e}")
+    return {}
+
+
 def _generate_workday_irc_spark_configs(proj):
     import json
 

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-07-23T20:46:33.124836                                                            #
+# Generated on 2026-08-13T18:38:42.565915                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -13,24 +13,23 @@ if typing.TYPE_CHECKING:
 
 from .....user_decorators.user_step_decorator import user_step_decorator as user_step_decorator
 from .....user_decorators.user_step_decorator import StepMutator as StepMutator
+from .exceptions import ModelAccessDenied as ModelAccessDenied
 
 class anaconda_models(metaflow.user_decorators.user_step_decorator.StepMutator, metaclass=metaflow.user_decorators.user_step_decorator.UserStepDecoratorMeta):
     """
     Pull Anaconda catalog models inside a Metaflow step.
     
-    Injects ``@card`` and ``@secrets`` for the API key and exposes
-    ``self.anaconda_models`` with a ``.model(...)`` method.
+    Injects ``@card`` and exposes ``self.anaconda_models`` with a
+    ``.model(...)`` method. Authentication is handled via OBP platform
+    environment variables (OBP_API_SERVER, OBP_PERIMETER, METAFLOW_SERVICE_HEADERS).
     
     Parameters
     ----------
-    integration_name : str
-        Metaflow secret source for the Anaconda API key
-        (e.g. "outerbounds.ac-models-keys").
     temp_dir_root : str, optional
         Root directory for downloaded model files.
         Defaults to a new temp directory per step execution.
     """
-    def init(self, integration_name, temp_dir_root = None):
+    def init(self, temp_dir_root = None):
         ...
     def mutate(self, mutable_step):
         ...

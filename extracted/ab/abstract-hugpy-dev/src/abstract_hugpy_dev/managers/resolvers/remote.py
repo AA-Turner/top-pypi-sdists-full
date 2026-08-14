@@ -1136,6 +1136,13 @@ def _is_permanent_load_error(err: Any) -> bool:
 # missing worker-venv dependency, a serialization bug: conditions that require a
 # human/pip/file fix and will fail identically on every attempt until they get it.
 _STATE_DEPENDENT_LOAD_MARKERS = (
+    # ENGINE 4xx IS PER-REQUEST, NOT PER-MODEL (2026-08-06). "client error '4"
+    # rightly fails FAST (k53 — no hold storm), but cached it poisons the
+    # (worker, model) pair for the whole TTL: one context-overflowing caller
+    # made central answer every later caller's tiny request with "failed to
+    # load ... permanent" while the slot sat healthy (sentinel case runs).
+    # The next DIFFERENT request deserves a real attempt.
+    "client error '4", "exceeds the available context", "exceeds context",
     # capacity / placement — freed by eviction or a smaller footprint
     "won't fit", "wont fit", "won’t fit", "loadrefusal", "budgetrefusal",
     "out of memory", "insufficient storage",
@@ -1635,6 +1642,14 @@ def _worker_payload(task: str, req, model_key: str, worker_id: Optional[str],
                       if k in _REQUEST_ALLOC_KEYS and v is not None}
     else:
         _req_alloc = {}
+    # k96 no_makeroom: ALWAYS pop the key — released workers run
+    # extra="forbid" and an unknown key rejects ALL relayed chat (the same
+    # landmine as `alloc` above). The guarantee rides the WORKER's own
+    # politeness machinery instead: merge ``no_evict`` into the spill below so
+    # the worker's _apply_spill sets the per-request HUGPY_NO_EVICT and its
+    # whole admission (make-room hook, slot pool) runs politely — thread-safe
+    # there where a relayed contextvar could not be.
+    _req_no_makeroom = bool(payload.pop("no_makeroom", False))
     # A request type may carry its OWN `task` field (TranscribeRequest.task is
     # whisper's transcribe/translate MODE) — dumped last, it clobbered the
     # DISPATCH task key and every whisper offload died on the worker with
@@ -1648,6 +1663,21 @@ def _worker_payload(task: str, req, model_key: str, worker_id: Optional[str],
         spill = {**(spill or {}), **_req_alloc}
         logger.info("per-request alloc override for %s on %s: %s",
                     model_key, worker_id, _req_alloc)
+    if _req_no_makeroom:
+        # Version-gated like every polite emission: a worker that predates
+        # no_evict would silently evict residents, so the flag is stripped
+        # with the LOUD note (chat-extras precedent — degrade visibly, never
+        # silently). The dev fleet is current; this is a straggler guard.
+        from ..alloc_modes import (worker_honors_no_evict,
+                                   no_evict_downgrade_note)
+        if worker_honors_no_evict((worker or {}).get("pkg_version")):
+            spill = {**(spill or {}), "no_evict": True}
+        else:
+            logger.warning(
+                "no_makeroom relay downgrade for %s: %s", model_key,
+                no_evict_downgrade_note(
+                    (worker or {}).get("pkg_version"),
+                    (worker or {}).get("name") or worker_id or ""))
     if spill:
         payload["spill"] = spill
     if not _inline_file(payload):
@@ -1889,6 +1919,11 @@ def make_peer_runner(peer, framework: str, task: str):
             # Same wire scrub as _relay_payload: a peer on a released build
             # forbids unknown keys, and alloc dumps even when None.
             payload.pop("alloc", None)
+            # k96: a peer's pkg_version is unknown, so the no-evict guarantee
+            # can't be proven across this hop — strip fail-safe (the peer
+            # serves warm models exactly as today; a cold load there may
+            # evict, which the rollout notes call out).
+            payload.pop("no_makeroom", None)
             # t74 chat extras: a peer is a static placement.json entry with no
             # advertised pkg_version, so the version gate has nothing to read —
             # strip fail-safe (the /no_think directive still rides the

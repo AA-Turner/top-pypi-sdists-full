@@ -1,6 +1,6 @@
 [project]
 name = "pysae-ai-tools"
-version = "0.1.1742"
+version = "0.1.1743"
 description = "Shared Python tools for Pysae Claude Code skills"
 readme = "README.md"
 requires-python = ">=3.11"

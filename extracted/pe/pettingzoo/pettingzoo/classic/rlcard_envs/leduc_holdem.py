@@ -9,7 +9,7 @@
 
 This environment is part of the <a href='..'>classic environments</a>. Please read that page first for general information.
 
-| Import             | `from pettingzoo.classic import leduc_holdem_v4` |
+| Creation           | `make("aec", "classic/leduc_holdem-v4")`         |
 |--------------------|--------------------------------------------------|
 | Actions            |                                                  |
 | Parallel API       | Yes                                              |
@@ -72,6 +72,7 @@ whose turn it is. Taking an illegal move ends the game with a reward of -1 for t
 * v0: Initial versions release (1.0.0)
 
 """
+
 from __future__ import annotations
 
 import os
@@ -125,7 +126,7 @@ class raw_env(RLCardBase, EzPickle):
             gymnasium.logger.warn(
                 "You are calling render method without specifying any render mode."
             )
-            return
+            return None
 
         def calculate_offset(tile_size):
             return int(tile_size * 23 / 28)
@@ -137,9 +138,10 @@ class raw_env(RLCardBase, EzPickle):
         )
 
         if self.screen is None:
-            pygame.init()
+            pygame.font.init()
 
             if self.render_mode == "human":
+                pygame.display.init()
                 self.screen = pygame.display.set_mode((screen_width, screen_height))
                 pygame.display.set_caption("Leduc Hold'em")
             else:
@@ -256,7 +258,7 @@ class raw_env(RLCardBase, EzPickle):
                 )
 
                 # Blit poker chip img
-                for j in range(0, int(chips[key]["number"])):
+                for j in range(int(chips[key]["number"])):
                     if i % 2 == 0:
                         self.screen.blit(
                             chip_img,

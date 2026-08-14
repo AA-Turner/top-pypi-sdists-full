@@ -64,6 +64,11 @@ from abstract_hugpy_dev.video_intel.gen_schema import (
 from abstract_hugpy_dev.video_intel.scene_schema import make_generate_scene
 from abstract_hugpy_dev.video_intel.movie_schema import GoalInterval, make_movie
 from abstract_hugpy_dev.video_intel.studio.job import make_studio_i2v
+from abstract_hugpy_dev.video_intel.studio.tester import (
+    CATEGORY_KIND as _TESTER_CATEGORY_KIND,
+    make_studio_tester,
+    mint_battery_dir as _mint_tester_battery_dir,
+)
 from abstract_hugpy_dev.video_intel.studio_movie_schema import (
     _DEFAULT_CONTEXT_FRAMES as _DEFAULT_MOVIE_CONTEXT_FRAMES,
     StudioMovieGoal,
@@ -115,9 +120,16 @@ def _log_assist(**fields) -> None:
 # --------------------------------------------------------------------------- #
 def _request_principal():
     try:
-        from ..operator_auth import operator_authenticated
-        if operator_authenticated():
+        from ..operator_auth import principal_role, principal_username
+        role = principal_role()
+        if role == "operator":
             return "operator"
+        if role == "member":
+            # A member is attributed BY NAME (2026-08-06). "operator" would be a
+            # lie now that the two are different tiers, and /llm/jobs is where an
+            # admin reads who spent the GPU.
+            username = principal_username()
+            return f"user:{username}" if username else "member"
     except Exception:  # noqa: BLE001
         pass
     try:
@@ -130,11 +142,107 @@ def _request_principal():
     return None
 
 
+# --------------------------------------------------------------------------- #
+# 2026-08-06 ARTIFACT OWNERSHIP — the VIEWER of this request.
+#
+# The /video gate (video_auth) answers "may this caller use the studio at all".
+# It cannot answer "whose clips are these", which is why an anonymous-to-hugpy
+# member used to see (and stream) every other account's renders through
+# /video/studio/clips, /video/jobs and /video/media?handle=. These helpers are
+# the second half: every listing filters on the viewer, and every per-id read
+# checks it.
+#
+# _viewer() -> (unscoped, username):
+#   * (True,  <name|None>) — sees the WHOLE catalog, and may narrow it with
+#     ?owner=<name>. That is: an admin session, the operator-token M2M path,
+#     open mode (self-hosted single-operator), AND a caller with no account at
+#     all that nevertheless reached this route.
+#   * (False, "alice")     — a MEMBER: sees ONLY rows whose owner is "alice".
+# NULL-owner (legacy/unattributed) rows match no member, so they are visible
+# only to an unscoped viewer.
+#
+# WHY "no account" IS UNSCOPED RATHER THAN DENIED — read before changing.
+# Authentication for this surface is the GATE's job (video_auth), not this
+# module's. By the time a route body runs, the gate has already admitted the
+# request as ONE of: an operator token, open mode, a member/admin session, or a
+# VIDEO-SHARE credential (``hpv_…``) — the share link being an accountless
+# principal BY DESIGN. Refusing "no account" here would silently kill the share
+# feature (a share guest could no longer stream the clip the link exists to
+# show) and would break every embedding that mounts these blueprints without a
+# gate. So this layer answers only the question the gate cannot: "which of the
+# catalog's rows belong to the LOGGED-IN MEMBER making this call". A share
+# credential therefore sees exactly what it saw before this slice — unchanged,
+# and unchangeable from the member side, since minting one is operator-only
+# (/keys/video-share is in operator_auth._SENSITIVE). Scoping share links to a
+# single artifact is a separate slice; it belongs in the share-key store, not
+# in a fail-open/fail-closed flip here.
+# --------------------------------------------------------------------------- #
+def _viewer():
+    try:
+        from ..operator_auth import principal_role, principal_username
+        role = principal_role()
+        username = principal_username()
+    except Exception:  # noqa: BLE001 — an auth-layer hiccup must not open the
+        # per-member scoping OR break the surface: scope to nobody-in-particular
+        # exactly as an accountless caller, which the gate has already vetted.
+        return (True, None)
+    if role == "member":
+        return (False, username)
+    return (True, username if role == "operator" else None)
+
+
+def _caller_username():
+    """The owner string to stamp on artifacts this request creates (None for an
+    operator-token / open-mode / share-link caller — such jobs are unattributed
+    and therefore visible only to an unscoped viewer afterwards)."""
+    _unscoped, username = _viewer()
+    return username
+
+
+def _owner_filter():
+    """The owner a LISTING must be scoped to, as ``(scoped, owner)``.
+
+    ``(False, None)``   -> unscoped (the whole catalog).
+    ``(True, "alice")`` -> scope to that owner (a member, or an unscoped
+                           viewer's explicit ``?owner=`` narrowing).
+    ``(True, None)``    -> scope to NOBODY: a MEMBER whose username could not be
+                           resolved. An empty listing is the honest answer —
+                           never a silent fall-through to the whole catalog."""
+    unscoped, username = _viewer()
+    if unscoped:
+        requested = (request.args.get("owner") or "").strip()
+        return (True, requested) if requested else (False, None)
+    return (True, username)
+
+
+def _may_view_job(job_owner) -> bool:
+    """May this request read the artifact owned by ``job_owner``? An unscoped
+    viewer: always. A member: only their own — which makes a NULL-owner
+    (legacy/unattributed) artifact invisible to every member."""
+    unscoped, username = _viewer()
+    if unscoped:
+        return True
+    if not job_owner or not username:
+        return False
+    return job_owner == username
+
+
+def _forbidden_artifact():
+    """The one deny shape for a per-id artifact read the viewer does not own.
+    403 (not 404): job ids are uuid4 hex, so there is nothing to enumerate, and
+    an honest refusal beats a lie the console would render as 'deleted'."""
+    return jsonify({"error": "forbidden: artifact belongs to another account"}), 403
+
+
 def _video_enqueue(name, spec):
-    """media_bus.enqueue with the request principal stamped for attribution (k9).
-    Every /video enqueue route funnels through this so a job's origin (operator
-    vs a share link) rides onto /llm/jobs uniformly."""
-    return media_bus.enqueue(name, spec, principal=_request_principal())
+    """media_bus.enqueue with the request principal stamped for attribution (k9)
+    and the OWNER stamped for authorization (2026-08-06). Every /video enqueue
+    route funnels through this, so both ride onto every job uniformly: the
+    principal surfaces the job's origin on /llm/jobs, the owner is what the
+    listing/serve routes filter on. An operator-token / open-mode / share-link
+    enqueue stores owner=NULL, which reads afterwards as admin-only."""
+    return media_bus.enqueue(name, spec, principal=_request_principal(),
+                             owner=_caller_username())
 
 
 # --------------------------------------------------------------------------- #
@@ -242,7 +350,7 @@ def _ingest_image_references(raws):
         if not os.path.isfile(rp):
             return None, ({"error": "reference_image not found"}, 404)
         try:
-            iref = media_store.ingest(rp, kind_hint="image")
+            iref = media_store.ingest(rp, kind_hint="image", owner=_caller_username())
         except Exception as exc:  # unreadable / not a real image = bad input
             return None, ({"error": f"reference_image is not a readable media file: {exc}"}, 400)
         if iref.kind != "image":
@@ -262,7 +370,7 @@ def video_ingest():
     if resolved is None:
         return jsonify({"error": f"path missing or outside storage jail: {path!r}"}), 400
     try:
-        ref = media_store.ingest(resolved)
+        ref = media_store.ingest(resolved, owner=_caller_username())
     except Exception as exc:  # ingest raises locally (FileNotFound/Value/Runtime)
         return jsonify({"error": f"{type(exc).__name__}: {exc}"}), 400
     return jsonify(dataclasses.asdict(ref)), 200
@@ -465,6 +573,18 @@ def video_generate_movie():
                 end_frame=gd.get("end_frame"),
                 prompt=gd.get("prompt"),
                 ref=ref,
+                # per-goal PROMPT-COMPONENT overrides (k92) — absent = None = inherit
+                # the movie-level knob; make_movie validates each when present.
+                model_id=gd.get("model_id"),
+                width=gd.get("width"),
+                height=gd.get("height"),
+                steps=gd.get("steps"),
+                guidance=gd.get("guidance"),
+                seed=gd.get("seed"),
+                negative=gd.get("negative"),
+                strength=gd.get("strength"),
+                chain=gd.get("chain"),
+                motion=gd.get("motion"),
             ))
         spec = make_movie(
             goals=tuple(goals),
@@ -630,7 +750,7 @@ def video_studio_i2v():
                 return jsonify({"error": "source_video not found"}), 404
             # Authoritative video check: ffprobe-classify via media_store (probe wins).
             try:
-                sref = media_store.ingest(resolved_sv, kind_hint="video")
+                sref = media_store.ingest(resolved_sv, kind_hint="video", owner=_caller_username())
             except Exception as exc:  # unreadable / no A/V stream / jail = bad input
                 return jsonify(
                     {"error": f"source_video is not a readable media file: {exc}"}), 400
@@ -675,7 +795,7 @@ def video_studio_i2v():
             if not os.path.isfile(rp):
                 return jsonify({"error": "reference_image not found"}), 404
             try:
-                iref = media_store.ingest(rp, kind_hint="image")
+                iref = media_store.ingest(rp, kind_hint="image", owner=_caller_username())
             except Exception as exc:  # unreadable / not a real image = bad input
                 return jsonify(
                     {"error": f"reference_image is not a readable media file: {exc}"}), 400
@@ -751,7 +871,7 @@ def video_studio_i2v():
         if not os.path.isfile(cp):
             return jsonify({"error": "control_image not found"}), 404
         try:
-            cref = media_store.ingest(cp, kind_hint="image")
+            cref = media_store.ingest(cp, kind_hint="image", owner=_caller_username())
         except Exception as exc:
             return jsonify(
                 {"error": f"control_image is not a readable media file: {exc}"}), 400
@@ -831,6 +951,66 @@ def video_studio_i2v():
     return jsonify({"job_id": job_id}), 200
 
 
+@video_bp.route("/video/studio/tester", methods=["POST"])
+def video_studio_tester():
+    """Studio TESTER — sweep ONE prompt across EVERY servable model of a category's
+    type, recording a model-battery run-dir (one row per model).
+
+    Operator-gated (see operator_auth._SENSITIVE): a full sweep is many GPU
+    generations, so it runs as a BACKGROUND media-bus job (name "studio_tester") —
+    the request enqueues and returns immediately with the job id and the battery
+    run-dir; it does NOT block for the sweep. Per-model results stream live to the
+    studio-assist log (correlated by the job id as run_id).
+
+    Body:  {"category": "image"|"scene"|"clip"|"movie", "prompt": str,
+            "models"?: [str], "start_image"?: str, "width"?, "height"?, "fps"?,
+            "seed"?, "include_synthetic"?: bool, "run_label"?: str}
+    200 -> {"job_id", "battery_run_dir", "category", "kind", "poll"}
+    400 -> {"error"} on a bad category / empty prompt / malformed field.
+    """
+    body = request.get_json(silent=True) or {}
+    models_in = body.get("models")
+    if models_in is not None and not isinstance(models_in, list):
+        return jsonify({"error": "'models' must be a list of model ids"}), 400
+    try:
+        spec = make_studio_tester(
+            category=body.get("category"),
+            prompt=body.get("prompt"),
+            models=(tuple(models_in) if models_in else ()),
+            out_root=body.get("out_root"),
+            width=body.get("width", 768),
+            height=body.get("height", 768),
+            fps=body.get("fps", 16),
+            seed=body.get("seed", 0),
+            start_image=body.get("start_image"),
+            include_synthetic=bool(body.get("include_synthetic", False)),
+            run_label=body.get("run_label"),
+        )
+    except (ValueError, TypeError) as exc:  # bad category / prompt / field = 400
+        return jsonify({"error": str(exc)}), 400
+
+    # Pre-mint the battery run-dir HERE so the response can carry the exact path
+    # (the worker records into it). None when battery recording is disabled — the
+    # runner then mints a per-job run. Best-effort: a mint failure never blocks
+    # the enqueue.
+    battery_dir = None
+    try:
+        battery_dir = _mint_tester_battery_dir(f"tester:{spec.category}:{secrets.token_hex(6)}")
+    except Exception:  # noqa: BLE001 — telemetry must never break the enqueue
+        logger.debug("tester: battery pre-mint failed (non-fatal)", exc_info=True)
+    if battery_dir:
+        spec = dataclasses.replace(spec, battery_dir=battery_dir)
+
+    job_id = _video_enqueue("studio_tester", spec)
+    return jsonify({
+        "job_id": job_id,
+        "battery_run_dir": battery_dir,
+        "category": spec.category,
+        "kind": _TESTER_CATEGORY_KIND.get(spec.category),
+        "poll": f"/video/jobs/{job_id}",
+    }), 200
+
+
 # --------------------------------------------------------------------------- #
 # 2d''') POST /video/studio/movie — a STUDIO MOVIE (an ordered strip of studio
 #        clips conjoined at splice points, like an NLE row) via the studio spine.
@@ -899,6 +1079,9 @@ def video_studio_movie():
             # make_studio_movie's validation below.
             joint_mode=(g.get("joint_mode") or "still"),
             context_frames=g.get("context_frames"),
+            # CLIP LENGTH (2026-08-13): optional per-segment frames; None ->
+            # the movie-level default below -> the bound model's default.
+            frames=g.get("frames"),
         ))
         prev_id = seg_id
 
@@ -921,7 +1104,7 @@ def video_studio_movie():
         if not os.path.isfile(rp):
             return jsonify({"error": "start_image not found"}), 404
         try:
-            start_ref = media_store.ingest(rp, kind_hint="image")
+            start_ref = media_store.ingest(rp, kind_hint="image", owner=_caller_username())
         except Exception as exc:  # unreadable / not a real image = bad input
             return jsonify(
                 {"error": f"start_image is not a readable media file: {exc}"}), 400
@@ -1044,6 +1227,13 @@ def video_studio_movie():
             model_id=body.get("model_id"),
             steps=body.get("steps"),
             cfg=body.get("cfg"),
+            # SESSION NAME (k91): the operator's own name for this work. OPTIONAL —
+            # absent/blank -> None, and the composer warns-but-allows on submit. Kept
+            # distinct from ``project`` because ``project`` slugifies into the on-disk
+            # movie DIR, so it cannot be renamed after a segment has landed; the title
+            # can. "name" is accepted as an alias because that is what the field is
+            # labelled in the UI.
+            title=body.get("title", body.get("name")),
             project=body.get("project"),
             out_root=body.get("out_root"),
             start_image=start_ref,
@@ -1051,6 +1241,10 @@ def video_studio_movie():
             # Movie-level default trailing-frame count for vace_extend splices (a node may
             # override via its own context_frames). Absent -> the schema default (8).
             context_frames=body.get("context_frames", _DEFAULT_MOVIE_CONTEXT_FRAMES),
+            # CLIP LENGTH movie-level default (2026-08-13): every segment a goal
+            # doesn't override renders this many frames (clamped + 4k+1-snapped
+            # by the spine); absent -> each bound model's default (81 real).
+            frames=body.get("frames"),
             # IDENTITY LOCK: the validated reference image uris (jail-resolved + image-classified
             # above). Non-empty -> an identity movie (every segment renders id_lock).
             reference_images=tuple(resolved_refs),
@@ -1096,7 +1290,545 @@ def video_studio_movie():
         }), 400
 
     job_id = _video_enqueue("generate_studio_movie", spec)
+
+    # SESSION PERSISTENCE (k91). Stamp the submitted spec into the movie dir the
+    # instant the job exists — BEFORE any runner claims it — so this movie is
+    # resumable from the moment it is asked for. That window is not theoretical: the
+    # run this feature exists for (a 14-segment Cinema movie, 2026-08-06) died during
+    # SEGMENT 0, which is exactly the state that has no ``movie.json`` yet. Written
+    # only from here so the runner's own rewrite (which repeats it, deliberately, for
+    # enqueue paths that are not this route) is a refresh and never the first record.
+    # Best-effort by construction — ``write_movie_spec`` swallows its own IO errors,
+    # and a job that is already enqueued must never 500 over a sidecar.
+    try:
+        from abstract_hugpy_dev.video_intel.runners.studio_movie import (
+            movie_root_for, write_movie_spec,
+        )
+        write_movie_spec(movie_root_for(spec, job_id), spec, job_id)
+    except Exception:  # noqa: BLE001 — the job is real either way
+        logger.warning("studio movie %s: submit-time spec.json write failed", job_id,
+                       exc_info=True)
+
     return jsonify({"job_id": job_id}), 200
+
+
+# --------------------------------------------------------------------------- #
+# 2d''''') MOVIE SESSIONS (k91) — a movie DIR is a resumable SESSION, and these three
+#     routes are the whole of its lifecycle surface:
+#
+#       GET  /video/studio/movies                 — every session + what it has rendered
+#       POST /video/studio/movie/<movie_id>/pause  — stop the live job, keep the work
+#       POST /video/studio/movie/<movie_id>/resume — re-enqueue the persisted spec
+#
+#     WHY THESE EXIST. A studio movie is ONE bus job that can run for hours, and until
+#     now the only handle on it was that job id. When the job ended — cancelled, timed
+#     out, reaped, or simply lost with the browser tab — the rendered segments stayed on
+#     disk and became unreachable: real GPU hours with no way to see or continue them.
+#     The two sidecars ``runners/studio_movie.py`` writes (``spec.json`` = what was
+#     ASKED for, ``movie.json`` = what has RENDERED) make the DIR the durable identity
+#     instead of the job, and these routes read/act on that.
+#
+#     ID = THE DIR LEAF. A movie's id is the name of its directory under the studio
+#     movies root — the slugified ``project`` when the caller named one, else the
+#     originating job id (``movie_root_for``, the single definition both sides share).
+#     It therefore stays stable across a resume, which mints a NEW job id; keying these
+#     routes on the job id would have made every resume a new, unrelated session.
+#
+#     SCOPE: only movies under the DEFAULT studio-movies root are listed/actionable. A
+#     movie submitted with an explicit ``out_root`` lives outside it by the caller's own
+#     choice and is not a session here — an honest 404 rather than a filesystem walk of
+#     wherever a body pointed.
+#
+#     AUTH: the blanket /video gate (video_auth) already covers all three. No extra
+#     operator check, matching the neighbouring surface: POST /video/studio/movie
+#     (enqueue) and POST /video/jobs/<id>/cancel are on the same footing, and resume is
+#     literally a re-enqueue of a spec this surface already accepted. The routes that DO
+#     add ``operator_authenticated`` (/to-editor, /mlt/render) do so because they write
+#     into the operator's real editing tree; these do not.
+# --------------------------------------------------------------------------- #
+def _movie_media_url(path):
+    """A ``/video/media`` fetch url for an absolute media path, percent-encoded.
+
+    The path is a QUERY VALUE, so it is quoted rather than interpolated raw: a movie
+    dir's leaf is a caller-supplied project name (slugified, but slugs are not
+    guaranteed url-safe forever), and an unencoded ``&`` or space would silently
+    truncate the handle and turn a playable clip into a 404. ``safe="/"`` keeps the
+    separators readable, which matters when an operator is reading these out of a
+    session listing."""
+    from urllib.parse import quote
+    return "/video/media?handle=" + quote(str(path), safe="/")
+
+
+def _movie_session_dir(movie_id):
+    """Resolve a movie SESSION id to its absolute dir under the studio-movies root, or
+    None when it is not a real session (ill-typed, path-escaping, or absent).
+
+    The single jail seam for all three session routes: ``movie_id`` is a DIR LEAF, so
+    anything carrying a separator or a parent ref is refused BEFORE it touches the
+    filesystem, and the realpath is then re-checked under the root (a symlinked leaf
+    cannot escape). Returning None for "does not exist" as well as "not allowed" is
+    deliberate — the caller answers both with the same 404, so this never becomes a
+    probe for what lives outside the tree."""
+    from abstract_hugpy_dev.video_intel.runners.studio_movie import STUDIO_MOVIE_ROOT
+    if not movie_id or not isinstance(movie_id, str):
+        return None
+    if os.sep in movie_id or "/" in movie_id or movie_id in (".", "..") or "\0" in movie_id:
+        return None
+    path = os.path.join(STUDIO_MOVIE_ROOT, movie_id)
+    if not _is_within(path, STUDIO_MOVIE_ROOT) or not os.path.isdir(path):
+        return None
+    return os.path.realpath(path)
+
+
+# The bus statuses that mean "a job is still going to do something". Named once and
+# shared by the single-job probe and the batch snapshot, so the two can never answer
+# "is this session live" differently.
+_MOVIE_INFLIGHT_STATES = ("queued", "claimed", "running", "cancelling")
+
+
+def _movie_live_status(job_id):
+    """The bus status of a session's CURRENT job (``None`` when it has none / is
+    unknown), plus whether that status is IN-FLIGHT. Used to reconcile the manifest's
+    coarse status against reality: the manifest is written BY the runner, so a run that
+    died without a terminal write leaves ``status: "running"`` behind forever, and a
+    session list that repeats that claim is the same lie about live work this slice
+    exists to end.
+
+    The SINGLE-job probe, used by pause/resume. The session LISTING resolves a whole
+    page in one query instead — see ``_movie_job_statuses``."""
+    if not job_id or not isinstance(job_id, str):
+        return None, False
+    try:
+        view = media_bus.get(job_id)
+    except Exception:  # noqa: BLE001 — a session route never 5xxes on a status read
+        return None, False
+    status = view.get("status") if isinstance(view, dict) else None
+    return status, status in _MOVIE_INFLIGHT_STATES
+
+
+def _read_movie_sidecars(movie_dir):
+    """``(manifest, envelope)`` for a movie dir — the two sidecars, read ONCE. Both are
+    already total (a missing/corrupt file reads as None), so a dir mid-write or one that
+    predates a sidecar simply contributes less information, never an error."""
+    from abstract_hugpy_dev.video_intel.runners.studio_movie import (
+        read_movie_manifest, read_movie_spec,
+    )
+    return read_movie_manifest(movie_dir) or {}, read_movie_spec(movie_dir)
+
+
+def _movie_session_job_id(manifest, envelope):
+    """The session's CURRENT bus job id.
+
+    The spec envelope's wins: it is rewritten on every submit AND every resume, while
+    the manifest's is only as fresh as the last segment the runner finished — so after a
+    resume the manifest still names the job that was paused. Falls back to the manifest
+    for a dir whose spec sidecar predates resumable sessions."""
+    job_id = envelope.get("job_id") if isinstance(envelope, dict) else None
+    if not job_id and isinstance(manifest, dict):
+        job_id = manifest.get("job_id")
+    return job_id
+
+
+def _movie_job_statuses(job_ids):
+    """``{job_id: status}`` for a whole page of sessions in ONE read-only query.
+
+    A per-row ``media_bus.get`` would be the exact shape k57 had to undo on
+    ``GET /video/jobs``: a listing that opens one connection per row serializes behind
+    whatever the renderers are doing to that DB, and the panel this feeds polls every
+    few seconds. Unknown ids are simply absent from the map (the caller reads a missing
+    entry as "no live job"), and any sqlite trouble yields an EMPTY map rather than an
+    error — a session list that loses its status reconciliation is degraded, not
+    broken."""
+    ids = [j for j in job_ids if isinstance(j, str) and j]
+    if not ids:
+        return {}
+    import sqlite3
+    try:
+        media_bus._ensure_db()
+    except Exception:  # noqa: BLE001 — mirrors the clips listing's pre-read migration
+        pass
+    try:
+        conn = sqlite3.connect(f"file:{media_bus.DB_PATH}?mode=ro", uri=True, timeout=5.0)
+        conn.execute("PRAGMA busy_timeout=5000")
+        try:
+            rows = conn.execute(
+                "SELECT job_id, status FROM media_jobs WHERE job_id IN "
+                "(" + ",".join("?" * len(ids)) + ")", ids).fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return {}
+    return {jid: status for jid, status in rows}
+
+
+def _movie_session_summary(movie_id, movie_dir, manifest, envelope, job_statuses=None):
+    """Project ONE movie dir (plus its already-read sidecars) into the session summary
+    the console lists.
+
+    Total by construction — every read below degrades to a null/empty rather than
+    raising, because this runs once per dir on a root with hundreds of them and ONE
+    corrupt sidecar must not blank the whole list. The sidecars are passed IN rather
+    than read here so the caller can read each dir exactly once and then resolve every
+    bus status in a single query (see ``_movie_job_statuses``).
+
+    The per-segment rows carry a ``media`` url for every clip that is actually ON DISK
+    RIGHT NOW, which is what makes completed segments watchable AS THEY LAND rather than
+    only after assembly: the runner rewrites ``movie.json`` after every single segment,
+    so a poll of this endpoint mid-render already sees segment N's clip while segment
+    N+1 is still denoising. The url is ``/video/media?handle=`` — the existing jailed
+    byte-serving route (a segment clip lives under the media-store root, so it is inside
+    that route's jail and carries a .mp4 name for the mime). No new serving route: one
+    jail, one place to get it wrong."""
+    from abstract_hugpy_dev.video_intel.runners.studio_movie import (
+        MOVIE_STATUS_DONE, MOVIE_STATUS_PARTIAL, MOVIE_STATUS_PAUSED,
+        MOVIE_STATUS_RUNNING,
+    )
+    manifest = manifest if isinstance(manifest, dict) else {}
+    spec_d = envelope.get("spec") if isinstance(envelope, dict) else None
+    spec_d = spec_d if isinstance(spec_d, dict) else {}
+
+    job_id = _movie_session_job_id(manifest, envelope)
+    if job_statuses is None:
+        job_status, live = _movie_live_status(job_id)
+    else:
+        job_status = job_statuses.get(job_id)
+        live = job_status in _MOVIE_INFLIGHT_STATES
+
+    # STATUS — the manifest's own claim, reconciled against the bus. Order matters:
+    #   * "done" and "paused" WIN over anything the bus says. Each is written by exactly
+    #     one writer making a claim only it can make — the runner assembles, pause
+    #     parks — and neither is un-made by a bus row. A finished movie whose (stale or
+    #     re-queued) row still reads in-flight is finished; a paused one whose
+    #     cooperative cancel is still draining as "cancelling" is paused, because that
+    #     drain IS the pause happening.
+    #   * otherwise a job actually in flight IS running.
+    #   * otherwise a "running" manifest with no live job means the run STOPPED without
+    #     a terminal write -> "partial": some segments, no assembly. Repeating the
+    #     manifest's "running" there would be the same lie about live work this whole
+    #     slice exists to end.
+    raw_status = manifest.get("status")
+    if raw_status in (MOVIE_STATUS_DONE, MOVIE_STATUS_PAUSED):
+        status = raw_status
+    elif live:
+        status = MOVIE_STATUS_RUNNING
+    elif raw_status == MOVIE_STATUS_RUNNING or raw_status is None:
+        status = MOVIE_STATUS_PARTIAL
+    else:
+        status = raw_status
+
+    segs_raw = manifest.get("segments")
+    segs_raw = segs_raw if isinstance(segs_raw, list) else []
+    goals = spec_d.get("goals")
+    goals = goals if isinstance(goals, list) else []
+
+    segments = []
+    for i, s in enumerate(segs_raw):
+        if not isinstance(s, dict):
+            continue
+        clip_path = s.get("clip_path")
+        available = bool(isinstance(clip_path, str) and clip_path
+                         and os.path.isfile(clip_path))
+        segments.append({
+            "index": s.get("index", i),
+            "segment_id": s.get("segment_id"),
+            "prompt": s.get("prompt"),
+            "status": s.get("status"),
+            "resumed": s.get("resumed"),
+            "frames": s.get("frames"),
+            "duration_s": s.get("duration_s"),
+            "error": s.get("error"),
+            # CLIP AVAILABILITY — the honest "can I watch this right now" bit. False
+            # for a segment that failed, and for one whose record exists but whose
+            # bytes are gone; the url is omitted entirely in that case rather than
+            # handed over as a link that 404s.
+            "clip_available": available,
+            "media": (_movie_media_url(clip_path) if available else None),
+        })
+
+    # Segments the spec ASKS for that have no record yet (the not-yet-started tail).
+    # Listed as "pending" so the UI can render the full strip — a 14-segment movie
+    # showing 2 rows mid-render reads as a 2-segment movie.
+    for i in range(len(segments), len(goals)):
+        g = goals[i] if isinstance(goals[i], dict) else {}
+        segments.append({
+            "index": i, "segment_id": g.get("segment_id"), "prompt": g.get("prompt"),
+            "status": "pending", "resumed": None, "frames": None, "duration_s": None,
+            "error": None, "clip_available": False, "media": None,
+        })
+
+    total = manifest.get("segments_total")
+    if not isinstance(total, int) or total <= 0:
+        total = len(goals) or len(segments)
+    completed = manifest.get("segments_completed")
+    if not isinstance(completed, int):
+        completed = len([s for s in segments if s["status"] in ("done", "resumed")])
+
+    # The assembled movie, when one has been stitched AND still exists on disk.
+    assembly = manifest.get("assembly") if isinstance(manifest.get("assembly"), dict) else {}
+    movie_media = None
+    if assembly.get("movie"):
+        movie_path = os.path.join(movie_dir, str(assembly["movie"]))
+        if os.path.isfile(movie_path):
+            movie_media = _movie_media_url(movie_path)
+
+    return {
+        "movie_id": movie_id,
+        # TITLE: the manifest's (written per segment) else the spec's — a movie paused
+        # before its first segment has a spec but no manifest, and it must still show
+        # its name. None means UNNAMED, which the composer warns about.
+        "title": manifest.get("title") or spec_d.get("title"),
+        "project": manifest.get("project") or spec_d.get("project"),
+        "job_id": job_id,
+        "job_status": job_status,
+        "status": status,
+        "segments_completed": completed,
+        "segments_total": total,
+        "segments": segments,
+        # RESUMABLE = there is a persisted spec to re-enqueue and the work is neither
+        # finished nor already in flight. The UI's resume affordance keys on this, so
+        # it is computed here rather than re-derived per client.
+        "resumable": bool(spec_d) and status not in (MOVIE_STATUS_DONE,
+                                                     MOVIE_STATUS_RUNNING),
+        "updated": manifest.get("updated_at"),
+        "width": manifest.get("width") or spec_d.get("width"),
+        "height": manifest.get("height") or spec_d.get("height"),
+        "fps": manifest.get("fps") or spec_d.get("fps"),
+        "id_lock": bool(manifest.get("id_lock") or spec_d.get("reference_images")),
+        "movie": movie_media,
+    }
+
+
+@video_bp.route("/video/studio/movies", methods=["GET"])
+def video_studio_movies():
+    """Every movie SESSION on the studio-movies root, newest activity first.
+
+    A FILESYSTEM walk, not a bus query, and deliberately so: the bus row is the thing
+    that goes away (cancelled, reaped, expired from the /llm/jobs retention window)
+    while the rendered segments are the thing that persists. Listing from the dirs is
+    what makes a session outlive the job that made it — the entire point.
+    """
+    from abstract_hugpy_dev.video_intel.runners.studio_movie import STUDIO_MOVIE_ROOT
+
+    try:
+        limit = int(request.args.get("limit", 100))
+    except (TypeError, ValueError):
+        limit = 100
+    limit = max(1, min(limit, 500))
+
+    try:
+        entries = [e for e in os.scandir(STUDIO_MOVIE_ROOT) if e.is_dir()]
+    except OSError:
+        # No studio-movies root yet (a box that has never rendered a movie) is an
+        # EMPTY list, not an error — same posture as the clips listing.
+        entries = []
+
+    # Order by dir mtime BEFORE reading any sidecar, so a root with hundreds of dirs
+    # only pays the json reads for the page it returns. mtime moves whenever the runner
+    # rewrites movie.json (i.e. after every segment), so it tracks real activity.
+    def _mtime(e):
+        try:
+            return e.stat().st_mtime
+        except OSError:
+            return 0.0
+
+    entries.sort(key=_mtime, reverse=True)
+
+    # Read each page dir's sidecars ONCE, then resolve every bus status in ONE query.
+    # The per-row alternative is the shape k57 had to undo on GET /video/jobs: a
+    # listing that hits the DB once per row serializes behind live renderers, and this
+    # is a panel that polls every few seconds.
+    sessions = []
+    for e in entries[:limit]:
+        movie_dir = _movie_session_dir(e.name)
+        if movie_dir is None:
+            continue
+        try:
+            manifest, envelope = _read_movie_sidecars(movie_dir)
+        except Exception:  # noqa: BLE001 — one bad dir never blanks the listing
+            logger.debug("movie sidecar read failed for %s", e.name, exc_info=True)
+            continue
+        sessions.append((e.name, movie_dir, manifest, envelope))
+
+    statuses = _movie_job_statuses(
+        [_movie_session_job_id(m, env) for _n, _d, m, env in sessions])
+
+    movies = []
+    for name, movie_dir, manifest, envelope in sessions:
+        try:
+            movies.append(_movie_session_summary(
+                name, movie_dir, manifest, envelope, statuses))
+        except Exception:  # noqa: BLE001 — one bad dir never blanks the listing
+            logger.debug("movie session summary failed for %s", name, exc_info=True)
+
+    return jsonify({"movies": movies}), 200
+
+
+@video_bp.route("/video/studio/movie/<movie_id>/pause", methods=["POST"])
+def video_studio_movie_pause(movie_id):
+    """Pause a movie session: cooperatively cancel its live job, then record PAUSED.
+
+    Pause is cancel PLUS a promise. The cancel is the existing cooperative path
+    (``media_bus.cancel`` — a queued job dies outright, a running one stops between
+    segments and its in-flight worker render gets the relayed cancel), so nothing new
+    can wedge here. The promise is the manifest write: without it a paused movie is
+    indistinguishable from one the operator gave up on, and "which of these is waiting
+    on me" is the question the session list has to answer.
+
+    The status is written EVEN IF there was nothing to cancel (an already-dead job, a
+    session whose runner exited hours ago). Refusing in that case would be pedantically
+    correct and practically wrong — the operator's intent is "leave this parked", and a
+    session that cannot be parked because its job already ended is precisely the case
+    this exists for. ``cancelled`` in the response says which it was.
+    """
+    from abstract_hugpy_dev.video_intel.runners.studio_movie import (
+        MOVIE_STATUS_PAUSED, mark_movie_status,
+    )
+    movie_dir = _movie_session_dir(movie_id)
+    if movie_dir is None:
+        return jsonify({"error": f"unknown movie session: {movie_id!r}"}), 404
+
+    job_id = _movie_session_job_id(*_read_movie_sidecars(movie_dir))
+
+    cancelled = False
+    job_status = None
+    if job_id:
+        try:
+            outcome = media_bus.cancel(job_id)
+            cancelled = bool(outcome.get("cancelled"))
+            job_status = outcome.get("status")
+        except Exception:  # noqa: BLE001 — a failed cancel still parks the session
+            logger.warning("movie %s: cancel of job %s failed", movie_id, job_id,
+                           exc_info=True)
+
+    manifest = mark_movie_status(movie_dir, MOVIE_STATUS_PAUSED, job_id=job_id)
+    if manifest is None:
+        # The cancel already landed, so the WORK is stopped; only the record failed.
+        # Say exactly that rather than implying nothing happened.
+        return jsonify({
+            "error": "the movie was stopped but its manifest could not be written; "
+                     "it will list as partial rather than paused",
+            "movie_id": movie_id, "job_id": job_id, "cancelled": cancelled,
+        }), 500
+
+    return jsonify({
+        "ok": True,
+        "movie_id": movie_id,
+        "job_id": job_id,
+        "status": MOVIE_STATUS_PAUSED,
+        # False = there was no live job to stop (already terminal/unknown). The
+        # session is parked either way.
+        "cancelled": cancelled,
+        "job_status": job_status,
+        "segments_completed": manifest.get("segments_completed"),
+        "segments_total": manifest.get("segments_total"),
+    }), 200
+
+
+@video_bp.route("/video/studio/movie/<movie_id>/resume", methods=["POST"])
+def video_studio_movie_resume(movie_id):
+    """Resume a movie session: re-enqueue its persisted spec as a NEW bus job.
+
+    There is no checkpoint format and no partial-render restart. Resume re-enqueues the
+    SAME spec, and ``produce_clip``'s content addressing does the rest: a segment whose
+    inputs hash to a clip already on the shared store comes back ``resumed=True`` without
+    touching a GPU, so the run walks the completed prefix in seconds and picks up at the
+    first segment that never finished. THE CLIPS ARE THE CHECKPOINT — which is why this
+    is a handful of lines and why it cannot desynchronize from what actually rendered.
+
+    Re-validated on the way through: ``studio_movie_from_dict`` rebuilds the spec through
+    the SAME validating factory the submit route uses, so a hand-edited or
+    version-skewed sidecar is a clean 400, never a malformed spec on the bus.
+
+    A session with a job already IN FLIGHT is a 409, not a second job. Two runners over
+    one movie dir would race on ``movie.json`` and interleave their segment records; the
+    honest answer is "pause it first".
+    """
+    from abstract_hugpy_dev.video_intel.runners.studio_movie import (
+        MOVIE_STATUS_RUNNING, mark_movie_status, movie_root_for, read_movie_spec,
+        write_movie_spec,
+    )
+    from abstract_hugpy_dev.video_intel.studio_movie_schema import studio_movie_from_dict
+
+    movie_dir = _movie_session_dir(movie_id)
+    if movie_dir is None:
+        return jsonify({"error": f"unknown movie session: {movie_id!r}"}), 404
+
+    envelope = read_movie_spec(movie_dir)
+    if not isinstance(envelope, dict) or not isinstance(envelope.get("spec"), dict):
+        # A dir from before spec.json existed, or an unreadable one. The segments are
+        # still there and still watchable — only the re-enqueue is impossible, and the
+        # message says why rather than pretending the session is gone.
+        return jsonify({
+            "error": "this movie has no persisted spec.json, so it cannot be "
+                     "re-enqueued (it predates resumable sessions); its rendered "
+                     "segments are still listed and playable",
+            "movie_id": movie_id,
+        }), 409
+
+    prior_job_id = envelope.get("job_id")
+    _prior_status, live = _movie_live_status(prior_job_id)
+    if live:
+        return jsonify({
+            "error": f"movie {movie_id!r} is already running as job {prior_job_id} — "
+                     f"pause it before resuming",
+            "movie_id": movie_id, "job_id": prior_job_id, "status": _prior_status,
+        }), 409
+
+    # PIN THE SESSION DIR before rebuilding. Without this the resumed spec resolves its
+    # movie dir from the NEW job id (for an unnamed movie the leaf IS the job id), so
+    # every resume would render into a FRESH directory — finding none of the completed
+    # segments, re-rendering the whole movie, and reporting success while doing it. The
+    # pin is what makes the re-enqueue a resume rather than a restart. Set on the DICT
+    # so it goes through the validating factory below (session_id is checked there as a
+    # bare directory leaf), never spliced onto a built spec.
+    spec_d = dict(envelope["spec"])
+    spec_d["session_id"] = movie_id
+    try:
+        spec = studio_movie_from_dict(spec_d)
+    except (ValueError, TypeError, KeyError) as exc:
+        return jsonify({
+            "error": f"the persisted spec for {movie_id!r} is not a valid movie spec: {exc}",
+            "movie_id": movie_id,
+        }), 400
+
+    # WHERE WILL THIS ACTUALLY RENDER? Asked through ``movie_root_for`` — the ONE
+    # definition the runner itself uses — rather than assuming ``movie_dir``, and asked
+    # BEFORE the enqueue so a mismatch refuses instead of leaving a job that will render
+    # into the wrong place. The probe id is arbitrary precisely BECAUSE the pin is set:
+    # if the leaf still varied with the job id, this check would catch it.
+    resumed_root = movie_root_for(spec, "resume-probe")
+    if os.path.realpath(resumed_root) != movie_dir:
+        # Unreachable given the pin; kept because the failure it guards is SILENT — a
+        # full re-render that looks like a successful resume, visible only as an
+        # unexplained GPU bill.
+        logger.error("movie %s: resume would resolve to %s, not the session dir %s",
+                     movie_id, resumed_root, movie_dir)
+        return jsonify({
+            "error": f"resume for {movie_id!r} would render into a different directory "
+                     f"than the session's own; refusing rather than re-rendering it",
+            "movie_id": movie_id,
+        }), 500
+
+    job_id = _video_enqueue("generate_studio_movie", spec)
+
+    # Rewrite the sidecars with the NEW job id, so a later pause cancels the job that is
+    # actually about to run rather than the terminal one it replaced.
+    write_movie_spec(resumed_root, spec, job_id)
+    mark_movie_status(resumed_root, MOVIE_STATUS_RUNNING, job_id=job_id,
+                      title=spec.title, project=spec.project,
+                      segments_total=len(spec.goals))
+
+    return jsonify({
+        "ok": True,
+        "movie_id": movie_id,
+        "job_id": job_id,
+        "previous_job_id": prior_job_id,
+        "status": MOVIE_STATUS_RUNNING,
+        # Every segment already on the shared store will come back resumed=True; the
+        # count is what the console shows as "N of M already rendered".
+        "segments_total": len(spec.goals),
+        "poll": f"/video/jobs/{job_id}",
+    }), 200
 
 
 # --------------------------------------------------------------------------- #
@@ -1220,6 +1952,13 @@ def video_presets():
 # ⚠ DO NOT "fix" this to Flux-Uncensored-V2. That row is ALSO tagged text-generation in
 # the catalog but is a Flux IMAGE LoRA — the same mis-classification class as 41f908d.
 _DEFAULT_PROMPT_ASSIST_MODEL = "flux2-klein-9b-uncensored-text-encoder"
+# Reliability fallback (2026-08-05): the preferred model above is a flux2 text-
+# encoder that gets evicted/reloaded as the fleet churns, so a live prompt-assist
+# call can hit it mid-eviction and hard-502 (operator-reported "cross-origin"
+# symptom that was really a 502). When the primary fails with a WORKER error, we
+# retry ONCE with a small always-serve-configured chat model so prompt-generate
+# keeps working through the churn. Only if the fallback ALSO fails do we 502.
+_PROMPT_ASSIST_FALLBACK_MODEL = "Qwen2.5-3B-Instruct-GGUF"
 
 _PROMPT_ASSIST_SYSTEM = (
     "You are an expert image-prompt engineer. Return ONLY the final prompt "
@@ -1468,15 +2207,41 @@ def video_prompt_assist():
                     error=str(exc).strip("'\""), elapsed_ms=_elapsed_ms())
         return jsonify({"error": str(exc).strip("'\"")}), 400
     except Exception as exc:
-        # No live worker for this model / worker unreachable / no local engine
-        # — an actionable message via the same mapper /chat/stream uses,
-        # never a raw traceback, never a 500.
-        logger.exception("prompt/assist failed")
-        _log_assist(run_id=_run_id, mode=mode, kind=kind,
-                    model_requested=model_key,
-                    outcome=_assist_log.OUTCOME_WORKER_ERROR,
-                    error=_friendly_stream_error(exc), elapsed_ms=_elapsed_ms())
-        return jsonify({"error": _friendly_stream_error(exc)}), 502
+        # No live worker for this model / worker unreachable / mid-eviction.
+        # Before hard-502ing, fall back ONCE to a reliable always-serve-
+        # configured chat model so prompt-assist keeps working while the
+        # preferred model churns (2026-08-05 fix — see _PROMPT_ASSIST_FALLBACK_
+        # MODEL). Only 502 if the fallback ALSO fails, or if the primary already
+        # WAS the fallback.
+        if model_key != _PROMPT_ASSIST_FALLBACK_MODEL:
+            logger.warning("prompt/assist: primary model %s failed (%s) — "
+                           "retrying on fallback %s", model_key,
+                           type(exc).__name__, _PROMPT_ASSIST_FALLBACK_MODEL)
+            try:
+                result = _await_sync(execute_prompt(
+                    model_key=_PROMPT_ASSIST_FALLBACK_MODEL,
+                    messages=messages,
+                    task="text-generation",
+                    max_new_tokens=200,
+                ))
+                model_key = _PROMPT_ASSIST_FALLBACK_MODEL
+            except Exception as exc2:
+                logger.exception("prompt/assist failed (primary + fallback)")
+                _log_assist(run_id=_run_id, mode=mode, kind=kind,
+                            model_requested=_PROMPT_ASSIST_FALLBACK_MODEL,
+                            outcome=_assist_log.OUTCOME_WORKER_ERROR,
+                            error=_friendly_stream_error(exc2),
+                            elapsed_ms=_elapsed_ms())
+                return jsonify({"error": _friendly_stream_error(exc2)}), 502
+        else:
+            # Actionable message via the same mapper /chat/stream uses, never a
+            # raw traceback, never a 500.
+            logger.exception("prompt/assist failed")
+            _log_assist(run_id=_run_id, mode=mode, kind=kind,
+                        model_requested=model_key,
+                        outcome=_assist_log.OUTCOME_WORKER_ERROR,
+                        error=_friendly_stream_error(exc), elapsed_ms=_elapsed_ms())
+            return jsonify({"error": _friendly_stream_error(exc)}), 502
 
     ok = result.get("ok", True) if isinstance(result, dict) else getattr(result, "ok", True)
     raw = _prompt_assist_result_text(result).strip()
@@ -2444,10 +3209,18 @@ def video_jobs_list():
         limit = int(request.args.get("limit", 50))
     except (TypeError, ValueError):
         limit = 50
+    # OWNERSHIP (2026-08-06): a member's listing is scoped to their own jobs; an
+    # admin sees the whole bus (and may narrow with ?owner=<name>). A principal
+    # with no account (a share link) is scoped to nobody -> an empty list, which
+    # is the honest answer: it owns no jobs.
+    scoped, owner = _owner_filter()
+    if scoped and not owner:
+        return jsonify({"jobs": []}), 200
     jobs = []
     try:
         rows = media_bus.list_jobs(include_terminal=include_terminal, limit=limit,
-                                   include_stale=include_stale)
+                                   include_stale=include_stale,
+                                   owner=owner if scoped else None)
     except Exception:  # noqa: BLE001 — the listing never 5xxes
         logger.debug("video jobs listing failed", exc_info=True)
         rows = []
@@ -2481,6 +3254,14 @@ def video_job_status(job_id):
     # "not yet / unknown" from a real status. Enriched with a `placement` object
     # (same helper as GET /video/jobs / /video/studio/clips) when known — WHERE the
     # run executes — set only when present, so a light/unknown job is unaffected.
+    #
+    # OWNERSHIP (2026-08-06): reading ONE job by id is the same disclosure as
+    # listing it (the view carries the spec's prompts and the result's paths), so
+    # it obeys the same rule — owner or admin. The probe runs BEFORE the full
+    # read so a refused caller never pays for (or touches) a megabyte result blob.
+    found, job_owner = media_bus.owner_of(job_id)
+    if found and not _may_view_job(job_owner):
+        return _forbidden_artifact()
     view = media_bus.get(job_id)
     try:
         pl = job_placement(job_id, view.get("name") if isinstance(view, dict) else None)
@@ -2499,18 +3280,147 @@ def video_job_cancel(job_id):
     # queued jobs die outright; a running scene stops BETWEEN frames (mid-frame
     # inference is never interrupted). Idempotent — cancelling a terminal or
     # unknown job reports cancelled=False.
+    #
+    # OWNERSHIP (2026-08-06): cancelling is a MUTATION of someone's render, so it
+    # follows the same owner-or-admin rule as reading it. (Cancelling your OWN
+    # job stays a member action — this route is deliberately not in the console's
+    # operator-only inventory.)
+    found, job_owner = media_bus.owner_of(job_id)
+    if found and not _may_view_job(job_owner):
+        return _forbidden_artifact()
     return jsonify(media_bus.cancel(job_id)), 200
 
 
 # --------------------------------------------------------------------------- #
 # 4) GET /video/media?handle=<abspath> — serve raw bytes for a MediaRef uri
 # --------------------------------------------------------------------------- #
+# --------------------------------------------------------------------------- #
+# RAW-PATH OWNERSHIP (2026-08-06) for GET /video/media?handle=<abspath>.
+#
+# The jail (_jail_resolve) answers "is this path inside our storage roots" — it
+# has never answered "is this path YOURS", so any caller who could pass the
+# /video gate could stream any other account's clip, frame or upload by path.
+# These helpers are that second question, in two cheap layers:
+#
+#   1. UPLOADS NAMESPACE — a member's uploads now land in UPLOADS_HOME/<username>/
+#      (upload_routes), so the first path segment IS the owner. Reserved dirs
+#      (.sessions, generated) are NOT namespaces and fall through to layer 2.
+#   2. THE JOB CATALOG — "does a job I OWN reference this path?", asked as a
+#      LIKE over the requesting member's OWN rows only (owner = ? is indexed),
+#      so it never scans the whole catalog. Matches the exact path and, for
+#      sidecars (manifest.json, extracted frames), anything under the same
+#      directory as a path the job references.
+#
+# Answer cached per (viewer, path) for 5 minutes — a <video> element re-fetches
+# the same handle on every seek/range request.
+#
+# ADMIN sees everything, as everywhere else. A path that neither layer can
+# attribute (a legacy flat upload, a pre-ownership artifact) is ADMIN-ONLY.
+# --------------------------------------------------------------------------- #
+_UPLOAD_RESERVED_DIRS = frozenset({".sessions", "generated"})
+_PATH_OWNER_TTL = 300.0
+_PATH_OWNER_MAX = 1024
+_PATH_OWNER_CACHE: dict = {}
+
+
+def _uploads_namespace(resolved):
+    """The username namespace a path sits in under UPLOADS_HOME, or None (not an
+    upload, a flat legacy upload, or a reserved dir)."""
+    if not _is_within(resolved, UPLOADS_HOME):
+        return None
+    try:
+        rel = os.path.relpath(resolved, os.path.realpath(UPLOADS_HOME))
+    except ValueError:
+        return None
+    parts = rel.split(os.sep)
+    if len(parts) < 2:
+        return None                       # a flat file directly in UPLOADS_HOME
+    if parts[0] in _UPLOAD_RESERVED_DIRS:
+        return None
+    return parts[0]
+
+
+def _my_upload_namespace(username):
+    """This viewer's namespace directory name — derived by the SAME helper the
+    upload writer uses (operator_auth.upload_namespace), so the two can never
+    drift on the mapping from username to directory."""
+    try:
+        from ..operator_auth import upload_namespace
+        return upload_namespace(username)
+    except Exception:  # noqa: BLE001 — fail closed
+        return None
+
+
+def _like_escape(value: str) -> str:
+    """Escape LIKE metacharacters so a path containing % or _ can never
+    over-match (an over-match here would GRANT access)."""
+    return (value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_"))
+
+
+def _member_owns_path(username: str, resolved: str) -> bool:
+    """True iff a media job OWNED BY ``username`` references this path (or the
+    directory it lives in). Scoped by ``owner = ?`` so the scan is bounded to
+    that member's own rows via the owner index."""
+    import sqlite3
+    key = (username, resolved)
+    now = time.time()
+    hit = _PATH_OWNER_CACHE.get(key)
+    if hit and hit[1] > now:
+        return hit[0]
+    exact = f"%{_like_escape(resolved)}%"
+    parent = f"%{_like_escape(os.path.dirname(resolved) + os.sep)}%"
+    allowed = False
+    try:
+        media_bus._ensure_db()
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        conn = sqlite3.connect(
+            f"file:{media_bus.DB_PATH}?mode=ro", uri=True, timeout=5.0)
+        conn.execute("PRAGMA busy_timeout=5000")
+        try:
+            row = conn.execute(
+                "SELECT 1 FROM media_jobs WHERE owner = ? AND ("
+                "  result_json LIKE ? ESCAPE '\\' OR spec_json LIKE ? ESCAPE '\\'"
+                "  OR result_json LIKE ? ESCAPE '\\' OR spec_json LIKE ? ESCAPE '\\'"
+                ") LIMIT 1",
+                (username, exact, exact, parent, parent),
+            ).fetchone()
+            allowed = row is not None
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        # A locked/absent DB must not silently GRANT — fail closed.
+        logger.debug("media handle ownership lookup failed", exc_info=True)
+        allowed = False
+    if len(_PATH_OWNER_CACHE) > _PATH_OWNER_MAX:
+        _PATH_OWNER_CACHE.clear()
+    _PATH_OWNER_CACHE[key] = (allowed, now + _PATH_OWNER_TTL)
+    return allowed
+
+
+def _may_serve_handle(resolved: str) -> bool:
+    unscoped, username = _viewer()
+    if unscoped:
+        return True            # admin / operator-token / open mode / share link
+    if not username:
+        return False           # a member whose username did not resolve
+    ns = _uploads_namespace(resolved)
+    if ns is not None:
+        return ns == _my_upload_namespace(username)
+    return _member_owns_path(username, resolved)
+
+
 @video_bp.route("/video/media", methods=["GET"])
 def video_media():
     handle = request.args.get("handle")
     resolved = _jail_resolve(handle)
     if resolved is None or not os.path.isfile(resolved):
         return jsonify({"error": "not found"}), 404
+    # OWNERSHIP, after the jail (2026-08-06). The jail says the path is inside
+    # our storage; this says it is the caller's to read.
+    if not _may_serve_handle(resolved):
+        return jsonify({"error": "forbidden: artifact belongs to another account"}), 403
     mime, _ = mimetypes.guess_type(resolved)
     if mime is None:
         # A studio clip can be served here BY URI (cross-station library playback) from
@@ -2571,19 +3481,34 @@ def video_studio_clips():
     except Exception:  # noqa: BLE001 — never let migration break the listing
         pass
 
+    # OWNERSHIP (2026-08-06): `AND owner = ?` for a member — the library is
+    # per-account, so a member's poll returns their renders and nobody else's.
+    # An admin's query is unscoped (or narrowed by ?owner=<name>). Legacy rows
+    # (owner NULL) can never satisfy the equality, which IS the policy: an
+    # artifact the store cannot attribute is admin-only.
+    scoped, owner = _owner_filter()
+    if scoped and not owner:
+        return jsonify({"clips": []}), 200
+
     clips = []
     try:
         conn = sqlite3.connect(
             f"file:{media_bus.DB_PATH}?mode=ro", uri=True, timeout=5.0)
         conn.execute("PRAGMA busy_timeout=5000")
         try:
-            rows = conn.execute(
+            base_sql = (
                 "SELECT job_id, status, result_json, created, updated, progress_json, "
                 "stage_log_json "
-                "FROM media_jobs WHERE name='studio_i2v' AND archived_at IS NULL "
-                "ORDER BY updated DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
+                "FROM media_jobs WHERE name='studio_i2v' AND archived_at IS NULL ")
+            if scoped:
+                rows = conn.execute(
+                    base_sql + "AND owner = ? ORDER BY updated DESC LIMIT ?",
+                    (owner, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    base_sql + "ORDER BY updated DESC LIMIT ?", (limit,),
+                ).fetchall()
         finally:
             conn.close()
     except sqlite3.Error:
@@ -2671,6 +3596,13 @@ def video_studio_clip(job_id):
     # Archived clips are HIDDEN from GET /video/studio/clips but their bytes are
     # NEVER deleted (never-delete doctrine) — a direct fetch by id gets an HONEST
     # 410 naming "archived", not a bare 404 that reads as "this never existed".
+    # OWNERSHIP (2026-08-06): streaming a clip by id is the artifact itself, so
+    # it is owner-or-admin. Checked BEFORE the archived probe/full read, so a
+    # foreign clip cannot even be distinguished as archived.
+    found, clip_owner = media_bus.owner_of(job_id)
+    if found and not _may_view_job(clip_owner):
+        return _forbidden_artifact()
+
     if media_bus.is_archived(job_id):
         return jsonify({"error": "clip archived", "archived": True}), 410
 
@@ -2728,6 +3660,13 @@ def video_studio_clip_detail(job_id):
     import json as _json
     import sqlite3
     from abstract_hugpy_dev.video_intel.studio.job import DEFAULT_CLIPS_ROOT
+
+    # OWNERSHIP (2026-08-06): the detail view carries the render's prompts,
+    # source paths and manifest — the most disclosive read on this surface. Same
+    # owner-or-admin rule as the stream route, checked first.
+    found, clip_owner = media_bus.owner_of(job_id)
+    if found and not _may_view_job(clip_owner):
+        return _forbidden_artifact()
 
     # Same honest 410 as the stream route: an archived clip's row/manifest still
     # exist (never-delete), but the expander should say "archived", not 404.
@@ -2863,6 +3802,11 @@ def video_studio_clip_detail(job_id):
 # --------------------------------------------------------------------------- #
 @video_bp.route("/video/studio/clip/<job_id>/archive", methods=["POST"])
 def video_studio_clip_archive(job_id):
+    # OWNERSHIP (2026-08-06): hiding a clip from the library is a write on
+    # someone's artifact — owner or admin, same rule as reading it.
+    found, clip_owner = media_bus.owner_of(job_id)
+    if found and not _may_view_job(clip_owner):
+        return _forbidden_artifact()
     result = media_bus.archive(job_id)
     if not result["found"]:
         return jsonify({"ok": False, "error": "no studio job for that id"}), 404
@@ -2878,7 +3822,10 @@ def video_studio_clip_archive(job_id):
 @video_bp.route("/video/studio/clip/<job_id>/unarchive", methods=["POST"])
 def video_studio_clip_unarchive(job_id):
     # The honest counterpart — cheap to add, and it makes archive a REVERSIBLE
-    # hide rather than a one-way trapdoor.
+    # hide rather than a one-way trapdoor. Same ownership rule as archive.
+    found, clip_owner = media_bus.owner_of(job_id)
+    if found and not _may_view_job(clip_owner):
+        return _forbidden_artifact()
     result = media_bus.unarchive(job_id)
     if not result["found"]:
         return jsonify({"ok": False, "error": "no studio job for that id"}), 404
@@ -3048,15 +3995,30 @@ def video_projects():
     # Distinct EXACT names (a set); the case-insensitive ordering is the SORT, not the
     # de-dup, so "Alpha" and "alpha" would both list (they are distinct strings) — the
     # frontend contract only pins the shape {"projects": [...]} and the sort.
+    # OWNERSHIP (2026-08-06): a project NAME is user content (it is typed into
+    # the generate form and auto-archives under it), so the vocabulary a member
+    # sees is built from their OWN jobs only. Admin sees every project name (and
+    # may narrow with ?owner=). Legacy NULL-owner rows are admin-only, exactly
+    # like the clips/jobs listings.
+    scoped, owner = _owner_filter()
+    if scoped and not owner:
+        return jsonify({"projects": []}), 200
+
     names: set = set()
     try:
         conn = sqlite3.connect(
             f"file:{media_bus.DB_PATH}?mode=ro", uri=True, timeout=5.0)
         conn.execute("PRAGMA busy_timeout=5000")
         try:
-            rows = conn.execute(
-                "SELECT spec_json FROM media_jobs WHERE spec_json IS NOT NULL"
-            ).fetchall()
+            if scoped:
+                rows = conn.execute(
+                    "SELECT spec_json FROM media_jobs "
+                    "WHERE spec_json IS NOT NULL AND owner = ?", (owner,),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT spec_json FROM media_jobs WHERE spec_json IS NOT NULL"
+                ).fetchall()
         finally:
             conn.close()
     except sqlite3.Error:
@@ -3119,7 +4081,7 @@ def _validate_profile_reference_images(raws):
         if not os.path.isfile(rp):
             return None, ({"error": "reference_image not found"}, 404)
         try:
-            iref = media_store.ingest(rp, kind_hint="image")
+            iref = media_store.ingest(rp, kind_hint="image", owner=_caller_username())
         except Exception as exc:  # unreadable / not a real image = bad input
             return None, ({"error": f"reference_image is not a readable media file: {exc}"}, 400)
         if iref.kind != "image":

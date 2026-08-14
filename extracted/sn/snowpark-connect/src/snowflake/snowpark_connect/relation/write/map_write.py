@@ -79,6 +79,10 @@ from snowflake.snowpark_connect.expression.integral_types_support import (
 )
 from snowflake.snowpark_connect.expression.map_expression import map_expression
 from snowflake.snowpark_connect.expression.typer import ExpressionTyper
+from snowflake.snowpark_connect.relation.iceberg_branch_dml import (
+    reject_ref_dml_table_creation,
+    resolve_iceberg_ref_dml_target,
+)
 from snowflake.snowpark_connect.relation.io_utils import (
     convert_file_prefix_path,
     get_compression_for_source_and_options,
@@ -1294,7 +1298,9 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 if write_op.path is not None and write_op.path != ""
                 else write_op.table.table_name
             )
-            snowpark_table_name = _spark_to_snowflake(table_name)
+            dml_target = resolve_iceberg_ref_dml_target(table_name, _spark_to_snowflake)
+            snowpark_table_name = dml_target.dml_snowflake_sql
+            schema_table_name = dml_target.base_snowflake_sql
             partition_cols = (
                 list(write_op.partitioning_columns)
                 if write_op.partitioning_columns
@@ -1338,7 +1344,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
             # Fetch once here; all write_mode branches consume it so we avoid
             # a second round-trip in the common case.
             table_schema_or_error = _get_table_schema_or_error(
-                snowpark_table_name, session
+                schema_table_name, session
             )
             if is_insert_into and not isinstance(table_schema_or_error, DataType):
                 # SNOW-3717449: Spark's insertInto requires the target table to
@@ -1353,6 +1359,8 @@ def map_write(request: proto_base.ExecutePlanRequest):
 
             match write_mode:
                 case None | "error" | "errorifexists":
+                    if dml_target.has_ref:
+                        reject_ref_dml_table_creation(dml_target, "create")
                     _validate_table_does_not_exist(
                         snowpark_table_name, table_schema_or_error
                     )
@@ -1383,7 +1391,9 @@ def map_write(request: proto_base.ExecutePlanRequest):
                         )
                 case "append":
                     if isinstance(table_schema_or_error, DataType):  # Table exists
-                        _validate_table_type(snowpark_table_name, session, "iceberg")
+                        _validate_table_type(schema_table_name, session, "iceberg")
+                    elif dml_target.has_ref:
+                        reject_ref_dml_table_creation(dml_target, "append")
                     elif is_cld:
                         # CLD requires explicit CREATE ICEBERG TABLE syntax.
                         # Table doesn't exist, so create it first.
@@ -1397,12 +1407,12 @@ def map_write(request: proto_base.ExecutePlanRequest):
                         )
                         # Re-fetch schema after table creation
                         table_schema_or_error = _get_table_schema_or_error(
-                            snowpark_table_name, session
+                            schema_table_name, session
                         )
                     input_df, table_schema_or_error = _prepare_iceberg_write_dataframe(
                         session,
                         input_df,
-                        snowpark_table_name,
+                        schema_table_name,
                         table_schema_or_error,
                         merge_schema,
                         # V1 doesn't support check-nullability (V2-only).
@@ -1416,7 +1426,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                         _validate_schema_and_get_writer(
                             input_df,
                             "append",
-                            snowpark_table_name,
+                            schema_table_name,
                             table_schema_or_error,
                         ).saveAsTable(
                             table_name=snowpark_table_name,
@@ -1427,7 +1437,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                         _validate_schema_and_get_writer(
                             input_df,
                             "append",
-                            snowpark_table_name,
+                            schema_table_name,
                             table_schema_or_error,
                         ).saveAsTable(
                             table_name=snowpark_table_name,
@@ -1439,7 +1449,9 @@ def map_write(request: proto_base.ExecutePlanRequest):
                     if not isinstance(
                         table_schema_or_error, DataType
                     ):  # Table not exists
-                        if is_cld:
+                        if dml_target.has_ref:
+                            reject_ref_dml_table_creation(dml_target, "create")
+                        elif is_cld:
                             # CLD requires explicit CREATE ICEBERG TABLE syntax.
                             # We must use append mode after table creation because
                             # ignore mode would skip the insert (table now exists).
@@ -1466,7 +1478,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 case "overwrite":
                     table_exists = isinstance(table_schema_or_error, DataType)
                     if table_exists:
-                        _validate_table_type(snowpark_table_name, session, "iceberg")
+                        _validate_table_type(schema_table_name, session, "iceberg")
 
                     if table_exists and is_insert_into:
                         # SNOW-3717449: insertInto(overwrite) overwrites rows in
@@ -1479,7 +1491,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                         _validate_schema_and_get_writer(
                             input_df,
                             "append",
-                            snowpark_table_name,
+                            schema_table_name,
                             table_schema_or_error,
                         ).saveAsTable(
                             table_name=snowpark_table_name,
@@ -1488,6 +1500,8 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             column_order=_column_order_for_write,
                         )
                     elif is_cld and not table_exists:
+                        if dml_target.has_ref:
+                            reject_ref_dml_table_creation(dml_target, "create")
                         # CLD requires explicit CREATE ICEBERG TABLE syntax.
                         # After creating the table, use overwrite mode to insert data.
                         # Note: CLD tables don't use iceberg_config because the external
@@ -1507,11 +1521,13 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             column_order=_column_order_for_write,
                         )
                     else:
+                        if not table_exists and dml_target.has_ref:
+                            reject_ref_dml_table_creation(dml_target, "create")
                         writer = (
                             _validate_schema_and_get_writer(
                                 input_df,
                                 "overwrite",
-                                snowpark_table_name,
+                                schema_table_name,
                                 table_schema_or_error if table_exists else None,
                             )
                             if table_exists
@@ -1526,11 +1542,11 @@ def map_write(request: proto_base.ExecutePlanRequest):
                         )
                 case "overwrite_partitions":
                     _validate_table_exist_and_of_type(
-                        snowpark_table_name, session, "iceberg", table_schema_or_error
+                        schema_table_name, session, "iceberg", table_schema_or_error
                     )
 
                     table_partition_spec = get_partition_spec(
-                        snowpark_table_name, session
+                        schema_table_name, session
                     )
 
                     # SNOW-3471809: handle "no readable partition spec" cases
@@ -1589,7 +1605,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             writer=_validate_schema_and_get_writer(
                                 input_df,
                                 "overwrite",
-                                snowpark_table_name,
+                                schema_table_name,
                                 table_schema_or_error,
                             ),
                             snowpark_table_name=snowpark_table_name,
@@ -1638,7 +1654,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                     _validate_data_columns_present_in_table(
                         table_schema_or_error,
                         input_df.schema,
-                        snowpark_table_name,
+                        schema_table_name,
                     )
                     partition_column_names = updated_result.column_map.get_snowpark_column_names_from_spark_column_names(
                         effective_partition_cols
@@ -1654,7 +1670,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                         _validate_schema_and_get_writer(
                             input_df,
                             "overwrite",
-                            snowpark_table_name,
+                            schema_table_name,
                             table_schema_or_error,
                         ).saveAsTable(
                             table_name=snowpark_table_name,
@@ -1832,7 +1848,11 @@ def map_write(request: proto_base.ExecutePlanRequest):
 def map_write_v2(request: proto_base.ExecutePlanRequest):
     write_op = request.plan.command.write_operation_v2
 
-    snowpark_table_name = _spark_to_snowflake(write_op.table_name)
+    dml_target = resolve_iceberg_ref_dml_target(
+        write_op.table_name, _spark_to_snowflake
+    )
+    snowpark_table_name = dml_target.dml_snowflake_sql
+    schema_table_name = dml_target.base_snowflake_sql
     # SNOW-2443454: strip both internal and qualified-access-only metadata
     # (USING-join source columns) up front to match the v1 path and avoid
     # leaking them into the written table's schema.
@@ -1871,7 +1891,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
     is_cld = is_in_cld_context()
     is_iceberg = _is_iceberg_write_v2_target(
         session,
-        snowpark_table_name,
+        schema_table_name,
         write_op.provider,
         write_op.mode,
         is_cld,
@@ -1990,8 +2010,10 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
 
     match write_op.mode:
         case commands_proto.WriteOperationV2.MODE_CREATE:
+            if dml_target.has_ref:
+                reject_ref_dml_table_creation(dml_target, "create")
             table_schema_or_error = _get_table_schema_or_error(
-                snowpark_table_name, session
+                schema_table_name, session
             )
             _validate_table_does_not_exist(snowpark_table_name, table_schema_or_error)
             writer = _get_writer_for_table_creation(input_df)
@@ -2017,16 +2039,18 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
 
         case commands_proto.WriteOperationV2.MODE_APPEND:
             table_schema_or_error = _get_table_schema_or_error(
-                snowpark_table_name, session
+                schema_table_name, session
             )
+            if not isinstance(table_schema_or_error, DataType) and dml_target.has_ref:
+                reject_ref_dml_table_creation(dml_target, "append")
             _validate_table_exist_and_of_type(
-                snowpark_table_name, session, table_type, table_schema_or_error
+                schema_table_name, session, table_type, table_schema_or_error
             )
             if is_iceberg:
                 input_df, table_schema_or_error = _prepare_iceberg_write_dataframe(
                     session,
                     input_df,
-                    snowpark_table_name,
+                    schema_table_name,
                     table_schema_or_error,
                     merge_schema,
                     check_nullability=check_nullability,
@@ -2041,7 +2065,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
             _validate_schema_and_get_writer(
                 input_df,
                 "append",
-                snowpark_table_name,
+                schema_table_name,
                 table_schema_or_error,
                 check_nullability=check_nullability,
                 check_ordering=check_ordering,
@@ -2054,10 +2078,10 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
 
         case commands_proto.WriteOperationV2.MODE_OVERWRITE:
             table_schema_or_error = _get_table_schema_or_error(
-                snowpark_table_name, session
+                schema_table_name, session
             )
             _validate_table_exist_and_of_type(
-                snowpark_table_name, session, table_type, table_schema_or_error
+                schema_table_name, session, table_type, table_schema_or_error
             )
             # SNOW-3310119 / mergeSchema: V2 overwrite preserves the table
             # definition, so evolve the Iceberg schema (ALTER + NULL-pad) the
@@ -2066,7 +2090,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                 input_df, table_schema_or_error = _prepare_iceberg_write_dataframe(
                     session,
                     input_df,
-                    snowpark_table_name,
+                    schema_table_name,
                     table_schema_or_error,
                     merge_schema,
                     check_nullability=check_nullability,
@@ -2082,7 +2106,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
             writer = _validate_schema_and_get_writer(
                 input_df,
                 "append",
-                snowpark_table_name,
+                schema_table_name,
                 table_schema_or_error,
                 check_nullability=check_nullability,
                 check_ordering=check_ordering,
@@ -2125,11 +2149,11 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
 
         case commands_proto.WriteOperationV2.MODE_OVERWRITE_PARTITIONS:
             table_schema_or_error = _get_table_schema_or_error(
-                snowpark_table_name, session
+                schema_table_name, session
             )
             if not isinstance(table_schema_or_error, StructType):
                 exception = AnalysisException(
-                    f"[TABLE_OR_VIEW_NOT_FOUND] The table or view `{snowpark_table_name}` cannot be found."
+                    f"[TABLE_OR_VIEW_NOT_FOUND] The table or view `{dml_target.spark_table_name}` cannot be found."
                 )
                 attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
                 raise exception
@@ -2141,7 +2165,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                 input_df, table_schema_or_error = _prepare_iceberg_write_dataframe(
                     session,
                     input_df,
-                    snowpark_table_name,
+                    schema_table_name,
                     table_schema_or_error,
                     merge_schema,
                     check_nullability=check_nullability,
@@ -2152,7 +2176,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
             # the condition stays None and the write falls through to a full overwrite.
             overwrite_condition = None
             if is_iceberg:
-                table_partition_spec = get_partition_spec(snowpark_table_name, session)
+                table_partition_spec = get_partition_spec(schema_table_name, session)
 
                 if table_partition_spec and table_partition_spec.fields:
                     # The table's persisted partition spec is the source of truth
@@ -2163,7 +2187,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     _validate_data_columns_present_in_table(
                         table_schema_or_error,
                         input_df.schema,
-                        snowpark_table_name,
+                        schema_table_name,
                     )
                     if merge_schema:
                         # The pre-evolution column_map is stale after schema
@@ -2213,7 +2237,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     _validate_data_columns_present_in_table(
                         table_schema_or_error,
                         input_df.schema,
-                        snowpark_table_name,
+                        schema_table_name,
                     )
                     if merge_schema:
                         # mergeSchema realigned input_df to the table's column
@@ -2231,7 +2255,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                                 exc = AnalysisException(
                                     f"Partition column '{c}' not found in DataFrame "
                                     f"after schema evolution for table "
-                                    f"{snowpark_table_name}."
+                                    f"{dml_target.spark_table_name}."
                                 )
                                 attach_custom_error_code(exc, ErrorCodes.INVALID_INPUT)
                                 raise exc
@@ -2266,7 +2290,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
             _validate_schema_and_get_writer(
                 input_df,
                 "truncate",
-                snowpark_table_name,
+                schema_table_name,
                 table_schema_or_error,
                 check_nullability=check_nullability,
                 check_ordering=check_ordering,
@@ -2278,14 +2302,16 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
             )
 
         case commands_proto.WriteOperationV2.MODE_REPLACE:
+            if dml_target.has_ref:
+                reject_ref_dml_table_creation(dml_target, "replace")
             table_schema_or_error = _get_table_schema_or_error(
-                snowpark_table_name, session
+                schema_table_name, session
             )
             _validate_table_exist_and_of_type(
-                snowpark_table_name, session, table_type, table_schema_or_error
+                schema_table_name, session, table_type, table_schema_or_error
             )
             writer = _validate_schema_and_get_writer(
-                input_df, "replace", snowpark_table_name, table_schema_or_error
+                input_df, "replace", schema_table_name, table_schema_or_error
             )
             if is_iceberg and is_cld:
                 # CLD iceberg REPLACE: existing CLD table rejects `CREATE OR
@@ -2324,8 +2350,10 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                 )
 
         case commands_proto.WriteOperationV2.MODE_CREATE_OR_REPLACE:
+            if dml_target.has_ref:
+                reject_ref_dml_table_creation(dml_target, "createOrReplace")
             writer = _validate_schema_and_get_writer(
-                input_df, "create_or_replace", snowpark_table_name
+                input_df, "create_or_replace", schema_table_name
             )
             if is_iceberg and is_cld:
                 # CLD iceberg CREATE_OR_REPLACE: same constraints as REPLACE

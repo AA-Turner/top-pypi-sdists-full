@@ -1,5 +1,4 @@
 from collections import defaultdict
-from typing import Optional
 
 import gymnasium
 import numpy as np
@@ -28,8 +27,8 @@ class Pursuit:
         obs_range: int = 7,
         n_catch: int = 2,
         freeze_evaders: bool = False,
-        evader_controller: Optional[PursuitPolicy] = None,
-        pursuer_controller: Optional[PursuitPolicy] = None,
+        evader_controller: PursuitPolicy | None = None,
+        pursuer_controller: PursuitPolicy | None = None,
         tag_reward: float = 0.01,
         catch_reward: float = 5.0,
         urgency_reward: float = -0.1,
@@ -142,6 +141,12 @@ class Pursuit:
         self.action_space = [act_space for _ in range(self.n_pursuers)]
 
         self.observation_space = [obs_space for _ in range(self.n_pursuers)]
+        self.state_space = spaces.Box(
+            low=0,
+            high=max_agents_overlap,
+            shape=(self.y_size, self.x_size, 3),
+            dtype=np.float32,
+        )
         self.act_dims = [n_act_purs for i in range(self.n_pursuers)]
 
         self.evaders_gone = np.array([False for i in range(self.n_evaders)])
@@ -201,11 +206,13 @@ class Pursuit:
 
         x_window_start = self.np_random.uniform(0.0, 1.0 - self.constraint_window)
         y_window_start = self.np_random.uniform(0.0, 1.0 - self.constraint_window)
-        xlb, xub = int(self.x_size * x_window_start), int(
-            self.x_size * (x_window_start + self.constraint_window)
+        xlb, xub = (
+            int(self.x_size * x_window_start),
+            int(self.x_size * (x_window_start + self.constraint_window)),
         )
-        ylb, yub = int(self.y_size * y_window_start), int(
-            self.y_size * (y_window_start + self.constraint_window)
+        ylb, yub = (
+            int(self.y_size * y_window_start),
+            int(self.y_size * (y_window_start + self.constraint_window)),
         )
         constraints = [[xlb, xub], [ylb, yub]]
 
@@ -391,9 +398,10 @@ class Pursuit:
             gymnasium.logger.warn(
                 "You are calling render method without specifying any render mode."
             )
-            return
+            return None
 
         if self.screen is None:
+            pygame.font.init()
             if self.render_mode == "human":
                 pygame.display.init()
                 self.screen = pygame.display.set_mode(
@@ -483,11 +491,17 @@ class Pursuit:
         obs = self.collect_obs(agent_layer, i)
         return obs
 
+    def state(self):
+        # the global state is the same as the observations, but covers the
+        # whole map instead of an obs_range crop around each agent
+        state = np.abs(self.model_state[0:3])
+        return np.swapaxes(state, 2, 0)
+
     def collect_obs(self, agent_layer, i):
         for j in range(self.n_agents()):
             if i == j:
                 return self.collect_obs_by_idx(agent_layer, i)
-        assert False, "bad index"
+        raise AssertionError("bad index")
 
     def collect_obs_by_idx(self, agent_layer, agent_idx):
         # returns a flattened array of all the observations
@@ -511,8 +525,9 @@ class Pursuit:
             np.clip(yld, 0, self.y_size - 1),
             np.clip(yhd, 0, self.y_size - 1),
         )
-        xolo, yolo = abs(np.clip(xld, -self.obs_offset, 0)), abs(
-            np.clip(yld, -self.obs_offset, 0)
+        xolo, yolo = (
+            abs(np.clip(xld, -self.obs_offset, 0)),
+            abs(np.clip(yld, -self.obs_offset, 0)),
         )
         xohi, yohi = xolo + (xhi - xlo), yolo + (yhi - ylo)
         return xlo, xhi + 1, ylo, yhi + 1, xolo, xohi + 1, yolo, yohi + 1
@@ -554,7 +569,7 @@ class Pursuit:
                         tes = np.concatenate((xpur[tt], ypur[tt])).reshape(
                             2, len(xpur[tt])
                         )
-                        tem = tes.T == np.array([xpp, ypp])
+                        tem = np.array([xpp, ypp]) == tes.T
                         if np.any(np.all(tem, axis=1)):
                             purs_sur[j] = True
                 ai += 1

@@ -40,6 +40,7 @@ class TestSharedTriggersModelsCreateTriggerRequest(unittest.TestCase):
                 action_config = { },
                 trigger_type = 'cron',
                 schedule_config = { },
+                name = '',
                 description = '',
                 status = 'active'
             )

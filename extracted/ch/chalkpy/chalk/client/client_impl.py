@@ -851,7 +851,10 @@ def _console_status_or_static_line(console: Any, message: str):
     frontends without those (Chalk's hosted notebook) accumulate one output
     line per spinner frame, so print a single static line there instead."""
     if notebook.is_notebook() and not notebook.notebook_supports_ipywidgets():
-        console.print(message)
+        # Use stdout directly. Rich detects Jupyter and emits an HTML ``pre``
+        # even for a static line, which makes notebook CSS treat it like a code
+        # block and also syntax-highlights values such as numbers and ``None``.
+        print(message)
         yield
     else:
         with console.status(message, spinner="dots"):
@@ -2149,7 +2152,8 @@ https://docs.chalk.ai/cli/apply
 
         console = Console()
 
-        with _console_status_or_static_line(console, f"Loading features from `{branch or self._branch}`"):
+        feature_source = "the main deployment" if branch is None else f"branch {branch!r}"
+        with _console_status_or_static_line(console, f"Loading features from {feature_source}"):
             result = self._grpc_client._get_python_codegen(branch=branch)  # type: ignore
 
         if result.errors:
@@ -2239,7 +2243,9 @@ https://docs.chalk.ai/cli/apply
             # No interactive feature search without widget support; keep the
             # output compact instead of dumping every feature-set table.
             names = ", ".join(sorted(features_processed))
-            console.print(f"Loaded {len(features_processed)} feature set(s)" + (f": {names}" if names else ""))
+            feature_set_count = len(features_processed)
+            feature_set_label = "feature set" if feature_set_count == 1 else "feature sets"
+            print(f"Loaded {feature_set_count} {feature_set_label}" + (f": {names}" if names else ""))
 
     def query(
         self,
@@ -4676,7 +4682,7 @@ https://docs.chalk.ai/cli/apply
                 from rich.console import Console
 
                 console = Console()
-                with _console_status_or_static_line(console, f"Creating branch `{branch_name}`"):
+                with _console_status_or_static_line(console, f"Creating branch {branch_name!r}"):
                     resp = self._grpc_client._create_branch(  # type: ignore
                         branch_name=branch_name,
                         source_branch_name=source_branch_name,

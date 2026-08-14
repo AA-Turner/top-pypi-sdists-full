@@ -1,6 +1,8 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
+from ..null import Null
 from ..resources import ActionAttempt, AcsEncoder
 from .acs_encoders_simulate import AbstractAcsEncodersSimulate, AcsEncodersSimulate
 from ..modules.action_attempts import resolve_action_attempt
@@ -20,7 +22,7 @@ class AbstractAcsEncoders(abc.ABC):
         acs_encoder_id: str,
         access_method_id: Optional[str] = None,
         acs_credential_id: Optional[str] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Encodes an existing `credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_ onto a plastic card placed on the specified `encoder <https://docs.seam.co/low-level-apis/access-systems/working-with-card-encoders-and-scanners>`_. Either provide an ``acs_credential_id`` or an ``access_method_id``
 
@@ -32,7 +34,9 @@ class AbstractAcsEncoders(abc.ABC):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -41,7 +45,9 @@ class AbstractAcsEncoders(abc.ABC):
 
         :param acs_encoder_id: ID of the encoder that you want to get.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -52,7 +58,7 @@ class AbstractAcsEncoders(abc.ABC):
         acs_system_ids: Optional[List[str]] = None,
         acs_encoder_ids: Optional[List[str]] = None,
         limit: Optional[float] = None,
-        page_cursor: Optional[str] = None
+        page_cursor: Optional[Union[str, Null]] = None,
     ) -> List[AcsEncoder]:
         """Returns a list of all `encoders <https://docs.seam.co/low-level-apis/access-systems/working-with-card-encoders-and-scanners>`_.
 
@@ -75,7 +81,7 @@ class AbstractAcsEncoders(abc.ABC):
         *,
         acs_encoder_id: str,
         salto_ks_metadata: Optional[Dict[str, Any]] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Scans an encoded `acs_credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_ from a plastic card placed on the specified `encoder <https://docs.seam.co/low-level-apis/access-systems/working-with-card-encoders-and-scanners>`_.
 
@@ -85,7 +91,9 @@ class AbstractAcsEncoders(abc.ABC):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -96,7 +104,7 @@ class AbstractAcsEncoders(abc.ABC):
         acs_user_id: Optional[str] = None,
         salto_ks_metadata: Optional[Dict[str, Any]] = None,
         user_identity_id: Optional[str] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Scans a physical card placed on the specified `encoder <https://docs.seam.co/low-level-apis/access-systems/working-with-card-encoders-and-scanners>`_ and assigns the scanned credential to an ACS user. Provide either an ``acs_user_id`` or a ``user_identity_id``.
 
@@ -110,7 +118,9 @@ class AbstractAcsEncoders(abc.ABC):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
 
@@ -124,13 +134,18 @@ class AcsEncoders(AbstractAcsEncoders):
     def simulate(self) -> AcsEncodersSimulate:
         return self._simulate
 
+    @route_metadata(
+        path="/acs/encoders/encode_credential",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def encode_credential(
         self,
         *,
         acs_encoder_id: str,
         access_method_id: Optional[str] = None,
         acs_credential_id: Optional[str] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Encodes an existing `credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_ onto a plastic card placed on the specified `encoder <https://docs.seam.co/low-level-apis/access-systems/working-with-card-encoders-and-scanners>`_. Either provide an ``acs_credential_id`` or an ``access_method_id``
 
@@ -142,8 +157,10 @@ class AcsEncoders(AbstractAcsEncoders):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if acs_encoder_id is not None:
             json_payload["acs_encoder_id"] = acs_encoder_id
@@ -151,6 +168,11 @@ class AcsEncoders(AbstractAcsEncoders):
             json_payload["access_method_id"] = access_method_id
         if acs_credential_id is not None:
             json_payload["acs_credential_id"] = acs_credential_id
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /acs/encoders/encode_credential"
+            )
 
         res = self.client.post("/acs/encoders/encode_credential", json=json_payload)
 
@@ -166,21 +188,32 @@ class AcsEncoders(AbstractAcsEncoders):
             wait_for_action_attempt=wait_for_action_attempt,
         )
 
+    @route_metadata(
+        path="/acs/encoders/get", has_required_parameters=True, has_pagination=False
+    )
     def get(self, *, acs_encoder_id: str) -> AcsEncoder:
         """Returns a specified `encoder <https://docs.seam.co/low-level-apis/access-systems/working-with-card-encoders-and-scanners>`_.
 
         :param acs_encoder_id: ID of the encoder that you want to get.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if acs_encoder_id is not None:
-            json_payload["acs_encoder_id"] = acs_encoder_id
+            params["acs_encoder_id"] = acs_encoder_id
 
-        res = self.client.post("/acs/encoders/get", json=json_payload)
+        if not params:
+            raise ValueError("At least one parameter is required for /acs/encoders/get")
+
+        res = self.client.get("/acs/encoders/get", params=params)
 
         return AcsEncoder.from_dict(res["acs_encoder"])
 
+    @route_metadata(
+        path="/acs/encoders/list", has_required_parameters=False, has_pagination=True
+    )
     def list(
         self,
         *,
@@ -188,7 +221,7 @@ class AcsEncoders(AbstractAcsEncoders):
         acs_system_ids: Optional[List[str]] = None,
         acs_encoder_ids: Optional[List[str]] = None,
         limit: Optional[float] = None,
-        page_cursor: Optional[str] = None
+        page_cursor: Optional[Union[str, Null]] = None,
     ) -> List[AcsEncoder]:
         """Returns a list of all `encoders <https://docs.seam.co/low-level-apis/access-systems/working-with-card-encoders-and-scanners>`_.
 
@@ -203,7 +236,7 @@ class AcsEncoders(AbstractAcsEncoders):
         :param page_cursor: Identifies the specific page of results to return, obtained from the previous page's ``next_page_cursor``.
 
         :returns: OK"""
-        json_payload = {}
+        json_payload: Dict[str, Any] = {}
 
         if acs_system_id is not None:
             json_payload["acs_system_id"] = acs_system_id
@@ -220,12 +253,17 @@ class AcsEncoders(AbstractAcsEncoders):
 
         return [AcsEncoder.from_dict(item) for item in res["acs_encoders"]]
 
+    @route_metadata(
+        path="/acs/encoders/scan_credential",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def scan_credential(
         self,
         *,
         acs_encoder_id: str,
         salto_ks_metadata: Optional[Dict[str, Any]] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Scans an encoded `acs_credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_ from a plastic card placed on the specified `encoder <https://docs.seam.co/low-level-apis/access-systems/working-with-card-encoders-and-scanners>`_.
 
@@ -235,13 +273,20 @@ class AcsEncoders(AbstractAcsEncoders):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if acs_encoder_id is not None:
             json_payload["acs_encoder_id"] = acs_encoder_id
         if salto_ks_metadata is not None:
             json_payload["salto_ks_metadata"] = salto_ks_metadata
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /acs/encoders/scan_credential"
+            )
 
         res = self.client.post("/acs/encoders/scan_credential", json=json_payload)
 
@@ -257,6 +302,11 @@ class AcsEncoders(AbstractAcsEncoders):
             wait_for_action_attempt=wait_for_action_attempt,
         )
 
+    @route_metadata(
+        path="/acs/encoders/scan_to_assign_credential",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def scan_to_assign_credential(
         self,
         *,
@@ -264,7 +314,7 @@ class AcsEncoders(AbstractAcsEncoders):
         acs_user_id: Optional[str] = None,
         salto_ks_metadata: Optional[Dict[str, Any]] = None,
         user_identity_id: Optional[str] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Scans a physical card placed on the specified `encoder <https://docs.seam.co/low-level-apis/access-systems/working-with-card-encoders-and-scanners>`_ and assigns the scanned credential to an ACS user. Provide either an ``acs_user_id`` or a ``user_identity_id``.
 
@@ -278,8 +328,10 @@ class AcsEncoders(AbstractAcsEncoders):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if acs_encoder_id is not None:
             json_payload["acs_encoder_id"] = acs_encoder_id
@@ -289,6 +341,11 @@ class AcsEncoders(AbstractAcsEncoders):
             json_payload["salto_ks_metadata"] = salto_ks_metadata
         if user_identity_id is not None:
             json_payload["user_identity_id"] = user_identity_id
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /acs/encoders/scan_to_assign_credential"
+            )
 
         res = self.client.post(
             "/acs/encoders/scan_to_assign_credential", json=json_payload

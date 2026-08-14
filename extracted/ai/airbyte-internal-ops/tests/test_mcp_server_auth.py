@@ -11,11 +11,13 @@ middleware are tested in their own suites.
 
 from __future__ import annotations
 
+from importlib.metadata import PackageNotFoundError, version
 from types import SimpleNamespace
 
 import google.auth
 import pytest
-from fastmcp.server.auth import AccessToken
+from fastmcp.server.auth import AccessToken, MultiAuth
+from fastmcp.server.auth.auth import TokenVerifier
 from fastmcp_extensions import JWTAuthConfig, OIDCAuthConfig
 from google.auth.credentials import AnonymousCredentials
 from key_value.aio.wrappers.encryption import FernetEncryptionWrapper
@@ -75,6 +77,32 @@ def test_bearer_token_arg_ignores_raw_authorization_header() -> None:
     )
     assert bearer_arg.http_header_key is None
     assert bearer_arg.default is server._resolve_transport_bearer_token
+
+
+def test_main_http_delegates_to_mcp_http_server(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(server, "_load_env", lambda: None)
+    monkeypatch.setattr(server, "init_sentry_tracking", lambda: None)
+    monkeypatch.setattr(server, "set_hosted_mcp_mode", lambda: None)
+    monkeypatch.setattr(server, "register_landing_page", lambda *args, **kwargs: None)
+    monkeypatch.setenv(server.MCP_SERVER_URL_ENV, "http://localhost:8080")
+
+    def capture_run(app: object, **kwargs: object) -> None:
+        captured["app"] = app
+        captured.update(kwargs)
+
+    monkeypatch.setattr(server, "run_mcp_http_server", capture_run)
+
+    server.main_http()
+
+    assert captured["app"] is server.app
+    assert captured["path"] == "/mcp"
+    assert captured["transport"] == "streamable-http"
+    assert captured["stateless_http"] is True
+    assert captured["wrapper"] is server.wrap_if_enabled
 
 
 def test_resolve_signing_key_defaults_to_cloud_jwks(
@@ -351,3 +379,125 @@ def test_create_auth_omits_oidc_without_credentials(
     captured = _capture_build_mcp_auth(monkeypatch)
     server._create_auth()
     assert captured["oidc"] is None
+
+
+class _FakeProvider(TokenVerifier):
+    """Minimal concrete provider that inherits FastMCP's resource-URL logic."""
+
+    async def verify_token(self, token: str) -> None:
+        """Never authenticates; the resource-URL logic is what is under test."""
+        return None
+
+
+_RESOURCE_BASE_URL = "https://mcp.internal.airbyte.ai/ops-mcp"
+
+
+@pytest.mark.parametrize(
+    ("mcp_path", "expected"),
+    [
+        pytest.param("/", _RESOURCE_BASE_URL, id="root_mount_drops_trailing_slash"),
+        pytest.param("", _RESOURCE_BASE_URL, id="empty_path_is_root"),
+        pytest.param(None, _RESOURCE_BASE_URL, id="none_path_is_root"),
+        pytest.param("/mcp", f"{_RESOURCE_BASE_URL}/mcp", id="non_root_path_unchanged"),
+    ],
+)
+def test_advertise_root_mount_resource(mcp_path: str | None, expected: str) -> None:
+    """The helper maps a root mount to the slash-less resource, leaving others intact."""
+    provider = _FakeProvider(base_url=_RESOURCE_BASE_URL)
+
+    server._advertise_root_mount_resource(provider)
+
+    assert str(provider._get_resource_url(mcp_path)) == expected
+
+
+def test_advertise_root_mount_resource_recurses_into_multiauth() -> None:
+    """The fix reaches the interactive server and every headless verifier in the tree."""
+    oidc_server = _FakeProvider(base_url=_RESOURCE_BASE_URL)
+    verifier = _FakeProvider(base_url=_RESOURCE_BASE_URL)
+    multi = MultiAuth(server=oidc_server, verifiers=[verifier])
+
+    server._advertise_root_mount_resource(multi)
+
+    for provider in (multi, oidc_server, verifier):
+        assert str(provider._get_resource_url("/")) == _RESOURCE_BASE_URL
+        assert str(provider._get_resource_url("/mcp")) == f"{_RESOURCE_BASE_URL}/mcp"
+
+
+def test_landing_version_str_prefixes_installed_version() -> None:
+    """The landing footer shows the installed distribution version, `v`-prefixed."""
+    assert server._landing_version_str() == f"v{version(server.DISTRIBUTION_NAME)}"
+
+
+def test_landing_version_str_is_none_without_distribution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A missing distribution omits the footer rather than raising."""
+
+    def raise_not_found(_name: str) -> str:
+        raise PackageNotFoundError(_name)
+
+    monkeypatch.setattr(server, "version", raise_not_found)
+    assert server._landing_version_str() is None
+
+
+def test_main_http_passes_version_to_landing_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`main_http` wires the version footer and its link into the landing page."""
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(server, "_load_env", lambda: None)
+    monkeypatch.setattr(server, "init_sentry_tracking", lambda: None)
+    monkeypatch.setattr(server, "set_hosted_mcp_mode", lambda: None)
+    monkeypatch.setattr(server, "run_mcp_http_server", lambda *a, **k: None)
+    monkeypatch.setenv(server.MCP_SERVER_URL_ENV, "http://localhost:8080")
+    monkeypatch.setattr(
+        server, "register_landing_page", lambda *a, **kwargs: captured.update(kwargs)
+    )
+
+    server.main_http()
+
+    assert captured["version_str"] == server._landing_version_str()
+    assert captured["version_url"] == server._landing_version_url()
+
+
+@pytest.mark.parametrize(
+    "installed, expected",
+    [
+        pytest.param(
+            "0.96.0",
+            "https://github.com/airbytehq/airbyte-ops-mcp/releases/tag/v0.96.0",
+            id="tagged_release_links_to_its_release_page",
+        ),
+        pytest.param(
+            "0.96.2.post5.dev0+1b1637b4",
+            "https://github.com/airbytehq/airbyte-ops-mcp/commit/1b1637b4",
+            id="dev_build_links_to_the_commit_it_was_cut_from",
+        ),
+        pytest.param(
+            "0.96.2.post5.dev0+1b1637b4.dirty",
+            "https://github.com/airbytehq/airbyte-ops-mcp/commit/1b1637b4",
+            id="dirty_dev_build_links_to_the_bare_sha",
+        ),
+    ],
+)
+def test_landing_version_url(
+    monkeypatch: pytest.MonkeyPatch,
+    installed: str,
+    expected: str,
+) -> None:
+    """Tagged versions link to a release page; dev builds link to their commit."""
+    monkeypatch.setattr(server, "version", lambda _name: installed)
+    assert server._landing_version_url() == expected
+
+
+def test_landing_version_url_is_none_without_distribution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A missing distribution yields no link, matching the omitted footer."""
+
+    def raise_not_found(_name: str) -> str:
+        raise PackageNotFoundError(_name)
+
+    monkeypatch.setattr(server, "version", raise_not_found)
+    assert server._landing_version_url() is None

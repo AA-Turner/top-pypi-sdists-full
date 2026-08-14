@@ -17,21 +17,9 @@ from pathlib import Path
 from collections import namedtuple
 import urllib.request as url_request
 
-if sys.version_info < (3, 8):
-    # NOTE alternatively, we could write our own cached property backport with python's descriptor protocol
-    def cached_property(func):
-        return property( functools.lru_cache(maxsize=1)(func) )
-else:
-    cached_property = functools.cached_property
+from shared_base import *  # local
+from stl import cached_property
 
-if sys.version_info < (3, 8):
-    class ExtendAction (argparse.Action):
-        def __call__(self, parser, namespace, values, option_string=None):
-            items = getattr(namespace, self.dest) or []
-            items.extend(values)
-            setattr(namespace, self.dest, items)
-else:
-    ExtendAction = None
 
 PDFIUM_MIN_REQ = 6635
 
@@ -60,7 +48,6 @@ ModulesAll         = (ModuleRaw, ModuleHelpers)
 BindingsFN = "bindings.py"
 VersionFN  = "version.json"
 
-ProjectDir        = Path(__file__).resolve().parents[1]
 DataDir           = ProjectDir / "data"
 DataDir_Bindings  = DataDir / "bindings"
 BindingsFile      = DataDir_Bindings / BindingsFN
@@ -139,6 +126,7 @@ class PlatNames:
 PdfiumBinariesMap = {
     PlatNames.darwin_x64:       "mac-x64",
     PlatNames.darwin_arm64:     "mac-arm64",
+    PlatNames.darwin_univ2:     "mac-univ",
     PlatNames.windows_x64:      "win-x64",
     PlatNames.windows_x86:      "win-x86",
     PlatNames.windows_arm64:    "win-arm64",
@@ -147,14 +135,13 @@ PdfiumBinariesMap = {
     PlatNames.linux_arm64:      "linux-arm64",
     PlatNames.linux_arm32:      "linux-arm",
     PlatNames.linux_ppc64le:    "linux-ppc64",
-    PlatNames.android_arm64:    "android-arm64",
-    PlatNames.android_arm32:    "android-arm",
     PlatNames.linux_mips64le:   "linux-mips64el",
-    # PlatNames.linux_mipsle:     "linux-mipsel",  # coming soon
+    PlatNames.linux_mipsle:     "linux-mipsel",
     PlatNames.linux_musl_x64:   "linux-musl-x64",
     PlatNames.linux_musl_x86:   "linux-musl-x86",
     PlatNames.linux_musl_arm64: "linux-musl-arm64",
-    PlatNames.darwin_univ2:     "mac-univ",
+    PlatNames.android_arm64:    "android-arm64",
+    PlatNames.android_arm32:    "android-arm",
     PlatNames.android_x64:      "android-x64",
     PlatNames.android_x86:      "android-x86",
     PlatNames.ios_arm64_dev:    "ios-device-arm64",
@@ -164,9 +151,6 @@ PdfiumBinariesMap = {
 
 ALL_PLATFORMS = tuple(PdfiumBinariesMap.keys())
 
-
-def log(*args, **kwargs):
-    print(*args, **kwargs, file=sys.stderr)
 
 def plat_to_system(pl_name):
     if pl_name == ExtPlats.sourcebuild:
@@ -199,9 +183,12 @@ def libname_for_system(system, name="pdfium", prefix=None):
 def mkdir(path, exist_ok=True, parents=True):
     path.mkdir(exist_ok=exist_ok, parents=parents)
 
-def mkdir_clean(path):
-    if path.exists():
+def rmtree(path):
+    if path.is_dir():
         shutil.rmtree(path)
+
+def mkdir_clean(path):
+    rmtree(path)
     mkdir(path)
 
 def read_json(fp):
@@ -373,7 +360,7 @@ def parse_git_tag():
 
 def get_helpers_info():
     
-    if (ProjectDir/".git").exists():
+    if (ProjectDir/".git").exists() and shutil.which("git"):
         try:
             helpers_info = parse_git_tag()
         except subprocess.CalledProcessError as e:
@@ -704,14 +691,16 @@ def run_ctypesgen(
         args += ["-D"] + [PdfiumFlagsDict[f] for f in flags]
     
     # include windows-only members (e.g. refbindings, cross-packaging)
-    # see the comments in utils/spoof/windows.h for more info on this approach
+    # see the comments in include/windows/windows.h for more info on this approach
     # actually, also do this on windows natively to save ctypesgen from a lot of trouble processing windows system headers (where it keeps running into syntax errors) and even prevent actual mistakes in output
     is_windows_host = sys.platform.startswith("win32")
     if windows_cross and not is_windows_host:
         args += ["-D", "_WIN32"]
     if windows_cross or is_windows_host:
         # -I seems to be prioritized over system include paths
-        args += ["-I", ProjectDir/"utils"/"spoof"]
+        windows_include_dir = ProjectDir/"setupsrc"/"include"/"windows"
+        assert windows_include_dir.exists()
+        args += ["-I", str(windows_include_dir)]
     
     # symbols - try to exclude some garbage aliases that get pulled in from struct tags
     # (this captures anything that ends with _, _t, or begins with _, and is not needed by other symbols)
@@ -788,16 +777,12 @@ def build_pdfium_bindings(version, **kwargs):
 
 
 def clean_platfiles():
-    
-    deletables = [
-        ProjectDir / "build",
-        ModuleDir_Raw / BindingsFN,
-        ModuleDir_Raw / VersionFN,
-    ]
-    for pattern in LIBNAME_GLOBS:
-        deletables += ModuleDir_Raw.glob(pattern)
-    
-    for fp in deletables:
+    delete_groups = (
+        (ModuleDir_Raw/BindingsFN, ModuleDir_Raw/VersionFN),
+        *(ModuleDir_Raw.glob(pat) for pat in LIBNAME_GLOBS)
+    )
+    delete_paths = (fp for group in delete_groups for fp in group)
+    for fp in delete_paths:
         if fp.is_file():
             fp.unlink()
         elif fp.is_dir():
@@ -858,3 +843,13 @@ def handle_platforms(platforms):
     elif platforms == ["all"]:
         platforms = ALL_PLATFORMS
     return platforms
+
+
+if sys.version_info < (3, 8):
+    class ExtendAction (argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            items = getattr(namespace, self.dest) or []
+            items.extend(values)
+            setattr(namespace, self.dest, items)
+else:
+    ExtendAction = None

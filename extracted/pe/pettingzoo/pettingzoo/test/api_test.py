@@ -75,30 +75,28 @@ env_obs_dicts = [
     "chess_v6",
     "connect_four_v3",
     "tictactoe_v3",
-    "gin_rummy_v4",
 ]
-env_graphical_obs = ["knights_archers_zombies_v10"]
+env_graphical_obs = ["knights_archers_zombies_v11"]
 env_diff_obs_shapes = [
     "simple_adversary_v3",
     "simple_world_comm_v3",
     "simple_tag_v3",
-    "knights_archers_zombies_v10",
+    "knights_archers_zombies_v11",
     "simple_push_v3",
     "simple_speaker_listener_v4",
     "simple_crypto_v3",
 ]
-env_all_zeros_obs = ["knights_archers_zombies_v10"]
+env_all_zeros_obs = ["knights_archers_zombies_v11"]
 env_obs_space = [
     "leduc_holdem_v4",
     "texas_holdem_no_limit_v6",
     "texas_holdem_v4",
     "go_v5",
     "hanabi_v5",
-    "knights_archers_zombies_v10",
+    "knights_archers_zombies_v11",
     "chess_v6",
     "connect_four_v3",
     "tictactoe_v3",
-    "gin_rummy_v4",
 ]
 env_diff_agent_obs_size = [
     "simple_adversary_v3",
@@ -138,10 +136,10 @@ def test_observation(observation, observation_0, env_name=None):
     if not isinstance(observation, np.ndarray):
         if env_name is not None and env_name not in env_obs_dicts:
             warnings.warn("Observation is not a NumPy array")
-        if isinstance(observation, dict) and "observation" in observation.keys():
+        if isinstance(observation, dict) and "observation" in observation:
             observation = observation["observation"]
             test_observation(observation, observation_0, env_name)
-        if isinstance(observation, dict) and "action_mask" in observation.keys():
+        if isinstance(observation, dict) and "action_mask" in observation:
             test_action_mask(observation["action_mask"], env_name)
         return
     if np.isinf(observation).any():
@@ -153,7 +151,7 @@ def test_observation(observation, observation_0, env_name=None):
     if len(observation.shape) > 3:
         warnings.warn("Observation has more than 3 dimensions")
     if observation.shape == (0,):
-        assert False, "Observation can not be an empty array"
+        raise AssertionError("Observation can not be an empty array")
     if observation.shape == (1,):
         warnings.warn("Observation is a single number")
     if not isinstance(observation, observation_0.__class__):
@@ -200,7 +198,7 @@ def test_action_mask(action_mask, env_name=None):
     if len(action_mask.shape) > 1:
         warnings.warn("Action mask has more than 1 dimension")
     if action_mask.shape == (0,):
-        assert False, "Action mask can not be an empty array"
+        raise AssertionError("Action mask can not be an empty array")
     if action_mask.shape == (1,):
         warnings.warn("Action mask is a single number")
     if not np.can_cast(action_mask.dtype, np.dtype("float64")):
@@ -218,12 +216,12 @@ def test_action_mask(action_mask, env_name=None):
 
 def test_observation_action_spaces(env, agent_0):
     for agent in env.agents:
-        assert isinstance(
-            env.observation_space(agent), gymnasium.spaces.Space
-        ), "Observation space for each agent must extend gymnasium.spaces.Space"
-        assert isinstance(
-            env.action_space(agent), gymnasium.spaces.Space
-        ), "Agent space for each agent must extend gymnasium.spaces.Space"
+        assert isinstance(env.observation_space(agent), gymnasium.spaces.Space), (
+            "Observation space for each agent must extend gymnasium.spaces.Space"
+        )
+        assert isinstance(env.action_space(agent), gymnasium.spaces.Space), (
+            "Agent space for each agent must extend gymnasium.spaces.Space"
+        )
         assert env.observation_space(agent) is env.observation_space(agent), (
             "observation_space should return the exact same space object (not a copy) for an agent (ensures that observation space seeding works as expected). "
             "Consider decorating your observation_space(self, agent) method with @functools.lru_cache(maxsize=None) to enable caching, or changing it to read from a dict such as self.observation_spaces."
@@ -293,17 +291,17 @@ def test_observation_action_spaces(env, agent_0):
             if np.any(
                 np.greater(env.action_space(agent).low, env.action_space(agent).high)
             ):
-                assert (
-                    False
-                ), "Agent's minimum action space value is greater than it's maximum"
+                raise AssertionError(
+                    "Agent's minimum action space value is greater than it's maximum"
+                )
             if env.action_space(agent).low.shape != env.action_space(agent).shape:
-                assert (
-                    False
-                ), "Agent's action_space.low and action_space have different shapes"
+                raise AssertionError(
+                    "Agent's action_space.low and action_space have different shapes"
+                )
             if env.action_space(agent).high.shape != env.action_space(agent).shape:
-                assert (
-                    False
-                ), "Agent's action_space.high and action_space have different shapes"
+                raise AssertionError(
+                    "Agent's action_space.high and action_space have different shapes"
+                )
 
         if isinstance(env.observation_space(agent), gymnasium.spaces.Box):
             if (
@@ -333,23 +331,23 @@ def test_observation_action_spaces(env, agent_0):
                     env.observation_space(agent).low, env.observation_space(agent).high
                 )
             ):
-                assert (
-                    False
-                ), "Agent's minimum observation space value is greater than it's maximum"
+                raise AssertionError(
+                    "Agent's minimum observation space value is greater than it's maximum"
+                )
             if (
                 env.observation_space(agent).low.shape
                 != env.observation_space(agent).shape
             ):
-                assert (
-                    False
-                ), "Agent's observation_space.low and observation_space have different shapes"
+                raise AssertionError(
+                    "Agent's observation_space.low and observation_space have different shapes"
+                )
             if (
                 env.observation_space(agent).high.shape
                 != env.observation_space(agent).shape
             ):
-                assert (
-                    False
-                ), "Agent's observation_space.high and observation_space have different shapes"
+                raise AssertionError(
+                    "Agent's observation_space.high and observation_space have different shapes"
+                )
 
 
 def test_reward(reward):
@@ -360,24 +358,24 @@ def test_reward(reward):
     ):
         warnings.warn("Reward should be int, float, NumPy dtype or NumPy array")
     if isinstance(reward, np.ndarray):
-        if isinstance(reward, np.ndarray) and not reward.shape == (1,):
-            assert False, "Rewards can only be one number"
+        if isinstance(reward, np.ndarray) and reward.shape != (1,):
+            raise AssertionError("Rewards can only be one number")
         if np.isinf(reward):
-            assert False, "Reward must be finite"
+            raise AssertionError("Reward must be finite")
         if np.isnan(reward):
-            assert False, "Rewards cannot be NaN"
+            raise AssertionError("Rewards cannot be NaN")
         if not np.can_cast(reward.dtype, np.dtype("float64")):
-            assert False, "Reward NumPy array is not a numeric dtype"
+            raise AssertionError("Reward NumPy array is not a numeric dtype")
 
 
 def test_rewards_terminations_truncations(env, agent_0):
     for agent in env.agents:
-        assert isinstance(
-            env.terminations[agent], bool
-        ), "Agent's values in terminations must be True or False"
-        assert isinstance(
-            env.truncations[agent], bool
-        ), "Agent's values in truncations must be True or False"
+        assert isinstance(env.terminations[agent], bool), (
+            "Agent's values in terminations must be True or False"
+        )
+        assert isinstance(env.truncations[agent], bool), (
+            "Agent's values in truncations must be True or False"
+        )
         float(
             env.rewards[agent]
         )  # "Rewards for each agent must be convertible to float
@@ -403,14 +401,14 @@ def _test_observation_space_compatibility(
           an assert fails. The initial call should have an empty list.
     """
     if isinstance(expected, gymnasium.spaces.Dict):
-        for key in expected.keys():
+        for key in expected:
             if not recursed_keys and key != "observation":
                 # For the top level, we only care about the 'observation' key.
                 continue
             # We know a dict is expected. Anything else is an error.
-            assert isinstance(
-                seen, dict
-            ), f"observation at [{']['.join(recursed_keys)}] is {seen.dtype}, but expected dict."
+            assert isinstance(seen, dict), (
+                f"observation at [{']['.join(recursed_keys)}] is {seen.dtype}, but expected dict."
+            )
 
             # note: a previous test (expected.contains(seen)) ensures that
             # the two dicts have the same keys.
@@ -419,9 +417,9 @@ def _test_observation_space_compatibility(
             )
     else:
         # done recursing, now the actual space types should match
-        assert (
-            expected.dtype == seen.dtype
-        ), f"dtype for observation at [{']['.join(recursed_keys)}] is {seen.dtype}, but observation space specifies {expected.dtype}."
+        assert expected.dtype == seen.dtype, (
+            f"dtype for observation at [{']['.join(recursed_keys)}] is {seen.dtype}, but observation space specifies {expected.dtype}."
+        )
 
 
 def play_test(env, observation_0, num_cycles):
@@ -443,12 +441,12 @@ def play_test(env, observation_0, num_cycles):
     accumulated_rewards = defaultdict(int)
     for agent in env.agent_iter(env.num_agents * num_cycles):
         generated_agents.add(agent)
-        assert (
-            agent not in has_finished
-        ), "agents cannot resurect! Generate a new agent with a new name."
-        assert isinstance(
-            env.infos[agent], dict
-        ), "an environment agent's info must be a dictionary"
+        assert agent not in has_finished, (
+            "agents cannot resurect! Generate a new agent with a new name."
+        )
+        assert isinstance(env.infos[agent], dict), (
+            "an environment agent's info must be a dictionary"
+        )
         prev_observe, reward, terminated, truncated, info = env.last()
         if terminated or truncated:
             action = None
@@ -462,17 +460,17 @@ def play_test(env, observation_0, num_cycles):
         if agent not in live_agents:
             live_agents.add(agent)
 
-        assert live_agents.issubset(
-            set(env.agents)
-        ), "environment must delete agents as the game continues"
+        assert live_agents.issubset(set(env.agents)), (
+            "environment must delete agents as the game continues"
+        )
 
         if terminated or truncated:
             live_agents.remove(agent)
             has_finished.add(agent)
 
-        assert (
-            accumulated_rewards[agent] == reward
-        ), "reward returned by last is not the accumulated rewards in its rewards dict"
+        assert accumulated_rewards[agent] == reward, (
+            "reward returned by last is not the accumulated rewards in its rewards dict"
+        )
         accumulated_rewards[agent] = 0
 
         env.step(action)
@@ -480,32 +478,32 @@ def play_test(env, observation_0, num_cycles):
         for a, rew in env.rewards.items():
             accumulated_rewards[a] += rew
 
-        assert env.num_agents == len(
-            env.agents
-        ), "env.num_agents is not equal to len(env.agents)"
-        assert set(env.rewards.keys()) == (
-            set(env.agents)
-        ), "agents should not be given a reward if they were terminated or truncated last turn"
-        assert set(env.terminations.keys()) == (
-            set(env.agents)
-        ), "agents should not be given a termination if they were terminated or truncated last turn"
-        assert set(env.truncations.keys()) == (
-            set(env.agents)
-        ), "agents should not be given a truncation if they were terminated or truncated last turn"
-        assert set(env.infos.keys()) == (
-            set(env.agents)
-        ), "agents should not be given an info if they were terminated or truncated last turn"
+        assert env.num_agents == len(env.agents), (
+            "env.num_agents is not equal to len(env.agents)"
+        )
+        assert set(env.rewards.keys()) == (set(env.agents)), (
+            "agents should not be given a reward if they were terminated or truncated last turn"
+        )
+        assert set(env.terminations.keys()) == (set(env.agents)), (
+            "agents should not be given a termination if they were terminated or truncated last turn"
+        )
+        assert set(env.truncations.keys()) == (set(env.agents)), (
+            "agents should not be given a truncation if they were terminated or truncated last turn"
+        )
+        assert set(env.infos.keys()) == (set(env.agents)), (
+            "agents should not be given an info if they were terminated or truncated last turn"
+        )
         if hasattr(env, "possible_agents"):
-            assert set(env.agents).issubset(
-                set(env.possible_agents)
-            ), "possible agents should always include all agents, if it exists"
+            assert set(env.agents).issubset(set(env.possible_agents)), (
+                "possible agents should always include all agents, if it exists"
+            )
 
         if not env.agents:
             break
 
-        assert env.observation_space(agent).contains(
-            prev_observe
-        ), "Out of bounds observation: " + str(prev_observe)
+        assert env.observation_space(agent).contains(prev_observe), (
+            "Out of bounds observation: " + str(prev_observe)
+        )
 
         _test_observation_space_compatibility(
             env.observation_space(agent), prev_observe, recursed_keys=[]
@@ -518,9 +516,9 @@ def play_test(env, observation_0, num_cycles):
             )
 
     if not env.agents:
-        assert (
-            has_finished == generated_agents
-        ), "not all agents finished, some were skipped over"
+        assert has_finished == generated_agents, (
+            "not all agents finished, some were skipped over"
+        )
 
     env.reset()
     for agent in env.agent_iter(env.num_agents * 2):
@@ -535,15 +533,15 @@ def play_test(env, observation_0, num_cycles):
             action = env.action_space(agent).sample()
         assert isinstance(terminated, bool), "terminated from last is not True or False"
         assert isinstance(truncated, bool), "terminated from last is not True or False"
-        assert (
-            terminated == env.terminations[agent]
-        ), "terminated from last() and terminations[agent] do not match"
-        assert (
-            truncated == env.truncations[agent]
-        ), "truncated from last() and truncations[agent] do not match"
-        assert (
-            info == env.infos[agent]
-        ), "Info from last() and infos[agent] do not match"
+        assert terminated == env.terminations[agent], (
+            "terminated from last() and terminations[agent] do not match"
+        )
+        assert truncated == env.truncations[agent], (
+            "truncated from last() and truncations[agent] do not match"
+        )
+        assert info == env.infos[agent], (
+            "Info from last() and infos[agent] do not match"
+        )
         float(
             env.rewards[agent]
         )  # "Rewards for each agent must be convertible to float
@@ -588,17 +586,17 @@ def api_test(env, num_cycles=1000, verbose_progress=False):
     # checks that reset takes arguments called seed and options
     env.reset(seed=0, options={"options": 1})
 
-    assert isinstance(
-        env, pettingzoo.AECEnv
-    ), "Env must be an instance of pettingzoo.AECEnv"
+    assert isinstance(env, pettingzoo.AECEnv), (
+        "Env must be an instance of pettingzoo.AECEnv"
+    )
 
     env.reset()
-    assert not any(
-        env.terminations.values()
-    ), "terminations must all be False after reset"
-    assert not any(
-        env.truncations.values()
-    ), "truncations must all be False after reset"
+    assert not any(env.terminations.values()), (
+        "terminations must all be False after reset"
+    )
+    assert not any(env.truncations.values()), (
+        "truncations must all be False after reset"
+    )
 
     assert isinstance(env.num_agents, int), "num_agents must be an integer"
     assert env.num_agents != 0, "An environment should have a nonzero number of agents"
@@ -654,9 +652,9 @@ def api_test(env, num_cycles=1000, verbose_progress=False):
     base_render = pettingzoo.utils.env.AECEnv.render
     base_close = pettingzoo.utils.env.AECEnv.close
     if base_render != env.__class__.render:
-        assert (
-            base_close != env.__class__.close
-        ), "If render method defined, then close method required"
+        assert base_close != env.__class__.close, (
+            "If render method defined, then close method required"
+        )
     else:
         warnings.warn("Environment has not defined a render() method")
 

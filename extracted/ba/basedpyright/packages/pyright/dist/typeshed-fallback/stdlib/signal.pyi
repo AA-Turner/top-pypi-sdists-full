@@ -148,8 +148,8 @@ else:
         """
         Sets given itimer (one of ITIMER_REAL, ITIMER_VIRTUAL or ITIMER_PROF).
 
-        The timer will fire after value seconds and after that every interval seconds.
-        The itimer can be cleared by setting seconds to zero.
+        The timer will fire after value seconds and after that every interval
+        seconds.  The itimer can be cleared by setting seconds to zero.
 
         Returns old values as a tuple: (delay, interval).
         """

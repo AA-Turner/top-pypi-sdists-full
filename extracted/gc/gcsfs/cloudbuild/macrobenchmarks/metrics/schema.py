@@ -1,14 +1,12 @@
 """Self-contained metric dataclasses + raw-metric path constants.
 
-Trimmed copies of the tessellations raw-metric schemas so the parser and
-calculator carry no dependency on the tessellations package. Field order is
-significant: CSV column order derives from it via ``fieldnames``.
+Field order is significant: CSV column order derives from it via
+``fieldnames``.
 """
 
 from dataclasses import dataclass
 
-# Raw-metric layout (mirrors tessellations directory/file names so the parser
-# and calculator agree on paths).
+# Raw-metric layout (directory/file names the parser and calculator agree on).
 STEP_METRICS_DIRECTORY = "training_time"
 STEP_METRICS_FILE = "step_time.csv"
 WRITE_DURATION_DIRECTORY = "checkpoint_write_time"
@@ -18,6 +16,14 @@ PERSISTENT_STORAGE_DIRECTORY = "persistent_storage"
 PER_ACCELERATOR_DIRECTORY = "per_accelerator"
 CALCULATED_METRICS_DIRECTORY = "calculated_metrics"
 DATA_LOADING_METRICS_FILE = "data_loading_metrics.csv"
+CHECKPOINT_SIZE_DIRECTORY = "checkpoint_size"
+CHECKPOINT_SIZE_FILE = "checkpoint_size.csv"
+DATA_WAIT_DIRECTORY = "data_wait"
+DATA_WAIT_METRICS_FILE = "data_wait_metrics.csv"
+DATASET_BUILD_DIRECTORY = "dataset_build"
+DATASET_BUILD_METRICS_FILE = "dataset_build_metrics.csv"
+SYSTEM_METRICS_DIRECTORY = "system_metrics"
+SYSTEM_METRICS_FILE = "system_metrics.csv"
 
 
 def fieldnames(dataclass_type) -> list:
@@ -30,6 +36,7 @@ class StepMetrics:
     step: int
     step_duration: float
     step_end_time: float = None
+    samples_per_second: float = None
 
 
 # The per-event durations are intentionally NOT stored: the calculators derive
@@ -76,3 +83,50 @@ class DataLoadingMetrics:
     accelerator_blocked_time: float = None
     accelerator_blocked_percent: float = None
     update_timestamp: str = None
+
+
+@dataclass(kw_only=True)
+class DataWaitMetrics:
+    """One dataloader-blocking span from a real-time ``Data Wait`` log line.
+
+    ``cumulative_total`` is the emitting rank's running total, monotonically
+    increasing across its lines; the max observed value is the rank's total
+    blocked time as of its last surviving line, robust to lost tail lines
+    (unlike summing ``duration``).
+    """
+
+    global_rank: int
+    fetch_index: int
+    action: str
+    duration: float
+    cumulative_total: float
+
+
+@dataclass(kw_only=True)
+class DatasetBuildMetrics:
+    """One rank's ``build_train_dataset`` duration.
+
+    Covers the Parquet glob resolution and shuffle-buffer/node-sharding setup
+    that runs once before ``trainer.fit`` starts -- outside DataWaitProfiler's
+    ``data_wait_total_time`` span, which only begins once the fit loop is running.
+    """
+
+    global_rank: int
+    duration: float
+    dataset_path: str = None
+
+
+@dataclass(kw_only=True)
+class SystemMetric:
+    pod_name: str
+    metric: str
+    peak: float
+    mean: float = None
+
+
+@dataclass(kw_only=True)
+class CheckpointSizeMetrics:
+    checkpoint_step: int
+    checkpoint_location: str
+    size_bytes: int
+    global_rank: int = None

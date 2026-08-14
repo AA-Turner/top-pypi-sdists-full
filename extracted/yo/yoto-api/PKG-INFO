@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yoto_api
-Version: 4.3.2
+Version: 4.3.3
 Summary: A python package that makes it a bit easier to work with the yoto play API. Not associated with Yoto in any way.
 Home-page: https://github.com/cdnninja/yoto_api
 Author: cdnninja

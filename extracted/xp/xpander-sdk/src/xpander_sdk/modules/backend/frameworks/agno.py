@@ -1242,9 +1242,10 @@ VALIDATION_ERROR_GUIDANCE = (
 # manifest file afterwards delivers nothing and only manufactures a wrap-up step.
 LIVESURFACE_SHARE_REFUSAL = (
     "Already delivered: a live surface renders inline in the conversation the moment it "
-    "is created, so its manifest file needs no share link and nothing was shared. If "
-    "the surface exists, the deliverable is complete - answer the user now and refer to "
-    "the surface you already published."
+    "is created, so its manifest file needs no file-share link and nothing was shared. "
+    "If the user asked to share it with their organization and an xplivesurface-share "
+    "tool is in your toolset, call that with the surface id; otherwise the deliverable "
+    "is complete - answer the user now and refer to the surface you already published."
 )
 
 
@@ -1341,6 +1342,7 @@ _NO_PROGRESS_MARKERS = (
     "Tool call rejected: the arguments arrived EMPTY",
     "Rejected: finalize-only mode is NOT active",
     "Tool disabled:",
+    "Org-wide sharing is turned off for this agent",
 )
 
 

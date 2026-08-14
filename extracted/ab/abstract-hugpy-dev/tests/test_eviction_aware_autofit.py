@@ -314,8 +314,12 @@ def test_explicit_ngl_is_unaffected(rig, monkeypatch, raw):
     rig.residents["idle"] = {"vram_bytes": 8 * GIB, "host_mode": "subprocess"}
     rig.lru["idle"] = 100.0
     plan = A._vram_evict_to_fit(_State(), "flux2-klein-9b")
-    assert plan == {"action": "proceed", "evicted": [], "freed_bytes": 0,
-                    "reason": None}
+    # Core verdict only: a CPU/RAM-only intent (0/cpu/off) legitimately adds
+    # an informational "placement intent puts 0 B on the GPU" note (the
+    # 2026-07-29 placement-intent re-price) — additive, so not asserted away.
+    assert {k: plan.get(k) for k in ("action", "evicted", "freed_bytes",
+                                     "reason")} == {
+        "action": "proceed", "evicted": [], "freed_bytes": 0, "reason": None}
     assert rig.evicted == []                 # the AUTO path only
 
 

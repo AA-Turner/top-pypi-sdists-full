@@ -20,7 +20,10 @@ class BorderModel(UniversalBaseModel):
     """
 
     style: BorderStyle
-    width: int
+    width: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Border width in pixels (defaults to 1).
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

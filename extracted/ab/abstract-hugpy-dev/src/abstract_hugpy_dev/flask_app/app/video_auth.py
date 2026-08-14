@@ -26,9 +26,14 @@ worker verbs, ``/agent/*``, …).
 
 The acceptance rule here is::
 
-    valid console session  OR  valid video-share credential
+    member-or-operator console session  OR  valid video-share credential
 
-- **Console session** — reuses ``operator_auth.operator_authenticated()``: the
+(2026-08-06: the session leg is ``member_authenticated()`` — see
+_video_authorized. Console MUTATIONS remain operator-only in operator_auth, and
+a member sees only their OWN artifacts through the owner filters in
+video_routes.)
+
+- **Console session** — reuses ``operator_auth``'s session check: the
   same first-party session cookie validated against the upstream ``/me`` (external
   mode), the ``HUGPY_OPERATOR_TOKEN`` automation path, and the permissive
   ``open``-mode default (self-hosted ``pip install hugpy`` product: no login, so
@@ -57,7 +62,7 @@ import re
 
 from flask import request, abort, redirect
 
-from .operator_auth import operator_authenticated
+from .operator_auth import operator_authenticated, member_authenticated
 
 logger = logging.getLogger(__name__)
 
@@ -141,9 +146,20 @@ def _video_share_principal(request):  # noqa: A002 (mirror caller's name)
 
 
 def _video_authorized() -> bool:
-    """A request may use the video surface iff it has a valid console session
-    (or open-mode / operator-token access) OR a valid video-share credential."""
-    if operator_authenticated():
+    """A request may use the video surface iff it has a valid MEMBER-or-operator
+    session (or open-mode / operator-token access) OR a valid video-share
+    credential.
+
+    2026-08-06: the session leg moved from ``operator_authenticated()`` to
+    ``member_authenticated()`` — the SAME first-party session check, now
+    role-aware. The video arm is the Studio plane, which an approved member is
+    entitled to; before roles existed "member" and "operator" were the same
+    thing, so this is the tier split, not a widening. What a member CANNOT do
+    through this gate is unchanged and structural: every console route is gated
+    by operator_auth alone, which never consults anything here, and the
+    per-artifact OWNER filters in video_routes scope a member to their own
+    clips/jobs. The share-token leg below is byte-for-byte as it was."""
+    if member_authenticated():
         return True
     if _video_share_principal(request) is not None:
         return True

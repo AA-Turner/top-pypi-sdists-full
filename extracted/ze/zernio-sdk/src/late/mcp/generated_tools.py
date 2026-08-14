@@ -4512,7 +4512,7 @@ def register_generated_tools(mcp, _get_client):
             account_id: Social account ID (a connected account on the target ad platform). (required)
             q: Search query. For geo, the locality name only (no region/country suffix). (required)
             dimension: What to search. `geo` resolves locations (scope further with `geoType`), `interest`/`behavior` resolve audience entities, `income` resolves income-tier options. Defaults to `interest` for backward compatibility with the deprecated /v1/ads/interests alias.
-            geo_type: Only used when `dimension=geo`. The kind of location to resolve. Defaults to `city`.
+            geo_type: Only used when `dimension=geo`. The kind of location to resolve. `all` searches every type in one relevance-ranked call. Defaults to `city`.
             country_code: ISO 3166-1 alpha-2 country code (e.g. NL) to scope a geo search.
             limit: Maximum results to return."""
         client = _get_client()
@@ -5707,6 +5707,326 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             return f"Error: {e}"
 
+    # BLOGS
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List blogs",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def blogs_list_blogs(
+        account_id: str, limit: int = 20, cursor: str | None = None
+    ) -> str:
+        """List blogs
+
+        Args:
+            account_id: Connected Shopify SocialAccount id. (required)
+            limit: Page size (1-50).
+            cursor: Opaque cursor from a previous response. Omit for the first page."""
+        client = _get_client()
+        try:
+            response = client.blogs.list_blogs(
+                account_id=account_id, limit=limit, cursor=cursor
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a blog",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def blogs_create_blog(
+        account_id: str, title: str, handle: str | None = None
+    ) -> str:
+        """Create a blog
+
+        Args:
+            account_id: Connected Shopify SocialAccount id. (required)
+            title: (required)
+            handle: URL slug. Generated from the title when omitted."""
+        client = _get_client()
+        try:
+            response = client.blogs.create_blog(
+                account_id=account_id, title=title, handle=handle
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a blog",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def blogs_get_blog(account_id: str, blog_id: str) -> str:
+        """Get a blog
+
+        Args:
+            account_id: Connected Shopify SocialAccount id. (required)
+            blog_id: Platform-native numeric blog id. Non-numeric values return 400. (required)"""
+        client = _get_client()
+        try:
+            response = client.blogs.get_blog(account_id=account_id, blog_id=blog_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a blog",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def blogs_update_blog(
+        account_id: str,
+        blog_id: str,
+        title: str | None = None,
+        handle: str | None = None,
+    ) -> str:
+        """Update a blog
+
+        Args:
+            account_id: Connected Shopify SocialAccount id. (required)
+            blog_id: Platform-native numeric blog id. Non-numeric values return 400. (required)
+            title
+            handle: URL slug. Changing it changes the blog URL on the store."""
+        client = _get_client()
+        try:
+            response = client.blogs.update_blog(
+                account_id=account_id, blog_id=blog_id, title=title, handle=handle
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a blog",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def blogs_delete_blog(account_id: str, blog_id: str) -> str:
+        """Delete a blog
+
+        Args:
+            account_id: Connected Shopify SocialAccount id. (required)
+            blog_id: Platform-native numeric blog id. Non-numeric values return 400. (required)"""
+        client = _get_client()
+        try:
+            response = client.blogs.delete_blog(account_id=account_id, blog_id=blog_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List blog articles",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def blogs_list_blog_articles(
+        account_id: str, blog_id: str, limit: int = 20, cursor: str | None = None
+    ) -> str:
+        """List blog articles
+
+        Args:
+            account_id: Connected Shopify SocialAccount id. (required)
+            blog_id: Platform-native numeric blog id. Non-numeric values return 400. (required)
+            limit: Page size (1-50).
+            cursor: Opaque cursor from a previous response. Omit for the first page."""
+        client = _get_client()
+        try:
+            response = client.blogs.list_blog_articles(
+                account_id=account_id, blog_id=blog_id, limit=limit, cursor=cursor
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a blog article",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def blogs_create_blog_article(
+        account_id: str,
+        blog_id: str,
+        title: str,
+        body_html: str | None = None,
+        handle: str | None = None,
+        tags: list[str] | None = None,
+        author: str | None = None,
+        excerpt: str | None = None,
+        image: dict[str, Any] | None = None,
+        seo: dict[str, Any] | None = None,
+        is_published: bool | None = None,
+        publish_date: str | None = None,
+    ) -> str:
+        """Create a blog article
+
+        Args:
+            account_id: Connected Shopify SocialAccount id. (required)
+            blog_id: Platform-native numeric blog id. Non-numeric values return 400. (required)
+            title: (required)
+            body_html: Article body as HTML.
+            handle: URL slug. Generated from the title when omitted.
+            tags
+            author: Display name of the article author.
+            excerpt: Short summary shown in blog listings.
+            image: Featured image. The platform downloads it, so the URL must be publicly reachable.
+            seo: Search-engine overrides. Maps to Shopify global metafields (title_tag and description_tag).
+            is_published: Set false to create the article as a draft.
+            publish_date: ISO 8601 datetime with offset (or Z). A future date schedules publication natively on the platform."""
+        client = _get_client()
+        try:
+            response = client.blogs.create_blog_article(
+                account_id=account_id,
+                blog_id=blog_id,
+                title=title,
+                body_html=body_html,
+                handle=handle,
+                tags=tags,
+                author=author,
+                excerpt=excerpt,
+                image=image,
+                seo=seo,
+                is_published=is_published,
+                publish_date=publish_date,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a blog article",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def blogs_get_blog_article(account_id: str, blog_id: str, article_id: str) -> str:
+        """Get a blog article
+
+        Args:
+            account_id: Connected Shopify SocialAccount id. (required)
+            blog_id: Platform-native numeric blog id. Non-numeric values return 400. (required)
+            article_id: Platform-native numeric article id. Non-numeric values return 400. (required)"""
+        client = _get_client()
+        try:
+            response = client.blogs.get_blog_article(
+                account_id=account_id, blog_id=blog_id, article_id=article_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a blog article",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def blogs_update_blog_article(
+        account_id: str,
+        blog_id: str,
+        article_id: str,
+        title: str | None = None,
+        body_html: str | None = None,
+        handle: str | None = None,
+        tags: list[str] | None = None,
+        author: str | None = None,
+        excerpt: str | None = None,
+        image: dict[str, Any] | None = None,
+        seo: dict[str, Any] | None = None,
+        is_published: bool | None = None,
+        publish_date: str | None = None,
+    ) -> str:
+        """Update a blog article
+
+        Args:
+            account_id: Connected Shopify SocialAccount id. (required)
+            blog_id: Platform-native numeric blog id. Non-numeric values return 400. (required)
+            article_id: Platform-native numeric article id. Non-numeric values return 400. (required)
+            title
+            body_html: Article body as HTML.
+            handle: URL slug of the article.
+            tags: Replaces the full tag list.
+            author: Display name of the article author.
+            excerpt: Short summary shown in blog listings.
+            image: Featured image. The platform downloads it, so the URL must be publicly reachable.
+            seo: Search-engine overrides. Maps to Shopify global metafields (title_tag and description_tag).
+            is_published: Set false to unpublish the article back to a draft.
+            publish_date: ISO 8601 datetime with offset (or Z). A future date schedules publication natively on the platform."""
+        client = _get_client()
+        try:
+            response = client.blogs.update_blog_article(
+                account_id=account_id,
+                blog_id=blog_id,
+                article_id=article_id,
+                title=title,
+                body_html=body_html,
+                handle=handle,
+                tags=tags,
+                author=author,
+                excerpt=excerpt,
+                image=image,
+                seo=seo,
+                is_published=is_published,
+                publish_date=publish_date,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a blog article",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def blogs_delete_blog_article(
+        account_id: str, blog_id: str, article_id: str
+    ) -> str:
+        """Delete a blog article
+
+        Args:
+            account_id: Connected Shopify SocialAccount id. (required)
+            blog_id: Platform-native numeric blog id. Non-numeric values return 400. (required)
+            article_id: Platform-native numeric article id. Non-numeric values return 400. (required)"""
+        client = _get_client()
+        try:
+            response = client.blogs.delete_blog_article(
+                account_id=account_id, blog_id=blog_id, article_id=article_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
     # BROADCASTS
 
     @mcp.tool(
@@ -6420,11 +6740,11 @@ def register_generated_tools(mcp, _get_client):
         """Get post comments
 
         Args:
-            post_id: Zernio post ID or platform-specific post ID. Zernio IDs are auto-resolved. LinkedIn third-party posts accept full activity URN or numeric ID. (required)
+            post_id: Zernio post ID or platform-specific post ID. Zernio IDs are auto-resolved. LinkedIn third-party posts accept full activity URN or numeric ID. On Facebook and Instagram, a comment ID is also accepted here and returns that comment's replies. (required)
             account_id: (required)
             subreddit: (Reddit only) Subreddit name
             limit: Maximum number of comments to return
-            cursor: Pagination cursor
+            cursor: Pagination cursor, returned by a previous call as `pagination.cursor`. This is the platform's own opaque paging value passed through verbatim: never construct, decode or validate it client-side.
             comment_id: (Reddit only) Get replies to a specific comment"""
         client = _get_client()
         try:
@@ -6501,7 +6821,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             post_id: Zernio post ID or platform-specific post ID. LinkedIn third-party posts accept full activity URN or numeric ID. (required)
             account_id: (required)
-            comment_id: (required)"""
+            comment_id: For LinkedIn, accepts either the numeric comment ID or the composite comment URN returned by the comments listing (e.g. urn:li:comment:(threadUrn,id)) (required)"""
         client = _get_client()
         try:
             response = client.comments.delete_inbox_comment(
@@ -6820,6 +7140,7 @@ def register_generated_tools(mcp, _get_client):
         redirect_url: str | None = None,
         headless: bool = False,
         login_method: str = "instagram_login",
+        onboarding: str | None = None,
     ) -> str:
         """Get OAuth connect URL
 
@@ -6834,7 +7155,14 @@ def register_generated_tools(mcp, _get_client):
 
         `facebook_login`: the Facebook Login dialog, i.e. "Instagram API with Facebook Login". The user authorizes a Facebook Page that has a linked Instagram professional account, and every API call for that account then runs through the Page. Use this when the customer manages Instagram through a Page and expects the Facebook consent screen. Because the user has to pick which Page to connect, the callback continues at the account-selection step, `/v1/connect/instagram/select-account`.
 
-        `facebook_login` supports `headless=true` like the other selection platforms: the callback redirects to your `redirect_url` with `profileId`, `tempToken`, `platform=instagram`, `step=select_account` and `connect_token`, which you pass into the select-account endpoints to finish. The default `instagram_login` has no selection step, so it connects the account directly."""
+        `facebook_login` supports `headless=true` like the other selection platforms: the callback redirects to your `redirect_url` with `profileId`, `tempToken`, `platform=instagram`, `step=select_account` and `connect_token`, which you pass into the select-account endpoints to finish. The default `instagram_login` has no selection step, so it connects the account directly.
+                onboarding: WhatsApp only. Ignored for every other platform. Controls which screen Meta's Embedded Signup popup shows.
+
+        If omitted, the connection defaults to coexistence (same as `business_app` below), preserving existing behavior for numbers already on the WhatsApp Business app.
+
+        `api`: standard Embedded Signup, showing Meta's WABA/number picker. Use this to connect a phone number already on Cloud API elsewhere.
+
+        `business_app`: coexistence, i.e. 'Connect existing WhatsApp Business app' (a number shared between Cloud API and the consumer WhatsApp Business app)."""
         client = _get_client()
         try:
             response = client.connect.get_connect_url(
@@ -6843,6 +7171,7 @@ def register_generated_tools(mcp, _get_client):
                 redirect_url=redirect_url,
                 headless=headless,
                 login_method=login_method,
+                onboarding=onboarding,
             )
             return _format_response(response)
         except Exception as e:
@@ -6938,6 +7267,32 @@ def register_generated_tools(mcp, _get_client):
                 force=force,
                 ad_account_id=ad_account_id,
                 ad_account_ids=ad_account_ids,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get Shopify OAuth connect URL",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_get_shopify_connect_url(
+        profile_id: str, shop: str, redirect_url: str | None = None
+    ) -> str:
+        """Get Shopify OAuth connect URL
+
+        Args:
+            profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
+            shop: The myshopify.com store domain to connect, e.g. `your-store.myshopify.com` (the bare `your-store` prefix is accepted too). (required)
+            redirect_url: Your custom redirect URL after connection completes. Accepts an http(s) URL, a custom app scheme for mobile deeplinks (e.g. myapp://callback), or a relative path. On failure an `error` query param is appended."""
+        client = _get_client()
+        try:
+            response = client.connect.get_shopify_connect_url(
+                profile_id=profile_id, shop=shop, redirect_url=redirect_url
             )
             return _format_response(response)
         except Exception as e:
@@ -12209,7 +12564,7 @@ def register_generated_tools(mcp, _get_client):
 
             Args:
                 title
-                content: Post caption/text. Optional when media is attached or all platforms have customContent. Required for text-only posts.
+                content: Post caption/text. Optional when media is attached, all platforms have customContent, or every platform entry is a LinkedIn plain repost (platformSpecificData.reshareUrl with no text). Required for text-only posts.
                 media_items
                 platforms: Target platforms and accounts for this post. Required for non-draft posts (returns 400 if empty). Drafts can omit platforms.
                 scheduled_for

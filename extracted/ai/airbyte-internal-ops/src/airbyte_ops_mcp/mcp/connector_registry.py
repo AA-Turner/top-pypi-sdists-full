@@ -47,6 +47,12 @@ from airbyte_ops_mcp.registry.operations import (
     list_registry_connectors_filtered,
 )
 from airbyte_ops_mcp.registry.registry_store_base import get_registry
+from airbyte_ops_mcp.registry.release_attribution import (
+    ReleaseAttributionListResult,
+    ReleaseAttributionLookupResult,
+    list_release_attribution,
+    lookup_release_attribution,
+)
 
 
 class RegistrySpecResult(BaseModel):
@@ -246,6 +252,65 @@ def list_connector_versions_in_registry(
         bucket_name=bucket_name,
         version_count=len(versions),
         versions=versions,
+    )
+
+
+@mcp_tool(
+    read_only=True,
+    idempotent=True,
+    open_world=True,
+)
+def get_connector_version_release(
+    connector_name: Annotated[
+        str,
+        "The connector name (e.g., 'source-faker', 'destination-postgres').",
+    ],
+    version: Annotated[
+        str,
+        "The connector version to inspect (e.g., '7.2.1').",
+    ],
+    store: Annotated[
+        str,
+        "Store target to read (e.g. 'coral:prod', 'coral:dev'). Defaults to 'coral:prod'.",
+    ] = "coral:prod",
+) -> ReleaseAttributionLookupResult:
+    """Read release attribution for one connector version."""
+    return lookup_release_attribution(
+        resolve_registry_store(store=store),
+        connector_name,
+        version,
+    )
+
+
+@mcp_tool(
+    read_only=True,
+    idempotent=True,
+    open_world=True,
+)
+def list_connector_version_releases(
+    connector_name: Annotated[
+        str,
+        "The connector name (e.g., 'source-faker', 'destination-postgres').",
+    ],
+    limit: Annotated[
+        int,
+        "Maximum number of versions to return, newest first.",
+    ] = 50,
+    with_metadata_fallback: Annotated[
+        bool,
+        "When `True`, read metadata for index entries without attribution.",
+    ] = False,
+    store: Annotated[
+        str,
+        "Store target to read (e.g. 'coral:prod', 'coral:dev'). Defaults to 'coral:prod'.",
+    ] = "coral:prod",
+) -> ReleaseAttributionListResult:
+    """List release attribution for a connector's versions, newest first."""
+    return list_release_attribution(
+        resolve_registry_store(store=store),
+        connector_name,
+        limit=limit,
+        with_metadata_fallback=with_metadata_fallback,
     )
 
 

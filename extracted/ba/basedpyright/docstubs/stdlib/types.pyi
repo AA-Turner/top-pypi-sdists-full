@@ -342,7 +342,7 @@ class MappingProxyType(Mapping[_KT_co, _VT_co]):  # type: ignore[type-var]  # py
         ...
 
     def __class_getitem__(cls, item: Any, /) -> GenericAlias:
-        """See PEP 585"""
+        """mappingproxy objects are generic over two types, signifying (respectively) the types of their keys and values"""
         ...
     def __reversed__(self) -> Iterator[_KT_co]:
         """D.__reversed__() -> reverse iterator"""
@@ -512,7 +512,7 @@ class GeneratorType(Generator[_YieldT_co, _SendT_contra, _ReturnT_co]):
 
     if sys.version_info >= (3, 13):
         def __class_getitem__(cls, item: Any, /) -> Any:
-            """See PEP 585"""
+            """generators are generic over the types of their yield, send, and return values"""
             ...
 
 @final
@@ -575,7 +575,7 @@ class AsyncGeneratorType(AsyncGenerator[_YieldT_co, _SendT_contra]):
         """aclose() -> raise GeneratorExit inside generator."""
         ...
     def __class_getitem__(cls, item: Any, /) -> GenericAlias:
-        """See PEP 585"""
+        """async generators are generic over the types of their yield and send values"""
         ...
 
 # Non-default variations to accommodate coroutines
@@ -647,7 +647,7 @@ class CoroutineType(Coroutine[_YieldT_co, _SendT_nd_contra, _ReturnT_nd_co]):
 
     if sys.version_info >= (3, 13):
         def __class_getitem__(cls, item: Any, /) -> Any:
-            """See PEP 585"""
+            """coroutines are generic over the types of their yield, send, and return values"""
             ...
 
 @final

@@ -71,15 +71,15 @@ import logging
 import os
 import sys
 from collections.abc import Mapping
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from urllib.parse import urlparse
 
-import uvicorn
 from airbyte.cloud.auth import resolve_cloud_client_id, resolve_cloud_client_secret
 from airbyte.constants import set_hosted_mcp_mode
 from dotenv import load_dotenv
 from fastmcp import FastMCP
-from fastmcp.server.auth import AuthProvider
+from fastmcp.server.auth import AuthProvider, MultiAuth
 from fastmcp.server.dependencies import get_access_token
 from fastmcp_extensions import (
     JWTAuthConfig,
@@ -89,7 +89,9 @@ from fastmcp_extensions import (
     build_mcp_auth,
     mcp_server,
     register_landing_page,
+    run_mcp_http_server,
 )
+from packaging.version import Version
 from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -222,6 +224,42 @@ OIDC_ENABLE_CIMD_ENV = "AIRBYTE_MCP_OIDC_ENABLE_CIMD"
 # Human-facing landing page shown when a browser GETs the MCP endpoint.
 MCP_LANDING_TITLE = "Airbyte Ops MCP Server"
 MCP_LANDING_DOCS_URL = "https://github.com/airbytehq/airbyte-ops-mcp#readme"
+RELEASE_TAG_URL_TEMPLATE = (
+    "https://github.com/airbytehq/airbyte-ops-mcp/releases/tag/v{}"
+)
+COMMIT_URL_TEMPLATE = "https://github.com/airbytehq/airbyte-ops-mcp/commit/{}"
+DISTRIBUTION_NAME = "airbyte-internal-ops"
+
+
+def _landing_version_str() -> str | None:
+    """Return the installed package version for the landing-page footer.
+
+    Returns `None` when the distribution metadata is unavailable (e.g. running
+    straight from a source tree), which omits the footer entirely.
+    """
+    try:
+        return f"v{version(DISTRIBUTION_NAME)}"
+    except PackageNotFoundError:
+        return None
+
+
+def _landing_version_url() -> str | None:
+    """Return the URL the landing-page version footer links to.
+
+    A tagged release links to its release page. A dev build carries the commit
+    it was cut from in the version's local segment
+    (`0.96.2.post5.dev0+1b1637b4`) and has no release of its own, so it links
+    to that commit instead.
+    """
+    try:
+        installed = Version(version(DISTRIBUTION_NAME))
+    except PackageNotFoundError:
+        return None
+
+    if installed.local:
+        commit_sha = installed.local.split(".")[0]
+        return COMMIT_URL_TEMPLATE.format(commit_sha)
+    return RELEASE_TAG_URL_TEMPLATE.format(installed.public)
 
 
 def _normalize_bearer_token(value: str) -> str | None:
@@ -539,6 +577,38 @@ def main() -> None:
     print("=" * 60, flush=True, file=sys.stderr)
 
 
+def _advertise_root_mount_resource(auth: AuthProvider) -> None:
+    """Advertise the slash-less public URL as the RFC 8707 resource at a root mount.
+
+    Behind a path-stripping load balancer the MCP endpoint is mounted at root
+    (`mcp_path="/"`), and FastMCP derives the protected-resource identifier from
+    that mount path — appending a trailing slash (e.g. `.../ops-mcp/`). Strict
+    RFC 9728 clients canonicalize the connection URL to the slash-less form
+    (`.../ops-mcp`) and reject the mismatch, so they cannot attach. FastMCP
+    already returns the bare base URL for a *root* mount path (`None`/`""`), so
+    this maps the `"/"` mount path onto that root case, leaving non-root mounts
+    (e.g. the local `"/mcp"` default) untouched.
+
+    Applied to every provider in the tree because the protected-resource
+    metadata document and the `WWW-Authenticate` challenge are built from
+    different providers (the interactive server versus the top-level `MultiAuth`).
+    """
+    # FastMCP exposes no public seam for this, so we wrap the private accessor.
+    original = auth._get_resource_url
+
+    def resolve_resource_url(path: str | None = None):
+        normalized = path if path and path != "/" else None
+        return original(normalized)
+
+    auth._get_resource_url = resolve_resource_url  # ty: ignore[invalid-assignment]
+
+    if isinstance(auth, MultiAuth):
+        if auth.server is not None:
+            _advertise_root_mount_resource(auth.server)
+        for verifier in auth.verifiers:
+            _advertise_root_mount_resource(verifier)
+
+
 def main_http() -> None:
     """HTTP entry point for the Airbyte Admin MCP server.
 
@@ -573,6 +643,12 @@ def main_http() -> None:
     # the bare server URL when mounted at root, otherwise the server URL + mcp_path.
     endpoint_url = server_url if mcp_path == "/" else server_url.rstrip("/") + mcp_path
 
+    # At a root mount FastMCP would advertise a trailing-slash resource that
+    # strict RFC 9728 clients reject; pin it to the slash-less public URL. Must
+    # run before `app.http_app()` below builds the protected-resource routes.
+    if mcp_path == "/" and app.auth is not None:
+        _advertise_root_mount_resource(app.auth)
+
     # Serve a browser-friendly landing page on GET at the MCP path. In stateless
     # mode FastMCP only binds POST/DELETE there, so this GET route does not
     # interfere with MCP traffic.
@@ -582,6 +658,8 @@ def main_http() -> None:
         title=MCP_LANDING_TITLE,
         endpoint_url=endpoint_url,
         docs_url=MCP_LANDING_DOCS_URL,
+        version_str=_landing_version_str(),
+        version_url=_landing_version_url(),
     )
 
     print("=" * 60, flush=True, file=sys.stderr)
@@ -590,20 +668,13 @@ def main_http() -> None:
         f" (mcp_path={mcp_path!r})",
         file=sys.stderr,
     )
-    # Build the ASGI app ourselves (rather than `app.run`) so the optional
-    # client-credentials exchange can wrap it as the *outermost* layer — ahead
-    # of FastMCP's auth middleware — so its Basic-to-Bearer rewrite is what the
-    # verifier sees. When the opt-in flag is unset, `wrap_if_enabled` returns the
-    # app unchanged. The Starlette app owns the session-manager lifespan, so
-    # running it under uvicorn directly is equivalent to `app.run`.
-    http_app = app.http_app(
-        path=mcp_path,
-        transport="streamable-http",
-        stateless_http=True,
-    )
     try:
-        uvicorn.run(
-            wrap_if_enabled(http_app),
+        run_mcp_http_server(
+            app,
+            path=mcp_path,
+            transport="streamable-http",
+            stateless_http=True,
+            wrapper=wrap_if_enabled,
             host=host,
             port=port,
         )

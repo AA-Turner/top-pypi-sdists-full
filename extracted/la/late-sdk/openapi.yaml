@@ -201,6 +201,12 @@ tags:
   - name: Posts
     description: |
       Create, schedule, list, update, and delete posts across all connected social accounts.
+  - name: Blogs
+    description: |
+      Manage blogs and blog articles on connected accounts. Currently supported
+      for Shopify accounts (scopes read_content and write_content). Blogs are
+      the containers; articles are the posts inside them. All content lives on
+      the platform; Zernio proxies it and stores nothing.
   - name: Users
     description: |
       Read the authenticated user and team members.
@@ -1197,6 +1203,11 @@ components:
           properties:
             x: { type: number }
             y: { type: number }
+        label:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: 'Optional display name shown on the builder canvas and inspector, falling back to the node type when absent. The nodes array is replaced wholesale on update, so it must be resent to be kept.'
     WorkflowEdge:
       type: object
       required: [id, source, target]
@@ -3310,7 +3321,7 @@ components:
             sender:
               type: object
               required: [id]
-              description: 'Whoever added or removed the reaction. Usually the participant, but on Slack, Instagram and Facebook Messenger it is the business own platform id when the reaction was made from the native app: compare it with conversation.participantId.'
+              description: 'Whoever added or removed the reaction. Usually the participant, but on WhatsApp, Slack, Instagram and Facebook Messenger it is the business own platform id when the business reacted from the native app or via the reactions API: compare it with conversation.participantId.'
               properties:
                 id:
                   type: string
@@ -5009,7 +5020,7 @@ components:
           description: Set to true to disable automatic link previews for URLs in the post content (default is false)
         reshareUrl:
           type: string
-          description: "LinkedIn post link to repost (use the post's \"Copy link to post\" action), or a urn:li:share / urn:li:ugcPost / urn:li:groupPost URN. The published post becomes a quote-reshare: your content is shown as the commentary and the original post is embedded underneath (LinkedIn's \"repost with your thoughts\"). Mutually exclusive with media. Works on personal profiles and organization pages."
+          description: "LinkedIn post link to repost (use the post's \"Copy link to post\" action), or a urn:li:share / urn:li:ugcPost / urn:li:groupPost URN. With content, the published post is a quote-reshare: your text is the commentary and the original is embedded underneath (LinkedIn's \"repost with your thoughts\"). Leave content empty (and omit customContent) to publish a plain repost with no text, LinkedIn's one-click \"Repost\". Mutually exclusive with media. Works on personal profiles and organization pages."
         geoRestriction:
           $ref: '#/components/schemas/GeoRestriction'
         poll:
@@ -8151,6 +8162,37 @@ components:
         customConversionId: { type: string, description: "Drops straight into promotedObject.customConversionId on POST /v1/ads/create." }
         reused: { type: boolean, description: "True when an existing conversion matched name + pixelId; the response is then a 200." }
         customConversion: { $ref: '#/components/schemas/CustomConversion' }
+    Blog:
+      type: object
+      description: 'A blog container on the connected platform. All content lives on the platform; Zernio proxies it and stores nothing.'
+      properties:
+        id: { type: string, description: 'Platform-native blog id (numeric string for Shopify).' }
+        platform: { type: string, enum: [shopify] }
+        title: { type: string }
+        handle: { type: string, description: 'URL slug of the blog.' }
+    BlogArticle:
+      type: object
+      description: 'An article inside a blog on the connected platform.'
+      properties:
+        id: { type: string, description: 'Platform-native article id (numeric string for Shopify).' }
+        blogId: { type: string, description: 'Platform-native id of the blog the article belongs to.' }
+        platform: { type: string, enum: [shopify] }
+        title: { type: string }
+        bodyHtml: { type: [string, "null"], description: 'Article body as HTML.' }
+        handle: { type: string, description: 'URL slug of the article.' }
+        tags: { type: array, items: { type: string } }
+        author: { type: [string, "null"], description: 'Display name of the article author.' }
+        excerpt: { type: [string, "null"], description: 'Short summary shown in blog listings.' }
+        image:
+          type: [object, "null"]
+          description: Featured image.
+          properties:
+            url: { type: string }
+            altText: { type: [string, "null"] }
+        isPublished: { type: boolean, description: 'False while the article is a draft or its publish date is still in the future.' }
+        publishedAt: { type: [string, "null"], format: date-time, description: 'When the article was (or is scheduled to be) published; null for drafts.' }
+        createdAt: { type: [string, "null"], format: date-time }
+        updatedAt: { type: [string, "null"], format: date-time }
     TrackingTag:
       type: object
       description: |
@@ -13415,7 +13457,7 @@ paths:
       summary: Create post
       description: |
         Create and optionally publish a post. Immediate posts (`publishNow: true`) include `platformPostUrl` in the response.
-        Content is optional when media is attached or all platforms have `customContent`. See each platform's schema for media constraints.
+        Content is optional when media is attached, all platforms have `customContent`, or every platform entry is a LinkedIn plain repost (`platformSpecificData.reshareUrl` with no text). See each platform's schema for media constraints.
 
         ## Idempotency
 
@@ -13449,7 +13491,7 @@ paths:
                 title: { type: string }
                 content:
                   type: string
-                  description: Post caption/text. Optional when media is attached or all platforms have customContent. Required for text-only posts.
+                  description: 'Post caption/text. Optional when media is attached, all platforms have customContent, or every platform entry is a LinkedIn plain repost (platformSpecificData.reshareUrl with no text). Required for text-only posts.'
                 mediaItems:
                   type: array
                   items: { $ref: '#/components/schemas/MediaItem' }
@@ -16044,6 +16086,17 @@ paths:
             `facebook_login`: the Facebook Login dialog, i.e. "Instagram API with Facebook Login". The user authorizes a Facebook Page that has a linked Instagram professional account, and every API call for that account then runs through the Page. Use this when the customer manages Instagram through a Page and expects the Facebook consent screen. Because the user has to pick which Page to connect, the callback continues at the account-selection step, `/v1/connect/instagram/select-account`.
 
             `facebook_login` supports `headless=true` like the other selection platforms: the callback redirects to your `redirect_url` with `profileId`, `tempToken`, `platform=instagram`, `step=select_account` and `connect_token`, which you pass into the select-account endpoints to finish. The default `instagram_login` has no selection step, so it connects the account directly.
+        - name: onboarding
+          in: query
+          schema: { type: string, enum: [api, business_app] }
+          description: |
+            WhatsApp only. Ignored for every other platform. Controls which screen Meta's Embedded Signup popup shows.
+
+            If omitted, the connection defaults to coexistence (same as `business_app` below), preserving existing behavior for numbers already on the WhatsApp Business app.
+
+            `api`: standard Embedded Signup, showing Meta's WABA/number picker. Use this to connect a phone number already on Cloud API elsewhere.
+
+            `business_app`: coexistence, i.e. 'Connect existing WhatsApp Business app' (a number shared between Cloud API and the consumer WhatsApp Business app).
       security:
         - bearerAuth: []
       responses:
@@ -16239,6 +16292,66 @@ paths:
           description: "Ads access required (Ads add-on on legacy plans, included on usage-based plans), or no access to profile"
         '404':
           description: "Profile or posting account not found"
+
+  /v1/connect/shopify:
+    get:
+      x-resource-group: "accounts"
+      operationId: getShopifyConnectUrl
+      tags: [Connect]
+      summary: Get Shopify OAuth connect URL
+      description: |
+        Initiate the Shopify OAuth flow for a store. Shopify is a connect-only
+        platform: the connected account does not publish social posts, it powers
+        the Blogs API (`/v1/accounts/{accountId}/blogs`). Returns an `authUrl`
+        to redirect the merchant to; after they approve the install, Shopify
+        redirects their browser to Zernio's callback, the account is created on
+        the profile (platform `shopify`), and the browser is redirected to
+        `redirect_url` (or the Zernio dashboard when omitted). Requested scopes
+        are `read_content` and `write_content` (content only; no customer or
+        order data). Connecting the same profile to a store again refreshes the
+        stored token in place.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: profileId
+          in: query
+          required: true
+          schema: { type: string }
+          description: 'Your Zernio profile ID (get from /v1/profiles).'
+        - name: shop
+          in: query
+          required: true
+          schema: { type: string }
+          description: 'The myshopify.com store domain to connect, e.g. `your-store.myshopify.com` (the bare `your-store` prefix is accepted too).'
+        - name: redirect_url
+          in: query
+          schema: { type: string, format: uri }
+          description: 'Your custom redirect URL after connection completes. Accepts an http(s) URL, a custom app scheme for mobile deeplinks (e.g. myapp://callback), or a relative path. On failure an `error` query param is appended.'
+      responses:
+        '200':
+          description: OAuth authorization URL to redirect the merchant to
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authUrl:
+                    type: string
+                    format: uri
+                    description: URL to redirect your user to for OAuth authorization
+                  state:
+                    type: string
+                    description: State parameter for security (handled automatically)
+        '400':
+          description: 'Invalid `profileId` format, `shop` is not a myshopify.com store domain, or `redirect_url` uses a script-executing scheme.'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/PaymentRequired' }
+        '403':
+          description: 'API key does not have access to this profile.'
+        '404':
+          description: 'Profile not found or access denied.'
+        '500':
+          description: 'Shopify API not configured (missing credentials).'
 
   /v1/connect/tiktok-ads:
     patch:
@@ -26206,8 +26319,18 @@ paths:
         (Instagram side); a row whose count can't be read is omitted.
 
         Pagination walks each account's platform listing. Following `nextCursor` reaches past
-        the first page on Facebook and Instagram only, since they are the platforms that
-        support a server-side date window; on the others the listing stops at its first page.
+        the first page on Facebook, Instagram, Threads, LinkedIn and YouTube, since they are
+        the platforms that support a server-side date window; on the others the listing stops
+        at its first page. Cursor pagination is only coherent for the default sort
+        (`sortBy=date`, `sortOrder=desc`): with `sortOrder=asc`, or with `sortBy=comments`,
+        the cursor filter does not match the sort order and the second page is unreliable.
+
+        `nextCursor` is opaque: pass it back verbatim, never construct or parse it, its
+        composition may change without notice. Because each page re-queries a live window,
+        results can still shift between requests, so dedupe by `id` on the client.
+
+        `commentCount` semantics differ by platform: YouTube's includes replies, Facebook's counts
+        top-level comments only.
       tags: [Comments]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -26304,14 +26427,19 @@ paths:
       x-resource-group: "engagement"
       operationId: getInboxPostComments
       summary: Get post comments
-      description: Fetch comments for a specific post. Requires accountId query parameter.
+      description: |
+        Fetch comments for a specific post. Requires accountId query parameter.
+
+        On Facebook and Instagram, passing a COMMENT id as `postId` is also supported and
+        returns that comment's replies instead of the post's top-level comments. This is not
+        available on YouTube, where `postId` must be a video id.
       tags: [Comments]
       security: [{ bearerAuth: [] }]
       parameters:
         - name: postId
           in: path
           required: true
-          description: Zernio post ID or platform-specific post ID. Zernio IDs are auto-resolved. LinkedIn third-party posts accept full activity URN or numeric ID.
+          description: Zernio post ID or platform-specific post ID. Zernio IDs are auto-resolved. LinkedIn third-party posts accept full activity URN or numeric ID. On Facebook and Instagram, a comment ID is also accepted here and returns that comment's replies.
           schema: { type: string }
         - name: accountId
           in: query
@@ -26328,7 +26456,7 @@ paths:
         - name: cursor
           in: query
           schema: { type: string }
-          description: Pagination cursor
+          description: 'Pagination cursor, returned by a previous call as `pagination.cursor`. This is the platform''s own opaque paging value passed through verbatim: never construct, decode or validate it client-side.'
         - name: commentId
           in: query
           schema: { type: string }
@@ -26363,7 +26491,7 @@ paths:
                               enum: [blue, government, business, none]
                               description: X/Twitter verified badge type. Only present for Twitter/X comments.
                         likeCount: { type: integer }
-                        replyCount: { type: integer }
+                        replyCount: { type: integer, description: "The platform's own reply count, which includes hidden and deleted replies. Can exceed replies[].length even when repliesHasMore is false or absent." }
                         platform: { type: string, description: The platform this comment is from }
                         url:
                           type: [string, "null"]
@@ -26371,6 +26499,9 @@ paths:
                         replies:
                           type: array
                           items: { type: object }
+                        repliesHasMore:
+                          type: boolean
+                          description: "Facebook only. True when replies[] (capped at 10) does not hold the comment's full reply thread; fetch the rest by passing the comment id as postId to GET /v1/inbox/comments/{postId}. Absent (not false) on every other platform, including Instagram, which has no equivalent signal."
                         canReply: { type: boolean }
                         canDelete: { type: boolean }
                         canHide: { type: boolean, description: "Whether this comment can be hidden (Facebook, Instagram, Threads)" }
@@ -26510,6 +26641,7 @@ paths:
         - name: commentId
           in: query
           required: true
+          description: 'For LinkedIn, accepts either the numeric comment ID or the composite comment URN returned by the comments listing (e.g. urn:li:comment:(threadUrn,id))'
           schema: { type: string }
       responses:
         '200':
@@ -42216,6 +42348,28 @@ paths:
         markets, and every id is usable in `regions`/`cities`/`metros` keys on
         `POST /v1/ads/create`.
 
+        LinkedIn geo searches also return every matching level in one list, and
+        neither `geoType` nor `countryCode` is applied: LinkedIn's typeahead only
+        returns a name and a URN per result, with no level or country field to
+        filter on. Every result has `type` set to `location`, and its id is a
+        `urn:li:geo:*` URN usable as a `regions[].key` on `POST /v1/ads/create`,
+        `POST /v1/ads/boost` and `POST /v1/ads/targeting/reach-estimate`.
+
+        Pinterest resolves against three whole-catalog endpoints (interests, locations,
+        regions) with no server-side query or pagination, so matching, ranking and the
+        `limit` cutoff all happen in Zernio; the catalog is independent of any ad account
+        and results never carry `audienceSize`. Names come back localized to the connected
+        Pinterest account's language (there is no way to force a locale), so match against
+        whatever language that account returns. `geoType` routes to a different catalog:
+        `country` and `metro_area` read the locations catalog (`type` is `country` or
+        `metro`); `region` reads the regions catalog (`type` is `region`, its id a
+        `regions[].key` on `POST /v1/ads/create`); `all` and the default `city` merge both
+        catalogs with honest per-entry `type`s, since Pinterest has no city-level catalog
+        and `city` is an alias for `all`, not a literal city search. `zip`, `subcity`,
+        `neighborhood`, `place` and `geo_market` return a 400: Pinterest exposes no
+        postal-code catalog, pass postal codes directly as `targeting.zips: [{ key }]` on
+        `POST /v1/ads/create`.
+
         For geo queries, `q` should contain only the locality name (e.g. `"Amsterdam"`,
         not `"Amsterdam, NL"`). Use `countryCode` to disambiguate.
       security:
@@ -42224,7 +42378,7 @@ paths:
         - { name: accountId, in: query, required: true, schema: { type: string }, description: "Social account ID (a connected account on the target ad platform)." }
         - { name: q, in: query, required: true, schema: { type: string }, description: "Search query. For geo, the locality name only (no region/country suffix)." }
         - { name: dimension, in: query, required: false, schema: { type: string, enum: [geo, interest, behavior, income], default: interest }, description: "What to search. `geo` resolves locations (scope further with `geoType`), `interest`/`behavior` resolve audience entities, `income` resolves income-tier options. Defaults to `interest` for backward compatibility with the deprecated /v1/ads/interests alias." }
-        - { name: geoType, in: query, required: false, schema: { type: string, enum: [country, region, city, zip, metro], default: city }, description: "Only used when `dimension=geo`. The kind of location to resolve. Defaults to `city`." }
+        - { name: geoType, in: query, required: false, schema: { type: string, enum: [all, country, region, city, subcity, neighborhood, place, zip, metro_area, geo_market], default: city }, description: "Only used when `dimension=geo`. The kind of location to resolve. `all` searches every type in one relevance-ranked call. Defaults to `city`." }
         - { name: countryCode, in: query, required: false, schema: { type: string, minLength: 2, maxLength: 2 }, description: "ISO 3166-1 alpha-2 country code (e.g. NL) to scope a geo search." }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: "Maximum results to return." }
       responses:
@@ -42243,7 +42397,7 @@ paths:
                       properties:
                         id: { type: string, description: "The platform's opaque id. Use as a geo `key` (regions/cities/zips/metros) or an entity `id` (interests/behaviors) in TargetingSpec." }
                         name: { type: string, description: "Human-readable label." }
-                        type: { type: string, description: "What the result is (e.g. city, region, country, zip, metro, interest, behavior, income)." }
+                        type: { type: string, description: "What the result is (e.g. city, region, country, zip, metro, location, interest, behavior, income)." }
                         path: { type: array, items: { type: string }, description: "Optional breadcrumb of parent labels (e.g. ['United States', 'California', 'Los Angeles']). Disambiguates same-named results." }
                         audienceSize: { type: [integer, "null"], description: "Optional estimated reachable users for this option, when the platform returns it." }
         '400':
@@ -44655,6 +44809,447 @@ paths:
         '403': { description: 'Ads access required (Ads add-on on legacy plans, included on usage-based plans), or the Meta token lacks ads permissions (reconnect required).' }
         '404': { description: Account or tracking tag not found. }
         '405': { description: Platform does not support tracking-tag stats. }
+
+  /v1/accounts/{accountId}/blogs:
+    get:
+      x-resource-group: "publishing"
+      operationId: listBlogs
+      tags: ["Blogs"]
+      x-platforms: ["shopify"]
+      summary: List blogs
+      description: |
+        Lists the blogs on the connected store, newest-first as the platform
+        returns them. Cursor-paginated: pass `limit` (1-50, default 20) and the
+        `cursor` from a previous response's `nextCursor`; `nextCursor` is null
+        when there are no more pages.
+
+        Supported on Shopify (platform `shopify`). Accounts on platforms
+        without blogs support return 400; a blogs-capable platform that lacks
+        this specific operation returns 405.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 50, default: 20 }, description: 'Page size (1-50).' }
+        - { name: cursor, in: query, required: false, schema: { type: string }, description: 'Opaque cursor from a previous response. Omit for the first page.' }
+      responses:
+        '200':
+          description: Blogs listed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  platform: { type: string, enum: [shopify] }
+                  blogs:
+                    type: array
+                    items: { $ref: '#/components/schemas/Blog' }
+                  nextCursor: { type: [string, "null"], description: 'Cursor for the next page; null when there are no more pages.' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the Shopify account to restore access.' }
+        '404': { description: 'Account not found or not accessible (code account_not_found).' }
+        '405': { description: Platform does not support listing blogs. }
+        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+
+    post:
+      x-resource-group: "publishing"
+      operationId: createBlog
+      tags: ["Blogs"]
+      x-platforms: ["shopify"]
+      summary: Create a blog
+      description: |
+        Creates a blog on the connected store. The platform generates the URL
+        `handle` from the title when omitted.
+
+        Supported on Shopify (platform `shopify`). Accounts on platforms
+        without blogs support return 400; a blogs-capable platform that lacks
+        this specific operation returns 405.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string, minLength: 1 }
+                handle: { type: string, minLength: 1, description: 'URL slug. Generated from the title when omitted.' }
+      responses:
+        '201':
+          description: Blog created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  platform: { type: string, enum: [shopify] }
+                  blog: { $ref: '#/components/schemas/Blog' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the Shopify account to restore access.' }
+        '404': { description: 'Account not found or not accessible (code account_not_found).' }
+        '405': { description: Platform does not support creating blogs. }
+        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+
+  /v1/accounts/{accountId}/blogs/{blogId}:
+    get:
+      x-resource-group: "publishing"
+      operationId: getBlog
+      tags: ["Blogs"]
+      x-platforms: ["shopify"]
+      summary: Get a blog
+      description: |
+        Fetches a single blog. `blogId` is the platform's numeric blog id from
+        `GET /v1/accounts/{accountId}/blogs`, not a Zernio id.
+
+        Supported on Shopify (platform `shopify`). Accounts on platforms
+        without blogs support return 400; a blogs-capable platform that lacks
+        this specific operation returns 405.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
+        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog id. Non-numeric values return 400.' }
+      responses:
+        '200':
+          description: Blog fetched
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  platform: { type: string, enum: [shopify] }
+                  blog: { $ref: '#/components/schemas/Blog' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the Shopify account to restore access.' }
+        '404': { description: 'Account not found or not accessible (code account_not_found), or blog not found (code blog_not_found).' }
+        '405': { description: Platform does not support fetching a blog. }
+        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+
+    patch:
+      x-resource-group: "publishing"
+      operationId: updateBlog
+      tags: ["Blogs"]
+      x-platforms: ["shopify"]
+      summary: Update a blog
+      description: |
+        Partial-updates a blog. Send any subset of `title` and `handle`; at
+        least one field is required (an empty body returns 400).
+
+        Supported on Shopify (platform `shopify`). Accounts on platforms
+        without blogs support return 400; a blogs-capable platform that lacks
+        this specific operation returns 405.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
+        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog id. Non-numeric values return 400.' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 'At least one field is required.'
+              properties:
+                title: { type: string, minLength: 1 }
+                handle: { type: string, minLength: 1, description: 'URL slug. Changing it changes the blog URL on the store.' }
+      responses:
+        '200':
+          description: Blog updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  platform: { type: string, enum: [shopify] }
+                  blog: { $ref: '#/components/schemas/Blog' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the Shopify account to restore access.' }
+        '404': { description: 'Account not found or not accessible (code account_not_found), or blog not found (code blog_not_found).' }
+        '405': { description: Platform does not support updating a blog. }
+        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+
+    delete:
+      x-resource-group: "publishing"
+      operationId: deleteBlog
+      tags: ["Blogs"]
+      x-platforms: ["shopify"]
+      summary: Delete a blog
+      description: |
+        Deletes the blog AND every article in it. The delete happens on the
+        platform and is permanent; Zernio stores nothing to restore it from.
+
+        Supported on Shopify (platform `shopify`). Accounts on platforms
+        without blogs support return 400; a blogs-capable platform that lacks
+        this specific operation returns 405.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
+        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog id. Non-numeric values return 400.' }
+      responses:
+        '204': { description: Blog deleted (no content). }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the Shopify account to restore access.' }
+        '404': { description: 'Account not found or not accessible (code account_not_found), or blog not found (code blog_not_found).' }
+        '405': { description: Platform does not support deleting a blog. }
+        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+
+  /v1/accounts/{accountId}/blogs/{blogId}/articles:
+    get:
+      x-resource-group: "publishing"
+      operationId: listBlogArticles
+      tags: ["Blogs"]
+      x-platforms: ["shopify"]
+      summary: List blog articles
+      description: |
+        Lists the articles of a blog. Cursor-paginated: pass `limit` (1-50,
+        default 20) and the `cursor` from a previous response's `nextCursor`;
+        `nextCursor` is null when there are no more pages.
+
+        Supported on Shopify (platform `shopify`). Accounts on platforms
+        without blogs support return 400; a blogs-capable platform that lacks
+        this specific operation returns 405.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
+        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog id. Non-numeric values return 400.' }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 50, default: 20 }, description: 'Page size (1-50).' }
+        - { name: cursor, in: query, required: false, schema: { type: string }, description: 'Opaque cursor from a previous response. Omit for the first page.' }
+      responses:
+        '200':
+          description: Articles listed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  platform: { type: string, enum: [shopify] }
+                  articles:
+                    type: array
+                    items: { $ref: '#/components/schemas/BlogArticle' }
+                  nextCursor: { type: [string, "null"], description: 'Cursor for the next page; null when there are no more pages.' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the Shopify account to restore access.' }
+        '404': { description: 'Account not found or not accessible (code account_not_found), or blog not found (code blog_not_found).' }
+        '405': { description: Platform does not support listing articles. }
+        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+
+    post:
+      x-resource-group: "publishing"
+      operationId: createBlogArticle
+      tags: ["Blogs"]
+      x-platforms: ["shopify"]
+      summary: Create a blog article
+      description: |
+        Creates an article on the blog. Publishing behavior:
+
+        - `isPublished: false` keeps the article as a draft.
+        - A future `publishDate` schedules publication natively on the
+          platform; the platform publishes it at that time with no Zernio
+          queue involved.
+        - `seo.title` / `seo.description` map to Shopify's global `title_tag`
+          and `description_tag` metafields (the fields Shopify themes read for
+          the page title and meta description).
+
+        Supported on Shopify (platform `shopify`). Accounts on platforms
+        without blogs support return 400; a blogs-capable platform that lacks
+        this specific operation returns 405.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
+        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog id. Non-numeric values return 400.' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string, minLength: 1 }
+                bodyHtml: { type: string, description: 'Article body as HTML.' }
+                handle: { type: string, description: 'URL slug. Generated from the title when omitted.' }
+                tags: { type: array, items: { type: string } }
+                author: { type: string, description: 'Display name of the article author.' }
+                excerpt: { type: string, description: 'Short summary shown in blog listings.' }
+                image:
+                  type: object
+                  required: [url]
+                  description: 'Featured image. The platform downloads it, so the URL must be publicly reachable.'
+                  properties:
+                    url: { type: string, format: uri }
+                    altText: { type: string }
+                seo:
+                  type: object
+                  description: 'Search-engine overrides. Maps to Shopify global metafields (title_tag and description_tag).'
+                  properties:
+                    title: { type: string }
+                    description: { type: string }
+                isPublished: { type: boolean, description: 'Set false to create the article as a draft.' }
+                publishDate: { type: string, format: date-time, description: 'ISO 8601 datetime with offset (or Z). A future date schedules publication natively on the platform.' }
+      responses:
+        '201':
+          description: Article created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  platform: { type: string, enum: [shopify] }
+                  article: { $ref: '#/components/schemas/BlogArticle' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the Shopify account to restore access.' }
+        '404': { description: 'Account not found or not accessible (code account_not_found), or blog not found (code blog_not_found).' }
+        '405': { description: Platform does not support creating articles. }
+        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+
+  /v1/accounts/{accountId}/blogs/{blogId}/articles/{articleId}:
+    get:
+      x-resource-group: "publishing"
+      operationId: getBlogArticle
+      tags: ["Blogs"]
+      x-platforms: ["shopify"]
+      summary: Get a blog article
+      description: |
+        Fetches a single article. An article addressed through a blog it does
+        not belong to is a 404 (code blog_article_not_found).
+
+        Supported on Shopify (platform `shopify`). Accounts on platforms
+        without blogs support return 400; a blogs-capable platform that lacks
+        this specific operation returns 405.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
+        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog id. Non-numeric values return 400.' }
+        - { name: articleId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric article id. Non-numeric values return 400.' }
+      responses:
+        '200':
+          description: Article fetched
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  platform: { type: string, enum: [shopify] }
+                  article: { $ref: '#/components/schemas/BlogArticle' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the Shopify account to restore access.' }
+        '404': { description: 'Account not found or not accessible (code account_not_found), blog not found (code blog_not_found), or article not found (code blog_article_not_found).' }
+        '405': { description: Platform does not support fetching an article. }
+        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+
+    patch:
+      x-resource-group: "publishing"
+      operationId: updateBlogArticle
+      tags: ["Blogs"]
+      x-platforms: ["shopify"]
+      summary: Update a blog article
+      description: |
+        Partial-updates an article. Send any subset of the create fields
+        (`title`, `bodyHtml`, `handle`, `tags`, `author`, `excerpt`, `image`,
+        `seo`, `isPublished`, `publishDate`); at least one field is required
+        (an empty body returns 400). `isPublished` and `publishDate` behave as
+        on create: `isPublished: false` unpublishes back to a draft and a
+        future `publishDate` schedules publication natively on the platform.
+
+        Supported on Shopify (platform `shopify`). Accounts on platforms
+        without blogs support return 400; a blogs-capable platform that lacks
+        this specific operation returns 405.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
+        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog id. Non-numeric values return 400.' }
+        - { name: articleId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric article id. Non-numeric values return 400.' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 'At least one field is required.'
+              properties:
+                title: { type: string, minLength: 1 }
+                bodyHtml: { type: string, description: 'Article body as HTML.' }
+                handle: { type: string, description: 'URL slug of the article.' }
+                tags: { type: array, items: { type: string }, description: 'Replaces the full tag list.' }
+                author: { type: string, description: 'Display name of the article author.' }
+                excerpt: { type: string, description: 'Short summary shown in blog listings.' }
+                image:
+                  type: object
+                  required: [url]
+                  description: 'Featured image. The platform downloads it, so the URL must be publicly reachable.'
+                  properties:
+                    url: { type: string, format: uri }
+                    altText: { type: string }
+                seo:
+                  type: object
+                  description: 'Search-engine overrides. Maps to Shopify global metafields (title_tag and description_tag).'
+                  properties:
+                    title: { type: string }
+                    description: { type: string }
+                isPublished: { type: boolean, description: 'Set false to unpublish the article back to a draft.' }
+                publishDate: { type: string, format: date-time, description: 'ISO 8601 datetime with offset (or Z). A future date schedules publication natively on the platform.' }
+      responses:
+        '200':
+          description: Article updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  platform: { type: string, enum: [shopify] }
+                  article: { $ref: '#/components/schemas/BlogArticle' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the Shopify account to restore access.' }
+        '404': { description: 'Account not found or not accessible (code account_not_found), blog not found (code blog_not_found), or article not found (code blog_article_not_found).' }
+        '405': { description: Platform does not support updating an article. }
+        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+
+    delete:
+      x-resource-group: "publishing"
+      operationId: deleteBlogArticle
+      tags: ["Blogs"]
+      x-platforms: ["shopify"]
+      summary: Delete a blog article
+      description: |
+        Deletes the article. The delete happens on the platform and is
+        permanent; Zernio stores nothing to restore it from.
+
+        Supported on Shopify (platform `shopify`). Accounts on platforms
+        without blogs support return 400; a blogs-capable platform that lacks
+        this specific operation returns 405.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
+        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog id. Non-numeric values return 400.' }
+        - { name: articleId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric article id. Non-numeric values return 400.' }
+      responses:
+        '204': { description: Article deleted (no content). }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the Shopify account to restore access.' }
+        '404': { description: 'Account not found or not accessible (code account_not_found), blog not found (code blog_not_found), or article not found (code blog_article_not_found).' }
+        '405': { description: Platform does not support deleting an article. }
+        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
 
   /v1/verify/verifications:
     post:

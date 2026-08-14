@@ -180,6 +180,13 @@ schedule.add_command(schedule_retry)
     default=None,
     help="Freeform reason/label describing why or from where the run was triggered.",
 )
+@click.option(
+    "--continue-on-error/--no-continue-on-error",
+    "continue_on_error",
+    default=None,
+    help="Run-level override for continuing past a failed command; omitted uses the "
+    "schedule's own setting. Requires the Bolt continue-on-error feature.",
+)
 @click.option("--wait", help="Wait for the run to finish", is_flag=True)
 @click.option("--json", help="JSON formatted response", is_flag=True)
 @click.argument("slug")
@@ -188,6 +195,7 @@ def run(
     command: List[str],
     pr_number: Optional[int],
     reason: Optional[str],
+    continue_on_error: Optional[bool],
     wait: bool,
     json: bool,
     slug: str,
@@ -209,6 +217,7 @@ def run(
             commands=list(command) if command else None,
             pr_number=pr_number,
             reason=reason,
+            continue_on_error=continue_on_error,
         )
     except ParadimeAPIException as e:
         print_error_table(f"Failed to trigger run: {e}", is_json=json)
@@ -286,6 +295,7 @@ def verify(path: str) -> None:
     # workspaces (used only to validate cross-workspace schedule_trigger refs).
     existing_names: set[str] = set()
     all_schedules_ref: set[tuple[str, str]] = set()
+    valid_environments: set[str] = set()
     try:
         client = get_cli_client_or_exit()
         try:
@@ -297,6 +307,10 @@ def verify(path: str) -> None:
             all_schedules_ref = set(client.bolt.list_all_schedule_names())
         except Exception:
             pass
+        try:
+            valid_environments = {e.slug for e in client.bolt.list_environments()}
+        except Exception:
+            pass
     except (ParadimeAPIException, ParadimeException):
         client = None
 
@@ -304,6 +318,7 @@ def verify(path: str) -> None:
         schedule_path,
         existing_names=existing_names,
         schedule_trigger_refs=all_schedules_ref or None,
+        valid_environments=valid_environments or None,
     )
     if error_string:
         _console.result_panel(error_string, style="error", title="Schedules Verification")

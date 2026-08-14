@@ -1,6 +1,8 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
+from ..null import Null
 from ..resources import UnmanagedUserIdentity
 
 
@@ -12,7 +14,9 @@ class AbstractUserIdentitiesUnmanaged(abc.ABC):
 
         :param user_identity_id: ID of the unmanaged user identity that you want to get.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -21,8 +25,8 @@ class AbstractUserIdentitiesUnmanaged(abc.ABC):
         *,
         created_before: Optional[str] = None,
         limit: Optional[int] = None,
-        page_cursor: Optional[str] = None,
-        search: Optional[str] = None
+        page_cursor: Optional[Union[str, Null]] = None,
+        search: Optional[str] = None,
     ) -> List[UnmanagedUserIdentity]:
         """Returns a list of all unmanaged `user identities <https://docs.seam.co/capability-guides/mobile-access/managing-mobile-app-user-accounts-with-user-identities#what-is-a-user-identity>`_ (where is_managed = false).
 
@@ -43,7 +47,7 @@ class AbstractUserIdentitiesUnmanaged(abc.ABC):
         *,
         is_managed: bool,
         user_identity_id: str,
-        user_identity_key: Optional[str] = None
+        user_identity_key: Optional[str] = None,
     ) -> None:
         """Updates an unmanaged `user identity <https://docs.seam.co/capability-guides/mobile-access/managing-mobile-app-user-accounts-with-user-identities#what-is-a-user-identity>`_ to make it managed.
 
@@ -54,7 +58,8 @@ class AbstractUserIdentitiesUnmanaged(abc.ABC):
         :param user_identity_id: ID of the unmanaged user identity that you want to update.
 
         :param user_identity_key: Unique key for the user identity. If not provided, the existing key will be preserved.
-        """
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
 
@@ -63,28 +68,45 @@ class UserIdentitiesUnmanaged(AbstractUserIdentitiesUnmanaged):
         self.client = client
         self.defaults = defaults
 
+    @route_metadata(
+        path="/user_identities/unmanaged/get",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def get(self, *, user_identity_id: str) -> UnmanagedUserIdentity:
         """Returns a specified unmanaged `user identity <https://docs.seam.co/capability-guides/mobile-access/managing-mobile-app-user-accounts-with-user-identities#what-is-a-user-identity>`_ (where is_managed = false).
 
         :param user_identity_id: ID of the unmanaged user identity that you want to get.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if user_identity_id is not None:
-            json_payload["user_identity_id"] = user_identity_id
+            params["user_identity_id"] = user_identity_id
 
-        res = self.client.post("/user_identities/unmanaged/get", json=json_payload)
+        if not params:
+            raise ValueError(
+                "At least one parameter is required for /user_identities/unmanaged/get"
+            )
+
+        res = self.client.get("/user_identities/unmanaged/get", params=params)
 
         return UnmanagedUserIdentity.from_dict(res["user_identity"])
 
+    @route_metadata(
+        path="/user_identities/unmanaged/list",
+        has_required_parameters=False,
+        has_pagination=True,
+    )
     def list(
         self,
         *,
         created_before: Optional[str] = None,
         limit: Optional[int] = None,
-        page_cursor: Optional[str] = None,
-        search: Optional[str] = None
+        page_cursor: Optional[Union[str, Null]] = None,
+        search: Optional[str] = None,
     ) -> List[UnmanagedUserIdentity]:
         """Returns a list of all unmanaged `user identities <https://docs.seam.co/capability-guides/mobile-access/managing-mobile-app-user-accounts-with-user-identities#what-is-a-user-identity>`_ (where is_managed = false).
 
@@ -97,29 +119,34 @@ class UserIdentitiesUnmanaged(AbstractUserIdentitiesUnmanaged):
         :param search: String for which to search. Filters returned unmanaged user identities to include all records that satisfy a partial match using ``full_name``, ``phone_number``, ``email_address``,  ``user_identity_id`` or ``acs_system_id``.
 
         :returns: OK"""
-        json_payload = {}
+        params: Dict[str, Any] = {}
 
         if created_before is not None:
-            json_payload["created_before"] = created_before
+            params["created_before"] = created_before
         if limit is not None:
-            json_payload["limit"] = limit
+            params["limit"] = limit
         if page_cursor is not None:
-            json_payload["page_cursor"] = page_cursor
+            params["page_cursor"] = page_cursor
         if search is not None:
-            json_payload["search"] = search
+            params["search"] = search
 
-        res = self.client.post("/user_identities/unmanaged/list", json=json_payload)
+        res = self.client.get("/user_identities/unmanaged/list", params=params)
 
         return [
             UnmanagedUserIdentity.from_dict(item) for item in res["user_identities"]
         ]
 
+    @route_metadata(
+        path="/user_identities/unmanaged/update",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def update(
         self,
         *,
         is_managed: bool,
         user_identity_id: str,
-        user_identity_key: Optional[str] = None
+        user_identity_key: Optional[str] = None,
     ) -> None:
         """Updates an unmanaged `user identity <https://docs.seam.co/capability-guides/mobile-access/managing-mobile-app-user-accounts-with-user-identities#what-is-a-user-identity>`_ to make it managed.
 
@@ -130,8 +157,9 @@ class UserIdentitiesUnmanaged(AbstractUserIdentitiesUnmanaged):
         :param user_identity_id: ID of the unmanaged user identity that you want to update.
 
         :param user_identity_key: Unique key for the user identity. If not provided, the existing key will be preserved.
-        """
-        json_payload = {}
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if is_managed is not None:
             json_payload["is_managed"] = is_managed
@@ -140,6 +168,11 @@ class UserIdentitiesUnmanaged(AbstractUserIdentitiesUnmanaged):
         if user_identity_key is not None:
             json_payload["user_identity_key"] = user_identity_key
 
-        self.client.post("/user_identities/unmanaged/update", json=json_payload)
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /user_identities/unmanaged/update"
+            )
+
+        self.client.patch("/user_identities/unmanaged/update", json=json_payload)
 
         return None

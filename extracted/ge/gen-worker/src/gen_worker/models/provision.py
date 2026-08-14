@@ -24,21 +24,26 @@ import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Tuple
+from typing import (
+    TYPE_CHECKING, Any, Callable, Dict, Mapping, Optional, Sequence,
+    Tuple,
+)
 
 from .. import artifact_meta
+from .. import cell_key
 from ..cell_adopt import AdoptOutcome
 from ..component_vocab import denoiser_components
 from ..api.binding import ModelRef, wire_ref
 from ..config import Settings, current_or
 
 _STANDALONE = Settings()
+from ..measured_posture import normalize_backend
+from . import attention_modes
 from . import disk_gc, load_progress
 from .cache_paths import tensorhub_cas_dir
 from .errors import UrlExpiredError
 from .envelope import envelope_refusal
 from .loading import (
-    RUNG_NF4_UNLANDED,
     assert_uniform_compute_dtype,
     composition_compute_dtype,
     detect_diffusers_variant,
@@ -88,7 +93,7 @@ class SlotLoad:
     # dropped before the load.
     pre_drop_wanted: str = ""
     pre_drop_detail: str = ""
-    # gw#491: the loader engaged an emergency fit rung ("fp8" / "nf4").
+    # gw#491: the loader engaged the fp8-storage fit rung.
     rung: str = ""
     rung_detail: str = ""
     # th#737 backstop: the resolved cast was attempted at load and failed on
@@ -230,21 +235,9 @@ def load_slot(
         cast_failed = getattr(
             pipe, "_cozy_fp8_storage_requested", False
         ) and not getattr(pipe, "_cozy_fp8_storage_ok", True)
-        if rung == RUNG_NF4_UNLANDED:
-            # pgw#824: the emergency rung ENGAGED and landed on nothing. Routed
-            # through the same SlotLoad.rung path as every sibling rung, so it
-            # reaches ServePlan/FnDegraded via `_record_adaptive_rung` instead of
-            # dying in a log line. It used to clear the stamp, which suppressed the
-            # only report the ladder had — the worst outcome was the silent one.
-            out.rung = rung
-            out.rung_detail = (
-                f"adaptive fit rung 'nf4' engaged at load for slot {slot!r} "
-                f"({type(pipe).__name__}) and landed on ZERO modules; this slot "
-                f"serves FULL PRECISION over the VRAM it was budgeted, and only "
-                f"the offload ladder carries it")
-        elif rung == "nf4" or (rung == "fp8" and not cast_failed):
-            # gw#491: the loader engaged an emergency rung because free VRAM at
-            # load was tighter than planning assumed.
+        if rung == "fp8" and not cast_failed:
+            # gw#491: the loader engaged the fp8-storage fit rung because free
+            # VRAM at load was tighter than planning assumed.
             out.rung = rung
             out.rung_detail = (
                 f"adaptive fit rung {rung!r} engaged at load for slot {slot!r} "
@@ -310,9 +303,15 @@ def arm_aot(
     bucket: int, meta: Optional[Dict[str, Any]] = None,
     *, expected: "Optional[ExpectedIdentity]" = None,
     verify_numerics: bool = False,
+    declared: Sequence[str] = (),
 ) -> AdoptOutcome:
-    """Arm ONE exported ``.pt2`` cell on ``pipe``. The whole AOT arm, in one
+    """Arm ONE exported ``.pt2`` ENTRY on ``pipe``. The whole AOT arm, in one
     place, for every source of such an artifact.
+
+    pgw#1176: the unit is one graph class. ``declared`` is every class name
+    this pod's declaration traces to, threaded to the dispatch so a call no
+    ARMED entry admits reads as "declared, pending compile" (silent eager)
+    rather than as an undeclared shape.
 
     ``verify_numerics`` (DESIGN-RULINGS §4.32, pgw#1141) runs the parity gate,
     and exactly ONE caller sets it: the pod that MINTED these bytes, before it
@@ -376,12 +375,10 @@ def arm_aot(
             # ENTRY and carries no top-level `targets`/`module` (measured:
             # both None on a real 5-entry lora64 cell). Without this the name
             # resolved to "" and the lifted install was silently skipped.
-            seen: List[str] = []
-            for entry in ((meta or {}).get("entries") or {}).values():
-                name = str((entry or {}).get("target") or "").strip()
-                if name and name not in seen:
-                    seen.append(name)
-            targets = seen
+            # pgw#1176: one artifact, one entry, one target.
+            name = str(
+                ((meta or {}).get("entry") or {}).get("target") or "").strip()
+            targets = [name] if name else []
         # ...and among them the BRANCH-CAPABLE one: `decoder` sorts first
         # among entry names, and a lifted forward on a module with no branch
         # container fails by name. `branch_targets` is the authority.
@@ -471,7 +468,10 @@ def arm_aot(
         family = str((meta or {}).get("family") or getattr(cfg, "family", "") or "")
         # The cell's OWN recorded lane.
         lane = str((meta or {}).get("weight_lane") or "")
-        entries = len((meta or {}).get("entries") or {})
+        # pgw#1176: one artifact, one graph class — so this row is always
+        # `entries=1`, and that is the point rather than a degenerate case.
+        # pgw#1175: it MEASURES and sizes nothing; no bank reads it.
+        entries = 1 if (meta or {}).get("entry") else 0
         gib = 1 << 30
         activity_mod.emit_event(
             "cell_adopt_budget",
@@ -495,10 +495,14 @@ def arm_aot(
     # "CANNOT refuse a card that merely cannot hold 36 runners", i.e. it could
     # not refuse the failure it was written for (th#1825) and could refuse
     # cards that were fine. The honest gate is the bind itself:
-    # `aot_serve.load_and_wrap` attempts each entry and returns a typed
+    # `aot_serve.arm_entry` attempts THIS entry and returns a typed
     # `insufficient_adopt_vram` miss on a real device OOM, before any live
     # mutation, and this pod serves eager exactly as it did — on evidence.
-    outcome = aot_serve.enable(pipe, cfg, cache_dir, artifact, expected=expected)
+    #
+    # pgw#1176 makes that refusal cheaper still: the attempt is ONE graph
+    # class, so a card that cannot hold it costs that class and no other.
+    outcome = aot_serve.enable(
+        pipe, cfg, cache_dir, artifact, expected=expected, declared=declared)
     _, _peak_after_load = mint_workers.adopt_watermark(_budget_device)
     _load_bytes = max(0, _peak_after_load - _resident_before)
     if not outcome.armed and lifted_install_error:
@@ -530,13 +534,23 @@ def arm_aot(
         # Nothing is announced until the arm is final, so the refusal is simply
         # what this function returns; the numbers still ride `cell_numerics`.
         meta = aot_serve.armed_metadata(pipe)
-        aot_serve.unwrap(pipe)
+        # pgw#1176: THE PARITY REFUSAL IS PER ENTRY. This used to `unwrap` the
+        # whole pipeline, which was correct while the gate's subject was a
+        # 36-class cell and is wrong now: the probe measures ONE graph class
+        # against the eager callable it was traced from, so a divergence
+        # condemns that class and says nothing about its siblings. The refused
+        # entry de-arms sticky, its siblings keep serving compiled, and it is
+        # not published.
+        entry = str((meta.get(cell_key.ENTRY_BLOCK_KEY) or {}).get("name") or "")
+        aot_serve.disarm_entry(pipe, entry, "numerics_refused")
         outcome = AdoptOutcome.miss(
             "numerics_refused",
-            f"family={meta.get('family')} key={meta.get('cell_key')}: this pod "
-            f"MINTED these bytes and they do not reproduce the eager forward "
-            f"they were traced from — nothing is published and this pod serves "
-            f"eager (pgw#868, §4.32)",
+            f"family={meta.get('family')} key={meta.get('cell_key')} "
+            f"entry={entry}: this pod MINTED these bytes and they do not "
+            f"reproduce the eager forward they were traced from — this CLASS "
+            f"is not published and serves eager; sibling classes are "
+            f"unaffected (pgw#868, §4.32). Serve state now: "
+            f"{aot_serve.entry_states(pipe)}",
             outcome.identity)
     # An arm that never reached the gate (refused at `enable`) still paid the
     # load, so it still reports — `_emit_adopt_budget` dedupes, so the armed
@@ -1052,8 +1066,6 @@ def report_applied_attention(
     asked for and the density is what the geometry produced, and the wall is a
     function of the second. Returns whether the report was recorded; outside a
     setup scope it logs once and returns False rather than raising."""
-    from . import attention_modes
-
     tok = str(mode or "").strip().lower()
     if not attention_modes.valid_attention_mode(tok):
         raise ValueError(
@@ -1078,6 +1090,56 @@ def report_applied_attention(
         density=max(0.0, float(density)),
         selector=str(selector or "").strip(),
         index_ref=str(index_ref or "").strip(),
+    ))
+    return True
+
+
+def report_attention_backend(
+    component: str,
+    backend: str,
+    *,
+    wanted: str = "",
+) -> bool:
+    """Report the attention KERNEL that was actually engaged (th#1871 P1).
+
+    Call it from ``setup()`` wherever the backend is chosen — right after the
+    attention processor is installed, or right after the ``try: import
+    flash_attn`` that decided it. ``backend`` is one of ``fa3``, ``fa2``,
+    ``sdpa``, ``xformers``, ``eager`` (the ecosystem's own spellings —
+    ``flash_attention_2``, ``torch_sdpa``, … — are accepted and normalized).
+    ``wanted`` is what the code ASKED FOR, and passing it is what makes a
+    fallback visible: ``wanted="fa2", backend="sdpa"`` is ie#707 exactly.
+
+    WHY THIS IS A SECOND FUNCTION AND NOT A LOOSER GRAMMAR ON THE FIRST.
+    ``report_applied_attention`` reports SPARSITY (``dense`` / ``sparse-k<N>``)
+    and correctly refuses ``"sdpa"`` — the kernel is not a sparsity budget.
+    Those are two independent axes: the same ``sparse-k8`` costs roughly twice
+    as much on ``sdpa`` as on ``fa3``. Widening one token to cover both would
+    make every measurement of either uninterpretable, which is the vocabulary
+    collapse th#1871 §1.3 measured one layer up.
+
+    Reporting nothing is honest and stays the default: an unreported backend is
+    UNKNOWN to the hub, never "fine". Returns whether the report was recorded;
+    outside a setup scope it logs once and returns False rather than raising.
+    An ungrammatical backend token raises ``ValueError`` — the reporter is the
+    last place a fourth vocabulary can be stopped."""
+    engaged = normalize_backend(backend)
+    asked = normalize_backend(wanted)
+    if not engaged:
+        raise ValueError(
+            f"report_attention_backend({component!r}, {backend!r}): the "
+            "engaged backend is required (report what RAN; `wanted` is the "
+            "optional half)")
+    ctx = _APPLIED_ATTENTION_CTX.get()
+    if ctx is None:
+        logger.info(
+            "gen_worker.report_attention_backend(): no active setup scope; "
+            "%s backend %s is not attributed to an instance", component, engaged)
+        return False
+    ctx.applied.append(attention_modes.AppliedAttention(
+        component=str(component or "").strip() or "instance",
+        backend=engaged,
+        backend_wanted=asked,
     ))
     return True
 

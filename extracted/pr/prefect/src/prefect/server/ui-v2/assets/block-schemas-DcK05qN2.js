@@ -1,2 +1,0 @@
-import{O as e}from"./vendor-tanstack-ONnIKEI_.js";import{n as t}from"./service-D2RTNHJv.js";var n={all:()=>[`block-schemas`],lists:()=>[...n.all(),`list`],listFilters:()=>[...n.lists(),`filter`],listFilter:e=>[...n.lists(),`filter`,e],details:()=>[...n.all(),`detail`],detail:e=>[...n.details(),e]},r=(r={offset:0})=>e({queryKey:n.listFilter(r),queryFn:async()=>(await(await t()).POST(`/block_schemas/filter`,{body:r})).data??[]});export{r as t};
-//# sourceMappingURL=block-schemas-DcK05qN2.js.map

@@ -9,7 +9,7 @@ r"""
 
 This environment is part of the <a href='..'>classic environments</a>. Please read that page first for general information.
 
-| Import             | `from pettingzoo.classic import go_v5` |
+| Creation           | `make("aec", "classic/go-v5")`         |
 |--------------------|----------------------------------------|
 | Actions            | Discrete                               |
 | Parallel API       | Yes                                    |
@@ -31,8 +31,10 @@ Our implementation is a wrapper for [MiniGo](https://github.com/tensorflow/minig
 
 Go takes two optional arguments that define the board size (int) and komi compensation points (float). The default values for the board size and komi are 19 and 7.5, respectively.
 
-``` python
-go_v5.env(board_size = 19, komi = 7.5)
+```python
+from pettingzoo import make
+
+make("aec", "classic/go-v5", board_size=19, komi=7.5)
 ```
 
 `board_size`: The length of each size of the board.
@@ -106,6 +108,7 @@ $N^2+1$.
 * v0: Initial versions release (1.0.0)
 
 """
+
 from __future__ import annotations
 
 import os
@@ -237,8 +240,7 @@ class raw_env(AECEnv, EzPickle):
     def _encode_player_plane(self, agent):
         if agent == self.possible_agents[0]:
             return np.zeros([self._N, self._N], dtype=bool)
-        else:
-            return np.ones([self._N, self._N], dtype=bool)
+        return np.ones([self._N, self._N], dtype=bool)
 
     def _encode_board_planes(self, agent):
         agent_factor = (
@@ -307,9 +309,7 @@ class raw_env(AECEnv, EzPickle):
             self.next_legal_moves = self._encode_legal_actions(
                 self._go.all_legal_moves()
             )
-        self.agent_selection = (
-            next_player if next_player else self._agent_selector.next()
-        )
+        self.agent_selection = next_player or self._agent_selector.next()
         self._accumulate_rewards()
 
         if self.render_mode == "human":
@@ -339,12 +339,11 @@ class raw_env(AECEnv, EzPickle):
             gymnasium.logger.warn(
                 "You are calling render method without specifying any render mode."
             )
-            return
+            return None
 
         if self.screen is None:
-            pygame.init()
-
             if self.render_mode == "human":
+                pygame.display.init()
                 self.screen = pygame.display.set_mode(
                     (self.screen_width, self.screen_height)
                 )
@@ -408,8 +407,8 @@ class raw_env(AECEnv, EzPickle):
 
         offset = tile_size * (1 / 6)
         # Blit the necessary chips and their positions
-        for i in range(0, size):
-            for j in range(0, size):
+        for i in range(size):
+            for j in range(size):
                 if self._go.board[i][j] == go_base.BLACK:
                     self.screen.blit(
                         black_stone,

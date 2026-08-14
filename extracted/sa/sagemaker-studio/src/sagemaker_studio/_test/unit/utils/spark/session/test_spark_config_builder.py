@@ -54,6 +54,7 @@ with patch("sagemaker_studio.Project"):
         apply_compatibility_mode_configs,
         build_spark_configs,
         extract_connection_spark_configs,
+        generate_s3_access_grants_configs,
     )
 
 _CONFIG_BUILDER_PATH = "sagemaker_studio.utils.spark.session.spark_config_builder"
@@ -381,3 +382,70 @@ class TestGenerateGlueCatalogSparkConfigs:
         mock_internals.connection.return_value.catalogs = []
         result = _generate_glue_catalog_spark_configs(mock_internals)
         assert result == {}
+
+
+# -------------------------------------------------------------------
+# Tests for generate_s3_access_grants_configs
+# -------------------------------------------------------------------
+
+
+def _project_with_provisioned_resources(resources):
+    proj = MagicMock()
+    proj.domain_id = "dzd-s3ag-test"
+    proj.id = "proj-s3ag"
+    proj._sagemaker_studio_api.project_api.get_project_default_environment.return_value = {
+        "provisionedResources": resources
+    }
+    return proj
+
+
+class TestGenerateS3AccessGrantsConfigs:
+    def test_returns_configs_when_enabled(self):
+        proj = _project_with_provisioned_resources(
+            [{"name": "enableS3AccessGrantsForTools", "value": "true"}]
+        )
+
+        result = generate_s3_access_grants_configs(proj)
+
+        proj._sagemaker_studio_api.project_api.get_project_default_environment.assert_called_once_with(
+            "dzd-s3ag-test", "proj-s3ag"
+        )
+        assert result == {
+            "spark.hadoop.fs.s3.s3AccessGrants.enabled": "true",
+            "spark.hadoop.fs.s3.s3AccessGrants.fallbackToIAM": "true",
+        }
+
+    def test_value_is_case_insensitive(self):
+        proj = _project_with_provisioned_resources(
+            [{"name": "enableS3AccessGrantsForTools", "value": "TRUE"}]
+        )
+        assert (
+            generate_s3_access_grants_configs(proj)["spark.hadoop.fs.s3.s3AccessGrants.enabled"]
+            == "true"
+        )
+
+    def test_returns_empty_when_disabled(self):
+        proj = _project_with_provisioned_resources(
+            [{"name": "enableS3AccessGrantsForTools", "value": "false"}]
+        )
+        assert generate_s3_access_grants_configs(proj) == {}
+
+    def test_returns_empty_when_resource_absent(self):
+        proj = _project_with_provisioned_resources([{"name": "somethingElse", "value": "true"}])
+        assert generate_s3_access_grants_configs(proj) == {}
+
+    def test_returns_empty_when_no_provisioned_resources_key(self):
+        proj = MagicMock()
+        proj._sagemaker_studio_api.project_api.get_project_default_environment.return_value = {}
+        assert generate_s3_access_grants_configs(proj) == {}
+
+    def test_returns_empty_on_api_exception(self):
+        proj = MagicMock()
+        proj._sagemaker_studio_api.project_api.get_project_default_environment.side_effect = (
+            Exception("API error")
+        )
+        assert generate_s3_access_grants_configs(proj) == {}
+
+    def test_returns_empty_when_project_is_none(self):
+        """Callers pass getattr(self, "project", None), so None must not raise."""
+        assert generate_s3_access_grants_configs(None) == {}

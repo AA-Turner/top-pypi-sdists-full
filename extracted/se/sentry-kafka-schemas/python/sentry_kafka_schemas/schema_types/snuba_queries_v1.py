@@ -1,4 +1,4 @@
-from typing import List, Any, Required, TypedDict, Dict, Union
+from typing import TypedDict, Any, Union, Required, List, Dict
 
 
 class ClickhouseQueryProfile(TypedDict, total=False):

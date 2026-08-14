@@ -41,9 +41,11 @@ if TYPE_CHECKING:
 
 __all__ = ["corruption_reason", "decode", "encode"]
 
-# Record-shape version, redundant with the bucket suffix but guards against a
-# stale-shape blob surfacing under the current bucket.
-FORMAT_VERSION = 0
+# Record version, redundant with the bucket suffix but guards against a stale
+# blob surfacing under the current bucket. Bump it when the row shape changes
+# or when the same body parses to different records: ``body_digest`` pins only
+# the input.
+FORMAT_VERSION = 1
 # Serialization variant that wrote the rows, so a future codec switch
 # self-heals rather than misdecodes.
 CODEC = 1
@@ -102,9 +104,10 @@ def encode(files: list[WheelFile | SdistFile], body_digest: str) -> bytes:
                 ]
             )
     header = [FORMAT_VERSION, CODEC, KEY_SCHEME, body_digest]
-    return json.dumps(
-        [header, rows], ensure_ascii=False, separators=(",", ":")
-    ).encode()
+
+    # Escape non-ASCII: a field kept verbatim from the listing, such as
+    # ``requires_python``, can hold a lone surrogate with no UTF-8 form.
+    return json.dumps([header, rows], separators=(",", ":")).encode()
 
 
 def decode(blob: bytes, policy: CachePolicy) -> list[WheelFile | SdistFile] | None:

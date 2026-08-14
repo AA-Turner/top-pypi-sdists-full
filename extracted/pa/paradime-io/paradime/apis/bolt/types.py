@@ -28,6 +28,12 @@ class BoltDeferredSchedule(BaseModel):
     successful_run_only: bool
 
 
+class BoltEnvironment(BaseModel):
+    slug: str
+    display_name: str
+    is_default: bool
+
+
 class BoltNotificationItem(BaseModel):
     channel: Optional[str]
     events: Optional[List[str]]
@@ -264,3 +270,11 @@ class BoltEnvironmentVariableInput(_BoltInputBase):
 
     key: str
     value: str
+
+
+class BoltCommandConfigInput(_BoltInputBase):
+    """One ad-hoc command with per-command settings (``triggerBoltRun`` ``commandConfigs``)."""
+
+    command: str
+    continue_on_error: Optional[bool] = None
+    """Per-command override; ``None`` falls back to the run/schedule-level default."""

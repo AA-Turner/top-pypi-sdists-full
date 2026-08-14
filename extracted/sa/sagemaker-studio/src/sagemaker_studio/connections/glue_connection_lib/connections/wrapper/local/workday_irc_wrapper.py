@@ -6,7 +6,6 @@ import time
 import uuid
 from typing import Any, Dict
 
-import jwt
 import requests  # type: ignore[import-untyped]
 
 from .native_wrapper import NativeConnectionWrapper
@@ -46,6 +45,9 @@ class WorkdayIcebergRestCatalogConnectionWrapper(NativeConnectionWrapper):
 
     def _get_access_token(self, options_map: Dict[str, Any]) -> Dict[str, Any]:
         """Obtain access token from Workday via JWT Bearer grant."""
+        # Imported here so that consumers of other connection types don't pay the
+        # cost of loading PyJWT's `cryptography` backend just to build a wrapper.
+        import jwt
 
         now = int(time.time())
         claims = {

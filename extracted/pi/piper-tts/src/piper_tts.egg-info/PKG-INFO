@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: piper-tts
-Version: 1.6.0
+Version: 1.6.1
 Summary: Fast and local neural text-to-speech engine
 Home-page: http://github.com/OHF-voice/piper1-gpl
 Author: The Home Assistant Authors
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 License-File: COPYING
+License-File: licenses/LICENSE.g2pW-Apache-2.0
 Requires-Dist: onnxruntime<2,>=1
 Requires-Dist: pathvalidate<4,>=3
 Provides-Extra: train
@@ -46,10 +47,9 @@ Provides-Extra: alignment
 Requires-Dist: onnx<2,>=1; extra == "alignment"
 Provides-Extra: zh
 Requires-Dist: g2pW<1,>=0.1.1; extra == "zh"
+Requires-Dist: transformers<6,>=4; extra == "zh"
 Requires-Dist: sentence-stream<2,>=1.2.1; extra == "zh"
 Requires-Dist: unicode-rbnf<3,>=2.4.0; extra == "zh"
-Requires-Dist: torch<3,>=2; extra == "zh"
-Requires-Dist: requests<3,>=2; extra == "zh"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

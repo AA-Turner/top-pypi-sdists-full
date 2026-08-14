@@ -216,7 +216,27 @@ def member_for_model(model_key: str, pool: Optional[str] = None,
     default), the key is in no group, the group chose the key already named, or
     anything at all went wrong. This function is on the serve path of every
     chat request, so it is total: it cannot raise and it cannot block.
+
+    EXPLICIT PRIORITY GROUPS COME FIRST (operator directive 2026-08-06). An
+    operator-written, ORDERED group is a ruling; the derivation below is a
+    heuristic. When a priority group claims this key, its ordered walk IS the
+    answer and the derived pipeline is never consulted for it — otherwise the
+    ranking stages (quality/speed/ladder/fit) would re-decide an order the
+    operator just wrote down by hand. This runs BEFORE ``is_enabled()`` on
+    purpose: ``model_groups.enabled`` is the kill switch for the DERIVED
+    feature, and explicit groups are not that feature. They need no kill switch
+    of their own because they do nothing until an operator creates one, and
+    each group carries its own ``enabled`` flag.
     """
+    try:
+        from .priority_groups import covers as _pg_covers
+        from .priority_groups import member_for_model as _pg_member
+        if _pg_covers(model_key):
+            return _pg_member(model_key, pool, task)
+    except Exception as exc:  # noqa: BLE001 — never break routing over policy
+        logger.warning("priority groups: consult failed for %s (%s) — falling "
+                       "through to the derived grouping", model_key, exc)
+
     if not is_enabled():
         return None                       # THE OFF-PATH. One dict lookup, done.
     try:

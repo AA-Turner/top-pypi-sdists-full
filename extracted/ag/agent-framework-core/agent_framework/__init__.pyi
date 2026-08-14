@@ -4,6 +4,7 @@ from typing import Final
 
 __version__: Final[str]
 
+from ._agent_hooks import create_agent_hooks_middleware, create_agent_hooks_middleware_from_emitter
 from ._agents import Agent, BaseAgent, RawAgent, SupportsAgentRun
 from ._clients import (
     BaseChatClient,
@@ -142,6 +143,7 @@ from ._middleware import (
     FunctionInvocationContext,
     FunctionMiddleware,
     FunctionMiddlewareTypes,
+    MiddlewareBundle,
     MiddlewareTermination,
     MiddlewareType,
     MiddlewareTypes,
@@ -283,6 +285,7 @@ from ._workflows._function_executor import FunctionExecutor, executor
 from ._workflows._functional import (
     FunctionalWorkflow,
     FunctionalWorkflowAgent,
+    FunctionalWorkflowDefinition,
     RunContext,
     StepWrapper,
     get_run_context,
@@ -440,6 +443,7 @@ __all__ = [
     "FunctionTool",
     "FunctionalWorkflow",
     "FunctionalWorkflowAgent",
+    "FunctionalWorkflowDefinition",
     "GeneratedEmbeddings",
     "GraphConnectivityError",
     "HistoryProvider",
@@ -467,6 +471,7 @@ __all__ = [
     "MemoryTopicRecord",
     "Message",
     "MessageInjectionMiddleware",
+    "MiddlewareBundle",
     "MiddlewareException",
     "MiddlewareTermination",
     "MiddlewareType",
@@ -563,6 +568,8 @@ __all__ = [
     "background_tasks_running",
     "background_tasks_running_message",
     "chat_middleware",
+    "create_agent_hooks_middleware",
+    "create_agent_hooks_middleware_from_emitter",
     "create_always_approve_tool_response",
     "create_always_approve_tool_with_arguments_response",
     "create_edge_runner",

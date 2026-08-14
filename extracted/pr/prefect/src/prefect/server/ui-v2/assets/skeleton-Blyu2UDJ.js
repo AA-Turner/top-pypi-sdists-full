@@ -1,0 +1,2 @@
+import{o as e}from"./vendor-codemirror-CMDsGve6.js";import{l as t}from"./button-Byx8RViy.js";var n=e();function r({className:e,...r}){return(0,n.jsx)(`div`,{"data-slot":`skeleton`,className:t(`bg-muted animate-pulse rounded-md`,e),...r})}export{r as t};
+//# sourceMappingURL=skeleton-Blyu2UDJ.js.map

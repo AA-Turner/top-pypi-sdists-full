@@ -122,6 +122,29 @@ def review_runs():
                               limit=request.args.get("limit", 20, type=int)))
 
 
+@review_bp.route("/llm/review/status", methods=["GET"])
+def review_status():
+    """One GET for the console settings page (2026-08-13): every saved
+    criteria (with its ``enabled`` switch) plus whether an API-started run is
+    in flight for it right now. Timer-started runs live in another process —
+    they show up in /runs, not here; ``running`` covers only this process's
+    background threads (the console's own "Run now")."""
+    from abstract_hugpy_dev.review.criteria import list_criteria, load_criteria
+    crits = []
+    for name in list_criteria():
+        try:
+            c = load_criteria(name).to_dict()
+        except Exception as exc:
+            c = {"name": name, "error": str(exc)}
+        live = _RUNNING.get(name)
+        running = bool(live and live.get("thread") and live["thread"].is_alive())
+        c["running"] = running
+        if running:
+            c["running_since"] = live.get("started")
+        crits.append(c)
+    return jsonify({"criteria": crits})
+
+
 # ── ingest: a worker box hands central its finished run ───────────────────
 # Cap one POST. push.py chunks at 250; anything far above that is a confused or
 # hostile caller, and the run header rides every chunk so truncating the tail

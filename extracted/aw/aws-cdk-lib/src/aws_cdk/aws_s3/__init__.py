@@ -24362,6 +24362,7 @@ __all__ = [
 # Type-checking-only imports for static analyzers (pyright/mypy).
 # At runtime TYPE_CHECKING is False, preserving lazy loading.
 if typing.TYPE_CHECKING:
+    pass
     from . import mixins as mixins
 
 publication.publish()

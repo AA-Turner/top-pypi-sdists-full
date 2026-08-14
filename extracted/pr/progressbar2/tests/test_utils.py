@@ -1,9 +1,12 @@
+import contextlib
 import io
+import sys
 
 import pytest
 
 import progressbar
 import progressbar.env
+from progressbar import utils
 
 
 @pytest.mark.parametrize(
@@ -107,8 +110,181 @@ def test_is_ansi_terminal(monkeypatch) -> None:
     monkeypatch.delenv('ANSICON')
     assert not progressbar.env.is_ansi_terminal(fd)
 
+    # A stream that legitimately fails to report tty-ness (e.g. OSError on
+    # a real I/O object) is simply not treated as an ANSI terminal. Only the
+    # narrowed OSError/ValueError/AttributeError set is tolerated; unexpected
+    # errors propagate (covered in tests/test_env_detection.py).
     def raise_error():
-        raise RuntimeError('test')
+        raise OSError('test')
 
     fd.isatty = raise_error
     assert not progressbar.env.is_ansi_terminal(fd)
+
+
+@pytest.mark.parametrize(
+    'value,expected',
+    [
+        ('', ''),
+        (b'', b''),
+        ('\x1b[31m', ''),
+        (b'\x1b[31m', b''),
+        ('\x1b[1m\x1b[31mtext\x1b[0m', 'text'),
+        (b'\x1b[1m\x1b[31mtext\x1b[0m', b'text'),
+        ('\x1b[38;5;208mhello world\x1b[0m', 'hello world'),
+    ],
+)
+def test_no_color(value, expected) -> None:
+    assert progressbar.utils.no_color(value) == expected
+
+
+def test_no_color_type_error() -> None:
+    with pytest.raises(TypeError):
+        progressbar.utils.no_color(123)
+
+
+@pytest.mark.parametrize(
+    'value,expected',
+    [
+        ('', 0),
+        (b'', 0),
+        ('\x1b[31m', 0),
+        ('\x1b[1m\x1b[31mtext\x1b[0m', 4),
+        ('\x1b[38;5;208mhello world\x1b[0m', 11),
+    ],
+)
+def test_len_color(value, expected) -> None:
+    assert progressbar.utils.len_color(value) == expected
+
+
+def test_attribute_dict_empty() -> None:
+    attrs = progressbar.utils.AttributeDict()
+    assert len(attrs) == 0
+    with pytest.raises(AttributeError):
+        _ = attrs.missing
+
+
+def test_attribute_dict_set_get_del() -> None:
+    attrs = progressbar.utils.AttributeDict()
+    attrs.spam = 123
+    assert attrs['spam'] == 123
+    assert attrs.spam == 123
+    del attrs.spam
+    with pytest.raises(AttributeError):
+        _ = attrs.spam
+    with pytest.raises(AttributeError):
+        del attrs.spam
+
+
+def test_attribute_dict_generic_value_type() -> None:
+    # The generic upgrade lets homogeneous, explicitly-typed instances flow the
+    # real value type. Runtime contract asserted here; the static benefit
+    # (reveal_type -> int, mis-typed assignment flagged) is checked by pyright.
+    attrs: utils.AttributeDict[int] = utils.AttributeDict[int]()
+    assert attrs == {}
+    assert '__orig_class__' not in attrs
+    attrs.count = 5
+    assert attrs.count == 5
+    assert attrs['count'] == 5
+
+    mixed = utils.AttributeDict(a=1, b='x')
+    assert mixed.a == 1
+    assert mixed.b == 'x'
+
+
+def test_attribute_dict_dunder_attributes_use_instance_storage() -> None:
+    attrs: utils.AttributeDict[str] = utils.AttributeDict()
+    attrs.__probe__ = 'metadata'
+
+    assert attrs.__probe__ == 'metadata'
+    assert '__probe__' not in attrs
+
+    del attrs.__probe__
+    with pytest.raises(AttributeError):
+        _ = attrs.__probe__
+
+
+def test_stream_wrapper_unwrap_restores_excepthook() -> None:
+    # Regression: C7 - unwrap_stdout/unwrap_stderr left the custom
+    # excepthook installed forever.
+    wrapper = utils.StreamWrapper()
+    hook_before = sys.excepthook
+    wrapper.wrap_stdout()
+    try:
+        wrapper.unwrap_stdout()
+        assert sys.excepthook is hook_before
+
+        # With both streams wrapped, the hook is only restored once the
+        # last stream is unwrapped
+        wrapper.wrap_stdout()
+        wrapper.wrap_stderr()
+        wrapper.unwrap_stdout()
+        # Bound methods are recreated on attribute access, so compare
+        # with == instead of `is`
+        assert sys.excepthook == wrapper.excepthook
+        wrapper.unwrap_stderr()
+        assert sys.excepthook is hook_before
+
+        # Same in reverse order: stderr first, then stdout
+        wrapper.wrap_stdout()
+        wrapper.wrap_stderr()
+        wrapper.unwrap_stderr()
+        assert sys.excepthook == wrapper.excepthook
+        wrapper.unwrap_stdout()
+        assert sys.excepthook is hook_before
+    finally:
+        sys.excepthook = wrapper.original_excepthook
+        sys.stdout = wrapper.original_stdout
+        sys.stderr = wrapper.original_stderr
+
+
+def test_stream_wrapper_flush_unsupported_keeps_int_counter() -> None:
+    # Regression: C2 - the unsupported-operation handler assigned False
+    # to the int wrap counter.
+    class UnsupportedIO(io.StringIO):
+        def write(self, value: str) -> int:
+            raise io.UnsupportedOperation('write')
+
+    wrapper = utils.StreamWrapper()
+    wrapper.stdout = utils.WrappingIO(UnsupportedIO())
+    wrapper.stdout.buffer.write('x')
+    wrapper.wrapped_stdout = 1
+    wrapper.flush()
+
+    assert wrapper.wrapped_stdout == 0
+    assert type(wrapper.wrapped_stdout) is int
+
+
+def test_wrapping_io_flush_does_not_duplicate_after_error() -> None:
+    # Regression: C3 - a failed target.write() left the buffer intact, so
+    # the next flush wrote the same data again.
+    class FlakyIO(io.StringIO):
+        def __init__(self) -> None:
+            super().__init__()
+            self.fail_once = True
+
+        def write(self, value: str) -> int:
+            result = super().write(value)
+            if self.fail_once:
+                self.fail_once = False
+                raise OSError('disk full')
+            return result
+
+    target = FlakyIO()
+    wrapped = utils.WrappingIO(target)
+    wrapped.buffer.write('hello')
+    with pytest.raises(OSError):
+        wrapped._flush()
+    with contextlib.suppress(OSError):
+        wrapped._flush()
+
+    assert target.getvalue().count('hello') == 1
+
+
+def test_wrapping_io_flush_with_closed_target() -> None:
+    # Regression: C4 - flushing into an already closed target (e.g. from
+    # the atexit hook at interpreter shutdown) raised ValueError.
+    target = io.StringIO()
+    wrapped = utils.WrappingIO(target)
+    wrapped.buffer.write('data')
+    target.close()
+    wrapped._flush()  # must not raise

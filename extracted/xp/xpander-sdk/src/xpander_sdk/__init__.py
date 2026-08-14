@@ -15,7 +15,7 @@ Main Components:
 For more information, visit: https://xpander.ai
 """
 
-__version__ = "2.0.454"
+__version__ = "2.0.456"
 
 # Backend-related imports
 from .modules.backend.backend_module import Backend
@@ -42,6 +42,7 @@ from xpander_sdk.modules.events.decorators.on_tool import (
 from .modules.tools_repository.tools_repository_module import ToolsRepository, Tool
 from .modules.tools_repository.models.tool_invocation_result import ToolInvocationResult
 from .modules.tools_repository.utils.schemas import build_model_from_schema
+from .models.principal import Principal, PrincipalKind
 from .models.user import User
 from xpander_sdk.modules.tools_repository.decorators.register_tool import register_tool
 from xpander_sdk.modules.tools_repository.models.mcp import (
@@ -104,6 +105,8 @@ __all__ = [
     # Configuration and shared
     "Configuration",
     "OutputFormat",
+    "Principal",
+    "PrincipalKind",
     "User",
     "Tokens",
     # Plan enforcement

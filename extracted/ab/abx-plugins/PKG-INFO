@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abx-plugins
-Version: 1.12.93
+Version: 1.12.108
 Summary: ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)
 Project-URL: Homepage, https://github.com/ArchiveBox/abx-plugins
 Project-URL: Source, https://github.com/ArchiveBox/abx-plugins
@@ -21,9 +21,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.12
 Requires-Dist: abxbus==2.5.45
-Requires-Dist: abxpkg==1.12.58
+Requires-Dist: abxpkg==1.12.66
 Requires-Dist: imagesize>=2.0.0
-Requires-Dist: jambo>=0.1.7
 Requires-Dist: rich-click>=1.9.7
 Requires-Dist: uv>=0.8.22
 Description-Content-Type: text/markdown
@@ -166,7 +165,7 @@ from abx_plugins.plugins.base.utils import (
 )
 ```
 
-- `load_config()` — load plugin `config.json` via jambo with env var + alias + fallback resolution, merged with shared base/common runtime vars like `SNAP_DIR`, `CRAWL_DIR`, `ABXPKG_LIB_DIR`, `PERSONAS_DIR`, `EXTRA_CONTEXT`, `TIMEOUT`, and `USER_AGENT`
+- `load_config()` — load plugin `config.json` with env var + alias + fallback resolution, merged with shared base/common runtime vars like `SNAP_DIR`, `CRAWL_DIR`, `ABXPKG_LIB_DIR`, `PERSONAS_DIR`, `EXTRA_CONTEXT`, `TIMEOUT`, and `USER_AGENT`
 - `emit_archive_result_record(status, output_str)` — print `{"type":"ArchiveResult",...}` JSONL to stdout
 - `emit_snapshot_record(record)` — emit `{"type":"Snapshot",...}` JSONL to stdout
 - `write_text_atomic(path, content)` — write file atomically (temp + rename)

@@ -4,7 +4,9 @@ import re
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+from io import StringIO
 from pathlib import Path
+from textwrap import dedent
 
 import pytest
 
@@ -694,14 +696,78 @@ def test_summary_in_output_zero_lines(do_branch):
 
 
 @pytest.mark.parametrize("json_flag", ["", "--json"])
-def test_fail_under(json_flag):
+def test_fail_under(tmp_path, json_flag):
     p = subprocess.run(f"{sys.executable} -m slipcover {json_flag} --fail-under 100 tests/branch.py".split(), check=False)
     assert 0 == p.returncode
 
-    p = subprocess.run(f"{sys.executable} -m slipcover {json_flag} --branch --fail-under 83 tests/branch.py".split(), check=False)
+    p = subprocess.run(f"{sys.executable} -m slipcover {json_flag} --branch --fail-under 85 tests/branch.py".split(), check=False)
     assert 0 == p.returncode
 
-    p = subprocess.run(f"{sys.executable} -m slipcover {json_flag} --branch --fail-under 84 tests/branch.py".split(), check=False)
+    p = subprocess.run(f"{sys.executable} -m slipcover {json_flag} --branch --fail-under 86 tests/branch.py".split(), check=False)
+    assert 2 == p.returncode
+
+    p = subprocess.run(f"{sys.executable} -m slipcover --branch --fail-under 93 -m pytest tests/pyt.py".split(), check=False)
+    assert 0 == p.returncode
+
+    p = subprocess.run(f"{sys.executable} -m slipcover --branch --fail-under 94 -m pytest tests/pyt.py".split(), check=False)
+    assert 2 == p.returncode
+
+
+def test_fail_under_precedence_with_nonzero_exit(tmp_path):
+    """When the script/pytest run itself fails (nonzero SystemExit) AND
+    coverage is below the fail-under threshold, coverage failure (RC 2)
+    takes precedence. But when coverage is fine, the run's own nonzero
+    exit code must be preserved, not silently replaced with 0.
+    """
+    script = tmp_path / "script.py"
+    script.write_text(dedent("""\
+        def foo(x):
+            if x:
+                return 1
+            return 2
+        foo(0)
+        raise SystemExit(3)
+    """))
+
+    # coverage is fine (line 3 "return 1" never runs, but threshold is low) --
+    # the script's own exit code (3) must be preserved
+    p = subprocess.run(f"{sys.executable} -m slipcover --fail-under 1 {script}".split(), check=False)
+    assert 3 == p.returncode
+
+    # coverage is below threshold -- fail-under (2) must override the
+    # script's own exit code
+    p = subprocess.run(f"{sys.executable} -m slipcover --fail-under 100 {script}".split(), check=False)
+    assert 2 == p.returncode
+
+
+def test_fail_under_precedence_with_failing_pytest_run(tmp_path):
+    """Same precedence check as test_fail_under_precedence_with_nonzero_exit,
+    but through the `-m pytest` path with a genuinely failing test (pytest's
+    own SystemExit(1)), rather than a script raising SystemExit directly.
+    """
+    test_file = tmp_path / "test_mod.py"
+    test_file.write_text(dedent("""\
+        def foo(x):
+            if x:
+                return 1
+            return 2
+
+        def test_fail():
+            assert foo(0) == 2
+            assert False
+    """))
+
+    # coverage is fine -- pytest's own failure exit code (1) must be preserved
+    p = subprocess.run(
+        [sys.executable, '-m', 'slipcover', '--fail-under', '1', '-m', 'pytest', test_file.name],
+        cwd=str(tmp_path), check=False)
+    assert 1 == p.returncode
+
+    # coverage is below threshold -- fail-under (2) must override pytest's
+    # own exit code
+    p = subprocess.run(
+        [sys.executable, '-m', 'slipcover', '--fail-under', '100', '-m', 'pytest', test_file.name],
+        cwd=str(tmp_path), check=False)
     assert 2 == p.returncode
 
 
@@ -876,6 +942,70 @@ print("in t2!")
         assert 'missing_branches' not in a['files']['t2.py']
 
     assert bool(do_branch) == a['meta']['branch_coverage']
+
+    check_summaries(a)
+
+
+@pytest.mark.parametrize("do_branch", [True, False])
+def test_merge_coverage_canonicalizes_paths(tmp_path, monkeypatch, do_branch):
+    """When the same physical file is recorded under two different path
+    spellings (e.g. relative + absolute, or via a symlink), merge_coverage
+    should canonicalize the paths and collapse the entries into one.
+
+    This happens in practice when one workload step records files via a
+    cwd-relative path (e.g. running `python -m pkg pkg/`) while another step
+    imports the same files as a package, causing Python's import machinery
+    to expose them via their editable-install absolute path.
+    """
+    monkeypatch.chdir(tmp_path)
+
+    (tmp_path / "t.py").write_text("""\
+import sys
+if len(sys.argv) < 2:   # 2
+    print("A branch")
+else:
+    print("B branch")   # 5
+""")
+
+    subprocess.run([sys.executable, '-m', 'slipcover'] +
+                   (['--branch'] if do_branch else []) +
+                   ['--json', '--out', tmp_path / "a.json", "t.py"], check=True)
+    subprocess.run([sys.executable, '-m', 'slipcover'] +
+                   (['--branch'] if do_branch else []) +
+                   ['--json', '--out', tmp_path / "b.json", "t.py", "X"], check=True)
+
+    with (tmp_path / "a.json").open() as f:
+        a = json.load(f)
+    with (tmp_path / "b.json").open() as f:
+        b = json.load(f)
+
+    # Re-key b's entry to the absolute path that the same file resolves to.
+    abs_path = str((tmp_path / "t.py").resolve())
+    assert abs_path != "t.py"
+    b['files'][abs_path] = b['files'].pop('t.py')
+
+    assert 't.py' in a['files']
+    assert abs_path in b['files']
+
+    sc.merge_coverage(a, b)
+
+    # Aliases collapse into a single entry.
+    t_keys = [k for k in a['files'] if k.endswith('t.py')]
+    assert len(t_keys) == 1, f"expected one entry for t.py, got: {t_keys}"
+
+    # The shorter (relative) display form wins when both forms exist.
+    assert t_keys[0] == 't.py'
+
+    # Coverage from both runs is unioned.
+    # Run a (no extra arg) executes lines 1,2,3; run b (with arg) executes 1,2,5.
+    assert {1, 2, 3, 5} <= set(a['files']['t.py']['executed_lines'])
+    assert [] == a['files']['t.py']['missing_lines']
+
+    if do_branch:
+        # Both branches of the `if` at line 2 should be covered.
+        assert [2, 3] in a['files']['t.py']['executed_branches']
+        assert [2, 5] in a['files']['t.py']['executed_branches']
+        assert [] == a['files']['t.py']['missing_branches']
 
     check_summaries(a)
 
@@ -1145,6 +1275,37 @@ def test_xml_flag(cov_merge_fixture: Path):
     assert lines[6].get('branch') is None
     assert lines[6].get('condition-coverage') is None
     assert lines[6].get('missing-branches') is None
+
+
+def test_xml_file_outside_cwd(tmp_path: Path, monkeypatch):
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+    external_file = tmp_path / "outside" / "external.py"
+    external_file.parent.mkdir()
+    external_file.touch()
+    monkeypatch.chdir(cwd)
+
+    output = StringIO()
+    sc.print_xml(
+        {
+            "files": {
+                str(external_file): {
+                    "executed_lines": [1],
+                    "missing_lines": [],
+                }
+            }
+        },
+        source_paths=[str(cwd)],
+        outfile=output,
+    )
+
+    dom = ET.fromstring(output.getvalue())
+    assert [source.text for source in dom.findall('.//sources/source')] == [
+        str(cwd)
+    ]
+    assert dom.find('.//classes/class').get('filename') == str(external_file).replace(
+        "\\", "/"
+    )
 
 def test_xml_flag_with_branches(cov_merge_fixture: Path):
     p = subprocess.run([sys.executable, '-m', 'slipcover', '--branch', '--xml', '--out', "out.xml", "t.py"], check=True)
@@ -1446,3 +1607,339 @@ def test_xml_flag_with_branches_and_pytest(tmp_path):
     assert lines[11].get('branch') is None
     assert lines[11].get('condition-coverage') is None
     assert lines[11].get('missing-branches') is None
+
+
+def test_lcov_flag(cov_merge_fixture: Path):
+    p = subprocess.run([sys.executable, '-m', 'slipcover', '--lcov', '--out', "out.lcov", "t.py"], check=True)
+    assert 0 == p.returncode
+
+    lcov_text = (cov_merge_fixture / 'out.lcov').read_text(encoding='utf8')
+    lines = lcov_text.strip().split('\n')
+
+    # Check basic structure
+    assert 'SF:t.py' in lines[0]
+
+    # Parse line coverage data
+    da_lines = [line for line in lines if line.startswith('DA:')]
+    assert len(da_lines) == 7  # 7 total lines
+
+    # Check specific line coverage
+    assert 'DA:1,1' in da_lines  # Line 1 is executed
+    assert 'DA:3,1' in da_lines  # Line 3 is executed
+    assert 'DA:4,1' in da_lines  # Line 4 is executed
+    assert 'DA:6,0' in da_lines  # Line 6 is not executed
+    assert 'DA:8,1' in da_lines  # Line 8 is executed
+    assert 'DA:9,0' in da_lines  # Line 9 is not executed
+    assert 'DA:11,1' in da_lines  # Line 11 is executed
+
+    # Check summary
+    assert 'LF:7' in lines  # 7 lines found
+    assert 'LH:5' in lines  # 5 lines hit
+    assert 'end_of_record' in lines
+
+
+def test_lcov_flag_with_branches(cov_merge_fixture: Path):
+    p = subprocess.run([sys.executable, '-m', 'slipcover', '--branch', '--lcov', '--out', "out.lcov", "t.py"], check=True)
+    assert 0 == p.returncode
+
+    lcov_text = (cov_merge_fixture / 'out.lcov').read_text(encoding='utf8')
+    lines = lcov_text.strip().split('\n')
+
+    # Check basic structure
+    assert 'SF:t.py' in lines[0]
+
+    # Parse branch coverage data
+    brda_lines = [line for line in lines if line.startswith('BRDA:')]
+    assert len(brda_lines) == 4  # 4 total branches (2 from each if statement)
+
+    # Check branch coverage summary
+    assert 'BRF:4' in lines  # 4 branches found
+    assert 'BRH:2' in lines  # 2 branches hit
+
+    # Parse line coverage data
+    da_lines = [line for line in lines if line.startswith('DA:')]
+    assert len(da_lines) == 7  # 7 total lines
+
+    # Check specific line coverage
+    assert 'DA:1,1' in da_lines  # Line 1 is executed
+    assert 'DA:3,1' in da_lines  # Line 3 is executed
+    assert 'DA:4,1' in da_lines  # Line 4 is executed
+    assert 'DA:6,0' in da_lines  # Line 6 is not executed
+    assert 'DA:8,1' in da_lines  # Line 8 is executed
+    assert 'DA:9,0' in da_lines  # Line 9 is not executed
+    assert 'DA:11,1' in da_lines  # Line 11 is executed
+
+    # Check summary
+    assert 'LF:7' in lines  # 7 lines found
+    assert 'LH:5' in lines  # 5 lines hit
+    assert 'end_of_record' in lines
+
+
+def test_lcov_flag_branch_taken_status_is_specific(cov_merge_fixture: Path):
+    """BRF/BRH aggregate counts alone can't tell a correctly-mapped result
+    from one with taken/not-taken inverted (a fixture with a symmetric
+    hit/miss split, like this one, would still show the same BRH count
+    either way) -- assert each individual BRDA line instead.
+    """
+    p = subprocess.run([sys.executable, '-m', 'slipcover', '--branch', '--lcov', '--out', "out.lcov", "t.py"], check=True)
+    assert 0 == p.returncode
+
+    lcov_text = (cov_merge_fixture / 'out.lcov').read_text(encoding='utf8')
+    brda_lines = [line for line in lcov_text.strip().split('\n') if line.startswith('BRDA:')]
+
+    # line 3 ("if len(sys.argv) < 2:"): 3->4 taken, 3->6 not taken
+    assert 'BRDA:3,0,0,1' in brda_lines
+    assert 'BRDA:3,0,1,-' in brda_lines
+    # line 8 ("if not sys.argv:"): 8->9 not taken, 8->11 taken
+    assert 'BRDA:8,0,0,-' in brda_lines
+    assert 'BRDA:8,0,1,1' in brda_lines
+
+
+def test_lcov_flag_with_test_name(cov_merge_fixture: Path):
+    p = subprocess.run([sys.executable, '-m', 'slipcover', '--lcov', '--lcov-test-name', 'MyTestSuite', 
+                       '--out', "out.lcov", "t.py"], check=True)
+    assert 0 == p.returncode
+
+    lcov_text = (cov_merge_fixture / 'out.lcov').read_text(encoding='utf8')
+    lines = lcov_text.strip().split('\n')
+
+    # Check that TN: is present with the test name
+    assert 'TN:MyTestSuite' in lines[0]
+    assert 'SF:t.py' in lines[1]
+
+
+def test_lcov_flag_with_comments(cov_merge_fixture: Path):
+    p = subprocess.run([sys.executable, '-m', 'slipcover', '--lcov', 
+                       '--lcov-comment', 'Generated by slipcover',
+                       '--lcov-comment', 'Test run on 2025-01-01',
+                       '--out', "out.lcov", "t.py"], check=True)
+    assert 0 == p.returncode
+
+    lcov_text = (cov_merge_fixture / 'out.lcov').read_text(encoding='utf8')
+    lines = lcov_text.strip().split('\n')
+
+    # Check that comments are present at the beginning
+    assert '# Generated by slipcover' == lines[0]
+    assert '# Test run on 2025-01-01' == lines[1]
+    assert 'SF:t.py' in lines[2]
+
+
+def test_lcov_flag_with_test_name_and_comments(cov_merge_fixture: Path):
+    p = subprocess.run([sys.executable, '-m', 'slipcover', '--lcov', 
+                       '--lcov-test-name', 'IntegrationTest',
+                       '--lcov-comment', 'Coverage report',
+                       '--out', "out.lcov", "t.py"], check=True)
+    assert 0 == p.returncode
+
+    lcov_text = (cov_merge_fixture / 'out.lcov').read_text(encoding='utf8')
+    lines = lcov_text.strip().split('\n')
+
+    # Check that comment is present at the beginning
+    assert '# Coverage report' == lines[0]
+    # Check that TN: is present with the test name
+    assert 'TN:IntegrationTest' in lines[1]
+    assert 'SF:t.py' in lines[2]
+
+
+def test_lcov_normalizes_windows_paths():
+    """LCOV's SF: entry must use forward slashes, matching xmlreport.py's
+    own path normalization (genhtml/lcov tooling expects '/'-style paths).
+    """
+    import io
+
+    coverage = {
+        'meta': {'software': 'slipcover', 'version': '0', 'timestamp': '', 'branch_coverage': False},
+        'files': {
+            r'src\pkg\mod.py': {
+                'executed_lines': [1],
+                'missing_lines': [],
+            }
+        },
+    }
+
+    out = io.StringIO()
+    sc.print_lcov(coverage, outfile=out)
+    lcov_text = out.getvalue()
+
+    assert 'SF:src/pkg/mod.py' in lcov_text
+    assert '\\' not in lcov_text
+
+
+def test_lcov_flag_empty_file(tmp_path, monkeypatch):
+    """An empty .py file has no missing coverage. The exact line count is
+    NOT asserted: Python 3.9/3.10 report one (trivially-executed) line for
+    an empty module, while 3.11+ report none -- both are correct, since
+    what matters here is that nothing is reported as missing.
+    """
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "empty.py").write_text("")
+
+    p = subprocess.run([sys.executable, '-m', 'slipcover', '--lcov', '--out', "out.lcov", "empty.py"], check=True)
+    assert 0 == p.returncode
+
+    lcov_text = (tmp_path / 'out.lcov').read_text(encoding='utf8')
+    lines = lcov_text.strip().split('\n')
+
+    assert 'SF:empty.py' in lines[0]
+    assert not any(line.startswith('DA:') and line.endswith(',0') for line in lines)
+    assert 'end_of_record' in lines
+
+
+def test_lcov_flag_full_coverage(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "full.py").write_text("x = 1\ny = 2\n")
+
+    p = subprocess.run([sys.executable, '-m', 'slipcover', '--lcov', '--out', "out.lcov", "full.py"], check=True)
+    assert 0 == p.returncode
+
+    lcov_text = (tmp_path / 'out.lcov').read_text(encoding='utf8')
+    lines = lcov_text.strip().split('\n')
+
+    assert 'DA:1,1' in lines
+    assert 'DA:2,1' in lines
+    assert 'LF:2' in lines
+    assert 'LH:2' in lines
+
+
+def test_lcov_flag_zero_coverage(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "unused.py").write_text("def foo():\n    return 1\n")
+
+    p = subprocess.run([sys.executable, '-m', 'slipcover', '--lcov', '--out', "out.lcov", "unused.py"], check=True)
+    assert 0 == p.returncode
+
+    lcov_text = (tmp_path / 'out.lcov').read_text(encoding='utf8')
+    lines = lcov_text.strip().split('\n')
+
+    assert 'DA:2,0' in lines  # "return 1" body never executes
+    assert 'LH:0' not in lines or 'LF:0' not in lines  # sanity: file isn't itself empty
+    assert 'LH:1' in lines  # only the "def foo():" line (module-level) executes
+    assert 'LF:2' in lines
+
+
+def test_lcov_flag_with_merge(cov_merge_fixture):
+    subprocess.run([sys.executable, '-m', 'slipcover', '--branch',
+                    '--json', '--out', "a.json", "t.py"], check=True)
+    subprocess.run([sys.executable, '-m', 'slipcover', '--branch',
+                    '--json', '--out', "b.json", "t.py", "X"], check=True)
+
+    subprocess.run([sys.executable, '-m', 'slipcover', '--merge',
+                    'a.json', 'b.json', '--branch', '--lcov', '--out', 'c.lcov'], check=True)
+
+    lcov_text = Path("c.lcov").read_text(encoding='utf8')
+    lines = lcov_text.strip().split('\n')
+
+    assert 'SF:t.py' in lines[0]
+    da_lines = [line for line in lines if line.startswith('DA:')]
+    # merged coverage: both the "A branch" (line 4) and "B branch" (line 6) taken
+    assert 'DA:4,1' in da_lines
+    assert 'DA:6,1' in da_lines
+    assert 'DA:9,0' in da_lines
+    assert 'end_of_record' in lines
+
+
+@pytest.mark.skipif(sys.platform == 'win32', reason='SIGTERM is Unix-specific')
+def test_sigterm_top_level_writes_single_correct_report(tmp_path, monkeypatch):
+    """A SIGTERM'd top-level process must produce exactly one coverage
+    report. The original bug called sci_atexit() manually and then let
+    atexit run it again via sys.exit(), printing the table twice.
+    """
+    import signal
+    import time
+
+    monkeypatch.chdir(tmp_path)
+    script = tmp_path / "script.py"
+    script.write_text(dedent("""\
+        import time
+        x = 1
+        with open("started.txt", "w") as f:
+            f.write("1")
+        time.sleep(10)
+        y = 2  # must never execute -- process is killed during sleep
+    """))
+
+    proc = subprocess.Popen(
+        [sys.executable, '-m', 'slipcover', '--sigterm', 'script.py'],
+        cwd=tmp_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+    )
+
+    # Wait for the script to actually reach the sleep, rather than guessing
+    # a fixed duration: too short races the SIGTERM against slipcover's own
+    # startup, too long just wastes time -- polling for a concrete
+    # readiness marker adapts to whatever the environment actually needs.
+    started_file = tmp_path / "started.txt"
+    for _ in range(100):  # up to ~5s
+        if started_file.exists():
+            break
+        time.sleep(0.05)
+    else:
+        proc.kill()
+        pytest.fail("script never started")
+
+    proc.send_signal(signal.SIGTERM)
+    stdout, stderr = proc.communicate(timeout=30)
+
+    assert proc.returncode == 0, f"stdout={stdout}\nstderr={stderr}"
+    # the report table's header appears exactly once per report -- the
+    # original bug printed it twice
+    assert stdout.count('#lines') == 1, f"expected exactly one report, got:\n{stdout}"
+    assert 'script.py' in stdout
+
+
+@pytest.mark.skipif(sys.platform == 'win32', reason='SIGTERM/fork are Unix-specific')
+def test_sigterm_forked_child_writes_partial_coverage_safely(tmp_path, monkeypatch):
+    """A forked child killed by SIGTERM must exit through the shimmed
+    os._exit() (writing its own partial coverage to a tempfile for the
+    parent to merge) rather than racing the parent through the top-level
+    report path -- exercised via the real --sigterm flag and a real
+    os.fork() in the target script, not by calling internal functions
+    directly.
+    """
+    import os
+    import signal
+    import time
+
+    monkeypatch.chdir(tmp_path)
+    script = tmp_path / "script.py"
+    script.write_text(dedent("""\
+        import os, time
+
+        pid = os.fork()
+        if pid == 0:
+            x = 1
+            time.sleep(10)
+            y = 2  # must never execute -- child is killed during sleep
+        else:
+            with open("child_pid.txt", "w") as f:
+                f.write(str(pid))
+            os.waitpid(pid, 0)
+    """))
+
+    proc = subprocess.Popen(
+        [sys.executable, '-m', 'slipcover', '--sigterm', '--json', '--out', 'out.json', 'script.py'],
+        cwd=tmp_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+    )
+
+    pid_file = tmp_path / "child_pid.txt"
+    child_pid = None
+    for _ in range(100):  # up to ~5s
+        # both errors mean "not ready yet": the file may not exist, or it
+        # may exist but not be flushed/visible yet (empty content)
+        try:
+            child_pid = int(pid_file.read_text())
+            break
+        except (FileNotFoundError, ValueError):
+            pass
+        time.sleep(0.05)
+    else:
+        proc.kill()
+        pytest.fail("forked child never started")
+    os.kill(child_pid, signal.SIGTERM)
+
+    stdout, stderr = proc.communicate(timeout=30)
+    assert proc.returncode == 0, f"stdout={stdout}\nstderr={stderr}"
+
+    cov = json.loads((tmp_path / "out.json").read_text())
+    file_cov = cov['files']['script.py']
+    assert 5 in file_cov['executed_lines']       # x = 1, in the child
+    assert 7 not in file_cov['executed_lines']   # y = 2, never reached

@@ -70,8 +70,9 @@ from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
 import msgspec
 
-from . import cell_key, compile_posture
-from .api.binding import ModelRef, binding_wire_refs, wire_ref
+from . import compile_posture
+from .child_contract import (
+    FRAME_PREFIX, CompileSpec, MintFrame, MintSlot)
 from .compile_posture import CompilePosture
 from .stall import SilenceWindow
 
@@ -79,11 +80,6 @@ logger = logging.getLogger(__name__)
 
 #: The child entry point. Kept as a module so the boundary is argv+files.
 MINT_CHILD_MODULE = "gen_worker.mint_child"
-
-#: Every child progress frame is one stdout line with this prefix. Anything
-#: else the child (or a library it imports) prints is diagnostic tail, never
-#: parsed — a mint must not be steerable by a stray print.
-FRAME_PREFIX = "MINT_FRAME "
 
 REQUEST_NAME = "request.json"
 REPORT_NAME = "report.json"
@@ -141,101 +137,6 @@ _REAP_GRACE_S = 15.0
 MAX_ATTEMPTS = 2
 
 
-class CompileCellSpec(msgspec.Struct, frozen=True, kw_only=True):
-    """The declared compile contract, flattened — exactly the facts the CHILD
-    reads.
-
-    The PARENT sends this rather than letting the child re-derive it from the
-    decorator, because the class-scoped ``guidance_scales``/``text_lens``
-    unions live on the spec and not on the decl: a child rebuilding from
-    ``@endpoint`` alone would export a different declaration than the parent
-    asked for. It is NOT a key-derivation wire — since pgw#758/#1010 the child
-    computes no key at all; the parent stamps it from the returned envelope.
-
-    pgw#1034 therefore dropped ``regional``/``text_len``/``dynamic``: they
-    crossed the wire and no child consumer read them
-    (``fleet_cells.aot_export_spec`` and ``compile_cache.resolve_targets`` read
-    family/targets/shapes/text_lens/guidance/bucket, and nothing else does).
-    Any field added back must name the child code that reads it.
-    """
-
-    shapes: Tuple[Tuple[int, ...], ...] = ()
-    targets: Tuple[str, ...] = ()
-    family: str = ""
-    lora_bucket: int = 0
-    guidance_scales: Tuple[float, ...] = ()
-    text_lens: Tuple[int, ...] = ()
-
-
-class MintSlot(msgspec.Struct, frozen=True, kw_only=True):
-    """One setup slot, as the parent resolved it. Present and complete, or absent.
-
-    pgw#974. This used to be THREE parallel slot-keyed dicts on
-    ``MintRequest`` — ``snapshots`` (bytes), ``slot_bindings`` (identity,
-    pgw#969) and ``component_paths`` (composition, pgw#816) — written by three
-    separate statements, each independently allowed to be empty. Two of the
-    three combinations that describes are incoherent, and one of them cost two
-    L40S pods: ``{"pipeline": "/tmp/x"}`` with no binding decoded, type-checked
-    and looked complete, and the child died 0.0 s into ``warmup_forward`` at
-    ``ctx.slots["pipeline"]``. ``ref`` and ``path`` therefore carry no
-    defaults: a slot with bytes and no identity cannot be constructed and
-    cannot be decoded.
-
-    A slot the parent did not resolve is ABSENT from the map — never a present
-    entry with a hole in it. ``mint_child.assert_slots_resolvable`` still
-    refuses one that the endpoint declares and does not mark optional.
-
-    * ``ref`` — WHICH checkpoint. ``ctx.slots`` is built from bindings, and a
-      child re-runs discovery, so a hub-catalog slot (``Slot(selected_by=...)``
-      with no ``default_checkpoint=``, which is sdxl's shape) rediscovers
-      nothing at all. A slot WITH a code default is the quieter half of the
-      same defect: the child resolves the DECLARED checkpoint while the parent
-      serves the hub's pick, and traces graphs for a model this pod never runs.
-    * ``path`` — WHERE its bytes already are, materialized by the parent, so
-      the child never touches the network: a mint is compute, and a mint
-      process that could download is one that can stall on a lemon host.
-    * ``component_paths`` — pgw#617 per-component overrides, comp -> that
-      component's own local tree. Empty for most slots and part of the
-      composition when not: th#1330 B2 EXCLUDES an overridden component's
-      files from the base fetch, so ``path`` alone then names a narrowed tree
-      (``<digest>__x<fp>``) that no loader can open.
-    """
-
-    ref: ModelRef
-    path: str
-    component_paths: Dict[str, str] = {}
-
-    def __post_init__(self) -> None:
-        if not self.path:
-            raise ValueError(
-                f"a resolved slot must name the tree its bytes are in; got an "
-                f"empty path for {wire_ref(self.ref)!r}")
-
-
-def slot_subjects(
-    slots: Mapping[str, MintSlot],
-    digests: Optional[Mapping[str, str]] = None,
-) -> Tuple[cell_key.SlotSubject, ...]:
-    """The resolved SUBJECT of one arm or one boot trace (pgw#1113).
-
-    THE single derivation, so the arm token, the local-store memo and the
-    boot-key memo cannot disagree about which checkpoint a pipeline is bound
-    to. ``path`` is deliberately excluded — where the bytes were materialized
-    is a location on this machine, never an identity — and so is
-    ``component_paths``, whose identity half is already in the ref's
-    ``component_overrides`` (``binding_wire_refs``).
-    """
-    have = dict(digests or {})
-    return tuple(
-        cell_key.SlotSubject(
-            slot=str(name),
-            refs=tuple(binding_wire_refs(slot.ref)),
-            snapshot_digest=str(have.get(str(name), "") or ""),
-        )
-        for name, slot in sorted(slots.items())
-    )
-
-
 class MintRequest(msgspec.Struct, frozen=True, kw_only=True):
     """Everything the child needs, and nothing live."""
 
@@ -253,7 +154,7 @@ class MintRequest(msgspec.Struct, frozen=True, kw_only=True):
     #: never wrote a byte into, so that signal read 0 for every real mint.
     work_root: str
     report: str          # typed terminal report the child writes
-    cfg: CompileCellSpec
+    cfg: CompileSpec
     #: The parent's resolution, whole — slot -> identity + bytes + composition.
     #: See ``MintSlot``: the three views this replaced could disagree.
     slots: Dict[str, MintSlot] = {}
@@ -304,15 +205,6 @@ class MintRequest(msgspec.Struct, frozen=True, kw_only=True):
     handler_proof: str = ""
 
 
-class MintFrame(msgspec.Struct, frozen=True, kw_only=True):
-    """One progress frame. Reporting only — never a liveness claim."""
-
-    phase: str = ""
-    step: int = 0
-    total: int = 0
-    note: str = ""
-
-
 class MintReport(msgspec.Struct, frozen=True, kw_only=True):
     """The child's typed terminal word, written to ``MintRequest.report``.
 
@@ -321,6 +213,11 @@ class MintReport(msgspec.Struct, frozen=True, kw_only=True):
     """
 
     status: str
+    #: pgw#1176: EVERY entry the child packed — ``(key, artifact path, sha256)``
+    #: per graph class. A mint produces N independently keyed artifacts, so a
+    #: report that named one would be reporting a subset of its own work. The
+    #: parent arms and publishes each; a failure on one costs that one.
+    entries: Tuple[Tuple[str, str, str], ...] = ()
     artifact: str = ""
     digest: str = ""
     cell_key: str = ""
@@ -380,7 +277,8 @@ class MintOutcome:
 
     status: str
     detail: str = ""
-    artifact: Optional[Path] = None
+    #: pgw#1176: every entry artifact the child produced, in report order.
+    artifacts: Tuple[Path, ...] = ()
     report: Optional[MintReport] = None
     exit_code: Optional[int] = None
     stderr_tail: str = ""
@@ -456,16 +354,6 @@ class MintOutcome:
         if self.detail:
             parts.append(f"detail={self.detail[:400]!r}")
         return " ".join(parts)
-
-
-def frame_line(
-    phase: str = "", step: int = 0, total: int = 0, note: str = "",
-) -> str:
-    """One wire line for a progress frame — the child's half of the protocol,
-    kept here so both sides share one encoder."""
-    body = msgspec.json.encode(
-        MintFrame(phase=phase, step=step, total=total, note=note[:400]))
-    return FRAME_PREFIX + body.decode() + "\n"
 
 
 def _decode_report(path: Path) -> Optional[MintReport]:
@@ -803,9 +691,11 @@ async def run_mint(
     # the child reached its own terminus.
     partial = _read_phase_snapshot(request.phases_snapshot)
 
-    def _out(status: str, detail: str, artifact: Optional[Path] = None) -> MintOutcome:
+    def _out(status: str, detail: str,
+             artifacts: Sequence[Path] = ()) -> MintOutcome:
         outcome = MintOutcome(
-            status=status, detail=detail, artifact=artifact, report=report,
+            status=status, detail=detail, artifacts=tuple(artifacts),
+            report=report,
             exit_code=code, stderr_tail=stderr_tail, last_phase=phase,
             elapsed_s=elapsed, partial_phases=partial)
         logger.info("%s", outcome.line())
@@ -817,13 +707,19 @@ async def run_mint(
         return _out(CRASHED, killed_reason)
 
     if code == EXIT_MINTED:
-        artifact = Path(report.artifact) if report and report.artifact else None
-        if artifact is None or not artifact.is_file():
+        # pgw#1176: a mint's product is a SET of independently keyed entry
+        # artifacts. A report naming none is a crash; a report naming some is
+        # a mint — a subset is a coherent outcome now, not a broken cell.
+        rows = [Path(path) for _key, path, _digest in (
+            report.entries if report else ())]
+        present = [path for path in rows if path.is_file()]
+        if not present:
             return _out(
                 CRASHED,
-                "the mint process exited 0 but wrote no artifact "
-                f"(report={'present' if report else 'absent'})")
-        return _out(MINTED, report.detail if report else "", artifact)
+                "the mint process exited 0 but wrote no entry artifact "
+                f"(report={'present' if report else 'absent'}, "
+                f"named={len(rows)})")
+        return _out(MINTED, report.detail if report else "", present)
     if code == EXIT_REFUSED:
         return _out(REFUSED, (report.detail if report else "") or stderr_tail[-400:])
     if code == EXIT_RESOURCE:
@@ -846,17 +742,14 @@ async def run_mint(
 __all__ = [
     "ABANDONED",
     "CRASHED",
-    "CompileCellSpec",
     "EXIT_BAD_REQUEST",
     "EXIT_MINTED",
     "EXIT_REFUSED",
     "EXIT_RESOURCE",
-    "FRAME_PREFIX",
     "MAX_ATTEMPTS",
     "PHASES_SNAPSHOT_NAME",
     "MINTED",
     "MINT_CHILD_MODULE",
-    "MintFrame",
     "MintOutcome",
     "MintReport",
     "MintRequest",
@@ -865,7 +758,6 @@ __all__ = [
     "REQUEST_NAME",
     "RESOURCE",
     "child_argv",
-    "frame_line",
     "child_env",
     "run_mint",
     "write_request",

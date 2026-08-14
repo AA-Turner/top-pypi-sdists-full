@@ -31,10 +31,14 @@ from airbyte_ops_mcp.registry._resolve_gcs_paths import (
     versioned_blob_root,
 )
 from airbyte_ops_mcp.registry._sbom_generation import upload_sbom
+from airbyte_ops_mcp.registry.breaking_changes import (
+    version_declares_breaking_change,
+)
 from airbyte_ops_mcp.registry.markers import (
     PROGRESSIVE_ROLLOUT_MARKER_FILE,
     is_registry_state_marker_file,
 )
+from airbyte_ops_mcp.registry.operations import get_registry_entry
 from airbyte_ops_mcp.registry.store import RegistryStore
 from airbyte_ops_mcp.registry.validate import (
     validate_metadata,
@@ -58,6 +62,8 @@ class PublishArtifactsResult:
     files_uploaded: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     validation_errors: list[str] = field(default_factory=list)
+    progressive_rollout_overridden_by_breaking_change: bool = False
+    progressive_rollout_overridden_by_published_ga: bool = False
     dry_run: bool = False
 
     @property
@@ -116,17 +122,40 @@ def _check_connector_name_matches_docker_repo(
     )
 
 
-def _metadata_enables_progressive_rollout(artifacts_dir: Path) -> bool:
+def _metadata_enables_progressive_rollout(
+    artifacts_dir: Path,
+) -> bool:
+    """Return whether metadata enables progressive rollout."""
     metadata_file = artifacts_dir / "metadata.yaml"
     if not metadata_file.is_file():
         return False
     raw_metadata = yaml.safe_load(metadata_file.read_text())
+    data = (raw_metadata or {}).get("data", {})
+    releases = data.get("releases", {}) if isinstance(data, dict) else {}
+    rollout_config = (
+        releases.get("rolloutConfiguration", {}) if isinstance(releases, dict) else {}
+    )
     return bool(
-        (raw_metadata or {})
-        .get("data", {})
-        .get("releases", {})
-        .get("rolloutConfiguration", {})
-        .get("enableProgressiveRollout")
+        rollout_config.get("enableProgressiveRollout")
+        if isinstance(rollout_config, dict)
+        else False
+    )
+
+
+def _metadata_declares_breaking_change(
+    artifacts_dir: Path,
+    version: str,
+) -> bool:
+    """Return whether metadata declares a breaking change for `version`."""
+    metadata_file = artifacts_dir / "metadata.yaml"
+    if not metadata_file.is_file():
+        return False
+    raw_metadata = yaml.safe_load(metadata_file.read_text())
+    data = (raw_metadata or {}).get("data", {})
+    releases = data.get("releases", {}) if isinstance(data, dict) else {}
+    return version_declares_breaking_change(
+        version,
+        releases.get("breakingChanges") if isinstance(releases, dict) else None,
     )
 
 
@@ -138,6 +167,45 @@ def _progressive_rollout_marker_content() -> str:
         },
         default_flow_style=False,
     )
+
+
+def _published_latest_version(
+    connector_name: str,
+    store: RegistryStore,
+) -> str | None:
+    """Read the currently published Default GA version, if available."""
+    try:
+        metadata = get_registry_entry(
+            connector_name=connector_name,
+            bucket_name=store.bucket,
+            prefix=store.prefix,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Could not read the published Default GA version for %s; "
+            "keeping progressive rollout behavior: %s",
+            connector_name,
+            exc,
+        )
+        return None
+
+    data = metadata.get("data")
+    if not isinstance(data, dict):
+        logger.warning(
+            "Published metadata for %s has no readable Default GA version; "
+            "keeping progressive rollout behavior.",
+            connector_name,
+        )
+        return None
+    version = data.get("dockerImageTag")
+    if not isinstance(version, str) or not version:
+        logger.warning(
+            "Published metadata for %s has no readable Default GA version; "
+            "keeping progressive rollout behavior.",
+            connector_name,
+        )
+        return None
+    return version
 
 
 def publish_version_artifacts(
@@ -198,12 +266,47 @@ def publish_version_artifacts(
     versioned_dest = f"gcs://{bucket_name}/{blob_root}"
 
     target_label = f"{bucket_name}/{prefix}" if prefix else bucket_name
-    should_publish_rollout_marker = _metadata_enables_progressive_rollout(artifacts_dir)
+    progressive_rollout_enabled = _metadata_enables_progressive_rollout(artifacts_dir)
+    rollout_overridden_by_breaking_change = (
+        progressive_rollout_enabled
+        and _metadata_declares_breaking_change(artifacts_dir, version)
+    )
+    published_latest_version = (
+        _published_latest_version(connector_name, store)
+        if progressive_rollout_enabled and not rollout_overridden_by_breaking_change
+        else None
+    )
+    rollout_overridden_by_published_ga = (
+        published_latest_version == version
+        if published_latest_version is not None
+        else False
+    )
+    if rollout_overridden_by_breaking_change:
+        logger.info(
+            "Ignoring progressive rollout settings for %s@%s; version is declared "
+            "as a breaking change. The rollout marker will not be published.",
+            connector_name,
+            version,
+        )
+    elif rollout_overridden_by_published_ga:
+        logger.info(
+            "Ignoring progressive rollout settings for %s@%s; version is already "
+            "the published Default GA. The rollout marker will not be published.",
+            connector_name,
+            version,
+        )
+    should_publish_rollout_marker = (
+        progressive_rollout_enabled
+        and not rollout_overridden_by_breaking_change
+        and not rollout_overridden_by_published_ga
+    )
     result = PublishArtifactsResult(
         connector_name=connector_name,
         version=version,
         target=target_label,
         gcs_destination=versioned_dest,
+        progressive_rollout_overridden_by_breaking_change=rollout_overridden_by_breaking_change,
+        progressive_rollout_overridden_by_published_ga=rollout_overridden_by_published_ga,
         dry_run=dry_run,
     )
 

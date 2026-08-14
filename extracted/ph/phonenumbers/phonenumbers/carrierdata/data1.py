@@ -19,6 +19,8 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '553199719':{'en': 'Telemig Celular'},
+ '553199721':{'en': 'Telemig Celular'},
  '553199722':{'en': 'Telemig Celular'},
  '553199723':{'en': 'Telemig Celular'},
  '553199724':{'en': 'Telemig Celular'},
@@ -7421,7 +7423,7 @@ data = {
  '5632377':{'en': 'Telestar'},
  '5632380':{'en': 'Movistar'},
  '5632381':{'en': 'Gtd Telesat S.A.'},
- '56323820':{'en': 'Redvoiss'},
+ '5632382':{'en': 'Redvoiss'},
  '5632383':{'en': 'Linksat Comunicaciones Spa.'},
  '5632384':{'en': 'Linksat Comunicaciones Spa.'},
  '5632385':{'en': 'Gtd Manquehue S.A.'},
@@ -10017,6 +10019,4 @@ data = {
  '5730459':{'en': 'Tigo'},
  '5730460':{'en': 'Tigo'},
  '5730461':{'en': 'Tigo'},
- '5730462':{'en': 'Tigo'},
- '5730463':{'en': 'Tigo'},
 }

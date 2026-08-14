@@ -37,6 +37,18 @@ class MongoDBConnectionWrapper(NativeConnectionWrapper):
         connection_options.pop(SparkOptionsKey.CUSTOM_JDBC_CERT_STRING, None)
         connection_options.pop(SparkOptionsKey.SKIP_CUSTOM_JDBC_CERT_VALIDATION, None)
 
+        # Signal IAM authentication downstream. GlueSparkConnector-MongoDB's data source
+        # keys off this marker to resolve AWS credentials via the SDK default provider
+        # chain and rewrite the URI to use MONGODB-AWS.
+        auth_config = self._connection.get(ConnectionObjectKey.AUTHENTICATION_CONFIGURATION, {})
+        auth_type = (auth_config.get("AuthenticationType") or "") if auth_config else ""
+        if auth_type.upper() == "IAM":
+            logger.info(
+                "GLUE_CONNECTIVITY: DocumentDB/MongoDB IAM auth detected; "
+                "marking options for downstream MONGODB-AWS handling."
+            )
+            connection_options["authenticationType"] = "IAM"
+
         logger.debug("updating MongoDB/DocumentDB urls.")
 
         # Update URL using helper

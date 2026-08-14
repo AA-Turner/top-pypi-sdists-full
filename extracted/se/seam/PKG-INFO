@@ -1,20 +1,16 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: seam
-Version: 2.2.0
+Version: 3.2.0
 Summary: SDK for the Seam API written in Python.
-Home-page: https://github.com/seamapi/python
-License: MIT
 Author: Seam Labs, Inc.
-Author-email: engineering@getseam.com
-Requires-Python: >=3.10.0,<4.0.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: dataclasses-json (>=0.6.4,<0.7.0)
-Requires-Dist: niquests (>=3.6.4,<4.0.0)
-Requires-Dist: svix (>=1.24.0,<2.0.0)
+Author-email: Seam Labs, Inc. <engineering@getseam.com>
+License-Expression: MIT
+License-File: LICENSE.txt
+Requires-Dist: httpx>=0.23.0,<1
+Requires-Dist: httpx-retries>=0.6.0,<1
+Requires-Dist: svix>=1.24.0,<2
+Requires-Python: >=3.11
+Project-URL: Homepage, https://github.com/seamapi/python
 Project-URL: Repository, https://github.com/seamapi/python
 Description-Content-Type: text/x-rst
 
@@ -67,9 +63,11 @@ Contents
 
   * `Action Attempts`_
 
+  * `Setting a Param to Null`_
+
   * `Pagination`_
 
-    * `Manually fetch pages with the nextPageCursor`_
+    * `Manually fetch pages with the next_page_cursor`_
 
     * `Resume pagination`_
 
@@ -89,7 +87,11 @@ Contents
 
     * `Setting the request timeout`_
 
-    * `Configuring the niquests session`_
+    * `Configuring retries`_
+
+    * `Configuring the httpx client`_
+
+    * `Serializing URL search params`_
 
 * `Development and Testing`_
 
@@ -296,14 +298,64 @@ For example:
   except SeamActionAttemptTimeoutError as e:
       print("Door took too long to unlock")
 
+Setting a Param to Null
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The Seam API tells an omitted param apart from one explicitly set to null.
+In an update request, an omitted param leaves the current value unchanged,
+while a null param unsets it.
+
+Python has a single nil value `None` which represents an undefined parameter. This SDK provides an explicit null value to send in requests.
+A param set to ``None`` is omitted, and a param set to ``NULL`` is sent as `null`:
+
+.. code-block:: python
+
+  from seam import NULL, Seam
+
+  seam = Seam()
+
+  # Leaves the name unchanged.
+  seam.devices.update(device_id="your-device-id", name=None)
+
+  # Unsets the name.
+  seam.devices.update(device_id="your-device-id", name=NULL)
+
+Because unsetting a value cannot be undone, ``None`` means the safe option of
+omitting the param, and sending null is always explicit.
+This is why a param is never sent as null by default,
+even though ``None`` is the natural way to spell null in Python.
+
+``NULL`` behaves the same way in a request body and in a URL search param.
+Its type is exported as ``Null`` for annotating your own code:
+
+.. code-block:: python
+
+  from typing import Optional, Union
+
+  from seam import NULL, Null
+
+  name: Optional[Union[str, Null]] = NULL
+
+Only params the Seam API documents as nullable accept ``NULL``.
+The generated method signatures say which ones those are,
+so a type checker rejects ``NULL`` anywhere else:
+
+.. code-block:: python
+
+  # name is nullable, so it may be unset.
+  seam.devices.update(device_id="your-device-id", name=NULL)
+
+  # is_managed is not, so this fails the type check.
+  seam.devices.update(device_id="your-device-id", is_managed=NULL)
+
 Pagination
 ~~~~~~~~~~
 
 Some Seam API endpoints that return lists of resources support pagination.
 Use the ``SeamPaginator`` class to fetch and process resources across multiple pages.
 
-Manually fetch pages with the nextPageCursor
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Manually fetch pages with the next_page_cursor
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -490,21 +542,110 @@ Pass the ``timeout`` option, in seconds, to override this:
 
 Setting it to ``None`` disables the timeout entirely.
 
-A request that exceeds the timeout raises ``niquests.exceptions.Timeout``.
+A request that exceeds the timeout raises ``httpx.TimeoutException``.
 
-Configuring the niquests session
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Configuring retries
+^^^^^^^^^^^^^^^^^^^
 
-For control the options above do not cover, pass ``niquests_options``.
-These are handed to the underlying niquests ``Session`` and take
+By default, the SDK makes up to three attempts: the initial request and two
+retries. Retries are limited to ``GET``, ``HEAD``, ``OPTIONS``, ``PUT``, and
+``DELETE`` requests that fail because of a transport error, timeout, HTTP 429
+response, or HTTP 5xx response. ``POST`` and ``PATCH`` requests are not retried.
+
+Retries use exponential backoff with jitter: approximately 200–240 ms before
+the first retry and 400–480 ms before the second. A ``Retry-After`` header is
+honored instead of the calculated backoff. The request timeout is reset for
+each attempt.
+
+Pass the ``retries`` option to configure retry behavior.
+Retries are handled by `httpx-retries <https://will-ockmore.github.io/httpx-retries/>`_,
+and its ``Retry`` class is re-exported from ``seam`` for convenience:
+
+.. code-block:: python
+
+    from seam import Seam, Retry
+
+    seam = Seam(
+        api_key="your-api-key",
+        retries=Retry(total=3, backoff_factor=0.5, status_forcelist=[503]),
+    )
+
+Configuring the httpx client
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For control the options above do not cover, pass ``httpx_options``.
+These are handed to the underlying httpx ``Client`` and take
 precedence over the defaults the SDK sets:
 
 .. code-block:: python
 
+    from httpx import Limits
+
     seam = Seam(
         api_key="your-api-key",
-        niquests_options={"pool_connections": 20, "pool_maxsize": 25},
+        httpx_options={
+            "limits": Limits(max_connections=25, max_keepalive_connections=20),
+        },
     )
+
+Serializing URL search params
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Seam API parses URL search params as complex types.
+If you call it with your own HTTP client,
+``serialize_url_search_params`` is exported for that purpose.
+
+.. note::
+
+  The ``_strict=true`` parameter is added to any non-empty query so the Seam API
+  uses strict, schema-aware parsing. A query with no serializable params remains
+  empty.
+
+.. code-block:: python
+
+  import httpx
+  from seam import serialize_url_search_params
+
+  httpx.get(
+      "https://connect.getseam.com/devices/list",
+      params=serialize_url_search_params({"device_ids": ["device1", "device2"]}),
+      headers={"Authorization": "Bearer your-api-key"},
+  )
+
+The serialization defines the name and value of each search param,
+where every value is a string.
+``UrlSearchParams`` holds those pairs and renders the query string,
+as `URLSearchParams`_ does for the `reference implementation`_:
+
+.. code-block:: python
+
+  from seam import UrlSearchParams, update_url_search_params
+
+  search_params = UrlSearchParams()
+
+  update_url_search_params(search_params, {"device_ids": ["device1", "device2"]})
+
+  list(search_params)
+  # => [('device_ids', 'device1'), ('device_ids', 'device2'), ('_strict', 'true')]
+
+  str(search_params)
+  # => 'device_ids=device1&device_ids=device2&_strict=true'
+
+Pass either the query string or the pairs to your HTTP client.
+A client may percent-encode a few characters differently than
+``URLSearchParams`` does, e.g. httpx escapes ``*`` and unescapes ``~``,
+which the Seam API reads as the same params either way.
+
+A param set to ``None`` is omitted, while a param set to ``NULL``
+is serialized to an empty value, which the Seam API reads as null,
+as described in `Setting a Param to Null`_.
+A param that cannot be represented raises a ``seam.UnserializableParamError``.
+
+The Seam API parses these params with the corresponding `parser`_.
+
+.. _URLSearchParams: https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
+.. _reference implementation: https://github.com/seamapi/url-search-params-serializer
+.. _parser: https://github.com/seamapi/url-search-params-parser
 
 Development and Testing
 -----------------------
@@ -516,7 +657,7 @@ Quickstart
 
     $ git clone https://github.com/seamapi/python.git
     $ cd python
-    $ poetry install
+    $ uv sync
 
 Run each command below in a separate terminal window:
 
@@ -541,19 +682,19 @@ Clone the project with
 Requirements
 ~~~~~~~~~~~~
 
-You will need `Python 3`_ and Poetry_ and Node.js_ with npm_ and just_.
+You will need `Python 3`_ and uv_ and Node.js_ with npm_ and just_.
 
 Install the development dependencies with
 
 ::
 
-    $ poetry install
+    $ uv sync
     $ npm install
 
 .. _just: https://just.systems/
 .. _Node.js: https://nodejs.org/
 .. _npm: https://www.npmjs.com/
-.. _Poetry: https://poetry.eustace.io/
+.. _uv: https://docs.astral.sh/uv/
 .. _Python 3: https://www.python.org/
 
 Tests
@@ -581,7 +722,7 @@ Run tests on changes with
 Publishing
 ~~~~~~~~~~
 
-New versions are created with `poetry version`_.
+New versions are created with `uv version`_.
 
 Automatic
 ^^^^^^^^^
@@ -596,7 +737,7 @@ Manual
 ^^^^^^
 
 Publish a new version by triggering a `version workflow_dispatch on GitHub Actions`_.
-The ``version`` input will be passed as the first argument to `poetry version`_.
+The ``version`` input will be passed as the first argument to `uv version`_.
 
 This may be done on the web or using the `GitHub CLI`_ with
 
@@ -604,7 +745,7 @@ This may be done on the web or using the `GitHub CLI`_ with
 
     $ gh workflow run version.yml --raw-field version=<version>
 
-.. _Poetry version: https://python-poetry.org/docs/cli/#version
+.. _uv version: https://docs.astral.sh/uv/reference/cli/#uv-version
 .. _GitHub CLI: https://cli.github.com/
 .. _version workflow_dispatch on GitHub Actions: https://github.com/seamapi/python/actions?query=workflow%3Aversion
 
@@ -667,4 +808,3 @@ loss of use, data, or profits; or business interruption) however caused and on
 any theory of liability, whether in contract, strict liability, or tort
 (including negligence or otherwise) arising in any way out of the use of this
 software, even if advised of the possibility of such damage.
-

@@ -59,7 +59,6 @@ def download_catalog(catalog_url):
     return response.json()
 
 
-OSS_CATALOG = download_catalog(OSS_CATALOG_URL)
 MANIFEST_FILE_NAME = "manifest.yaml"
 COMPONENTS_FILE_NAME = "components.py"
 DOCKERFILE_FILE_NAME = "Dockerfile"

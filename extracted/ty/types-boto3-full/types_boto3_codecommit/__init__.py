@@ -13,6 +13,7 @@ Usage::
         Client,
         CodeCommitClient,
         DescribePullRequestEventsPaginator,
+        GetBlobDifferencesPaginator,
         GetCommentsForComparedCommitPaginator,
         GetCommentsForPullRequestPaginator,
         GetDifferencesPaginator,
@@ -25,6 +26,7 @@ Usage::
     client: CodeCommitClient = session.client("codecommit")
 
     describe_pull_request_events_paginator: DescribePullRequestEventsPaginator = client.get_paginator("describe_pull_request_events")
+    get_blob_differences_paginator: GetBlobDifferencesPaginator = client.get_paginator("get_blob_differences")
     get_comments_for_compared_commit_paginator: GetCommentsForComparedCommitPaginator = client.get_paginator("get_comments_for_compared_commit")
     get_comments_for_pull_request_paginator: GetCommentsForPullRequestPaginator = client.get_paginator("get_comments_for_pull_request")
     get_differences_paginator: GetDifferencesPaginator = client.get_paginator("get_differences")
@@ -37,6 +39,7 @@ Usage::
 from .client import CodeCommitClient
 from .paginator import (
     DescribePullRequestEventsPaginator,
+    GetBlobDifferencesPaginator,
     GetCommentsForComparedCommitPaginator,
     GetCommentsForPullRequestPaginator,
     GetDifferencesPaginator,
@@ -52,6 +55,7 @@ __all__ = (
     "Client",
     "CodeCommitClient",
     "DescribePullRequestEventsPaginator",
+    "GetBlobDifferencesPaginator",
     "GetCommentsForComparedCommitPaginator",
     "GetCommentsForPullRequestPaginator",
     "GetDifferencesPaginator",

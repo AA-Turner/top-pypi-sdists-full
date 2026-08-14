@@ -9,7 +9,7 @@
 
 This environment is part of the <a href='..'>classic environments</a>. Please read that page first for general information.
 
-| Import             | `from pettingzoo.classic import connect_four_v3` |
+| Creation           | `make("aec", "classic/connect_four-v3")`         |
 |--------------------|--------------------------------------------------|
 | Actions            | Discrete                                         |
 | Parallel API       | Yes                                              |
@@ -57,6 +57,7 @@ If an agent successfully connects four of their tokens, they will be rewarded 1 
 * v0: Initial versions release (1.0.0)
 
 """
+
 from __future__ import annotations
 
 import os
@@ -196,11 +197,11 @@ class raw_env(AECEnv, EzPickle):
         if winner:
             self.rewards[self.agent_selection] += 1
             self.rewards[next_agent] -= 1
-            self.terminations = {i: True for i in self.agents}
+            self.terminations = dict.fromkeys(self.agents, True)
         # check if there is a tie
         elif all(x in [1, 2] for x in self.board):
             # once either play wins or there is a draw, game over, both players are done
-            self.terminations = {i: True for i in self.agents}
+            self.terminations = dict.fromkeys(self.agents, True)
 
         self.agent_selection = next_agent
 
@@ -214,10 +215,10 @@ class raw_env(AECEnv, EzPickle):
         self.board = [0] * (6 * 7)
 
         self.agents = self.possible_agents[:]
-        self.rewards = {i: 0 for i in self.agents}
-        self._cumulative_rewards = {name: 0 for name in self.agents}
-        self.terminations = {i: False for i in self.agents}
-        self.truncations = {i: False for i in self.agents}
+        self.rewards = dict.fromkeys(self.agents, 0)
+        self._cumulative_rewards = dict.fromkeys(self.agents, 0)
+        self.terminations = dict.fromkeys(self.agents, False)
+        self.truncations = dict.fromkeys(self.agents, False)
         self.infos = {i: {} for i in self.agents}
 
         self._agent_selector = AgentSelector(self.agents)
@@ -229,15 +230,14 @@ class raw_env(AECEnv, EzPickle):
             gymnasium.logger.warn(
                 "You are calling render method without specifying any render mode."
             )
-            return
+            return None
 
         screen_width = 99 * self.screen_scaling
         screen_height = 86 / 99 * screen_width
 
         if self.screen is None:
-            pygame.init()
-
             if self.render_mode == "human":
+                pygame.display.init()
                 pygame.display.set_caption("Connect Four")
                 self.screen = pygame.display.set_mode((screen_width, screen_height))
             elif self.render_mode == "rgb_array":
@@ -264,7 +264,7 @@ class raw_env(AECEnv, EzPickle):
         self.screen.blit(board_img, (0, 0))
 
         # Blit the necessary chips and their positions
-        for i in range(0, 42):
+        for i in range(42):
             if self.board[i] == 1:
                 self.screen.blit(
                     red_chip,

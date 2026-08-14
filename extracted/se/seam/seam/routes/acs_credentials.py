@@ -1,6 +1,8 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
+from ..null import Null
 from ..resources import AcsCredential, AcsEntrance
 
 
@@ -12,7 +14,7 @@ class AbstractAcsCredentials(abc.ABC):
         *,
         acs_credential_id: str,
         acs_user_id: Optional[str] = None,
-        user_identity_id: Optional[str] = None
+        user_identity_id: Optional[str] = None,
     ) -> None:
         """Assigns a specified `credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_ to a specified `access system user <https://docs.seam.co/low-level-apis/access-systems/user-management>`_.
 
@@ -21,7 +23,8 @@ class AbstractAcsCredentials(abc.ABC):
         :param acs_user_id: ID of the access system user to whom you want to assign a credential. You can only provide one of acs_user_id or user_identity_id.
 
         :param user_identity_id: ID of the user identity to whom you want to assign a credential. You can only provide one of acs_user_id or user_identity_id. If the ACS system contains an ACS user with the same ``email_address`` or ``phone_number`` as the user identity that you specify, they are linked, and the credential belongs to the ACS user. If the ACS system does not have a corresponding ACS user, one is created.
-        """
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -40,7 +43,7 @@ class AbstractAcsCredentials(abc.ABC):
         salto_space_metadata: Optional[Dict[str, Any]] = None,
         starts_at: Optional[str] = None,
         user_identity_id: Optional[str] = None,
-        visionline_metadata: Optional[Dict[str, Any]] = None
+        visionline_metadata: Optional[Dict[str, Any]] = None,
     ) -> AcsCredential:
         """Creates a new `credential <https://docs.seam.co/low-level-apis/managing-credentials>`_ for a specified `ACS user <https://docs.seam.co/low-level-apis/access-systems/user-management>`_. For granting access, we recommend `Access Grants <https://docs.seam.co/use-cases/granting-access>`_ instead: they create and manage the underlying credentials for you, across access systems and standalone smart locks alike. Use this low-level endpoint only when you need direct control over an individual ACS credential.
 
@@ -70,14 +73,18 @@ class AbstractAcsCredentials(abc.ABC):
 
         :param visionline_metadata: Visionline-specific metadata for the new credential.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
     def delete(self, *, acs_credential_id: str) -> None:
         """Deletes a specified `credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_.
 
-        :param acs_credential_id: ID of the credential that you want to delete."""
+        :param acs_credential_id: ID of the credential that you want to delete.
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -86,7 +93,9 @@ class AbstractAcsCredentials(abc.ABC):
 
         :param acs_credential_id: ID of the credential that you want to get.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -99,8 +108,8 @@ class AbstractAcsCredentials(abc.ABC):
         created_before: Optional[str] = None,
         is_multi_phone_sync_credential: Optional[bool] = None,
         limit: Optional[float] = None,
-        page_cursor: Optional[str] = None,
-        search: Optional[str] = None
+        page_cursor: Optional[Union[str, Null]] = None,
+        search: Optional[str] = None,
     ) -> List[AcsCredential]:
         """Returns a list of all `credentials <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_.
 
@@ -129,7 +138,9 @@ class AbstractAcsCredentials(abc.ABC):
 
         :param acs_credential_id: ID of the credential for which you want to retrieve all entrances to which the credential grants access.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -138,7 +149,7 @@ class AbstractAcsCredentials(abc.ABC):
         *,
         acs_credential_id: str,
         acs_user_id: Optional[str] = None,
-        user_identity_id: Optional[str] = None
+        user_identity_id: Optional[str] = None,
     ) -> None:
         """Unassigns a specified `credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_ from a specified `access system user <https://docs.seam.co/low-level-apis/access-systems/user-management>`_.
 
@@ -147,7 +158,8 @@ class AbstractAcsCredentials(abc.ABC):
         :param acs_user_id: ID of the access system user from which you want to unassign a credential. You can only provide one of acs_user_id or user_identity_id.
 
         :param user_identity_id: ID of the user identity from which you want to unassign a credential. You can only provide one of acs_user_id or user_identity_id.
-        """
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -156,7 +168,7 @@ class AbstractAcsCredentials(abc.ABC):
         *,
         acs_credential_id: str,
         code: Optional[str] = None,
-        ends_at: Optional[str] = None
+        ends_at: Optional[str] = None,
     ) -> None:
         """Updates the code and ends at date and time for a specified `credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_.
 
@@ -165,7 +177,8 @@ class AbstractAcsCredentials(abc.ABC):
         :param code: Replacement access (PIN) code for the credential that you want to update.
 
         :param ends_at: Replacement date and time at which the validity of the credential ends, in `ISO 8601 <https://www.iso.org/iso-8601-date-and-time-format.html>`_ format. Must be a time in the future and after the ``starts_at`` value that you set when creating the credential.
-        """
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
 
@@ -174,12 +187,17 @@ class AcsCredentials(AbstractAcsCredentials):
         self.client = client
         self.defaults = defaults
 
+    @route_metadata(
+        path="/acs/credentials/assign",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def assign(
         self,
         *,
         acs_credential_id: str,
         acs_user_id: Optional[str] = None,
-        user_identity_id: Optional[str] = None
+        user_identity_id: Optional[str] = None,
     ) -> None:
         """Assigns a specified `credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_ to a specified `access system user <https://docs.seam.co/low-level-apis/access-systems/user-management>`_.
 
@@ -188,8 +206,9 @@ class AcsCredentials(AbstractAcsCredentials):
         :param acs_user_id: ID of the access system user to whom you want to assign a credential. You can only provide one of acs_user_id or user_identity_id.
 
         :param user_identity_id: ID of the user identity to whom you want to assign a credential. You can only provide one of acs_user_id or user_identity_id. If the ACS system contains an ACS user with the same ``email_address`` or ``phone_number`` as the user identity that you specify, they are linked, and the credential belongs to the ACS user. If the ACS system does not have a corresponding ACS user, one is created.
-        """
-        json_payload = {}
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if acs_credential_id is not None:
             json_payload["acs_credential_id"] = acs_credential_id
@@ -198,10 +217,20 @@ class AcsCredentials(AbstractAcsCredentials):
         if user_identity_id is not None:
             json_payload["user_identity_id"] = user_identity_id
 
-        self.client.post("/acs/credentials/assign", json=json_payload)
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /acs/credentials/assign"
+            )
+
+        self.client.patch("/acs/credentials/assign", json=json_payload)
 
         return None
 
+    @route_metadata(
+        path="/acs/credentials/create",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def create(
         self,
         *,
@@ -217,7 +246,7 @@ class AcsCredentials(AbstractAcsCredentials):
         salto_space_metadata: Optional[Dict[str, Any]] = None,
         starts_at: Optional[str] = None,
         user_identity_id: Optional[str] = None,
-        visionline_metadata: Optional[Dict[str, Any]] = None
+        visionline_metadata: Optional[Dict[str, Any]] = None,
     ) -> AcsCredential:
         """Creates a new `credential <https://docs.seam.co/low-level-apis/managing-credentials>`_ for a specified `ACS user <https://docs.seam.co/low-level-apis/access-systems/user-management>`_. For granting access, we recommend `Access Grants <https://docs.seam.co/use-cases/granting-access>`_ instead: they create and manage the underlying credentials for you, across access systems and standalone smart locks alike. Use this low-level endpoint only when you need direct control over an individual ACS credential.
 
@@ -247,8 +276,10 @@ class AcsCredentials(AbstractAcsCredentials):
 
         :param visionline_metadata: Visionline-specific metadata for the new credential.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if access_method is not None:
             json_payload["access_method"] = access_method
@@ -281,38 +312,68 @@ class AcsCredentials(AbstractAcsCredentials):
         if visionline_metadata is not None:
             json_payload["visionline_metadata"] = visionline_metadata
 
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /acs/credentials/create"
+            )
+
         res = self.client.post("/acs/credentials/create", json=json_payload)
 
         return AcsCredential.from_dict(res["acs_credential"])
 
+    @route_metadata(
+        path="/acs/credentials/delete",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def delete(self, *, acs_credential_id: str) -> None:
         """Deletes a specified `credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_.
 
-        :param acs_credential_id: ID of the credential that you want to delete."""
-        json_payload = {}
+        :param acs_credential_id: ID of the credential that you want to delete.
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if acs_credential_id is not None:
-            json_payload["acs_credential_id"] = acs_credential_id
+            params["acs_credential_id"] = acs_credential_id
 
-        self.client.post("/acs/credentials/delete", json=json_payload)
+        if not params:
+            raise ValueError(
+                "At least one parameter is required for /acs/credentials/delete"
+            )
+
+        self.client.delete("/acs/credentials/delete", params=params)
 
         return None
 
+    @route_metadata(
+        path="/acs/credentials/get", has_required_parameters=True, has_pagination=False
+    )
     def get(self, *, acs_credential_id: str) -> AcsCredential:
         """Returns a specified `credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_.
 
         :param acs_credential_id: ID of the credential that you want to get.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if acs_credential_id is not None:
-            json_payload["acs_credential_id"] = acs_credential_id
+            params["acs_credential_id"] = acs_credential_id
 
-        res = self.client.post("/acs/credentials/get", json=json_payload)
+        if not params:
+            raise ValueError(
+                "At least one parameter is required for /acs/credentials/get"
+            )
+
+        res = self.client.get("/acs/credentials/get", params=params)
 
         return AcsCredential.from_dict(res["acs_credential"])
 
+    @route_metadata(
+        path="/acs/credentials/list", has_required_parameters=False, has_pagination=True
+    )
     def list(
         self,
         *,
@@ -322,8 +383,8 @@ class AcsCredentials(AbstractAcsCredentials):
         created_before: Optional[str] = None,
         is_multi_phone_sync_credential: Optional[bool] = None,
         limit: Optional[float] = None,
-        page_cursor: Optional[str] = None,
-        search: Optional[str] = None
+        page_cursor: Optional[Union[str, Null]] = None,
+        search: Optional[str] = None,
     ) -> List[AcsCredential]:
         """Returns a list of all `credentials <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_.
 
@@ -344,54 +405,69 @@ class AcsCredentials(AbstractAcsCredentials):
         :param search: String for which to search. Filters returned credentials to include all records that satisfy a partial match using ``display_name``, ``code``, ``card_number``, ``acs_user_id`` or ``acs_credential_id``.
 
         :returns: OK"""
-        json_payload = {}
+        params: Dict[str, Any] = {}
 
         if acs_user_id is not None:
-            json_payload["acs_user_id"] = acs_user_id
+            params["acs_user_id"] = acs_user_id
         if acs_system_id is not None:
-            json_payload["acs_system_id"] = acs_system_id
+            params["acs_system_id"] = acs_system_id
         if user_identity_id is not None:
-            json_payload["user_identity_id"] = user_identity_id
+            params["user_identity_id"] = user_identity_id
         if created_before is not None:
-            json_payload["created_before"] = created_before
+            params["created_before"] = created_before
         if is_multi_phone_sync_credential is not None:
-            json_payload["is_multi_phone_sync_credential"] = (
-                is_multi_phone_sync_credential
-            )
+            params["is_multi_phone_sync_credential"] = is_multi_phone_sync_credential
         if limit is not None:
-            json_payload["limit"] = limit
+            params["limit"] = limit
         if page_cursor is not None:
-            json_payload["page_cursor"] = page_cursor
+            params["page_cursor"] = page_cursor
         if search is not None:
-            json_payload["search"] = search
+            params["search"] = search
 
-        res = self.client.post("/acs/credentials/list", json=json_payload)
+        res = self.client.get("/acs/credentials/list", params=params)
 
         return [AcsCredential.from_dict(item) for item in res["acs_credentials"]]
 
+    @route_metadata(
+        path="/acs/credentials/list_accessible_entrances",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def list_accessible_entrances(self, *, acs_credential_id: str) -> List[AcsEntrance]:
         """Returns a list of all `entrances <https://docs.seam.co/api/acs/entrances>`_ to which a `credential <https://docs.seam.co/api/acs/credentials>`_ grants access.
 
         :param acs_credential_id: ID of the credential for which you want to retrieve all entrances to which the credential grants access.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if acs_credential_id is not None:
-            json_payload["acs_credential_id"] = acs_credential_id
+            params["acs_credential_id"] = acs_credential_id
 
-        res = self.client.post(
-            "/acs/credentials/list_accessible_entrances", json=json_payload
+        if not params:
+            raise ValueError(
+                "At least one parameter is required for /acs/credentials/list_accessible_entrances"
+            )
+
+        res = self.client.get(
+            "/acs/credentials/list_accessible_entrances", params=params
         )
 
         return [AcsEntrance.from_dict(item) for item in res["acs_entrances"]]
 
+    @route_metadata(
+        path="/acs/credentials/unassign",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def unassign(
         self,
         *,
         acs_credential_id: str,
         acs_user_id: Optional[str] = None,
-        user_identity_id: Optional[str] = None
+        user_identity_id: Optional[str] = None,
     ) -> None:
         """Unassigns a specified `credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_ from a specified `access system user <https://docs.seam.co/low-level-apis/access-systems/user-management>`_.
 
@@ -400,8 +476,9 @@ class AcsCredentials(AbstractAcsCredentials):
         :param acs_user_id: ID of the access system user from which you want to unassign a credential. You can only provide one of acs_user_id or user_identity_id.
 
         :param user_identity_id: ID of the user identity from which you want to unassign a credential. You can only provide one of acs_user_id or user_identity_id.
-        """
-        json_payload = {}
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if acs_credential_id is not None:
             json_payload["acs_credential_id"] = acs_credential_id
@@ -410,16 +487,26 @@ class AcsCredentials(AbstractAcsCredentials):
         if user_identity_id is not None:
             json_payload["user_identity_id"] = user_identity_id
 
-        self.client.post("/acs/credentials/unassign", json=json_payload)
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /acs/credentials/unassign"
+            )
+
+        self.client.patch("/acs/credentials/unassign", json=json_payload)
 
         return None
 
+    @route_metadata(
+        path="/acs/credentials/update",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def update(
         self,
         *,
         acs_credential_id: str,
         code: Optional[str] = None,
-        ends_at: Optional[str] = None
+        ends_at: Optional[str] = None,
     ) -> None:
         """Updates the code and ends at date and time for a specified `credential <https://docs.seam.co/low-level-apis/access-systems/managing-credentials>`_.
 
@@ -428,8 +515,9 @@ class AcsCredentials(AbstractAcsCredentials):
         :param code: Replacement access (PIN) code for the credential that you want to update.
 
         :param ends_at: Replacement date and time at which the validity of the credential ends, in `ISO 8601 <https://www.iso.org/iso-8601-date-and-time-format.html>`_ format. Must be a time in the future and after the ``starts_at`` value that you set when creating the credential.
-        """
-        json_payload = {}
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if acs_credential_id is not None:
             json_payload["acs_credential_id"] = acs_credential_id
@@ -438,6 +526,11 @@ class AcsCredentials(AbstractAcsCredentials):
         if ends_at is not None:
             json_payload["ends_at"] = ends_at
 
-        self.client.post("/acs/credentials/update", json=json_payload)
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /acs/credentials/update"
+            )
+
+        self.client.patch("/acs/credentials/update", json=json_payload)
 
         return None

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import sys
 from json import loads
 from pathlib import Path
 from shutil import copy, copyfile, copytree
-from subprocess import CompletedProcess  # noqa: S404 no user input
+from subprocess import (  # ruff: ignore[suspicious-subprocess-import] no user input
+    CalledProcessError,
+    run,
+)
 from typing import TYPE_CHECKING, TypedDict, cast
 
-from nodejs_wheel.executable import corepack
 from pdm.backend.hooks.base import BuildHookInterface
 from typing_extensions import override
 
@@ -18,20 +21,6 @@ if TYPE_CHECKING:
 
 class PackageJson(TypedDict):
     bin: dict[str, str]
-
-
-def run_corepack(*args: str):
-    # cast needed because the corepack function doesn't have all the overloads from subprocess.run
-    # even though the args are forwarded to it
-    result = cast(
-        CompletedProcess[str],
-        corepack(args, return_completed_process=True, capture_output=True, text=True),
-    )
-    if result.returncode != 0:
-        raise Exception(
-            f"the following corepack command exited with exit code {result.returncode}: {args}"
-            f"\n\nstderr:\n{result.stderr}"
-        )
 
 
 # https://github.com/pdm-project/pdm-backend/issues/247
@@ -50,8 +39,18 @@ class Hook(BuildHookInterface):  # pyright:ignore[reportImplicitAbstractClass]
         if context.builder.config_settings.get("regenerate_docstubs") != "false":
             generate_docstubs(overwrite=True)
 
-        run_corepack("enable")
-        run_corepack("pnpm", "run", "build:cli:dev")
+        command = "pnpm run build:cli:dev"
+        # subprocess.run always uses cmd which doesn't work with ./
+        gg_executable = "gg.cmd" if sys.platform == "win32" else "./gg.cmd"
+        try:
+            # need shell because gg.cmd doesn't work otherwise for some reason...
+            _ = run(  # ruff: ignore[subprocess-popen-with-shell-equals-true]
+                f"{gg_executable} {command}", capture_output=True, check=True, text=True, shell=True
+            )
+        except CalledProcessError as e:
+            # whats the point of capture_output if `CalledProcessError` doesn't include the stderr
+            # anyway and whats the point of typeshed if everything is typed as `Any`????????????
+            raise Exception(f"{e.stdout=}\n{e.stderr=}") from e  # pyright: ignore[reportAny]
 
         if context.target == "editable":
             copy(npm_package_dir / package_json, pypi_package_dir)

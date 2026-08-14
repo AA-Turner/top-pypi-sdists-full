@@ -189,6 +189,20 @@ class StudioRenderManager:
         the bus uses, run the SHARED ``run_produce_clip`` (identical to central's
         in-process path), record the JSON-safe result payload, and — in the finally
         — promote the next queued render so the FIFO drains serially."""
+        # VRAM RESERVE (2026-08-13): template evict-to-fit + a non-evictable
+        # registry hold for the render's lifetime, so a demand load (LLM slot,
+        # image gen) can never re-fill the card under a running render — the OOM
+        # class the model battery kept hitting. Best-effort: no template / claim
+        # short / seam down -> render proceeds exactly as before.
+        _release_reserve = lambda: None  # noqa: E731
+        try:
+            from . import studio_reserve as _reserve
+            _release_reserve = _reserve.acquire(
+                job.job_id, (job.spec or {}).get("model_id"))
+        except Exception:  # noqa: BLE001 — the reserve must never fail a render
+            logger.warning("studio render %s: reserve acquire crashed — "
+                           "rendering without a reserve", job.job_id,
+                           exc_info=True)
         try:
             with self._lock:
                 job.progress = {"phase": "rendering", "started_at": job.started_at}
@@ -242,6 +256,11 @@ class StudioRenderManager:
                 job.status = "error"
                 job.progress = None
         finally:
+            try:
+                _release_reserve()
+            except Exception:  # noqa: BLE001 — registry clears on agent restart
+                logger.warning("studio render %s: reserve release failed",
+                               job.job_id, exc_info=True)
             with self._lock:
                 if self._active == job.job_id:
                     self._active = None

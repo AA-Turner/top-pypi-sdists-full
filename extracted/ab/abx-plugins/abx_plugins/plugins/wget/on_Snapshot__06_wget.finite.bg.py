@@ -22,6 +22,7 @@
 #
 
 import signal
+import sys
 
 # Snapshot cleanup sends SIGTERM to the whole hook process group as the polite
 # shutdown signal before the hard SIGKILL deadline. This hook is a finite
@@ -36,7 +37,6 @@ signal.signal(signal.SIGTERM, signal.SIG_IGN)
 import os
 import re
 import subprocess
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -178,10 +178,10 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
 def main(url: str):
     """Archive a URL using wget."""
 
+    print("wget download started", flush=True)
+
     output = None
     error = ""
-
-    print("wget download started", flush=True)
 
     try:
         config = load_config()

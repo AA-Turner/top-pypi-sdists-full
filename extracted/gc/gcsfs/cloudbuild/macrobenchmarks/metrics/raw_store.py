@@ -2,8 +2,8 @@
 
 The parser (``parsers/hf.py``) emits in-memory metrics and the calculator
 (``calculate.py``) consumes flat row dicts; both used to assemble the
-tessellations-compatible directory tree themselves from the path constants in
-``schema.py``. That layout is now a concept with a home: ``write_raw_metrics``
+directory tree themselves from the path constants in ``schema.py``. That
+layout is now a concept with a home: ``write_raw_metrics``
 lays the tree down, ``read_raw_metrics`` reads it back, and nothing else needs
 to know where a metric's CSV lives. Change the layout here and both sides
 follow.
@@ -26,12 +26,16 @@ class RawMetricTables:
     restore_rows: List[dict] = field(default_factory=list)
     delete_rows: List[dict] = field(default_factory=list)
     dl_rows: List[dict] = field(default_factory=list)
+    size_rows: List[dict] = field(default_factory=list)
+    system_rows: List[dict] = field(default_factory=list)
+    data_wait_rows: List[dict] = field(default_factory=list)
+    dataset_build_rows: List[dict] = field(default_factory=list)
 
 
 def write_raw_metrics(
     parsed, out_dir: str, *, run_type: str = "perf_optimization"
 ) -> None:
-    """Write parsed metrics to the tessellations-compatible relative layout.
+    """Write parsed metrics to the on-disk relative layout.
 
     ``parsed`` is any object exposing the ``ParsedRawMetrics`` attributes
     (``step_metrics``, ``write_metrics`` and so on); it is duck-typed so this
@@ -92,6 +96,47 @@ def write_raw_metrics(
             parsed.data_loading_metrics,
         )
 
+    if getattr(parsed, "checkpoint_sizes", None):
+        _write_csv(
+            os.path.join(
+                out_dir, schema.CHECKPOINT_SIZE_DIRECTORY, schema.CHECKPOINT_SIZE_FILE
+            ),
+            schema.CheckpointSizeMetrics,
+            parsed.checkpoint_sizes,
+        )
+
+    if getattr(parsed, "data_wait_metrics", None):
+        _write_csv(
+            os.path.join(
+                out_dir, schema.DATA_WAIT_DIRECTORY, schema.DATA_WAIT_METRICS_FILE
+            ),
+            schema.DataWaitMetrics,
+            parsed.data_wait_metrics,
+        )
+
+    if getattr(parsed, "dataset_build_metrics", None):
+        _write_csv(
+            os.path.join(
+                out_dir,
+                schema.DATASET_BUILD_DIRECTORY,
+                schema.DATASET_BUILD_METRICS_FILE,
+            ),
+            schema.DatasetBuildMetrics,
+            parsed.dataset_build_metrics,
+        )
+
+
+def write_system_metrics(system_rows, out_dir: str) -> None:
+    """Write SystemMetric rows to the system-metrics CSV (owned here like the rest)."""
+    if system_rows:
+        _write_csv(
+            os.path.join(
+                out_dir, schema.SYSTEM_METRICS_DIRECTORY, schema.SYSTEM_METRICS_FILE
+            ),
+            schema.SystemMetric,
+            system_rows,
+        )
+
 
 def read_raw_metrics(
     in_dir: str, *, run_type: str = "perf_optimization"
@@ -127,6 +172,28 @@ def read_raw_metrics(
                 in_dir,
                 schema.CALCULATED_METRICS_DIRECTORY,
                 schema.DATA_LOADING_METRICS_FILE,
+            )
+        ),
+        size_rows=_read_csv(
+            os.path.join(
+                in_dir, schema.CHECKPOINT_SIZE_DIRECTORY, schema.CHECKPOINT_SIZE_FILE
+            )
+        ),
+        system_rows=_read_csv(
+            os.path.join(
+                in_dir, schema.SYSTEM_METRICS_DIRECTORY, schema.SYSTEM_METRICS_FILE
+            )
+        ),
+        data_wait_rows=_read_csv(
+            os.path.join(
+                in_dir, schema.DATA_WAIT_DIRECTORY, schema.DATA_WAIT_METRICS_FILE
+            )
+        ),
+        dataset_build_rows=_read_csv(
+            os.path.join(
+                in_dir,
+                schema.DATASET_BUILD_DIRECTORY,
+                schema.DATASET_BUILD_METRICS_FILE,
             )
         ),
     )

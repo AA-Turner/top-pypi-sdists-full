@@ -24,6 +24,7 @@ from sagemaker_studio.utils.spark.session.spark_config_builder import (
     apply_compatibility_mode_configs,
     build_spark_configs,
     extract_connection_spark_configs,
+    generate_s3_access_grants_configs,
 )
 from sagemaker_studio.utils.spark.session.spark_session_manager import SparkSessionManager
 
@@ -254,7 +255,13 @@ class EmrEc2SparkSessionManager(SparkSessionManager):
         except Exception as e:
             logger.warning(f"Failed to add OpenLineage configs: {e}")
 
+        configs.update(self._get_s3_access_grants_configs())
+
         return configs
+
+    def _get_s3_access_grants_configs(self) -> dict:
+        """Get S3 Access Grants spark configs (shared implementation in spark_config_builder)."""
+        return generate_s3_access_grants_configs(getattr(self, "project", None))
 
     def _build_session_params(self):
         """Build the parameters needed for start_session API call.

@@ -38,6 +38,8 @@ classifiers = [
 dependencies = [
     "pyyaml",
     "rich",
+    "rich_click",
+    "esp-pylib[cli,ide]>=1.1.3",
 ]
 
 [project.optional-dependencies]
@@ -65,7 +67,7 @@ esp_idf_size = ["chip_info/*", "docs/readme.md"]
 # --- Commitizen (czespressif) ---
 [tool.commitizen]
 name = "czespressif"
-version = "2.2.1"
+version = "2.3.1"
 update_changelog_on_bump = true
 tag_format = "v$version"
 changelog_start_rev = "v1.0.2"

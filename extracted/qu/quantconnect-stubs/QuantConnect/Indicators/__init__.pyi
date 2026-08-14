@@ -8230,6 +8230,10 @@ class MidPrice(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.IIn
         """
         ...
 
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
 
 class Gamma(QuantConnect.Indicators.OptionGreeksIndicatorBase):
     """Option Gamma indicator that calculate the gamma of an option"""

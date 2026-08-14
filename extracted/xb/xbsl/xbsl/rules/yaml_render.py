@@ -1,8 +1,9 @@
-"""Tier D: what the renderer silently drops – an empty sized group and an over-long hint.
+"""Tier D: what the renderer silently drops – an empty sized group, an over-long hint, a
+nullable date input.
 
-Both gotchas share a shape: the file is valid, the compiler is happy, the application deploys,
-and the screen simply does not show what the author wrote. Nothing but a rule catches that
-before a human notices it in a browser.
+The gotchas here share a shape: the file is valid, the compiler is happy, the application
+deploys, and the screen simply does not show what the author wrote. Nothing but a rule catches
+that before a human notices it in a browser.
 
 - `yaml/empty-group-sized` – a `Группа` with a fixed `Высота`/`Ширина` and no `Содержимое` is
   thrown out of the DOM entirely: the spacer it was meant to be leaves no gap at all (found
@@ -11,6 +12,25 @@ before a human notices it in a browser.
 - `yaml/hint-too-long` – the renderer cuts a `Подсказка` off with an ellipsis at about 290
   characters, and the tail is not shown at all: there is no scroll and no "more" affordance,
   so the end of a long explanation is simply lost.
+- `yaml/insert-row-needs-align` – a horizontal group with no explicit vertical alignment lays
+  its children out on the BASELINE, and an insert frame (`HtmlContainer`) carries a baseline
+  of its own: the card holding it slides down against its neighbours (50 px on a live bento
+  row, 2026-08). Nothing but an eye catches it - the file, the compile and the apply are all
+  fine. The cure is one property on the ROW: `VerticalContentAlignment: Top`.
+
+  The judged group is the NEAREST horizontal ancestor of the insert - the one whose baseline
+  the insert actually breaks; a horizontal group deeper on the path takes the blame instead of
+  its parent, which is what keeps a row whose inner strip is already aligned silent (a live
+  project's media group reads exactly that way). Vertical groups on the path are transparent:
+  the cards of a row are usually vertical. A group with a single child is skipped - there is
+  nothing to slide against.
+
+- `yaml/date-input-needs-plain-date` – `Edit<Date?>` is silently not rendered: no field,
+  no apply-time error, and a group that held only such fields disappears entirely (found on a
+  live project, 2026-08: two date fields read as "the change did not apply"). The cure is a
+  plain type – the attribute `Type: Date`, the field `Edit<Date>`, "not set" expressed as
+  the empty date. Only `Date` is judged: the `DateTime`/`Time` siblings have not been
+  verified on a live stand, and silence is the safe side until they are.
 
 The limit is deliberately checked with a margin (the exact cut-off depends on the font and the
 width, and the measured value is about 290): only a hint that is longer than the measured limit
@@ -22,9 +42,11 @@ apart.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
+from functools import lru_cache
 
-from xbsl import i18n, uischema
+from xbsl import dataset, i18n, uischema
 from xbsl.diagnostics import Diagnostic, Severity
 from xbsl.engine import SourceFile, rule
 from xbsl.rules.yaml_schema import (
@@ -40,6 +62,21 @@ if _HAVE_YAML:
     import yaml
 
 MESSAGES = {
+    "yaml/insert-row-needs-align.title": {
+        "ru": "Ряд со вставкой без явного выравнивания",
+        "en": "A row holding an insert without an explicit alignment",
+    },
+    "yaml/insert-row-needs-align.baseline": {
+        "ru": "Горизонтальная группа со вставкой КонтейнерHtml и без "
+              "ВыравниваниеСодержимогоПоВертикали равняет детей ПО БАЗОВОЙ ЛИНИИ, а у вставки "
+              "она своя – элемент со вставкой съезжает вниз относительно соседей (на живом "
+              "ряду – 50 px). Задайте ряду ВыравниваниеСодержимогоПоВертикали: Верх явно.",
+        "en": "A horizontal group holding an {n[КонтейнерHtml]} insert and no "
+              "{n[ВыравниваниеСодержимогоПоВертикали]} lays its children out ON THE BASELINE, "
+              "and the insert carries one of its own – the element holding it slides down "
+              "against its neighbours (50 px on a live row). Set "
+              "{n[ВыравниваниеСодержимогоПоВертикали]} on the row explicitly.",
+    },
     "yaml/empty-group-sized.title": {
         "ru": "Пустая группа с размером не отрисуется",
         "en": "An empty sized group will not render",
@@ -62,6 +99,22 @@ MESSAGES = {
         "en": "A {n[Подсказка]} of {length} characters – the renderer cuts it off at about {limit}, "
               "and the tail is not shown at all. Shorten the text to fit.",
     },
+    "yaml/date-input-needs-plain-date.title": {
+        "ru": "Поле ввода даты с nullable-типом не рисуется",
+        "en": "A nullable date input field does not render",
+    },
+    "yaml/date-input-needs-plain-date.invisible": {
+        "ru": "Тип '{field}<{spelled}>' – поле ввода даты, допускающей пустое значение, платформа "
+              "молча не отрисовывает: ни поля, ни ошибки применения, а группа, оставшаяся без "
+              "содержимого, исчезает целиком. Объявите тип непустым – реквизит "
+              "'{n[Тип]}: {arg}', поле '{field}<{arg}>'; 'не задано' выражается пустой датой "
+              "'{arg}{{}}'.",
+        "en": "Type '{field}<{spelled}>' – an input field for a date that allows the empty value "
+              "is silently not rendered: no field, no apply-time error, and a group left without "
+              "content disappears entirely. Make the type plain – the attribute "
+              "'{n[Тип]}: {arg}', the field '{field}<{arg}>'; 'not set' is expressed by the "
+              "empty date '{arg}{{}}'.",
+    },
 }
 i18n.register(MESSAGES)
 
@@ -73,6 +126,11 @@ HINT_LIMIT = 290
 HINT_MARGIN = 20
 
 _SIZE_KEYS = ("Высота", "Ширина")
+
+#: A date input with a nullable parameter, both spellings, `?` or `|?` flavour of nullable.
+_NULLABLE_DATE_INPUT_RE = re.compile(
+    r"^\s*(ПолеВвода|Edit)\s*<\s*((Дата|Date)\s*(?:\?|\|\s*\?))\s*>\s*$"
+)
 
 
 def _fixed_size(node) -> bool:
@@ -96,6 +154,95 @@ def _object_mappings(source: SourceFile):
     if root is None:  # pragma: no cover - _parsed has already vetted the syntax
         return []
     return _mapping_nodes(root)
+
+
+#: The layout value that lays children out in a row, and the property that overrides the
+#: baseline alignment of such a row.
+_HORIZONTAL = "Горизонтальная"
+_LAYOUT_ENUM = "КомпоновкаСодержимого"
+_LAYOUT_KEY = "Компоновка"
+_ALIGN_KEY = "ВыравниваниеСодержимогоПоВертикали"
+_INSERT = "КонтейнерHtml"
+_CONTENT_KEY = "Содержимое"
+
+
+def _component_children(mapping):
+    """Direct child components of a node: the mappings of its content key."""
+    entries = {
+        key.value: value for key, value in mapping.value
+        if isinstance(key, yaml.ScalarNode)
+    }
+    content = entries.get(_CONTENT_KEY) or entries.get("Content")
+    if isinstance(content, yaml.SequenceNode):
+        return [item for item in content.value if isinstance(item, yaml.MappingNode)]
+    if isinstance(content, yaml.MappingNode):
+        return [content]
+    return []
+
+
+def _component_kind(mapping) -> str | None:
+    """The canonical component name of a node, or None when it declares no type."""
+    entry = _scalar_entries(mapping).get("Тип")
+    if entry is None or not isinstance(entry[1], yaml.ScalarNode):
+        return None
+    return uischema.canonical_component(entry[1].value.split("<", 1)[0].strip())
+
+
+@lru_cache(maxsize=1)
+def _horizontal_names() -> frozenset[str]:
+    """Both spellings of the horizontal layout value, from the platform's own dictionary."""
+    aliases = uischema.enum_value_aliases(_LAYOUT_ENUM)
+    return frozenset({_HORIZONTAL, aliases.get(_HORIZONTAL)} - {None})
+
+
+dataset.register_reset(_horizontal_names.cache_clear)
+
+
+def _is_horizontal(mapping) -> bool:
+    entries = _scalar_entries(mapping)
+    entry = entries.get(_LAYOUT_KEY) or entries.get("Layout")
+    if entry is None or not isinstance(entry[1], yaml.ScalarNode):
+        return False
+    return entry[1].value.strip() in _horizontal_names()
+
+
+def _row_findings(mapping, nearest, out: list) -> None:
+    """Walk the subtree, pairing every insert with the nearest horizontal ancestor."""
+    for child in _component_children(mapping):
+        if _component_kind(child) == _INSERT and nearest is not None:
+            out.append(nearest)
+        _row_findings(child, child if _is_horizontal(child) else nearest, out)
+
+
+@rule(
+    "yaml/insert-row-needs-align", "yaml/insert-row-needs-align.title", "D",
+    severity=Severity.WARNING,
+)
+def insert_row_needs_align(source: SourceFile) -> Iterable[Diagnostic]:
+    """A row holding an insert without an explicit vertical alignment."""
+    seen: set[int] = set()
+    for mapping in _object_mappings(source):
+        entries = _scalar_entries(mapping)
+        if _ALIGN_KEY in entries or "VerticalContentAlignment" in entries:
+            continue
+        if not _is_horizontal(mapping):
+            continue
+        if len(_component_children(mapping)) < 2:
+            continue  # a single child has nothing to slide against
+        rows: list = []
+        _row_findings(mapping, mapping, rows)
+        if not any(row is mapping for row in rows):
+            continue  # the insert belongs to a deeper row - that one answers for it
+        key_node = entries[_LAYOUT_KEY][0]
+        position = (key_node.start_mark.line + 1, key_node.start_mark.column + 1)
+        if position in seen:
+            continue
+        seen.add(position)
+        yield Diagnostic(
+            source.rel, position[0], position[1],
+            "yaml/insert-row-needs-align", Severity.WARNING,
+            i18n.t("yaml/insert-row-needs-align.baseline"),
+        )
 
 
 @rule("yaml/empty-group-sized", "yaml/empty-group-sized.title", "D", severity=Severity.WARNING)
@@ -135,6 +282,39 @@ def empty_group_sized(source: SourceFile) -> Iterable[Diagnostic]:
                 ),
             )
             return  # one finding per node: both axes are the same defect
+
+
+@rule(
+    "yaml/date-input-needs-plain-date", "yaml/date-input-needs-plain-date.title", "D",
+    severity=Severity.WARNING,
+)
+def date_input_needs_plain_date(source: SourceFile) -> Iterable[Diagnostic]:
+    """`ПолеВвода<Дата?>` – the renderer silently drops the field; the type must be plain.
+
+    The position points at the argument inside the value – the place to actually edit. A
+    block scalar is text, not a type, and is skipped the same way the reference rule does.
+    """
+    for mapping in _object_mappings(source):
+        entry = _scalar_entries(mapping).get("Тип")
+        if entry is None or not isinstance(entry[1], yaml.ScalarNode):
+            continue
+        value_node = entry[1]
+        if value_node.style in ("|", ">"):
+            continue
+        m = _NULLABLE_DATE_INPUT_RE.match(value_node.value)
+        if m is None:
+            continue
+        quote = 1 if value_node.style in ("'", '"') else 0
+        yield Diagnostic(
+            source.rel,
+            value_node.start_mark.line + 1,
+            value_node.start_mark.column + 1 + m.start(2) + quote,
+            "yaml/date-input-needs-plain-date", Severity.WARNING,
+            i18n.t(
+                "yaml/date-input-needs-plain-date.invisible",
+                field=m.group(1), spelled=m.group(2), arg=m.group(3),
+            ),
+        )
 
 
 @rule("yaml/hint-too-long", "yaml/hint-too-long.title", "D", severity=Severity.WARNING)

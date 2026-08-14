@@ -404,11 +404,11 @@ class SSLContext(_SSLContext):
         """
         Returns a list of dicts with information of loaded CA certs.
 
-        If the optional argument is True, returns a DER-encoded copy of the CA
-        certificate.
+        If the optional argument is True, returns a DER-encoded copy of the
+        CA certificate.
 
-        NOTE: Certificates in a capath directory aren't loaded unless they have
-        been used at least once.
+        NOTE: Certificates in a capath directory aren't loaded unless they
+        have been used at least once.
         """
         ...
     @overload
@@ -416,11 +416,11 @@ class SSLContext(_SSLContext):
         """
         Returns a list of dicts with information of loaded CA certs.
 
-        If the optional argument is True, returns a DER-encoded copy of the CA
-        certificate.
+        If the optional argument is True, returns a DER-encoded copy of the
+        CA certificate.
 
-        NOTE: Certificates in a capath directory aren't loaded unless they have
-        been used at least once.
+        NOTE: Certificates in a capath directory aren't loaded unless they
+        have been used at least once.
         """
         ...
     @overload
@@ -428,11 +428,11 @@ class SSLContext(_SSLContext):
         """
         Returns a list of dicts with information of loaded CA certs.
 
-        If the optional argument is True, returns a DER-encoded copy of the CA
-        certificate.
+        If the optional argument is True, returns a DER-encoded copy of the
+        CA certificate.
 
-        NOTE: Certificates in a capath directory aren't loaded unless they have
-        been used at least once.
+        NOTE: Certificates in a capath directory aren't loaded unless they
+        have been used at least once.
         """
         ...
 

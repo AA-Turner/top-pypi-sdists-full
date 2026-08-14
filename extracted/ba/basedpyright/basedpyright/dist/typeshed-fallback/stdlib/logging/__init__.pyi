@@ -484,7 +484,8 @@ class LoggerAdapter(Generic[_L]):
             """
             Represent a PEP 585 generic type
 
-            E.g. for t = list[int], t.__origin__ is list and t.__args__ is (int,).
+            For example, for t = list[int], t.__origin__ is list and t.__args__
+            is (int,).
             """
             ...
 
@@ -634,7 +635,8 @@ class StreamHandler(Handler, Generic[_StreamT]):
             """
             Represent a PEP 585 generic type
 
-            E.g. for t = list[int], t.__origin__ is list and t.__args__ is (int,).
+            For example, for t = list[int], t.__origin__ is list and t.__args__
+            is (int,).
             """
             ...
 

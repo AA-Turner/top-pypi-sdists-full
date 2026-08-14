@@ -1,11 +1,9 @@
-"""The ONE guarded HTTP fetch for endpoint code (pgw#663, ie#554).
+"""The ONE guarded HTTP fetch for endpoint code.
 
 Endpoints that accept a URL from a caller — a VLM caption input, an img2img
-source — were each hand-rolling `urlopen(url).read()`. That is an SSRF hole
-(the worker sits inside a datacenter network with a cloud metadata endpoint at
-169.254.169.254) plus an unbounded read into a pod's RAM, and it was already
-copied four times, so every copy has to be found and fixed independently
-forever.
+source — must not hand-roll `urlopen(url).read()`: that is an SSRF hole (the
+worker sits inside a datacenter network with a cloud metadata endpoint at
+169.254.169.254) plus an unbounded read into a pod's RAM.
 
 This module is that policy's single home:
 
@@ -45,7 +43,6 @@ from typing import Any, Callable, Iterator, Sequence
 
 from .api.errors import RetryableError, ValidationError
 from .request_context._helpers import _infer_mime_type, _url_is_blocked
-from io import BytesIO
 
 __all__ = [
     "DEFAULT_MAX_BYTES",
@@ -53,7 +50,6 @@ __all__ = [
     "FetchedUrl",
     "MAX_REDIRECTS",
     "fetch_bytes",
-    "fetch_image",
     "open_guarded_stream",
 ]
 
@@ -271,43 +267,3 @@ def _read_capped(
     return FetchedUrl(url=str(url), final_url=final_url, data=data, mime=mime)
 
 
-def fetch_image(
-    url: str,
-    *,
-    max_bytes: int = DEFAULT_MAX_BYTES,
-    timeout_s: float = DEFAULT_TIMEOUT_S,
-    allowed_hosts: Sequence[str] = (),
-    mode: str = "RGB",
-    max_redirects: int = MAX_REDIRECTS,
-) -> Any:
-    """Fetch an image URL under the full policy; returns a PIL image.
-
-    The image-shaped case endpoints keep re-writing (joycaption's
-    `_load_rgb_image_from_url` is the live one). Decoding is what proves the
-    bytes are an image, so the MIME allowlist is the sniffed image family and
-    a non-image body is a typed refusal, not a decoder traceback.
-    """
-    from PIL import Image, UnidentifiedImageError  # heavy, optional at import time
-
-    fetched = fetch_bytes(
-        url,
-        max_bytes=max_bytes,
-        timeout_s=timeout_s,
-        allowed_hosts=allowed_hosts,
-        max_redirects=max_redirects,
-    )
-    if not fetched.mime.startswith("image/"):
-        raise ValidationError(
-            f"url_fetch_refused: {url} is {fetched.mime!r}, not an image"
-        )
-
-    try:
-        image = Image.open(BytesIO(fetched.data))
-        image.load()
-    except UnidentifiedImageError:
-        raise ValidationError(f"url_fetch_refused: {url} is not a decodable image") from None
-    except Exception as exc:
-        raise ValidationError(
-            f"url_fetch_refused: {url} could not be decoded ({type(exc).__name__})"
-        ) from None
-    return image.convert(mode) if mode else image

@@ -1993,6 +1993,91 @@ def finalize_connector_rollout(
     return response.json()
 
 
+def pause_connector_rollout(
+    docker_repository: str,
+    docker_image_tag: str,
+    actor_definition_id: str,
+    rollout_id: str,
+    updated_by: str,
+    paused_reason: str,
+    config_api_root: str,
+    client_id: str | None = None,
+    client_secret: str | None = None,
+    bearer_token: str | None = None,
+) -> dict[str, Any]:
+    """Pause a connector rollout while retaining its existing pins.
+
+    Args:
+        docker_repository: The docker repository.
+        docker_image_tag: The rollout release-candidate image tag.
+        actor_definition_id: The connector definition ID.
+        rollout_id: The rollout ID.
+        updated_by: The user ID performing the operation.
+        paused_reason: The reason recorded on the paused rollout.
+        config_api_root: The Config API root URL.
+        client_id: The Airbyte Cloud client ID.
+        client_secret: The Airbyte Cloud client secret.
+        bearer_token: A pre-existing bearer token.
+
+    Returns:
+        Dictionary containing the updated rollout response.
+
+    Raises:
+        PyAirbyteInputError: If the API request fails.
+    """
+    access_token = _get_access_token(
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+        config_api_root=config_api_root,
+    )
+    endpoint = f"{config_api_root}/connector_rollout/manual_pause"
+    payload = {
+        "docker_repository": docker_repository,
+        "docker_image_tag": docker_image_tag,
+        "actor_definition_id": actor_definition_id,
+        "id": rollout_id,
+        "state": "paused",
+        "paused_reason": paused_reason,
+        "updated_by": updated_by,
+    }
+    response = requests.post(
+        endpoint,
+        json=payload,
+        headers=config_api_headers(access_token),
+        timeout=60,
+    )
+    if response.status_code == 404:
+        raise PyAirbyteInputError(
+            message=f"Rollout not found: {rollout_id}",
+            context={
+                "rollout_id": rollout_id,
+                "endpoint": endpoint,
+                "status_code": response.status_code,
+                "response": response.text,
+            },
+        )
+    if response.status_code == 422:
+        raise PyAirbyteInputError(
+            message=f"Invalid input for rollout pause: {response.text}",
+            context={
+                "rollout_id": rollout_id,
+                "payload": payload,
+                "endpoint": endpoint,
+                "status_code": response.status_code,
+                "response": response.text,
+            },
+        )
+    if response.status_code != 200:
+        _raise_config_api_error(
+            response,
+            operation="pause connector rollout",
+            endpoint=endpoint,
+            extra_context={"rollout_id": rollout_id, "payload": payload},
+        )
+    return response.json()
+
+
 def get_actor_sync_info(
     rollout_id: str,
     config_api_root: str,

@@ -5,6 +5,7 @@ import datetime
 import typing
 import warnings
 
+import Common.Util
 import QuantConnect
 import QuantConnect.Algorithm.Framework.Portfolio
 import QuantConnect.Api
@@ -1749,7 +1750,7 @@ class FixOrderProperties(QuantConnect.Orders.OrderProperties):
     """Contains additional properties and settings for an order sent over a FIX connection"""
 
     @property
-    def additional_properties(self) -> System.Collections.Generic.Dictionary[str, str]:
+    def additional_properties(self) -> Common.Util.BaseExtendedDictionary[str, str]:
         """
         Custom FIX tags to send with the order. The key is the FIX tag number
         and the value is the tag value, e.g. AdditionalProperties<"9301"> = "1"
@@ -1757,7 +1758,7 @@ class FixOrderProperties(QuantConnect.Orders.OrderProperties):
         ...
 
     @additional_properties.setter
-    def additional_properties(self, value: System.Collections.Generic.Dictionary[str, str]) -> None:
+    def additional_properties(self, value: Common.Util.BaseExtendedDictionary[str, str]) -> None:
         ...
 
     @property
@@ -3320,6 +3321,18 @@ class TerminalLinkOrderProperties(QuantConnect.Orders.OrderProperties):
             ...
 
     @property
+    def additional_properties(self) -> Common.Util.BaseExtendedDictionary[str, str]:
+        """
+        Custom EMSX fields to send with the order. The key is the EMSX element name
+        and the value is the element value, e.g. AdditionalProperties<"EMSX_CFD_FLAG"> = "1"
+        """
+        ...
+
+    @additional_properties.setter
+    def additional_properties(self, value: Common.Util.BaseExtendedDictionary[str, str]) -> None:
+        ...
+
+    @property
     def notes(self) -> str:
         """The EMSX Instructions is the free form instructions that may be sent to the broker"""
         ...
@@ -3439,6 +3452,19 @@ class TerminalLinkOrderProperties(QuantConnect.Orders.OrderProperties):
         ...
 
     @property
+    def is_cfd_trade(self) -> bool:
+        """
+        Indicates if the order is a contract for differences (CFD) trade (EMSX_CFD_FLAG).
+        This field is applicable to trades on an order level, and does not populate on a per
+        security basis.
+        """
+        ...
+
+    @is_cfd_trade.setter
+    def is_cfd_trade(self, value: bool) -> None:
+        ...
+
+    @property
     def strategy(self) -> QuantConnect.Orders.TerminalLinkOrderProperties.StrategyParameters:
         """
         The EMSX order strategy details.
@@ -3466,6 +3492,10 @@ class TerminalLinkOrderProperties(QuantConnect.Orders.OrderProperties):
 
     @position_side.setter
     def position_side(self, value: typing.Optional[QuantConnect.Orders.OrderPosition]) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Interfaces.IOrderProperties:
+        """Returns a new instance clone of this object"""
         ...
 
 

@@ -5,6 +5,8 @@
 import hashlib
 import inspect
 import json
+import os
+import threading
 from typing import Any, Callable, Iterator
 
 import cloudpickle
@@ -32,6 +34,90 @@ from snowflake.snowpark.types import (
 
 # Package name for telemetry
 TELEMETRY_PACKAGE = "snowflake-telemetry-python"
+
+
+# DUPLICATED from udtf_utils.py. This module is inlined verbatim into the create-pandas-UDTF
+# and cogroup-UDTF stored procedures, which lack snowpark_connect and so cannot import
+# udtf_utils; each *_utils module inlined into a sproc carries its own copy of the patch.
+# Server-side, the native_app_mode config callback reuses udtf_utils' copy.
+_VERSION_STAGE_IMPORT_PATCH_LOCK = threading.Lock()
+
+
+def _is_version_stage_relative(path: str) -> bool:
+    """A ``/...`` path that is not an existing local file. A local absolute path also starts
+    with ``/`` but exists on disk and must upload normally, so it is excluded."""
+    trimmed = path.strip()
+    return trimmed.startswith("/") and not os.path.exists(trimmed)
+
+
+def apply_version_stage_import_passthrough() -> None:
+    """Make Snowpark's import resolver emit version-stage-relative (``/...``) imports verbatim
+    rather than treating them as missing local files, so a pandas UDTF created in the
+    versioned-schema create-UDTF sproc can import files bundled at the version stage root.
+    Idempotent and lock-guarded; only ``/``-paths that aren't local files are intercepted."""
+    import snowflake.snowpark.session as _sp_session
+
+    session_cls = _sp_session.Session
+    with _VERSION_STAGE_IMPORT_PATCH_LOCK:
+        if getattr(session_cls, "_scos_version_stage_import_patch", False):
+            return
+
+        _orig_resolve_import_path = session_cls._resolve_import_path
+        _orig_resolve_imports = session_cls._resolve_imports
+
+        def _resolve_import_path(
+            path: str,
+            import_path: str | None = None,
+            chunk_size: int = 8192,
+            whole_file_hash: bool = False,
+        ) -> tuple[str, None, None]:
+            if _is_version_stage_relative(path):
+                return path.strip(), None, None
+            return _orig_resolve_import_path(
+                path, import_path, chunk_size, whole_file_hash
+            )
+
+        def _resolve_imports(
+            self,
+            import_only_stage: str,
+            upload_and_import_stage: str,
+            udf_level_import_paths: dict[str, tuple] | None = None,
+            *,
+            statement_params: dict[str, str] | None = None,
+        ) -> list[str]:
+            if udf_level_import_paths:
+                version_stage = [
+                    p for p in udf_level_import_paths if _is_version_stage_relative(p)
+                ]
+                rest = {
+                    p: v
+                    for p, v in udf_level_import_paths.items()
+                    if not _is_version_stage_relative(p)
+                }
+            else:
+                version_stage = []
+                rest = udf_level_import_paths
+            resolved = list(version_stage)
+            if rest or udf_level_import_paths is None:
+                resolved += _orig_resolve_imports(
+                    self,
+                    import_only_stage,
+                    upload_and_import_stage,
+                    rest if udf_level_import_paths is not None else None,
+                    statement_params=statement_params,
+                )
+            return resolved
+
+        session_cls._resolve_import_path = staticmethod(_resolve_import_path)
+        session_cls._resolve_imports = _resolve_imports
+        session_cls._scos_version_stage_import_patch = True
+
+
+def _ensure_version_stage_imports_passthrough(imports: list[str]) -> None:
+    """Sproc path: apply the passthrough when a version-stage import is present. Keyed on the
+    ``/`` import (not is_native_app_mode, which is unavailable in the inlined sproc)."""
+    if any(_is_version_stage_relative(i) for i in imports):
+        apply_version_stage_import_passthrough()
 
 
 # DUPLICATED CODE from udtf_utils.py to avoid incorrect loading for stored procedure UDTF creation
@@ -276,6 +362,12 @@ def create_pandas_udtf(
             reordered_df.columns = self.output_column_names
             yield reordered_df
 
+    # Native App: '/'-relative imports must pass through Snowpark verbatim. Applied here
+    # so it also covers the in-sproc pandas-UDTF path, which inlines this module but lacks
+    # the server's snowpark_connect patch.
+    _ensure_version_stage_imports_passthrough(
+        process_dependencies_string_array(udtf_imports)
+    )
     return snowpark_fn.pandas_udtf(
         MapPandasUDTF,
         output_schema=PandasDataFrameType(
@@ -320,6 +412,9 @@ def create_pandas_udtf_with_arrow(
         user_function, spark_column_names, output_column_names
     )
 
+    _ensure_version_stage_imports_passthrough(
+        process_dependencies_string_array(udtf_imports)
+    )
     return snowpark_fn.pandas_udtf(
         MapInArrowUDTF,
         output_schema=PandasDataFrameType(
@@ -510,6 +605,9 @@ def create_cogroup_pandas_udtf(
         VALUE_COL_NAME,
     )
 
+    _ensure_version_stage_imports_passthrough(
+        process_dependencies_string_array(udtf_imports)
+    )
     return snowpark_fn.pandas_udtf(
         CoGroupPandasUDTF,
         output_schema=PandasDataFrameType(

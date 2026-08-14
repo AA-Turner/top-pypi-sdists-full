@@ -29,6 +29,7 @@ from .literals import (
     ChangeTypeEnumType,
     ConflictDetailLevelTypeEnumType,
     ConflictResolutionStrategyTypeEnumType,
+    DiffChangeTypeType,
     FileModeTypeEnumType,
     MergeOptionTypeEnumType,
     ObjectTypeEnumType,
@@ -112,6 +113,8 @@ __all__ = (
     "DescribePullRequestEventsInputPaginateTypeDef",
     "DescribePullRequestEventsInputTypeDef",
     "DescribePullRequestEventsOutputTypeDef",
+    "DiffChangeTypeDef",
+    "DiffHunkTypeDef",
     "DifferenceTypeDef",
     "DisassociateApprovalRuleTemplateFromRepositoryInputTypeDef",
     "EmptyResponseMetadataTypeDef",
@@ -126,6 +129,9 @@ __all__ = (
     "FolderTypeDef",
     "GetApprovalRuleTemplateInputTypeDef",
     "GetApprovalRuleTemplateOutputTypeDef",
+    "GetBlobDifferencesInputPaginateTypeDef",
+    "GetBlobDifferencesInputTypeDef",
+    "GetBlobDifferencesOutputTypeDef",
     "GetBlobInputTypeDef",
     "GetBlobOutputTypeDef",
     "GetBranchInputTypeDef",
@@ -570,6 +576,17 @@ class DescribePullRequestEventsInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
 
 
+DiffChangeTypeDef = TypedDict(
+    "DiffChangeTypeDef",
+    {
+        "type": NotRequired[DiffChangeTypeType],
+        "beforeLineNumber": NotRequired[int],
+        "afterLineNumber": NotRequired[int],
+        "content": NotRequired[str],
+    },
+)
+
+
 class DisassociateApprovalRuleTemplateFromRepositoryInputTypeDef(TypedDict):
     approvalRuleTemplateName: str
     repositoryName: str
@@ -602,6 +619,16 @@ class FolderTypeDef(TypedDict):
 
 class GetApprovalRuleTemplateInputTypeDef(TypedDict):
     approvalRuleTemplateName: str
+
+
+class GetBlobDifferencesInputTypeDef(TypedDict):
+    repositoryName: str
+    afterBlobId: str
+    beforeBlobId: NotRequired[str]
+    contextLines: NotRequired[int]
+    ignoreWhitespace: NotRequired[bool]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class GetBlobInputTypeDef(TypedDict):
@@ -1334,6 +1361,15 @@ class DescribePullRequestEventsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class GetBlobDifferencesInputPaginateTypeDef(TypedDict):
+    repositoryName: str
+    afterBlobId: str
+    beforeBlobId: NotRequired[str]
+    contextLines: NotRequired[int]
+    ignoreWhitespace: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class GetCommentsForComparedCommitInputPaginateTypeDef(TypedDict):
     repositoryName: str
     afterCommitId: str
@@ -1374,6 +1410,14 @@ class ListRepositoriesInputPaginateTypeDef(TypedDict):
     sortBy: NotRequired[SortByEnumType]
     order: NotRequired[OrderEnumType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DiffHunkTypeDef(TypedDict):
+    beforeStartLine: NotRequired[int]
+    beforeLineCount: NotRequired[int]
+    afterStartLine: NotRequired[int]
+    afterLineCount: NotRequired[int]
+    changes: NotRequired[list[DiffChangeTypeDef]]
 
 
 class EvaluatePullRequestApprovalRulesOutputTypeDef(TypedDict):
@@ -1509,6 +1553,15 @@ class GetMergeConflictsOutputTypeDef(TypedDict):
     conflictMetadataList: list[ConflictMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class GetBlobDifferencesOutputTypeDef(TypedDict):
+    hunks: list[DiffHunkTypeDef]
+    isBinary: bool
+    beforeBlobSize: int
+    afterBlobSize: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class ConflictTypeDef(TypedDict):

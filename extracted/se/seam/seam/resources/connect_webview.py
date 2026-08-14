@@ -59,25 +59,25 @@ class ConnectWebview:
     accepted_capabilities: List[str]
     accepted_providers: List[str]
     any_provider_allowed: bool
-    authorized_at: str
+    authorized_at: Optional[str]
     automatically_manage_new_devices: bool
     connect_webview_id: str
-    connected_account_id: str
+    connected_account_id: Optional[str]
     created_at: str
     custom_metadata: Dict[str, Any]
-    custom_redirect_failure_url: str
-    custom_redirect_url: str
-    customer_key: str
+    custom_redirect_failure_url: Optional[str]
+    custom_redirect_url: Optional[str]
+    customer_key: Optional[str]
     device_selection_mode: str
     login_successful: bool
-    selected_provider: str
+    selected_provider: Optional[str]
     status: str
     url: str
     wait_for_device_creation: bool
     workspace_id: str
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]):
+    def from_dict(cls, d: Any):
         return cls(
             accepted_capabilities=d.get("accepted_capabilities", None),
             accepted_providers=d.get("accepted_providers", None),

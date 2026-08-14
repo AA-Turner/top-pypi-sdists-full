@@ -15,6 +15,7 @@ from xpander_sdk.core.xpander_api_client import APIClient
 from xpander_sdk.exceptions.module_exception import ModuleException
 from xpander_sdk.models.configuration import Configuration
 from xpander_sdk.models.shared import OutputFormat, ThinkMode
+from xpander_sdk.models.principal import Principal
 from xpander_sdk.models.user import User
 from xpander_sdk.modules.agents.models.agent import LLMReasoningEffort
 from xpander_sdk.modules.tasks.models.task import (
@@ -232,6 +233,7 @@ class Tasks(ModuleBase):
         prompt: Optional[str] = "",
         file_urls: Optional[List[str]] = [],
         user_details: Optional[User] = None,
+        principal: Optional[Principal] = None,
         agent_version: Optional[str] = None,
         tool_call_payload_extension: Optional[dict] = None,
         source: Optional[str] = None,
@@ -268,6 +270,7 @@ class Tasks(ModuleBase):
             prompt (Optional[str]): Textual input for task initiation.
             file_urls (Optional[List[str]]): List URLs pointing to task-related files.
             user_details (Optional[User]): User information to pass with the task.
+            principal (Optional[Principal]): Typed caller identity behind the task.
             agent_version (Optional[str]): Specific agent version to target.
             tool_call_payload_extension (Optional[dict]): Extension details for tool call payload.
             source (Optional[str]): Information about the task's origin.
@@ -320,8 +323,8 @@ class Tasks(ModuleBase):
                 payload={
                     "id": existing_task_id,
                     "input": AgentExecutionInput(
-                        text=prompt, files=file_urls, user=user_details
-                    ).model_dump(),
+                        text=prompt, files=file_urls, user=user_details, principal=principal
+                    ).to_request_dict(),
                     "payload_extension": tool_call_payload_extension,
                     "source": source,
                     "worker_id": worker_id,

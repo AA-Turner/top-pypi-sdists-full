@@ -547,24 +547,36 @@ def _sensitive(method, path):
                for methods, rx in operator_auth._SENSITIVE)
 
 
-def test_allowlist_covers_management_not_download():
-    assert _sensitive("POST", "/agent/install-links")
-    assert _sensitive("GET", "/agent/install-links")
-    assert _sensitive("DELETE", "/agent/install-links/abc123")
-    # the download GET is capability-gated by the link id, NOT operator-gated:
+def test_allowlist_no_longer_owns_install_links(client):
+    """2026-08-06 MEMBER TIER: install-link management left the central
+    operator-only allowlist, because a MEMBER may mint a link for their own
+    machine and a (methods, path) rule cannot express "operator OR the link's
+    creator". The gating moved INTO agent_routes (_require_member_strict +
+    the per-link owner check) — so the allowlist must no longer claim these
+    routes, and the ROUTES must still fail closed for anonymous."""
+    assert not _sensitive("POST", "/agent/install-links")
+    assert not _sensitive("GET", "/agent/install-links")
+    assert not _sensitive("DELETE", "/agent/install-links/abc123")
+    # the download GET was never operator-gated (capability = the link id):
     assert not _sensitive("GET", "/agent/install/abc123")
     assert not _sensitive("GET", "/agent/install/abc123.sh")
+    # …and the route layer is the gate now: anonymous is still refused.
+    assert client.post("/agent/install-links", json={"label": "x"}).status_code == 401
+    assert client.get("/agent/install-links").status_code == 401
+    assert client.delete("/agent/install-links/abc").status_code == 401
 
 
-def test_allowlist_agent_open_does_not_waive_install_links(monkeypatch):
-    """The central gate's HUGPY_AGENT_OPEN waiver must skip /agent/install-links
-    (credential-minting) while still waiving the fleet-view rules."""
+def test_route_agent_open_does_not_waive_install_links(monkeypatch, client):
+    """The HUGPY_AGENT_OPEN waiver waives the fleet-VIEW gates and must NEVER
+    waive credential minting. Now that install-links is route-gated, that
+    property lives in agent_routes._require_member_strict (which, like
+    _require_operator_strict before it, does not consult the flag)."""
     monkeypatch.setenv("HUGPY_AGENT_OPEN", "true")
     app = Flask(__name__)
-    with app.test_request_context("/agent/install-links", method="POST"):
-        assert operator_auth._path_is_sensitive() is True
     with app.test_request_context("/agent/nodes", method="GET"):
         assert operator_auth._path_is_sensitive() is False   # waived, as before
+    assert client.post("/agent/install-links", json={"label": "x"}).status_code == 401
+    assert client.get("/agent/install-links").status_code == 401
 
 
 # ═══════════════════════════════════════════════════════════════════════════

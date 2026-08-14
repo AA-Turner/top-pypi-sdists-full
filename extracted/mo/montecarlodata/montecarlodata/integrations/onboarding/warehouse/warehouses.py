@@ -31,6 +31,13 @@ class WarehouseOnboardingService(BaseOnboardingService):
         """
         Onboard a redshift connection by validating and adding a connection.
         """
+        # Translate --ssl-ca/--ssl-disabled into the ssl_options payload (CA-only SSL).
+        # The certs are baked into the temp credentials key during validation, so only
+        # the validation mutation (testDatabaseCredentials) needs to receive them.
+        ssl_options = self.load_ssl_options(options=kwargs)
+        if ssl_options:
+            kwargs["ssl_options"] = ssl_options
+
         kwargs["connectionType"] = REDSHIFT_CONNECTION_TYPE
         kwargs["warehouseType"] = REDSHIFT_WAREHOUSE_TYPE
         self.onboard(

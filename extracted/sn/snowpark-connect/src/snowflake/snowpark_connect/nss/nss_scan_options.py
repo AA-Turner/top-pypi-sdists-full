@@ -37,6 +37,7 @@ from pyspark.sql.types import (
     _parse_datatype_json_string,
 )
 
+from snowflake.snowpark import DataFrame
 from snowflake.snowpark.types import ArrayType, DataType, MapType, StructType
 from snowflake.snowpark_connect.type_mapping import (
     map_pyspark_types_to_snowpark_types,
@@ -114,6 +115,7 @@ _SPARK_CSV_READ_OPTIONS = {
     "linesep",
     "unescapedquotehandling",
     "enforceschema",
+    "enabledatetimeparsingfallback",
 }
 
 _ALLOWED_READ_OPTIONS = {
@@ -126,6 +128,9 @@ _ALLOWED_READ_OPTIONS = {
 # ``arrow.typeMappingVersion`` decides integer column widths (V1 -> NUMBER(38,0));
 # forwarded when the session sets it so an explicit client choice reaches the sandbox
 # (not pinned to a value — an unset conf simply drops out via build_spark_conf).
+#
+# A key listed here only forwards if it is also in SESSION_CONFIG_KEY_WHITELIST;
+# adding a key here without whitelisting it is a silent no-op (SNOW-3898459).
 _RELEVANT_SPARK_CONF_KEYS = (
     "spark.sql.session.timeZone",
     "spark.sql.timestampType",
@@ -133,6 +138,11 @@ _RELEVANT_SPARK_CONF_KEYS = (
     "spark.sql.legacy.timeParserPolicy",
     "spark.sql.parquet.inferTimestampNTZ.enabled",
     "spark.sql.snowflake.arrow.typeMappingVersion",
+    # SNOW-3898459: carry Spark's own defaults so the sandbox is never left to guess.
+    "spark.sql.datetime.java8API.enabled",
+    "spark.sql.json.enablePartialResults",
+    # Also a READER_OPTION; forwarded for completeness (backend gap: SNOW-3899671).
+    "spark.sql.columnNameOfCorruptRecord",
 )
 
 
@@ -162,12 +172,56 @@ def quote_options_literal(payload: str) -> str:
     return "'" + payload.replace("\\", "\\\\").replace("'", "''") + "'"
 
 
-def filter_reader_options(fmt: str, reader_options: dict | None) -> dict:
+# SCOS CSV defaults (reader_config.CSV_READ_DEFAULT_CONFIG) whose value contradicts
+# Spark's own CSV default. They exist for the COPY path; forwarding them to the sandbox
+# Spark reader silently changes results, so they are dropped unless the caller set them
+# (SNOW-3861940). The other SCOS defaults that reach READER_OPTIONS (header, quote,
+# escape, multiLine, ignoreLeading/TrailingWhiteSpace, enforceSchema) all match Spark's
+# defaults and are kept -- ``header`` deliberately so: INFER_STAGE_FILE_SCHEMA defaults
+# it to *true* while STAGE_FILE_READER defaults it to *false*, so an absent ``header``
+# makes inference and read disagree about the first line.
+_CSV_DEFAULTS_CONTRADICTING_SPARK = (
+    # Spark auto-detects \r\n / \n / \r; pinning "\n" breaks CRLF files.
+    "linesep",
+    # Spark's default is *no* comment character, so SCOS's "#" silently drops any data
+    # line starting with "#".
+    "comment",
+)
+
+
+def _reconcile_leaked_csv_defaults(
+    ro: dict, user_option_keys: frozenset[str] | None
+) -> None:
+    """Reconcile SCOS's own CSV defaults so they do not override the sandbox Spark reader.
+
+    ``sep`` and ``delimiter`` are aliases and Spark resolves ``sep`` first
+    (``CSVOptions``: ``getOrElse("sep", getOrElse("delimiter", ","))``), so SCOS's default
+    ``sep`` shadows a user-supplied ``delimiter`` and the read silently splits on ``,``.
+    The V1/COPY path resolves the same alias in ``reader_config.csv_convert_to_snowpark_args``.
+    """
+    if user_option_keys is None:
+        return
+    if "delimiter" in user_option_keys and "sep" not in user_option_keys:
+        ro.pop("sep", None)
+    for key in _CSV_DEFAULTS_CONTRADICTING_SPARK:
+        if key not in user_option_keys:
+            ro.pop(key, None)
+
+
+def filter_reader_options(
+    fmt: str,
+    reader_options: dict | None,
+    user_option_keys: frozenset[str] | None = None,
+) -> dict:
     """Filter a SCOS options bag to the ``fmt`` (``json``/``csv``) Spark read allow-list.
 
     For CSV, single-char options stored in their COPY/SQL-escaped spelling
     (``escape="\\\\"`` = the SQL literal for a lone backslash) are collapsed back to one
     character — Spark's ``CSVOptions.getChar`` rejects any >1-char char option.
+
+    ``user_option_keys`` (lowercased, from ``ReaderWriterConfig``) tells SCOS's own CSV
+    defaults apart from the caller's choices so the leaked ones can be dropped — see
+    :func:`_reconcile_leaked_csv_defaults`.
     """
     allow = _ALLOWED_READ_OPTIONS.get(fmt.lower())
     ro = {
@@ -187,11 +241,14 @@ def filter_reader_options(fmt: str, reader_options: dict | None) -> dict:
         ):
             del ro[k]
     if fmt.lower() == "csv":
+        _reconcile_leaked_csv_defaults(ro, user_option_keys)
+        # Only the ``getChar`` options are collapsed. ``sep``/``delimiter`` go through
+        # Spark's ``CSVExprUtils.toDelimiterStr``, which *requires* the two-character
+        # spelling for a literal backslash and rejects a lone one ("Single backslash is
+        # prohibited") — so the client's value must reach the sandbox untouched
+        # (SNOW-3861940).
         for k, v in list(ro.items()):
-            if (
-                k.lower() in ("escape", "quote", "sep", "delimiter", "comment")
-                and v == "\\\\"
-            ):
+            if k.lower() in ("escape", "quote", "comment") and v == "\\\\":
                 ro[k] = "\\"
     return ro
 
@@ -221,6 +278,26 @@ def _unquote_name(name: str) -> str:
     if isinstance(name, str) and len(name) >= 2 and name[0] == '"' and name[-1] == '"':
         return name[1:-1]
     return name
+
+
+def cache_if_corrupt_record_present(
+    df: DataFrame,
+    corrupt_record_column_name: str | None,
+    columns: list["NssColumn"],
+) -> DataFrame:
+    """Materialize the NSS read when its schema carries the corrupt-record column.
+
+    A later projection down to only that column (``.filter(c.isNotNull).select(c)``)
+    otherwise trips the sandbox's raw-file corrupt-record restriction
+    (``queryFromRawFilesIncludeCorruptRecordColumnError``); reading the cached result
+    instead of the raw file is Spark's own prescribed workaround. Falls back to the
+    ``_corrupt_record`` default so the guard also covers reads that never resolved an
+    explicit name (SNOW-3899671).
+    """
+    effective = corrupt_record_column_name or "_corrupt_record"
+    if any(_unquote_name(c.name) == effective for c in columns):
+        return df.cache_result()
+    return df
 
 
 def _sf_data_type(dt: DataType) -> str:
@@ -298,6 +375,31 @@ def _quote_py(dt: PyDataType) -> PyDataType:
     return _map_py_field_names(dt, q)
 
 
+def py_schema_as_nullable(schema: PyStructType) -> PyStructType:
+    """Recursively relax a pyspark schema to all-nullable — Spark's ``StructType.asNullable``.
+
+    SPARK-35912: file sources can always yield NULL, so Spark relaxes a non-nullable user
+    schema on read. SCOS applies this to the Snowpark schema in ``map_read_csv`` /
+    ``map_read_json``, but the NSS branches re-derive their columns from the raw proto
+    schema, which still carries ``nullable=false``. Without this the emitted
+    ``DATA_SCHEMA`` says ``NULLABLE: false``, GS materializes a genuinely NOT-NULL column
+    and a legitimate NULL row fails with ``100072`` (SNOW-3891605).
+    """
+
+    def relax(dt: PyDataType) -> PyDataType:
+        if isinstance(dt, PyStructType):
+            return PyStructType(
+                [PyStructField(f.name, relax(f.dataType), True) for f in dt.fields]
+            )
+        if isinstance(dt, PyArrayType):
+            return PyArrayType(relax(dt.elementType), True)
+        if isinstance(dt, PyMapType):
+            return PyMapType(relax(dt.keyType), relax(dt.valueType), True)
+        return dt
+
+    return relax(schema)
+
+
 def columns_from_spark_schema(schema: PyStructType) -> list[NssColumn]:
     """Build :class:`NssColumn` list from the caller's explicit **pyspark** schema.
 
@@ -326,7 +428,7 @@ def build_data_schema(columns: list[NssColumn]) -> list[dict]:
     """
     return [
         {
-            "COLUMN_NAME": _unquote_name(c.name),
+            "COLUMN_NAME": _unquote_name(c.name) or f"_c{i}",
             # Emit the *parsed* DataType.json() value, not the raw json() string. The
             # sandbox ColumnDescriptor (ScanReadOptions, PR #23) expects a scalar as a
             # bare type name ("long") — which it re-quotes before DataType.fromJson —

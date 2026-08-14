@@ -114,6 +114,8 @@ QuantConnect_Messages_PopitemMethodNotSupported_ExtendedDictionary_TKey = typing
 QuantConnect_Messages_PopitemMethodNotSupported_ExtendedDictionary_TValue = typing.TypeVar("QuantConnect_Messages_PopitemMethodNotSupported_ExtendedDictionary_TValue")
 QuantConnect_Messages_KeyNotFoundDueToNoData_ExtendedDictionary_TKey = typing.TypeVar("QuantConnect_Messages_KeyNotFoundDueToNoData_ExtendedDictionary_TKey")
 QuantConnect_Messages_KeyNotFoundDueToNoData_ExtendedDictionary_TValue = typing.TypeVar("QuantConnect_Messages_KeyNotFoundDueToNoData_ExtendedDictionary_TValue")
+QuantConnect_Messages_SetDefaultKeyNotFoundDueToNoData_ExtendedDictionary_TKey = typing.TypeVar("QuantConnect_Messages_SetDefaultKeyNotFoundDueToNoData_ExtendedDictionary_TKey")
+QuantConnect_Messages_SetDefaultKeyNotFoundDueToNoData_ExtendedDictionary_TValue = typing.TypeVar("QuantConnect_Messages_SetDefaultKeyNotFoundDueToNoData_ExtendedDictionary_TValue")
 QuantConnect_Messages_UpdateInvalidOperation_ExtendedDictionary_TKey = typing.TypeVar("QuantConnect_Messages_UpdateInvalidOperation_ExtendedDictionary_TKey")
 QuantConnect_Messages_UpdateInvalidOperation_ExtendedDictionary_TValue = typing.TypeVar("QuantConnect_Messages_UpdateInvalidOperation_ExtendedDictionary_TValue")
 
@@ -11013,7 +11015,10 @@ class Messages(System.Object):
 
         @staticmethod
         def symbol_not_found_in_securities(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
-            """Returns a string message saying the given symbol was not found in the user security list"""
+            """
+            Returns a string message saying the given symbol was not found in the user security list.
+            It also suggests the safe access idioms that prevent the exception
+            """
             ...
 
         @staticmethod
@@ -11229,14 +11234,27 @@ class Messages(System.Object):
             """
             ...
 
+    class AttributeErrorPythonExceptionInterpreter(System.Object):
+        """Provides user-facing messages for the Exceptions.AttributeErrorPythonExceptionInterpreter class and its consumers or related classes"""
+
+        @staticmethod
+        def quote_bar_has_no_trade_data(attribute: str) -> str:
+            """Returns a hint explaining that the accessed attribute belongs to TradeBar, not QuoteBar, and how to get it"""
+            ...
+
+        @staticmethod
+        def trade_bar_has_no_quote_data(attribute: str) -> str:
+            """Returns a hint explaining that the accessed attribute belongs to QuoteBar, not TradeBar, and how to get it"""
+            ...
+
     class KeyErrorPythonExceptionInterpreter(System.Object):
         """Provides user-facing messages for the Exceptions.KeyErrorPythonExceptionInterpreter class and its consumers or related classes"""
 
         @staticmethod
         def key_not_found_in_collection(key: str) -> str:
             """
-            Returns a string message saying the given key does not exists in the collection and the exception that is thrown
-            in this case. It also advises the user on how to prevent this exception
+            Returns a string message naming the key that was not found in the collection (when it could be extracted
+            from the KeyError) and advising the user on how to prevent this exception
             """
             ...
 
@@ -11299,10 +11317,22 @@ class Messages(System.Object):
         unsupported_operand_type_expected_substring: str = "unsupported operand type"
         """Unsupported Operand Type Expected substring"""
 
+        datetime_date_operation_hint: str = " To operate between them, use the date part of the datetime value, e.g.: (expiry.date() - today).days or self.time.date()."
+        """Hint appended when the invalid operands are a datetime.datetime and a datetime.date"""
+
         @staticmethod
         def invalid_object_types_for_operation(types: str) -> str:
             """Returns a message for invalid object types for operation"""
             ...
+
+    class DatetimeDateComparisonPythonExceptionInterpreter(System.Object):
+        """Provides user-facing messages for the Exceptions.DatetimeDateComparisonPythonExceptionInterpreter class and its consumers or related classes"""
+
+        cant_compare_expected_substring: str = "can't compare datetime.datetime to datetime.date"
+        """Expected substring of the TypeError raised when comparing a datetime.datetime with a datetime.date"""
+
+        invalid_datetime_date_comparison: str = ...
+        """User-facing message for datetime.datetime vs datetime.date comparisons"""
 
     class PythonCommon(System.Object):
         """Provides user-facing common messages for the Python namespace classes"""
@@ -11873,6 +11903,8 @@ class Messages(System.Object):
         popitem_method_not_supported: QuantConnect._Messages.ExtendedDictionary_PopitemMethodNotSupported
 
         key_not_found_due_to_no_data: QuantConnect._Messages.ExtendedDictionary_KeyNotFoundDueToNoData
+
+        set_default_key_not_found_due_to_no_data: QuantConnect._Messages.ExtendedDictionary_SetDefaultKeyNotFoundDueToNoData
 
         update_invalid_operation: QuantConnect._Messages.ExtendedDictionary_UpdateInvalidOperation
 
@@ -13083,8 +13115,28 @@ class ExtendedDictionary_KeyNotFoundDueToNoData(typing.Generic[QuantConnect_Mess
     @overload
     def __call__(self, instance: QuantConnect.ExtendedDictionary[QuantConnect_Messages_KeyNotFoundDueToNoData_ExtendedDictionary_TKey, QuantConnect_Messages_KeyNotFoundDueToNoData_ExtendedDictionary_TValue], key: QuantConnect_Messages_KeyNotFoundDueToNoData_ExtendedDictionary_TKey) -> str:
         """
-        Returns a string message saying that the given symbol wasn't found in the give instance object. It also shows
-        a recommendation for solving this problem
+        Returns a string message saying that the given key wasn't found in the given instance object, likely because
+        there was no data at that moment in time. It also suggests the safe access idioms that prevent the exception.
+        This is the single template for the Slice/DataDictionary-family key-not-found errors
+        """
+        ...
+
+
+class ExtendedDictionary_SetDefaultKeyNotFoundDueToNoData:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Messages_SetDefaultKeyNotFoundDueToNoData_ExtendedDictionary_TKey]) -> QuantConnect._Typed_Messages.ExtendedDictionary_SetDefaultKeyNotFoundDueToNoData[QuantConnect_Messages_SetDefaultKeyNotFoundDueToNoData_ExtendedDictionary_TKey]:
+        ...
+
+
+class ExtendedDictionary_SetDefaultKeyNotFoundDueToNoData(typing.Generic[QuantConnect_Messages_SetDefaultKeyNotFoundDueToNoData_ExtendedDictionary_TKey]):
+    """"""
+
+    @overload
+    def __call__(self, instance: QuantConnect.ExtendedDictionary[QuantConnect_Messages_SetDefaultKeyNotFoundDueToNoData_ExtendedDictionary_TKey, QuantConnect_Messages_SetDefaultKeyNotFoundDueToNoData_ExtendedDictionary_TValue], key: QuantConnect_Messages_SetDefaultKeyNotFoundDueToNoData_ExtendedDictionary_TKey) -> str:
+        """
+        Returns the KeyNotFoundDueToNoData{TKey, TValue} message plus a note explaining that
+        setdefault could not insert the default because the collection is read-only
         """
         ...
 

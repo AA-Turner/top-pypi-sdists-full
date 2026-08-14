@@ -1347,6 +1347,17 @@ class AssignedAssetStatusEnum(pycarlo.lib.types.Enum):
     __choices__ = ("ADDED", "REMOVED")
 
 
+class AudienceEntryOrString(sgqlc.types.Scalar):
+    """An audience name, or an object naming an audience plus the triage
+    priorities that reach it (`{audience: "oncall", triage_priority:
+    ["HIGH"]}`). A bare name is notified as soon as the alert is
+    eligible. Priorities are HIGH, MEDIUM, LOW and NOT_TRIAGED; at
+    least one is required. Object keys may also be given in camelCase.
+    """
+
+    __schema__ = schema
+
+
 class AuditLogActorRole(pycarlo.lib.types.Enum):
     """Actor type for audit-log entries.  The audit log is keyed on actor
     email; this enum scopes the result set to entries whose actor
@@ -2149,6 +2160,7 @@ class ConversationFilterFieldName(pycarlo.lib.types.Enum):
 
     Enumeration Choices:
 
+    * `ACTIVE_DURATION`None
     * `DURATION`None
     * `HAS_ERRORS`None
     * `INTENT_CLUSTER`None
@@ -2160,6 +2172,7 @@ class ConversationFilterFieldName(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = (
+        "ACTIVE_DURATION",
         "DURATION",
         "HAS_ERRORS",
         "INTENT_CLUSTER",
@@ -2175,6 +2188,7 @@ class ConversationSortField(pycarlo.lib.types.Enum):
 
     Enumeration Choices:
 
+    * `ACTIVE_DURATION_SECONDS`None
     * `CONVERSATION_ID`None
     * `DURATION_SECONDS`None
     * `END_TIME`None
@@ -2188,6 +2202,7 @@ class ConversationSortField(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = (
+        "ACTIVE_DURATION_SECONDS",
         "CONVERSATION_ID",
         "DURATION_SECONDS",
         "END_TIME",
@@ -5630,10 +5645,8 @@ class MonitorTuningAgentRunSource(pycarlo.lib.types.Enum):
     noisy-monitor scheduler. ``AUTO_APPLY`` — an apply dispatched
     without a human,     against a ``PROACTIVE`` suggestion. Lets read
     surfaces (FE button swap, Ops     Agent) and analytics single out
-    how a run came about.      Only ``MANUAL`` and ``PROACTIVE``
-    produce suggestions: the proactive     suggestions read filters to
-    those two sources, so an ``AUTO_APPLY`` row never     surfaces as
-    something to act on.
+    how a run came about.      Only ``MANUAL`` and ``PROACTIVE`` are
+    consumable — see :data:`CONSUMABLE_SOURCES`.
 
     Enumeration Choices:
 
@@ -9661,7 +9674,7 @@ class AgentEvalInput(sgqlc.types.Input):
     description = sgqlc.types.Field(String, graphql_name="description")
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+        sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString)), graphql_name="audiences"
     )
 
     failure_audiences = sgqlc.types.Field(
@@ -9852,7 +9865,7 @@ class AgentMetricInput(sgqlc.types.Input):
     description = sgqlc.types.Field(String, graphql_name="description")
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+        sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString)), graphql_name="audiences"
     )
 
     failure_audiences = sgqlc.types.Field(
@@ -10043,7 +10056,7 @@ class AgentTrajectoryInput(sgqlc.types.Input):
     )
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+        sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString)), graphql_name="audiences"
     )
 
     failure_audiences = sgqlc.types.Field(
@@ -10154,7 +10167,7 @@ class AgentValidationInput(sgqlc.types.Input):
     )
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+        sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString)), graphql_name="audiences"
     )
 
     failure_audiences = sgqlc.types.Field(
@@ -11415,7 +11428,7 @@ class ComparisonMonitorInput(sgqlc.types.Input):
     notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+        sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString)), graphql_name="audiences"
     )
 
     failure_audiences = sgqlc.types.Field(
@@ -11571,6 +11584,8 @@ class ConversationFiltersInput(sgqlc.types.Input):
         "max_total_tokens",
         "min_duration",
         "max_duration",
+        "min_active_duration",
+        "max_active_duration",
         "cluster_keys",
         "run_uuid",
     )
@@ -11620,6 +11635,16 @@ class ConversationFiltersInput(sgqlc.types.Input):
 
     max_duration = sgqlc.types.Field(Float, graphql_name="maxDuration")
     """Maximum conversation duration in seconds"""
+
+    min_active_duration = sgqlc.types.Field(Float, graphql_name="minActiveDuration")
+    """Minimum active (processing) duration in seconds — sum of per-turn
+    processing time, excluding idle gaps between turns
+    """
+
+    max_active_duration = sgqlc.types.Field(Float, graphql_name="maxActiveDuration")
+    """Maximum active (processing) duration in seconds — sum of per-turn
+    processing time, excluding idle gaps between turns
+    """
 
     cluster_keys = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="clusterKeys"
@@ -11782,9 +11807,17 @@ class CreateLinearTicketForAgentHealthIssueInput(sgqlc.types.Input):
 
 class CreateMonitorTuningRunInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("monitor_uuid",)
+    __field_names__ = ("monitor_uuid", "force")
     monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
     """UUID of the monitor to tune."""
+
+    force = sgqlc.types.Field(Boolean, graphql_name="force")
+    """Start a new analysis even when a recent one could answer this
+    request. Reserved for an explicit human re-analysis: the reuse
+    window is the only server-side bound on repeat dispatch for a
+    monitor that is not already running, so automated callers must
+    leave this unset.
+    """
 
 
 class CreateOrUpdateAgentTraceTableInput(sgqlc.types.Input):
@@ -13373,7 +13406,7 @@ class FreshnessSLOInput(sgqlc.types.Input):
     )
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+        sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString)), graphql_name="audiences"
     )
 
     failure_audiences = sgqlc.types.Field(
@@ -14994,7 +15027,7 @@ class MetricInput(sgqlc.types.Input):
     notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+        sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString)), graphql_name="audiences"
     )
 
     failure_audiences = sgqlc.types.Field(
@@ -16298,7 +16331,7 @@ class SQLRuleInput(sgqlc.types.Input):
     )
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+        sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString)), graphql_name="audiences"
     )
 
     failure_audiences = sgqlc.types.Field(
@@ -17292,7 +17325,7 @@ class TableMonitorInput(sgqlc.types.Input):
     asset_selection = sgqlc.types.Field(AssetSelectionInput, graphql_name="assetSelection")
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+        sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString)), graphql_name="audiences"
     )
 
     failure_audiences = sgqlc.types.Field(
@@ -18517,7 +18550,7 @@ class ValidationInput(sgqlc.types.Input):
     )
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+        sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString)), graphql_name="audiences"
     )
 
     failure_audiences = sgqlc.types.Field(
@@ -18812,7 +18845,7 @@ class VolumeSLOInput(sgqlc.types.Input):
     )
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+        sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString)), graphql_name="audiences"
     )
 
     failure_audiences = sgqlc.types.Field(
@@ -21940,7 +21973,7 @@ class AgentEvalOutput(sgqlc.types.Type):
     description = sgqlc.types.Field(String, graphql_name="description")
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString))),
         graphql_name="audiences",
     )
 
@@ -22992,7 +23025,7 @@ class AgentMetricOutput(sgqlc.types.Type):
     description = sgqlc.types.Field(String, graphql_name="description")
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString))),
         graphql_name="audiences",
     )
 
@@ -23335,7 +23368,7 @@ class AgentTrajectoryOutput(sgqlc.types.Type):
     )
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString))),
         graphql_name="audiences",
     )
 
@@ -23462,7 +23495,7 @@ class AgentValidationOutput(sgqlc.types.Type):
     )
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString))),
         graphql_name="audiences",
     )
 
@@ -23539,8 +23572,6 @@ class AgenticDomainOutput(sgqlc.types.Type):
         "uuid",
         "name",
         "description",
-        "include_all_assets",
-        "source_domain_uuid",
         "created_by_email",
         "created_time",
         "updated_time",
@@ -23553,17 +23584,6 @@ class AgenticDomainOutput(sgqlc.types.Type):
 
     description = sgqlc.types.Field(String, graphql_name="description")
     """Domain description"""
-
-    include_all_assets = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="includeAllAssets"
-    )
-    """When true, this domain includes every asset in the account."""
-
-    source_domain_uuid = sgqlc.types.Field(UUID, graphql_name="sourceDomainUuid")
-    """When set, this agentic domain derives its asset scope and user
-    membership from the referenced metadata domain. When null, the
-    domain covers all assets in the account.
-    """
 
     created_by_email = sgqlc.types.Field(String, graphql_name="createdByEmail")
     """Display label for the user who created the domain. Returns the
@@ -27986,7 +28006,7 @@ class ComparisonMonitorOutput(sgqlc.types.Type):
     notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString))),
         graphql_name="audiences",
     )
 
@@ -29554,17 +29574,6 @@ class CreateAgentOAuthClient(sgqlc.types.Type):
     response = sgqlc.types.Field(
         sgqlc.types.non_null("CreateOAuthClientResponse"), graphql_name="response"
     )
-
-
-class CreateAgenticDomain(sgqlc.types.Type):
-    """Create an agentic domain.  Pass ``sourceDomainUuid`` to reuse the
-    asset scope and user membership of an existing metadata domain.
-    Omit it to create a domain that covers every asset in the account.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("domain",)
-    domain = sgqlc.types.Field(sgqlc.types.non_null(AgenticDomainOutput), graphql_name="domain")
 
 
 class CreateAzureDevOpsIntegration(sgqlc.types.Type):
@@ -34001,16 +34010,6 @@ class DeleteAgentTraceTable(sgqlc.types.Type):
     """Whether the agent trace table was successfully deleted"""
 
 
-class DeleteAgenticDomain(sgqlc.types.Type):
-    """Delete an agentic domain. Fails if monitors or alerts still
-    reference it.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("deleted",)
-    deleted = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="deleted")
-
-
 class DeleteAgenticNotificationRoute(sgqlc.types.Type):
     """Delete an Agentic notification route."""
 
@@ -38435,7 +38434,7 @@ class FreshnessSLOOutput(sgqlc.types.Type):
     )
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString))),
         graphql_name="audiences",
     )
 
@@ -43324,7 +43323,7 @@ class MetricOutput(sgqlc.types.Type):
     notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString))),
         graphql_name="audiences",
     )
 
@@ -44574,6 +44573,7 @@ class MonitorTuningRunResult(sgqlc.types.Type):
         "triggered_at",
         "triggered_by_user",
         "triggered_by_execution_id",
+        "reused",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
 
@@ -44590,7 +44590,12 @@ class MonitorTuningRunResult(sgqlc.types.Type):
     )
     """Origin of the run — MANUAL (in-product or autonomous agent),
     PROACTIVE (noisy-monitor scheduler), or AUTO_APPLY (applied
-    without a human against a PROACTIVE suggestion).
+    without a human against a PROACTIVE suggestion). Describes the
+    analysis this row carries, not necessarily the request that
+    returned it: when `reused` is true, a human clicking Tune can get
+    back a PROACTIVE run — with a `triggeredByUser` who is the service
+    user or another account member, and a `triggeredAt` well before
+    the request.
     """
 
     monitor_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="monitorType")
@@ -44611,6 +44616,14 @@ class MonitorTuningRunResult(sgqlc.types.Type):
     triggered_by_execution_id = sgqlc.types.Field(
         sgqlc.types.non_null(UUID), graphql_name="triggeredByExecutionId"
     )
+
+    reused = sgqlc.types.Field(Boolean, graphql_name="reused")
+    """Whether the request that returned this row was answered with an
+    existing analysis rather than starting a new one. Request-scoped:
+    populated only by createMonitorTuningRun; null everywhere else,
+    including applyMonitorTuningRun and every read path — a stored row
+    has no notion of which request handed it back.
+    """
 
 
 class MonitorTuningSuggestion(sgqlc.types.Type):
@@ -45432,9 +45445,6 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_agent_evaluation_monitor",
         "create_or_update_json_schema_monitor",
         "validate_cron",
-        "create_agentic_domain",
-        "update_agentic_domain",
-        "delete_agentic_domain",
         "configure_agentic_platform",
         "trigger_agentic_platform_pipeline",
         "run_monitoring_for_domain",
@@ -47841,9 +47851,11 @@ class Mutation(sgqlc.types.Type):
       Always a full replace: omitting the argument (or passing null)
       makes every audience unconditional, the same as passing an empty
       list; a non-empty list replaces the conditions wholesale. Every
-      audience named here must also appear in `audiences`, which stays
-      the monitor's full audience set — a condition narrows when one
-      of them is notified, it does not add one.
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `audiences` (`[String!]`): The monitor notification audiences
     * `data_quality_dimension` (`String`): Data quality dimension of
       the monitor.
@@ -48551,6 +48563,14 @@ class Mutation(sgqlc.types.Type):
                     "alert_grouping",
                     sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
                 ),
+                (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
+                ),
                 ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
                 (
                     "custom_rule_uuid",
@@ -48674,6 +48694,16 @@ class Mutation(sgqlc.types.Type):
       The createOrUpdate* mutations are full-state: omitting this
       field on an update clears any existing configuration (same as
       samplingConfig).
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
       engine) to use
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -48753,6 +48783,14 @@ class Mutation(sgqlc.types.Type):
                 (
                     "alert_grouping",
                     sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
                 ),
                 ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
                 (
@@ -48874,6 +48912,16 @@ class Mutation(sgqlc.types.Type):
       The createOrUpdate* mutations are full-state: omitting this
       field on an update clears any existing configuration (same as
       samplingConfig).
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
       engine) to use
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -48942,6 +48990,14 @@ class Mutation(sgqlc.types.Type):
                 (
                     "alert_grouping",
                     sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
                 ),
                 ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
                 (
@@ -49066,6 +49122,16 @@ class Mutation(sgqlc.types.Type):
       The createOrUpdate* mutations are full-state: omitting this
       field on an update clears any existing configuration (same as
       samplingConfig).
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
       engine) to use
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -56803,7 +56869,8 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Kick off a dry-run monitor tuning analysis.
+    """(experimental) Get a dry-run monitor tuning analysis, reusing a
+    recent one when it can answer the request.
 
     Arguments:
 
@@ -57467,6 +57534,14 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
                 ),
                 (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
+                ),
+                (
                     "comparisons",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(sgqlc.types.list_of(CustomRuleComparisonInput)),
@@ -57556,6 +57631,16 @@ class Mutation(sgqlc.types.Type):
       The createOrUpdate* mutations are full-state: omitting this
       field on an update clears any existing configuration (same as
       samplingConfig).
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -57607,6 +57692,14 @@ class Mutation(sgqlc.types.Type):
                 (
                     "alert_grouping",
                     sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
                 ),
                 (
                     "comparisons",
@@ -57702,6 +57795,16 @@ class Mutation(sgqlc.types.Type):
       The createOrUpdate* mutations are full-state: omitting this
       field on an update clears any existing configuration (same as
       samplingConfig).
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -57753,6 +57856,14 @@ class Mutation(sgqlc.types.Type):
                 (
                     "alert_grouping",
                     sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
                 ),
                 (
                     "comparisons",
@@ -57904,6 +58015,16 @@ class Mutation(sgqlc.types.Type):
       The createOrUpdate* mutations are full-state: omitting this
       field on an update clears any existing configuration (same as
       samplingConfig).
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
@@ -57985,6 +58106,14 @@ class Mutation(sgqlc.types.Type):
                 (
                     "alert_grouping",
                     sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
                 ),
                 (
                     "comparisons",
@@ -58136,6 +58265,16 @@ class Mutation(sgqlc.types.Type):
       The createOrUpdate* mutations are full-state: omitting this
       field on an update clears any existing configuration (same as
       samplingConfig).
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
@@ -58318,6 +58457,14 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
                 ),
                 (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
+                ),
+                (
                     "comparisons",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(sgqlc.types.list_of(CustomRuleComparisonInput)),
@@ -58420,6 +58567,16 @@ class Mutation(sgqlc.types.Type):
       The createOrUpdate* mutations are full-state: omitting this
       field on an update clears any existing configuration (same as
       samplingConfig).
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -58613,9 +58770,11 @@ class Mutation(sgqlc.types.Type):
       Always a full replace: omitting the argument (or passing null)
       makes every audience unconditional, the same as passing an empty
       list; a non-empty list replaces the conditions wholesale. Every
-      audience named here must also appear in `audiences`, which stays
-      the monitor's full audience set — a condition narrows when one
-      of them is notified, it does not add one.
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `audiences` (`[String!]`): The monitor audiences
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
       engine) to use
@@ -58678,6 +58837,14 @@ class Mutation(sgqlc.types.Type):
                 (
                     "alert_grouping",
                     sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
                 ),
                 (
                     "comparisons",
@@ -58810,6 +58977,16 @@ class Mutation(sgqlc.types.Type):
       The createOrUpdate* mutations are full-state: omitting this
       field on an update clears any existing configuration (same as
       samplingConfig).
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -58862,6 +59039,14 @@ class Mutation(sgqlc.types.Type):
         graphql_name="createOrUpdateQueryPerfRule",
         args=sgqlc.types.ArgDict(
             (
+                (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
+                ),
                 (
                     "comparisons",
                     sgqlc.types.Arg(
@@ -58933,6 +59118,16 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -58968,6 +59163,14 @@ class Mutation(sgqlc.types.Type):
                 (
                     "alert_grouping",
                     sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
+                ),
+                (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
                 ),
                 (
                     "comparisons",
@@ -59064,6 +59267,16 @@ class Mutation(sgqlc.types.Type):
       The createOrUpdate* mutations are full-state: omitting this
       field on an update clears any existing configuration (same as
       samplingConfig).
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
@@ -59699,6 +59912,14 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(AlertGroupingInput, graphql_name="alertGrouping", default=None),
                 ),
                 (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
+                ),
+                (
                     "comparisons",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(sgqlc.types.list_of(CustomRuleComparisonInput)),
@@ -59832,6 +60053,16 @@ class Mutation(sgqlc.types.Type):
       The createOrUpdate* mutations are full-state: omitting this
       field on an update clears any existing configuration (same as
       samplingConfig).
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `comparisons` (`[CustomRuleComparisonInput]!`): Custom rule
       comparisons
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
@@ -60236,6 +60467,14 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
+                ),
+                (
                     "comparisons",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(CustomRuleComparisonInput),
@@ -60396,6 +60635,16 @@ class Mutation(sgqlc.types.Type):
     * `agg_time_interval` (`MonitorAggTimeInterval`): For field health
       and dimension monitoring, the aggregation time interval to use.
       Either HOUR or DAY (defaults to HOUR)
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `comparisons` (`[CustomRuleComparisonInput]`): Metric evaluator
       configuration.
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
@@ -60671,9 +60920,11 @@ class Mutation(sgqlc.types.Type):
       Always a full replace: omitting the argument (or passing null)
       makes every audience unconditional, the same as passing an empty
       list; a non-empty list replaces the conditions wholesale. Every
-      audience named here must also appear in `audiences`, which stays
-      the monitor's full audience set — a condition narrows when one
-      of them is notified, it does not add one.
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `audiences` (`[String!]`): The monitor notification audiences
     * `data_quality_dimension` (`String`): Data quality dimension.
     * `description` (`String!`): Description of monitor
@@ -60892,9 +61143,11 @@ class Mutation(sgqlc.types.Type):
       Always a full replace: omitting the argument (or passing null)
       makes every audience unconditional, the same as passing an empty
       list; a non-empty list replaces the conditions wholesale. Every
-      audience named here must also appear in `audiences`, which stays
-      the monitor's full audience set — a condition narrows when one
-      of them is notified, it does not add one.
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `audiences` (`[String!]`): The monitor notification audiences
     * `collection_lag_hours` (`Int`): Collection lag in hours (for the
       provided timestamp) (default: `0`)
@@ -61224,9 +61477,11 @@ class Mutation(sgqlc.types.Type):
       Always a full replace: omitting the argument (or passing null)
       makes every audience unconditional, the same as passing an empty
       list; a non-empty list replaces the conditions wholesale. Every
-      audience named here must also appear in `audiences`, which stays
-      the monitor's full audience set — a condition narrows when one
-      of them is notified, it does not add one.
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `audiences` (`[String!]`): The monitor notification audiences
     * `collection_lag_hours` (`Int`): Collection lag in hours (for the
       provided timestamp). When 0 or omitted, the account-level
@@ -61472,9 +61727,11 @@ class Mutation(sgqlc.types.Type):
       Always a full replace: omitting the argument (or passing null)
       makes every audience unconditional, the same as passing an empty
       list; a non-empty list replaces the conditions wholesale. Every
-      audience named here must also appear in `audiences`, which stays
-      the monitor's full audience set — a condition narrows when one
-      of them is notified, it does not add one.
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `audiences` (`[String!]`): The monitor notification audiences
     * `collection_lag_hours` (`Int`): Collection lag in hours (for the
       provided timestamp). When 0 or omitted, the account-level
@@ -61643,9 +61900,11 @@ class Mutation(sgqlc.types.Type):
       Always a full replace: omitting the argument (or passing null)
       makes every audience unconditional, the same as passing an empty
       list; a non-empty list replaces the conditions wholesale. Every
-      audience named here must also appear in `audiences`, which stays
-      the monitor's full audience set — a condition narrows when one
-      of them is notified, it does not add one.
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `audiences` (`[String!]`): The monitor notification audiences
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
       engine) to use
@@ -61711,94 +61970,6 @@ class Mutation(sgqlc.types.Type):
 
     * `allow_multiple` (`Boolean`): Allow multiple CRON expressions
     * `cron` (`String!`): CRON expression
-    """
-
-    create_agentic_domain = sgqlc.types.Field(
-        CreateAgenticDomain,
-        graphql_name="createAgenticDomain",
-        args=sgqlc.types.ArgDict(
-            (
-                ("description", sgqlc.types.Arg(String, graphql_name="description", default=None)),
-                (
-                    "name",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="name", default=None
-                    ),
-                ),
-                (
-                    "source_domain_uuid",
-                    sgqlc.types.Arg(UUID, graphql_name="sourceDomainUuid", default=None),
-                ),
-            )
-        ),
-    )
-    """(experimental) Create an agentic domain. Optionally link to a
-    metadata domain to reuse its asset scope and user membership.
-
-    Arguments:
-
-    * `description` (`String`): Optional description.
-    * `name` (`String!`): Domain name.
-    * `source_domain_uuid` (`UUID`): Optional metadata-domain UUID to
-      link to. When set, the new agentic domain derives its asset
-      scope and user membership from the referenced domain.
-    """
-
-    update_agentic_domain = sgqlc.types.Field(
-        "UpdateAgenticDomain",
-        graphql_name="updateAgenticDomain",
-        args=sgqlc.types.ArgDict(
-            (
-                ("description", sgqlc.types.Arg(String, graphql_name="description", default=None)),
-                (
-                    "name",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="name", default=None
-                    ),
-                ),
-                (
-                    "source_domain_uuid",
-                    sgqlc.types.Arg(UUID, graphql_name="sourceDomainUuid", default=None),
-                ),
-                (
-                    "uuid",
-                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="uuid", default=None),
-                ),
-            )
-        ),
-    )
-    """(experimental) Full replacement update (PUT) of an agentic domain.
-    Pass sourceDomainUuid to link or re-target; omit it to set
-    account-wide coverage.
-
-    Arguments:
-
-    * `description` (`String`): Description for the domain. Omit or
-      pass null to clear.
-    * `name` (`String!`): New name for the domain.
-    * `source_domain_uuid` (`UUID`): Metadata-domain UUID to link this
-      domain to. Omit or pass null to set account-wide asset coverage.
-    * `uuid` (`UUID!`): UUID of the agentic domain.
-    """
-
-    delete_agentic_domain = sgqlc.types.Field(
-        DeleteAgenticDomain,
-        graphql_name="deleteAgenticDomain",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "uuid",
-                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="uuid", default=None),
-                ),
-            )
-        ),
-    )
-    """(experimental) Delete an agentic domain. Fails when monitors or
-    alerts still reference it; clean those up first.
-
-    Arguments:
-
-    * `uuid` (`UUID!`): UUID of the agentic domain.
     """
 
     configure_agentic_platform = sgqlc.types.Field(
@@ -68060,6 +68231,14 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
+                ),
+                (
                     "audiences",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String), graphql_name="audiences", default=None
@@ -68167,6 +68346,16 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `asset_selection` (`AssetSelectionInput!`): Tables to monitor
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `audiences` (`[String]`): Notification audiences
     * `auto_enable_table_monitoring` (`Boolean`): Deprecated legacy
       option. PII monitors no longer create table monitors; CBPV1 PII
@@ -68344,6 +68533,14 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "audience_conditions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AudienceConditionInput)),
+                        graphql_name="audienceConditions",
+                        default=None,
+                    ),
+                ),
+                (
                     "audiences",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String), graphql_name="audiences", default=None
@@ -68441,6 +68638,16 @@ class Mutation(sgqlc.types.Type):
       field on an update clears any existing configuration (same as
       samplingConfig).
     * `asset_selection` (`AssetSelectionInput!`)None
+    * `audience_conditions` (`[AudienceConditionInput!]`): Narrows
+      individual audiences to the triage priorities that reach them.
+      Always a full replace: omitting the argument (or passing null)
+      makes every audience unconditional, the same as passing an empty
+      list; a non-empty list replaces the conditions wholesale. Every
+      audience named here must also appear in this mutation's audience
+      list (`audiences`, or `labels` on the mutations that spell it
+      that way), which stays the monitor's full audience set — a
+      condition narrows when one of them is notified, it does not add
+      one.
     * `audiences` (`[String]`): Monitor audiences
     * `auto_enable_table_monitoring` (`Boolean`): Deprecated legacy
       PII option. PII monitors no longer create table monitors; CBPV1
@@ -73455,7 +73662,6 @@ class Query(sgqlc.types.Type):
         "create_sql_query",
         "generate_eval_prompt",
         "generate_sql_eval",
-        "get_agentic_domains",
         "get_agentic_platform_config",
         "get_agentic_platform_pipelines",
         "get_agentic_platform_pipeline_executions",
@@ -74347,6 +74553,12 @@ class Query(sgqlc.types.Type):
                 ),
                 ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
                 (
+                    "is_agent_conversation_aggregation",
+                    sgqlc.types.Arg(
+                        Boolean, graphql_name="isAgentConversationAggregation", default=None
+                    ),
+                ),
+                (
                     "transforms",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(TransformInput)),
@@ -74365,6 +74577,11 @@ class Query(sgqlc.types.Type):
     * `agent_mcon` (`String!`): MCON of the platform agent to evaluate
     * `connection_id` (`UUID`): Connection UUID (optional, defaults to
       the agent's schedule connection)
+    * `is_agent_conversation_aggregation` (`Boolean`): When true,
+      return the conversation-grain schema (turn_count,
+      duration_seconds, active_duration_seconds, status, etc.) instead
+      of the span-level schema. Required for conversation-scope eval
+      monitors.
     * `transforms` (`[TransformInput!]`): Transforms to apply to the
       data source schema
     """
@@ -78371,8 +78588,7 @@ class Query(sgqlc.types.Type):
       assignments for (max 250)
     * `domain_types` (`[DomainType!]`): Domain types to include.
       Defaults to metadata-only. Pass `AGENTIC` alongside `METADATA`
-      to surface agentic (include-all-assets) domains as synthetic
-      per-warehouse pairs.
+      to also surface agentic domains.
     """
 
     get_data_product_dry_run_counts = sgqlc.types.Field(
@@ -90696,9 +90912,8 @@ class Query(sgqlc.types.Type):
     * `offset` (`Int`): Offset into the match list. Default 0.
     * `domain_types` (`[DomainType!]`): Domain types to include.
       Defaults to metadata-only. Include `AGENTIC` to also match
-      include-all-assets domains — every deduped tag matches every
-      agentic domain the caller has access to, because agentic domains
-      logically contain every asset.
+      agentic domains — every deduped tag matches every agentic domain
+      the caller has access to.
     * `domain_uuid` (`UUID`): Restrict the search to a single domain.
       The caller must have access to this domain; passing an
       inaccessible UUID returns an authorization error. When omitted,
@@ -96770,14 +96985,6 @@ class Query(sgqlc.types.Type):
       warehouse type lookup
     """
 
-    get_agentic_domains = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(AgenticDomainOutput)),
-        graphql_name="getAgenticDomains",
-    )
-    """(experimental) Get the list of agentic domains for the current
-    account.
-    """
-
     get_agentic_platform_config = sgqlc.types.Field(
         sgqlc.types.non_null(AgenticPlatformConfigOutput), graphql_name="getAgenticPlatformConfig"
     )
@@ -99249,7 +99456,7 @@ class SQLRuleOutput(sgqlc.types.Type):
     )
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString))),
         graphql_name="audiences",
     )
 
@@ -102968,7 +103175,7 @@ class TableMonitorOutput(sgqlc.types.Type):
     asset_selection = sgqlc.types.Field(AssetSelection, graphql_name="assetSelection")
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString))),
         graphql_name="audiences",
     )
 
@@ -106499,21 +106706,6 @@ class UpdateAgentParameters(sgqlc.types.Type):
     """The result object returned from the agent."""
 
 
-class UpdateAgenticDomain(sgqlc.types.Type):
-    """Full replacement update (PUT semantics) of an agentic domain.  All
-    provided fields replace existing values. Pass ``sourceDomainUuid``
-    to link or re-target the domain to a metadata source
-    (``includeAllAssets`` is set to ``false`` automatically). Omit
-    ``sourceDomainUuid`` or pass ``null`` to set the domain to
-    account-wide coverage (``includeAllAssets`` becomes ``true``).
-    ``name`` is required.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("domain",)
-    domain = sgqlc.types.Field(sgqlc.types.non_null(AgenticDomainOutput), graphql_name="domain")
-
-
 class UpdateAgenticPlatformPipeline(sgqlc.types.Type):
     """Update an agentic platform pipeline's cadence, disabled flag, or
     config.  All inputs are optional; unset fields are left unchanged.
@@ -108174,7 +108366,7 @@ class ValidationOutput(sgqlc.types.Type):
     )
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString))),
         graphql_name="audiences",
     )
 
@@ -108507,7 +108699,7 @@ class VolumeSLOOutput(sgqlc.types.Type):
     )
 
     audiences = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceEntryOrString))),
         graphql_name="audiences",
     )
 
@@ -111846,6 +112038,7 @@ class BulkMonitor(sgqlc.types.Type, Node):
         "alert_conditions",
         "schedule_config",
         "audiences",
+        "audience_conditions",
         "failure_audiences",
         "tags",
         "data_quality_dimension",
@@ -111961,6 +112154,16 @@ class BulkMonitor(sgqlc.types.Type, Node):
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
     )
     """Monitor audiences"""
+
+    audience_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceCondition))),
+        graphql_name="audienceConditions",
+    )
+    """Per-audience triage conditions for this monitor, keyed by audience
+    name so they join to `audiences`. Sparse: an audience absent from
+    this list is notified unconditionally. Empty when the monitor has
+    no conditions at all.
+    """
 
     failure_audiences = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
@@ -115129,7 +115332,6 @@ class DomainRestriction(sgqlc.types.Type, Node):
         "uuid",
         "name",
         "domain_type",
-        "include_all_assets",
         "description",
         "created_by",
         "catalog_objects",
@@ -115154,19 +115356,6 @@ class DomainRestriction(sgqlc.types.Type, Node):
     )
     """Type of domain. Sampling domains define which tables can be
     sampled.
-    """
-
-    include_all_assets = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="includeAllAssets"
-    )
-    """When true, the domain covers every asset in the account without
-    enumerating assignments or tags, and domain filters short-circuit
-    to no restriction at all — an authorization fast path. Monitor and
-    alert joins are the exception: membership there needs an explicit
-    assignment row, so covering every asset does not imply covering
-    every monitor. Written by createAgenticDomain when no source
-    domain is given. Deprecated for new use; prefer explicit
-    assignments.
     """
 
     description = sgqlc.types.Field(String, graphql_name="description")

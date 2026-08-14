@@ -221,6 +221,8 @@ def _install_engine(args: argparse.Namespace) -> int:
     print(f"  engine dir : {info.get('engine_dir')}")
     print(f"  llama-server: {info.get('server_bin') or resolve.server_bin()}")
     print(f"  rpc-server  : {info.get('rpc_bin') or '(not built)'}")
+    if info.get("persisted_to"):
+        print(f"  persisted   : {info['persisted_to']}")
     return 0
 
 

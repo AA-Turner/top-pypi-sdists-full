@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abstract_hugpy_dev
-Version: 0.1.230
+Version: 0.1.233
 Summary: Self-hosted LLM console: model registry & downloads, streaming chat, OpenAI-compatible /v1 API with on-site keys, GPU worker fleet with cross-machine RPC sharding
 Home-page: https://github.com/AbstractEndeavors/abstract_hugpy_dev
 Author: putkoff

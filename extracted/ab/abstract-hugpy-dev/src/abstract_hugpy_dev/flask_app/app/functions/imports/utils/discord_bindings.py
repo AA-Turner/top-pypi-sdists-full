@@ -525,6 +525,39 @@ class DiscordBindingStore:
                     return True
         return False
 
+    def delete_session(self, session_id: str) -> bool:
+        """REMOVE a session row from the ledger (2026-08-13 dead-weight
+        cleanup). A still-live session dies with its row — the token's hash
+        goes, so the bearer stops verifying — which is revoke-and-erase in one
+        step; dead rows just leave. False only for unknown ids."""
+        with self._transaction() as doc:
+            sessions = doc.get("sessions", [])
+            for i, s in enumerate(sessions):
+                if s.get("id") == session_id:
+                    del sessions[i]
+                    return True
+        return False
+
+    def prune_sessions(self) -> int:
+        """Sweep every DEAD session row (revoked, or past expires_at) and
+        return how many went. Live sessions are never touched — this is the
+        ledger janitor, not a bulk revoke."""
+        now = time.time()
+
+        def _dead(s: Dict[str, Any]) -> bool:
+            if s.get("revoked"):
+                return True
+            exp = s.get("expires_at")
+            return bool(exp) and float(exp) < now
+
+        with self._transaction() as doc:
+            sessions = doc.get("sessions", [])
+            keep = [s for s in sessions if not _dead(s)]
+            n = len(sessions) - len(keep)
+            if n:
+                doc["sessions"] = keep
+            return n
+
     def session_by_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Presented bearer token -> live session dict, or None (bad, revoked
         or expired — indistinguishable to the caller, no oracle). last_used is
@@ -654,6 +687,14 @@ def list_sessions() -> List[Dict[str, Any]]:
 
 def revoke_session(session_id: str) -> bool:
     return discord_store.revoke_session(session_id)
+
+
+def delete_session(session_id: str) -> bool:
+    return discord_store.delete_session(session_id)
+
+
+def prune_sessions() -> int:
+    return discord_store.prune_sessions()
 
 
 def session_by_token(token: str) -> Optional[Dict[str, Any]]:

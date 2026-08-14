@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-07-23T20:46:33.271725                                                            #
+# Generated on 2026-08-13T18:38:42.576598                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,9 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import typing
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
+    import typing
 
 from .config_utils import ConfigFieldContext as ConfigFieldContext
 from .config_utils import ConfigField as ConfigField
@@ -92,6 +93,18 @@ class AuthType(object, metaclass=type):
         ...
     ...
 
+class CapsuleType(object, metaclass=type):
+    @classmethod
+    def enums(cls):
+        ...
+    @property
+    def default(cls):
+        ...
+    @classmethod
+    def choices(cls):
+        ...
+    ...
+
 class UnitParser(object, metaclass=type):
     def __init__(self, metric_name: str):
         ...
@@ -141,6 +154,33 @@ class AuthConfig(object, metaclass=metaflow.mf_extensions.outerbounds.plugins.ap
     """
     @staticmethod
     def validate(auth_config: "AuthConfig"):
+        ...
+    def _get_field(cls, field_name: str) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils.ConfigField:
+        ...
+    ...
+
+class ProxyConfig(object, metaclass=metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils.ConfigMeta):
+    """
+    The workload a `Proxy` capsule forwards traffic to. Only applies when
+    `capsule_type` is `Proxy`.
+    
+    The target is named in exactly one of two ways:
+    - `service_url`: a service that already exists. The port is carried in the URL,
+      so the capsule's `port` need not be set in this mode.
+    - `namespace` + `selector_labels`: the pods to put a service in front of. The
+      namespace must already exist and the labels must match those pods.
+    """
+    @staticmethod
+    def is_set(proxy_config: typing.Union["ProxyConfig", None]) -> bool:
+        ...
+    @staticmethod
+    def targets_existing_service(proxy_config: typing.Union["ProxyConfig", None]) -> bool:
+        ...
+    @staticmethod
+    def targets_pods(proxy_config: typing.Union["ProxyConfig", None]) -> bool:
+        ...
+    @staticmethod
+    def validate(proxy_config: "ProxyConfig"):
         ...
     def _get_field(cls, field_name: str) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils.ConfigField:
         ...
@@ -212,6 +252,18 @@ class BasicAppValidations(object, metaclass=type):
         ...
     @staticmethod
     def persistence(persistence):
+        ...
+    @staticmethod
+    def capsule_type(capsule_type):
+        ...
+    @staticmethod
+    def port_required(core_config: CoreConfig) -> bool:
+        ...
+    @staticmethod
+    def proxy_agreement(core_config: CoreConfig):
+        """
+        Proxy settings belong to a Proxy capsule and nothing else.
+        """
         ...
     ...
 

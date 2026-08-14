@@ -43,6 +43,22 @@ class GoalInterval:
     end_frame: int
     prompt: str
     ref: Optional[MediaRef] = None
+    # --- per-goal PROMPT-COMPONENT overrides (k92) ---
+    # Each goal IS a prompt component (mirrors Scene's per-part settings): it may
+    # carry its OWN generation knobs. ``None`` on any field means INHERIT the
+    # movie-level (MovieSpec) value — so a movie with no overrides renders exactly
+    # as before. Resolved per segment by ``goal_effective``. ``motion`` is
+    # goal-only (MovieSpec has no shared motion), ``None`` = no schedule.
+    model_id: Optional[str] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    steps: Optional[int] = None
+    guidance: Optional[float] = None
+    seed: Optional[int] = None
+    negative: Optional[str] = None
+    strength: Optional[float] = None
+    chain: Optional[bool] = None
+    motion: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -194,6 +210,33 @@ def make_movie(
             if g.ref.kind != "image":
                 raise ValueError(
                     f"goals[{gi}].ref must be an image MediaRef; got kind={g.ref.kind!r}")
+        # ---- per-goal PROMPT-COMPONENT override invariants (k92) ----
+        # Each is OPTIONAL (None = inherit the movie-level value); when present it
+        # must satisfy the SAME rule as the movie-level field it overrides.
+        if g.model_id is not None and not (isinstance(g.model_id, str) and g.model_id.strip()):
+            raise ValueError(
+                f"goals[{gi}].model_id must be a non-empty str or None; got {g.model_id!r}")
+        for _f in ("width", "height", "steps"):
+            _v = getattr(g, _f)
+            if _v is not None and not (isinstance(_v, int) and not isinstance(_v, bool) and _v > 0):
+                raise ValueError(f"goals[{gi}].{_f} must be a positive int or None; got {_v!r}")
+        if g.guidance is not None and not (isinstance(g.guidance, (int, float))
+                                           and not isinstance(g.guidance, bool)):
+            raise ValueError(
+                f"goals[{gi}].guidance must be a number or None; got {g.guidance!r}")
+        if g.seed is not None and not (isinstance(g.seed, int) and not isinstance(g.seed, bool)):
+            raise ValueError(f"goals[{gi}].seed must be an int or None; got {g.seed!r}")
+        if g.negative is not None and not isinstance(g.negative, str):
+            raise ValueError(f"goals[{gi}].negative must be a str or None; got {g.negative!r}")
+        if g.strength is not None and not (isinstance(g.strength, (int, float))
+                                           and not isinstance(g.strength, bool)
+                                           and 0.0 <= float(g.strength) <= 1.0):
+            raise ValueError(
+                f"goals[{gi}].strength must be a float in [0, 1] or None; got {g.strength!r}")
+        if g.chain is not None and not isinstance(g.chain, bool):
+            raise ValueError(f"goals[{gi}].chain must be a bool or None; got {g.chain!r}")
+        if g.motion is not None and not isinstance(g.motion, str):
+            raise ValueError(f"goals[{gi}].motion must be a str or None; got {g.motion!r}")
         seg_frames = g.end_frame - g.start_frame
         if seg_frames > FRAME_CAP:
             raise ValueError(
@@ -233,3 +276,26 @@ def make_movie(
 def total_frames(spec: MovieSpec) -> int:
     """The movie's total frame count == max(end_frame) (goals tile [0, total))."""
     return max(g.end_frame for g in spec.goals)
+
+
+def goal_effective(goal: GoalInterval, spec: MovieSpec) -> dict:
+    """Resolve ONE goal's effective generation knobs (k92): the goal's own override
+    when set (not None), else the movie-level (MovieSpec) value. A movie with no
+    per-goal overrides therefore renders EXACTLY as before. Frame count is NOT
+    resolved here — it comes from the goal's half-open window (end-start).
+
+    ``model_id`` uses ``or`` so an empty override also inherits; every other field
+    keys off ``is not None`` so a legitimate 0 (guidance/seed/strength) is honored.
+    ``motion`` is goal-only (MovieSpec has no shared motion)."""
+    return {
+        "model_id": goal.model_id or spec.model_id,
+        "width": goal.width if goal.width is not None else spec.width,
+        "height": goal.height if goal.height is not None else spec.height,
+        "steps": goal.steps if goal.steps is not None else spec.steps,
+        "guidance": goal.guidance if goal.guidance is not None else spec.guidance,
+        "seed": goal.seed if goal.seed is not None else spec.seed,
+        "negative": goal.negative if goal.negative is not None else spec.negative,
+        "strength": (float(goal.strength) if goal.strength is not None else spec.strength),
+        "chain": goal.chain if goal.chain is not None else spec.chain,
+        "motion": goal.motion,
+    }

@@ -24,6 +24,7 @@ from sagemaker_studio.utils.spark.session.spark_config_builder import (
     apply_compatibility_mode_configs,
     build_spark_configs,
     extract_connection_spark_configs,
+    generate_s3_access_grants_configs,
 )
 from sagemaker_studio.utils.spark.session.spark_session_manager import SparkSessionManager
 
@@ -280,34 +281,8 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
         return configs
 
     def _get_s3_access_grants_configs(self) -> dict:
-        """Get S3 Access Grants spark configs if enabled for the project's tooling environment.
-
-        Consistent with SageMakerStudioDataEngineeringSessions which checks
-        enableS3AccessGrantsForTools in the tooling environment's provisionedResources.
-        """
-        try:
-            _utils = InternalUtils()
-            domain_id = _utils._get_domain_id()
-            default_env = (
-                self.project._sagemaker_studio_api.project_api.get_project_default_environment(
-                    domain_id, self.project.id
-                )
-            )
-            provisioned_resources = default_env.get("provisionedResources", [])
-            s3ag_enabled = any(
-                r.get("name") == "enableS3AccessGrantsForTools"
-                and r.get("value", "").lower() == "true"
-                for r in provisioned_resources
-            )
-            if s3ag_enabled:
-                logger.info("S3 Access Grants enabled for Spark configuration")
-                return {
-                    "spark.hadoop.fs.s3.s3AccessGrants.enabled": "true",
-                    "spark.hadoop.fs.s3.s3AccessGrants.fallbackToIAM": "true",
-                }
-        except Exception as e:
-            logger.warning(f"Failed to check S3 Access Grants status: {e}")
-        return {}
+        """Get S3 Access Grants spark configs (shared implementation in spark_config_builder)."""
+        return generate_s3_access_grants_configs(getattr(self, "project", None))
 
     @staticmethod
     def _is_release_at_least(release_label: str, min_release: str) -> bool:

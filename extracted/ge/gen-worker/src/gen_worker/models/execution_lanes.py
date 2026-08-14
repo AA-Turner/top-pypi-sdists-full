@@ -1,4 +1,4 @@
-"""Lane vocabulary (th#913/gw#596) — the SHARED SPEC twin of tensorhub's
+"""Lane vocabulary — the SHARED SPEC twin of tensorhub's
 ``internal/orchestrator/precision/lane.go``. Ids and semantics must stay
 byte-identical across repos.
 
@@ -74,9 +74,9 @@ class _ExecutionLaneBody(msgspec.Struct, frozen=True, kw_only=True):
 # THE lane table's rows, ranked best-first. Execution support is authoritative
 # for what the platform CHOOSES: lane enumeration, validation, and binding
 # resolution all read this one field. It is NOT a claim about what can be
-# OBSERVED — ie#655: a compiled-only body serves eager whenever a serve-time
-# recipe quantizes and the self-mint then declines, and a report of that state
-# must name it (``observed_execution_lane``) rather than be coerced into the
+# OBSERVED — a compiled-only body serves eager whenever a serve-time recipe
+# quantizes and the self-mint then declines, and a report of that state must
+# name it (``observed_execution_lane``) rather than be coerced into the
 # choosable set.
 _KNOWN_BODIES: tuple[_ExecutionLaneBody, ...] = (
     # Eager w8a8 has not been measured; keep Tensorhub's compiled-only answer.
@@ -141,7 +141,7 @@ def execution_lane_body_id(execution_lane: ExecutionLane) -> str:
 
 def known_execution_lane_bodies() -> list[str]:
     """Every concrete lane BODY token, ranked (table order). These are the
-    valid `handles=` declaration tokens (th#1050) — execution axis excluded:
+    valid `handles=` declaration tokens — execution axis excluded:
     author kernels declare the quant scheme, the platform owns eager/compiled."""
     return [
         execution_lane_body_id(_execution_lane_for_body(body, EXEC_EAGER))
@@ -162,26 +162,11 @@ def valid_execution_lane_body(token: str) -> bool:
     return _body_for_token(token) is not None
 
 
-def execution_lane_of_body(token: str, compiled: bool) -> ExecutionLane:
-    """PLAN: the lane a known BODY token is CHOSEN to execute as under live
-    compile state. Raises ValueError on a token outside the table: the lane
-    vocabulary is platform-wide (the hub joins verdicts, cells and pricing on
-    it) and no caller extends it.
-
-    Not for reporting — see ``observed_execution_lane`` (ie#655)."""
-    body = _body_for_token(token)
-    if body is None:
-        raise ValueError(
-            f"lane body {token!r} is not a known lane body "
-            f"(known: {', '.join(known_execution_lane_bodies())})")
-    return _planned_execution(
-        _execution_lane_for_body(body, EXEC_EAGER), compiled)
-
 
 def observed_execution_lane(token: str, compiled: bool) -> ExecutionLane:
     """REPORT: the lane weights of body ``token`` are OBSERVED executing as.
 
-    ie#655: the table's execution support says which lanes the platform
+    the table's execution support says which lanes the platform
     PLANS, and an observation is not a plan. ``_planned_execution`` therefore
     must not touch this path: wan-2.2 served w8a8 weights EAGER on an H100
     (its self-mint declined for `insufficient_vram`) and the compiled-only
@@ -216,15 +201,15 @@ def most_quantized_body(tokens: Iterable[str]) -> str:
 
 
 class AppliedLane(msgspec.Struct, frozen=True, kw_only=True):
-    """What a SERVE-TIME recipe actually did to the weights (pgw#1104).
+    """What a SERVE-TIME recipe actually did to the weights.
 
     The lane a request reports must be the lane its weights execute. A
     binding names the CHECKPOINT the hub resolved; an endpoint that quantizes
     inside ``setup()`` (torchao ``quantize_``, wan-2.2's ``_quantize_fp8``,
     minimax-h3's ``serve_recipe.quantize_dit``) moves the executed lane away
     from it, and only the code that did the conversion can say so provably.
-    ``body`` is a ``known_execution_lane_bodies()`` token — the same th#1050
-    vocabulary ``handles=`` uses; eager/compiled stays the platform's axis."""
+    ``body`` is a ``known_execution_lane_bodies()`` token — the same vocabulary
+    ``handles=`` uses; eager/compiled stays the platform's axis."""
 
     component: str
     body: str
@@ -298,50 +283,26 @@ def parse_execution_lane_spec(s: str) -> ExecutionLaneSpec:
     return ExecutionLaneSpec(family=family_of(execution_lane), execution_lane=execution_lane)
 
 
-def _planned_execution(execution_lane: ExecutionLane, compiled: bool) -> ExecutionLane:
-    """The execution axis of a PLANNED lane: the caller's preference, moved
-    onto a mode the table says this body is chosen for. Planning only —
-    an OBSERVED posture is a fact and coercing it is a lie (ie#655)."""
-    execution = EXEC_COMPILED if compiled else EXEC_EAGER
-    body = _body_for_execution_lane(execution_lane)
-    if body is not None and not _supports(body, execution):
-        execution = EXEC_COMPILED if _supports(body, EXEC_COMPILED) else EXEC_EAGER
-    return ExecutionLane(
-        weights=execution_lane.weights,
-        activation=execution_lane.activation,
-        scale=execution_lane.scale,
-        execution=execution,
-    )
-
 
 def execution_lane_body_of_binding(storage_dtype: str) -> str:
     """The lane BODY a binding's declared CAST names — the WEIGHTS half, with
-    no execution axis. Split out of ``execution_lane_of_binding`` (ie#655) so
+    no execution axis. Split out of ``execution_lane_of_binding`` so
     the reporting path can stamp an observed execution onto it instead of a
     planned one.
 
-    pgw#1148 dropped the ``flavor`` argument with the flavor axis itself
-    (§1.32(d)). A binding no longer NAMES a stored precision: it names a tag
-    (or a digest), and what the bytes are is the checkpoint's tensor-layout
-    contract, not a token in the ref. The stored half now reaches the lane id
-    through the two channels that carry evidence rather than an assertion —
-    the hub-resolved execution lane, and setup()'s APPLIED report (pgw#1104,
-    ``report_applied_lane``) — both of which already outrank this derivation
-    at every call site."""
+    There is deliberately no ``flavor`` argument (§1.32(d)): a binding does not
+    NAME a stored precision, it names a tag (or a digest), and what the bytes are
+    is the checkpoint's tensor-layout contract. The stored half reaches the lane
+    id through the two channels that carry evidence rather than an assertion —
+    the hub-resolved execution lane, and setup()'s APPLIED report
+    (``report_applied_lane``) — both of which outrank this derivation at every
+    call site."""
     if str(storage_dtype or "").strip().lower() in ("fp8", "fp8+te"):
         execution_lane = ExecutionLane(weights=WEIGHTS_FP8, activation=ACT_W8A16, execution="")
     else:
         execution_lane = ExecutionLane(weights=WEIGHTS_BF16, activation=ACT_W16A16, execution="")
     return execution_lane_body_id(execution_lane)
 
-
-def execution_lane_of_binding(storage_dtype: str, compiled: bool) -> ExecutionLane:
-    """PLAN: the lane a binding's cast is chosen to execute as — the twin of
-    tensorhub's ``LaneOfResolution``."""
-    body = _body_for_token(execution_lane_body_of_binding(storage_dtype))
-    assert body is not None  # every branch above names a table row
-    return _planned_execution(
-        _execution_lane_for_body(body, EXEC_EAGER), compiled)
 
 
 class ExecutionLaneUnavailableError(ValueError):
@@ -382,8 +343,6 @@ __all__ = [
     "execution_lane_body_id",
     "execution_lane_id",
     "execution_lane_body_of_binding",
-    "execution_lane_of_binding",
-    "execution_lane_of_body",
     "most_quantized_body",
     "observed_execution_lane",
     "valid_execution_lane_body",

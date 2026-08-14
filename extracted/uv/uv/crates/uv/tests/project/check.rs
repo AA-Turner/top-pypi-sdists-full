@@ -63,6 +63,141 @@ fn check_project() -> Result<()> {
     Ok(())
 }
 
+/// Forward uv's terminal settings to the ty subprocess, including quiet-mode progress suppression.
+#[test]
+fn check_propagates_terminal_settings() -> Result<()> {
+    let context = uv_test::test_context_with_versions!(&[]).with_filter((r"\x1b\[[0-9;]*m", ""));
+    context.temp_dir.child("main.py").write_str("value = 1\n")?;
+
+    let check = || {
+        let mut command = context.check();
+        command
+            .arg("--preview-features")
+            .arg("check-command")
+            .arg("--no-project")
+            .arg("--ty-version")
+            .arg("0.0.17")
+            .arg("--show-command")
+            // Logging independently disables progress, so isolate the inherited host setting.
+            .env_remove(EnvVars::RUST_LOG);
+        command
+    };
+
+    uv_snapshot!(
+        context.filters(),
+        check().arg("--show-version"),
+        @"
+    exit_code: 0 (success)
+    ----- stdout -----
+    All checks passed!
+
+    ----- stderr -----
+    Using ty 0.0.17
+    Running `ty check --color auto`
+    "
+    );
+
+    uv_snapshot!(
+        context.filters(),
+        check()
+            .arg("--color")
+            .arg("never")
+            .arg("--no-progress"),
+        @"
+    exit_code: 0 (success)
+    ----- stdout -----
+    All checks passed!
+
+    ----- stderr -----
+    Running `ty check --color never --no-progress`
+    "
+    );
+
+    uv_snapshot!(
+        context.filters(),
+        check().arg("--quiet"),
+        @"
+    exit_code: 0 (success)
+    ----- stdout -----
+    All checks passed!
+
+    ----- stderr -----
+    Running `ty check --color auto --no-progress`
+    "
+    );
+
+    uv_snapshot!(
+        context.filters(),
+        check().arg("--color").arg("always"),
+        @"
+    exit_code: 0 (success)
+    ----- stdout -----
+    All checks passed!
+
+    ----- stderr -----
+    Running `ty check --color always`
+    "
+    );
+
+    uv_snapshot!(
+        context.filters(),
+        check()
+            .env(EnvVars::NO_COLOR, "1")
+            .env(EnvVars::UV_NO_PROGRESS, "1"),
+        @"
+    exit_code: 0 (success)
+    ----- stdout -----
+    All checks passed!
+
+    ----- stderr -----
+    Running `ty check --color never --no-progress`
+    "
+    );
+
+    Ok(())
+}
+
+/// Display shell-safe arguments when the selected script path contains spaces.
+#[test]
+fn check_show_command_quotes_script_path() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    context
+        .temp_dir
+        .child("script with spaces.py")
+        .write_str(indoc! {r#"
+            # /// script
+            # requires-python = ">=3.12"
+            # dependencies = []
+            # ///
+
+            value = 1
+        "#})?;
+
+    uv_snapshot!(
+        context.filters(),
+        context
+            .check()
+            .arg("--preview-features")
+            .arg("check-command")
+            .arg("--script")
+            .arg("script with spaces.py")
+            .arg("--ty-version")
+            .arg("0.0.17")
+            .arg("--show-command")
+            .env_remove(EnvVars::RUST_LOG),
+        @"
+    exit_code: 0 (success)
+    ----- stdout -----
+    All checks passed!
+
+    ----- stderr -----
+    Running `ty check --color auto -- 'script with spaces.py'`
+    "
+    );
+
+    Ok(())
+}
+
 /// Check PEP 723 scripts only when explicitly selected, not as part of a workspace member.
 #[test]
 fn check_workspace_excludes_pep723_scripts() -> Result<()> {
@@ -1081,7 +1216,7 @@ fn check_no_sync_creates_lock_without_sync() -> Result<()> {
         name = "a"
         version = "1.0.0"
         source = { registry = "http://[LOCALHOST]/simple/" }
-        sdist = { url = "http://[LOCALHOST]/files/a-1.0.0.tar.gz", hash = "sha256:3d2b4c28a4e112f3a1cef1db4dc5efa33fcbbcc38bc11ccc80321097db86c097", upload-time = "2024-03-24T00:00:00Z" }
+        sdist = { url = "http://[LOCALHOST]/files/a-1.0.0.tar.gz", hash = "sha256:957f99ff1d65ce0d7883d50f4e67ed8d4b42e76d2c2b5e62384ff0ba538647b5", upload-time = "2024-03-24T00:00:00Z" }
         wheels = [
             { url = "http://[LOCALHOST]/files/a-1.0.0-py3-none-any.whl", hash = "sha256:f936eedc194aa91ca01a4c6c9981136ca6c75ce6df47e3951b12522881dce809", upload-time = "2024-03-24T00:00:00Z" },
         ]
@@ -1228,8 +1363,8 @@ fn check_no_sync_updates_stale_lock_without_sync() -> Result<()> {
         -version = "1.0.0"
         +version = "2.0.0"
          source = { registry = "http://[LOCALHOST]/simple/" }
-        -sdist = { url = "http://[LOCALHOST]/files/a-1.0.0.tar.gz", hash = "sha256:3d2b4c28a4e112f3a1cef1db4dc5efa33fcbbcc38bc11ccc80321097db86c097", upload-time = "2024-03-24T00:00:00Z" }
-        +sdist = { url = "http://[LOCALHOST]/files/a-2.0.0.tar.gz", hash = "sha256:80ec95a66cff82a78a3333e3f5702e4254cf80533f21762933252eec58c9869a", upload-time = "2024-03-24T00:00:00Z" }
+        -sdist = { url = "http://[LOCALHOST]/files/a-1.0.0.tar.gz", hash = "sha256:957f99ff1d65ce0d7883d50f4e67ed8d4b42e76d2c2b5e62384ff0ba538647b5", upload-time = "2024-03-24T00:00:00Z" }
+        +sdist = { url = "http://[LOCALHOST]/files/a-2.0.0.tar.gz", hash = "sha256:9610291c2bd57390019f58ca72d0dd4584bb9e7073fa347633ed8bc7267fccfe", upload-time = "2024-03-24T00:00:00Z" }
          wheels = [
         -    { url = "http://[LOCALHOST]/files/a-1.0.0-py3-none-any.whl", hash = "sha256:f936eedc194aa91ca01a4c6c9981136ca6c75ce6df47e3951b12522881dce809", upload-time = "2024-03-24T00:00:00Z" },
         +    { url = "http://[LOCALHOST]/files/a-2.0.0-py3-none-any.whl", hash = "sha256:833374310e0a15880f3be9e6d082f527c9ac70129b2054d733da9b754315361f", upload-time = "2024-03-24T00:00:00Z" },
@@ -2690,6 +2825,156 @@ fn check_with_declared_dependency() -> Result<()> {
         )
         .success();
     assert!(!context.site_packages().join("b").exists());
+
+    Ok(())
+}
+
+/// Type-check first-party extension stubs without building or installing the project.
+#[test]
+fn check_no_install_project() -> Result<()> {
+    let server = PackseServer::new("simple/single-package.toml");
+    let context = uv_test::test_context!("3.12");
+
+    context
+        .temp_dir
+        .child("pyproject.toml")
+        .write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["a==1.0.0"]
+
+        [build-system]
+        requires = ["missing-build-backend==1.0.0"]
+        build-backend = "missing_build_backend"
+    "#})?;
+
+    let project = context.temp_dir.child("src").child("project");
+    project.create_dir_all()?;
+    project.child("__init__.py").write_str(indoc! {r"
+        from project._core import hello
+    "})?;
+    project.child("_core.pyi").write_str(indoc! {r"
+        def hello() -> str: ...
+    "})?;
+    context.temp_dir.child("main.py").write_str(indoc! {r"
+        import a
+        from project import hello
+
+        message: str = hello()
+    "})?;
+
+    uv_snapshot!(
+        context.filters(),
+        context
+            .check()
+            .arg("--no-install-project")
+            .arg("--index")
+            .arg(server.index_url()),
+        @"
+    exit_code: 0 (success)
+    ----- stdout -----
+    All checks passed!
+
+    ----- stderr -----
+    warning: `uv check` is experimental and may change without warning. Pass `--preview-features check-command` to disable this warning.
+    Installed 1 package in [TIME]
+    "
+    );
+
+    assert!(context.site_packages().join("a").exists());
+    assert!(
+        !context
+            .site_packages()
+            .join("project-0.1.0.dist-info")
+            .exists()
+    );
+
+    fs_err::remove_dir_all(&context.venv)?;
+
+    uv_snapshot!(
+        context.filters(),
+        context
+            .check()
+            .arg("--index")
+            .arg(server.index_url())
+            .env(EnvVars::UV_NO_INSTALL_PROJECT, "1"),
+        @"
+    exit_code: 0 (success)
+    ----- stdout -----
+    All checks passed!
+
+    ----- stderr -----
+    warning: `uv check` is experimental and may change without warning. Pass `--preview-features check-command` to disable this warning.
+    Using CPython 3.12.[X] interpreter at: [PYTHON-3.12]
+    Creating virtual environment at: .venv
+    Installed 1 package in [TIME]
+    "
+    );
+
+    assert!(context.site_packages().join("a").exists());
+    assert!(
+        !context
+            .site_packages()
+            .join("project-0.1.0.dist-info")
+            .exists()
+    );
+
+    Ok(())
+}
+
+/// Reject project installation filters when no project synchronization will occur.
+#[test]
+fn check_no_install_project_env_var_conflicts() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let script = context.temp_dir.child("script.py");
+    script.write_str(indoc! {r#"
+        # /// script
+        # requires-python = ">=3.12"
+        # ///
+    "#})?;
+
+    uv_snapshot!(
+        context.filters(),
+        context
+            .check()
+            .arg("--no-sync")
+            .env(EnvVars::UV_NO_INSTALL_PROJECT, "1"),
+        @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: the argument `UV_NO_INSTALL_PROJECT` (environment variable) cannot be used with `--no-sync`
+    "
+    );
+
+    uv_snapshot!(
+        context.filters(),
+        context
+            .check()
+            .arg("--script")
+            .arg("script.py")
+            .env(EnvVars::UV_NO_INSTALL_PROJECT, "1"),
+        @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: the argument `UV_NO_INSTALL_PROJECT` (environment variable) cannot be used with `--script`
+    "
+    );
+
+    uv_snapshot!(
+        context.filters(),
+        context
+            .check()
+            .arg("--no-project")
+            .env(EnvVars::UV_NO_INSTALL_PROJECT, "1"),
+        @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: the argument `UV_NO_INSTALL_PROJECT` (environment variable) cannot be used with `--no-project`
+    "
+    );
 
     Ok(())
 }

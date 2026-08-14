@@ -18,6 +18,7 @@ Endpoint map (see abstract_hugpy/flask_app/app/routes):
 from __future__ import annotations
 
 import json
+import os
 from typing import Any, AsyncIterator
 
 import httpx
@@ -27,11 +28,33 @@ class HugpyError(RuntimeError):
     """Raised when central returns an error response or event."""
 
 
+def _default_api_key() -> str:
+    """The bot's M2M credential for central's MEMBER-gated plane.
+
+    2026-08-06: ``member_auth`` closed ``/chat/stream``, ``/ml``, ``/uploads``
+    and ``/session`` to anonymous callers, which broke this arm — the bot is not
+    a browser with a console session, so it had no credential at all and every
+    chat turn came back 401. The gate's documented M2M seam is a hugpy API key
+    (``member_auth._presented_api_key`` -> ``X-API-Key`` header, falling back to
+    a non-``hpv_`` bearer), so that is what the bot presents. The key is read
+    from the environment (``HUGPY_API_KEY``, with ``HUGPY_BOT_API_KEY`` as an
+    arm-specific override) — never hard-coded — and lives in the bot's .env
+    alongside DISCORD_TOKEN. Empty when unset: the client then behaves exactly as
+    it did before, so a self-hosted ``open``-mode deployment (where the gate does
+    not enforce) needs no key."""
+    return (os.getenv("HUGPY_BOT_API_KEY") or os.getenv("HUGPY_API_KEY") or "").strip()
+
+
 class HugpyClient:
-    def __init__(self, base_url: str):
+    def __init__(self, base_url: str, api_key: str | None = None):
         self.base_url = base_url
+        self.api_key = (api_key if api_key is not None else _default_api_key()).strip()
+        # Set on the CLIENT (not per call) so every request — the JSON verbs,
+        # the multipart upload, and the streaming POST /chat/stream — carries it.
+        headers = {"X-API-Key": self.api_key} if self.api_key else {}
         self._http = httpx.AsyncClient(
             base_url=base_url,
+            headers=headers,
             # Generation and model downloads are slow; only connect fails fast.
             timeout=httpx.Timeout(600.0, connect=5.0),
         )

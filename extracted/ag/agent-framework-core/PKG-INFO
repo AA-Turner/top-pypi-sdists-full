@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-core
-Version: 1.13.0
+Version: 1.14.0
 Summary: Microsoft Agent Framework for building AI Agents with Python. This is the core package that has all the core abstractions and implementations.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -21,6 +21,7 @@ Requires-Dist: typing-extensions>=4.15.0,<5
 Requires-Dist: pydantic>=2,<3
 Requires-Dist: python-dotenv>=1,<2
 Requires-Dist: opentelemetry-api>=1.39.0,<2
+Requires-Dist: agent-hooks-sdk>=0.1.0a4,<0.2 ; extra == "agent-hooks"
 Requires-Dist: mcp>=1.24.0,<2 ; extra == "all"
 Requires-Dist: agent-framework-a2a ; extra == "all"
 Requires-Dist: agent-framework-ag-ui ; extra == "all"
@@ -56,6 +57,7 @@ Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
 Project-URL: release_notes, https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true
 Project-URL: source, https://github.com/microsoft/agent-framework/tree/main/python
+Provides-Extra: agent-hooks
 Provides-Extra: all
 
 # Get Started with Microsoft Agent Framework

@@ -68,6 +68,18 @@ from airbyte_ops_mcp.tier_cache import TierFilter, resolve_workspace
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class _ResolvedCloudAuth:
+    """Resolved authentication for Airbyte Cloud API calls.
+
+    Either bearer_token OR (client_id AND client_secret) will be set, not both.
+    """
+
+    bearer_token: str | None = None
+    client_id: str | None = None
+    client_secret: str | None = None
+
+
 @mcp_tool(
     read_only=True,
     idempotent=True,
@@ -632,18 +644,6 @@ def set_organization_connector_version_override(
     return result
 
 
-@dataclass(frozen=True)
-class _ResolvedCloudAuth:
-    """Resolved authentication for Airbyte Cloud API calls.
-
-    Either bearer_token OR (client_id AND client_secret) will be set, not both.
-    """
-
-    bearer_token: str | None = None
-    client_id: str | None = None
-    client_secret: str | None = None
-
-
 def _resolve_cloud_auth(ctx: Context) -> _ResolvedCloudAuth:
     """Resolve authentication credentials for Airbyte Cloud API.
 
@@ -655,7 +655,7 @@ def _resolve_cloud_auth(ctx: Context) -> _ResolvedCloudAuth:
         ctx: FastMCP Context object from the current tool invocation.
 
     Returns:
-        _ResolvedCloudAuth with either bearer_token or client credentials set.
+        `_ResolvedCloudAuth` with either bearer_token or client credentials set.
 
     Raises:
         CloudAuthError: If credentials cannot be resolved from headers or env vars.

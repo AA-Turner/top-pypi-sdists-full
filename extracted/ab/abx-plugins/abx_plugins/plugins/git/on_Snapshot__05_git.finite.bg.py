@@ -11,6 +11,7 @@
 #     ./on_Snapshot__05_git.finite.bg.py --url=<url> > events.jsonl
 
 import signal
+import sys
 
 # Snapshot cleanup sends SIGTERM to the whole hook process group as the polite
 # shutdown signal before the hard SIGKILL deadline. This hook is a finite
@@ -24,7 +25,6 @@ signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 import os
 import subprocess
-import sys
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
@@ -203,11 +203,11 @@ def clone_git(url: str, binary: str) -> tuple[bool, str | None, str]:
 def main(url: str):
     """Clone a git repository from a URL."""
 
+    print("git clone started", flush=True)
+
     output = None
     status = "failed"
     error = ""
-
-    print("git clone started", flush=True)
 
     try:
         git_url = normalize_git_url(url)

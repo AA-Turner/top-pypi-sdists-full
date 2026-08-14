@@ -11,6 +11,7 @@
 #     ./on_Snapshot__11_favicon.finite.bg.py --url=<url>
 
 import signal
+import sys
 
 # Snapshot cleanup sends SIGTERM to the whole hook process group as the polite
 # shutdown signal before the hard SIGKILL deadline. This hook is finite work, so
@@ -22,7 +23,6 @@ signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 import os
 import re
-import sys
 import tempfile
 import time
 
@@ -202,12 +202,12 @@ def get_favicon(url: str) -> tuple[bool, str | None, str]:
 @click.option("--url", required=True, help="URL to extract favicon from")
 def main(url: str):
     """Extract favicon from a URL."""
+    print("favicon extraction started", flush=True)
+
     output = None
     status = "failed"
     error = ""
     output_path = OUTPUT_DIR / OUTPUT_FILE
-
-    print("favicon extraction started", flush=True)
 
     try:
         # Run extraction

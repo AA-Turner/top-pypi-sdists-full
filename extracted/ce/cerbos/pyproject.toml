@@ -27,7 +27,7 @@ dependencies = [
 ]
 requires-python = ">=3.10"
 dynamic = []
-version = "0.15.1"
+version = "0.16.0"
 
 [project.license]
 text = "Apache-2.0"
@@ -71,7 +71,7 @@ test = "pw@generate && pw@pytest"
 lint = "pdm lint"
 format = "pdm format"
 test_upload = "twine upload -r testpypi dist/*"
-tag_release = "pdm run cz bump --changelog --increment"
+bump_version = "pdm run cz bump --version-files-only --changelog --increment"
 changelog = "pdm run cz changelog"
 
 [tool.pyright]
@@ -168,6 +168,7 @@ composite = [
 
 [tool.ruff.lint]
 ignore = [
+    "B008",
     "F403",
     "F405",
 ]

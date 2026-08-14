@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: k8s-agent-sandbox
-Version: 0.5.4
+Version: 0.5.5
 Summary: A client library to interact with the Agentic Sandbox on Kubernetes.
 Project-URL: Homepage, https://github.com/kubernetes-sigs/agent-sandbox
 Project-URL: Bug Tracker, https://github.com/kubernetes-sigs/agent-sandbox/issues
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 Requires-Dist: kubernetes
 Requires-Dist: requests
@@ -23,9 +23,9 @@ Requires-Dist: pytest-asyncio; extra == "test"
 Requires-Dist: httpx; extra == "test"
 Requires-Dist: kubernetes_asyncio<34.0.0; extra == "test"
 Provides-Extra: tracing
-Requires-Dist: opentelemetry-api~=1.39.0; extra == "tracing"
-Requires-Dist: opentelemetry-sdk~=1.39.0; extra == "tracing"
-Requires-Dist: opentelemetry-exporter-otlp~=1.39.0; extra == "tracing"
+Requires-Dist: opentelemetry-api<1.42,>=1.39; extra == "tracing"
+Requires-Dist: opentelemetry-sdk<1.42,>=1.39; extra == "tracing"
+Requires-Dist: opentelemetry-exporter-otlp<1.42,>=1.39; extra == "tracing"
 Requires-Dist: opentelemetry-instrumentation-requests~=0.60b0; extra == "tracing"
 
 # Agentic Sandbox Client Python

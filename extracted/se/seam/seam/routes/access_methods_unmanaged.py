@@ -1,6 +1,7 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
 from ..resources import UnmanagedAccessMethod
 
 
@@ -12,7 +13,9 @@ class AbstractAccessMethodsUnmanaged(abc.ABC):
 
         :param access_method_id: ID of unmanaged access method to get.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -22,7 +25,7 @@ class AbstractAccessMethodsUnmanaged(abc.ABC):
         access_grant_id: str,
         acs_entrance_id: Optional[str] = None,
         device_id: Optional[str] = None,
-        space_id: Optional[str] = None
+        space_id: Optional[str] = None,
     ) -> List[UnmanagedAccessMethod]:
         """Lists all unmanaged access methods (where is_managed = false), usually filtered by Access Grant.
 
@@ -34,7 +37,9 @@ class AbstractAccessMethodsUnmanaged(abc.ABC):
 
         :param space_id: ID of the space for which you want to retrieve all unmanaged access methods.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
 
@@ -43,28 +48,45 @@ class AccessMethodsUnmanaged(AbstractAccessMethodsUnmanaged):
         self.client = client
         self.defaults = defaults
 
+    @route_metadata(
+        path="/access_methods/unmanaged/get",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def get(self, *, access_method_id: str) -> UnmanagedAccessMethod:
         """Gets an unmanaged access method (where is_managed = false).
 
         :param access_method_id: ID of unmanaged access method to get.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if access_method_id is not None:
-            json_payload["access_method_id"] = access_method_id
+            params["access_method_id"] = access_method_id
 
-        res = self.client.post("/access_methods/unmanaged/get", json=json_payload)
+        if not params:
+            raise ValueError(
+                "At least one parameter is required for /access_methods/unmanaged/get"
+            )
+
+        res = self.client.get("/access_methods/unmanaged/get", params=params)
 
         return UnmanagedAccessMethod.from_dict(res["access_method"])
 
+    @route_metadata(
+        path="/access_methods/unmanaged/list",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def list(
         self,
         *,
         access_grant_id: str,
         acs_entrance_id: Optional[str] = None,
         device_id: Optional[str] = None,
-        space_id: Optional[str] = None
+        space_id: Optional[str] = None,
     ) -> List[UnmanagedAccessMethod]:
         """Lists all unmanaged access methods (where is_managed = false), usually filtered by Access Grant.
 
@@ -76,18 +98,25 @@ class AccessMethodsUnmanaged(AbstractAccessMethodsUnmanaged):
 
         :param space_id: ID of the space for which you want to retrieve all unmanaged access methods.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if access_grant_id is not None:
-            json_payload["access_grant_id"] = access_grant_id
+            params["access_grant_id"] = access_grant_id
         if acs_entrance_id is not None:
-            json_payload["acs_entrance_id"] = acs_entrance_id
+            params["acs_entrance_id"] = acs_entrance_id
         if device_id is not None:
-            json_payload["device_id"] = device_id
+            params["device_id"] = device_id
         if space_id is not None:
-            json_payload["space_id"] = space_id
+            params["space_id"] = space_id
 
-        res = self.client.post("/access_methods/unmanaged/list", json=json_payload)
+        if not params:
+            raise ValueError(
+                "At least one parameter is required for /access_methods/unmanaged/list"
+            )
+
+        res = self.client.get("/access_methods/unmanaged/list", params=params)
 
         return [UnmanagedAccessMethod.from_dict(item) for item in res["access_methods"]]

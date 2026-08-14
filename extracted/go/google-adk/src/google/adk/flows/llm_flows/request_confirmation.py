@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 from typing import AsyncGenerator
-from typing import Optional
+from typing import cast
 from typing import TYPE_CHECKING
 
 from google.genai import types
@@ -31,10 +31,12 @@ from ...tools.base_tool import BaseTool
 from ...tools.tool_confirmation import ToolConfirmation
 from ...tools.tool_context import ToolContext
 from ._base_llm_processor import BaseLlmRequestProcessor
+from .agent_transfer import _build_transfer_tool
+from .agent_transfer import _get_transfer_targets
 from .functions import REQUEST_CONFIRMATION_FUNCTION_CALL_NAME
 
 if TYPE_CHECKING:
-  pass
+  from ...agents.llm_agent import LlmAgent
 
 
 logger = logging.getLogger("google_adk." + __name__)
@@ -47,7 +49,7 @@ def _parse_tool_confirmation(response: dict[str, Any]) -> ToolConfirmation:
 
 def _get_original_function_call_args(
     function_call: types.FunctionCall,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
   """Returns the raw ``originalFunctionCall`` payload of a confirmation call.
 
   Both the dedup pre-pass and ``_resolve_confirmation_targets`` read the
@@ -324,10 +326,18 @@ class _RequestConfirmationLlmRequestProcessor(BaseLlmRequestProcessor):
     if agent is not None and hasattr(agent, "canonical_tools"):
       tools_dict = {
           tool.name: tool
-          for tool in await agent.canonical_tools(
+          for tool in await cast("LlmAgent", agent).canonical_tools(
               ReadonlyContext(invocation_context)
           )
       }
+
+    from ...agents.llm_agent import LlmAgent
+
+    if isinstance(agent, LlmAgent):
+      transfer_targets = _get_transfer_targets(agent)
+      if transfer_targets:
+        transfer_tool = _build_transfer_tool(transfer_targets)
+        tools_dict[transfer_tool.name] = transfer_tool
 
     # Step 3: Resolve confirmation targets using extracted helper.
     confirmation_fc_ids = set(confirmations_by_fc_id.keys())

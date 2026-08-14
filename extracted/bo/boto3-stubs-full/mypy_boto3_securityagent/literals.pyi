@@ -37,6 +37,7 @@ __all__ = (
     "GitLabTokenTypeType",
     "IpAddressTypeType",
     "JobStatusType",
+    "JobTypeType",
     "ListAgentSpacesPaginatorName",
     "ListApplicationsPaginatorName",
     "ListArtifactsPaginatorName",
@@ -111,6 +112,7 @@ FindingStatusType = Literal["ACCEPTED", "ACTIVE", "FALSE_POSITIVE", "RESOLVED"]
 GitLabTokenTypeType = Literal["GROUP", "PERSONAL"]
 IpAddressTypeType = Literal["DUAL_STACK", "IPV4", "IPV6"]
 JobStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "STOPPED", "STOPPING"]
+JobTypeType = Literal["FULL", "REVALIDATION"]
 ListAgentSpacesPaginatorName = Literal["list_agent_spaces"]
 ListApplicationsPaginatorName = Literal["list_applications"]
 ListArtifactsPaginatorName = Literal["list_artifacts"]

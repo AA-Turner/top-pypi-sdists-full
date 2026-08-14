@@ -21,6 +21,7 @@ from xpander_sdk.models.configuration import Configuration
 from xpander_sdk.models.frameworks import AgnoSettings, Framework
 from xpander_sdk.models.notifications import NotificationSettings
 from xpander_sdk.models.orchestrations import OrchestrationNode
+from xpander_sdk.models.principal import Principal
 from xpander_sdk.modules.agents.utils.generic import get_db_schema_name
 from xpander_sdk.modules.knowledge_bases.models.knowledge_bases import (
     KnowledgeBaseSearchResult,
@@ -181,6 +182,7 @@ class Agent(XPanderSharedModel):
             oidc_pre_auth_token_mcp_audience: Optional[bool] = False
             oidc_pre_auth_token_llm_audience: Optional[str] = None
             workspace_tools_enabled: Optional[bool] = True
+            live_surface_sharing_enabled: Optional[bool] = False
 
         Example:
             >>> agent = Agent(id="agent123", name="Example Agent")
@@ -247,6 +249,7 @@ class Agent(XPanderSharedModel):
     max_self_schedules: Optional[int] = Field(default=3, ge=1, le=1000)
     use_dynamic_tools: Optional[bool] = False
     workspace_tools_enabled: Optional[bool] = True
+    live_surface_sharing_enabled: Optional[bool] = False
     is_autonomous: Optional[bool] = False
     discoverable: Optional[bool] = True
     with_auto_context_management: Optional[bool] = True
@@ -502,6 +505,7 @@ class Agent(XPanderSharedModel):
         existing_task_id: Optional[str] = None,
         file_urls: Optional[List[str]] = [],
         user_details: Optional[User] = None,
+        principal: Optional[Principal] = None,
         agent_version: Optional[str] = None,
         tool_call_payload_extension: Optional[dict] = None,
         source: Optional[str] = "sdk",
@@ -534,6 +538,7 @@ class Agent(XPanderSharedModel):
             existing_task_id (Optional[str]): Existing task id if exists.
             file_urls (Optional[List[str]]): URLs of files related to the task.
             user_details (Optional[User]): User linked to this task context.
+            principal (Optional[Principal]): Typed caller identity behind the task.
             agent_version (Optional[str]): Optional agent version to use.
             tool_call_payload_extension (Optional[dict]): Extend payload with additional information.
             source (Optional[str]): Origin or source of the request. default = "sdk".
@@ -575,8 +580,8 @@ class Agent(XPanderSharedModel):
                 payload={
                     "id": existing_task_id,
                     "input": AgentExecutionInput(
-                        text=prompt, files=file_urls, user=user_details
-                    ).model_dump(),
+                        text=prompt, files=file_urls, user=user_details, principal=principal
+                    ).to_request_dict(),
                     "payload_extension": tool_call_payload_extension,
                     "source": source,
                     "worker_id": worker_id,

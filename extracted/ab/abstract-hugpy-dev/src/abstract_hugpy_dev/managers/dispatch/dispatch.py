@@ -26,6 +26,7 @@ Why a per-process cache:
 """
 
 from __future__ import annotations
+import contextvars
 import inspect
 import asyncio
 import logging
@@ -37,6 +38,39 @@ from ..resolvers import resolve
 from .imports import *
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# k96 NO-MAKEROOM (request flag "no_makeroom": true — the agent-brain no-evict
+# guarantee, operator ruling 2026-08-06).
+#
+# Semantics: serving this request must never cost the fleet a resident model.
+# A WARM model serves exactly as today. A COLD load runs the whole admission
+# POLITELY (the k56 no_evict rules): the in-process contention yield is
+# skipped, the cross-tier make-room hook may only admit into genuinely free
+# room (its polite branch — it never evicts and refuses honestly), the slot
+# pool neither ceiling-evicts nor bumps a seat, and an unfittable load FAILS
+# FAST with LoadRefusal ("won't fit … refusing without evicting") — a
+# capacity-class error the agent's brain ladder walks down.
+#
+# Transport: execute_prompt/execute_prompt_stream read the key from
+# prompt_kwargs and bind this contextvar for the pass; the RELAY translates
+# the flag onto the spill's ``no_evict`` (version-gated per worker), so on a
+# worker the per-request HUGPY_NO_EVICT env carries the same guarantee across
+# threads. Flag absent -> everything below is byte-identical to before.
+# ---------------------------------------------------------------------------
+_NO_MAKEROOM: contextvars.ContextVar = contextvars.ContextVar(
+    "hugpy_no_makeroom", default=False)
+
+
+def no_makeroom_active() -> bool:
+    """True while the current request carries "no_makeroom": true — read by
+    the headroom pass below, the slot pool's seat path, and the worker's
+    make-room hook so every evicting choke point asks the same question."""
+    try:
+        return bool(_NO_MAKEROOM.get())
+    except Exception:  # noqa: BLE001 — a broken flag read is not a policy
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -322,6 +356,12 @@ def ensure_headroom_for_load(model_key: str, trigger: str = "load") -> List[str]
     headroom yields nothing and evicts nobody. Returns the list of yielded
     model_keys (for logging + tests).
 
+    k96 ``no_makeroom`` (request flag, bound via the module contextvar): same
+    politeness per request, plus fail-fast — where an unflagged short pass
+    would proceed-unfit, a no_makeroom pass raises LoadRefusal ("refusing
+    without evicting") so the caller gets a capacity-class error instead of a
+    wedged cold load. A warm model never reaches this pass at all.
+
     CROSS-TIER (slice 10): after the in-process LRU yield, a registered make-room
     hook (set_make_room) runs a SECOND pass that also evicts SLOT-CHILD squatters
     (subprocess VRAM the in-process path cannot see) and REFUSES an unfittable
@@ -355,14 +395,24 @@ def _headroom_pass(model_key: str, trigger: str, run_id: str) -> List[str]:
     # below still runs — it is the honest-refusal path, and it reads the same
     # flag to decide between "admit into free room" and "refuse without
     # touching anyone". Unflagged loads are untouched.
+    #
+    # k96 "no_makeroom": the per-REQUEST twin of the per-model no_evict flag
+    # (agent-brain calls send it on every chat). Same politeness, one extra
+    # promise: where an unflagged short pass would proceed-unfit (the
+    # admit-then-OOM shape) this one FAILS FAST below — the caller wants a
+    # capacity-class refusal it can walk its brain ladder on, never a wedged
+    # cold load. A warm model never reaches this pass (its runner is cached).
     try:
         from ..spill import no_evict_env
         _polite = no_evict_env()
     except Exception:  # noqa: BLE001 — an unreadable flag is not a policy
         _polite = False
+    _no_makeroom = no_makeroom_active()
+    _polite = _polite or _no_makeroom
     if _polite:
-        logger.info("polite load (no_evict): skipping the in-process contention "
-                    "yield for %s — it may only take genuinely free room", model_key)
+        logger.info("polite load (no_evict%s): skipping the in-process contention "
+                    "yield for %s — it may only take genuinely free room",
+                    "/no_makeroom" if _no_makeroom else "", model_key)
         _emit("candidate.skip", run_id=run_id, incoming_model=model_key,
               tier="in-process", reason="polite load (no_evict) — never evicts")
     if _FIT_CHECK is not None and not _polite:
@@ -445,6 +495,18 @@ def _headroom_pass(model_key: str, trigger: str, run_id: str) -> List[str]:
                 outcome = "proceeded-unfit"
         except Exception:                    # noqa: BLE001 — unmeasurable -> report fit
             pass
+        if outcome == "proceeded-unfit" and _no_makeroom:
+            # k96: a no_makeroom request must never ride the admit-then-OOM
+            # shape — with nothing evictable ON PURPOSE and the fit-guard
+            # saying short, refuse NOW with the capacity-class wording the
+            # agent's brain ladder walks on.
+            _emit("headroom.done", run_id=run_id, incoming_model=model_key,
+                  evicted=list(evicted), outcome="refused")
+            raise LoadRefusal({
+                "reason": ("won't fit on GPU: %s is not resident and free "
+                           "headroom is short — no_makeroom forbids evicting "
+                           "residents, refusing without evicting" % model_key),
+                "model_key": model_key, "no_makeroom": True})
     _emit("headroom.done", run_id=run_id, incoming_model=model_key,
           evicted=list(evicted), outcome=outcome)
     return evicted
@@ -556,13 +618,29 @@ def runner_for(
 
 
 def execute_prompt(*args: Any, **kwargs: Any):
-    """One-shot request -> result. Sync entrypoint; awaits inside if needed."""
+    """One-shot request -> result. Sync entrypoint; awaits inside if needed.
+
+    ``no_makeroom`` (k96): a truthy prompt_kwarg binds the no-makeroom
+    contextvar for the pass — the cold-load admission then runs politely and
+    refuses instead of evicting (see the module-level note)."""
     prompt_kwargs = normalize_prompt_kwargs(*args, **kwargs)
-    res = resolve(prompt_kwargs)
-    req = res.builder(prompt_kwargs, res.model_key)
-    runner = _get_or_build_runner(res)
-    touch_model(res.model_key)   # residency idle clock
-    return runner.run(req=req)
+    token = _NO_MAKEROOM.set(bool(prompt_kwargs.get("no_makeroom")))
+    try:
+        res = resolve(prompt_kwargs)
+        req = res.builder(prompt_kwargs, res.model_key)
+        runner = _get_or_build_runner(res)
+        touch_model(res.model_key)   # residency idle clock
+        return runner.run(req=req)
+    finally:
+        # The try body can resume in a DIFFERENT Context (async/greenlet hop),
+        # where reset(token) raises "created in a different Context" and 500s
+        # the whole request (live incident 2026-08-06, first cold load after
+        # k96). Same-context nesting still uses the token; cross-context falls
+        # back to restoring the default explicitly.
+        try:
+            _NO_MAKEROOM.reset(token)
+        except ValueError:
+            _NO_MAKEROOM.set(False)
 
 
 async def stream_runner(runner, req, cancel_event=None):
@@ -626,14 +704,31 @@ async def execute_prompt_stream(*args, cancel_event=None, **kwargs):
 
     ``cancel_event`` (an asyncio.Event) is forwarded to runners that accept it
     (llama.cpp, summarizer, DeepCoder), so a caller can stop generation
-    mid-stream."""
+    mid-stream.
+
+    ``no_makeroom`` (k96): a truthy prompt_kwarg binds the no-makeroom
+    contextvar across the pass (build AND stream — a lazy slot seat happens on
+    first runner access), so the admission runs politely and refuses instead
+    of evicting (see the module-level note)."""
     prompt_kwargs = normalize_prompt_kwargs(*args, **kwargs)
-    res = resolve(prompt_kwargs)
-    req = res.builder(prompt_kwargs, res.model_key)
-    runner = _get_or_build_runner(res)
-    touch_model(res.model_key)   # residency idle clock
-    async for event in stream_runner(runner, req, cancel_event=cancel_event):
-        yield event
+    token = _NO_MAKEROOM.set(bool(prompt_kwargs.get("no_makeroom")))
+    try:
+        res = resolve(prompt_kwargs)
+        req = res.builder(prompt_kwargs, res.model_key)
+        runner = _get_or_build_runner(res)
+        touch_model(res.model_key)   # residency idle clock
+        async for event in stream_runner(runner, req, cancel_event=cancel_event):
+            yield event
+    finally:
+        # The try body can resume in a DIFFERENT Context (async/greenlet hop),
+        # where reset(token) raises "created in a different Context" and 500s
+        # the whole request (live incident 2026-08-06, first cold load after
+        # k96). Same-context nesting still uses the token; cross-context falls
+        # back to restoring the default explicitly.
+        try:
+            _NO_MAKEROOM.reset(token)
+        except ValueError:
+            _NO_MAKEROOM.set(False)
 # ---------------------------------------------------------------------------
 # Chat continuation engine — one shared implementation.
 #

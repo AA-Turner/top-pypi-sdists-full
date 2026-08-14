@@ -16,6 +16,7 @@ from prefab_ui.components import (
     Dialog,
     Div,
     Input,
+    Link,
     Markdown,
     Muted,
     Row,
@@ -35,6 +36,7 @@ from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     start_tool_call,
 )
 from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
+    FINALIZE_ROLLOUT_WORKFLOW_URL,
     YANK_STORE,
     advance_rollout,
     finalize_rollout,
@@ -75,6 +77,8 @@ def render_rollout_status_section(
     with labels on the left and values on the right. `css_class` is applied
     to the panel surface so the caller can control its responsive width.
     """
+    _render_promotion_pending_detail()
+
     with AbCard(css_class=css_class):
         with CardHeader():
             H2("Connector Version Status", css_class="text-lg")
@@ -470,6 +474,62 @@ def _render_yank_section() -> None:
         )
 
 
+def _render_promotion_pending_detail() -> None:
+    """Promotion detail for a version undergoing asynchronous GA rollout."""
+    with If(STATE.selected_version_promotion_pending.__eq__(True)):
+        with Div(css_class=_YANK_DETAIL_CARD_CLASS), Column(gap=2):
+            with If(STATE.selected_version_promotion_state.__eq__("active")):
+                H3("Promotion Pending", css_class="text-sm")
+            with If(STATE.selected_version_promotion_state.__eq__("promoted")):
+                H3("Promotion Completed", css_class="text-sm")
+                Text(
+                    "Promotion completed the marker-finalize step.",
+                    css_class="text-xs text-[#cbd5e1]",
+                )
+                _pivoted_row(
+                    "Marker Date",
+                    STATE.selected_version_promotion_marker_date,
+                )
+            with If(STATE.selected_version_promotion_state.__eq__("aborted")):
+                H3("Promotion Aborted", css_class="text-sm")
+                Text(
+                    "The promotion marker-finalize step was aborted.",
+                    css_class="text-xs text-[#cbd5e1]",
+                )
+                _pivoted_row(
+                    "Marker Date",
+                    STATE.selected_version_promotion_marker_date,
+                )
+            with If(STATE.selected_version_promotion_requested_by):
+                _pivoted_row(
+                    "Requested By",
+                    STATE.selected_version_promotion_requested_by,
+                )
+            with If(STATE.selected_version_promotion_requested_at_display):
+                _pivoted_row(
+                    "Requested At",
+                    STATE.selected_version_promotion_requested_at_display,
+                )
+            with If(STATE.selected_version_promotion_rollout_id):
+                _pivoted_row(
+                    "Rollout ID",
+                    STATE.selected_version_promotion_rollout_id,
+                )
+            Text(
+                content=(
+                    "Registry compile and default-version rollout finish "
+                    "asynchronously. Refresh this page to check."
+                ),
+                css_class="text-xs text-[#cbd5e1]",
+            )
+            Link(
+                "Monitor the promotion job in GitHub Actions",
+                href=FINALIZE_ROLLOUT_WORKFLOW_URL,
+                target="_blank",
+                css_class="text-xs underline",
+            )
+
+
 # ---------------------------------------------------------------------------
 # Confirmation modals
 # ---------------------------------------------------------------------------
@@ -589,10 +649,23 @@ def _render_rollout_confirmation_modal() -> None:
         with If(STATE.rollout_action.__eq__("promote_ga")):
             with Column(gap=4):
                 Markdown(
-                    content="**Promote RC to GA?**\n\n"
-                    "This will make "
-                    + STATE.rollout_summary.rc_docker_image_tag
-                    + " the new default version for all users."
+                    content="**Promote "
+                    + STATE.selected_connector.name
+                    + " to Default GA?**"
+                )
+                with Column(gap=1):
+                    Text(
+                        content=("Current default: " + STATE.ga_default_version_display)
+                    )
+                    Text(content="Promoting: " + STATE.promoting_version_display)
+                Text(
+                    content=(
+                        "This makes "
+                        + STATE.rollout_summary.rc_docker_image_tag
+                        + " the default version for all users, replacing "
+                        + STATE.ga_default_version_tag
+                        + "."
+                    )
                 )
                 with Row(justify="end", gap=2):
                     Button(

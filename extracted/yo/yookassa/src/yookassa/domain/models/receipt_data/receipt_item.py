@@ -7,6 +7,7 @@ from yookassa.domain.models.amount import Amount
 from yookassa.domain.models.receipt_data.industry_details import IndustryDetails
 from yookassa.domain.models.receipt_data.mark_code_info import MarkCodeInfo
 from yookassa.domain.models.receipt_data.mark_quantity import MarkQuantity
+from yookassa.domain.models.receipt_data.receipt_item_supplier import ReceiptItemSupplier
 
 
 class ReceiptItem(BaseObject):
@@ -61,6 +62,12 @@ class ReceiptItem(BaseObject):
 
     __payment_subject_industry_details = None
     """Отраслевой реквизит предмета расчета  (тег в 54 ФЗ — 1260). Обязателен при использовании ФФД 1.2."""  # noqa: E501
+
+    __supplier = None
+    """Информация о поставщике товара или услуги (тег в 54 ФЗ — 1224)."""  # noqa: E501
+
+    __agent_type = None
+    """Тип посредника, реализующего товар или услугу."""  # noqa: E501
 
     @property
     def description(self):
@@ -408,6 +415,51 @@ class ReceiptItem(BaseObject):
             self.__payment_subject_industry_details = items
         else:
             raise TypeError('Invalid payment_subject_industry_details value type in ReceiptItem')
+
+    @property
+    def supplier(self):
+        """
+        Возвращает supplier модели ReceiptItem.
+
+        :return: supplier модели ReceiptItem.
+        :rtype: ReceiptItemSupplier
+        """
+        return self.__supplier
+
+    @supplier.setter
+    def supplier(self, value):
+        """
+        Устанавливает supplier модели ReceiptItem.
+
+        :param value: supplier модели ReceiptItem.
+        :type value: ReceiptItemSupplier
+        """
+        if isinstance(value, dict):
+            self.__supplier = ReceiptItemSupplier(value)
+        elif isinstance(value, ReceiptItemSupplier):
+            self.__supplier = value
+        else:
+            raise TypeError('Invalid supplier value type')
+
+    @property
+    def agent_type(self):
+        """
+        Возвращает agent_type модели ReceiptItem.
+
+        :return: agent_type модели ReceiptItem.
+        :rtype: str
+        """
+        return self.__agent_type
+
+    @agent_type.setter
+    def agent_type(self, value):
+        """
+        Устанавливает agent_type модели ReceiptItem.
+
+        :param value: agent_type модели ReceiptItem.
+        :type value: str
+        """
+        self.__agent_type = str(value)
 
 
 class PaymentMode(object):

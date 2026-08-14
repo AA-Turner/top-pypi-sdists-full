@@ -25,7 +25,9 @@ __all__ = (
     "AccessBudgetTypeType",
     "AdditionalAnalysesType",
     "AggregateFunctionNameType",
+    "AggregationThresholdTypeType",
     "AggregationTypeType",
+    "AllowedAggregateExpressionTypeType",
     "AnalysisFormatType",
     "AnalysisLogExportStatusType",
     "AnalysisMethodType",
@@ -122,7 +124,9 @@ __all__ = (
 AccessBudgetTypeType = Literal["CALENDAR_DAY", "CALENDAR_MONTH", "CALENDAR_WEEK", "LIFETIME"]
 AdditionalAnalysesType = Literal["ALLOWED", "NOT_ALLOWED", "REQUIRED"]
 AggregateFunctionNameType = Literal["AVG", "COUNT", "COUNT_DISTINCT", "SUM", "SUM_DISTINCT"]
+AggregationThresholdTypeType = Literal["COUNT_DISTINCT"]
 AggregationTypeType = Literal["COUNT_DISTINCT"]
+AllowedAggregateExpressionTypeType = Literal["ANY_EXPRESSION", "COLUMNS_ONLY"]
 AnalysisFormatType = Literal["PYSPARK_1_0", "SQL"]
 AnalysisLogExportStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCESS"]
 AnalysisMethodType = Literal["DIRECT_JOB", "DIRECT_QUERY", "MULTIPLE"]

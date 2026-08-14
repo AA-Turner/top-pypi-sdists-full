@@ -55,7 +55,7 @@ from abstract_hugpy_dev.imports.src.constants.constants import UPLOADS_HOME, DEF
 # isolation does NOT work here: constants' get_env_value reads the .env file, not
 # os.environ). IDENTITIES_HOME must sit under the real DEFAULT_ROOT so the
 # identity-owned ref copies still pass the route's storage jail.
-_TMP_IDENTITIES = tempfile.mkdtemp(prefix="hugpy-idverroutes-store-", dir=DEFAULT_ROOT)
+_TMP_IDENTITIES = tempfile.mkdtemp(prefix="hugpy-idverroutes-store-", dir=os.path.join(DEFAULT_ROOT, "video_intel", "_scratch"))
 identity_profiles.IDENTITIES_HOME = _TMP_IDENTITIES
 _TMP_PROJECTS = tempfile.mkdtemp(prefix="hugpy-idverroutes-projects-")
 identity_profiles.PROJECTS_HOME = _TMP_PROJECTS

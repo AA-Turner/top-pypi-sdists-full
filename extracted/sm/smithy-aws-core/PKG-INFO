@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: smithy-aws-core
-Version: 0.8.0
+Version: 0.9.0
 Summary: Core Smithy components for AWS services and protocols.
 Project-URL: Changelog, https://github.com/smithy-lang/smithy-python/blob/develop/packages/smithy-aws-core/CHANGELOG.md
 Project-URL: Code, https://github.com/smithy-lang/smithy-python/blob/develop/packages/smithy-aws-core/
@@ -26,7 +26,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.12
 Requires-Dist: aws-sdk-signers~=0.3.0
-Requires-Dist: smithy-core~=0.7.0
+Requires-Dist: smithy-core~=0.8.0
 Requires-Dist: smithy-http~=0.4.0
 Provides-Extra: eventstream
 Requires-Dist: smithy-aws-event-stream~=0.3.0; extra == 'eventstream'

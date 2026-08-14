@@ -185,6 +185,8 @@ class Registry(ABC):
         with_legacy_migration: str | None = None,
         with_metrics: bool = True,
         force: bool = False,
+        with_full_restate: bool = False,
+        release_attribution_index: Path | None = None,
     ) -> CompileResult:
         raise NotImplementedError(
             _op_not_implemented_message(self.store_type, "compile")

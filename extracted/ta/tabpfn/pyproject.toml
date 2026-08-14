@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tabpfn"
-version = "8.2.0"
+version = "8.3.0"
 dependencies = [
   "torch>=2.5",
   "safetensors>=0.4.0",
@@ -20,7 +20,7 @@ dependencies = [
   "joblib>=1.2.0",
   "tqdm>=4.66.0",
   "filelock>=3.11.0",
-  "lightgbm>=3.0",
+  "lightgbm>=4.4",
   "mlx>=0.29.3; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 requires-python = ">=3.10"
@@ -392,6 +392,8 @@ ignore_packages = [
     "certifi",
     # Appears to be MIT, but the tool doesn't know. https://github.com/arogozhnikov/einops/blob/361b11e87da94ead4bd09de636c5dbed73e0e3e0/LICENSE
     "einops",
+    # Is BSD-3-Clause, but declared via PEP 639 `License-Expression`, which the tool doesn't read. https://github.com/fsspec/filesystem_spec/blob/98acce943655c959148cb317fe99573380d537b1/LICENSE
+    "fsspec",
     # Is Apache Licensed since 1.2 but the tool doesn't know. https://github.com/calvinmccarter/kditransform/blob/5ee7cfad665bb1078211c0becad8fbd31e78429d/LICENSE
     "kditransform",
     "nvidia*",

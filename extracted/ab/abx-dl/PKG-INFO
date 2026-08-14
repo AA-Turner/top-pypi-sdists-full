@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: abx-dl
-Version: 1.12.99
+Version: 1.12.118
 Summary: All-in-one CLI tool to download and extract content from URLs
 Keywords: scraping,crawling,downloading,internet archiving,web archiving,digipres,warc,preservation,backups,archiving,web,bookmarks,puppeteer,browser,download
 Author: Nick Sweeting, ArchiveBox
@@ -43,8 +43,7 @@ Requires-Dist: rich-click>=1.8.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: abxbus
 Requires-Dist: abxpkg
-Requires-Dist: abx-plugins==1.12.93
-Requires-Dist: jambo>=0.1.7
+Requires-Dist: abx-plugins==1.12.107
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pydantic-settings>=2.0.0
 Requires-Dist: platformdirs>=4.0.0
@@ -83,16 +82,9 @@ output_dir="$(mktemp -d)"
 image="${ABXDL_IMAGE:-archivebox/abx-dl:latest}"
 trap 'rm -rf "$output_dir"' EXIT
 docker run --rm \
-  --env OUTPUT_UID="$(id -u)" \
-  --env OUTPUT_GID="$(id -g)" \
   --volume "$output_dir:/out" \
-  --entrypoint bash \
   "$image" \
-  -c 'set -Eeuo pipefail
-cleanup() { chown -R "$OUTPUT_UID:$OUTPUT_GID" /out; }
-trap cleanup EXIT
-/venv/bin/abx-dl "$@"' \
-  -- --no-install --max-urls=1 --plugins=title,wget 'https://example.com'
+  --no-install --max-urls=1 --plugins=title,wget 'https://example.com'
 test -s "$output_dir/index.jsonl"
 test -s "$output_dir/title/title.txt"
 test -s "$output_dir/wget/example.com/index.html"

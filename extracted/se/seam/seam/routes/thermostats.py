@@ -1,6 +1,8 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
+from ..null import Null
 from ..resources import ActionAttempt, Device
 from .thermostats_daily_programs import (
     AbstractThermostatsDailyPrograms,
@@ -34,7 +36,7 @@ class AbstractThermostats(abc.ABC):
         *,
         climate_preset_key: str,
         device_id: str,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Activates a specified `climate preset <https://docs.seam.co/capability-guides/thermostats/creating-and-managing-climate-presets>`_ for a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_.
 
@@ -44,7 +46,9 @@ class AbstractThermostats(abc.ABC):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -54,7 +58,7 @@ class AbstractThermostats(abc.ABC):
         device_id: str,
         cooling_set_point_celsius: Optional[float] = None,
         cooling_set_point_fahrenheit: Optional[float] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Sets a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_ to `cool mode <https://docs.seam.co/capability-guides/thermostats/configure-current-climate-settings>`_.
 
@@ -66,7 +70,9 @@ class AbstractThermostats(abc.ABC):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -84,7 +90,7 @@ class AbstractThermostats(abc.ABC):
         heating_set_point_fahrenheit: Optional[float] = None,
         hvac_mode_setting: Optional[str] = None,
         manual_override_allowed: Optional[bool] = None,
-        name: Optional[str] = None
+        name: Optional[Union[str, Null]] = None,
     ) -> None:
         """Creates a `climate preset <https://docs.seam.co/capability-guides/thermostats/creating-and-managing-climate-presets>`_ for a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_.
 
@@ -111,7 +117,8 @@ class AbstractThermostats(abc.ABC):
         :param manual_override_allowed: Deprecated: Use 'thermostat_schedule.is_override_allowed' Indicates whether a person at the thermostat or using the API can change the thermostat's settings.
 
         :param name: User-friendly name to identify the `climate preset <https://docs.seam.co/capability-guides/thermostats/creating-and-managing-climate-presets>`_.
-        """
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -121,7 +128,8 @@ class AbstractThermostats(abc.ABC):
         :param climate_preset_key: Climate preset key of the climate preset that you want to delete.
 
         :param device_id: ID of the thermostat device for which you want to delete a climate preset.
-        """
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -131,7 +139,7 @@ class AbstractThermostats(abc.ABC):
         device_id: str,
         heating_set_point_celsius: Optional[float] = None,
         heating_set_point_fahrenheit: Optional[float] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Sets a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_ to `heat mode <https://docs.seam.co/capability-guides/thermostats/configure-current-climate-settings>`_.
 
@@ -143,7 +151,9 @@ class AbstractThermostats(abc.ABC):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -155,7 +165,7 @@ class AbstractThermostats(abc.ABC):
         cooling_set_point_fahrenheit: Optional[float] = None,
         heating_set_point_celsius: Optional[float] = None,
         heating_set_point_fahrenheit: Optional[float] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Sets a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_ to `heat-cool ("auto") mode <https://docs.seam.co/capability-guides/thermostats/configure-current-climate-settings>`_.
 
@@ -171,7 +181,9 @@ class AbstractThermostats(abc.ABC):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -180,20 +192,10 @@ class AbstractThermostats(abc.ABC):
         *,
         connect_webview_id: Optional[str] = None,
         connected_account_id: Optional[str] = None,
-        connected_account_ids: Optional[List[str]] = None,
-        created_before: Optional[str] = None,
-        custom_metadata_has: Optional[Dict[str, Any]] = None,
         customer_key: Optional[str] = None,
-        device_ids: Optional[List[str]] = None,
         device_type: Optional[str] = None,
         device_types: Optional[List[str]] = None,
-        limit: Optional[float] = None,
         manufacturer: Optional[str] = None,
-        page_cursor: Optional[str] = None,
-        search: Optional[str] = None,
-        space_id: Optional[str] = None,
-        unstable_location_id: Optional[str] = None,
-        user_identifier_key: Optional[str] = None
     ) -> List[Device]:
         """Returns a list of all `thermostats <https://docs.seam.co/capability-guides/thermostats>`_.
 
@@ -201,33 +203,13 @@ class AbstractThermostats(abc.ABC):
 
         :param connected_account_id: ID of the connected account for which you want to list devices.
 
-        :param connected_account_ids: Array of IDs of the connected accounts for which you want to list devices.
-
-        :param created_before: Timestamp by which to limit returned devices. Returns devices created before this timestamp.
-
-        :param custom_metadata_has: Set of key:value `custom metadata <https://docs.seam.co/core-concepts/devices/adding-custom-metadata-to-a-device>`_ pairs for which you want to list devices.
-
         :param customer_key: Customer key for which you want to list devices.
-
-        :param device_ids: Array of device IDs for which you want to list devices.
 
         :param device_type: Device type by which you want to filter thermostat devices.
 
         :param device_types: Array of device types by which you want to filter thermostat devices.
 
-        :param limit: Numerical limit on the number of devices to return.
-
         :param manufacturer: Manufacturer by which you want to filter thermostat devices.
-
-        :param page_cursor: Identifies the specific page of results to return, obtained from the previous page's ``next_page_cursor``.
-
-        :param search: String for which to search. Filters returned devices to include all records that satisfy a partial match using ``device_id`` (full or partial UUID prefix, minimum 4 characters), ``connected_account_id``, ``display_name``, ``custom_metadata`` or ``location.location_name``.
-
-        :param space_id: ID of the space for which you want to list devices.
-
-        :param unstable_location_id: Deprecated: Use ``space_id``.
-
-        :param user_identifier_key: Your own internal user ID for the user for which you want to list devices.
 
         :returns: OK"""
         raise NotImplementedError()
@@ -237,7 +219,7 @@ class AbstractThermostats(abc.ABC):
         self,
         *,
         device_id: str,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Sets a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_ to `"off" mode <https://docs.seam.co/capability-guides/thermostats/configure-current-climate-settings>`_.
 
@@ -245,7 +227,9 @@ class AbstractThermostats(abc.ABC):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -257,7 +241,8 @@ class AbstractThermostats(abc.ABC):
         :param climate_preset_key: Climate preset key of the climate preset that you want to set as the fallback climate preset.
 
         :param device_id: ID of the thermostat device for which you want to set the fallback climate preset.
-        """
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -267,7 +252,7 @@ class AbstractThermostats(abc.ABC):
         device_id: str,
         fan_mode: Optional[str] = None,
         fan_mode_setting: Optional[str] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Sets the `fan mode setting <https://docs.seam.co/capability-guides/thermostats/configure-current-climate-settings#fan-mode-settings>`_ for a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_.
 
@@ -279,7 +264,9 @@ class AbstractThermostats(abc.ABC):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -292,7 +279,7 @@ class AbstractThermostats(abc.ABC):
         cooling_set_point_fahrenheit: Optional[float] = None,
         heating_set_point_celsius: Optional[float] = None,
         heating_set_point_fahrenheit: Optional[float] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Sets the `HVAC mode <https://docs.seam.co/capability-guides/thermostats/configure-current-climate-settings>`_ for a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_.
 
@@ -310,7 +297,9 @@ class AbstractThermostats(abc.ABC):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -318,10 +307,10 @@ class AbstractThermostats(abc.ABC):
         self,
         *,
         device_id: str,
-        lower_limit_celsius: Optional[float] = None,
-        lower_limit_fahrenheit: Optional[float] = None,
-        upper_limit_celsius: Optional[float] = None,
-        upper_limit_fahrenheit: Optional[float] = None
+        lower_limit_celsius: Optional[Union[float, Null]] = None,
+        lower_limit_fahrenheit: Optional[Union[float, Null]] = None,
+        upper_limit_celsius: Optional[Union[float, Null]] = None,
+        upper_limit_fahrenheit: Optional[Union[float, Null]] = None,
     ) -> None:
         """Sets a `temperature threshold <https://docs.seam.co/capability-guides/thermostats/setting-and-monitoring-temperature-thresholds>`_ for a specified thermostat. Seam emits a ``thermostat.temperature_threshold_exceeded`` event and adds a warning on a thermostat if it reports a temperature outside the threshold range.
 
@@ -334,7 +323,8 @@ class AbstractThermostats(abc.ABC):
         :param upper_limit_celsius: Upper temperature limit in in °C. Seam alerts you if the reported temperature is higher than this value. You can specify either ``upper_limit`` but not both.
 
         :param upper_limit_fahrenheit: Upper temperature limit in in °C. Seam alerts you if the reported temperature is higher than this value. You can specify either ``upper_limit`` but not both.
-        """
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -352,7 +342,7 @@ class AbstractThermostats(abc.ABC):
         heating_set_point_fahrenheit: Optional[float] = None,
         hvac_mode_setting: Optional[str] = None,
         manual_override_allowed: Optional[bool] = None,
-        name: Optional[str] = None
+        name: Optional[Union[str, Null]] = None,
     ) -> None:
         """Updates a specified `climate preset <https://docs.seam.co/capability-guides/thermostats/creating-and-managing-climate-presets>`_ for a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_.
 
@@ -379,7 +369,8 @@ class AbstractThermostats(abc.ABC):
         :param manual_override_allowed: Deprecated: Use 'thermostat_schedule.is_override_allowed' Indicates whether a person at the thermostat can change the thermostat's settings. See `Specifying Manual Override Permissions <https://docs.seam.co/capability-guides/thermostats/creating-and-managing-thermostat-schedules#specifying-manual-override-permissions>`_.
 
         :param name: User-friendly name to identify the `climate preset <https://docs.seam.co/capability-guides/thermostats/creating-and-managing-climate-presets>`_.
-        """
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -387,14 +378,14 @@ class AbstractThermostats(abc.ABC):
         self,
         *,
         device_id: str,
-        friday_program_id: Optional[str] = None,
-        monday_program_id: Optional[str] = None,
-        saturday_program_id: Optional[str] = None,
-        sunday_program_id: Optional[str] = None,
-        thursday_program_id: Optional[str] = None,
-        tuesday_program_id: Optional[str] = None,
-        wednesday_program_id: Optional[str] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        friday_program_id: Optional[Union[str, Null]] = None,
+        monday_program_id: Optional[Union[str, Null]] = None,
+        saturday_program_id: Optional[Union[str, Null]] = None,
+        sunday_program_id: Optional[Union[str, Null]] = None,
+        thursday_program_id: Optional[Union[str, Null]] = None,
+        tuesday_program_id: Optional[Union[str, Null]] = None,
+        wednesday_program_id: Optional[Union[str, Null]] = None,
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Updates the thermostat weekly program for a thermostat device. To configure a weekly program, specify the ID of the daily program that you want to use for each day of the week. When you update a weekly program, the set of programs that you specify overwrites any previous weekly program for the thermostat.
 
@@ -416,7 +407,9 @@ class AbstractThermostats(abc.ABC):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
 
@@ -442,12 +435,17 @@ class Thermostats(AbstractThermostats):
     def simulate(self) -> ThermostatsSimulate:
         return self._simulate
 
+    @route_metadata(
+        path="/thermostats/activate_climate_preset",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def activate_climate_preset(
         self,
         *,
         climate_preset_key: str,
         device_id: str,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Activates a specified `climate preset <https://docs.seam.co/capability-guides/thermostats/creating-and-managing-climate-presets>`_ for a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_.
 
@@ -457,13 +455,20 @@ class Thermostats(AbstractThermostats):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if climate_preset_key is not None:
             json_payload["climate_preset_key"] = climate_preset_key
         if device_id is not None:
             json_payload["device_id"] = device_id
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /thermostats/activate_climate_preset"
+            )
 
         res = self.client.post(
             "/thermostats/activate_climate_preset", json=json_payload
@@ -481,13 +486,16 @@ class Thermostats(AbstractThermostats):
             wait_for_action_attempt=wait_for_action_attempt,
         )
 
+    @route_metadata(
+        path="/thermostats/cool", has_required_parameters=True, has_pagination=False
+    )
     def cool(
         self,
         *,
         device_id: str,
         cooling_set_point_celsius: Optional[float] = None,
         cooling_set_point_fahrenheit: Optional[float] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Sets a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_ to `cool mode <https://docs.seam.co/capability-guides/thermostats/configure-current-climate-settings>`_.
 
@@ -499,8 +507,10 @@ class Thermostats(AbstractThermostats):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if device_id is not None:
             json_payload["device_id"] = device_id
@@ -508,6 +518,9 @@ class Thermostats(AbstractThermostats):
             json_payload["cooling_set_point_celsius"] = cooling_set_point_celsius
         if cooling_set_point_fahrenheit is not None:
             json_payload["cooling_set_point_fahrenheit"] = cooling_set_point_fahrenheit
+
+        if not json_payload:
+            raise ValueError("At least one parameter is required for /thermostats/cool")
 
         res = self.client.post("/thermostats/cool", json=json_payload)
 
@@ -523,6 +536,11 @@ class Thermostats(AbstractThermostats):
             wait_for_action_attempt=wait_for_action_attempt,
         )
 
+    @route_metadata(
+        path="/thermostats/create_climate_preset",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def create_climate_preset(
         self,
         *,
@@ -537,7 +555,7 @@ class Thermostats(AbstractThermostats):
         heating_set_point_fahrenheit: Optional[float] = None,
         hvac_mode_setting: Optional[str] = None,
         manual_override_allowed: Optional[bool] = None,
-        name: Optional[str] = None
+        name: Optional[Union[str, Null]] = None,
     ) -> None:
         """Creates a `climate preset <https://docs.seam.co/capability-guides/thermostats/creating-and-managing-climate-presets>`_ for a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_.
 
@@ -564,8 +582,9 @@ class Thermostats(AbstractThermostats):
         :param manual_override_allowed: Deprecated: Use 'thermostat_schedule.is_override_allowed' Indicates whether a person at the thermostat or using the API can change the thermostat's settings.
 
         :param name: User-friendly name to identify the `climate preset <https://docs.seam.co/capability-guides/thermostats/creating-and-managing-climate-presets>`_.
-        """
-        json_payload = {}
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if climate_preset_key is not None:
             json_payload["climate_preset_key"] = climate_preset_key
@@ -592,35 +611,54 @@ class Thermostats(AbstractThermostats):
         if name is not None:
             json_payload["name"] = name
 
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /thermostats/create_climate_preset"
+            )
+
         self.client.post("/thermostats/create_climate_preset", json=json_payload)
 
         return None
 
+    @route_metadata(
+        path="/thermostats/delete_climate_preset",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def delete_climate_preset(self, *, climate_preset_key: str, device_id: str) -> None:
         """Deletes a specified `climate preset <https://docs.seam.co/capability-guides/thermostats/creating-and-managing-climate-presets>`_ for a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_.
 
         :param climate_preset_key: Climate preset key of the climate preset that you want to delete.
 
         :param device_id: ID of the thermostat device for which you want to delete a climate preset.
-        """
-        json_payload = {}
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if climate_preset_key is not None:
-            json_payload["climate_preset_key"] = climate_preset_key
+            params["climate_preset_key"] = climate_preset_key
         if device_id is not None:
-            json_payload["device_id"] = device_id
+            params["device_id"] = device_id
 
-        self.client.post("/thermostats/delete_climate_preset", json=json_payload)
+        if not params:
+            raise ValueError(
+                "At least one parameter is required for /thermostats/delete_climate_preset"
+            )
+
+        self.client.delete("/thermostats/delete_climate_preset", params=params)
 
         return None
 
+    @route_metadata(
+        path="/thermostats/heat", has_required_parameters=True, has_pagination=False
+    )
     def heat(
         self,
         *,
         device_id: str,
         heating_set_point_celsius: Optional[float] = None,
         heating_set_point_fahrenheit: Optional[float] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Sets a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_ to `heat mode <https://docs.seam.co/capability-guides/thermostats/configure-current-climate-settings>`_.
 
@@ -632,8 +670,10 @@ class Thermostats(AbstractThermostats):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if device_id is not None:
             json_payload["device_id"] = device_id
@@ -641,6 +681,9 @@ class Thermostats(AbstractThermostats):
             json_payload["heating_set_point_celsius"] = heating_set_point_celsius
         if heating_set_point_fahrenheit is not None:
             json_payload["heating_set_point_fahrenheit"] = heating_set_point_fahrenheit
+
+        if not json_payload:
+            raise ValueError("At least one parameter is required for /thermostats/heat")
 
         res = self.client.post("/thermostats/heat", json=json_payload)
 
@@ -656,6 +699,11 @@ class Thermostats(AbstractThermostats):
             wait_for_action_attempt=wait_for_action_attempt,
         )
 
+    @route_metadata(
+        path="/thermostats/heat_cool",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def heat_cool(
         self,
         *,
@@ -664,7 +712,7 @@ class Thermostats(AbstractThermostats):
         cooling_set_point_fahrenheit: Optional[float] = None,
         heating_set_point_celsius: Optional[float] = None,
         heating_set_point_fahrenheit: Optional[float] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Sets a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_ to `heat-cool ("auto") mode <https://docs.seam.co/capability-guides/thermostats/configure-current-climate-settings>`_.
 
@@ -680,8 +728,10 @@ class Thermostats(AbstractThermostats):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if device_id is not None:
             json_payload["device_id"] = device_id
@@ -693,6 +743,11 @@ class Thermostats(AbstractThermostats):
             json_payload["heating_set_point_celsius"] = heating_set_point_celsius
         if heating_set_point_fahrenheit is not None:
             json_payload["heating_set_point_fahrenheit"] = heating_set_point_fahrenheit
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /thermostats/heat_cool"
+            )
 
         res = self.client.post("/thermostats/heat_cool", json=json_payload)
 
@@ -708,25 +763,18 @@ class Thermostats(AbstractThermostats):
             wait_for_action_attempt=wait_for_action_attempt,
         )
 
+    @route_metadata(
+        path="/thermostats/list", has_required_parameters=False, has_pagination=False
+    )
     def list(
         self,
         *,
         connect_webview_id: Optional[str] = None,
         connected_account_id: Optional[str] = None,
-        connected_account_ids: Optional[List[str]] = None,
-        created_before: Optional[str] = None,
-        custom_metadata_has: Optional[Dict[str, Any]] = None,
         customer_key: Optional[str] = None,
-        device_ids: Optional[List[str]] = None,
         device_type: Optional[str] = None,
         device_types: Optional[List[str]] = None,
-        limit: Optional[float] = None,
         manufacturer: Optional[str] = None,
-        page_cursor: Optional[str] = None,
-        search: Optional[str] = None,
-        space_id: Optional[str] = None,
-        unstable_location_id: Optional[str] = None,
-        user_identifier_key: Optional[str] = None
     ) -> List[Device]:
         """Returns a list of all `thermostats <https://docs.seam.co/capability-guides/thermostats>`_.
 
@@ -734,79 +782,42 @@ class Thermostats(AbstractThermostats):
 
         :param connected_account_id: ID of the connected account for which you want to list devices.
 
-        :param connected_account_ids: Array of IDs of the connected accounts for which you want to list devices.
-
-        :param created_before: Timestamp by which to limit returned devices. Returns devices created before this timestamp.
-
-        :param custom_metadata_has: Set of key:value `custom metadata <https://docs.seam.co/core-concepts/devices/adding-custom-metadata-to-a-device>`_ pairs for which you want to list devices.
-
         :param customer_key: Customer key for which you want to list devices.
-
-        :param device_ids: Array of device IDs for which you want to list devices.
 
         :param device_type: Device type by which you want to filter thermostat devices.
 
         :param device_types: Array of device types by which you want to filter thermostat devices.
 
-        :param limit: Numerical limit on the number of devices to return.
-
         :param manufacturer: Manufacturer by which you want to filter thermostat devices.
 
-        :param page_cursor: Identifies the specific page of results to return, obtained from the previous page's ``next_page_cursor``.
-
-        :param search: String for which to search. Filters returned devices to include all records that satisfy a partial match using ``device_id`` (full or partial UUID prefix, minimum 4 characters), ``connected_account_id``, ``display_name``, ``custom_metadata`` or ``location.location_name``.
-
-        :param space_id: ID of the space for which you want to list devices.
-
-        :param unstable_location_id: Deprecated: Use ``space_id``.
-
-        :param user_identifier_key: Your own internal user ID for the user for which you want to list devices.
-
         :returns: OK"""
-        json_payload = {}
+        json_payload: Dict[str, Any] = {}
 
         if connect_webview_id is not None:
             json_payload["connect_webview_id"] = connect_webview_id
         if connected_account_id is not None:
             json_payload["connected_account_id"] = connected_account_id
-        if connected_account_ids is not None:
-            json_payload["connected_account_ids"] = connected_account_ids
-        if created_before is not None:
-            json_payload["created_before"] = created_before
-        if custom_metadata_has is not None:
-            json_payload["custom_metadata_has"] = custom_metadata_has
         if customer_key is not None:
             json_payload["customer_key"] = customer_key
-        if device_ids is not None:
-            json_payload["device_ids"] = device_ids
         if device_type is not None:
             json_payload["device_type"] = device_type
         if device_types is not None:
             json_payload["device_types"] = device_types
-        if limit is not None:
-            json_payload["limit"] = limit
         if manufacturer is not None:
             json_payload["manufacturer"] = manufacturer
-        if page_cursor is not None:
-            json_payload["page_cursor"] = page_cursor
-        if search is not None:
-            json_payload["search"] = search
-        if space_id is not None:
-            json_payload["space_id"] = space_id
-        if unstable_location_id is not None:
-            json_payload["unstable_location_id"] = unstable_location_id
-        if user_identifier_key is not None:
-            json_payload["user_identifier_key"] = user_identifier_key
 
         res = self.client.post("/thermostats/list", json=json_payload)
 
         return [Device.from_dict(item) for item in res["devices"]]
 
+    @route_metadata(
+        path="/thermostats/off", has_required_parameters=True, has_pagination=False
+    )
     def off(
         self,
         *,
         device_id: str,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Sets a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_ to `"off" mode <https://docs.seam.co/capability-guides/thermostats/configure-current-climate-settings>`_.
 
@@ -814,11 +825,16 @@ class Thermostats(AbstractThermostats):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if device_id is not None:
             json_payload["device_id"] = device_id
+
+        if not json_payload:
+            raise ValueError("At least one parameter is required for /thermostats/off")
 
         res = self.client.post("/thermostats/off", json=json_payload)
 
@@ -834,6 +850,11 @@ class Thermostats(AbstractThermostats):
             wait_for_action_attempt=wait_for_action_attempt,
         )
 
+    @route_metadata(
+        path="/thermostats/set_fallback_climate_preset",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def set_fallback_climate_preset(
         self, *, climate_preset_key: str, device_id: str
     ) -> None:
@@ -842,25 +863,36 @@ class Thermostats(AbstractThermostats):
         :param climate_preset_key: Climate preset key of the climate preset that you want to set as the fallback climate preset.
 
         :param device_id: ID of the thermostat device for which you want to set the fallback climate preset.
-        """
-        json_payload = {}
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if climate_preset_key is not None:
             json_payload["climate_preset_key"] = climate_preset_key
         if device_id is not None:
             json_payload["device_id"] = device_id
 
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /thermostats/set_fallback_climate_preset"
+            )
+
         self.client.post("/thermostats/set_fallback_climate_preset", json=json_payload)
 
         return None
 
+    @route_metadata(
+        path="/thermostats/set_fan_mode",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def set_fan_mode(
         self,
         *,
         device_id: str,
         fan_mode: Optional[str] = None,
         fan_mode_setting: Optional[str] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Sets the `fan mode setting <https://docs.seam.co/capability-guides/thermostats/configure-current-climate-settings#fan-mode-settings>`_ for a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_.
 
@@ -872,8 +904,10 @@ class Thermostats(AbstractThermostats):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if device_id is not None:
             json_payload["device_id"] = device_id
@@ -881,6 +915,11 @@ class Thermostats(AbstractThermostats):
             json_payload["fan_mode"] = fan_mode
         if fan_mode_setting is not None:
             json_payload["fan_mode_setting"] = fan_mode_setting
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /thermostats/set_fan_mode"
+            )
 
         res = self.client.post("/thermostats/set_fan_mode", json=json_payload)
 
@@ -896,6 +935,11 @@ class Thermostats(AbstractThermostats):
             wait_for_action_attempt=wait_for_action_attempt,
         )
 
+    @route_metadata(
+        path="/thermostats/set_hvac_mode",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def set_hvac_mode(
         self,
         *,
@@ -905,7 +949,7 @@ class Thermostats(AbstractThermostats):
         cooling_set_point_fahrenheit: Optional[float] = None,
         heating_set_point_celsius: Optional[float] = None,
         heating_set_point_fahrenheit: Optional[float] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Sets the `HVAC mode <https://docs.seam.co/capability-guides/thermostats/configure-current-climate-settings>`_ for a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_.
 
@@ -923,8 +967,10 @@ class Thermostats(AbstractThermostats):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if device_id is not None:
             json_payload["device_id"] = device_id
@@ -938,6 +984,11 @@ class Thermostats(AbstractThermostats):
             json_payload["heating_set_point_celsius"] = heating_set_point_celsius
         if heating_set_point_fahrenheit is not None:
             json_payload["heating_set_point_fahrenheit"] = heating_set_point_fahrenheit
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /thermostats/set_hvac_mode"
+            )
 
         res = self.client.post("/thermostats/set_hvac_mode", json=json_payload)
 
@@ -953,14 +1004,19 @@ class Thermostats(AbstractThermostats):
             wait_for_action_attempt=wait_for_action_attempt,
         )
 
+    @route_metadata(
+        path="/thermostats/set_temperature_threshold",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def set_temperature_threshold(
         self,
         *,
         device_id: str,
-        lower_limit_celsius: Optional[float] = None,
-        lower_limit_fahrenheit: Optional[float] = None,
-        upper_limit_celsius: Optional[float] = None,
-        upper_limit_fahrenheit: Optional[float] = None
+        lower_limit_celsius: Optional[Union[float, Null]] = None,
+        lower_limit_fahrenheit: Optional[Union[float, Null]] = None,
+        upper_limit_celsius: Optional[Union[float, Null]] = None,
+        upper_limit_fahrenheit: Optional[Union[float, Null]] = None,
     ) -> None:
         """Sets a `temperature threshold <https://docs.seam.co/capability-guides/thermostats/setting-and-monitoring-temperature-thresholds>`_ for a specified thermostat. Seam emits a ``thermostat.temperature_threshold_exceeded`` event and adds a warning on a thermostat if it reports a temperature outside the threshold range.
 
@@ -973,8 +1029,9 @@ class Thermostats(AbstractThermostats):
         :param upper_limit_celsius: Upper temperature limit in in °C. Seam alerts you if the reported temperature is higher than this value. You can specify either ``upper_limit`` but not both.
 
         :param upper_limit_fahrenheit: Upper temperature limit in in °C. Seam alerts you if the reported temperature is higher than this value. You can specify either ``upper_limit`` but not both.
-        """
-        json_payload = {}
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if device_id is not None:
             json_payload["device_id"] = device_id
@@ -987,10 +1044,20 @@ class Thermostats(AbstractThermostats):
         if upper_limit_fahrenheit is not None:
             json_payload["upper_limit_fahrenheit"] = upper_limit_fahrenheit
 
-        self.client.post("/thermostats/set_temperature_threshold", json=json_payload)
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /thermostats/set_temperature_threshold"
+            )
+
+        self.client.patch("/thermostats/set_temperature_threshold", json=json_payload)
 
         return None
 
+    @route_metadata(
+        path="/thermostats/update_climate_preset",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def update_climate_preset(
         self,
         *,
@@ -1005,7 +1072,7 @@ class Thermostats(AbstractThermostats):
         heating_set_point_fahrenheit: Optional[float] = None,
         hvac_mode_setting: Optional[str] = None,
         manual_override_allowed: Optional[bool] = None,
-        name: Optional[str] = None
+        name: Optional[Union[str, Null]] = None,
     ) -> None:
         """Updates a specified `climate preset <https://docs.seam.co/capability-guides/thermostats/creating-and-managing-climate-presets>`_ for a specified `thermostat <https://docs.seam.co/capability-guides/thermostats>`_.
 
@@ -1032,8 +1099,9 @@ class Thermostats(AbstractThermostats):
         :param manual_override_allowed: Deprecated: Use 'thermostat_schedule.is_override_allowed' Indicates whether a person at the thermostat can change the thermostat's settings. See `Specifying Manual Override Permissions <https://docs.seam.co/capability-guides/thermostats/creating-and-managing-thermostat-schedules#specifying-manual-override-permissions>`_.
 
         :param name: User-friendly name to identify the `climate preset <https://docs.seam.co/capability-guides/thermostats/creating-and-managing-climate-presets>`_.
-        """
-        json_payload = {}
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if climate_preset_key is not None:
             json_payload["climate_preset_key"] = climate_preset_key
@@ -1060,22 +1128,32 @@ class Thermostats(AbstractThermostats):
         if name is not None:
             json_payload["name"] = name
 
-        self.client.post("/thermostats/update_climate_preset", json=json_payload)
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /thermostats/update_climate_preset"
+            )
+
+        self.client.patch("/thermostats/update_climate_preset", json=json_payload)
 
         return None
 
+    @route_metadata(
+        path="/thermostats/update_weekly_program",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def update_weekly_program(
         self,
         *,
         device_id: str,
-        friday_program_id: Optional[str] = None,
-        monday_program_id: Optional[str] = None,
-        saturday_program_id: Optional[str] = None,
-        sunday_program_id: Optional[str] = None,
-        thursday_program_id: Optional[str] = None,
-        tuesday_program_id: Optional[str] = None,
-        wednesday_program_id: Optional[str] = None,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        friday_program_id: Optional[Union[str, Null]] = None,
+        monday_program_id: Optional[Union[str, Null]] = None,
+        saturday_program_id: Optional[Union[str, Null]] = None,
+        sunday_program_id: Optional[Union[str, Null]] = None,
+        thursday_program_id: Optional[Union[str, Null]] = None,
+        tuesday_program_id: Optional[Union[str, Null]] = None,
+        wednesday_program_id: Optional[Union[str, Null]] = None,
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Updates the thermostat weekly program for a thermostat device. To configure a weekly program, specify the ID of the daily program that you want to use for each day of the week. When you update a weekly program, the set of programs that you specify overwrites any previous weekly program for the thermostat.
 
@@ -1097,8 +1175,10 @@ class Thermostats(AbstractThermostats):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if device_id is not None:
             json_payload["device_id"] = device_id
@@ -1116,6 +1196,11 @@ class Thermostats(AbstractThermostats):
             json_payload["tuesday_program_id"] = tuesday_program_id
         if wednesday_program_id is not None:
             json_payload["wednesday_program_id"] = wednesday_program_id
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /thermostats/update_weekly_program"
+            )
 
         res = self.client.post("/thermostats/update_weekly_program", json=json_payload)
 

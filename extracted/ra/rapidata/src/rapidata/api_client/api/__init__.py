@@ -28,6 +28,7 @@ from rapidata.api_client.api.flow_api import FlowApi
 from rapidata.api_client.api.flow_item_api import FlowItemApi
 from rapidata.api_client.api.global_text_api import GlobalTextApi
 from rapidata.api_client.api.grouped_ranking_api import GroupedRankingApi
+from rapidata.api_client.api.hugging_face_sync_api import HuggingFaceSyncApi
 from rapidata.api_client.api.identity_api import IdentityApi
 from rapidata.api_client.api.invoice_api import InvoiceApi
 from rapidata.api_client.api.job_api import JobApi
@@ -41,6 +42,7 @@ from rapidata.api_client.api.payment_api import PaymentApi
 from rapidata.api_client.api.pipeline_api import PipelineApi
 from rapidata.api_client.api.platform_api import PlatformApi
 from rapidata.api_client.api.prompt_api import PromptApi
+from rapidata.api_client.api.prompt_embedding_map_api import PromptEmbeddingMapApi
 from rapidata.api_client.api.ranking_api import RankingApi
 from rapidata.api_client.api.ranking_flow_api import RankingFlowApi
 from rapidata.api_client.api.ranking_flow_item_api import RankingFlowItemApi

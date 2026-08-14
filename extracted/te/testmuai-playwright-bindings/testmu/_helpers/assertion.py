@@ -65,6 +65,10 @@ async def _resolve_sub_checks(sub_checks):
             "extracted_value": await _resolve(raw_extracted),
             "operator": sc.get("operator") or "contains",
             "transforms": sc.get("transforms") or ["strip"],
+            # The json_path TRANSFORM is a no-op without its path argument
+            # (evaluation/_core.py gates on it) — dropping the key here turned
+            # every json_path derivation into a whole-value compare at replay.
+            "json_path": sc.get("json_path"),
         })
     return result
 

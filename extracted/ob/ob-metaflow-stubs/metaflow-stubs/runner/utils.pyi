@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-07-23T20:46:33.286682                                                            #
+# Generated on 2026-08-13T18:38:42.591427                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.runner.click_api
-    import typing
     import metaflow.runner.subprocess_manager
+    import typing
+    import metaflow.runner.click_api
 
 
 TYPE_CHECKING: bool

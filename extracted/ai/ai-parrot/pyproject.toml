@@ -1,0 +1,711 @@
+[build-system]
+requires = [
+    "setuptools>=77.0.0",
+    "Cython==3.0.11",
+    "wheel>=0.44.0"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-parrot"
+dynamic = ["version"]
+description = "Framework for building AI agents for Navigator"
+authors = [
+    {name = "Jesus Lara", email = "jesuslara@phenobarbital.info"}
+]
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+keywords = ["asyncio", "asyncpg", "aioredis", "aiomcache", "artificial intelligence", "ai", "chatbot", "agents"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Environment :: Web Environment",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
+    "Framework :: AsyncIO",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    # Build tools
+    "Cython==3.0.11",
+    # Core data / utilities
+    "tabulate==0.9.0",
+    "markdown2==2.5.4",
+    "beautifulsoup4>=4.12",
+    "nh3>=0.2.14",
+    "python-datamodel>=0.10.17",
+    "backoff==2.2.1",
+    # parrot.clients.base → clients/gpt.py imports tenacity unconditionally,
+    # so it must be a core dependency (a bare install could not import
+    # parrot.clients without it).
+    "tenacity>=8.2",
+    "typing-extensions>=4.14.1,<5",
+    "pydantic==2.12.5",
+    "PyYAML>=6.0.2",
+    "python-frontmatter>=1.1.0",
+    "xmltodict>=0.14.2",
+    "tiktoken>=0.9.0",
+    "psutil>=5.9",
+    # Text splitters live in core (parrot.loaders.splitters) — Rust-backed
+    # chunking used by AbstractLoader. Moved here from ai-parrot-loaders to
+    # break the circular import (loaders depends on core).
+    "semantic-text-splitter>=0.30,<1.0",
+    # Navigator stack (core)
+    "navconfig[default]>=2.2.2",
+    # navigator-auth<=0.20.9 passes a `PolicyEffect` enum (not a str) to the
+    # rs_pep Rust engine's `default_effect` arg, causing every ABAC/PBAC
+    # evaluation to fail-closed with a PyO3 TypeError. Require >0.20.9.
+    "navigator-auth>0.20.9",
+    "navigator-session>=0.6.5",
+    # navigator-api 3.0.3+ ships the FileManager interface AI-Parrot relies on.
+    # 3.1.2 also fixes the aiohttp RequestHandler kwargs warning (invalid
+    # client_timeout/max_request_size were silently dropping every custom
+    # server setting). Pin to 3.1.2 to prevent silent downgrades and to
+    # guarantee that fix is present.
+    "navigator-api[uvloop,locale,google]>=3.1.2",
+    # Async DB — base only (asyncpg, aiosqlite, pandas, pgvector)
+    "asyncdb>=2.11.6",
+    # AgentsFlow state checkpointing (FEAT-399) — binary checkpoint encoding,
+    # native Pydantic/datetime/UUID serialization; never pickle.
+    "ormsgpack>=1.5",
+    # HTTP / networking
+    "rich>=13.0",
+    # requests is otherwise transitive; pin to the 2.33 series — the intersection
+    # of flowtask 5.12.3 (>=2.33.0) and arxiv>=3.0.0 (<2.34).
+    "requests>=2.33,<2.34",
+    "click>=8.1.7",
+    "prompt_toolkit>=3.0",
+    "aiohttp-swagger3==0.10.0",
+    "aiohttp-sse-client==0.2.1",
+    "aiohttp-cors>=0.8.1",
+    "brotli==1.2.0",
+    "urllib3==2.7.0",
+    # aioquic and pylsqpack moved to ai-parrot-server[mcp] extra in FEAT-203
+    # API / OpenAPI tools
+    "prance>=25.4.8.0",
+    "openapi-schema-validator==0.6.3",
+    "openapi-spec-validator>=0.7.1",
+    # async-notify minimal — full notification backends moved to ai-parrot-integrations[messaging]
+    "ddgs>=9.5.2",
+    # State machine / workflow (core)
+    "python-statemachine==2.5.0",
+    "cel-python>=0.4",
+    "questionary>=2.1.1",
+    # Pandas stays in core (owner decision)
+    "pandas>=2.0.0",
+    # Code-review fix (FEAT-380 sandbox-hardening, post-TASK-1945):
+    # `repl_worker/transport.py` (Arrow IPC/shm DataFrame transport, the
+    # PRIMARY path `PythonPandasTool._get_worker_handle()` uses to seed
+    # every DataFrame into the worker) imports `pyarrow` unconditionally.
+    # It's a lazy, function-local import (only paid for when
+    # `inject_dataframe()` actually runs), but that's still the default
+    # DataFrame-injection path — an undeclared dependency there means a
+    # bare `pip install ai-parrot` breaks the tool at first use instead of
+    # at install time. Same floor pin as ai-parrot-server (FEAT-327).
+    "pyarrow>=25.0",
+    # SQL validation for DatabaseToolkit (FEAT-062)
+    "sqlglot>=20.0",
+    "numexpr==2.10.2",
+    # Episodic memory default backend (FAISS) — required whenever an agent
+    # enables episodic memory without an explicit pgvector DSN.
+    "faiss-cpu>=1.9.0",
+    "navigator-eventbus>=0.2.1",
+]
+
+[project.scripts]
+parrot = "parrot.cli:cli"
+# GraphIndex CLI — build an interactive knowledge graph from a code repo.
+parrot-graphindex = "parrot.knowledge.graphindex.cli:main"
+# LLM Wiki CLI — machine-first codebase KB for coding assistants (FEAT-260).
+wikitoolkit = "parrot.knowledge.wiki.cli:main"
+# parrot-fs moved to ai-parrot-server in FEAT-203
+
+[project.optional-dependencies]
+# ---------------------------------------------------------------------------
+# Extras groups (from FEAT-056 — runtime-dependency-reduction)
+# ---------------------------------------------------------------------------
+
+# All notification backends (msgraph, twilio, o365, etc.)
+notify-all = [
+    "async-notify[all]>=1.4.2",
+]
+
+# Database / query tools (querysource, psycopg, advanced asyncdb extras)
+db = [
+    "querysource>=4.1.11",
+    "psycopg-binary==3.2.6",
+    "jq==1.7.0",
+    "asyncdb[bigquery,mongodb,arangodb,influxdb,boto3,sqlalchemy]>=2.12.0",
+]
+
+# Google BigQuery specific
+bigquery = [
+    "google-cloud-bigquery>=3.30.0",
+]
+
+# PDF / document generation and conversion
+pdf = [
+    "weasyprint==69.0",
+    "fpdf==1.7.2",
+    "markdownify>=1.2.2",
+    "python-docx==1.1.2",
+]
+
+# OCR (requires tesseract system package)
+ocr = [
+    "pytesseract>=0.3.13",
+]
+
+# Audio processing (requires ffmpeg)
+audio = [
+    "pydub==0.25.1",
+]
+
+# Financial analysis (ta-lib requires libta-lib-dev)
+finance = [
+    "ta-lib==0.6.8",
+    "pandas-datareader>=0.10.0",
+]
+
+# FlowtTask DAG execution (pulls asyncdb[all] — heavy)
+# 5.12.3 relaxes its requests pin (==2.32.4 -> >=2.33.0), compatible with
+# the workspace's requests>=2.33,<2.34 pin (intersection with arxiv>=3.0.0).
+flowtask = [
+    "flowtask>=5.12.3",
+]
+
+# GraphIndex knowledge graph indexing (FEAT-187)
+# Note: faiss-cpu is already in core dependencies — not included here
+graphindex = [
+    "rustworkx>=0.15",
+    "tree-sitter>=0.23",
+    "tree-sitter-languages>=1.10",
+    "pathspec>=0.12",
+    "aiosqlite>=0.17",
+    "orjson>=3.9",
+]
+
+# LLM Wiki pluggable per-language scanners (FEAT-394) — accurate
+# tree-sitter outlines for PHP/JS/TS/Rust `wikitoolkit build` plugins.
+# Optional: every plugin degrades to a stdlib-only heuristic when this
+# extra is not installed, so core install gains zero new dependencies.
+# Individual grammar wheels (not `tree-sitter-languages`, which is
+# effectively unmaintained and incompatible with `tree-sitter>=0.23` on
+# newer Pythons per the graphindex extra's own precedent) — each ships
+# `abi3` wheels covering py3.10-3.12, verified on PyPI 2026-07-31,
+# following the `tree_sitter_python` pattern already used by graphindex.
+wiki-languages = [
+    "tree-sitter>=0.23",
+    "tree-sitter-php>=0.23",
+    "tree-sitter-typescript>=0.23",
+    "tree-sitter-javascript>=0.23",
+    "tree-sitter-rust>=0.23",
+]
+
+# Leiden community detection for GraphIndex (FEAT-401) — guarantees
+# internally well-connected communities, unlike Louvain. `python-igraph`
+# is a C library (~15 MB installed); kept opt-in like `graphindex` and
+# `wiki-languages` above. `detect_communities()` falls back to Louvain
+# with a logged warning when this extra is not installed.
+leiden = [
+    "leidenalg>=0.10",
+    "python-igraph>=0.10",
+]
+
+# Task scheduling moved to ai-parrot-server[scheduler] in FEAT-203
+# scheduler = ["apscheduler==3.11.2"]  # use ai-parrot-server[scheduler] instead
+
+# Server layer — all server infrastructure via satellite (FEAT-203)
+server = [
+    "ai-parrot-server[all]",
+]
+
+# ArangoDB graph database — MOVED to ai-parrot-embeddings[arango]
+# arango extra removed in FEAT-201; use ai-parrot-embeddings[arango] instead
+
+# Reddit API
+reddit = [
+    "praw>=7.8.1",
+]
+
+# Sparse retrieval / BM25 (embeddings helper)
+retrieval = [
+    "rank_bm25==0.2.2",
+]
+
+# Sentence-piece tokenizer (embeddings helper)
+tokenizer = [
+    "sentencepiece==0.2.1",
+]
+
+# ---------------------------------------------------------------------------
+# Pre-existing extras groups (preserved as-is)
+# ---------------------------------------------------------------------------
+agents = [
+    "sentence_transformers>=5.3.0",
+    "yfinance==0.2.54",
+    "youtube_search==2.1.2",
+    "wikipedia==1.4.0",
+    "mediawikiapi==1.2",
+    "pyowm==3.3.0",
+    "stackapi==0.3.1",
+    "duckduckgo-search==8.1.1",
+    "google-search-results==2.4.2",
+    "google-api-python-client>=2.151.0",
+    "networkx>=3.0",
+    "decorator>=5",
+    "autoviz==0.1.905",
+    "spacy==3.8.11",
+    "html2text==2025.4.15",
+    "httpx-sse==0.4.1",
+    "mcp>=1.28.1,<2",
+    "sse-starlette==3.0.2",
+    "requests-oauthlib==2.0.0",
+    "undetected-chromedriver==3.5.5",
+    "selenium==4.35.0",
+    "playwright==1.52.0",
+    "jira==3.10.5",
+    "arxiv>=3.0.0",
+    "docker==7.1.0",
+    "aiogoogle==5.17.0",
+    "rq==2.6.0",
+    "zeep[async]==4.3.3",
+    "branca==0.8.2",
+    "webdriver-manager==4.0.2",
+    "prophet==1.2.1",
+    "opensearch-py==3.1.0",
+    "python-pptx==1.0.2",
+    "markdownify>=1.2.2",
+    "python-docx==1.1.2",
+    "pymupdf==1.27.1",
+    "pymupdf4llm==0.0.27",
+    "pdf4llm==0.0.27",
+    "alpaca-py>=0.43.2",
+    "defillama-sdk>=0.1.0",
+    "pandas-ta-classic>=0.3.59",
+    "TA-Lib>=0.4.32",
+    "aioimaplib>=1.1.0",
+    "gmqtt>=0.6.15",
+    "azure-identity>=1.18.0",
+    "msgraph-sdk>=1.8.0",
+    "microsoft-kiota-authentication-azure>=1.2.0",
+    "jinja2>=3.1",
+    "xhtml2pdf>=0.2.17",
+]
+
+charts = [
+    "ai-parrot-visualizations[charts,infographic]",
+]
+
+# Lightweight agents (no spacy, prophet, autoviz, playwright - they compile from source)
+agents-lite = [
+    "yfinance==0.2.54",
+    "youtube_search==2.1.2",
+    "wikipedia==1.4.0",
+    "mediawikiapi==1.2",
+    "pyowm==3.3.0",
+    "stackapi==0.3.1",
+    "duckduckgo-search==8.1.1",
+    "google-search-results==2.4.2",
+    "google-api-python-client>=2.151.0",
+    "networkx>=3.0",
+    "decorator>=5",
+    "html2text==2025.4.15",
+    "httpx-sse==0.4.1",
+    "mcp>=1.28.1,<2",
+    "sse-starlette==3.0.2",
+    "requests-oauthlib==2.0.0",
+    "jira==3.10.5",
+    "arxiv>=3.0.0",
+    "docker==7.1.0",
+    "aiogoogle==5.17.0",
+    "rq==2.6.0",
+    "zeep[async]==4.3.3",
+    "branca==0.8.2",
+    "opensearch-py==3.1.0",
+]
+
+# Embeddings extra MOVED to ai-parrot-embeddings (FEAT-201).
+# Use: pip install ai-parrot-embeddings[huggingface,faiss,pgvector,chroma]
+# embeddings extra removed from host in FEAT-201.
+
+mcp = [
+    "google-genai>=2.10.0",
+    "openai==2.41.0",
+    "yfinance==0.2.54",
+    "youtube_search==2.1.2",
+    "wikipedia==1.4.0",
+    "mediawikiapi==1.2",
+    "pyowm==3.3.0",
+    "stackapi==0.3.1",
+    "duckduckgo-search==8.1.1",
+    "google-search-results==2.4.2",
+    "google-api-python-client>=2.151.0",
+    "networkx>=3.0",
+    "decorator>=5",
+    "html2text==2025.4.15",
+    "httpx-sse==0.4.1",
+    "mcp>=1.28.1,<2",
+    "sse-starlette==3.0.2",
+    "requests-oauthlib==2.0.0",
+    "jira==3.10.5",
+    "arxiv>=3.0.0",
+    "docker==7.1.0",
+    "aiogoogle==5.17.0",
+    "rq==2.6.0",
+    "zeep[async]==4.3.3",
+    "branca==0.8.2",
+    "opensearch-py==3.1.0",
+]
+
+# NOTE: torchvision/transformers are aligned with whisperx 3.8.5 so that
+# `audio` (ai-parrot-loaders) and `images` can coexist on the same server.
+# whisperx 3.8.5 pins `torchvision~=0.23.0` and `huggingface-hub<1.0`
+# (which blocks transformers>=5.0). For Gemma 4 / transformers 5.x workloads
+# use the mutually-exclusive `gemma4` extra on a separate environment.
+images = [
+    "torchvision>=0.23.0,<0.24",
+    "timm==1.0.15",
+    "ultralytics==8.4.14",
+    "albumentations==2.0.6",
+    "filetype==1.2.0",
+    "imagehash==4.3.1",
+    # pgvector moved to ai-parrot-embeddings[pgvector] in FEAT-201
+    "pyheif==0.8.0",
+    "exif==1.6.1",
+    "pillow-avif-plugin==1.5.2",
+    "pillow-heif>=0.22.0",  # lowered: flowtask pins ==0.22.0
+    "python-xmp-toolkit==2.1.0",
+    "exifread==3.5.1",
+    "transformers>=4.48.0,<5.0",
+    "ffmpeg==1.4",
+    "ipywidgets==8.1.0",
+]
+
+anthropic = [
+    "anthropic[aiohttp]>=0.109.0,<1.0.0",
+]
+
+# FIX-2: Bedrock extra is opt-in; pulls boto3+botocore (~30 MB) only for users
+# who actually deploy via AWS Bedrock.  The `anthropic` extra stays clean for
+# direct-API users.
+bedrock = [
+    "anthropic[aiohttp,aws]>=0.109.0,<1.0.0",
+]
+
+# FEAT-302: native Bedrock Converse API client (BedrockConverseClient) —
+# opt-in extra pulling aioboto3, distinct from the `bedrock` extra above
+# (anthropic[aws], used by AnthropicClient's Bedrock backend, FEAT-232).
+# Named `bedrock-native` per the spec (sdd/specs/bedrock-client-llm.spec.md
+# Module 6 / Acceptance Criteria) — NOT the same as the `bedrock-converse`
+# factory/client_type key (parrot.clients.factory.SUPPORTED_CLIENTS,
+# BedrockConverseClient.client_type), which is unrelated and unchanged.
+bedrock-native = [
+    # OVERRIDE (2026-08-05): floor lowered from >=15.1.0 to >=13.2.0 to
+    # unblock Python 3.12+/3.13 — asyncdb[boto3] pins aioboto3==13.2.0 and
+    # the two extras are mutually exclusive at >=15.1.0.  All Bedrock Runtime
+    # APIs used by BedrockConverseClient (converse, converse_stream,
+    # apply_guardrail, invoke_model) are present in botocore >=1.35.16
+    # (shipped with aioboto3 13.2.0).  The only feature lost on <15.1.0 is
+    # bearer-token auth (AWS_BEARER_TOKEN_BEDROCK env var); the client's
+    # aws_bearer_token path silently no-ops on older botocore, so IAM keys /
+    # STS / instance-role / SSO auth all work normally.
+    # TODO: restore >=15.1.0 once asyncdb unpins aioboto3.
+    "aioboto3>=13.2.0",
+]
+
+claude-agent = [
+    "claude-agent-sdk>=0.1.68",
+]
+
+openai = [
+    "openai==2.41.0",
+    "tiktoken==0.9.0"
+]
+
+google = [
+    "google-api-python-client>=2.166.0,<=2.177.0",
+    "google-cloud-texttospeech==2.27.0",
+    "google-genai>=2.10.0",
+    "google-cloud-aiplatform>=1.153.0",
+]
+
+groq = [
+    "groq==0.33.0"
+]
+
+zai = [
+    "zai-sdk>=0.2.3"
+]
+
+llms = [
+    "google-genai>=2.10.0",
+    "openai==2.41.0",
+    "groq==0.33.0",
+    # FIX-2: include both direct-API and Bedrock SDK so that `llms` covers all
+    # Anthropic transports; bedrock pulls anthropic[aiohttp,aws] (boto3 stack).
+    "ai-parrot[anthropic,bedrock]",
+    "claude-agent-sdk>=0.1.68",
+    "xai-sdk>=1.12.0",
+    "zai-sdk>=0.2.3",
+]
+
+integrations = [
+    "querysource>=4.1.11",
+    "async-notify[all]>=1.5.2",
+    # azure-teambots moved to ai-parrot-integrations[msteams]
+]
+
+# FEAT-310/FEAT-317: gRPC ingress adapter now lives in navigator-eventbus
+# (parrot.core.events.bus.ingress moved there in phase 1). Pull the
+# package's own grpc extra so grpcio/grpcio-tools versions stay in lockstep
+# with the committed pb2 gencode it ships.
+grpc = [
+    "navigator-eventbus[grpc]",
+]
+
+# milvus extra MOVED to ai-parrot-embeddings[milvus] in FEAT-201.
+# chroma extra MOVED to ai-parrot-embeddings[chroma] in FEAT-201.
+
+eda = [
+    # ydata-profiling removed: 4.16.x pins numpy<2.2 (clashes with loaders),
+    # 4.18+ / data-profiling 4.19 pins pyyaml>=6.0.3 (clashes with paddlex).
+    # Re-add once upstream rename stabilizes and pyyaml is relaxed.
+    "sweetviz==2.1.4",
+]
+
+security = [
+    # `gguf` extra dropped: it pulls llama-cpp-python (native compile) only to
+    # load GGUF models via llama.cpp, but we only use the deBERTa detector
+    # (torch/transformers). See abstract.py PromptInjectionDetector("deberta").
+    "pytector==0.2.0",
+]
+
+xai = [
+    "xai-sdk>=1.12.0",
+]
+
+# WARNING: `gemma4` is MUTUALLY EXCLUSIVE with `audio` / `ml-heavy` / `images`.
+# Gemma 4 requires transformers>=5.0 + huggingface_hub>=1.0 + torch 2.11,
+# but whisperx 3.8.5 (used by the audio pipeline) pins huggingface-hub<1.0
+# and torch~=2.8.0. Install this extra in a dedicated environment.
+gemma4 = [
+    "transformers>=5.0.0",
+    "torch>=2.13.0",
+    "accelerate>=1.9.0",
+]
+
+deploy = [
+    "gunicorn>=23.0.0",
+]
+
+docling = [
+    "docling[tesserocr]>=2.74.0",
+]
+
+filesystem-transport = [
+    "aiofiles>=23.0",
+]
+
+filesystem-transport-full = [
+    "aiofiles>=23.0",
+    "watchdog>=4.0",
+    "rich>=13.0",
+    "click>=8.0",
+]
+
+# matrix extra moved to ai-parrot-integrations[matrix]
+
+# Meta-extra for messaging channels (backward-compat alias)
+messaging = [
+    "ai-parrot-integrations[messaging]",
+]
+
+# OpenTelemetry distributed tracing (FEAT-176 — lifecycle events)
+otel = [
+    "opentelemetry-api>=1.25,<2.0",
+    "opentelemetry-sdk>=1.25,<2.0",
+]
+
+# Full observability stack (FEAT-177 — spans + metrics + cost + OTLP exporters)
+observability = [
+    "opentelemetry-api>=1.25,<2.0",
+    "opentelemetry-sdk>=1.25,<2.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.25,<2.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.25,<2.0",
+]
+
+# Optional OpenLIT auto-instrumentation (FEAT-177 — opt-in via enable_openlit=True)
+# NOTE: floor pinned to 1.40 — older openlit releases pin tiktoken<0.7 and
+# xmltodict<0.13, which conflict with the core deps (tiktoken>=0.9.0,
+# xmltodict>=0.14.2) and the flowtask extra. 1.40+ drops the tiktoken pin and
+# accepts xmltodict<1.0.
+observability-openlit = [
+    "openlit>=1.40.0",
+]
+
+# Optional OpenLLMetry (Traceloop) backend (opt-in via enable_traceloop=True).
+# A simple, content-rich local/dev tracing path. Mutually exclusive with OpenLIT
+# at runtime. The Traceloop.init params used (app_name, api_endpoint, api_key,
+# disable_batch, telemetry_enabled, resource_attributes, headers) are stable
+# across the traceloop-sdk 0.x line; floor pinned to avoid the pre-0.30 API.
+observability-traceloop = [
+    "traceloop-sdk>=0.40.0,<1.0",
+]
+
+# Pluggable usage-logging: Prometheus backend (pull-based metrics + cost).
+# The default "logging" usage backend needs NO extra — it uses stdlib logging.
+observability-prometheus = [
+    "prometheus-client>=0.20,<1.0",
+]
+
+# Developer / CI tooling (not shipped to end users)
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "pytest-benchmark>=4.0",
+    "ruff>=0.4",
+    # FEAT-322 TASK-1850: reducer/host property tests (fold invariant,
+    # totality, arbitration, expiry). The spec's contract claimed this was
+    # "already used in repo tests" — verified absent in-tree; added here.
+    "hypothesis>=6.100",
+]
+
+# Remote tool executors (parrot.tools.executors). Pulls the optional
+# kubernetes_asyncio client used by K8sToolExecutor. The Qworker HTTP
+# transport falls back to plain aiohttp (already a core dependency)
+# when the proprietary qclient/qworker package is not installed; the
+# Redis transport uses the existing ``redis.asyncio`` already shipped
+# via the agents extra.
+remote-tools = [
+    "kubernetes_asyncio>=29.0.0",
+    "aiodocker>=0.24.0",
+]
+
+# Visualizations satellite — heavy chart/infographic renderers (FEAT-200)
+# Use: pip install ai-parrot[visualizations] to pull the satellite with all renderers.
+visualizations = [
+    "ai-parrot-visualizations[all]",
+]
+
+# Convenience groups
+# Note: embeddings/milvus/chroma/arango extras moved to ai-parrot-embeddings in FEAT-201.
+# ai-parrot-embeddings[all] covers all moved backends.
+# Note: chart/infographic/visualization renderers moved to ai-parrot-visualizations in FEAT-200.
+# Note: scheduler extra and server layer moved to ai-parrot-server in FEAT-203.
+all = [
+    "ai-parrot[agents,images,llms,integrations,db,bigquery,pdf,ocr,audio,finance,flowtask,reddit,mcp,charts,docling,visualizations]",
+    "ai-parrot-embeddings[all]",
+    "ai-parrot-integrations[all]",
+    "ai-parrot-server[all]",
+]
+
+# all-fast: lightweight embedding stack via satellite
+all-fast = [
+    "ai-parrot[agents-lite,llms,integrations]",
+    "ai-parrot-embeddings[huggingface,faiss,pgvector]",
+]
+
+[project.urls]
+Homepage = "https://github.com/phenobarbital/ai-parrot"
+Source = "https://github.com/phenobarbital/ai-parrot"
+Tracker = "https://github.com/phenobarbital/ai-parrot/issues"
+Documentation = "https://github.com/phenobarbital/ai-parrot/"
+Funding = "https://paypal.me/phenobarbital"
+"Say Thanks!" = "https://saythanks.io/to/phenobarbital"
+
+# ---------------------------------------------------------------------------
+# Setuptools — src/ layout
+# ---------------------------------------------------------------------------
+[tool.setuptools]
+# license lives at repo root; omitted to avoid setuptools path restriction
+
+[tool.setuptools.dynamic]
+version = {attr = "parrot.version.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["parrot*"]
+namespaces = true
+
+[tool.setuptools.package-data]
+parrot = ["py.typed", "templates/*.tpl", "**/*.pyx", "**/*.pxd"]
+"parrot.auth" = ["templates/*.html"]
+# parrot.integrations.telegram moved to ai-parrot-integrations
+# parrot.voice moved to ai-parrot-integrations
+# parrot.outputs.formats.assets moved to ai-parrot-visualizations (FEAT-200)
+"parrot.openapi" = ["*.yaml"]
+"parrot.knowledge.ontology.defaults" = ["*.yaml", "domains/*.yaml"]
+"parrot.forms.renderers" = ["templates/*.j2"]
+"parrot.flows.dev_loop" = ["_subagent_data/*.md"]
+# FEAT-412: dev_flow ships its own prompt set (sdd-ideation); the loader
+# reads it via importlib.resources, so it MUST be in the wheel.
+"parrot.flows.dev_flow" = ["_subagent_data/*.md"]
+# Interactive HTML artifact catalog (library specs + scaffold templates),
+# loaded from disk at runtime by parrot.tools.interactive.catalog_registry.
+"parrot.tools.interactive" = [
+    "catalog/*.md",
+    "catalog/libraries/*.md",
+    "catalog/templates/*.html",
+    "catalog/templates/*.meta.yaml",
+]
+"parrot.storage.security_reports" = ["*.sql"]
+# Runtime-loaded bundled pricing tables (calculator.py globs *.json here).
+"parrot.observability.cost.pricing" = ["*.json"]
+# Schema DDL shipped for manual application.
+"parrot.security" = ["*.sql"]
+"parrot.pipelines" = ["*.sql"]
+# Core default compressor manifest (FEAT-380), loaded by CompressorRegistry.
+"parrot.tools.compression" = ["*.toml"]
+
+# ---------------------------------------------------------------------------
+# Maturin (Rust extensions) — TASK-1955 (FEAT-380) investigation note:
+#
+# This package's [build-system] above is setuptools (Cython-based), NOT
+# maturin — so this [tool.maturin] block is NOT invoked by the actual
+# `pip install`/`build` of ai-parrot; setuptools has no knowledge of it.
+# The two optional Rust extensions in this tree (`yaml-rs/`, `codec-rs/`)
+# are each their OWN self-contained maturin sub-projects (own pyproject.toml
+# with build-backend="maturin", own Cargo.toml) built independently via
+# `maturin develop`/`build` run FROM WITHIN their own directory, producing
+# wheels installed into the SAME venv as ai-parrot (see
+# `src/parrot/yaml-rs/pyproject.toml` and `src/parrot/codec-rs/pyproject.toml`).
+# Both degrade gracefully to a pure-Python fallback when not built
+# (`registry.py`'s `try: from parrot import yaml_rs / except ImportError`;
+# `compression/budget.py`'s `is_rust_available()`).
+#
+# `python-source` below was pointing at a directory that never existed on
+# disk (`src/parrot/yaml_rs`, underscore — the real one is
+# `src/parrot/yaml-rs/python/yaml_rs`, hyphen) and `module-name` didn't
+# match `yaml-rs`'s own working config (`module-name = "yaml_rs"`, no
+# `parrot.` prefix, no `_yaml_rs` submodule) either. Corrected below to
+# describe what the on-disk yaml-rs sub-project ACTUALLY does, for
+# accuracy — but since this block is inert (see above), the correction
+# has no runtime effect either way. Left in place (rather than removed)
+# as living documentation of the real Rust-extension layout, and because
+# a future migration of the root build-system TO maturin (out of this
+# feature's scope) would need this reconciled first.
+# ---------------------------------------------------------------------------
+[tool.maturin]
+python-source = "src/parrot/yaml-rs/python"
+module-name = "yaml_rs"
+bindings = "pyo3"
+features = ["pyo3/extension-module"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.cibuildwheel]
+build = "cp3{11,12,13,14}-manylinux_x86_64"
+skip = "pp*"
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64"]

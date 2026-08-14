@@ -7,8 +7,8 @@ before any HTTP transport call.
 
 Layout under ``root``:
 
-    simple-v1/<index>[-<serialization>]/<package>.json    <- PEP 691 JSON body
-    simple-v1/<index>[-<serialization>]/<package>.policy  <- {fetched_at, max_age,
+    simple-v2/<index>[-<serialization>]/<package>.json    <- PEP 691 JSON body
+    simple-v2/<index>[-<serialization>]/<package>.policy  <- {fetched_at, max_age,
                                                               etag, page_url,
                                                               body_digest}
     simple-parsed-v0/<index>[-<serialization>]/<package>.parsed  <- parsed blob
@@ -19,7 +19,7 @@ Layout under ``root``:
 An index pinned to one serialization gets its own listings directory,
 since a stored body records nothing about which serialization it came from.
 
-A versioned bucket name (``simple-v1``) gives zero-cost schema
+A versioned bucket name (``simple-v2``) gives zero-cost schema
 migration: when the on-disk format changes, bump the suffix and the
 old directory is harmless.
 
@@ -30,8 +30,8 @@ rendering also needs the suffix bumped to reach warm caches.
 A resolve writes two more buckets under the same root, holding upstream
 source trees:
 
-    vcs/vcs/<repo key>/<commit sha>/   <- shallow clone
-    archive/<archive digest>/          <- extracted archive
+    vcs-v1/vcs/<repo key>/<commit sha>/   <- shallow clone
+    archive-v1/<archive digest>/          <- extracted archive
 """
 
 from __future__ import annotations
@@ -48,9 +48,10 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
+from nab_provider.serialization import SimpleSerialization
+
 from .atomic import atomic_write
 from .parsed_listing import corruption_reason as _parsed_corruption
-from .serialization import SimpleSerialization
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -69,20 +70,24 @@ __all__ = [
 ]
 
 
-CACHE_VERSION_SIMPLE = "v1"
+CACHE_VERSION_SIMPLE = "v2"
 CACHE_VERSION_SIMPLE_PARSED = "v0"
 CACHE_VERSION_SIMPLE_NEG = "v0"
 CACHE_VERSION_METADATA = "v1"
 CACHE_VERSION_SDIST = "v1"
+CACHE_VERSION_VCS = "v1"
+CACHE_VERSION_ARCHIVE = "v1"
 
 # Buckets of nab-written records. simple-neg-* is covered by the simple- prefix.
 ENTRY_BUCKET_PREFIXES = ("simple-", "metadata-", "sdist-")
 
 # Buckets a resolve fills with upstream source trees. nab owns the directories,
 # not the files inside them.
-VCS_BUCKET = "vcs"
-ARCHIVE_BUCKET = "archive"
+VCS_BUCKET = f"vcs-{CACHE_VERSION_VCS}"
+ARCHIVE_BUCKET = f"archive-{CACHE_VERSION_ARCHIVE}"
 SOURCE_BUCKETS = (VCS_BUCKET, ARCHIVE_BUCKET)
+_LEGACY_SOURCE_BUCKETS = ("vcs", "archive")
+_RECOGNIZED_SOURCE_BUCKETS = SOURCE_BUCKETS + _LEGACY_SOURCE_BUCKETS
 
 DEFAULT_PYPI_URLS = frozenset(
     [
@@ -102,6 +107,9 @@ class CachePolicy:
 
     ``fetched_at`` is the start of the freshness window: when nab received the
     response, less any Age a relaying shared cache reported.
+
+    ``etag`` is the entity tag to revalidate with. A non-ASCII tag is dropped,
+    since nab cannot send it back.
 
     ``page_url`` is the URL the stored body was retrieved from, the base its
     relative entries resolve against. It is ``None`` for the negative
@@ -131,7 +139,7 @@ def _is_entry_bucket(name: str) -> bool:
 
 def is_recognized_bucket(name: str) -> bool:
     """Whether ``name`` is a bucket directory nab owns under a cache root."""
-    return _is_entry_bucket(name) or name in SOURCE_BUCKETS
+    return _is_entry_bucket(name) or name in _RECOGNIZED_SOURCE_BUCKETS
 
 
 def _index_dirname(index_url: str) -> str:
@@ -191,6 +199,7 @@ class OnDiskCache:
 
     Stores are best-effort: a write the filesystem refuses is dropped,
     just as an entry that cannot be read is a miss.
+    :meth:`put_simple_parsed` raises instead.
     """
 
     def __init__(
@@ -355,7 +364,10 @@ class OnDiskCache:
             return None
 
     def put_simple_parsed(self, package: str, blob: bytes) -> None:
-        """Write the opaque parsed-listing blob for ``package`` atomically."""
+        """Write the opaque parsed-listing blob for ``package`` atomically.
+
+        A refused write raises ``OSError``.
+        """
         _atomic_write(self._parsed_path(package), blob)
 
     def get_metadata(self, package: str, metadata_url: str) -> str | None:
@@ -577,7 +589,7 @@ def _encode_policy(policy: CachePolicy) -> bytes:
     doc: dict[str, object] = {
         "fetched_at": policy.fetched_at,
         "max_age": policy.max_age,
-        "etag": policy.etag,
+        "etag": _policy_etag(policy.etag),
         "page_url": policy.page_url,
     }
     # Emit only when set so an older policy or a bodyless negative entry keeps
@@ -592,17 +604,32 @@ def _policy_page_url(value: object) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
+def _policy_etag(value: object) -> str | None:
+    """Entity tag from a policy, or None when it cannot be sent back.
+
+    RFC 9110 8.8.3 admits obs-text in an entity-tag, and httpx raises on a
+    non-ASCII request header value.
+    """
+    return value if isinstance(value, str) and value.isascii() else None
+
+
 def _decode_policy(policy_bytes: bytes) -> CachePolicy | None:
+    """Decode stored policy bytes, or ``None`` when they are not a policy.
+
+    ``json`` decodes a number outside float range (``1e400``, ``Infinity``) to
+    an infinity, and ``int()`` on one raises :class:`OverflowError` rather than
+    :class:`ValueError`.
+    """
     try:
         doc = json.loads(policy_bytes)
         return CachePolicy(
             fetched_at=int(doc["fetched_at"]),
             max_age=int(doc["max_age"]),
-            etag=doc.get("etag"),
+            etag=_policy_etag(doc.get("etag")),
             page_url=_policy_page_url(doc.get("page_url")),
             body_digest=doc.get("body_digest"),
         )
-    except (ValueError, KeyError, TypeError):
+    except (ValueError, KeyError, TypeError, OverflowError):
         return None
 
 

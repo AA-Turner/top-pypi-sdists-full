@@ -1,7 +1,20 @@
+[build-system]
+build-backend = 'setuptools.build_meta'
+# setuptools-scm is required at build time: its setuptools file-finder
+# entry point is what populates the sdist with the full set of
+# git-tracked files (docs/, tests/ data, tox.ini, .github/, ...).
+# Dropping it silently shrinks the sdist and omits the test harness, so
+# it must stay even though the version itself is static (see
+# tool.setuptools.dynamic below).
+requires = ['setuptools', 'setuptools-scm']
 
 [project]
-authors = [{ name = 'Rick van Hattem (Wolph)', email = 'wolph@wol.ph' }]
+name = 'progressbar2'
+description = 'A Python Progressbar library to provide visual (yet text based) progress to long running operations.'
 dynamic = ['version']
+authors = [{ name = 'Rick van Hattem (Wolph)', email = 'wolph@wol.ph' }]
+license = { text = 'BSD-3-Clause' }
+readme = 'README.rst'
 keywords = [
     'REPL',
     'animated',
@@ -33,10 +46,6 @@ keywords = [
     'time',
     'visual',
 ]
-license = { text = 'BSD-3-Clause' }
-name = 'progressbar2'
-requires-python = '>=3.8'
-
 classifiers = [
     'Development Status :: 5 - Production/Stable',
     'Development Status :: 6 - Mature',
@@ -70,8 +79,9 @@ classifiers = [
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
-    'Programming Language :: Python :: 3.8',
-    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
+    'Programming Language :: Python :: 3.15',
     'Programming Language :: Python :: Implementation :: IronPython',
     'Programming Language :: Python :: Implementation :: PyPy',
     'Programming Language :: Python :: Implementation',
@@ -83,8 +93,8 @@ classifiers = [
     'Topic :: Office/Business',
     'Topic :: Other/Nonlisted Topic',
     'Topic :: Software Development :: Build Tools',
-    'Topic :: Software Development :: Libraries :: Python Modules',
     'Topic :: Software Development :: Libraries',
+    'Topic :: Software Development :: Libraries :: Python Modules',
     'Topic :: Software Development :: Pre-processors',
     'Topic :: Software Development :: User Interfaces',
     'Topic :: System :: Installation/Setup',
@@ -93,79 +103,65 @@ classifiers = [
     'Topic :: System :: Shells',
     'Topic :: Terminals',
     'Topic :: Utilities',
+    'Typing :: Typed',
 ]
-description = 'A Python Progressbar library to provide visual (yet text based) progress to long running operations.'
-readme = 'README.rst'
 
+requires-python = '>=3.10'
 dependencies = ['python-utils >= 3.8.1']
-
-[tool.setuptools.dynamic]
-version = { attr = 'progressbar.__about__.__version__' }
-
-[tool.setuptools.packages.find]
-exclude = ['docs*', 'tests*']
-
-[tool.setuptools]
-include-package-data = true
-
-[project.scripts]
-progressbar = 'progressbar.__main__:main'
-
-[project.optional-dependencies]
-docs = ['sphinx>=1.8.5', 'sphinx-autodoc-typehints>=1.6.0']
-tests = [
-    'dill>=0.3.6',
-    'flake8>=3.7.7',
-    'freezegun>=0.3.11',
-    'pytest-cov>=2.6.1',
-    'pytest-mypy',
-    'pytest>=4.6.9',
-    'sphinx>=1.8.5',
-    'pywin32; sys_platform == "win32"',
-]
 
 [project.urls]
 bugs = 'https://github.com/wolph/python-progressbar/issues'
 documentation = 'https://progressbar-2.readthedocs.io/en/latest/'
 repository = 'https://github.com/wolph/python-progressbar/'
 
-[build-system]
-build-backend = 'setuptools.build_meta'
-requires = ['setuptools', 'setuptools-scm']
+[project.scripts]
+progressbar = 'progressbar.__main__:main'
+
+[project.optional-dependencies]
+# Optional native iterator accelerator. When installed it is detected and used
+# automatically (the iterator path drops to ~5 ns/iter); otherwise progressbar2
+# falls back to the pure-Python gate. See the Performance section in README.
+fast = [
+    'speedups>=2.1.0',
+]
+docs = [
+    'sphinx>=1.8.5',
+    'sphinx-autodoc-typehints>=1.6.0',
+]
+tests = [
+    'dill>=0.3.6',
+    'freezegun>=0.3.11',
+    'pytest-cov>=2.6.1',
+    'pytest>=4.6.9',
+    'pywin32; sys_platform == "win32"',
+]
+# Only installed by .github/workflows/docs.yml -- never by the default
+# test run (tests/console is excluded from pytest.ini's python_files, and
+# `tests[]` above -- what `dev` pulls in -- deliberately omits this group).
+docs-tests = [
+    'playwright>=1.48.0',
+    'pytest>=4.6.9',
+]
+
+[dependency-groups]
+dev = ['progressbar2[docs,tests]']
 
 [tool.codespell]
-skip = '*/htmlcov,./docs/_build,*.asc'
-
+skip = '*/htmlcov,./docs/_build,*.asc,./docs/_static/vendor/xterm.js'
 ignore-words-list = 'datas,numbert'
-
-[tool.black]
-line-length = 79
-skip-string-normalization = true
-
-[tool.mypy]
-packages = ['progressbar', 'tests']
-exclude = [
-    '^docs$',
-    '^tests/original_examples.py$',
-    '^examples.py$',
-]
 
 [tool.coverage.run]
 branch = true
-source = [
-    'progressbar',
-    'tests',
-]
+source = ['progressbar', 'tests']
 omit = [
     '*/mock/*',
     '*/nose/*',
     '.tox/*',
     '*/os_specific/*',
 ]
+
 [tool.coverage.paths]
-source = [
-    'progressbar',
-]
+source = ['progressbar']
 
 [tool.coverage.report]
 fail_under = 100
@@ -180,38 +176,81 @@ exclude_lines = [
     'if 0:',
     'if __name__ == .__main__.:',
     'if types.TYPE_CHECKING:',
+    'if typing.TYPE_CHECKING:',
     '@typing.overload',
     'if os.name == .nt.:',
+    'typing.Protocol',
 ]
 
+
+[tool.mypy]
+packages = ['progressbar', 'tests']
+exclude = [
+    '^docs$',
+    '^tests/original_examples.py$',
+    '^examples.py$',
+]
+
+
 [tool.pyright]
-include= ['progressbar']
-exclude= ['examples']
-ignore= ['docs']
-#strict = [
-#    'progressbar/algorithms.py',
-#    'progressbar/env.py',
+include = ['progressbar']
+exclude = ['examples', '.tox']
+ignore = ['docs']
+strict = [
+    'progressbar/algorithms.py',
+    'progressbar/env.py',
 #    'progressbar/shortcuts.py',
-##    'progressbar/multi.py',
-##    'progressbar/__init__.py',
-#    'progressbar/terminal/__init__.py',
-##    'progressbar/terminal/stream.py',
-#    'progressbar/terminal/os_specific/__init__.py',
+    'progressbar/multi.py',
+    'progressbar/__init__.py',
+    'progressbar/terminal/__init__.py',
+    'progressbar/terminal/stream.py',
+    'progressbar/terminal/os_specific/__init__.py',
 #    'progressbar/terminal/os_specific/posix.py',
-##    'progressbar/terminal/os_specific/windows.py',
-##    'progressbar/terminal/base.py',
-##    'progressbar/terminal/colors.py',
-##    'progressbar/widgets.py',
-##    'progressbar/utils.py',
-#    'progressbar/__about__.py',
-##    'progressbar/bar.py',
-#    'progressbar/__main__.py',
-#    'progressbar/base.py',
-#]
+#    'progressbar/terminal/os_specific/windows.py',
+    'progressbar/terminal/base.py',
+    'progressbar/terminal/colors.py',
+#    'progressbar/widgets.py',
+#    'progressbar/utils.py',
+    'progressbar/__about__.py',
+#    'progressbar/bar.py',
+    'progressbar/__main__.py',
+    'progressbar/base.py',
+]
 
 reportIncompatibleMethodOverride = false
 reportUnnecessaryIsInstance = false
 reportUnnecessaryCast = false
-reportUnnecessaryTypeAssertion = false
 reportUnnecessaryComparison = false
 reportUnnecessaryContains = false
+
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = { attr = 'progressbar.__about__.__version__' }
+
+[tool.setuptools.packages.find]
+# Only the installable package goes into the wheel. The previous
+# exclude list ('docs*', 'tests*') still let auto-discovery sweep the
+# repo-level benchmarks/, scripts/ and tools/ directories into
+# site-packages. The sdist is unaffected: its contents come from the
+# setuptools-scm file finder (see build-system).
+include = ['progressbar*']
+
+# Keeps stray *data* files out of the wheel. Note this cannot exclude
+# stray *modules*: setuptools' build_py copies every `*.py` inside an
+# included package, and there is no declarative way to drop individual
+# ones. So an editor or sync-tool leftover such as
+# `progressbar/bar.sync-conflict-....py` still gets packaged, because the
+# wheel builder walks the filesystem rather than the git index (only the
+# sdist is git-aware, via setuptools-scm).
+# `scripts/build_docs_wheels.py` therefore refuses to publish a wheel that
+# contains such files, which turns a silent leak into a build failure.
+[tool.setuptools.exclude-package-data]
+'*' = [
+    '*.sync-conflict-*',
+    '*.orig',
+    '*.rej',
+    '*.bak',
+]

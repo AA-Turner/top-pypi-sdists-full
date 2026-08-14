@@ -9,7 +9,7 @@
 
 This environment is part of the <a href='..'>butterfly environments</a>. Please read that page first for general information.
 
-| Import               | `from pettingzoo.butterfly import pistonball_v6`     |
+| Creation             | `make("aec", "butterfly/pistonball-v6")`             |
 |----------------------|------------------------------------------------------|
 | Actions              | Either                                               |
 | Parallel API         | Yes                                                  |
@@ -43,8 +43,10 @@ Keys *a* and *d* control which piston is selected to move (initially the rightmo
 ### Arguments
 
 
-``` python
-pistonball_v6.env(n_pistons=20, time_penalty=-0.1, continuous=True,
+```python
+from pettingzoo import make
+
+make("aec", "butterfly/pistonball-v6", n_pistons=20, time_penalty=-0.1, continuous=True,
 random_drop=True, random_rotate=True, ball_mass=0.75, ball_friction=0.3,
 ball_elasticity=1.5, max_cycles=125)
 ```
@@ -172,9 +174,9 @@ class raw_env(AECEnv, EzPickle):
         y_low = self.wall_width
         obs_height = y_high - y_low
 
-        assert (
-            self.piston_width == self.wall_width
-        ), "Wall width and piston width must be equal for observation calculation"
+        assert self.piston_width == self.wall_width, (
+            "Wall width and piston width must be equal for observation calculation"
+        )
         assert self.n_pistons > 1, "n_pistons must be greater than 1"
 
         self.agents = ["piston_" + str(r) for r in range(self.n_pistons)]
@@ -215,7 +217,6 @@ class raw_env(AECEnv, EzPickle):
             dtype=np.uint8,
         )
 
-        pygame.init()
         pymunk.pygame_util.positive_y_is_up = False
 
         self.render_mode = render_mode
@@ -302,6 +303,7 @@ class raw_env(AECEnv, EzPickle):
         return state
 
     def enable_render(self):
+        pygame.display.init()
         self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
         pygame.display.set_caption("Pistonball")
 
@@ -567,7 +569,7 @@ class raw_env(AECEnv, EzPickle):
             gymnasium.logger.warn(
                 "You are calling render method without specifying any render mode."
             )
-            return
+            return None
 
         if self.render_mode == "human" and not self.renderOn:
             # sets self.renderOn to true and initializes display
@@ -640,7 +642,7 @@ class raw_env(AECEnv, EzPickle):
             if not self.terminate:
                 reward += self.time_penalty
 
-            self.rewards = {agent: reward for agent in self.agents}
+            self.rewards = dict.fromkeys(self.agents, reward)
             self.ball_prev_pos = ball_curr_pos
             self.frames += 1
         else:

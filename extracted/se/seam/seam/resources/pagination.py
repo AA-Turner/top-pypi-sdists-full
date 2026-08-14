@@ -15,11 +15,11 @@ class Pagination:
     :ivar next_page_url: URL to get the next page of results."""
 
     has_next_page: bool
-    next_page_cursor: str
-    next_page_url: str
+    next_page_cursor: Optional[str]
+    next_page_url: Optional[str]
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]):
+    def from_dict(cls, d: Any):
         return cls(
             has_next_page=d.get("has_next_page", None),
             next_page_cursor=d.get("next_page_cursor", None),

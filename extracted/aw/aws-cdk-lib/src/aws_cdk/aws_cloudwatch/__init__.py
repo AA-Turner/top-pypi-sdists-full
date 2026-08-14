@@ -408,7 +408,17 @@ alarm_rule = cloudwatch.AlarmRule.any_of(
     cloudwatch.AlarmRule.all_of(
         cloudwatch.AlarmRule.any_of(alarm1,
             cloudwatch.AlarmRule.from_alarm(alarm2, cloudwatch.AlarmState.OK), alarm3),
-        cloudwatch.AlarmRule.not(cloudwatch.AlarmRule.from_alarm(alarm4, cloudwatch.AlarmState.INSUFFICIENT_DATA))),
+        cloudwatch.AlarmRule.not(cloudwatch.AlarmRule.from_alarm(alarm4, cloudwatch.AlarmState.INSUFFICIENT_DATA)),
+        # AT_LEAST with count: at least 2 of these alarms must be in ALARM state
+        cloudwatch.AlarmRule.at_least(cloudwatch.AlarmState.ALARM,
+            operands=[alarm1, alarm2, alarm3],
+            threshold=cloudwatch.AtLeastThreshold.count(2)
+        ),
+        # AT_LEAST with percentage and NOT: at least 60% must NOT be in OK state
+        cloudwatch.AlarmRule.at_least_not(cloudwatch.AlarmState.OK,
+            operands=[alarm1, alarm2, alarm3],
+            threshold=cloudwatch.AtLeastThreshold.percentage(60)
+        )),
     cloudwatch.AlarmRule.from_boolean(False))
 
 cloudwatch.CompositeAlarm(self, "MyAwesomeCompositeAlarm",
@@ -1752,6 +1762,50 @@ class AlarmRule(
             check_type(argname="argument operands", value=operands, expected_type=typing.Tuple[type_hints["operands"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("IAlarmRule", jsii.sinvoke(cls, "anyOf", [*operands]))
 
+    @jsii.member(jsii_name="atLeast")
+    @builtins.classmethod
+    def at_least(
+        cls,
+        alarm_state: "AlarmState",
+        *,
+        operands: typing.Sequence["IAlarm"],
+        threshold: "AtLeastThreshold",
+    ) -> "IAlarmRule":
+        '''function to create an AT_LEAST expression for the given alarm state.
+
+        :param alarm_state: the alarm state to evaluate against.
+        :param operands: Alarms to evaluate in the AT_LEAST expression. Must contain at least one alarm.
+        :param threshold: Threshold for the AT_LEAST expression. Use ``AtLeastThreshold.count()`` for an absolute number or ``AtLeastThreshold.percentage()`` for a percentage.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ea987185c3d09569bf8e197b040943a64af72025b646140a8af2fcbc15b0478f)
+            check_type(argname="argument alarm_state", value=alarm_state, expected_type=type_hints["alarm_state"])
+        options = AtLeastOptions(operands=operands, threshold=threshold)
+
+        return typing.cast("IAlarmRule", jsii.sinvoke(cls, "atLeast", [alarm_state, options]))
+
+    @jsii.member(jsii_name="atLeastNot")
+    @builtins.classmethod
+    def at_least_not(
+        cls,
+        alarm_state: "AlarmState",
+        *,
+        operands: typing.Sequence["IAlarm"],
+        threshold: "AtLeastThreshold",
+    ) -> "IAlarmRule":
+        '''function to create an AT_LEAST expression for the negated alarm state.
+
+        :param alarm_state: the alarm state to negate and evaluate against.
+        :param operands: Alarms to evaluate in the AT_LEAST expression. Must contain at least one alarm.
+        :param threshold: Threshold for the AT_LEAST expression. Use ``AtLeastThreshold.count()`` for an absolute number or ``AtLeastThreshold.percentage()`` for a percentage.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0a730d710f40585822927daa2c66f0c0d03a33ef8e67b624a68c8361bbef82a7)
+            check_type(argname="argument alarm_state", value=alarm_state, expected_type=type_hints["alarm_state"])
+        options = AtLeastOptions(operands=operands, threshold=threshold)
+
+        return typing.cast("IAlarmRule", jsii.sinvoke(cls, "atLeastNot", [alarm_state, options]))
+
     @jsii.member(jsii_name="fromAlarm")
     @builtins.classmethod
     def from_alarm(
@@ -1815,16 +1869,30 @@ class AlarmState(enum.Enum):
 
     Example::
 
-        # dashboard: cloudwatch.Dashboard
-        # error_alarm: cloudwatch.Alarm
+        import aws_cdk.aws_cloudwatch as cloudwatch
         
         
-        dashboard.add_widgets(cloudwatch.AlarmStatusWidget(
-            title="Errors",
-            alarms=[error_alarm],
-            sort_by=cloudwatch.AlarmStatusWidgetSortBy.STATE_UPDATED_TIMESTAMP,
-            states=[cloudwatch.AlarmState.ALARM]
-        ))
+        metric = cloudwatch.Metric(
+            namespace="MyNamespace",
+            metric_name="MyMetric",
+            dimensions_map={"MyDimension": "MyDimensionValue"}
+        )
+        alarm = cloudwatch.Alarm(self, "MyAlarm",
+            metric=metric,
+            threshold=100,
+            evaluation_periods=3,
+            datapoints_to_alarm=2
+        )
+        
+        topic_rule = iot.TopicRule(self, "TopicRule",
+            sql=iot.IotSql.from_string_as_ver20160323("SELECT topic(2) as device_id FROM 'device/+/data'"),
+            actions=[
+                actions.CloudWatchSetAlarmStateAction(alarm,
+                    reason="AWS Iot Rule action is triggered",
+                    alarm_state_to_set=cloudwatch.AlarmState.ALARM
+                )
+            ]
+        )
     '''
 
     ALARM = "ALARM"
@@ -2276,6 +2344,176 @@ class AnomalyDetectionAlarmProps:
         return "AnomalyDetectionAlarmProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.AtLeastOptions",
+    jsii_struct_bases=[],
+    name_mapping={"operands": "operands", "threshold": "threshold"},
+)
+class AtLeastOptions:
+    def __init__(
+        self,
+        *,
+        operands: typing.Sequence["IAlarm"],
+        threshold: "AtLeastThreshold",
+    ) -> None:
+        '''Options for the AT_LEAST AlarmRule wrapper function.
+
+        :param operands: Alarms to evaluate in the AT_LEAST expression. Must contain at least one alarm.
+        :param threshold: Threshold for the AT_LEAST expression. Use ``AtLeastThreshold.count()`` for an absolute number or ``AtLeastThreshold.percentage()`` for a percentage.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # alarm1: cloudwatch.Alarm
+            # alarm2: cloudwatch.Alarm
+            # alarm3: cloudwatch.Alarm
+            # alarm4: cloudwatch.Alarm
+            
+            
+            alarm_rule = cloudwatch.AlarmRule.any_of(
+                cloudwatch.AlarmRule.all_of(
+                    cloudwatch.AlarmRule.any_of(alarm1,
+                        cloudwatch.AlarmRule.from_alarm(alarm2, cloudwatch.AlarmState.OK), alarm3),
+                    cloudwatch.AlarmRule.not(cloudwatch.AlarmRule.from_alarm(alarm4, cloudwatch.AlarmState.INSUFFICIENT_DATA)),
+                    # AT_LEAST with count: at least 2 of these alarms must be in ALARM state
+                    cloudwatch.AlarmRule.at_least(cloudwatch.AlarmState.ALARM,
+                        operands=[alarm1, alarm2, alarm3],
+                        threshold=cloudwatch.AtLeastThreshold.count(2)
+                    ),
+                    # AT_LEAST with percentage and NOT: at least 60% must NOT be in OK state
+                    cloudwatch.AlarmRule.at_least_not(cloudwatch.AlarmState.OK,
+                        operands=[alarm1, alarm2, alarm3],
+                        threshold=cloudwatch.AtLeastThreshold.percentage(60)
+                    )),
+                cloudwatch.AlarmRule.from_boolean(False))
+            
+            cloudwatch.CompositeAlarm(self, "MyAwesomeCompositeAlarm",
+                alarm_rule=alarm_rule
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c19c43c99fe1bd56e919480644985f22588337d1925474b4b0359a4f7e872e8f)
+            check_type(argname="argument operands", value=operands, expected_type=type_hints["operands"])
+            check_type(argname="argument threshold", value=threshold, expected_type=type_hints["threshold"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "operands": operands,
+            "threshold": threshold,
+        }
+
+    @builtins.property
+    def operands(self) -> typing.List["IAlarm"]:
+        '''Alarms to evaluate in the AT_LEAST expression.
+
+        Must contain at least one alarm.
+        '''
+        result = self._values.get("operands")
+        assert result is not None, "Required property 'operands' is missing"
+        return typing.cast(typing.List["IAlarm"], result)
+
+    @builtins.property
+    def threshold(self) -> "AtLeastThreshold":
+        '''Threshold for the AT_LEAST expression.
+
+        Use ``AtLeastThreshold.count()`` for an absolute number
+        or ``AtLeastThreshold.percentage()`` for a percentage.
+        '''
+        result = self._values.get("threshold")
+        assert result is not None, "Required property 'threshold' is missing"
+        return typing.cast("AtLeastThreshold", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AtLeastOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class AtLeastThreshold(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.AtLeastThreshold",
+):
+    '''Threshold configuration for the AT_LEAST composite alarm rule expression.
+
+    Use ``AtLeastThreshold.count()`` for an absolute number or
+    ``AtLeastThreshold.percentage()`` for a percentage-based threshold.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # alarm1: cloudwatch.Alarm
+        # alarm2: cloudwatch.Alarm
+        # alarm3: cloudwatch.Alarm
+        # alarm4: cloudwatch.Alarm
+        
+        
+        alarm_rule = cloudwatch.AlarmRule.any_of(
+            cloudwatch.AlarmRule.all_of(
+                cloudwatch.AlarmRule.any_of(alarm1,
+                    cloudwatch.AlarmRule.from_alarm(alarm2, cloudwatch.AlarmState.OK), alarm3),
+                cloudwatch.AlarmRule.not(cloudwatch.AlarmRule.from_alarm(alarm4, cloudwatch.AlarmState.INSUFFICIENT_DATA)),
+                # AT_LEAST with count: at least 2 of these alarms must be in ALARM state
+                cloudwatch.AlarmRule.at_least(cloudwatch.AlarmState.ALARM,
+                    operands=[alarm1, alarm2, alarm3],
+                    threshold=cloudwatch.AtLeastThreshold.count(2)
+                ),
+                # AT_LEAST with percentage and NOT: at least 60% must NOT be in OK state
+                cloudwatch.AlarmRule.at_least_not(cloudwatch.AlarmState.OK,
+                    operands=[alarm1, alarm2, alarm3],
+                    threshold=cloudwatch.AtLeastThreshold.percentage(60)
+                )),
+            cloudwatch.AlarmRule.from_boolean(False))
+        
+        cloudwatch.CompositeAlarm(self, "MyAwesomeCompositeAlarm",
+            alarm_rule=alarm_rule
+        )
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="count")
+    @builtins.classmethod
+    def count(cls, count: jsii.Number) -> "AtLeastThreshold":
+        '''Creates a count-based threshold for the AT_LEAST expression.
+
+        The count must be a positive integer between 1 and the number of operands.
+
+        :param count: the minimum number of alarms that must be in the specified state.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0971a1ec00247506e8e886d35bb6c4919f48ed39c4008c303739a4e42cb2cc4d)
+            check_type(argname="argument count", value=count, expected_type=type_hints["count"])
+        return typing.cast("AtLeastThreshold", jsii.sinvoke(cls, "count", [count]))
+
+    @jsii.member(jsii_name="percentage")
+    @builtins.classmethod
+    def percentage(cls, percentage: jsii.Number) -> "AtLeastThreshold":
+        '''Creates a percentage-based threshold for the AT_LEAST expression.
+
+        The percentage must be an integer between 1 and 100.
+
+        :param percentage: the minimum percentage of alarms that must be in the specified state.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bb483680f1f674daf80288671e8892725b5360eb302fa6ae0360fb29945c58cc)
+            check_type(argname="argument percentage", value=percentage, expected_type=type_hints["percentage"])
+        return typing.cast("AtLeastThreshold", jsii.sinvoke(cls, "percentage", [percentage]))
+
+
+class _AtLeastThresholdProxy(AtLeastThreshold):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, AtLeastThreshold).__jsii_proxy_class__ = lambda : _AtLeastThresholdProxy
 
 
 @jsii.data_type(
@@ -20933,6 +21171,8 @@ __all__ = [
     "AnomalyDetectionAlarm",
     "AnomalyDetectionAlarmProps",
     "AnomalyDetectionMetricOptions",
+    "AtLeastOptions",
+    "AtLeastThreshold",
     "CalendarDateTime",
     "CfnAlarm",
     "CfnAlarmMuteRule",
@@ -21081,6 +21321,24 @@ def _typecheckingstub__9c83f7a2932bb0e6ad7daedb63c82a736735f725c8596adb65d2dd035
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ea987185c3d09569bf8e197b040943a64af72025b646140a8af2fcbc15b0478f(
+    alarm_state: AlarmState,
+    *,
+    operands: typing.Sequence[IAlarm],
+    threshold: AtLeastThreshold,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a730d710f40585822927daa2c66f0c0d03a33ef8e67b624a68c8361bbef82a7(
+    alarm_state: AlarmState,
+    *,
+    operands: typing.Sequence[IAlarm],
+    threshold: AtLeastThreshold,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c7dd0ffc30f4ddc0cb0621fdae0fe1af07770e9fd504527c4df1f6e9ed2032cc(
     alarm: _aws_cloudwatch_70717108.IAlarmRef,
     alarm_state: AlarmState,
@@ -21132,6 +21390,26 @@ def _typecheckingstub__d770d314ce70d6c9f6003c8d6c5aa5cc35a2de931e79a5b71b5612d03
     statistic: typing.Optional[builtins.str] = None,
     std_devs: typing.Optional[jsii.Number] = None,
     treat_missing_data: typing.Optional[TreatMissingData] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c19c43c99fe1bd56e919480644985f22588337d1925474b4b0359a4f7e872e8f(
+    *,
+    operands: typing.Sequence[IAlarm],
+    threshold: AtLeastThreshold,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0971a1ec00247506e8e886d35bb6c4919f48ed39c4008c303739a4e42cb2cc4d(
+    count: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb483680f1f674daf80288671e8892725b5360eb302fa6ae0360fb29945c58cc(
+    percentage: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass

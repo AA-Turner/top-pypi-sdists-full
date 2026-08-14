@@ -111,8 +111,7 @@ impl FeatureSet {
     #[setter]
     pub fn set_active(&mut self, val: HashMap<Pubkey, u64>) {
         let inner = val.into_iter().map(|x| (x.0 .0, x.1)).collect();
-        let to_set = self.0.active_mut();
-        *to_set = inner;
+        self.0 = FeatureSetOriginal::new(inner, self.0.inactive().clone());
     }
 
     /// Set[Pubkey]: The inactive feature IDs.
@@ -124,8 +123,7 @@ impl FeatureSet {
     #[setter]
     pub fn set_inactive(&mut self, val: HashSet<Pubkey>) {
         let inner = val.into_iter().map(|x| x.0).collect();
-        let to_set = self.0.inactive_mut();
-        *to_set = inner;
+        self.0 = FeatureSetOriginal::new(self.0.active().clone(), inner);
     }
 
     /// Activate a feature at the given slot.
@@ -249,6 +247,39 @@ impl LiteSVM {
         self.0
             .set_account(pubkey.0, AccountOriginal::from(data.clone()))
             .map_err(to_py_err)
+    }
+
+    /// list[tuple[Pubkey, Account]]: All accounts owned by the given program.
+    pub fn get_program_accounts(&self, program_id: Pubkey) -> Vec<(Pubkey, Account)> {
+        self.0
+            .get_program_accounts(&program_id.0)
+            .into_iter()
+            .map(|(k, a)| (Pubkey(k), Account::from(a)))
+            .collect()
+    }
+
+    /// Set the stake of a vote account for the current epoch.
+    pub fn set_epoch_stake(&mut self, vote_account: Pubkey, stake: u64) -> PyResult<()> {
+        self.0
+            .set_epoch_stake(vote_account.0, stake)
+            .map_err(to_py_err)
+    }
+
+    /// Replace the epoch stakes with the given mapping.
+    pub fn set_epoch_stakes(&mut self, stakes: HashMap<Pubkey, u64>) -> PyResult<()> {
+        self.0
+            .set_epoch_stakes(stakes.into_iter().map(|(k, v)| (k.0, v)))
+            .map_err(to_py_err)
+    }
+
+    /// int: The stake of the given vote account for the current epoch.
+    pub fn epoch_stake(&self, vote_account: Pubkey) -> u64 {
+        self.0.epoch_stake(&vote_account.0)
+    }
+
+    /// int: The total epoch stake across all vote accounts.
+    pub fn epoch_total_stake(&self) -> u64 {
+        self.0.epoch_total_stake()
     }
 
     pub fn get_balance(&self, pubkey: Pubkey) -> Option<u64> {

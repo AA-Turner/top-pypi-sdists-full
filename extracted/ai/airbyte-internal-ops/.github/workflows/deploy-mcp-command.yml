@@ -42,6 +42,11 @@ on:
           - "true"
           - "false"
         default: auto
+      cloud-mcp-pyairbyte-requirement:
+        description: "Optional full PyAirbyte requirement spec for cloud-mcp builds, such as 'airbyte==0.54.0.dev123' or 'airbyte @ git+https://...'. Leave empty for the pinned default."
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -57,6 +62,7 @@ env:
   MCP_COMMENT_ID: ${{ github.event.inputs.comment-id || '' }}
   MCP_PREVIEW: ${{ github.event.client_payload.preview || '' }}
   MCP_PREVIEW_INPUT: ${{ github.event.inputs.preview || '' }}
+  MCP_CLOUD_MCP_PYAIRBYTE_REQUIREMENT: ${{ github.event.client_payload.cloud-mcp-pyairbyte-requirement || github.event.inputs.cloud-mcp-pyairbyte-requirement || '' }}
 
 jobs:
   # ---------- Resolve which service(s) to deploy and how ----------
@@ -240,6 +246,27 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ matrix.target.ref }}
+          # Full history + tags so the package version can be derived from git.
+          fetch-depth: 0
+
+      - name: Set up uv
+        if: matrix.target.server == 'ops-mcp'
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      # The image build context excludes `.git`, so the version is resolved here
+      # and passed into the build; otherwise the wheel gets `fallback-version`.
+      - name: Resolve package version
+        id: package-version
+        if: matrix.target.server == 'ops-mcp'
+        run: |
+          set -euo pipefail
+          # A `dunamai` failure yields an empty version, so one guard covers both.
+          version="$(uvx dunamai from git --style pep440 || true)"
+          [ -n "$version" ] \
+            || { echo "::error::Could not resolve the package version from git; the image would be stamped with the fallback version."; exit 1; }
+          echo "version=$version" | tee -a "$GITHUB_OUTPUT"
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
@@ -267,13 +294,35 @@ jobs:
         run: gcloud auth configure-docker "${{ env.GCP_REGION }}-docker.pkg.dev" --quiet
 
       - name: Build image
+        if: matrix.target.server != 'cloud-mcp' || env.MCP_CLOUD_MCP_PYAIRBYTE_REQUIREMENT == ''
         env:
           DOCKER_BUILDKIT: "1"
         run: >
           docker build
+          --build-arg "PACKAGE_VERSION=${{ steps.package-version.outputs.version }}"
           --file "${{ matrix.target.dockerfile }}"
           --tag "${{ matrix.target.image }}"
           "${{ matrix.target.build_context }}"
+
+      # Retried because this build usually runs seconds after a PyAirbyte
+      # release: PyPI's index is CDN-cached per POP, so `uv` inside the build
+      # can still resolve a stale index that lacks the requested version.
+      - name: Build cloud-mcp image with PyAirbyte requirement override
+        if: matrix.target.server == 'cloud-mcp' && env.MCP_CLOUD_MCP_PYAIRBYTE_REQUIREMENT != ''
+        uses: nick-fields/retry@v3
+        env:
+          PYAIRBYTE_REQUIREMENT: ${{ env.MCP_CLOUD_MCP_PYAIRBYTE_REQUIREMENT }}
+          DOCKER_BUILDKIT: "1"
+        with:
+          timeout_minutes: 15
+          max_attempts: 5
+          retry_wait_seconds: 60
+          command: >
+            docker build
+            --build-arg "PYAIRBYTE_REQUIREMENT=${PYAIRBYTE_REQUIREMENT}"
+            --file "${{ matrix.target.dockerfile }}"
+            --tag "${{ matrix.target.image }}"
+            "${{ matrix.target.build_context }}"
 
       - name: Push image
         run: docker push "${{ matrix.target.image }}"

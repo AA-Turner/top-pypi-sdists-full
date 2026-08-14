@@ -13,7 +13,7 @@ class ManualPolicy:
         # action mappings for all agents are the same
         if True:
             self.default_action = 0
-            self.action_mapping = dict()
+            self.action_mapping = {}
             self.action_mapping[pygame.K_UP] = 3  # right
             self.action_mapping[pygame.K_DOWN] = 2  # down
             self.action_mapping[pygame.K_LEFT] = 0  # left
@@ -21,9 +21,9 @@ class ManualPolicy:
 
     def __call__(self, observation, agent):
         # only trigger when we are the correct agent
-        assert (
-            agent == self.agent
-        ), f"Manual Policy only applied to agent: {self.agent}, but got tag for {agent}."
+        assert agent == self.agent, (
+            f"Manual Policy only applied to agent: {self.agent}, but got tag for {agent}."
+        )
 
         # set the default action
         action = self.default_action
@@ -50,14 +50,14 @@ class ManualPolicy:
 
 
 if __name__ == "__main__":
-    from pettingzoo.sisl import pursuit_v4
+    from pettingzoo.sisl import pursuit_v5
 
     clock = pygame.time.Clock()
 
-    env = pursuit_v4.env()
+    env = pursuit_v5.env()
     env.reset()
 
-    manual_policy = pursuit_v4.ManualPolicy(env)
+    manual_policy = pursuit_v5.ManualPolicy(env)
 
     for agent in env.agent_iter():
         clock.tick(env.metadata["render_fps"])

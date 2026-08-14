@@ -15,13 +15,16 @@ import os
 import re
 import shutil
 import subprocess
+from collections.abc import Mapping
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Literal, overload
 from urllib.parse import urlparse
 
 import requests
 from github import Auth, Github, GithubException
 from github.Repository import Repository
+from pydantic import BaseModel, Field, JsonValue, TypeAdapter, ValidationError
 
 GITHUB_API_BASE = "https://api.github.com"
 
@@ -95,6 +98,20 @@ def resolve_default_github_token(*, allow_none: bool = False) -> str | None:
 
 
 _CI_TRIGGER_TOKEN_ENV_VARS = ["GITHUB_CI_WORKFLOW_TRIGGER_PAT", "GITHUB_TOKEN"]
+_COPILOT_REVIEW_TOKEN_ENV_VARS = ["GITHUB_CI_WORKFLOW_TRIGGER_PAT"]
+COPILOT_REVIEWER_LOGIN = "copilot-pull-request-reviewer"
+
+
+class AgentEnum(StrEnum):
+    """AI reviewer targets supported by pull request review requests."""
+
+    DEFAULT = "DEFAULT"
+    Copilot = "Copilot"  # Casing is the reviewer-facing wire value.
+
+
+_REVIEWER_LOGIN_BY_AGENT = {
+    AgentEnum.Copilot: COPILOT_REVIEWER_LOGIN,
+}
 
 
 def resolve_ci_trigger_github_token(
@@ -140,6 +157,330 @@ def resolve_ci_trigger_github_token(
     raise ValueError(
         f"No GitHub token found. Set one of: {env_var_list} environment variable, "
         "or authenticate with 'gh auth login'."
+    )
+
+
+def resolve_copilot_review_github_token() -> str:
+    """Resolve the dedicated user PAT used for Copilot review requests.
+
+    The resolved PAT must belong to a real GitHub user with a Copilot seat.
+    This resolver intentionally does not fall back to the GitHub App token,
+    `GITHUB_TOKEN`, or `gh auth token`, because those identities silently
+    accept review requests without adding Copilot.
+
+    Raises:
+        ValueError: If the approved PAT environment variable is not configured.
+    """
+    for env_var in _COPILOT_REVIEW_TOKEN_ENV_VARS:
+        token = os.getenv(env_var)
+        if token:
+            return token
+
+    raise ValueError(
+        "GitHub Copilot review PAT is not configured. "
+        "Set the GITHUB_CI_WORKFLOW_TRIGGER_PAT environment variable."
+    )
+
+
+@dataclass(frozen=True)
+class AIReviewRequestResult:
+    """Result of requesting and verifying AI reviewers."""
+
+    requested: bool
+    reviewers: list[str]
+    message: str
+
+
+class _PullRequestNode(BaseModel):
+    id: str
+
+
+class _PullRequestRepository(BaseModel):
+    pull_request: _PullRequestNode = Field(alias="pullRequest")
+
+
+class _PullRequestNodeData(BaseModel):
+    repository: _PullRequestRepository
+
+
+class _RequestedReviewer(BaseModel):
+    reviewer_type: str = Field(alias="__typename")
+    login: str | None = None
+
+
+class _ReviewRequestNode(BaseModel):
+    requested_reviewer: _RequestedReviewer | None = Field(alias="requestedReviewer")
+
+
+class _ReviewRequests(BaseModel):
+    nodes: list[_ReviewRequestNode]
+
+
+class _ReviewPullRequest(BaseModel):
+    review_requests: _ReviewRequests = Field(alias="reviewRequests")
+
+
+class _ReviewRepository(BaseModel):
+    pull_request: _ReviewPullRequest = Field(alias="pullRequest")
+
+
+class _ReviewRequestsData(BaseModel):
+    repository: _ReviewRepository
+
+
+class _CopilotBot(BaseModel):
+    node_id: str
+    bot_type: str = Field(alias="type")
+
+
+_JSON_OBJECT_ADAPTER = TypeAdapter(dict[str, JsonValue])
+
+
+def _graphql_request(
+    query: str,
+    variables: Mapping[str, object],
+    token: str,
+) -> dict[str, JsonValue]:
+    """Execute a GitHub GraphQL request and return its `data` object."""
+    response = requests.post(
+        f"{GITHUB_API_BASE}/graphql",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        json={"query": query, "variables": variables},
+        timeout=30,
+    )
+    response.raise_for_status()
+    try:
+        payload = _JSON_OBJECT_ADAPTER.validate_python(response.json())
+    except ValidationError as error:
+        raise GitHubAPIError("Unexpected response from GitHub GraphQL API") from error
+    errors = payload.get("errors")
+    if errors:
+        raise GitHubAPIError(f"GitHub GraphQL request failed: {errors}")
+    try:
+        return _JSON_OBJECT_ADAPTER.validate_python(payload.get("data"))
+    except ValidationError as error:
+        raise GitHubAPIError("Unexpected response from GitHub GraphQL API") from error
+
+
+def _normalize_review_targets(
+    request_to: AgentEnum | list[AgentEnum],
+) -> list[AgentEnum]:
+    if isinstance(request_to, AgentEnum):
+        targets = [request_to]
+    elif isinstance(request_to, list):
+        targets = request_to
+    else:
+        raise ValueError(f"Unsupported AI reviewer: {request_to!r}")
+    if not targets:
+        raise ValueError("request_to must contain at least one supported reviewer")
+
+    normalized: list[AgentEnum] = []
+    for target in targets:
+        if not isinstance(target, AgentEnum):
+            raise ValueError(f"Unsupported AI reviewer: {target!r}")
+        resolved = AgentEnum.Copilot if target is AgentEnum.DEFAULT else target
+        if resolved not in _REVIEWER_LOGIN_BY_AGENT:
+            raise ValueError(f"Unsupported AI reviewer: {target.value}")
+        if resolved not in normalized:
+            normalized.append(resolved)
+    return normalized
+
+
+def request_pr_ai_review(
+    owner: str,
+    repo: str,
+    pr_number: int,
+    token: str,
+    request_to: AgentEnum | list[AgentEnum] = AgentEnum.DEFAULT,
+) -> AIReviewRequestResult:
+    """Request the selected AI reviews and verify the recorded requests.
+
+    The Copilot reviewer is a bot. Resolve its node ID through the REST user
+    endpoint, then pass it through `botIds` in the GraphQL mutation.
+    """
+    _normalize_review_targets(request_to)
+
+    try:
+        bot_id = _copilot_bot_node_id(token)
+    except (GitHubAPIError, requests.RequestException, ValidationError) as error:
+        return AIReviewRequestResult(
+            requested=False,
+            reviewers=[],
+            message=(
+                "GitHub could not resolve the Copilot reviewer bot. Confirm that "
+                "the PAT's user has a Copilot seat and that the organization has "
+                f"enabled Copilot code review. Details: {error}"
+            ),
+        )
+
+    try:
+        pull_request_id = _pull_request_node_id(owner, repo, pr_number, token)
+    except (GitHubAPIError, requests.RequestException, ValidationError) as error:
+        return AIReviewRequestResult(
+            requested=False,
+            reviewers=[],
+            message=(
+                "GitHub could not resolve the pull request. Confirm that the "
+                "PAT is valid and can access the repository. Details: "
+                f"{error}"
+            ),
+        )
+    request_reviews_query = """
+    mutation RequestReviews($input: RequestReviewsInput!) {
+      requestReviews(input: $input) {
+        clientMutationId
+        pullRequest {
+          number
+        }
+      }
+    }
+    """
+    try:
+        _graphql_request(
+            request_reviews_query,
+            {
+                "input": {
+                    "pullRequestId": pull_request_id,
+                    "botIds": [bot_id],
+                    "union": True,
+                }
+            },
+            token,
+        )
+    except (GitHubAPIError, requests.RequestException, ValidationError) as error:
+        return AIReviewRequestResult(
+            requested=False,
+            reviewers=[],
+            message=(
+                "GitHub rejected the Copilot review request. Confirm that the "
+                "PAT's user has a Copilot seat and that the organization has "
+                f"enabled Copilot code review. Details: {error}"
+            ),
+        )
+
+    try:
+        verified = _has_copilot_review_request(owner, repo, pr_number, token)
+    except (GitHubAPIError, requests.RequestException, ValidationError) as error:
+        return AIReviewRequestResult(
+            requested=False,
+            reviewers=[],
+            message=(
+                "GitHub may have recorded the Copilot review request, but it "
+                "could not be confirmed through GraphQL reviewRequests. "
+                f"Details: {error}"
+            ),
+        )
+
+    if not verified:
+        return AIReviewRequestResult(
+            requested=False,
+            reviewers=[],
+            message=(
+                "GitHub accepted the Copilot review request, but GraphQL "
+                f"reviewRequests does not show it on {owner}/{repo} PR "
+                f"{pr_number}. Confirm that the PAT's user has a Copilot seat "
+                "and that the organization has enabled Copilot code review."
+            ),
+        )
+
+    return AIReviewRequestResult(
+        requested=True,
+        reviewers=[_REVIEWER_LOGIN_BY_AGENT[AgentEnum.Copilot]],
+        message=f"Copilot review requested for {owner}/{repo} PR {pr_number}.",
+    )
+
+
+def _pull_request_node_id(
+    owner: str,
+    repo: str,
+    pr_number: int,
+    token: str,
+) -> str:
+    """Fetch a pull request's GraphQL node ID."""
+    data = _graphql_request(
+        """
+        query PullRequestNodeId($owner: String!, $name: String!, $number: Int!) {
+          repository(owner: $owner, name: $name) {
+            pullRequest(number: $number) {
+              id
+            }
+          }
+        }
+        """,
+        {"owner": owner, "name": repo, "number": pr_number},
+        token,
+    )
+    parsed = _PullRequestNodeData.model_validate(data)
+    return parsed.repository.pull_request.id
+
+
+def _copilot_bot_node_id(token: str) -> str:
+    """Resolve the Copilot review bot's GraphQL node ID."""
+    response = requests.get(
+        f"{GITHUB_API_BASE}/users/{COPILOT_REVIEWER_LOGIN}%5Bbot%5D",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+        timeout=30,
+    )
+    response.raise_for_status()
+    bot = _CopilotBot.model_validate(response.json())
+    if bot.bot_type != "Bot":
+        raise GitHubAPIError(
+            "GitHub Copilot reviewer lookup did not return a bot node ID"
+        )
+    return bot.node_id
+
+
+def _has_copilot_review_request(
+    owner: str,
+    repo: str,
+    pr_number: int,
+    token: str,
+) -> bool:
+    """Verify the Copilot bot appears in GraphQL `reviewRequests`.
+
+    The REST `requested_reviewers` endpoint remains empty for this bot even
+    after a successful request, so it must not be used for verification.
+    """
+    data = _graphql_request(
+        """
+        query PullRequestReviewRequests(
+          $owner: String!
+          $name: String!
+          $number: Int!
+        ) {
+          repository(owner: $owner, name: $name) {
+            pullRequest(number: $number) {
+              reviewRequests(first: 100) {
+                nodes {
+                  requestedReviewer {
+                    __typename
+                    ... on Bot {
+                      login
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        """,
+        {"owner": owner, "name": repo, "number": pr_number},
+        token,
+    )
+    parsed = _ReviewRequestsData.model_validate(data)
+
+    return any(
+        node.requested_reviewer is not None
+        and node.requested_reviewer.reviewer_type == "Bot"
+        and node.requested_reviewer.login == COPILOT_REVIEWER_LOGIN
+        for node in parsed.repository.pull_request.review_requests.nodes
     )
 
 

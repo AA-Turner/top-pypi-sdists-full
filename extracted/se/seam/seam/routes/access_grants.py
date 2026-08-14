@@ -1,6 +1,8 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
+from ..null import Null
 from ..resources import AccessGrant, Batch
 from .access_grants_unmanaged import (
     AbstractAccessGrantsUnmanaged,
@@ -26,14 +28,14 @@ class AbstractAccessGrants(abc.ABC):
         acs_entrance_ids: Optional[List[str]] = None,
         customization_profile_id: Optional[str] = None,
         device_ids: Optional[List[str]] = None,
-        ends_at: Optional[str] = None,
+        ends_at: Optional[Union[str, Null]] = None,
         location: Optional[Dict[str, Any]] = None,
         location_ids: Optional[List[str]] = None,
-        name: Optional[str] = None,
+        name: Optional[Union[str, Null]] = None,
         reservation_key: Optional[str] = None,
         space_ids: Optional[List[str]] = None,
         space_keys: Optional[List[str]] = None,
-        starts_at: Optional[str] = None
+        starts_at: Optional[str] = None,
     ) -> AccessGrant:
         """Creates a new `Access Grant <https://docs.seam.co/use-cases/granting-access/access-grants>`_. Access Grants are the default and recommended way to grant a user access to any physical space, irrespective of the locking hardware. They work with both standalone smart locks (using ``device_ids``) and access control systems (using ``acs_entrance_ids`` or ``space_ids``), and can issue PIN codes, key cards, and mobile keys through a single request.
 
@@ -67,14 +69,18 @@ class AbstractAccessGrants(abc.ABC):
 
         :param starts_at: Date and time at which the validity of the new grant starts, in `ISO 8601 <https://www.iso.org/iso-8601-date-and-time-format.html>`_ format.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
     def delete(self, *, access_grant_id: str) -> None:
         """Delete an Access Grant.
 
-        :param access_grant_id: ID of Access Grant to delete."""
+        :param access_grant_id: ID of Access Grant to delete.
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -82,7 +88,7 @@ class AbstractAccessGrants(abc.ABC):
         self,
         *,
         access_grant_id: Optional[str] = None,
-        access_grant_key: Optional[str] = None
+        access_grant_key: Optional[str] = None,
     ) -> AccessGrant:
         """Get an Access Grant.
 
@@ -90,7 +96,9 @@ class AbstractAccessGrants(abc.ABC):
 
         :param access_grant_key: Unique key of Access Grant to get.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -100,7 +108,7 @@ class AbstractAccessGrants(abc.ABC):
         access_grant_ids: Optional[List[str]] = None,
         access_grant_keys: Optional[List[str]] = None,
         exclude: Optional[List[str]] = None,
-        include: Optional[List[str]] = None
+        include: Optional[List[str]] = None,
     ) -> Batch:
         """Gets all related resources for one or more Access Grants.
 
@@ -112,7 +120,9 @@ class AbstractAccessGrants(abc.ABC):
 
         :param include:
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -121,17 +131,17 @@ class AbstractAccessGrants(abc.ABC):
         *,
         access_code_id: Optional[str] = None,
         access_grant_ids: Optional[List[str]] = None,
-        access_grant_key: Optional[str] = None,
+        access_grant_key: Optional[Union[str, Null]] = None,
         acs_entrance_id: Optional[str] = None,
         acs_system_id: Optional[str] = None,
         customer_key: Optional[str] = None,
         device_id: Optional[str] = None,
         limit: Optional[float] = None,
         location_id: Optional[str] = None,
-        page_cursor: Optional[str] = None,
+        page_cursor: Optional[Union[str, Null]] = None,
         reservation_key: Optional[str] = None,
         space_id: Optional[str] = None,
-        user_identity_id: Optional[str] = None
+        user_identity_id: Optional[str] = None,
     ) -> List[AccessGrant]:
         """Gets an Access Grant.
 
@@ -174,7 +184,9 @@ class AbstractAccessGrants(abc.ABC):
 
         :param requested_access_methods: Array of requested access methods to add to the access grant.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -183,9 +195,9 @@ class AbstractAccessGrants(abc.ABC):
         *,
         access_grant_id: Optional[str] = None,
         access_grant_key: Optional[str] = None,
-        ends_at: Optional[str] = None,
-        name: Optional[str] = None,
-        starts_at: Optional[str] = None
+        ends_at: Optional[Union[str, Null]] = None,
+        name: Optional[Union[str, Null]] = None,
+        starts_at: Optional[str] = None,
     ) -> None:
         """Updates an existing Access Grant's time window.
 
@@ -198,7 +210,8 @@ class AbstractAccessGrants(abc.ABC):
         :param name: Display name for the access grant.
 
         :param starts_at: Date and time at which the validity of the grant starts, in `ISO 8601 <https://www.iso.org/iso-8601-date-and-time-format.html>`_ format.
-        """
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
 
@@ -212,6 +225,9 @@ class AccessGrants(AbstractAccessGrants):
     def unmanaged(self) -> AccessGrantsUnmanaged:
         return self._unmanaged
 
+    @route_metadata(
+        path="/access_grants/create", has_required_parameters=True, has_pagination=False
+    )
     def create(
         self,
         *,
@@ -222,14 +238,14 @@ class AccessGrants(AbstractAccessGrants):
         acs_entrance_ids: Optional[List[str]] = None,
         customization_profile_id: Optional[str] = None,
         device_ids: Optional[List[str]] = None,
-        ends_at: Optional[str] = None,
+        ends_at: Optional[Union[str, Null]] = None,
         location: Optional[Dict[str, Any]] = None,
         location_ids: Optional[List[str]] = None,
-        name: Optional[str] = None,
+        name: Optional[Union[str, Null]] = None,
         reservation_key: Optional[str] = None,
         space_ids: Optional[List[str]] = None,
         space_keys: Optional[List[str]] = None,
-        starts_at: Optional[str] = None
+        starts_at: Optional[str] = None,
     ) -> AccessGrant:
         """Creates a new `Access Grant <https://docs.seam.co/use-cases/granting-access/access-grants>`_. Access Grants are the default and recommended way to grant a user access to any physical space, irrespective of the locking hardware. They work with both standalone smart locks (using ``device_ids``) and access control systems (using ``acs_entrance_ids`` or ``space_ids``), and can issue PIN codes, key cards, and mobile keys through a single request.
 
@@ -263,8 +279,10 @@ class AccessGrants(AbstractAccessGrants):
 
         :param starts_at: Date and time at which the validity of the new grant starts, in `ISO 8601 <https://www.iso.org/iso-8601-date-and-time-format.html>`_ format.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if requested_access_methods is not None:
             json_payload["requested_access_methods"] = requested_access_methods
@@ -297,28 +315,46 @@ class AccessGrants(AbstractAccessGrants):
         if starts_at is not None:
             json_payload["starts_at"] = starts_at
 
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /access_grants/create"
+            )
+
         res = self.client.post("/access_grants/create", json=json_payload)
 
         return AccessGrant.from_dict(res["access_grant"])
 
+    @route_metadata(
+        path="/access_grants/delete", has_required_parameters=True, has_pagination=False
+    )
     def delete(self, *, access_grant_id: str) -> None:
         """Delete an Access Grant.
 
-        :param access_grant_id: ID of Access Grant to delete."""
-        json_payload = {}
+        :param access_grant_id: ID of Access Grant to delete.
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if access_grant_id is not None:
-            json_payload["access_grant_id"] = access_grant_id
+            params["access_grant_id"] = access_grant_id
 
-        self.client.post("/access_grants/delete", json=json_payload)
+        if not params:
+            raise ValueError(
+                "At least one parameter is required for /access_grants/delete"
+            )
+
+        self.client.delete("/access_grants/delete", params=params)
 
         return None
 
+    @route_metadata(
+        path="/access_grants/get", has_required_parameters=True, has_pagination=False
+    )
     def get(
         self,
         *,
         access_grant_id: Optional[str] = None,
-        access_grant_key: Optional[str] = None
+        access_grant_key: Optional[str] = None,
     ) -> AccessGrant:
         """Get an Access Grant.
 
@@ -326,25 +362,37 @@ class AccessGrants(AbstractAccessGrants):
 
         :param access_grant_key: Unique key of Access Grant to get.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if access_grant_id is not None:
-            json_payload["access_grant_id"] = access_grant_id
+            params["access_grant_id"] = access_grant_id
         if access_grant_key is not None:
-            json_payload["access_grant_key"] = access_grant_key
+            params["access_grant_key"] = access_grant_key
 
-        res = self.client.post("/access_grants/get", json=json_payload)
+        if not params:
+            raise ValueError(
+                "At least one parameter is required for /access_grants/get"
+            )
+
+        res = self.client.get("/access_grants/get", params=params)
 
         return AccessGrant.from_dict(res["access_grant"])
 
+    @route_metadata(
+        path="/access_grants/get_related",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def get_related(
         self,
         *,
         access_grant_ids: Optional[List[str]] = None,
         access_grant_keys: Optional[List[str]] = None,
         exclude: Optional[List[str]] = None,
-        include: Optional[List[str]] = None
+        include: Optional[List[str]] = None,
     ) -> Batch:
         """Gets all related resources for one or more Access Grants.
 
@@ -356,8 +404,10 @@ class AccessGrants(AbstractAccessGrants):
 
         :param include:
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if access_grant_ids is not None:
             json_payload["access_grant_ids"] = access_grant_ids
@@ -368,26 +418,34 @@ class AccessGrants(AbstractAccessGrants):
         if include is not None:
             json_payload["include"] = include
 
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /access_grants/get_related"
+            )
+
         res = self.client.post("/access_grants/get_related", json=json_payload)
 
         return Batch.from_dict(res["batch"])
 
+    @route_metadata(
+        path="/access_grants/list", has_required_parameters=False, has_pagination=True
+    )
     def list(
         self,
         *,
         access_code_id: Optional[str] = None,
         access_grant_ids: Optional[List[str]] = None,
-        access_grant_key: Optional[str] = None,
+        access_grant_key: Optional[Union[str, Null]] = None,
         acs_entrance_id: Optional[str] = None,
         acs_system_id: Optional[str] = None,
         customer_key: Optional[str] = None,
         device_id: Optional[str] = None,
         limit: Optional[float] = None,
         location_id: Optional[str] = None,
-        page_cursor: Optional[str] = None,
+        page_cursor: Optional[Union[str, Null]] = None,
         reservation_key: Optional[str] = None,
         space_id: Optional[str] = None,
-        user_identity_id: Optional[str] = None
+        user_identity_id: Optional[str] = None,
     ) -> List[AccessGrant]:
         """Gets an Access Grant.
 
@@ -418,7 +476,7 @@ class AccessGrants(AbstractAccessGrants):
         :param user_identity_id: ID of user identity by which you want to filter the list of Access Grants.
 
         :returns: OK"""
-        json_payload = {}
+        json_payload: Dict[str, Any] = {}
 
         if access_code_id is not None:
             json_payload["access_code_id"] = access_code_id
@@ -451,6 +509,11 @@ class AccessGrants(AbstractAccessGrants):
 
         return [AccessGrant.from_dict(item) for item in res["access_grants"]]
 
+    @route_metadata(
+        path="/access_grants/request_access_methods",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def request_access_methods(
         self, *, access_grant_id: str, requested_access_methods: List[Dict[str, Any]]
     ) -> AccessGrant:
@@ -460,13 +523,20 @@ class AccessGrants(AbstractAccessGrants):
 
         :param requested_access_methods: Array of requested access methods to add to the access grant.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if access_grant_id is not None:
             json_payload["access_grant_id"] = access_grant_id
         if requested_access_methods is not None:
             json_payload["requested_access_methods"] = requested_access_methods
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /access_grants/request_access_methods"
+            )
 
         res = self.client.post(
             "/access_grants/request_access_methods", json=json_payload
@@ -474,14 +544,17 @@ class AccessGrants(AbstractAccessGrants):
 
         return AccessGrant.from_dict(res["access_grant"])
 
+    @route_metadata(
+        path="/access_grants/update", has_required_parameters=True, has_pagination=False
+    )
     def update(
         self,
         *,
         access_grant_id: Optional[str] = None,
         access_grant_key: Optional[str] = None,
-        ends_at: Optional[str] = None,
-        name: Optional[str] = None,
-        starts_at: Optional[str] = None
+        ends_at: Optional[Union[str, Null]] = None,
+        name: Optional[Union[str, Null]] = None,
+        starts_at: Optional[str] = None,
     ) -> None:
         """Updates an existing Access Grant's time window.
 
@@ -494,8 +567,9 @@ class AccessGrants(AbstractAccessGrants):
         :param name: Display name for the access grant.
 
         :param starts_at: Date and time at which the validity of the grant starts, in `ISO 8601 <https://www.iso.org/iso-8601-date-and-time-format.html>`_ format.
-        """
-        json_payload = {}
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if access_grant_id is not None:
             json_payload["access_grant_id"] = access_grant_id
@@ -508,6 +582,11 @@ class AccessGrants(AbstractAccessGrants):
         if starts_at is not None:
             json_payload["starts_at"] = starts_at
 
-        self.client.post("/access_grants/update", json=json_payload)
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /access_grants/update"
+            )
+
+        self.client.patch("/access_grants/update", json=json_payload)
 
         return None

@@ -42,10 +42,6 @@ limitations under the License.
                  // Possible this has to do with numpy.h being included before
                  // system headers and in bfloat16.{cc,h}?
 
-#if NPY_ABI_VERSION < 0x02000000
-#define PyArray_DescrProto PyArray_Descr
-#endif
-
 namespace ml_dtypes {
 
 template <typename T>
@@ -61,6 +57,7 @@ struct CustomFloatType {
   // registered by another system into NumPy.
   static PyObject* type_ptr;
 
+  static PyMethodDef methods[];
   static PyType_Spec type_spec;
   static PyType_Slot type_slots[];
   static PyArray_ArrFuncs arr_funcs;
@@ -135,34 +132,20 @@ bool CastToCustomFloat(PyObject* arg, T* output) {
     *output = T(static_cast<float>(l));
     return true;
   }
-  if (PyArray_IsScalar(arg, Half)) {
-    Eigen::half f;
-    PyArray_ScalarAsCtype(arg, &f);
-    *output = T(f);
-    return true;
-  }
-  if (PyArray_IsScalar(arg, Float)) {
-    float f;
-    PyArray_ScalarAsCtype(arg, &f);
-    *output = T(f);
-    return true;
-  }
-  if (PyArray_IsScalar(arg, Double)) {
-    double f;
-    PyArray_ScalarAsCtype(arg, &f);
-    *output = T(f);
-    return true;
-  }
-  if (PyArray_IsScalar(arg, LongDouble)) {
-    long double f;
-    PyArray_ScalarAsCtype(arg, &f);
-    *output = T(f);
-    return true;
-  }
-  if (PyArray_IsScalar(arg, Integer)) {
-    int64_t i;
-    PyArray_CastScalarToCtype(arg, &i, PyArray_DescrFromType(NPY_INT64));
-    *output = T(i);
+  if (PyArray_IsScalar(arg, Generic)) {
+    // Allow conversion from any NumPy scalar if conversion to complex float
+    // is defined.
+    // NOTE: Should use `PyArray_Pack` with NumPy>=2, which is better and may
+    // make even more conversions (ie. casts) work. (May want to use new dtypes
+    // then also.) (If a limitation is found, could do this already on NumPy 2
+    // at runtime.)
+    float c;
+    PyArray_Descr* f_descr = PyArray_DescrFromType(NPY_FLOAT32);
+    // Similar to our code, NumPy accepts the array to be NULL here.
+    // TODO(phawkins): check for overflow
+    PyDataType_GetArrFuncs(f_descr)->setitem(arg, &c, NULL);
+    Py_DECREF(f_descr);
+    *output = T(c);
     return true;
   }
   if (PyArray_IsZeroDim(arg)) {
@@ -297,6 +280,11 @@ template <typename T>
 PyObject* PyCustomFloat_RichCompare(PyObject* a, PyObject* b, int op) {
   T x, y;
   if (!SafeCastToCustomFloat<T>(a, &x) || !SafeCastToCustomFloat<T>(b, &y)) {
+    if ((op == Py_EQ || op == Py_NE) &&
+        (PyUnicode_Check(b) || PyBytes_Check(b) ||
+         (!PyNumber_Check(b) && !PyArray_Check(b) && !PySequence_Check(b)))) {
+      Py_RETURN_NOTIMPLEMENTED;
+    }
     return PyGenericArrType_Type.tp_richcompare(a, b, op);
   }
   bool result;
@@ -367,6 +355,30 @@ Py_hash_t PyCustomFloat_Hash(PyObject* self) {
   return HashImpl(&_Py_HashDouble, self, static_cast<double>(x));
 }
 
+// Format function for PyCustomFloat.
+template <typename T>
+PyObject* PyCustomFloat_Format(PyObject* self, PyObject* format_spec) {
+  if (!PyUnicode_Check(format_spec)) {
+    PyErr_Format(PyExc_TypeError, "__format__() argument 1 must be str, not %s",
+                 Py_TYPE(format_spec)->tp_name);
+    return nullptr;
+  }
+  PyObject* f = PyCustomFloat_Float<T>(self);
+  if (!f) {
+    return nullptr;
+  }
+  PyObject* result = PyObject_Format(f, format_spec);
+  Py_DECREF(f);
+  return result;
+}
+
+template <typename T>
+PyMethodDef CustomFloatType<T>::methods[] = {
+    {"__format__", reinterpret_cast<PyCFunction>(PyCustomFloat_Format<T>),
+     METH_O, "Format a custom float value."},
+    {nullptr, nullptr, 0, nullptr},
+};
+
 template <typename T>
 PyType_Slot CustomFloatType<T>::type_slots[] = {
     {Py_tp_new, reinterpret_cast<void*>(PyCustomFloat_New<T>)},
@@ -376,6 +388,7 @@ PyType_Slot CustomFloatType<T>::type_slots[] = {
     {Py_tp_doc,
      reinterpret_cast<void*>(const_cast<char*>(TypeDescriptor<T>::kTpDoc))},
     {Py_tp_richcompare, reinterpret_cast<void*>(PyCustomFloat_RichCompare<T>)},
+    {Py_tp_methods, reinterpret_cast<void*>(CustomFloatType<T>::methods)},
     {Py_nb_add, reinterpret_cast<void*>(PyCustomFloat_Add<T>)},
     {Py_nb_subtract, reinterpret_cast<void*>(PyCustomFloat_Subtract<T>)},
     {Py_nb_multiply, reinterpret_cast<void*>(PyCustomFloat_Multiply<T>)},
@@ -440,11 +453,6 @@ int NPyCustomFloat_SetItem(PyObject* item, void* data, void* arr) {
   }
   memcpy(data, &x, sizeof(T));
   return 0;
-}
-
-inline void ByteSwap16(void* value) {
-  char* p = reinterpret_cast<char*>(value);
-  std::swap(p[0], p[1]);
 }
 
 template <typename T>
@@ -651,7 +659,7 @@ bool RegisterCustomFloatCast(int numpy_type = TypeDescriptor<OtherT>::Dtype()) {
 
 template <typename T>
 bool RegisterFloatCasts() {
-  if (!RegisterCustomFloatCast<T, Eigen::half>(NPY_HALF)) {
+  if (!RegisterCustomFloatCast<T, half>(NPY_HALF)) {
     return false;
   }
 
@@ -940,9 +948,5 @@ bool RegisterFloatDtype(PyObject* numpy) {
 }
 
 }  // namespace ml_dtypes
-
-#if NPY_ABI_VERSION < 0x02000000
-#undef PyArray_DescrProto
-#endif
 
 #endif  // ML_DTYPES_CUSTOM_FLOAT_H_

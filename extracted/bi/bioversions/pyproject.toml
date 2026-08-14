@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "bioversions"
-version = "0.10.109"
+version = "0.11.1"
 description = "Get the current version for biological databases"
 readme = "README.md"
 classifiers = [
@@ -17,7 +17,6 @@ classifiers = [
     "Framework :: Sphinx",
     "Natural Language :: English",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -34,18 +33,18 @@ keywords = [
 ]
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "requests",
     "beautifulsoup4",
-    "pystow[bs4]>=0.8.0",
+    "pystow[bs4]>=0.9.0",
     "click",
     "click-default-group",
     "tabulate",
     "more_click",
     "pyyaml",
     "tqdm",
-    "bioregistry[align]>=0.13.47",
+    "bioregistry[align]>=0.14.0",
     "lxml",
     "pydantic>=2.0",
     "psycopg2-binary",
@@ -203,6 +202,7 @@ ignore = [
     "D105",
     "E203",
     "S321",
+    "DTZ",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -228,7 +228,7 @@ known-first-party = [
 docstring-code-format = true
 
 [tool.bumpversion]
-current_version = "0.10.109"
+current_version = "0.11.1"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(?:-(?P<release>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+(?P<build>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?'
 serialize = [
     "{major}.{minor}.{patch}-{release}+{build}",

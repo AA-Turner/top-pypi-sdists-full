@@ -97,7 +97,9 @@ def monitor(run_once=False, broker=None):
             for stat in stats:
                 status = stat.status
                 # color status
-                if stat.status == Conf.WORKING:
+                if stat.status == Conf.STARTING:
+                    status = term.yellow(str(Conf.STARTING))
+                elif stat.status == Conf.WORKING:
                     status = term.green(str(Conf.WORKING))
                 elif stat.status == Conf.STOPPING:
                     status = term.yellow(str(Conf.STOPPING))
@@ -105,6 +107,8 @@ def monitor(run_once=False, broker=None):
                     status = term.red(str(Conf.STOPPED))
                 elif stat.status == Conf.IDLE:
                     status = str(Conf.IDLE)
+                else:
+                    status = _("Unknown")
                 # color q's
                 tasks = str(stat.task_q_size)
                 if stat.task_q_size > 0:
@@ -114,10 +118,14 @@ def monitor(run_once=False, broker=None):
                 results = stat.done_q_size
                 if results > 0:
                     results = term.cyan(str(results))
+                else:
+                    results = str(results)
                 # color workers
                 workers = len(stat.workers)
                 if workers < Conf.WORKERS:
                     workers = term.yellow(str(workers))
+                else:
+                    workers = str(workers)
                 # format uptime
                 uptime = (timezone.now() - stat.tob).total_seconds()
                 hours, remainder = divmod(uptime, 3600)
@@ -150,7 +158,7 @@ def monitor(run_once=False, broker=None):
                 )
                 print(
                     term.move(i, 6 * col_width)
-                    + term.center(stat.reincarnations, width=col_width - 1)
+                    + term.center(str(stat.reincarnations), width=col_width - 1)
                 )
                 print(
                     term.move(i, 7 * col_width)
@@ -411,27 +419,29 @@ def memory(run_once=False, workers=False, broker=None):
                 )
                 print(
                     term.move(row, 2 * col_width)
-                    + term.center(memory_available_percentage, width=col_width - 1)
+                    + term.center(str(memory_available_percentage), width=col_width - 1)
                 )
                 print(
                     term.move(row, 3 * col_width)
-                    + term.center(memory_available, width=col_width - 1)
+                    + term.center(str(memory_available), width=col_width - 1)
                 )
                 print(
                     term.move(row, 4 * col_width)
                     + term.center(
-                        round(psutil.virtual_memory().total / 1024**2, 2),
+                        str(round(psutil.virtual_memory().total / 1024**2, 2)),
                         width=col_width - 1,
                     )
                 )
                 print(
                     term.move(row, 5 * col_width)
-                    + term.center(get_process_mb(stat.sentinel), width=col_width - 1)
+                    + term.center(
+                        str(get_process_mb(stat.sentinel)), width=col_width - 1
+                    )
                 )
                 print(
                     term.move(row, 6 * col_width)
                     + term.center(
-                        get_process_mb(getattr(stat, "monitor", None)),
+                        str(get_process_mb(getattr(stat, "monitor", None))),
                         width=col_width - 1,
                     )
                 )
@@ -444,7 +454,7 @@ def memory(run_once=False, workers=False, broker=None):
                 print(
                     term.move(row, 7 * col_width)
                     + term.center(
-                        workers_mb or "NO_PROCESSES_FOUND", width=col_width - 1
+                        str(workers_mb or "NO_PROCESSES_FOUND"), width=col_width - 1
                     )
                 )
                 row += 1
@@ -476,7 +486,7 @@ def memory(run_once=False, workers=False, broker=None):
                         mb_used = get_process_mb(worker_pid)
                         print(
                             term.move(row, (idx + 1) * col_width)
-                            + term.center(mb_used, width=col_width - 1)
+                            + term.center(str(mb_used), width=col_width - 1)
                         )
                     row += 1
             row += 1

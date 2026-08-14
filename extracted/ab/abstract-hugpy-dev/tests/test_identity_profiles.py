@@ -9,7 +9,7 @@ routes/video_routes.py, WITHOUT polluting the real profiles registry:
   * the reference-image JAIL is the real UPLOADS_HOME (the route/media_store
     resolve paths against the actual constant), so the test writes its PNG/mp4
     fixtures into a temp subdir UNDER UPLOADS_HOME (auto-cleaned) — the same
-    dir=DEFAULT_ROOT approach the studio-preset route test uses.
+    dir=os.path.join(DEFAULT_ROOT, "video_intel", "_scratch") approach the studio-preset route test uses.
 
 Locks (each check runs independently so one failure never masks the rest):
   [1] POST create -> 201 {profile}; the store file has the pinned shape
@@ -71,14 +71,14 @@ from abstract_hugpy_dev.imports.src.constants.constants import UPLOADS_HOME, DEF
 #    jailed to UPLOADS_HOME and structurally cannot reach a DEFAULT_ROOT/<tmp> path.
 #  * PROJECTS_HOME is the LEGACY store location (only the migration tests seed a file
 #    there); pointing it at a temp dir keeps the real projects registry untouched.
-_TMP_IDENTITIES = tempfile.mkdtemp(prefix="hugpy-identity-store-", dir=DEFAULT_ROOT)
+_TMP_IDENTITIES = tempfile.mkdtemp(prefix="hugpy-identity-store-", dir=os.path.join(DEFAULT_ROOT, "video_intel", "_scratch"))
 identity_profiles.IDENTITIES_HOME = _TMP_IDENTITIES
 _TMP_PROJECTS = tempfile.mkdtemp(prefix="hugpy-identity-projects-")
 identity_profiles.PROJECTS_HOME = _TMP_PROJECTS
 
 # JAIL: the reference images MUST resolve under the real UPLOADS_HOME (the route +
 # media_store validate against the actual constant). Put fixtures in a temp subdir
-# there (cleaned up), mirroring the preset route test's dir=DEFAULT_ROOT.
+# there (cleaned up), mirroring the preset route test's dir=os.path.join(DEFAULT_ROOT, "video_intel", "_scratch").
 _TMP_UPLOADS = tempfile.mkdtemp(prefix="hugpy-identity-uploads-", dir=UPLOADS_HOME)
 
 # The identity_profile enqueue seam (check [7]) posts a real /video/studio/i2v job;
@@ -550,7 +550,7 @@ def test_reaper_cannot_reach_identity_refs():
 # --------------------------------------------------------------------------- #
 def test_migration_happy_path():
     old_id, old_pr = identity_profiles.IDENTITIES_HOME, identity_profiles.PROJECTS_HOME
-    tmp_id = tempfile.mkdtemp(prefix="hugpy-mig-id-", dir=DEFAULT_ROOT)
+    tmp_id = tempfile.mkdtemp(prefix="hugpy-mig-id-", dir=os.path.join(DEFAULT_ROOT, "video_intel", "_scratch"))
     tmp_pr = tempfile.mkdtemp(prefix="hugpy-mig-pr-")
     tmp_up = tempfile.mkdtemp(prefix="hugpy-mig-up-")
     try:
@@ -601,7 +601,7 @@ def test_migration_happy_path():
 # --------------------------------------------------------------------------- #
 def test_migration_missing_source_kept_not_dropped():
     old_id, old_pr = identity_profiles.IDENTITIES_HOME, identity_profiles.PROJECTS_HOME
-    tmp_id = tempfile.mkdtemp(prefix="hugpy-mig2-id-", dir=DEFAULT_ROOT)
+    tmp_id = tempfile.mkdtemp(prefix="hugpy-mig2-id-", dir=os.path.join(DEFAULT_ROOT, "video_intel", "_scratch"))
     tmp_pr = tempfile.mkdtemp(prefix="hugpy-mig2-pr-")
     try:
         gone = [os.path.join(_TMP_UPLOADS, "luigi_a.png"),

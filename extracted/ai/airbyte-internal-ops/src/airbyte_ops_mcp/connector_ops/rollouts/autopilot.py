@@ -59,11 +59,70 @@ from airbyte_ops_mcp.connector_ops.rollouts.models import (
     ConnectorRolloutRecord,
 )
 from airbyte_ops_mcp.prod_db_access.queries import query_connector_rollouts
-from airbyte_ops_mcp.slack_posting import send_hitl_notification
+from airbyte_ops_mcp.registry.release_attribution import (
+    lookup_release_attribution,
+)
+from airbyte_ops_mcp.registry.store import RegistryStore
+from airbyte_ops_mcp.slack_posting import (
+    format_github_login_contact,
+    send_hitl_notification,
+)
 
 logger = logging.getLogger(__name__)
 
 _AUTOPILOT_ESCALATION_TARGET = "@aaronsteers"
+
+
+def _release_context(
+    connector: str,
+    version: str,
+    *,
+    store: RegistryStore | None = None,
+) -> str:
+    """Return best-effort release context for a rollout notification."""
+    try:
+        result = lookup_release_attribution(
+            store or RegistryStore.parse("coral:prod"),
+            connector,
+            version,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Could not look up release attribution for %s@%s: %s",
+            connector,
+            version,
+            exc,
+        )
+        return ""
+
+    if result.status != "found" or result.attribution is None:
+        if result.status == "error":
+            logger.warning(
+                "Release attribution lookup failed for %s@%s: %s",
+                connector,
+                version,
+                result.error,
+            )
+        return ""
+
+    attribution = result.attribution
+    lines: list[str] = []
+    if attribution.pr_url:
+        pr_label = (
+            f"PR {attribution.pr_number}"
+            if attribution.pr_number is not None
+            else attribution.pr_url
+        )
+        lines.append(f"Release PR: <{attribution.pr_url}|{pr_label}>")
+
+    if attribution.attributed_to:
+        contact = format_github_login_contact(attribution.attributed_to)
+        lines.append(f"Release contact: {contact}")
+    elif attribution.pr_author_login:
+        suffix = " (automated account)" if attribution.pr_author_type == "Bot" else ""
+        lines.append(f"Release author: `{attribution.pr_author_login}`{suffix}")
+
+    return "\n".join(lines)
 
 
 @dataclass(frozen=True)
@@ -1925,6 +1984,8 @@ def _send_failure_threshold_hitl(
     Returns `True` if the notification was sent successfully, `False` otherwise.
     Failures are logged but not raised.
     """
+    release_context = _release_context(rollout.connector_name, rc_version)
+    release_section = f"\n\n{release_context}" if release_context else ""
     message = (
         f"🚨 *Rollout paused (failure threshold)*\n\n"
         f"Connector: `{rollout.connector_name}`\n"
@@ -1935,7 +1996,7 @@ def _send_failure_threshold_hitl(
         f"Reason: {gate.reason}\n"
         f"Failures observed: {gate.failure_count}\n\n"
         f"Action required: review sync failures and decide whether to "
-        f"rollback or resume the rollout."
+        f"rollback or resume the rollout.{release_section}"
     )
     try:
         send_hitl_notification(
@@ -1970,10 +2031,10 @@ def run_auto_triage_failed(
        per `unsafeDowngrades`. Actor-level unpinning not yet implemented.
     2. **Failure threshold detection** (`in_progress` and `workflow_started`
        autopilot rollouts): Calls `check_health_gate` on active rollouts. If
-       failure count >= threshold, cancels the rollout (retaining pins) and
-       sends an HITL notification.  Cancellation prevents duplicate
-       notifications on subsequent cron runs. Auto-advance and auto-promote
-       independently skip on the same gate as defense-in-depth.
+       failure count >= threshold, pauses the rollout and sends an HITL
+       notification. The pause prevents duplicate notifications on subsequent
+       cron runs. Auto-advance and auto-promote independently skip on the same
+       gate as defense-in-depth.
     """
     result = AutopilotResult(command="auto-triage-failed", dry_run=dry_run)
 
@@ -2087,7 +2148,7 @@ def run_auto_triage_failed(
                     action="triage",
                     success=True,
                     message=(
-                        f"Would cancel rollout and send HITL notification "
+                        f"Would pause rollout and send HITL notification "
                         f"(failure threshold): {gate.reason}"
                     ),
                     tier=rollout.tier,
@@ -2095,25 +2156,23 @@ def run_auto_triage_failed(
             )
             continue
 
-        # Cancel the rollout (retain pins) to prevent re-notification on next run
+        # Pause the rollout to retain pins and prevent re-notification on next run
         try:
-            api_client.finalize_connector_rollout(
+            api_client.pause_connector_rollout(
                 docker_repository=rollout.rc_docker_repository or "",
                 docker_image_tag=rc_version,
                 actor_definition_id=rollout.actor_definition_id,
                 rollout_id=rollout.rollout_id,
                 updated_by=user_id,
-                state="canceled",
                 config_api_root=constants.CLOUD_CONFIG_API_ROOT,
                 client_id=auth.client_id,
                 client_secret=auth.client_secret,
                 bearer_token=auth.bearer_token,
-                error_msg=f"{FAILURE_THRESHOLD_EXCEEDED_MARKER} {gate.reason}",
-                retain_pins_on_cancellation=True,
+                paused_reason=f"{FAILURE_THRESHOLD_EXCEEDED_MARKER} {gate.reason}",
             )
         except Exception as e:
             logger.warning(
-                "auto-triage-failed: Failed to cancel rollout %s: %s",
+                "auto-triage-failed: Failed to pause rollout %s: %s",
                 rollout.rollout_id,
                 e,
             )
@@ -2125,7 +2184,7 @@ def run_auto_triage_failed(
                     rc_version=rc_version,
                     action="triage",
                     success=False,
-                    message=f"Failed to cancel rollout: {e}",
+                    message=f"Failed to pause rollout: {e}",
                     tier=rollout.tier,
                 )
             )
@@ -2141,7 +2200,7 @@ def run_auto_triage_failed(
                 action="triage",
                 success=sent,
                 message=(
-                    f"Rollout canceled (retain pins) and HITL notification "
+                    f"Rollout paused and HITL notification "
                     f"{'sent' if sent else 'FAILED'}: {gate.reason}"
                 ),
                 tier=rollout.tier,

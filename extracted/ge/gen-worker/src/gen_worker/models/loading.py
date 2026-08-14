@@ -19,22 +19,20 @@ from ..component_vocab import (
     weight_components,
 )
 from ..families.facts import component_dtype_for_class
-from .ladder import EMERGENCY_NF4_VRAM_FACTOR, NF4_WEIGHT_BYTES_FACTOR
 import importlib
 import importlib.util
 import inspect
 import os
 import struct
-import sys
 
 from ..capability import HostRamCapacityError, InsufficientHostRamError
 from . import disk_gc, load_progress
 from .tensor_layout_contract import CONTRACT_PLAIN_BF16, implements_contract
 from .fp8_storage import restructure_fp8_storage
+from .rung import touches_host_ram
 from .memory import (
     flush_memory,
     get_available_vram_gb,
-    keeps_weights_in_host_ram,
     meta_tensors,
     probe_host_ram,
 )
@@ -68,7 +66,7 @@ _DTYPE_MAP = {
 def get_torch_dtype(dtype_str: Optional[str]) -> Any:
     """Map a dtype string to a torch dtype. Empty/None -> bfloat16 (the
     de-facto inference default). UNKNOWN strings raise instead of silently
-    loading as bf16 (#358) — quantized checkpoints (fp8/int4/...) don't take a
+    loading as bf16 — quantized checkpoints (fp8/int4/...) don't take a
     ``torch_dtype`` and must not be mislabeled."""
     import torch
 
@@ -110,8 +108,8 @@ _SAFETENSORS_DTYPE_NAMES = {
 def safetensors_file_valid(path: Path) -> bool:
     """Cheap structural integrity check for one ``.safetensors`` file: the
     header must parse and the file must contain every declared tensor byte.
-    Catches truncation (pod-churn-interrupted writes, gw#408) without hashing;
-    zero-page corruption inside tensor data needs the digest check instead."""
+    Catches truncation (interrupted writes) without hashing; zero-page
+    corruption inside tensor data needs the digest check instead."""
 
     try:
         p = Path(path)
@@ -224,23 +222,14 @@ def synthesize_quantization_config(attrs: Optional[Dict[str, str]]) -> Optional[
 
 # Pipeline components fp8 storage applies to: the denoiser dominates VRAM and
 # tolerates fp8-E4M3 weight rounding; text encoders / VAE stay at compute
-# precision (quality-safe default, QUANTIZATION-POLICY.md component policy).
+# precision (QUANTIZATION-POLICY.md component policy).
 #
 # These read the vocabulary at CALL time, never at import: an endpoint's
-# declare_components() runs at endpoint-module import, which may be after this
-# module is imported. A module-level tuple would freeze the pre-declaration
-# vocabulary and silently skip the declared components (pgw#740 B5).
+# declare_components() may run after this module is imported, and a
+# module-level tuple would freeze the pre-declaration vocabulary.
 _fp8_storage_components = denoiser_components
 # The "+te" rung (component fit-ladder rung 2): the pipeline's text encoders.
 _fp8_text_encoder_components = text_encoder_components
-
-#: pgw#824: the emergency nf4 rung was engaged and landed on ZERO modules. A
-#: rung OUTCOME, not the absence of one — the pipeline serves full precision on
-#: a host whose free VRAM was already below the stored-precision footprint,
-#: which is the worst outcome the ladder can produce. Distinct from "nf4" (it
-#: landed) and from "" (no rung was needed), because placement must be able to
-#: tell those three apart. Consumed by ``models.provision``.
-RUNG_NF4_UNLANDED = "nf4-unlanded"
 
 class _Fp8WeightWindow:
     """Weight-only fp8 storage for one transformer block: the block's
@@ -249,14 +238,13 @@ class _Fp8WeightWindow:
     recasts after. Everything else in the block (norms, embeddings, biases,
     raw parameters) never leaves compute precision.
 
-    Block-window (not per-leaf-layer) granularity is what makes this safe for
-    transformers models, which — unlike diffusers denoisers — read weight
-    dtype and touch weights OUTSIDE the owning leaf's forward (gw#460):
-    Gemma3's embed-scale multiply runs on the embedding output, and T5's
-    ``T5DenseActDense`` casts ACTIVATIONS to ``self.wo.weight.dtype`` before
-    calling ``wo``, so a leaf-hooked (diffusers-style) ``wo`` still poisons
-    the stream with fp8. Inside a block window every dtype read sees the
-    compute dtype. Transient cost: one block resident at compute dtype."""
+    Block-window (not per-leaf-layer) granularity is required for transformers
+    models, which — unlike diffusers denoisers — read weight dtype and touch
+    weights OUTSIDE the owning leaf's forward (Gemma3's embed-scale multiply,
+    T5's ``T5DenseActDense`` casting activations to ``self.wo.weight.dtype``),
+    so a leaf-hooked ``wo`` still poisons the stream with fp8. Inside a block
+    window every dtype read sees the compute dtype. Transient cost: one block
+    resident at compute dtype."""
 
     def __init__(self, params: List[Any], storage: Any, compute: Any) -> None:
         self._params = params
@@ -305,8 +293,8 @@ def _fp8_block_windows(mod: Any) -> List[tuple[str, Any, List[Any]]]:
             seen_blocks.add(id(block))
             blocks.append((f"{name}.{i}", block))
 
-    # Any parameter reachable outside the blocks must keep compute dtype —
-    # a weight cast through a block but read elsewhere is the gw#460 break.
+    # Any parameter reachable outside the blocks must keep compute dtype: a
+    # weight cast through a block but read elsewhere breaks.
     block_param_owners: Dict[int, int] = {}
     for _, block in blocks:
         for p in block.parameters():
@@ -391,22 +379,21 @@ def apply_fp8_storage(obj: Any, *, compute_dtype: Any = None,
                       text_encoders: bool = False,
                       components: Optional[tuple[str, ...]] = None) -> bool:
     """fp8-E4M3 weight storage with per-layer upcast to ``compute_dtype`` on a
-    pipeline's denoiser — or on ``obj`` itself when it is a bare module
-    (th#546 two-format policy). Diffusers denoisers are RESTRUCTURED into fp8
-    storage modules (pgw#727, :mod:`gen_worker.models.fp8_storage`: upcast at
-    the use site inside forward); transformers text encoders keep the
-    :class:`_Fp8WeightWindow` block hooks — they read weight dtype OUTSIDE the
-    owning leaf's forward (gw#460), which resident fp8 would poison, and they
-    are not on any compiled path.
+    pipeline's denoiser — or on ``obj`` itself when it is a bare module.
+    Diffusers denoisers are RESTRUCTURED into fp8 storage modules
+    (:mod:`gen_worker.models.fp8_storage`: upcast at the use site inside
+    forward); transformers text encoders keep the :class:`_Fp8WeightWindow`
+    block hooks — they read weight dtype OUTSIDE the owning leaf's forward,
+    which resident fp8 would poison, and they are not on any compiled path.
     ``text_encoders=True`` (the ``storage_dtype="fp8+te"`` rung) extends the
     cast to the pipeline's text encoders via the transformers-aware path.
-    ``components`` overrides the target component names entirely (gw#557:
-    the w8a8 lane casts ONLY the text encoders — its denoiser holds fp8
-    scaled-mm modules that cast hooks must never touch).
+    ``components`` overrides the target component names entirely: the w8a8
+    lane casts ONLY the text encoders — its denoiser holds fp8 scaled-mm
+    modules that cast hooks must never touch.
 
     This is the universal VRAM-fit mechanism: fp8 bytes resident, bf16/fp16
     compute, no fp8 silicon required. Also the consumption path for stored
-    ``#fp8`` flavors — their storage precision is preserved instead of being
+    fp8 flavors — their storage precision is preserved instead of being
     upcast into 2x the VRAM. Returns True when any module was converted;
     failures degrade to full-precision serving with a warning."""
     try:
@@ -436,19 +423,18 @@ def apply_fp8_storage(obj: Any, *, compute_dtype: Any = None,
     applied = False
     for name, mod in targets:
         if getattr(mod, "_cozy_fp8_storage_applied", False):
-            # Idempotence (gw#479): a content-shared module injected into a
+            # Idempotence: a content-shared module injected into a
             # sibling lane is already armed; double hooks would double-cast.
             applied = True
             continue
         try:
             if callable(getattr(mod, "enable_layerwise_casting", None)):
-                # diffusers ModelMixin. pgw#727: same semantics as
-                # ``enable_layerwise_casting`` (and the SAME coverage set —
-                # the model's own skip patterns included), expressed as module
-                # STRUCTURE instead of a forward-boundary mutation. The hook
-                # form is compile-hostile (0.2% dynamo regression for a 38.9s
-                # mint) and torch.export refuses it; the structural form is
-                # 14.8% faster under dynamo and exports clean.
+                # diffusers ModelMixin. Same semantics and coverage set as
+                # ``enable_layerwise_casting`` (the model's own skip patterns
+                # included), expressed as module STRUCTURE instead of a
+                # forward-boundary mutation: the hook form is compile-hostile
+                # and torch.export refuses it; the structural form is 14.8%
+                # faster under dynamo and exports clean.
                 if not restructure_fp8_storage(mod, storage_dtype=storage,
                                                compute_dtype=compute_dtype):
                     raise ValueError("no fp8-castable leaves found")
@@ -460,10 +446,9 @@ def apply_fp8_storage(obj: Any, *, compute_dtype: Any = None,
         except Exception as exc:
             logger.warning("fp8 storage failed on %s (%s); serving at full precision",
                            name, exc)
-            # pgw#760: the all-components failure is structurally reported
-            # (th#737 cast_dropped), but a PARTIAL failure returns
-            # applied=True and reads as success — this component alone now
-            # holds ~2x its budgeted VRAM at full precision.
+            # A PARTIAL failure still returns applied=True and reads as
+            # success, so report it: this component alone now holds ~2x its
+            # budgeted VRAM at full precision.
             activity_mod.emit_event(
                 activity_mod.KIND_SERVE_DEGRADE,
                 f"component={name} obj={type(obj).__name__}: fp8 storage "
@@ -475,10 +460,10 @@ def apply_fp8_storage(obj: Any, *, compute_dtype: Any = None,
 
 
 class _BlockOffloadWindow:
-    """Degraded-mode rung 2 (ie#468): one transformer block's weights REST in
+    """Degraded-mode rung 2: one transformer block's weights REST in
     host RAM (pinned when possible) and stream to the execution device only
     for that block's forward. The pre-hook is PREPENDED so the H2D copy runs
-    before any fp8 upcast window (gw#460) on the same block — composed order:
+    before any fp8 upcast window on the same block — composed order:
     host fp8 bytes -> device fp8 -> device compute dtype. The post-hook
     rebinds ``.data`` to the pristine host copy (weights are read-only at
     inference; no copy-back), so whatever dtype games other hooks played in
@@ -510,22 +495,21 @@ def apply_block_window_offload(
     device: Any = None,
 ) -> bool:
     """Park a module's per-block weights in pinned host RAM and stream each
-    block to ``device`` for its forward only — the gw#460 block windows in
-    reverse (degraded-mode rung 2, ie#468). Quality-preserving but slow
-    (whole-model PCIe traffic per forward); a guaranteed-completion last
-    resort for VRAM-constrained cards, never a production serving mode.
+    block to ``device`` for its forward only — the block windows in reverse
+    (degraded-mode rung 2). Quality-preserving but slow (whole-model PCIe
+    traffic per forward); a guaranteed-completion last resort for
+    VRAM-constrained cards, never a production serving mode.
 
     ``obj`` is a pipeline (named ``components`` are offloaded) or a bare
     module. Parameters outside the discovered block windows — embeddings,
     final norms, projections — are moved TO ``device`` (they must be
-    resident; the gw#460 outside-a-block dtype/device hazard applies to
-    device placement too). Composes with fp8 storage windows: fp8 bytes
-    stream over PCIe (half the traffic), upcast happens on-device.
+    resident; the outside-a-block dtype hazard applies to device placement
+    too). Composes with fp8 storage windows: fp8 bytes stream over PCIe (half
+    the traffic), upcast happens on-device.
 
     Returns True when any module was armed. Idempotent per module."""
-    # Default resolved at call time, not in the signature: a default argument
-    # is evaluated at def time, which would freeze the vocabulary before an
-    # endpoint's declare_components() ever runs (pgw#740 B5).
+    # Default resolved at call time, not in the signature: a def-time default
+    # would freeze the vocabulary before declare_components() ever runs.
     if components is None:
         components = denoiser_components()
     try:
@@ -586,10 +570,9 @@ def apply_block_window_offload(
                 p.data = p.data.to(device)
         for b in mod.buffers():
             # `parked_ids` guards buffers too: the storage lanes hold their
-            # weights as BUFFERS (w8a8's scaled weights, and pgw#727's fp8
-            # storage leaves), so without this the just-parked block weights
-            # are pulled straight back onto the device and the rung silently
-            # saves nothing.
+            # weights as BUFFERS (w8a8's scaled weights, the fp8 storage
+            # leaves), so without this the just-parked block weights are
+            # pulled straight back onto the device and the rung saves nothing.
             if id(b) not in parked_ids and b.device != torch.device(device):
                 b.data = b.data.to(device)
         mod._cozy_block_offload_applied = True
@@ -600,13 +583,11 @@ def apply_block_window_offload(
             name, len(windows), parked_bytes / float(1 << 30),
             "pinned" if pin else "pageable",
         )
-        # pgw#824: the SIBLING the pgw#760 apply_fp8_storage fix missed. This
-        # is the same class of fact and a larger one: every forward on this
-        # component now streams its weights over PCIe from host RAM, which is
-        # the single biggest per-request latency change the loader can make,
-        # and it was a `logger.warning` on a pod with no stdout. `pinned` vs
-        # `pageable` rides the detail because the two differ by roughly 2x on
-        # the transfer that now sits in the critical path.
+        # Structurally reported, not just logged: every forward on this
+        # component now streams its weights over PCIe from host RAM, the
+        # biggest per-request latency change the loader can make. `pinned` vs
+        # `pageable` rides the detail — they differ by roughly 2x on a
+        # transfer that now sits in the critical path.
         activity_mod.emit_event(
             activity_mod.KIND_SERVE_DEGRADE,
             f"component={name} obj={type(obj).__name__}: block-window offload "
@@ -705,12 +686,10 @@ def _single_file_checkpoint(path: Path) -> Optional[Path]:
     (e.g. Illustrious-XL, civitai checkpoints).
 
     Mirrors reshard oversize safetensors into byte-offset shards + an
-    ``*.safetensors.index.json`` (the HF shard convention — NOT an "R2
-    single-PUT cap"; no such cap exists here, uploads are multipart and the
-    hub grants 64 GiB/file), so a big single-file checkpoint arrives as N
-    shards. Those are reassembled once into the
-    original file (mmap-backed, ~disk-copy cost) and cached in the snapshot
-    dir — ``from_single_file`` only takes one file."""
+    ``*.safetensors.index.json`` (the HF shard convention), so a big
+    single-file checkpoint arrives as N shards. Those are reassembled once
+    into the original file (mmap-backed, ~disk-copy cost) and cached in the
+    snapshot dir — ``from_single_file`` only takes one file."""
     if path.is_file():
         return path if path.suffix == ".safetensors" else None
     if not path.is_dir():
@@ -741,9 +720,8 @@ def _merge_sharded_checkpoint(snapshot_dir: Path, index_path: Path) -> Path:
     if merged.exists():
         if safetensors_file_valid(merged):
             return merged
-        # A pod kill mid-writeback can persist a truncated merged file that
-        # was then trusted forever — every load fataled with "Unable to load
-        # weights from checkpoint file" until manual delete (gw#408).
+        # A kill mid-writeback persists a truncated merged file; without this
+        # revalidation it would be trusted forever.
         logger.warning(
             "cached merged checkpoint %s is structurally invalid (truncated?); re-merging",
             merged.name,
@@ -797,51 +775,38 @@ def _merge_sharded_checkpoint(snapshot_dir: Path, index_path: Path) -> Path:
                     remaining -= len(buf)
         out.flush()
 
-        os.fsync(out.fileno())  # durable before rename (gw#408)
+        os.fsync(out.fileno())  # durable before rename
     tmp.rename(merged)
     logger.info("reassembled sharded single-file checkpoint: %s (%d shards, %d tensors, %d bytes)",
                 merged.name, len(shard_names), len(entries), offset)
     return merged
 
 
-# --- fp8 download stays the fp8 storage lane (pgw#772) ----------------------
-# The gw#534 "rung 2" voluntary upgrade (fp8 download upcast ONCE to plain
-# bf16-resident weights whenever the snapshot fit free VRAM with headroom,
-# `bf16_resident_fits` / BF16_RESIDENT_MARGIN_GB) is REMOVED, ruled by Paul on
-# pgw#772. The serving lane is deterministic per (release x declared config)
-# — never a function of the individual card's free VRAM. The probe made
-# `lane` the only GPU-dependent axis of the cell key: a 4090's ~1.5 GiB
-# VRAM surplus over an L4 (same release/image/sm_89) flipped it to base lane
-# "", a lane NOTHING mints for, so the better card missed all 144 published
-# checkpoints INCLUDING its own same-SKU cell and served eager for life
-# (th#1198 CP-D, −21% request-level AOT win forfeited). The tax the upgrade
-# dodged is +1.9% for the structural storage lane (pgw#727 re-measure; the
-# +44-73% figure that justified it measured the retired HOOK form), so it
-# traded ~2x weight VRAM for ~1.9% latency AND identity determinism.
-# Involuntary transitions stay: the fit-ladder rungs below (can't-fit fp8/nf4)
+# --- fp8 download stays the fp8 storage lane ----------------------
+# NEVER REBUILD the "voluntary upgrade" that upcast an fp8 download to plain
+# bf16-resident weights when free VRAM allowed. The serving lane must be
+# deterministic per (release x declared config), never a function of the
+# individual card's free VRAM: such a probe makes `lane` a GPU-dependent axis
+# of the cell key, so a card with a small VRAM surplus over its same-SKU peers
+# falls into a lane nothing mints for and serves eager for life. The tax it
+# dodged is only +1.9% for the structural storage lane.
+# Involuntary transitions stay: the fit-ladder rung below (can't-fit fp8)
 # and the w8a8/w4a4 dequant-on-unsupported-host lanes are declared rungs, not
 # probe outcomes.
 
-# The pipeline's weight lane, part of the compile-cache graph key (gw#534):
+# The pipeline's weight lane, part of the compile-cache graph key:
 # "" = plain resident weights (incl. the involuntary w8a8/w4a4 dequant
-# lanes), "fp8-hooks" =
-# fp8 weights resident with a per-layer upcast (traced INTO the FX graphs).
-# The "fp8-hooks" spelling is the WIRE value — tensorhub maps it to `w8a16`
-# and cells key on it — and it is kept byte-identical across the pgw#727
-# restructure (hooks -> module structure) on purpose. The restructure DOES
-# change the traced graph, and that shows up where it should: the module
-# types and hook counts in `compile_cache.execution_contract`, i.e. new cell
-# keys, no cross-lane adoption.
+# lanes), "fp8-hooks" = fp8 weights resident with a per-layer upcast (traced
+# INTO the FX graphs). The "fp8-hooks" spelling is the WIRE value — tensorhub
+# maps it to `w8a16` and cells key on it — so it must stay byte-identical.
 _WEIGHT_LANE_ATTR = "_cozy_weight_lane"
 
-#: EVERY base lane a loader can leave on ``_WEIGHT_LANE_ATTR`` (pgw#918).
+#: EVERY base lane a loader can leave on ``_WEIGHT_LANE_ATTR``.
 #:
-#: THE single source of this vocabulary. It is authored here, next to the
-#: attribute itself, because this is where the assignments live — and
+#: THE single source of this vocabulary.
 #: ``tests/test_speculative_execution_lane_completeness_pgw918.py`` parses every
 #: assignment site under ``gen_worker/models`` and fails if a loader stamps a
-#: lane this tuple does not name. An authored list nothing checks is what
-#: ie#546 cost 9 pods, and what pgw#918 found still open for two more lanes.
+#: lane this tuple does not name.
 #:
 #: ``"bf16-resident"`` is deliberately absent: :func:`pipeline_weight_lane`
 #: folds it to ``""`` (it traces identically to plain bf16), so it is never a
@@ -871,35 +836,19 @@ def pipeline_weight_lane(pipeline: Any) -> str:
     return ""
 
 
-# --- Runtime fit rungs (th#546 emergency lane + th#683 fp8 storage) --------
-# Fit ladder: bf16 -> #fp8 flavor -> #nvfp4 (Blackwell) -> runtime fp8-E4M3
-# storage -> EMERGENCY nf4 -> CPU offload. When even the downloaded flavor
-# cannot fit free VRAM, the load path first tries fp8-E4M3 weight storage
-# (apply_fp8_storage: fp8 bytes resident, bf16 compute — quality ~= a stored
-# #fp8 flavor), then runtime-quantizes the denoiser to bnb nf4. Always armed
-# on CUDA hosts (gw#420: fitting is the runtime's job, not a flag); the
-# platform never reaches it because its scheduler places by declared
-# Resources.
-# Coarse whole-model resident factor after nf4-quantizing the denoiser
-# (denoiser ~4x smaller; encoders/VAE stay at compute dtype). Single-sourced
-# from the shared ladder spec (ladder.EMERGENCY_NF4_VRAM_FACTOR) so the
-# runtime rung and the Go/Py ladder never drift.
-EMERGENCY_FIT_FACTOR = EMERGENCY_NF4_VRAM_FACTOR
+# --- The runtime fit rung -------------------------------------------------
+# Fit ladder: bf16 -> fp8 flavor -> nvfp4 (Blackwell) -> runtime fp8-E4M3
+# storage -> CPU offload. When even the downloaded flavor cannot fit free
+# VRAM, the load path tries fp8-E4M3 weight storage (apply_fp8_storage: fp8
+# bytes resident, bf16 compute) and then hands the slot to the offload ladder.
+# Nothing QUANTIZES here — Paul: "We shouldn't be doing runtime quants; if
+# we're really memory-constrained then we should be fetching the quant we
+# need". Armed on CUDA hosts; fitting is the runtime's job, not a flag.
 # Resident factor after fp8-E4M3 storage of the denoiser, expressed against
 # the declared CARD SIZE (resources.vram_gb — includes activation/framework
-# headroom over raw weights). The ONE fp8 fit factor (pgw#515 deleted the
-# duplicate ladder walk and its weight-bytes-based 0.75 estimate).
+# headroom over raw weights). The ONE fp8 fit factor.
 FP8_STORAGE_FIT_FACTOR = 0.55
 _EMERGENCY_MARGIN_GB = 2.0
-
-
-def emergency_quant_enabled() -> bool:
-    try:
-        import torch
-
-        return bool(torch.cuda.is_available())
-    except ImportError:
-        return False
 
 
 def runtime_fp8_storage_supported() -> bool:
@@ -929,7 +878,7 @@ def model_index_components(path: str | Path) -> set:
 def model_index_component_classes(path: str | Path) -> Dict[str, str]:
     """``{component: class name}`` the snapshot's ``model_index.json`` declares.
 
-    The authoritative component-class vocabulary at LOAD time (pgw#667): a
+    The authoritative component-class vocabulary at LOAD time: a
     fine-tune may substitute a class, and the bytes on disk decide. Empty when
     there is no readable ``model_index.json`` (single-file checkpoints,
     transformers layouts)."""
@@ -954,7 +903,7 @@ def component_load_dtypes(
     pipeline_cls: Any, path: str | Path,
 ) -> Dict[str, Any]:
     """``{component: ComponentDtype}`` this composition's parts require at LOAD
-    time (pgw#667) — the snapshot's own ``model_index.json`` classes first, the
+    time — the snapshot's own ``model_index.json`` classes first, the
     pipeline class's ``__init__`` annotations as the fallback.
 
     Empty for every uniform composition, which is the common case: the caller
@@ -990,21 +939,18 @@ QUANT_EXECUTION_LANE_COMPUTE_DEFAULT = "bf16"
 
 
 def composition_compute_dtype(base_path: str | Path, dtype: str = "") -> str:
-    """The compute dtype the COMPOSED pipeline will run at (pgw#647 gap #2):
-    the base binding's declared dtype when present, else the dtype the base
-    tree's LOAD LANE actually computes at. ``""`` = unknown (an
-    fp32-defaulting composition).
+    """The compute dtype the COMPOSED pipeline will run at: the base binding's
+    declared dtype when present, else the dtype the base tree's LOAD LANE
+    actually computes at. ``""`` = unknown (an fp32-defaulting composition).
 
-    Lane selection mirrors :func:`load_from_pretrained` (pgw#675): a
-    quantized-artifact tree (svdq / w8a8 / w4a4) computes at the lane's bf16
-    default regardless of the tree's MAJORITY on-disk dtype — a produced
-    ``#fp8-w8a8`` flavor quantizes only the repeated-block Linears and passes
-    every other tensor through at SOURCE precision, so a fine-tune mirrored
-    from an fp16 upstream sniffs majority-fp16 while its pipeline loads
-    ``torch_dtype=bf16``. The old majority sniff loaded a component override
-    fp16 into that bf16 composition and every warm/serve forward died with
-    ``Input type (c10::BFloat16) and bias type (c10::Half)`` (ie#546 sdxl
-    finale, 3/3 workers)."""
+    Lane selection mirrors :func:`load_from_pretrained`: a quantized-artifact
+    tree (svdq / w8a8 / w4a4) computes at the lane's bf16 default regardless
+    of the tree's MAJORITY on-disk dtype — a produced w8a8 flavor quantizes
+    only the repeated-block Linears and passes every other tensor through at
+    SOURCE precision, so a fine-tune mirrored from an fp16 upstream sniffs
+    majority-fp16 while its pipeline loads ``torch_dtype=bf16``. Sniffing the
+    majority there yields an fp16 component override inside a bf16
+    composition, and every forward dies on the dtype mismatch."""
     if dtype:
         return dtype
     base = Path(base_path)
@@ -1028,18 +974,15 @@ def composition_compute_dtype(base_path: str | Path, dtype: str = "") -> str:
 class MixedComputeDtypeError(RuntimeError):
     """A composed pipeline presents more than one COMPUTE dtype to its GEMMs.
 
-    pgw#683's invariant. torch's matmul/conv kernels take no dtype opinion
-    from the module — they raise mid-forward, with a message that names
-    neither the tensor nor the component::
+    torch's matmul/conv kernels take no dtype opinion from the module — they
+    raise mid-forward, with a message that names neither the tensor nor the
+    component::
 
         RuntimeError: mat1 and mat2 must have the same dtype, but got
         BFloat16 and Half      (an nn.Linear WITH bias: addmm)
         RuntimeError: Input type (c10::BFloat16) and bias type (c10::Half)
         should be the same     (a conv)
 
-    Live, that message arrived at ``self_mint_compile phase=warmup_forward``
-    warm unit 4/18 on an L4 and cost `generate` on a prod release, with
-    nothing in it to attribute the fault to a component, a ref or a load path.
     This error is raised at LOAD instead, naming the component, the parameter
     path and both dtypes.
     """
@@ -1050,7 +993,7 @@ class MixedComputeDtypeError(RuntimeError):
 #: casting hold weights at those precisions BY DESIGN and upcast per forward.
 _COMPUTE_DTYPE_NAMES = ("float16", "bfloat16", "float32", "float64")
 #: The pair that cannot interoperate and never legitimately coexists in one
-#: composition. fp32 is the DECLARED widening axis (pgw#667) and is reported
+#: composition. fp32 is the DECLARED widening axis and is reported
 #: but never fatal — widening is a precision decision, not a dtype collision.
 _INCOMPATIBLE_COMPUTE = ("float16", "bfloat16")
 
@@ -1062,15 +1005,12 @@ def _gemm_param_dtypes(module: Any) -> Dict[str, str]:
     embeddings are excluded: they carry their own (legitimately wider)
     precision and never meet a weight in one kernel.
 
-    pgw#1020: the isinstance selector alone is BLIND to the quantized lanes.
-    All five quantized leaves (``_Fp8ScaledLinear``, ``_W4A4Linear``,
-    ``_SvdqLinear``, ``_SvdqFusedLinear``, ``_AwqPackedLinear``) subclass
-    ``nn.Module`` directly, so a w8a8 fp16 denoiser inside a bf16 composition
-    — the exact cross-composition aliasing shape pgw#683 exists to refuse —
-    read as ``{}`` here and PASSED the guard. Their upcast target is a fact
-    they state: ``self.compute_dtype`` is what every one of their forwards
-    computes in (and what its bias must match), so it is a GEMM input dtype
-    whether or not a bias tensor exists to carry it.
+    An isinstance selector alone is BLIND to the quantized lanes: all five
+    quantized leaves (``_Fp8ScaledLinear``, ``_W4A4Linear``, ``_SvdqLinear``,
+    ``_SvdqFusedLinear``, ``_AwqPackedLinear``) subclass ``nn.Module``
+    directly and would read as ``{}``. Their ``self.compute_dtype`` is what
+    every one of their forwards computes in (and what its bias must match),
+    so it counts as a GEMM input dtype whether or not a bias tensor exists.
     """
     import torch.nn as nn
 
@@ -1097,9 +1037,8 @@ def _gemm_param_dtypes(module: Any) -> Dict[str, str]:
             dt_name = str(dt).rsplit(".", 1)[-1]
             if dt_name in _COMPUTE_DTYPE_NAMES:
                 out[f"{name}.{attr}" if name else attr] = dt_name
-        # Storage dtypes stay uncounted here too: a leaf declaring an fp8
-        # `compute_dtype` fails the membership test exactly as its fp8 weight
-        # does, so pgw#683's carve-out is unchanged.
+        # Storage dtypes stay uncounted: a leaf declaring an fp8
+        # `compute_dtype` fails the membership test as its fp8 weight does.
         dec_name = str(declared).rsplit(".", 1)[-1] if declared is not None else ""
         if dec_name in _COMPUTE_DTYPE_NAMES:
             out[f"{name}.compute_dtype" if name else "compute_dtype"] = dec_name
@@ -1109,7 +1048,7 @@ def _gemm_param_dtypes(module: Any) -> Dict[str, str]:
 def assert_uniform_compute_dtype(
     obj: Any, expected: str = "", *, label: str = "",
 ) -> None:
-    """Refuse a MIXED-precision composition at LOAD (pgw#683).
+    """Refuse a MIXED-precision composition at LOAD.
 
     Checks every GEMM input of every component: an fp16 weight and a bf16
     weight in one composition means some forward will die on a dtype the
@@ -1122,7 +1061,7 @@ def assert_uniform_compute_dtype(
        shape: a content-keyed shared component loaded by another pick's record
        at ITS dtype and injected here unconverted.
 
-    fp32 parts are legal (pgw#667 declares wider components deliberately) and
+    fp32 parts are legal (wider components are declared deliberately) and
     storage dtypes are legal (fp8/fp4 lanes upcast per forward), so neither
     is counted. Introspection failures never fail a load — only a proven
     collision does.
@@ -1182,7 +1121,7 @@ def _component_dtype_map(
     cls: Any, path: str | Path, scalar_dtype: Any,
 ) -> Optional[Dict[str, Any]]:
     """diffusers' per-component ``torch_dtype`` map for this composition, or
-    None when every part loads at the composition's own dtype (pgw#667).
+    None when every part loads at the composition's own dtype.
 
     Shape is diffusers': ``{"default": <compute dtype>, "<part>": <wider
     dtype>}``. A part is included only when its declared load dtype DIFFERS
@@ -1218,7 +1157,7 @@ def _component_dtype_map(
 
 
 #: Load dtype a component asks for, keyed by what its OWN safetensors headers
-#: store (pgw#1071). fp8 is a STORAGE fact — the artifact carries its own
+#: store. fp8 is a STORAGE fact — the artifact carries its own
 #: quantization config and bf16 is the compute dtype over it, which is why it
 #: maps to :data:`QUANT_EXECUTION_LANE_COMPUTE_DEFAULT` rather than to itself.
 _CHECKPOINT_LOAD_DTYPE = {
@@ -1231,14 +1170,13 @@ _CHECKPOINT_LOAD_DTYPE = {
 
 def checkpoint_load_dtype(source: str | Path) -> str:
     """The dtype ONE component tree's own bytes ask to be loaded at, or ``""``
-    when its headers say nothing (pgw#1071).
+    when its headers say nothing.
 
     Read per COMPONENT, never per snapshot: a majority vote over a whole
     mixed-precision tree upcasts every narrow component when the vote lands
-    wide and truncates every wide one when it lands narrow. ie#615 measured
-    both halves on minimax-h3 — a 66.28 GB bf16 DiT hydrating at 74.9 GiB
-    (4 bytes/param) because the tree-wide vote fell outside the map and
-    diffusers' fp32 default took over."""
+    wide and truncates every wide one when it lands narrow — and a tree-wide
+    vote falling outside the map hands the load to diffusers' fp32 default
+    (4 bytes/param)."""
     return _CHECKPOINT_LOAD_DTYPE.get(detect_on_disk_dtype(Path(source)), "")
 
 
@@ -1260,7 +1198,7 @@ def _modular_declared_dtypes(
     binding's own dtype when it has one, plus pgw#667's per-part facts.
 
     ``None`` when nothing is declared — the hydration loop then reads each
-    component's checkpoint (pgw#1071). With a declared composition dtype this
+    component's checkpoint. With a declared composition dtype this
     is exactly :func:`_component_dtype_map`; without one the facts stand
     alone, because a ``"default"`` key would put every unlisted component
     back under a guess."""
@@ -1303,20 +1241,17 @@ class ComponentExecutionLaneUnsupported(RuntimeError):
     svdq and gguf materialize their denoiser INSIDE the pipeline build (a
     nunchaku file / a single gguf checkpoint the pipeline class assembles).
     Handing back a plain ``from_pretrained`` module for those would not be
-    what serving runs, so the component path refuses by name instead
-    (pgw#689: a benchmark that measures something other than the serve path
-    is worse than one that refuses)."""
+    what serving runs, so the component path refuses by name instead."""
 
 
 def _accepts_kwarg(fn: Any, name: str) -> bool:
     """True when ``fn`` can take ``name=`` (declared or via ``**kwargs``).
 
-    Replaces the ``except TypeError: retry without it`` idiom, which caught
-    ANY construction-time TypeError — including one raised deep inside
-    diffusers' quantization-config reconstruction — and retried a path that
-    failed identically, so the real cause never surfaced (pgw#689 defect 2).
-    Introspection failure means "pass it": the call then fails naming
-    itself."""
+    Deliberately NOT the ``except TypeError: retry without it`` idiom, which
+    catches ANY construction-time TypeError — including one raised deep inside
+    diffusers' quantization-config reconstruction — and retries a path that
+    fails identically, hiding the real cause. Introspection failure means
+    "pass it": the call then fails naming itself."""
     try:
         sig = inspect.signature(fn)
     except (TypeError, ValueError):
@@ -1338,9 +1273,9 @@ def load_component(
 ) -> Any:
     """THE production loader for ONE named pipeline component.
 
-    Every caller that needs a single component — the executor's pgw#617
-    substitution, the pgw#674 rotation preloader, the swap benchmark — goes
-    through here, so what they load is by construction what serving loads.
+    Every caller that needs a single component — the executor's substitution,
+    the rotation preloader, the swap benchmark — goes through here, so what
+    they load is by construction what serving loads.
 
     ``tree`` is the BASE composition: it names the module class
     (model_index.json) and decides the compute dtype. ``weights_tree`` is
@@ -1355,17 +1290,16 @@ def load_component(
     ``NVIDIAModelOptConfig``, whose constructor requires a ``quant_type``
     the block does not supply — so a bare ``from_pretrained`` on the
     denoiser dies at config reconstruction on every flavor the fleet
-    actually serves (pgw#689 defect 1). Lanes with no component-level
-    loader raise :class:`ComponentLaneUnsupported`.
+    actually serves. Lanes with no component-level loader raise
+    :class:`ComponentLaneUnsupported`.
 
-    dtype resolution (pgw#647 gap #2): the base binding's declared dtype
-    wins; otherwise the component inherits the BASE COMPOSITION's compute
-    dtype (:func:`composition_compute_dtype`); the weights' own on-disk
-    dtype is only the last resort. Hub-resolved bindings carry no dtype, so
-    the old override-on-disk fallback loaded e.g. the fp32-stored fp16-fix
-    VAE into a bf16 pipeline and setup died on the first latent (ie#546
-    canary, 2/2 pods). Blocking; callers on an event loop run it
-    off-thread."""
+    dtype resolution: the base binding's declared dtype wins; otherwise the
+    component inherits the BASE COMPOSITION's compute dtype
+    (:func:`composition_compute_dtype`); the weights' own on-disk dtype is
+    only the last resort. Hub-resolved bindings carry no dtype, so falling
+    back to the override's on-disk dtype loads e.g. an fp32-stored VAE into a
+    bf16 pipeline and setup dies on the first latent. Blocking; callers on an
+    event loop run it off-thread."""
 
     base = Path(tree)
     root = Path(weights_tree) if weights_tree is not None else base
@@ -1387,7 +1321,7 @@ def load_component(
     if not src.is_dir():
         src = root
 
-    # pgw#667: a component with a declared load-dtype fact keeps it when it is
+    # a component with a declared load-dtype fact keeps it when it is
     # SUBSTITUTED too — the fact is a property of the component class, and the
     # substituted tree's part must be resident at the same precision the base
     # part required or the composition is silently degraded.
@@ -1404,36 +1338,10 @@ def load_component(
         except ImportError:
             pass  # torch-less environment: loader fails on its own terms
 
-    def _covers(artifact_component: str) -> bool:
-        """The artifact's weight set IS this component: a diffusers tree
-        names it, a bare override tree (root layout) has nothing else in
-        it."""
-        return artifact_component == component or (
-            not artifact_component and src == root
-        )
-
-    w8a8_art = detect_w8a8_artifact(root)
-    if w8a8_art is not None and _covers(w8a8_art.component):
-        return load_w8a8_denoiser(
-            root, w8a8_art, compute_dtype=torch_dtype, cls=cls)
-    w4a4_art = detect_w4a4_artifact(root)
-    if w4a4_art is not None and _covers(w4a4_art.component):
-        return load_w4a4_denoiser(
-            root, w4a4_art, compute_dtype=torch_dtype, cls=cls)
-    svdq_art = detect_svdq_artifact(root)
-    if svdq_art is not None and _covers(svdq_art.component):
-        raise ComponentExecutionLaneUnsupported(
-            f"component {component!r} of {root} is an svdq-{svdq_art.precision} "
-            f"artifact ({svdq_art.file.name}): its denoiser is built by the "
-            f"svdq engine during the PIPELINE load, so there is no "
-            f"component-level production loader to borrow"
-        )
-    if component in denoiser_components() and detect_gguf_snapshot(root):
-        raise ComponentExecutionLaneUnsupported(
-            f"component {component!r} of {root} is a GGUF denoiser: it is "
-            f"dequantized by the pipeline's own gguf loader, so there is no "
-            f"component-level production loader to borrow"
-        )
+    contracted = contract_loaded_component(
+        root, component, cls=cls, compute_dtype=torch_dtype, src=src)
+    if contracted is not None:
+        return contracted
 
     kwargs: Dict[str, Any] = {}
     if torch_dtype is not None and _accepts_kwarg(
@@ -1442,27 +1350,85 @@ def load_component(
     return cls.from_pretrained(str(src), **kwargs)
 
 
+def contract_loaded_component(
+    root: Path, component: str, *, cls: Any, compute_dtype: Any = None,
+    src: Optional[Path] = None,
+) -> Optional[Any]:
+    """THE contract dispatch: one component's tree -> its registered loader.
+
+    ``None`` means this tree declares no layout contract and the caller's own
+    generic load is correct. A module means the tree's layout was recognised
+    and the SDK's declaring loader built it. A raise means the layout IS
+    recognised and has no component-level loader — a typed refusal, never a
+    fall-through.
+
+    ONE dispatch, deliberately shared by the non-modular and modular entry
+    points rather than duplicated: the same artifact bytes reach both, and two
+    copies that agree today drift into a modular hydration that falls through
+    to plain ``from_pretrained`` and dies inside ``DiffusersAutoQuantizer`` on
+    the tree's own ``quantization_config``.
+
+    The silent fall-through is the defect. A contract-bearing tree that is
+    loaded generically does not fail loudly — it produces a module whose
+    numerics cannot serve, or an exception from three libraries away that
+    names none of this.
+    """
+    weights = Path(root)
+    where = Path(src) if src is not None else weights
+
+    def _covers(artifact_component: str) -> bool:
+        """The artifact's weight set IS this component: a diffusers tree
+        names it, a bare override tree (root layout) has nothing else in
+        it."""
+        return artifact_component == component or (
+            not artifact_component and where == weights
+        )
+
+    w8a8_art = detect_w8a8_artifact(weights)
+    if w8a8_art is not None and _covers(w8a8_art.component):
+        return load_w8a8_denoiser(
+            weights, w8a8_art, compute_dtype=compute_dtype, cls=cls)
+    w4a4_art = detect_w4a4_artifact(weights)
+    if w4a4_art is not None and _covers(w4a4_art.component):
+        return load_w4a4_denoiser(
+            weights, w4a4_art, compute_dtype=compute_dtype, cls=cls)
+    svdq_art = detect_svdq_artifact(weights)
+    if svdq_art is not None and _covers(svdq_art.component):
+        raise ComponentExecutionLaneUnsupported(
+            f"component {component!r} of {weights} is an "
+            f"svdq-{svdq_art.precision} artifact ({svdq_art.file.name}): its "
+            f"denoiser is built by the svdq engine during the PIPELINE load, "
+            f"so there is no component-level production loader to borrow"
+        )
+    if component in denoiser_components() and detect_gguf_snapshot(weights):
+        raise ComponentExecutionLaneUnsupported(
+            f"component {component!r} of {weights} is a GGUF denoiser: it is "
+            f"dequantized by the pipeline's own gguf loader, so there is no "
+            f"component-level production loader to borrow"
+        )
+    return None
+
+
 def load_component_override(
     base_path: str | Path, component: str, override_path: str | Path,
     *, dtype: str = "",
 ) -> Any:
-    """Load one named pipeline component from an OVERRIDE snapshot tree
-    (pgw#617 hierarchical bindings) — :func:`load_component` with the
-    weights pointed at the override."""
+    """Load one named pipeline component from an OVERRIDE snapshot tree —
+    :func:`load_component` with the weights pointed at the override."""
     return load_component(
         base_path, component, dtype=dtype, weights_tree=override_path)
 
 
 class ModularHydrationError(RuntimeError):
     """A ModularPipeline slot could not be hydrated from the LOCAL tree
-    (pgw#1036). Typed so the failure is a refusal at load — never a silent
+. Typed so the failure is a refusal at load — never a silent
     shell handed to ``setup()``, and never a fetch from the repo id the
     snapshot's index happens to name."""
 
 
 class ComponentSubstitutionError(RuntimeError):
     """A non-modular diffusers composition names a component the local tree
-    does not carry and the dispatch injected nothing for it (pgw#1048).
+    does not carry and the dispatch injected nothing for it.
 
     DETERMINISTIC: the tree is already materialized and the injected set is
     already known, so nothing about a retry can change the answer — a refetch
@@ -1495,8 +1461,7 @@ def _component_dir_present(root: Path, component: str) -> bool:
     Deliberately not a config-name check: schedulers, tokenizers, processors
     and models each name their config differently, and a layout we do not
     model must not be refused. An ABSENT (or empty) dir is the narrowing this
-    guards — the shape th#1711 produces when it withholds a component's files
-    from the outbound snapshot."""
+    guards: the hub withheld the component's files from the snapshot."""
     src = root / component
     if not src.is_dir():
         return False
@@ -1547,12 +1512,11 @@ def assert_composition_satisfiable(
     """Refuse a diffusers-layout load whose composition cannot be satisfied.
 
     ``model_index.json`` names the parts; each must arrive either from its own
-    dir in the local tree or through the pgw#617 ``components=`` injection the
+    dir in the local tree or through the ``components=`` injection the
     dispatched binding's overrides derive. When one does neither, diffusers
     raises ``OSError: Error no file named config.json found in directory
     <snapshot root>`` — naming neither the component nor the cause — and the
-    caller retries a condition no retry can fix (pgw#1047: a pod burned 9
-    minutes on it before the hub reaped it).
+    caller retries a condition no retry can fix.
 
     Skipped, because the composition is not this tree's to satisfy: layouts
     with no readable ``model_index.json`` (single-file checkpoints,
@@ -1647,16 +1611,15 @@ def _local_component_dir(base: Path, spec: Any, name: str) -> Optional[Path]:
 
 def _weightless_model_dir(src: Path) -> bool:
     """True for a config-only weight-bearing dir — the deliberate-partition
-    shape (ie#613 pins by FILE SET and keeps ``config.json`` for the
-    unselected partition, e.g. H3's ``transformer_ref/``): the component is
-    EXCLUDED from this slot, not missing."""
+    shape (a pin by FILE SET keeps ``config.json`` for the unselected
+    partition): the component is EXCLUDED from this slot, not missing."""
     if not (src / "config.json").is_file():
         return False  # tokenizer/processor/scheduler dirs: no model config
     return next(src.rglob("*.safetensors"), None) is None
 
 
 _GIB = 1024 ** 3
-# Mirrors residency/staging's host-RAM floor policy (gw#407).
+# Mirrors residency/staging's host-RAM floor policy.
 _STAGING_FLOOR_GB = 8.0
 _STAGING_FLOOR_FRACTION = 0.2
 
@@ -1669,21 +1632,19 @@ def _staging_floor_bytes(total_bytes: int) -> int:
 
 
 def _admit_component_staging(component: str, nbytes: int) -> None:
-    """pgw#1041: admit ONE component's staging against the cgroup budget.
+    """Admit ONE component's staging against the cgroup budget.
 
-    ``probe_host_ram`` already speaks cgroup (v1 and v2) and credits clean
-    reclaimable page cache (pgw#752), so the just-fetched tree's own cache
-    never blocks its own load. A component that cannot fit an EMPTY host is
-    the structural pgw#752 verdict; one that cannot fit right now is the
-    transient one. Both carry the measured numbers. An unreadable probe
-    fails open — no worse than the unchecked load it replaces.
+    ``probe_host_ram`` speaks cgroup (v1 and v2) and credits clean reclaimable
+    page cache, so the just-fetched tree's own cache never blocks its own
+    load. A component that cannot fit an EMPTY host is the structural verdict;
+    one that cannot fit right now is the transient one. Both carry the
+    measured numbers. An unreadable probe fails open.
 
-    pgw#1063: the estimate can be wrong (an upcast, a quant unpack, an
-    allocator's own overhead), and when it is the load does not fail — it
-    crawls in direct reclaim until the kernel kills it. So a MEASURED
-    verdict outranks this arithmetic: a process the load dial has caught
-    re-reading its own set instead of staging it admits nothing further,
-    structurally, whatever the numbers below would have said."""
+    The estimate can be wrong (an upcast, a quant unpack, allocator overhead),
+    and when it is the load does not fail — it crawls in direct reclaim until
+    the kernel kills it. So a MEASURED verdict outranks this arithmetic: a
+    process the load dial has caught re-reading its own set instead of staging
+    it admits nothing further, whatever the numbers below would have said."""
     if nbytes <= 0:
         return
     ram = probe_host_ram()
@@ -1782,7 +1743,7 @@ class StreamedHydrationPlan:
     unit_count: int
     host_total_bytes: int
     device_free_bytes: int
-    #: The rung the pipeline will be placed on (pgw#1063). An offload rung
+    #: The rung the pipeline will be placed on. An offload rung
     #: keeps the weights in host RAM, so it never takes the discount.
     placement_mode: str = ""
 
@@ -1815,20 +1776,18 @@ def plan_streamed_hydration(
     device_free_bytes: Optional[int] = None,
     placement_mode: str = "",
 ) -> StreamedHydrationPlan:
-    """pgw#1026: decide whether this modular slot stages PER COMPONENT ONTO
-    THE DEVICE instead of staging its whole tree in host RAM first.
+    """Decide whether this modular slot stages PER COMPONENT ONTO THE DEVICE
+    instead of staging its whole tree in host RAM first.
 
-    THREAT (§4.25): a tree the CARD holds but the HOST does not is refused
-    structurally at boot and no pod size fixes it — measured on ie#615's H3
-    bring-up, 134.1 GiB tree + the 8 GiB staging floor against 116.4 GiB of
-    host RAM on a 1x H100-80 pod, `HostRamCapacityError`. Host RAM binds
-    ~26 GiB tighter than VRAM there purely because staging is all-or-nothing
-    while the load is already component-sequential (pgw#1041).
+    THREAT (§4.25): a tree the CARD holds but the HOST does not would
+    otherwise be refused structurally at boot, and no pod size fixes it —
+    host RAM can bind tighter than VRAM purely because staging is
+    all-or-nothing while the load is already component-sequential.
 
     THE OBSERVABLES, all measured rather than estimated:
 
     1. the whole tree does NOT fit host RAM (bytes on disk vs
-       :func:`probe_host_ram`'s cgroup-aware total plus the gw#407 floor) —
+       :func:`probe_host_ram`'s cgroup-aware total plus the staging floor) —
        otherwise nothing is wrong and the whole-tree path stands;
     2. the LARGEST single component DOES fit host RAM — otherwise the
        structural refusal is honest and must survive (no amount of
@@ -1879,14 +1838,12 @@ def decide_streamed_hydration(
         device_free_bytes=int(device_free_bytes),
         placement_mode=str(placement_mode or ""),
     )
-    if keeps_weights_in_host_ram(placement_mode):
-        # pgw#1063: the discount is admissible ONLY because each component
-        # leaves the host for the card. An offload rung puts it back — the
-        # weights live on the host by definition — so the honest requirement
-        # is the whole tree, and charging one component here is what admitted
-        # ie#615's 105 GB re-stage into a cgroup that could not hold it (37
-        # minutes of direct-reclaim crawl, 1.578 TB read for a 105 GB set,
-        # then an OOM kill that was arithmetically certain at minute zero).
+    if touches_host_ram(placement_mode):
+        # The discount is admissible ONLY because each component leaves the
+        # host for the card. An offload rung puts it back — the weights live
+        # on the host by definition — so the honest requirement is the whole
+        # tree; charging one component here admits a re-stage into a cgroup
+        # that cannot hold it, and the OOM kill is certain from minute zero.
         return plan(
             engaged=False,
             reason=f"placement rung {placement_mode!r} keeps the weights in "
@@ -1937,6 +1894,31 @@ def _place_and_release(pipe: Any, name: str, device: str) -> None:
     flush_memory()
 
 
+def _contract_component_for_spec(
+    spec: Any, name: str, src: Path,
+) -> Optional[Any]:
+    """A modular component's contract loader, or ``None`` for a plain tree.
+
+    The class comes from the spec (`ComponentSpec.type_hint`) because a modular
+    pipeline has no `model_index.json` to name it — which is precisely why
+    :func:`load_component` cannot simply be called here and why the DISPATCH,
+    not the whole loader, is what the two paths share.
+
+    A spec with no class at all is left to diffusers rather than guessed at: a
+    contract loader needs a class to build, and inventing one would be a second
+    source of truth for what a component IS.
+
+    The class is NOT required to expose ``from_pretrained``. The contract
+    loaders build through ``load_config`` + ``from_config``, so demanding the
+    generic entry point here would refuse exactly the classes this path exists
+    to serve.
+    """
+    cls = getattr(spec, "type_hint", None)
+    if cls is None or not isinstance(cls, type):
+        return None
+    return contract_loaded_component(src, name, cls=cls, src=src)
+
+
 def hydrate_modular_pipeline(
     pipe: Any,
     path: str | Path,
@@ -1947,7 +1929,7 @@ def hydrate_modular_pipeline(
     place_device: str = "",
 ) -> Dict[str, str]:
     """Hydrate a freshly constructed ``ModularPipeline`` from the LOCAL
-    snapshot tree (pgw#1036).
+    snapshot tree.
 
     ``ModularPipeline.__init__`` registers every ``from_pretrained``
     component as ``None`` and copies each spec's
@@ -1958,15 +1940,15 @@ def hydrate_modular_pipeline(
     ``pipe.load_components()`` can reach huggingface.co.
 
     - base components load from ``<snapshot>/<subfolder>``;
-    - ``component_trees`` (th#980/pgw#617 overrides) re-route a component to
-      its OWN materialized tree (``<tree>/<component>/`` or the tree root);
+    - ``component_trees`` overrides re-route a component to its OWN
+      materialized tree (``<tree>/<component>/`` or the tree root);
     - a config-only weight-bearing dir is the unselected partition: SKIPPED,
       its spec neutralized so nothing can ever fetch it;
     - a component the index names but the snapshot does not carry refuses
       typed (:class:`ModularHydrationError`) — never a fetch;
-    - ``preloaded`` modules (gw#479 shared components) are registered via
-      ``update_components`` instead of the ``from_pretrained`` kwarg
-      ``ModularPipeline.__init__`` silently discards.
+    - ``preloaded`` shared modules are registered via ``update_components``
+      instead of the ``from_pretrained`` kwarg ``ModularPipeline.__init__``
+      silently discards.
 
     Returns ``{component: source_path}`` for everything hydrated. The result
     is verified: ``load_components`` swallows load errors into a logger
@@ -1977,10 +1959,10 @@ def hydrate_modular_pipeline(
     component, or diffusers' ``{"default": ..., "<part>": ...}`` map. What it
     does not name loads at that component's OWN checkpoint dtype
     (:func:`checkpoint_load_dtype`), never at a snapshot-wide majority and
-    never at diffusers' fp32 default (pgw#1071). ``_keep_in_fp32_modules``
+    never at diffusers' fp32 default. ``_keep_in_fp32_modules``
     stays diffusers' business: naming a dtype is what lets it act at all.
 
-    ``place_device`` (pgw#1026) moves each component onto that device as it
+    ``place_device`` moves each component onto that device as it
     lands and drops the host copy, so the host-RAM high-water mark is ONE
     component instead of the tree. Set it from
     :func:`plan_streamed_hydration`, never by hand: it is admissible only
@@ -2042,7 +2024,7 @@ def hydrate_modular_pipeline(
     for name in skipped:
         specs[name].pretrained_model_name_or_path = None
     for name in pre:
-        # A preloaded (gw#479 shared) module loads from no path at all;
+        # A preloaded shared module loads from no path at all;
         # update_components below replaces its spec, but neutralize first so
         # the guard can never read its stale upstream id as a fetch source.
         if name in specs:
@@ -2078,13 +2060,10 @@ def hydrate_modular_pipeline(
         handler = _Capture(level=logging.WARNING)
         dlog.addHandler(handler)
         try:
-            # pgw#1041 (pgw#1026's minimal per-stage form on this lane): one
-            # component at a time, admission-checked against the CGROUP
-            # budget before it stages, page cache chilled after it lands.
-            # ie#615 attempt 4 measured the whole-tree form running the
-            # cgroup AT its ceiling (max_usage == limit, 250.0/251.0 GB):
-            # staged anon plus the tree's own read cache share one limit, so
-            # sequencing + chilling is what keeps the high-water at
+            # One component at a time, admission-checked against the CGROUP
+            # budget before it stages, page cache chilled after it lands:
+            # staged anon and the tree's own read cache share one cgroup
+            # limit, so sequencing + chilling is what keeps the high-water at
             # anon + ONE component instead of anon + the whole tree.
             for n in names:
                 comp_src = Path(sources[n])
@@ -2095,7 +2074,7 @@ def hydrate_modular_pipeline(
                     "pretrained_model_name_or_path": {n: sources[n]},
                     "subfolder": {n: ""},
                 }
-                # pgw#1071: this component's OWN checkpoint dtype when the
+                # This component's OWN checkpoint dtype when the
                 # caller declared none. Sniffed here rather than by the
                 # caller because this is the only place that knows each
                 # component's actual source dir — an override tree is a
@@ -2104,8 +2083,20 @@ def hydrate_modular_pipeline(
                 if dt is not None:
                     kwargs["torch_dtype"] = dt
                     dtypes[n] = str(dt).removeprefix("torch.")
-                pipe.load_components(names=[n], **kwargs)
-                # pgw#1026: place it now and drop the host copy, so the next
+                # THE CONTRACT DISPATCH, on the modular path too.
+                # `load_components` is diffusers' own hydration and reaches
+                # plain `from_pretrained`, which never consults the SDK's
+                # registered contract loaders — a produced fp8-rowwise tree
+                # would die inside `DiffusersAutoQuantizer` on its own
+                # `quantization_config`. The contract-loaded module is
+                # injected through `update_components`, the same seam a
+                # preloaded shared module uses.
+                built = _contract_component_for_spec(specs[n], n, comp_src)
+                if built is not None:
+                    pipe.update_components(**{n: built})
+                else:
+                    pipe.load_components(names=[n], **kwargs)
+                # place it now and drop the host copy, so the next
                 # component's admission above sees the host RAM this one
                 # gave back rather than the tree accumulating behind it.
                 if place_device:
@@ -2136,9 +2127,8 @@ def hydrate_modular_pipeline(
     except Exception:  # noqa: BLE001
         pass
     detail = " ".join(f"{n}<-{sources[n]}" for n in sorted(sources))
-    # pgw#1071: the dtype each component actually loaded at is the evidence
-    # the fp32-upcast wall was invisible for — it belongs in the hub-visible
-    # record, not only in a log line.
+    # The dtype each component actually loaded at belongs in the hub-visible
+    # record, not only in a log line: an fp32 upcast is invisible otherwise.
     dtype_detail = " ".join(f"{n}={dtypes[n]}" for n in sorted(dtypes))
     logger.info("modular hydration (%s): %s; dtypes: %s; skipped partitions: "
                 "%s%s",
@@ -2196,12 +2186,12 @@ def specialized_weight_layout(model_path: str | Path) -> str:
     snapshot (``"quantized"``/``"svdq"``/``"w8a8"``/``"w4a4"``/``"gguf"``), or
     ``""`` for the plain dense-safetensors path.
 
-    pgw#1117 asks exactly one question of it: is this tree's resident size
-    computable from safetensors headers? On every lane named here it is not —
-    packed 4-bit weights, fp8 GEMM scale tables and GGUF blocks all have a
-    header story that differs from their in-memory story — so the envelope
-    precondition abstains instead of guessing. Same detectors, same ORDER as
-    the loader, so the answer cannot drift from the lane actually taken."""
+    Answers one question: is this tree's resident size computable from
+    safetensors headers? On every lane named here it is not — packed 4-bit
+    weights, fp8 GEMM scale tables and GGUF blocks all have a header story
+    that differs from their in-memory story — so the envelope precondition
+    abstains instead of guessing. Same detectors, same ORDER as the loader,
+    so the answer cannot drift from the lane actually taken."""
     p = Path(model_path)
     if read_on_disk_quant_config(p):
         return "quantized"
@@ -2216,117 +2206,22 @@ def specialized_weight_layout(model_path: str | Path) -> str:
     return ""
 
 
-def bitsandbytes_available() -> bool:
-    """Importability gate for the bnb-nf4 rung (gw#469): the quant config
-    constructs fine without bitsandbytes and the load then dies deep in
-    ``validate_environment`` (PackageNotFoundError -> setup_failed). An
-    unavailable rung must be SKIPPED, never attempted."""
-
-    if "bitsandbytes" in sys.modules:
-        return True
-    try:
-        return importlib.util.find_spec("bitsandbytes") is not None
-    except (ImportError, ValueError):
-        return False
-
-
-def emergency_quantization_config(
-    cls: Any,
-    *,
-    components: Optional[List[str]] = None,
-    compute_dtype: Any = None,
-) -> Optional[Any]:
-    """bnb-nf4 config for the emergency rung, scoped to ``components`` (the
-    snapshot's REAL denoiser/text-encoder names — gw#521: a config naming
-    absent components is silently ignored by diffusers, so the caller derives
-    the list from the tree and this function refuses an empty one). None
-    (with a warning) when the stack can't do it — the offload ladder then
-    carries it."""
-    if not bitsandbytes_available():
-        logger.warning(
-            "emergency nf4 unavailable (bitsandbytes not installed in this "
-            "image); skipping the quantized rung — the offload ladder carries it"
-        )
-        return None
-    try:
-        import torch
-
-        if not torch.cuda.is_available():
-            return None
-        import diffusers
-        from diffusers.quantizers import PipelineQuantizationConfig
-    except ImportError as exc:
-        logger.warning("emergency nf4 unavailable (%s); falling to offload", exc)
-        return None
-    kwargs: Dict[str, Any] = {
-        "load_in_4bit": True,
-        "bnb_4bit_quant_type": "nf4",
-        "bnb_4bit_compute_dtype": compute_dtype or torch.bfloat16,
-        "bnb_4bit_use_double_quant": True,
-    }
-    if isinstance(cls, type) and issubclass(cls, diffusers.DiffusionPipeline):
-        targets = list(_fp8_storage_components()) if components is None else list(components)
-        if not targets:
-            logger.warning(
-                "emergency nf4 skipped: no quantizable component in the "
-                "snapshot (denoiser-less tree); the offload ladder carries it"
-            )
-            return None
-        try:
-            return PipelineQuantizationConfig(
-                quant_backend="bitsandbytes_4bit",
-                quant_kwargs=kwargs,
-                components_to_quantize=targets,
-            )
-        except ValueError as exc:
-            # diffusers validates the bnb config signature against BOTH
-            # libraries; a diffusers/transformers skew raises here — skip the
-            # rung instead of killing the load.
-            logger.warning("emergency nf4 unavailable (%s); falling to offload", exc)
-            return None
-    from diffusers.quantizers.quantization_config import BitsAndBytesConfig
-
-    return BitsAndBytesConfig(**kwargs)
-
-
-def _bnb_quantized_components(pipe: Any, targets: List[str]) -> List[str]:
-    """The subset of ``targets`` whose modules actually hold bnb 4-bit layers
-    after the load — the gw#521 no-op detector (diffusers silently ignores
-    config components absent from the pipeline)."""
-    landed: List[str] = []
-    for name in targets:
-        mod = getattr(pipe, name, None)
-        if mod is None or not hasattr(mod, "modules"):
-            continue
-        try:
-            for m in mod.modules():
-                if type(m).__name__ in ("Linear4bit", "LinearNF4", "LinearFP4"):
-                    landed.append(name)
-                    break
-        except Exception:  # noqa: BLE001
-            continue
-    return landed
-
-
 def _adaptive_fit_rung(
     cls: Any, path: Path, *, fp8_planned: bool, compute_dtype: Any = None
 ) -> tuple[str, Optional[Any]]:
-    """Serve-time fit ladder at load (th#683 P3): when the snapshot's
-    estimated resident bytes (after any planned fp8 storage) exceed free
-    VRAM, engage the cheapest-quality-loss runtime lever that FITS:
-    fp8-E4M3 storage first (denoiser weights ~halve, quality ~= a stored
-    #fp8 flavor), then the nf4 emergency rung — denoiser first, text
-    encoders joining only when the denoiser alone isn't enough. Targets are
-    the snapshot's REAL component names (gw#521: a config naming absent
-    components is silently ignored by diffusers — the rung must never be a
-    hard-coded archetype guess). When even nf4 cannot fit, the rung is
-    SKIPPED (full-precision weights preserved; the offload ladder carries
-    it) instead of paying the quality cost for nothing.
+    """Serve-time fit rung at load: when the snapshot's estimated resident
+    bytes exceed free VRAM, engage runtime fp8-E4M3 weight storage if it makes
+    the difference (denoiser weights ~halve). Otherwise the rung is SKIPPED
+    and the OFFLOAD ladder carries the slot — a lower-precision serve is never
+    manufactured here.
 
-    Returns ``(mode, config)``: ``("", None)`` fits as planned (or no rung
-    helps); ``("fp8", None)`` engage fp8 storage; ``("nf4", qc)``
-    emergency-quantize."""
-    if not emergency_quant_enabled():
+    Returns ``(mode, config)``: ``("", None)`` fits as planned, or no rung
+    helps and offload takes it; ``("fp8", None)`` engage fp8 storage. The
+    config slot stays in the signature because the caller's contract is
+    "a rung may hand me a quantization_config" — an AOT artifact read off disk
+    still does, through ``synthesize_quantization_config``.
+    """
+    if not runtime_fp8_storage_supported():
         return "", None
 
     free_gb = get_available_vram_gb()
@@ -2341,8 +2236,6 @@ def _adaptive_fit_rung(
     named = model_index_components(path) or set(comp_bytes)
     denoisers = [c for c in _fp8_storage_components()
                  if c in named and comp_bytes.get(c, 0) > 0]
-    encoders = [c for c in _fp8_text_encoder_components()
-                if c in named and comp_bytes.get(c, 0) > 0]
     denoiser_bytes = sum(comp_bytes[c] for c in denoisers)
 
     on_disk = detect_on_disk_dtype(path)
@@ -2355,7 +2248,6 @@ def _adaptive_fit_rung(
     # fp8-storage rung: only for un-quantized bf16/fp16 snapshots (an already
     # quantized flavor can't be halved again) when the halved estimate fits.
     if not fp8_planned and on_disk in ("bf16", "fp16") and denoisers \
-            and runtime_fp8_storage_supported() \
             and total - 0.5 * denoiser_bytes <= budget:
         logger.warning(
             "fp8-E4M3 emergency weight storage engaged for %s (%.1f GB "
@@ -2364,38 +2256,14 @@ def _adaptive_fit_rung(
             path, total_gb, free_gb,
         )
         return "fp8", None
-    if not denoisers:
-        logger.warning(
-            "emergency nf4 skipped for %s: no denoiser component in the "
-            "snapshot (components: %s); the offload ladder carries it",
-            path, sorted(named),
-        )
-        return "", None
-    # nf4 rung: denoiser first; text encoders join only when needed.
-    targets = list(denoisers)
-    est = total - denoiser_bytes * (1.0 - NF4_WEIGHT_BYTES_FACTOR)
-    if est > budget and encoders:
-        targets += encoders
-        est -= sum(comp_bytes[c] for c in encoders) * (1.0 - NF4_WEIGHT_BYTES_FACTOR)
-    if est > budget:
-        logger.warning(
-            "emergency nf4 skipped for %s: even 4-bit weights (~%.1f GB) "
-            "exceed the %.1f GB budget; keeping full precision — the "
-            "offload ladder carries it",
-            path, est / float(1 << 30), budget / float(1 << 30),
-        )
-        return "", None
-    qc = emergency_quantization_config(
-        cls, components=targets, compute_dtype=compute_dtype)
-    if qc is not None:
-        logger.warning(
-            "EMERGENCY 4-bit quantization engaged for %s (components %s; "
-            "%.1f GB weights, %.1f GB free) — quality below platform "
-            "standards; a larger card or Blackwell SKU would serve stored "
-            "flavors instead.",
-            path, targets, total_gb, free_gb,
-        )
-    return "nf4", qc
+    logger.warning(
+        "no runtime fit rung applies to %s (%.1f GB weights, %.1f GB free): "
+        "serving at stored precision and letting the OFFLOAD ladder carry it "
+        "— a smaller-precision serve is an AOT artifact to fetch, never one "
+        "to manufacture here",
+        path, total_gb, free_gb,
+    )
+    return "", None
 
 
 def _load_modular_pipeline(
@@ -2408,7 +2276,7 @@ def _load_modular_pipeline(
     component_trees: Optional[Dict[str, str]] = None,
     placement_mode: str = "",
 ) -> Any:
-    """The modular lane of :func:`load_from_pretrained` (pgw#1036):
+    """The modular lane of :func:`load_from_pretrained`:
     ``cls.from_pretrained(path)`` builds a SHELL (every weight-bearing
     component ``None``, specs naming the index's repo id verbatim), then
     :func:`hydrate_modular_pipeline` re-points every spec at the local tree
@@ -2421,16 +2289,12 @@ def _load_modular_pipeline(
         logger.warning(
             "storage_dtype=%s ignored on the modular lane (component "
             "precision is a per-component artifact fact)", storage_dtype)
-    # pgw#1071: DECLARED dtypes only. The snapshot-wide dtype sniff that used
-    # to stand in for a declaration was a majority vote over every safetensors
-    # header in the tree — it truncated a wide component when the vote fell
-    # narrow (an fp32 VAE loading bf16) and, when the vote fell outside the
-    # sniff's own vocabulary, produced NO dtype at all and let diffusers'
-    # fp32 default upcast the whole tree (ie#615: a 66.28 GB bf16 DiT
-    # hydrating at 74.9 GiB, 4 bytes/param, OOM on an 80 GB card and ~130 GB
-    # of host staging anon). Undeclared components now load at their OWN
-    # checkpoint dtype, decided inside the hydration loop from each
-    # component's real source dir.
+    # DECLARED dtypes only — deliberately NOT a snapshot-wide majority sniff,
+    # which truncates a wide component when the vote falls narrow (an fp32 VAE
+    # loading bf16) and, when the vote falls outside the sniff's vocabulary,
+    # produces NO dtype at all and lets diffusers' fp32 default upcast the
+    # whole tree. Undeclared components load at their OWN checkpoint dtype,
+    # decided inside the hydration loop from each component's real source dir.
     scalar_dtype: Any = None
     if dtype:
         try:
@@ -2438,8 +2302,8 @@ def _load_modular_pipeline(
         except ImportError:
             pass  # torch-less environment: loaders fail on their own terms
     torch_dtype: Any = _modular_declared_dtypes(cls, path, scalar_dtype)
-    # pgw#1026: a tree the card holds but the host does not stages ONE
-    # COMPONENT AT A TIME straight onto the device. Decided here, from the
+    # A tree the card holds but the host does not stages ONE COMPONENT AT A
+    # TIME straight onto the device. Decided here, from the
     # same measurements the executor's admission gate reads, so the two
     # cannot disagree about which shape the load takes; if free VRAM moved
     # between them the per-component gate inside hydration still refuses
@@ -2499,22 +2363,22 @@ def load_from_pretrained(
     ``cls.from_single_file``. ``storage_dtype="fp8"`` (or an fp8-stored
     snapshot) keeps denoiser weights in fp8 storage with per-layer upcast to
     the compute dtype; ``"fp8+te"`` extends that to the pipeline's text
-    encoders (transformers-aware, gw#460). When the snapshot cannot fit free
-    VRAM as stored, the adaptive fit ladder engages runtime fp8-E4M3 storage
-    first, then the emergency nf4 rung (automatic on CUDA hosts).
+    encoders (transformers-aware). When the snapshot cannot fit free VRAM as
+    stored, the adaptive fit rung engages runtime fp8-E4M3 storage (automatic
+    on CUDA hosts); below that, the offload ladder carries it.
     ``components`` are PRELOADED module objects (content-keyed shared
-    components, gw#479) forwarded to ``from_pretrained`` — diffusers skips
-    loading those from disk and wires the given objects in. Used by the
-    executor to satisfy pipeline-typed ``setup()`` annotations; endpoints may
-    also call it. A modular pipeline class (pgw#1036: exposes
-    ``load_components``) takes its own lane — construct, re-point every
-    component spec at the LOCAL tree, hydrate; ``component_trees`` routes
-    th#980/pgw#617 component overrides to their own materialized trees on
-    that lane (the ``components=`` kwarg is what ``ModularPipeline.__init__``
-    silently discards). ``placement_mode`` is the rung the worker will place
+    components) forwarded to ``from_pretrained`` — diffusers skips loading
+    those from disk and wires the given objects in. Used by the executor to
+    satisfy pipeline-typed ``setup()`` annotations; endpoints may also call
+    it. A modular pipeline class (one exposing ``load_components``) takes its
+    own lane — construct, re-point every component spec at the LOCAL tree,
+    hydrate; ``component_trees`` routes component overrides to their own
+    materialized trees on that lane (the ``components=`` kwarg is what
+    ``ModularPipeline.__init__`` silently discards).
+    ``placement_mode`` is the rung the worker will place
     this pipeline on: an offload rung keeps the weights in host RAM, so the
     modular lane must not stage them onto the card and must not take the
-    per-component host-RAM discount (pgw#1063)."""
+    per-component host-RAM discount."""
     path = str(path)
     if is_modular_pipeline_class(cls):
         return _load_modular_pipeline(
@@ -2527,12 +2391,12 @@ def load_from_pretrained(
             f"component_trees is the MODULAR delivery mechanism and "
             f"{getattr(cls, '__name__', cls)} is not a modular pipeline "
             f"class; non-modular overrides ride components= (pgw#617)")
-    # pgw#1048: the composition the index names must be satisfiable from the
-    # tree plus the injection BEFORE any lane touches from_pretrained. A
+    # The composition the index names must be satisfiable from the tree plus
+    # the injection BEFORE any lane touches from_pretrained. A
     # component that is in neither is a deterministic miss, and every lane
     # below reports it as the same nameless OSError against the snapshot root.
     assert_composition_satisfiable(cls, path, components=components, ref=ref)
-    # SVDQuant/nunchaku 4-bit flavors (gw#415): self-describing snapshots take
+    # SVDQuant/nunchaku 4-bit flavors: self-describing snapshots take
     # the svdq lane — a nunchaku transformer swapped into the standard
     # pipeline. Detection precedes every other rung; failures are typed
     # (SvdqStackError / SvdqHardwareError / SvdqSnapshotError), never a
@@ -2543,7 +2407,7 @@ def load_from_pretrained(
         if components:
             logger.warning("preloaded components ignored on the svdq lane")
         return load_svdq_pipeline(cls, Path(path), svdq_art)
-    # W8A8 fp8-GEMM flavors (gw#534): fp8 weights WITH scales take the
+    # W8A8 fp8-GEMM flavors: fp8 weights WITH scales take the
     # scaled-mm lane (fp8 resident, no per-layer cast); hosts without usable
     # scaled_mm dequant once to bf16-resident. Precedes the storage-cast
     # rungs — a scale-free fp8 tree never detects here.
@@ -2557,7 +2421,7 @@ def load_from_pretrained(
             except ImportError:
                 pass
         if not w8a8_art.component:
-            # Root layout (gw#562): the pipeline class's own loader
+            # Root layout: the pipeline class's own loader
             # constructs; the worker swaps post-construction.
             if components:
                 logger.warning(
@@ -2573,7 +2437,7 @@ def load_from_pretrained(
             components=components,
             fp8_text_encoders=storage_dtype == "fp8+te",
         )
-    # W4A4 nvfp4 flavors (gw#540): packed fp4 weights WITH two-level scales
+    # W4A4 nvfp4 flavors: packed fp4 weights WITH two-level scales
     # take the blockwise fp4 scaled_mm lane on Blackwell (sm_100+); other
     # qualifying hosts dequant once to bf16-resident. Disjoint from w8a8
     # detection (uint8 vs e4m3 weights) and from scale-free trees.
@@ -2639,13 +2503,11 @@ def load_from_pretrained(
                 # torch-less environment (unit tests / CPU tools) — loaders
                 # that actually need torch will fail on their own terms.
                 pass
-    # pgw#772: a declared fp8 storage lane is SERVED as fp8 storage — the
-    # voluntary free-VRAM bf16-resident upgrade is removed (see the lane
-    # tombstone above BF16_RESIDENT's old site). Only the involuntary
-    # fit-ladder rungs below may move the lane, and only downward.
+    # A declared fp8 storage lane is SERVED as fp8 storage; only the
+    # involuntary fit-ladder rungs below may move the lane, and only downward.
     fp8_storage = storage_dtype in ("fp8", "fp8+te") or sniffed == "fp8"
     fp8_text_encoders = storage_dtype == "fp8+te"
-    adaptive_rung = ""  # gw#491: load-time rung engagement, stamped on the pipe
+    adaptive_rung = ""  # load-time rung engagement, stamped on the pipe
     if not read_on_disk_quant_config(Path(path)):
         qc = synthesize_quantization_config(attrs)
         if qc is None:
@@ -2653,25 +2515,22 @@ def load_from_pretrained(
                 cls, Path(path), fp8_planned=fp8_storage,
                 compute_dtype=kwargs.get("torch_dtype"),
             )
+            assert eqc is None  # the fp8 rung carries no quantization_config
             if mode == "fp8":
-                fp8_storage = True  # runtime fp8-E4M3 storage rung (th#683)
+                fp8_storage = True  # runtime fp8-E4M3 storage rung
                 adaptive_rung = "fp8"
-            elif eqc is not None:
-                qc = eqc
-                fp8_storage = False  # nf4 supersedes the fp8 rung
-                adaptive_rung = "nf4"
         if qc is not None:
             kwargs["quantization_config"] = qc
-    # The composition's ONE compute dtype, captured before pgw#667's
-    # per-component map can replace the kwarg with a dict (pgw#683).
+    # The composition's ONE compute dtype, captured before the per-component
+    # map can replace the kwarg with a dict.
     scalar_dtype = kwargs.get("torch_dtype")
     single = _single_file_checkpoint(Path(path))
     if single is not None and callable(getattr(cls, "from_single_file", None)):
         kwargs.pop("variant", None)
         pipe = cls.from_single_file(str(single), **kwargs)
     else:
-        # pgw#667: a part whose dtype opinion is WIDER than the composition's
-        # compute dtype must come off disk that way — upcasting a bf16-loaded
+        # A part whose dtype opinion is WIDER than the composition's compute
+        # dtype must come off disk that way — upcasting a bf16-loaded
         # component afterwards recovers no precision, it only hides the
         # truncation. diffusers takes a per-component dtype MAP (a "default"
         # key plus per-part overrides), so the widening happens inside the one
@@ -2709,17 +2568,16 @@ def load_from_pretrained(
             f"unmaterialized meta tensors (e.g. {unmaterialized[:3]})"
         )
     if fp8_storage and "quantization_config" not in kwargs:
-        # pgw#683: the SCALAR compute dtype — `kwargs["torch_dtype"]` may be
-        # pgw#667's per-component MAP by now, and a dict reaching
+        # The SCALAR compute dtype — `kwargs["torch_dtype"]` may be the
+        # per-component MAP by now, and a dict reaching
         # `enable_layerwise_casting(compute_dtype=...)` either explodes into
         # "serving at full precision" or arms windows that upcast to a
         # non-dtype. The cast window's compute dtype is a composition-level
-        # fact, so it is the composition default that belongs here.
+        # fact, so the composition default belongs here.
         applied = apply_fp8_storage(pipe, compute_dtype=scalar_dtype,
                                     text_encoders=fp8_text_encoders)
-        # th#737: make the outcome observable — a cast that silently no-ops
-        # (denoiser-less pipeline) must surface as a structural degradation
-        # upstream, not vanish into a log line.
+        # A cast that silently no-ops (denoiser-less pipeline) must surface as
+        # a structural degradation upstream, not vanish into a log line.
         try:
             pipe._cozy_fp8_storage_requested = True
             pipe._cozy_fp8_storage_ok = bool(applied)
@@ -2727,46 +2585,9 @@ def load_from_pretrained(
                 setattr(pipe, _WEIGHT_LANE_ATTR, "fp8-hooks")
         except Exception:
             pass
-    if adaptive_rung == "nf4":
-        # gw#521: verify the quant actually LANDED — a config whose component
-        # names miss the pipeline is silently ignored by diffusers, and a
-        # full-precision pipeline stamped "nf4" lies to placement and billing.
-        targets = list(getattr(
-            kwargs.get("quantization_config"), "components_to_quantize", None) or [])
-        if targets and not _bnb_quantized_components(pipe, targets):
-            logger.error(
-                "EMERGENCY nf4 did NOT land on %s (targets %s, pipeline %s) — "
-                "serving full precision; the offload ladder carries it",
-                path, targets, type(pipe).__name__,
-            )
-            # pgw#824: this was `adaptive_rung = ""`, which made the failure
-            # SELF-SUPPRESSING — the `if adaptive_rung:` stamp below is the
-            # very mechanism that reports rung outcomes to placement, and
-            # clearing the variable is exactly what switches it off. So the
-            # worst rung outcome on the ladder (serving FULL PRECISION over
-            # the budgeted VRAM, on a host that was already too tight for
-            # stored precision) was the only one that reported nothing at all,
-            # while every sibling rung reported itself.
-            #
-            # A distinct token instead: `provision` routes it to
-            # SlotLoad.rung/rung_detail, so it reaches placement through the
-            # SAME ServePlan/FnDegraded path as every other rung
-            # (`_record_adaptive_rung`) rather than through a log line no
-            # hub-spawned pod can expose.
-            adaptive_rung = RUNG_NF4_UNLANDED
-            activity_mod.emit_event(
-                activity_mod.KIND_SERVE_DEGRADE,
-                f"model={path} pipeline={type(pipe).__name__} "
-                f"targets={targets}: the emergency nf4 rung was engaged "
-                f"because free VRAM was below the stored-precision footprint, "
-                f"and it landed on ZERO modules (the config's component names "
-                f"miss this pipeline). Serving FULL PRECISION over the "
-                f"budgeted VRAM; only the offload ladder carries it now",
-                phase="nf4_rung_did_not_land",
-            )
     if adaptive_rung:
-        # gw#491: a silently-engaged emergency rung is the th#736 bug class —
-        # the executor reconciles this stamp into ServePlan.ran / FnDegraded.
+        # An emergency rung must never engage silently: the executor
+        # reconciles this stamp into ServePlan.ran / FnDegraded.
         try:
             pipe._cozy_adaptive_rung = adaptive_rung
         except Exception:
@@ -2790,10 +2611,7 @@ __all__ = [
     "apply_block_window_offload",
     "block_offload_active",
     "pipeline_weight_lane",
-    "emergency_quant_enabled",
-    "bitsandbytes_available",
     "runtime_fp8_storage_supported",
-    "emergency_quantization_config",
     "component_load_dtypes",
     "model_index_components",
     "model_index_component_classes",

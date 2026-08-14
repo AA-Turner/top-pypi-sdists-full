@@ -218,6 +218,11 @@ class Integrations(BaseModel):
         extra = Extra.allow
 
 
+class CommandSetting(ParadimeScheduleBase):
+    # Keep in sync with the paradime-backend `CommandSetting`.
+    continue_on_error: Optional[bool] = None
+
+
 class ParadimeSchedule(ParadimeScheduleBase):
     name: str
     slug: Optional[str] = None
@@ -226,6 +231,10 @@ class ParadimeSchedule(ParadimeScheduleBase):
     timezone: Optional[str] = None
     environment: str
     commands: List[str]
+    # Keep in sync with the paradime-backend `ParadimeSchedule`: schedule-level
+    # default plus per-command settings aligned index-by-index with `commands`.
+    continue_on_error: Optional[bool] = False
+    command_settings: Optional[List[CommandSetting]] = None
 
     git_branch: Optional[str] = None
     owner_email: Optional[str] = None
@@ -252,6 +261,63 @@ class ParadimeSchedule(ParadimeScheduleBase):
     trigger_on_merge: Optional[bool] = False
 
     suspended: Optional[bool] = False
+
+    @root_validator(pre=True)
+    @classmethod
+    def normalize_commands(cls, values: Any) -> Any:
+        # Keep in sync with the paradime-backend `ParadimeSchedule`. A command
+        # entry may be a bare string or `{command: <str>, continue_on_error: <bool>}`;
+        # normalize object entries into `commands` + `command_settings` before
+        # field validation so `Extra.forbid` never sees the dicts.
+        if not isinstance(values, dict):
+            return values
+        commands = values.get("commands")
+        if not isinstance(commands, list):
+            return values
+
+        has_object_form = any(isinstance(command, dict) for command in commands)
+        if not has_object_form:
+            return values
+        if values.get("command_settings") is not None:
+            raise ValueError(
+                "Use either object-form command entries or 'command_settings', not both"
+            )
+
+        normalized_commands: List[Any] = []
+        settings: List[Any] = []
+        allowed_keys = {"command", "continue_on_error"}
+        for command in commands:
+            if isinstance(command, dict):
+                unknown_keys = set(command) - allowed_keys
+                if "command" not in command or unknown_keys:
+                    raise ValueError(
+                        f"Invalid command entry {command!r}: a command must be a string or an "
+                        "object with a 'command' key and an optional 'continue_on_error' key"
+                    )
+                normalized_commands.append(command["command"])
+                settings.append({"continue_on_error": command.get("continue_on_error")})
+            else:
+                normalized_commands.append(command)
+                settings.append({"continue_on_error": None})
+        values["commands"] = normalized_commands
+        values["command_settings"] = settings
+        return values
+
+    @root_validator()
+    @classmethod
+    def validate_command_settings_length(cls, values: Any) -> Any:
+        command_settings = values.get("command_settings")
+        commands = values.get("commands")
+        if (
+            command_settings is not None
+            and commands is not None
+            and len(command_settings) != len(commands)
+        ):
+            raise ValueError(
+                f"'command_settings' length ({len(command_settings)}) must match "
+                f"'commands' length ({len(commands)})"
+            )
+        return values
 
     @validator("display_name")
     def validate_display_name(cls, display_name: Optional[str]) -> Optional[str]:
@@ -314,6 +380,7 @@ def is_valid_schedule_at_path(
     file_path: Path,
     existing_names: Optional[Set[str]] = None,
     schedule_trigger_refs: Optional[Set[Tuple[str, str]]] = None,
+    valid_environments: Optional[Set[str]] = None,
 ) -> Optional[str]:
     """Validate a schedule YAML file.
 
@@ -329,6 +396,10 @@ def is_valid_schedule_at_path(
             ``schedule_trigger`` may point at a schedule in another workspace).
             When ``None`` (e.g. offline / API unavailable) the cross-workspace
             check is skipped.
+        valid_environments: Optional set of the workspace's Bolt environment
+            slugs. When provided, each schedule's ``environment`` must be one
+            of them. When ``None`` (e.g. offline / API unavailable) the check
+            is skipped.
     """
     try:
         schedules = _get_schedules(file_path)
@@ -372,6 +443,17 @@ def is_valid_schedule_at_path(
                 return (
                     f"Schedule trigger error: '{trigger.schedule_name}' does not refer to a known "
                     f"schedule in workspace '{trigger.workspace_name}'"
+                )
+
+    # check environments refer to known workspace environments (skipped when
+    # the environment list is unavailable, e.g. offline)
+    if valid_environments is not None:
+        for schedule in schedules.schedules:
+            if schedule.environment not in valid_environments:
+                return (
+                    f"{schedule.name}: Environment '{schedule.environment}' does not match any "
+                    f"Bolt environment in this workspace - "
+                    f"use one of: {', '.join(sorted(valid_environments))}."
                 )
 
     # Verify schedules individually

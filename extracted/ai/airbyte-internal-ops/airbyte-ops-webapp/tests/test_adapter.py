@@ -18,6 +18,7 @@ from airbyte_ops_webapp.models import (
     ConnectorRollout,
     ConnectorVersion,
     OverridePlan,
+    ProgressiveRolloutMarkerDetail,
     RolloutSyncSummary,
     TierPopulationFactors,
 )
@@ -71,6 +72,39 @@ def test_search_connectors_matches_name() -> None:
     assert results[0].name == "source-github"
 
 
+def test_real_adapter_reads_connector_registry_from_gcs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    monkeypatch.setattr(
+        adapter_module,
+        "_fetch_cloud_registry",
+        lambda **kwargs: calls.append(kwargs) or {"sources": [], "destinations": []},
+    )
+
+    OpsMcpAdapter().list_connectors()
+
+    assert calls == [{"from_gcs": True}]
+
+
+def test_registry_cache_invalidation_tool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    invalidated = False
+
+    def _invalidate() -> None:
+        nonlocal invalidated
+        invalidated = True
+
+    monkeypatch.setattr(tools_module, "invalidate_cloud_registry_cache", _invalidate)
+
+    result = tools_module.invalidate_registry_cache()
+
+    assert result.invalidated is True
+    assert invalidated is True
+
+
 def test_mock_recent_releases_are_sorted_newest_first() -> None:
     adapter = MockPinningAdapter()
 
@@ -86,6 +120,42 @@ def test_mock_recent_releases_are_sorted_newest_first() -> None:
         "1.9.4",
         "3.7.2",
     ]
+
+
+def test_recent_release_rows_use_wide_window_and_requested_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    class FakeAdapter:
+        def list_recent_releases(
+            self,
+            *,
+            days: int,
+            limit: int | None,
+        ) -> tuple[object, ...]:
+            calls.append({"days": days, "limit": limit})
+            return ()
+
+    monkeypatch.setattr(helpers_module, "get_adapter", lambda: FakeAdapter())
+
+    assert helpers_module.recent_release_rows(limit=500) == []
+    assert calls == [{"days": 365, "limit": 500}]
+
+
+def test_load_recent_releases_reports_requested_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        tools_module,
+        "recent_release_rows",
+        lambda *, limit: [{"connector_name": str(index)} for index in range(limit)],
+    )
+
+    result = tools_module.load_recent_releases_tab(limit=250)
+
+    assert len(result.rows) == 250
+    assert result.limit == 250
 
 
 def test_ops_recent_releases_use_30_days_with_no_limit(
@@ -533,6 +603,155 @@ def test_load_connector_version_context_sets_yank_detail(
         assert result.selected_version_yank_yanked_at == ""
 
 
+def test_selected_version_promotion_fields_degrade_on_adapter_error() -> None:
+    class FailingAdapter:
+        def get_progressive_rollout_marker(self, connector_name: str, version: str):
+            raise RuntimeError("registry unavailable")
+
+    result = tools_module._selected_version_promotion_fields(
+        FailingAdapter(),
+        connector_name="source-github",
+        version="1.10.0-rc.1",
+    )
+
+    assert result == {
+        "selected_version_promotion_pending": False,
+        "selected_version_promotion_requested_at": "",
+        "selected_version_promotion_requested_at_display": "",
+        "selected_version_promotion_requested_by": "",
+        "selected_version_promotion_rollout_id": "",
+        "selected_version_promotion_raw": "",
+        "selected_version_promotion_state": "",
+        "selected_version_promotion_marker_date": "",
+    }
+
+
+@pytest.mark.parametrize(
+    ("state", "requested_by", "expected_title_state"),
+    [
+        pytest.param("promoted", "", "promoted", id="promoted-without-requester"),
+        pytest.param("aborted", "ops@example.com", "aborted", id="aborted"),
+    ],
+)
+def test_selected_version_promotion_fields_include_finalized_marker(
+    state: str,
+    requested_by: str,
+    expected_title_state: str,
+) -> None:
+    marker = ProgressiveRolloutMarkerDetail(
+        connector_id="connector-id",
+        connector_name="source-github",
+        docker_image_tag="1.10.0",
+        progressive_rollout=True,
+        created_at="2026-06-20T11:30:00Z",
+        promotion_requested_at="",
+        promotion_requested_by=requested_by,
+        rollout_id="",
+        raw="progressive_rollout: true\n",
+        state=state,
+        marker_date="20260621",
+    )
+
+    class MarkerAdapter:
+        def get_progressive_rollout_marker(self, connector_name: str, version: str):
+            return marker
+
+    result = tools_module._selected_version_promotion_fields(
+        MarkerAdapter(),
+        connector_name="source-github",
+        version="1.10.0",
+    )
+
+    assert result["selected_version_promotion_pending"] is True
+    assert result["selected_version_promotion_requested_by"] == requested_by
+    assert result["selected_version_promotion_state"] == expected_title_state
+    assert result["selected_version_promotion_marker_date"] == "20260621"
+
+
+def test_finalize_rollout_annotations_use_user_email(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    annotation_calls: list[dict[str, str]] = []
+
+    class FinalizeAdapter:
+        config_api_root = "https://config.example"
+
+        def annotate_progressive_rollout_marker(
+            self,
+            connector_name: str,
+            version: str,
+            *,
+            promotion_requested_by: str,
+            rollout_id: str,
+        ):
+            annotation_calls.append(
+                {
+                    "connector_name": connector_name,
+                    "version": version,
+                    "promotion_requested_by": promotion_requested_by,
+                    "rollout_id": rollout_id,
+                }
+            )
+            return SimpleNamespace(success=True, message="")
+
+    monkeypatch.setattr(tools_module, "get_adapter", lambda *_args: FinalizeAdapter())
+    monkeypatch.setattr(tools_module, "_resolve_updated_by", lambda **_: "user-uuid")
+    monkeypatch.setattr(
+        tools_module.cloud_api,
+        "finalize_connector_rollout",
+        lambda **_: None,
+    )
+
+    result = tools_module.finalize_rollout(
+        rollout_id="rollout-123",
+        connector_id="connector-id",
+        docker_repository="airbyte/source-github",
+        docker_image_tag="1.10.0-rc.1",
+        state="succeeded",
+        user_email="ops@example.com",
+    )
+
+    assert result.rollout_action_success is True
+    assert annotation_calls == [
+        {
+            "connector_name": "source-github",
+            "version": "1.10.0-rc.1",
+            "promotion_requested_by": "ops@example.com",
+            "rollout_id": "rollout-123",
+        }
+    ]
+
+
+def test_load_connector_version_context_sets_promotion_pending_detail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = MockPinningAdapter()
+    connector = adapter.search_connectors("source-github")[0]
+    monkeypatch.setenv(state_module.MOCK_ONLY_ENV_VAR, "1")
+    monkeypatch.setattr(mock_session_module, "_oauth_authenticated", True)
+    monkeypatch.setattr(tools_module, "get_adapter", lambda *_args: adapter)
+
+    result = tools_module.load_connector_version_context(
+        connector_id=connector.id,
+        version_tag="1.10.0-rc.1",
+    )
+
+    assert result.selected_version_promotion_pending is True
+    assert result.selected_version_promotion_requested_by == "ops@example.com"
+    assert result.selected_version_promotion_rollout_id == "rollout_demo_github"
+    assert result.default_version_tag == "1.9.4"
+    assert result.ga_default_version_tag == "1.9.4"
+    assert result.ga_default_version_display.startswith("1.9.4 (")
+
+
+def test_load_connector_version_context_without_connector_returns_empty_result() -> (
+    None
+):
+    result = tools_module.load_connector_version_context(connector_id="")
+
+    assert result == tools_module.ConnectorVersionContextResult()
+
+
 def test_unyank_connector_version_mock_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -586,7 +805,8 @@ def test_ops_adapter_list_yanked_versions_resolves_connector_id(
             CoreYankedVersion(connector_name="source-missing", version="0.0.1"),
         ]
 
-    def fake_resolve(name: str) -> str:
+    def fake_resolve(name: str, *, from_gcs: bool = False) -> str:
+        assert from_gcs is True
         if name == "source-missing":
             raise PyAirbyteInputError(message="not found")
         return "github-definition-id"
@@ -1204,6 +1424,14 @@ def test_progressive_rollout_rows_include_terminal_sibling_tier(
             id="clickhouse-failed-tier-two-running-tier-one",
         ),
         pytest.param(
+            (
+                ("TIER_2", "paused", "Failure threshold exceeded: 2 failures"),
+                ("TIER_1", "workflow_started", ""),
+            ),
+            ("⚠️", "🔵", "\u2796"),
+            id="paused-failed-tier-two-running-tier-one",
+        ),
+        pytest.param(
             (("TIER_2", "in_progress", ""), ("TIER_0", "workflow_started", "")),
             ("☑️", "☑️", "🔵"),
             id="pokeapi-tier-two-and-zero-running",
@@ -1316,11 +1544,16 @@ def test_connector_version_manager_tool_calls_have_error_handlers(
     collect_tool_calls(app_json)
 
     assert [call["tool"] for call in tool_calls] == [
+        # Connector/version refresh control
+        "invalidate_registry_cache",
+        "load_latest_versions_tab",
+        "load_connector_version_context",
         # Selector tabs (default tab is active-rollouts)
         "load_active_rollouts_tab",
         "load_connector_version_context",
         "load_recent_releases_tab",
         "load_connector_version_context",
+        "load_recent_releases_tab",
         "load_pinned_versions_tab",
         # Origin filter chips (4 chips x 2 serialized branches + initial)
         "load_pinned_versions_tab",
@@ -1381,6 +1614,14 @@ def test_connector_version_manager_tool_calls_have_error_handlers(
             for action in error_actions
         )
         assert any(action["action"] == "showToast" for action in error_actions)
+
+    for tool_name in ("invalidate_registry_cache", "load_latest_versions_tab"):
+        refresh_call = next(call for call in tool_calls if call["tool"] == tool_name)
+        assert {
+            "action": "setState",
+            "key": "context_loading",
+            "value": False,
+        } in refresh_call["onError"]
 
 
 def test_connector_version_manager_selector_has_four_tabs(
@@ -2457,6 +2698,20 @@ def test_format_ratio_pct_rounds_and_handles_edges() -> None:
             {"has_rollout": True, "state": "canceled", "error_msg": "Rollout expired"},
             ("\u2796", "Closed"),
             id="canceled_expired",
+        ),
+        pytest.param(
+            {
+                "has_rollout": True,
+                "state": "paused",
+                "paused_reason": "Failure threshold exceeded: 2 failures",
+            },
+            ("⚠️", "Attention"),
+            id="paused_failure_threshold",
+        ),
+        pytest.param(
+            {"has_rollout": True, "state": "paused"},
+            ("⏸️", "Paused"),
+            id="paused_without_failure_threshold",
         ),
     ],
 )

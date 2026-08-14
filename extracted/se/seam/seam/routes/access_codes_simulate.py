@@ -1,6 +1,7 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
 from ..resources import UnmanagedAccessCode
 
 
@@ -18,7 +19,9 @@ class AbstractAccessCodesSimulate(abc.ABC):
 
         :param name: Name of the simulated unmanaged access code.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
 
@@ -27,6 +30,11 @@ class AccessCodesSimulate(AbstractAccessCodesSimulate):
         self.client = client
         self.defaults = defaults
 
+    @route_metadata(
+        path="/access_codes/simulate/create_unmanaged_access_code",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def create_unmanaged_access_code(
         self, *, code: str, device_id: str, name: str
     ) -> UnmanagedAccessCode:
@@ -38,8 +46,10 @@ class AccessCodesSimulate(AbstractAccessCodesSimulate):
 
         :param name: Name of the simulated unmanaged access code.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if code is not None:
             json_payload["code"] = code
@@ -47,6 +57,11 @@ class AccessCodesSimulate(AbstractAccessCodesSimulate):
             json_payload["device_id"] = device_id
         if name is not None:
             json_payload["name"] = name
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /access_codes/simulate/create_unmanaged_access_code"
+            )
 
         res = self.client.post(
             "/access_codes/simulate/create_unmanaged_access_code", json=json_payload

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prime
-Version: 0.6.21
+Version: 0.6.22
 Summary: Prime Intellect CLI + SDK
 Project-URL: Homepage, https://github.com/PrimeIntellect-ai/prime
 Project-URL: Documentation, https://github.com/PrimeIntellect-ai/prime#readme
@@ -26,7 +26,7 @@ Requires-Dist: cryptography>=41.0.0
 Requires-Dist: gitignore-parser>=0.1.13
 Requires-Dist: httpx>=0.25.0
 Requires-Dist: prime-evals>=0.2.3
-Requires-Dist: prime-sandboxes>=0.2.34
+Requires-Dist: prime-sandboxes>=0.2.36
 Requires-Dist: prime-tunnel>=0.1.9
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pyyaml>=6.0.0
@@ -38,6 +38,7 @@ Requires-Dist: tomli>=2.0.0
 Requires-Dist: typer<0.26,>=0.9.0
 Requires-Dist: verifiers>=0.2.0
 Provides-Extra: dev
+Requires-Dist: pytest-asyncio>=1.3.0; extra == 'dev'
 Requires-Dist: pytest>=7.0.0; extra == 'dev'
 Requires-Dist: ruff>=0.13.1; extra == 'dev'
 Requires-Dist: ty>=0.0.0a6; extra == 'dev'
@@ -229,14 +230,17 @@ prime pods terminate <pod-id>
 Isolated environments for running code remotely:
 
 ```bash
-# Create a sandbox
+# Create a sandbox (VM-backed by default, public beta)
 prime sandbox create python:3.11
 
 # Create a VM sandbox with GPUs
-prime sandbox create user-1/vm-image:latest --vm --gpu-count 1 --gpu-type H100_80GB
+prime sandbox create user-1/vm-image:latest --vm --gpu-count 1 --gpu-type RTX_PRO_6000
 
-# Create a CPU-only VM sandbox
-prime sandbox create user-1/vm-image:latest --vm
+# Create a one-shot VM workload (arguments after -- are preserved exactly)
+prime sandbox create user-1/vm-image:latest -- /worker --platform linux/amd64
+
+# Opt out to a container sandbox (supports SSH, port exposure, string start commands)
+prime sandbox create python:3.11 --container
 
 # List sandboxes
 prime sandbox list

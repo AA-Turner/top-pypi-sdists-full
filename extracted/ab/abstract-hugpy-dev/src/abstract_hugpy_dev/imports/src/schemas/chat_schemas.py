@@ -172,6 +172,22 @@ class ChatRequest(BaseModel):
     # predating CHAT_EXTRAS_MIN_PKG_VERSION, never a silent no-op.
     chat_template_kwargs: Optional[dict] = None
     logit_bias: Optional[dict] = None
+    # k96 NO-EVICT GUARANTEE for agent-brain calls (operator ruling
+    # 2026-08-06). When true, serving this request must never cost the fleet a
+    # resident model: a WARM model serves exactly as today, but a cold load may
+    # spend only genuinely free headroom — dispatch runs the whole admission
+    # POLITELY (the k56 no_evict path: in-process contention yield skipped,
+    # cross-tier make-room refuses instead of evicting, the slot pool neither
+    # ceiling-evicts nor bumps a seat) and fails FAST with a capacity-class
+    # refusal ("won't fit … refusing without evicting") that the agent's brain
+    # ladder walks down. hugpy_agent sends it on every brain chat.
+    # ⚠ WIRE LANDMINE, same class as ``alloc``: released workers re-validate
+    # relays with extra="forbid". The relay ALWAYS pops this key and instead
+    # rides the guarantee on the spill's ``no_evict`` (version-gated per
+    # worker: an old worker that would evict gets the load REFUSED at central
+    # rather than a silently broken promise). Omitted from model_dump() when
+    # None (serializer below).
+    no_makeroom: Optional[bool] = None
 
     @model_serializer(mode="wrap")
     def _omit_null_engine_extras(self, handler):
@@ -180,7 +196,7 @@ class ChatRequest(BaseModel):
         # worker (extra="forbid" on the re-validated wire). Omit unless set so
         # the relay wire stays byte-identical for all non-no-think traffic.
         data = handler(self)
-        for key in ("chat_template_kwargs", "logit_bias"):
+        for key in ("chat_template_kwargs", "logit_bias", "no_makeroom"):
             if data.get(key) is None:
                 data.pop(key, None)
         return data

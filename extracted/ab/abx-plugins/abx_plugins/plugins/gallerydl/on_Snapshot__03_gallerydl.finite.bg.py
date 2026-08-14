@@ -11,6 +11,7 @@
 #     ./on_Snapshot__03_gallerydl.finite.bg.py --url=<url> > events.jsonl
 
 import signal
+import sys
 
 # Snapshot cleanup sends SIGTERM to the whole hook process group as the polite
 # shutdown signal before the hard SIGKILL deadline. This hook is a finite
@@ -24,7 +25,6 @@ signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 import os
 import subprocess
-import sys
 import threading
 from pathlib import Path
 
@@ -220,10 +220,10 @@ def save_gallery(url: str, binary: str) -> tuple[bool, str | None, str]:
 def main(url: str):
     """Download image gallery from a URL using gallery-dl."""
 
+    print("gallery-dl download started", flush=True)
+
     output = None
     error = ""
-
-    print("gallery-dl download started", flush=True)
 
     try:
         config = load_config(hydrate_binaries=False)

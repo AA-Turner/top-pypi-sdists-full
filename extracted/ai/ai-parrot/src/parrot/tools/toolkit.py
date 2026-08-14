@@ -1,0 +1,704 @@
+"""
+AbstractToolkit for creating collections of tools from class methods.
+"""
+import asyncio
+import inspect
+from abc import ABC
+from collections.abc import Callable as CallableType
+from types import UnionType
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    List,
+    Type,
+    Optional,
+    Any,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
+
+from pydantic import BaseModel, create_model, Field
+from navconfig.logging import logging
+from datamodel.parsers.json import json_decoder, json_encoder  # noqa  pylint: disable=E0611
+from ..conf import BASE_STATIC_URL
+from .abstract import AbstractTool, AbstractToolArgsSchema
+
+if TYPE_CHECKING:
+    from ..auth.permission import PermissionContext
+    from ..auth.resolver import AbstractPermissionResolver
+
+
+class ToolkitTool(AbstractTool):
+    """
+    A specialized AbstractTool that wraps a method from a toolkit.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        bound_method: callable,
+        description: str = None,
+        args_schema: Type[BaseModel] = None,
+        **kwargs
+    ):
+        """
+        Initialize a toolkit tool.
+
+        Args:
+            name: Tool name
+            bound_method: The bound coroutine method to wrap
+            description: Tool description
+            args_schema: Pydantic model for arguments
+            **kwargs: Additional arguments
+        """
+        self.bound_method = bound_method
+
+        # Set up the tool
+        super().__init__(
+            name=name,
+            description=description or bound_method.__doc__ or f"Tool: {name}",
+            **kwargs
+        )
+
+        # Set the args schema
+        if args_schema:
+            self.args_schema = args_schema
+        else:
+            # Try to generate schema from method signature
+            self.args_schema = self._generate_args_schema_from_method()
+
+    # Types that Pydantic cannot serialize and LLMs cannot provide.
+    # Parameters with these types are excluded from the generated schema.
+    _UNSUPPORTED_SCHEMA_TYPES: set = set()
+
+    @classmethod
+    def _is_unsupported_type(cls, annotation: Any) -> bool:
+        """Return True if *annotation* cannot be represented in a Pydantic schema."""
+        origin = get_origin(annotation)
+        if annotation is CallableType or origin is CallableType:
+            return True
+        if origin in (Union, UnionType):
+            return any(
+                arg is not type(None) and cls._is_unsupported_type(arg)
+                for arg in get_args(annotation)
+            )
+
+        try:
+            import pandas as pd
+            cls._UNSUPPORTED_SCHEMA_TYPES.add(pd.DataFrame)
+            cls._UNSUPPORTED_SCHEMA_TYPES.add(pd.Series)
+        except ImportError:
+            pass
+        try:
+            import pyarrow as pa
+            cls._UNSUPPORTED_SCHEMA_TYPES.add(pa.Table)
+        except ImportError:
+            pass
+        return annotation in cls._UNSUPPORTED_SCHEMA_TYPES
+
+    def _generate_args_schema_from_method(self) -> Type[BaseModel]:
+        """
+        Generate a Pydantic schema from the method's type hints.
+        """
+        try:
+            # Get method signature
+            sig = inspect.signature(self.bound_method)
+            type_hints = get_type_hints(self.bound_method)
+
+            # Build fields for Pydantic model
+            fields = {}
+
+            for param_name, param in sig.parameters.items():
+                # Skip 'self' parameter (shouldn't be there for bound methods, but just in case)
+                if param_name == 'self':
+                    continue
+
+                # Get type hint
+                param_type = type_hints.get(param_name, Any)
+
+                # Skip types that Pydantic cannot serialize (e.g. pd.DataFrame)
+                if self._is_unsupported_type(param_type):
+                    continue
+
+                # Handle Optional types and defaults
+                if param.default == param.empty:
+                    # Required parameter
+                    default_value = ...
+                else:
+                    # Has default value
+                    default_value = param.default
+
+                # Create field with description based on parameter name
+                description = f"Parameter: {param_name}"
+                fields[param_name] = (param_type, Field(default=default_value, description=description))
+
+            # Create dynamic Pydantic model
+            if fields:
+                return create_model(
+                    f"{self.name}Args",
+                    **fields
+                )
+            else:
+                # No parameters, return base schema
+                return AbstractToolArgsSchema
+
+        except Exception as e:
+            self.logger.warning("Could not generate schema for %s: %s", self.name, e)
+            return AbstractToolArgsSchema
+
+    async def _execute(self, **kwargs) -> Any:
+        """
+        Execute the toolkit method.
+
+        Invokes the parent toolkit's ``_pre_execute`` lifecycle hook before
+        calling the bound method and its ``_post_execute`` hook after. This
+        lets toolkits resolve credentials, emit metrics, or transform results
+        transparently for every tool call.
+
+        The ``_permission_context`` that was stripped by
+        :meth:`AbstractTool.execute` is re-injected here via the
+        ``_current_pctx`` instance variable so that lifecycle hooks (e.g.,
+        ``JiraToolkit._pre_execute``) can access the request context.
+
+        Args:
+            **kwargs: Method arguments (validated tool parameters only).
+
+        Returns:
+            Method result (possibly transformed by ``_post_execute``).
+        """
+        toolkit = getattr(self.bound_method, "__self__", None)
+        is_toolkit = isinstance(toolkit, AbstractToolkit)
+
+        # FEAT-391: lazy resource acquisition for the toolkit (opt-in via
+        # auto_open), before the _pre_execute() hook so the toolkit's
+        # resources are available to it.
+        if is_toolkit and toolkit.auto_open:
+            await toolkit._ensure_open()
+
+        if is_toolkit:
+            # Rebuild hook_kwargs: tool params + the permission context that
+            # AbstractTool.execute() popped from kwargs before validation.
+            # Always inject _permission_context (even when None) so that
+            # _pre_execute implementations can rely on the kwarg being present.
+            pctx = getattr(self, "_current_pctx", None)
+            hook_kwargs = dict(kwargs)
+            hook_kwargs["_permission_context"] = pctx
+            await toolkit._pre_execute(self.name, **hook_kwargs)
+
+        if is_toolkit:
+            kwargs = await toolkit._prepare_kwargs(self.name, kwargs)
+
+        sig = inspect.signature(self.bound_method)
+        params = sig.parameters
+        has_var_keyword = any(
+            p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+        )
+        if not has_var_keyword:
+            unknown = set(kwargs) - set(params)
+            if unknown:
+                self.logger.debug(
+                    "Ignoring unknown kwargs for %s: %s", self.name, unknown
+                )
+            kwargs = {k: v for k, v in kwargs.items() if k in params}
+
+        result = await self.bound_method(**kwargs)
+
+        if is_toolkit:
+            # NOTE: _post_execute intentionally receives only tool params (kwargs),
+            # not _permission_context.  Per-call auth context is only needed in
+            # _pre_execute for credential resolution (e.g., JiraToolkit oauth2_3lo).
+            result = await toolkit._post_execute(self.name, result, **kwargs)
+        return result
+
+
+class AbstractToolkit(ABC):
+    """
+    Abstract base class for creating toolkits - collections of related tools.
+
+    A toolkit automatically converts all public async methods into tools.
+    Each method becomes a tool with:
+    - Name: method name
+    - Description: method docstring
+    - Schema: automatically generated from type hints
+
+    Usage:
+        class MyToolkit(AbstractToolkit):
+            async def search_web(self, query: str) -> str:
+                '''Search the web for information.'''
+                # Implementation here
+                return result
+
+            async def calculate(self, expression: str) -> float:
+                '''Calculate a mathematical expression.'''
+                # Implementation here
+                return result
+
+        # Get all tools
+        toolkit = MyToolkit()
+        tools = toolkit.get_tools()
+    """
+
+    # Configuration
+    input_class: Optional[Type[BaseModel]] = None  # Default input schema (optional)
+    return_direct: bool = False  # Whether tools return results directly
+    json_encoder: Type[Any] = json_encoder
+    json_decoder: Type[Any] = json_decoder
+    base_url: str = BASE_STATIC_URL
+
+    #: Public async method names to exclude from tool generation.
+    #: Subclasses can override this to hide internal methods that should
+    #: not be exposed to the LLM.
+    exclude_tools: tuple[str, ...] = ()
+
+    #: Namespace applied to every tool exposed by this toolkit.
+    #:
+    #: When set, every tool name is rewritten as
+    #: ``f"{tool_prefix}{prefix_separator}{method_name}"``. The rewrite is
+    #: **idempotent**: if a method name already starts with
+    #: ``f"{tool_prefix}{prefix_separator}"``, it is left unchanged (so
+    #: toolkits that already embed the prefix in method names — e.g.
+    #: ``aws_ec2_describe_instances`` — do not get double-prefixed).
+    #:
+    #: Leaving this as ``None`` preserves the legacy (pre-prefix) behaviour
+    #: and keeps tool names equal to method names. This is a transitional
+    #: escape hatch and will become mandatory in a future release.
+    tool_prefix: Optional[str] = None
+
+    #: Separator inserted between ``tool_prefix`` and the method name.
+    prefix_separator: str = "_"
+
+    #: Names of methods (pre-prefix) whose generated tools will have
+    #: ``routing_meta["requires_confirmation"] = True`` (FEAT-235).
+    #:
+    #: Declare this as a class attribute (frozenset or set) on a toolkit
+    #: subclass to mark specific tool methods for HITL confirmation::
+    #:
+    #:     class WorkdayToolkit(AbstractToolkit):
+    #:         confirming_tools: frozenset[str] = frozenset({"checkin", "checkout"})
+    #:
+    #:         async def checkin(self, employee_id: int) -> str: ...
+    #:         async def checkout(self, employee_id: int) -> str: ...
+    #:
+    #: An empty frozenset (default) means no toolkit-level confirmation marking.
+    confirming_tools: frozenset = frozenset()
+
+    #: Credential provider id propagated to every generated tool (FEAT-264).
+    #:
+    #: When set (e.g. ``"o365"``), each :class:`ToolkitTool` generated by this
+    #: toolkit declares ``credential_provider`` and therefore passes through
+    #: the CredentialBroker seam in :meth:`AbstractTool.execute`: on a
+    #: credential miss the seam raises
+    #: :class:`~parrot.auth.credentials.CredentialRequired` BEFORE the tool
+    #: body (and before ``_pre_execute``), letting surfaces render their
+    #: native consent UX (OAuthCard on MSAgentSDK, consent link on A2A)
+    #: instead of the plain ``authorization_required`` ToolResult.
+    #:
+    #: Requires the provider to be registered on the broker
+    #: (fail-closed: a broker without the provider raises ``KeyError``).
+    #: When no broker is attached to the ToolManager the seam is skipped and
+    #: the toolkit's own ``_pre_execute`` auth handling applies unchanged.
+    #: Override per-instance via the ``credential_provider`` constructor kwarg.
+    credential_provider: Optional[str] = None
+
+    #: FEAT-391: opt-in lazy resource lifecycle. When True, the first tool
+    #: call on this toolkit triggers ``_ensure_open()`` (which calls
+    #: ``_open()`` at most once) before ``_pre_execute()`` runs. Toolkits
+    #: that don't manage external resources leave this False (default) —
+    #: fully backward compatible, no automatic I/O.
+    auto_open: bool = False
+
+    def __init__(self, **kwargs):
+        """
+        Initialize the toolkit.
+
+        Args:
+            executor: Optional ``AbstractToolExecutor`` instance. When
+                provided, every ``ToolkitTool`` generated by this
+                toolkit inherits it (and therefore runs off-process via
+                the executor) unless the tool overrides it later.
+            webhook_callback_url: Forwarded to each generated tool's
+                ``execute()`` envelope so async delivery can be enabled
+                toolkit-wide.
+            remote_timeout_seconds: Forwarded as the per-tool remote
+                timeout.
+            **kwargs: Additional configuration
+        """
+        # Configuration
+        self.return_direct = kwargs.get('return_direct', self.return_direct)
+        self.base_url = kwargs.get('base_url', self.base_url)
+        self.credential_provider = kwargs.get(
+            'credential_provider', self.credential_provider
+        )
+
+        # Remote execution wiring — propagated to every generated tool.
+        self.executor = kwargs.get('executor')
+        self.webhook_callback_url = kwargs.get('webhook_callback_url')
+        self.remote_timeout_seconds = int(
+            kwargs.get('remote_timeout_seconds', 300)
+        )
+
+        # Capture init kwargs so build_envelope_from_tool can
+        # reconstruct the toolkit on the remote side. The executor
+        # instance itself is stripped by build_envelope_from_tool so
+        # the remote side runs the tool in-process.
+        self._init_kwargs = dict(kwargs)
+
+        # Tool cache
+        self._tool_cache: Dict[str, ToolkitTool] = {}
+        self._tools_generated = False
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+        # FEAT-391: per-instance lazy-resource-lifecycle flag. Must be set
+        # here (not as a class attribute) so it is never shared across
+        # instances of the same toolkit class.
+        self._opened: bool = False
+        # Guards _ensure_open() against a first-open race: every
+        # ToolkitTool generated from this toolkit shares the same
+        # toolkit instance, so concurrent tool calls in the same agent
+        # turn can race into _ensure_open() before either sets
+        # _opened=True. asyncio.Lock() is safe to construct here without
+        # a running loop (3.10+).
+        self._open_lock: asyncio.Lock = asyncio.Lock()
+
+    async def start(self) -> None:
+        """
+        Optional startup logic for the toolkit.
+        Override in subclasses if needed.
+        """
+        pass
+
+    async def stop(self) -> None:
+        """
+        Optional shutdown logic for the toolkit.
+        Override in subclasses if needed.
+        """
+        pass
+
+    async def cleanup(self) -> None:
+        """
+        Optional cleanup logic for the toolkit.
+        Override in subclasses if needed.
+        """
+        pass
+
+    # ── FEAT-391: per-tool connection lifecycle ─────────────────────────────
+
+    async def _open(self) -> None:
+        """
+        Acquire external resources (connections, sessions, pools).
+
+        No-op by default. Subclasses that need a resource lifecycle
+        (database connections, HTTP sessions, broker channels, etc.)
+        should override this. Called at most once per instance lifetime
+        via :meth:`_ensure_open`, and only when ``auto_open`` is True.
+
+        If this raises after partially acquiring a resource, ``_opened``
+        stays ``False`` (see :meth:`_ensure_open`), so ``_close()`` will
+        NOT be invoked automatically for the partial state. Overrides that
+        can partially succeed before raising are responsible for releasing
+        whatever they already acquired before re-raising.
+        """
+
+    async def _close(self) -> None:
+        """
+        Release external resources acquired by :meth:`_open`.
+
+        No-op by default. Subclasses that override :meth:`_open` should
+        override this to release the corresponding resources. Always
+        resets ``_opened`` to ``False`` so the toolkit can be re-opened
+        (via :meth:`_ensure_open`) afterwards. Overrides MUST call
+        ``await super()._close()`` (or reset ``self._opened = False``
+        themselves) — otherwise the toolkit can never be re-opened.
+        """
+        self._opened = False
+
+    async def _ensure_open(self) -> None:
+        """
+        Idempotent gate that calls :meth:`_open` at most once.
+
+        Guarded by :attr:`_open_lock` so two coroutines racing into this
+        method concurrently (e.g. two tool calls from the same toolkit
+        fired in the same agent turn) cannot both observe
+        ``_opened is False`` and both invoke :meth:`_open` (double-
+        acquiring the underlying resource).
+
+        If ``_open()`` raises, ``_opened`` is left ``False`` so the next
+        call retries resource acquisition (recovers from transient
+        errors automatically).
+        """
+        async with self._open_lock:
+            if not self._opened:
+                await self._open()
+                self._opened = True
+
+    async def _prepare_kwargs(self, tool_name: str, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+        """Hook called before argument filtering, allowing subclasses to inject or modify kwargs.
+
+        Unlike ``_pre_execute``, the dict returned here IS the one forwarded to
+        the bound method (after unknown-key stripping). Use this to inject params
+        that the LLM may have forgotten — e.g. ``confirm_execution=True`` after
+        the user has already approved a pending action.
+
+        Args:
+            tool_name: Name of the tool about to be executed.
+            kwargs: Current kwargs dict (mutable copy).
+
+        Returns:
+            The (possibly modified) kwargs dict.
+        """
+        return kwargs
+
+    async def _pre_execute(self, tool_name: str, /, **kwargs) -> None:
+        """Lifecycle hook called before every tool execution.
+
+        Override in subclasses to perform per-call logic such as credential
+        resolution, authorization checks, or request-level instrumentation.
+        Raising an exception here (for example
+        :class:`parrot.auth.exceptions.AuthorizationRequired`) aborts the tool
+        call and propagates the error to the caller.
+
+        Args:
+            tool_name: Name of the tool about to be executed.
+            **kwargs: Arguments that will be forwarded to the bound method.
+        """
+        return None
+
+    async def _post_execute(self, tool_name: str, result: Any, /, **kwargs) -> Any:
+        """Lifecycle hook called after every tool execution.
+
+        Override in subclasses to implement observability, result shaping,
+        or cleanup logic. The return value replaces the original result.
+
+        Args:
+            tool_name: Name of the tool that just executed.
+            result: Raw result returned by the bound method.
+            **kwargs: Arguments that were forwarded to the bound method.
+
+        Returns:
+            The (possibly transformed) result.
+        """
+        return result
+
+    def get_tools(
+        self,
+        permission_context: Optional["PermissionContext"] = None,
+        resolver: Optional["AbstractPermissionResolver"] = None,
+    ) -> List[AbstractTool]:
+        """
+        Get all tools from this toolkit, optionally filtered by permissions.
+
+        Inspects all public methods and converts them to tools.
+
+        .. note::
+
+            Permission filtering requires ``await`` because resolvers are
+            async.  Use :meth:`get_tools_filtered` for the async path.
+            When *permission_context* and *resolver* are passed here the
+            method returns **all** tools (backward-compatible) — callers
+            must migrate to ``get_tools_filtered()`` for actual filtering.
+
+        Args:
+            permission_context: Ignored (kept for signature compat).
+                Use :meth:`get_tools_filtered` instead.
+            resolver: Ignored (kept for signature compat).
+
+        Returns:
+            List of AbstractTool instances (unfiltered).
+        """
+        if not self._tools_generated or not self._tool_cache:
+            # Generate tools if not yet done
+            self._generate_tools()
+
+        return list(self._tool_cache.values())
+
+    def _resolve_tool_name(self, method_name: str) -> str:
+        """Return the final tool name for a toolkit method.
+
+        Applies ``tool_prefix`` when defined, with an idempotent rule: if
+        the method name already starts with the prefix, it is returned
+        unchanged so toolkits with pre-namespaced methods (e.g.
+        ``aws_ec2_describe_instances``) do not get double-prefixed.
+
+        Args:
+            method_name: Original (unprefixed) method name.
+
+        Returns:
+            Final tool name as it will be registered with the manager.
+        """
+        if not self.tool_prefix:
+            return method_name
+        prefix_with_sep = f"{self.tool_prefix}{self.prefix_separator}"
+        if method_name.startswith(prefix_with_sep):
+            return method_name
+        return f"{prefix_with_sep}{method_name}"
+
+    def _generate_tools(self) -> None:
+        """Generate tools from all public async methods."""
+        if self._tools_generated:
+            return
+
+        # Inspect all methods - get bound methods
+        for name in dir(self):
+            # Skip private methods and non-methods
+            if name.startswith('_'):
+                continue
+
+            # Skip toolkit management methods and subclass-excluded names
+            if name in (
+                'get_tools', 'get_tools_filtered', 'get_tools_sync',
+                'get_tool', 'list_tool_names', 'start', 'stop', 'cleanup',
+                *self.exclude_tools,
+            ):
+                continue
+
+            # Get the attribute
+            attr = getattr(self, name)
+
+            # Check if it's a coroutine function
+            if not inspect.iscoroutinefunction(attr):
+                continue
+
+            # Resolve the final (possibly prefixed) tool name and create tool
+            tool_name = self._resolve_tool_name(name)
+            tool = self._create_tool_from_method(tool_name, attr)
+            # Preserve the original method name for introspection and
+            # for the manager's collision-raise gating.
+            tool._method_name = name
+            tool._from_prefixed_toolkit = bool(self.tool_prefix)
+            self._tool_cache[tool_name] = tool
+
+        self._tools_generated = True
+
+    async def get_tools_filtered(
+        self,
+        permission_context: "PermissionContext",
+        resolver: "AbstractPermissionResolver",
+    ) -> List[AbstractTool]:
+        """Get tools filtered by async permission resolver.
+
+        This is the async-aware version of :meth:`get_tools` that supports
+        Layer 1 preventive filtering through the resolver.
+
+        Args:
+            permission_context: User context for permission filtering.
+            resolver: Permission resolver for checking access (async).
+
+        Returns:
+            Filtered list of AbstractTool instances the user may execute.
+        """
+        all_tools = self.get_tools()
+        return await resolver.filter_tools(permission_context, all_tools)
+
+    def get_tools_sync(
+        self,
+        permission_context: Optional["PermissionContext"] = None,
+        resolver: Optional["AbstractPermissionResolver"] = None,
+    ) -> List[AbstractTool]:
+        """Synchronous alias for get_tools(). Returns all tools (unfiltered)."""
+        return self.get_tools()
+
+    def get_tool(self, name: str) -> Optional[AbstractTool]:
+        """
+        Get a specific tool by name.
+
+        Args:
+            name: Tool name
+
+        Returns:
+            AbstractTool instance or None if not found
+        """
+        if not self._tools_generated:
+            self._generate_tools()  # Ensure tools are generated
+
+        return self._tool_cache.get(name)
+
+    def list_tool_names(self) -> List[str]:
+        """
+        Get a list of all tool names in this toolkit.
+
+        Returns:
+            List of tool names
+        """
+        if not self._tools_generated:
+            self._generate_tools()
+
+        return list(self._tool_cache.keys())
+
+    def _create_tool_from_method(self, name: str, bound_method: callable) -> ToolkitTool:
+        """
+        Create a ToolkitTool from a bound method.
+
+        Args:
+            name: Method name
+            bound_method: The bound coroutine method
+
+        Returns:
+            ToolkitTool instance
+        """
+        # Get description from docstring
+        description = bound_method.__doc__ or f"Tool: {name}"
+        description = description.strip()
+
+        # Determine args schema - prioritize method-specific schema
+        args_schema = getattr(bound_method, '_args_schema', None)
+
+        # If no custom schema is defined, always generate from method signature
+        # This ensures each method only gets the parameters it actually needs
+        if not args_schema:
+            args_schema = None  # Let ToolkitTool generate it from the method signature
+
+        # Create the tool. Pass executor / webhook / timeout from the
+        # toolkit so every generated ToolkitTool inherits the same
+        # remote-execution policy.
+        tool = ToolkitTool(
+            name=name,
+            bound_method=bound_method,
+            description=description,
+            args_schema=args_schema,
+            return_direct=self.return_direct,
+            executor=self.executor,
+            webhook_callback_url=self.webhook_callback_url,
+            remote_timeout_seconds=self.remote_timeout_seconds,
+        )
+
+        # Copy permission requirements from method to tool
+        if hasattr(bound_method, '_required_permissions'):
+            tool._required_permissions = bound_method._required_permissions
+
+        # FEAT-264: route generated tools through the CredentialBroker seam.
+        if self.credential_provider:
+            tool.credential_provider = self.credential_provider
+
+        # Apply toolkit-level confirmation marking (FEAT-235).
+        # Use the original (unprefixed) method name for lookup so the
+        # confirming_tools set stays stable regardless of tool_prefix.
+        method_name = getattr(bound_method, '__name__', name)
+        if method_name in self.confirming_tools:
+            if tool.routing_meta is None:
+                tool.routing_meta = {}
+            tool.routing_meta["requires_confirmation"] = True
+
+        return tool
+
+    def get_toolkit_info(self) -> Dict[str, Any]:
+        """
+        Get information about this toolkit.
+
+        Returns:
+            Dictionary with toolkit information
+        """
+        if not self._tools_generated:
+            self._generate_tools()
+
+        tools = list(self._tool_cache.values())
+
+        return {
+            "toolkit_name": self.__class__.__name__,
+            "tool_count": len(tools),
+            "tool_names": [tool.name for tool in tools],
+            "tool_descriptions": {tool.name: tool.description for tool in tools},
+            "return_direct": self.return_direct,
+            "base_url": self.base_url
+        }

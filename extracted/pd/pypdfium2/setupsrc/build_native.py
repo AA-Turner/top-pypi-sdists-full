@@ -8,13 +8,14 @@ import re
 import sys
 import shutil
 import argparse
-from enum import Enum
 from pathlib import Path
 import urllib.request as url_request
 
 # local
 from base import *
+from stl import cached_property
 from _build_helpers import *
+import _pyodide as pyodide_utils
 
 _CR_PREFIX = "https://chromium.googlesource.com/"
 DEPS_URLS = dict(
@@ -23,7 +24,6 @@ DEPS_URLS = dict(
     abseil     = _CR_PREFIX + "chromium/src/third_party/abseil-cpp",
     fast_float = _CR_PREFIX + "external/github.com/fastfloat/fast_float",
     simdutf    = _CR_PREFIX + "chromium/src/third_party/simdutf",
-    catapult   = _CR_PREFIX + "catapult",  # android
     # vendorable dependencies
     icu         = _CR_PREFIX + "chromium/deps/icu",
     buildtools  = _CR_PREFIX + "chromium/src/buildtools",
@@ -39,12 +39,34 @@ DEPS_URLS = dict(
     # unittests
     gtest      = _CR_PREFIX + "external/github.com/google/googletest",
     test_fonts = _CR_PREFIX + "chromium/src/third_party/test_fonts",
+    # opt-in dependencies
+    partition_allocator = _CR_PREFIX + "chromium/src/base/allocator/partition_allocator",
+    #catapult = _CR_PREFIX + "catapult",  # android
 )
 SOURCES_DIR = ProjectDir / "sbuild" / "native"
 PDFIUM_DIR = SOURCES_DIR / "pdfium"
 PDFIUM_DIR_build = PDFIUM_DIR / "build"
 PDFIUM_3RDPARTY = PDFIUM_DIR / "third_party"
 CUSTOM_TOOLCHAIN_DIR = PDFIUM_DIR_build/"toolchain"/"linux"/"custom"
+USE_PA = bool(int( os.environ.get("USE_PARTITION_ALLOC", "0") ))
+
+DefaultConfig = {
+    "is_debug": False,
+    "use_glib": False,
+    "use_siso": False,
+    "treat_warnings_as_errors": False,
+    "clang_use_chrome_plugins": False,
+    "is_component_build": False,
+    "pdf_is_standalone": True,
+    "pdf_enable_v8": False,
+    "pdf_enable_xfa": False,
+    "pdf_use_skia": False,
+    "pdf_use_partition_alloc": False,
+    "use_sysroot": False,
+    "use_cxx23": False,
+}
+
+
 # for docs / available options, see the comments in //build/toolchain/gcc_toolchain.gni - they're really helpful
 # further options e.g. enable_linker_map, extra_asmflags, shlib_extension
 # see also https://chromium.googlesource.com/chromium/src/+/6488187212e7e2f1c1decb5dcf72d4fce888428a/build/toolchain/linux/unbundle/
@@ -73,43 +95,6 @@ gcc_toolchain("default") {
 }
 """
 
-Compiler = Enum("Compiler", "gcc clang")
-
-DefaultConfig = {
-    "is_debug": False,
-    "use_glib": False,
-    "use_siso": False,
-    "treat_warnings_as_errors": False,
-    "clang_use_chrome_plugins": False,
-    "is_component_build": False,
-    "pdf_is_standalone": True,
-    "pdf_enable_v8": False,
-    "pdf_enable_xfa": False,
-    "pdf_use_skia": False,
-    "pdf_use_partition_alloc": False,
-    "use_sysroot": False,
-    "use_cxx23": False,
-}
-
-IS_ANDROID = Host.system == SysNames.android
-if IS_ANDROID:
-    DefaultConfig.update({
-        "sysroot": str(Host.usr.parent),
-        "current_os": "android",
-        "target_os": "android",
-        "use_mold": False,
-    })
-    DefaultConfig["use_sysroot"] = True
-    # On Android, it seems that the build system's CPU type statically defaults to "arm", but we want this script to be host-adaptive (plus, "arm64" is the more likely candidate).
-    # TODO(future) refactor platform constants from base.py so we can access abstracted OS/CPU separately through sub-attributes
-    AndroidCPUMap = {"aarch64": "arm64", "armv7l": "arm", "x86_64": "x64", "i686": "x86"}
-    raw_cpu = Host._raw_machine
-    if raw_cpu in AndroidCPUMap:
-        cpu = AndroidCPUMap[raw_cpu]
-        DefaultConfig.update(current_cpu=cpu, target_cpu=cpu)
-    else:
-        log(f"Warning: Unknown Android CPU {raw_cpu}")
-
 
 class DepsFetcher:
     
@@ -136,9 +121,9 @@ class _DeferredDeps:
     def __init__(self, deps_fields):
         self.deps_fields = deps_fields
     
-    @cached_property  # included from base.py
+    @cached_property
     def deps(self):
-        # TODO get a proper parser for the DEPS file format?
+        # TODO parse out the gn version for later validation?
         deps_content = (PDFIUM_DIR/"DEPS").read_text()
         result = {}
         for field in self.deps_fields:
@@ -158,8 +143,10 @@ class _DeferredDeps:
 def handle_deps(config, vendor_deps, with_tests):
     
     deps_fields = ["build", "abseil", "fast_float", "simdutf"]
-    if IS_ANDROID:
-        deps_fields.append("catapult")
+    if USE_PA:
+        deps_fields.append("partition_allocator")
+    # if IS_ANDROID:
+    #     deps_fields.append("catapult")
     
     if "libc++" in vendor_deps:
         deps_fields += ("buildtools", "libcxx", "libcxxabi", "llvm_libc")
@@ -224,7 +211,7 @@ def _get_shimheaders_tool(pdfium_dir, rev="main"):
         url_request.urlretrieve(shimheaders_url, shimheaders_file)
 
 
-def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_path, no_libclang_rt, reset, vendor_deps):
+def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_path, no_libclang_rt, reset, vendor_deps, is_pyodide):
     
     assert not IGNORE_FULLVER
     full_ver, pdfium_rev, chromium_rev = handle_sbuild_vers(short_ver)
@@ -233,7 +220,7 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
     df = DepsFetcher({"pdfium": pdfium_rev})
     do_patches = df.fetch("pdfium", PDFIUM_DIR, reset=reset)
     if do_patches:
-        shared_autopatches(PDFIUM_DIR)
+        shared_autopatches(PDFIUM_DIR, nonstatic=(not is_pyodide))
         autopatch(
             PDFIUM_DIR/"testing"/"BUILD.gn",
             r'(\s*)("//third_party/test_fonts")', r"\1# \2",
@@ -241,6 +228,9 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
         )
         if sys.byteorder == "big":
             git_apply_patch(PatchDir/"bigendian.patch", cwd=PDFIUM_DIR)
+        if is_pyodide:
+            git_apply_patch(PatchDir/"unknown_cpu.patch", cwd=PDFIUM_DIR)
+            git_apply_patch(PatchDir/"wasm"/"pdfium.patch", cwd=PDFIUM_DIR)
     
     df = DepsFetcher(deps_info)
     do_patches = df.fetch("build", PDFIUM_DIR_build, reset=reset)
@@ -258,13 +248,12 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
         if full_ver.build <= 7928:
             # it says gcc_toolchain but actually needed for clang as well
             git_apply_patch(PatchDir/"gcc_toolchain.patch", cwd=PDFIUM_DIR_build)
-        if IS_ANDROID:  # fix linkage step
-            git_apply_patch(PatchDir/"android_native.patch", cwd=PDFIUM_DIR_build)
+        if is_pyodide:
+            git_apply_patch(PatchDir/"wasm"/"build.patch", cwd=PDFIUM_DIR_build)
+            wasm_config_dir = PDFIUM_DIR_build/"config"/"wasm"
+            mkdir(wasm_config_dir)
+            shutil.copyfile(PatchDir/"wasm"/"config.gn", wasm_config_dir/"BUILD.gn")
         if compiler is Compiler.clang:
-            if clang_ver < 23:
-                git_apply_patch(PatchDir/"clang_22_compat.patch", cwd=PDFIUM_DIR_build)
-            if no_libclang_rt:
-                git_apply_patch(PatchDir/"no_libclang_rt.patch", cwd=PDFIUM_DIR_build)
             if "libc++" not in vendor_deps:
                 # historically, https://crbug.com/410883044
                 autopatch(
@@ -273,6 +262,11 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
                     "use_libcxx_modules = false",
                     is_regex=False, exp_count=2,
                 )
+            if clang_ver < 23 or is_pyodide:
+                git_apply_patch(PatchDir/"clang_22_compat.patch", cwd=PDFIUM_DIR_build)
+        if compiler is Compiler.clang and not is_pyodide:
+            if no_libclang_rt:
+                git_apply_patch(PatchDir/"no_libclang_rt.patch", cwd=PDFIUM_DIR_build)
             # TODO should we handle other OSes here?
             # see also https://groups.google.com/g/llvm-dev/c/k3q_ATl-K_0/m/MjEb6gsCCAAJ
             lld_path = clang_path/"bin"/"ld.lld"
@@ -298,8 +292,10 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
     df.fetch("abseil", PDFIUM_3RDPARTY/"abseil-cpp")
     df.fetch("fast_float", PDFIUM_3RDPARTY/"fast_float"/"src")
     df.fetch("simdutf", PDFIUM_3RDPARTY/"simdutf")
-    if IS_ANDROID:
-        df.fetch("catapult", PDFIUM_3RDPARTY/"catapult")
+    if USE_PA:
+        df.fetch("partition_allocator", PDFIUM_DIR/"base"/"allocator"/"partition_allocator")
+    # if IS_ANDROID:
+    #     df.fetch("catapult", PDFIUM_3RDPARTY/"catapult")
     
     if "libc++" in vendor_deps:
         df.fetch("buildtools", PDFIUM_DIR/"buildtools")
@@ -335,7 +331,7 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
     return full_ver
 
 
-def setup_compiler(config, compiler, clang_ver, clang_path):
+def configure(config, compiler, clang_ver, clang_path, is_pyodide):
     if compiler is Compiler.gcc:
         config["is_clang"] = False
         # this ought to match CUSTOM_TOOLCHAIN_DIR
@@ -350,6 +346,11 @@ def setup_compiler(config, compiler, clang_ver, clang_path):
         })
     else:
         assert False, f"Unhandled compiler {compiler}"
+    
+    if USE_PA:
+        config["pdf_use_partition_alloc"] = True
+    if is_pyodide:
+        pyodide_utils.configure(config, compiler)
 
 
 _SysrootMap = sysroot_cpu = {
@@ -380,24 +381,18 @@ def handle_sysroot(use_sysroot, config, compiler, vendor_deps):
         log("Warning: --use-sysroot works best with clang and vendored libc++. It may or may not work with GCC / system libc++.")
 
 
-def build(build_dir, config_dict, with_tests, n_jobs):
+def build(build_dir, config_dict, with_tests, n_jobs, is_pyodide):
     
-    # Create target dir, or reuse existing
     mkdir(build_dir)
-    
-    # Remove existing libraries from the build dir, to avoid packing unnecessary DLLs when a single-lib build is done after a separate-libs build. This also ensures we really built a new DLL in the end.
-    # Leave the object files in place to reuse as much as possible, though.
     for lib in build_dir.glob(Host.libname_glob):
         lib.unlink()
     
-    # Write GN config
     config_str = serialize_gn_config(config_dict)
     (build_dir/"args.gn").write_text(config_str)
     
     ninja_args = []
     if n_jobs is not None:
         ninja_args.extend(["-j", str(n_jobs)])
-    
     targets = ["pdfium"]
     if with_tests:
         targets.append("pdfium_unittests")
@@ -405,6 +400,9 @@ def build(build_dir, config_dict, with_tests, n_jobs):
     build_dir_rel = build_dir.relative_to(PDFIUM_DIR)
     run_cmd(["gn", "gen", str(build_dir_rel)], cwd=PDFIUM_DIR)
     run_cmd(["ninja", *ninja_args, "-C", str(build_dir_rel), *targets], cwd=PDFIUM_DIR)
+    
+    if is_pyodide:
+        pyodide_utils.link(build_dir)
 
 
 def test(build_dir, vendor_deps, compiler):
@@ -424,7 +422,9 @@ def test(build_dir, vendor_deps, compiler):
     run_cmd([build_dir/"pdfium_unittests"], cwd=PDFIUM_DIR)
 
 
-def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_path=None, no_libclang_rt=False, clang_as_gcc=False, reset=False, vendor_deps=None, use_sysroot=False):
+# TODO(geisserml) refactor to pass along an args object?
+
+def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_path=None, no_libclang_rt=False, clang_as_gcc=False, reset=False, vendor_deps=None, use_sysroot=False, is_pyodide=False):
     
     if build_ver is None:
         build_ver = SBUILD_NATIVE_PIN
@@ -435,8 +435,14 @@ def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_pat
     
     if vendor_deps is None:
         vendor_deps = set()
+    
+    if is_pyodide:
+        pyodide_utils.info(compiler)
     if compiler is None:
-        if shutil.which("gcc"):
+        if is_pyodide:
+            compiler = Compiler.clang
+            clang_path = Path(os.environ["PYODIDE_EMSCRIPTEN_DIR"]).parent
+        elif shutil.which("gcc"):
             compiler = Compiler.gcc
         elif shutil.which("clang"):
             log("gcc not available, will try clang. Note, you may need to set up some symlinks to match the clang directory layout expected by pdfium. Also, make sure libclang_rt builtins are installed, or pass --no-libclang-rt.")
@@ -449,14 +455,16 @@ def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_pat
         if clang_path is None:
             clang_path = Host.usr
         clang_ver = get_clang_version(clang_path)
-        if clang_ver < 22:
-            log("Warning: Clang below version 22 is not supported with upstream's clang config - implicitly switching to --clang-as-gcc mode. If you mean to manually patch pdfium's //build for compatibility with older clang (possible, but no fun to maintain), take out this check.")
+        if clang_ver < 22 and not is_pyodide:
+            log("Warning: Clang below version 22 is not supported with upstream's clang config - implicitly switching to --clang-as-gcc mode. (If you mean to manually patch pdfium's //build for compatibility with older clang (possible, but no fun to maintain), feel free to disable this check.)")
             clang_as_gcc = True
             clang_ver = None
         if clang_as_gcc:
             env_prepend("PATH", str(clang_path/"bin"), os.pathsep)
             set_envs(CC="clang", CXX="clang++", TOOLPREFIX="llvm-")
             compiler = Compiler.gcc
+    if clang_as_gcc:
+        env_prepend("CPPFLAGS", "-Wno-unknown-warning-option", " ")
     
     build_dir = PDFIUM_DIR/"out"/"Default"
     config = DefaultConfig.copy()
@@ -464,14 +472,14 @@ def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_pat
     deps_info = handle_deps(config, vendor_deps, with_tests)
     
     mkdir(SOURCES_DIR)
-    full_ver = get_sources(deps_info, build_ver, with_tests, compiler, clang_ver, clang_path, no_libclang_rt, reset, vendor_deps)
-    setup_compiler(config, compiler, clang_ver, clang_path)
+    full_ver = get_sources(deps_info, build_ver, with_tests, compiler, clang_ver, clang_path, no_libclang_rt, reset, vendor_deps, is_pyodide)
+    configure(config, compiler, clang_ver, clang_path, is_pyodide)
     handle_sysroot(use_sysroot, config, compiler, vendor_deps)
-    build(build_dir, config, with_tests, n_jobs)
+    build(build_dir, config, with_tests, n_jobs, is_pyodide)
     if with_tests:
         test(build_dir, vendor_deps, compiler)
     
-    return pack_sourcebuild(PDFIUM_DIR, build_dir, "native", full_ver, build_ver)
+    return pack_sourcebuild(PDFIUM_DIR, build_dir, "native", full_ver, build_ver, load_lib=(not is_pyodide))
 
 
 def parse_args(argv):
@@ -486,7 +494,7 @@ Whether this might also work on other OSes depends on PDFium's build system and 
 See the notes in pypdfium2's README.md for more information.
 
 Note that pdfium is picky about the GN version, and requires newer GN than what stable distributions usually provide. Outdated GN may fail with the most obscure errors.
-We suggest that you `pip install -r req/gn.txt` which will install an appropriate version of gn-dist from PyPI. gn-dist is also maintained by the pypdfium2 authors.
+We suggest that you `pip install --group gn` which will install an appropriate version of gn-dist from PyPI. gn-dist is also maintained by the pypdfium2 authors.
 
 Likewise, clang users should note that pdfium expects a very recent version of clang.
 Upstream does not aim for compatibility with clang older than the version they currently use.
@@ -524,7 +532,7 @@ Some params take a default from an environment variable, for easy passthrough wi
     parser.add_argument(
         "-c", "--compiler",
         type = str.lower,
-        help = "The compiler to use (gcc or clang). Defaults to gcc if available.",
+        help = "The compiler to use (gcc, clang). Defaults to gcc if available.",
     )
     parser.add_argument(
         "--reset",
@@ -545,7 +553,7 @@ Some params take a default from an environment variable, for easy passthrough wi
     parser.add_argument(
         "--clang-as-gcc",
         action = "store_true",
-        help = "Use clang, but pretend to pdfium's build system that it were gcc. Passing `--compiler clang` is a prerequisite.",
+        help = "Use gcc build config, but actually build with clang by setting CC, CXX etc. Passing `--compiler clang` is a prerequisite.",
     )
     # nb: libicudata pulled in from the system via `auditwheel repair` is quite big. Using vendored ICU reduces wheel size by about 10 MB (compressed).
     parser.add_argument(
@@ -565,14 +573,19 @@ Some params take a default from an environment variable, for easy passthrough wi
         "--use-sysroot",
         action = "store_true",
         default = bool(int( os.environ.get("USE_SYSROOT", 0) )),
-        help = "Attempt to use a Google-processed Debian sysroot for the build. This may help achieve a lower glibc requirement. This option is Linux glibc only, and ignored on other platforms. If no sysroot is available for the host CPU, this will fail.",
+        help = "Attempt to build with one of upstream's sysroots. This should help achieve a lower glibc requirement. This option is Linux glibc only, and ignored on other platforms. If no sysroot is available for the host CPU, this will fail. Probably only effective in clang build mode.",
+    )
+    parser.add_argument(
+        "--pyodide",
+        dest = "is_pyodide",
+        action = "store_true",
+        default = bool(os.environ.get("PYODIDE")),
+        help = "Indicate that build_native.py is running in an emscripten cross environment as provided by `pyodide build`, and should target WASM. Automatically enabled if $PYODIDE is set.",
     )
     
     args = parser.parse_args(argv)
-    
     if args.compiler:
         args.compiler = Compiler[args.compiler]
-    
     if args.vendor_deps:
         if args.vendor_deps == ["all"]:
             args.vendor_deps = VendorableDeps

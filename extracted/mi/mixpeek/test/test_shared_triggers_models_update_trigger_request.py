@@ -37,6 +37,7 @@ class TestSharedTriggersModelsUpdateTriggerRequest(unittest.TestCase):
         if include_optional:
             return SharedTriggersModelsUpdateTriggerRequest(
                 schedule_config = { },
+                name = '',
                 description = '',
                 status = 'active'
             )

@@ -16,6 +16,7 @@ from .version import __version__
 from .logitem import LogItem
 from .consumer_group_request import *
 from .external_store_config import *
+from .resource_policy import ResourcePolicyResourceType
 
 # response class
 from .consumer_group_response import *
@@ -55,6 +56,7 @@ from .metering_mode_response import GetLogStoreMeteringModeResponse, \
 from .multimodal_config_response import GetLogStoreMultimodalConfigurationResponse, \
     PutLogStoreMultimodalConfigurationResponse
 from .object_response import PutObjectResponse, GetObjectResponse
+from .resource_policy_response import PutResourcePolicyResponse, GetResourcePolicyResponse, DeleteResourcePolicyResponse
 
 from .store_view import StoreView, StoreViewStore
 from .store_view_response import CreateStoreViewResponse, UpdateStoreViewResponse, DeleteStoreViewResponse, ListStoreViewsResponse, GetStoreViewResponse

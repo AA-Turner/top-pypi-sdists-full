@@ -1,32 +1,37 @@
 # SPDX-FileCopyrightText: 2026 geisserml <geisserml@gmail.com>
 # SPDX-License-Identifier: Apache-2.0 OR BSD-3-Clause
 
+import os
 import re
+import sys
 import shutil
+from enum import Enum
 from base import *  # local
 
+Compiler = Enum("Compiler", "gcc clang")
 
-def _install_dep(exename, reqfile=None):  # pkgname=None
-    
-    if reqfile:
-        install_args = ("-r", str(reqfile))
-    else:
-        install_args = (exename, )  # (pkgname or exename, )
-    
-    which_exe = shutil.which(exename)
-    if which_exe:
-        log(f"+ {exename} found at {which_exe}")
-        return
-    
-    log(f"- {exename} not found, installing...")
-    run_cmd([sys.executable, "-m", "pip", "install", *install_args], cwd=None)
+
+def _cool_env(cooldown_days, soft=False):
+    if "PIP_UPLOADED_PRIOR_TO" in os.environ:
+        log(f"Existing cooldown (respected={soft}):", os.environ["PIP_UPLOADED_PRIOR_TO"])
+        if soft:
+            return os.environ
+    log(f"Set cooldown: {cooldown_days}d")
+    env = os.environ.copy()
+    env["PIP_UPLOADED_PRIOR_TO"] = get_cool_date(cooldown_days)
+    return env
 
 def install_buildtools():
-    log("Check build tool dependencies...")
+    log("Check for ninja/gn and install if missing...")
     # https://github.com/scikit-build/ninja-python-distributions
-    _install_dep("ninja")
     # https://github.com/pypdfium2-team/gn-dist/
-    _install_dep("gn", reqfile=ProjectDir/"req"/"gn.txt")
+    if not shutil.which("ninja"):
+        env = _cool_env(7, soft=True)
+        run_cmd([sys.executable, "-m", "pip", "install", "ninja"], env=env, cwd=None)
+    if not shutil.which("gn"):
+        # gn-dist is a first-party dependency and pinned to an exact version.
+        # To make sure that the pinned requirement can be satisfied, there should be no cooldown.
+        install_dep_groups(["gn"], env=_cool_env(0))
 
 def get_clang_version(clang_root):
     from packaging.version import Version
@@ -39,7 +44,7 @@ def get_clang_version(clang_root):
 
 
 def git_apply_patch(patch, cwd, git_args=()):
-    run_cmd(["git", *git_args, "apply", "--ignore-space-change", "--ignore-whitespace", "-v", patch], cwd=cwd, check=True)
+    run_cmd(["git", *git_args, "apply", "--ignore-whitespace", "-v", patch], cwd=cwd, check=True)
 
 def autopatch(file, pattern, repl, is_regex, exp_count=None):
     log(f"Patch {pattern!r} -> {repl!r} (is_regex={is_regex}) on {file}")
@@ -58,18 +63,11 @@ def autopatch_dir(dir, globexpr, pattern, repl, is_regex, exp_count=None):
     for file in dir.glob(globexpr):
         autopatch(file, pattern, repl, is_regex, exp_count)
 
-def shared_autopatches(pdfium_dir):
+def shared_autopatches(pdfium_dir, nonstatic=True):
     autopatch_dir(
         pdfium_dir/"public"/"cpp", "*.h",
         r'"public/(.+)"', r'"../\1"',
         is_regex=True, exp_count=None,
-    )
-    # bundle dependencies (e.g. abseil) into the pdfium DLL
-    autopatch(
-        pdfium_dir/"BUILD.gn",
-        'component("pdfium")',
-        'shared_library("pdfium")',
-        is_regex=False, exp_count=1,
     )
     autopatch(
         pdfium_dir/"public"/"fpdfview.h",
@@ -77,6 +75,14 @@ def shared_autopatches(pdfium_dir):
         "#if 1  // defined(COMPONENT_BUILD)",
         is_regex=False, exp_count=1,
     )
+    if nonstatic:
+        # bundle dependencies (e.g. abseil) into the pdfium DLL
+        autopatch(
+            pdfium_dir/"BUILD.gn",
+            'component("pdfium")',
+            'shared_library("pdfium")',
+            is_regex=False, exp_count=1,
+        )
 
 
 def _to_gn(value):

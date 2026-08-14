@@ -2668,6 +2668,78 @@ memory.add_memory_strategy(agentcore.MemoryStrategy.using_built_in_summarization
 memory.add_memory_strategy(agentcore.MemoryStrategy.using_built_in_semantic())
 ```
 
+### Memory with Stream Delivery
+
+You can configure stream delivery resources to enable real-time push-based streaming of memory record lifecycle events (created, updated, deleted) to Amazon Kinesis Data Streams. This allows you to react to memory changes in real-time, build event-driven architectures, or feed memory events into downstream analytics pipelines.
+
+Delivery targets are created with the static factory methods on `StreamDeliveryResource`, one per target type. Kinesis Data Streams is currently the only supported target:
+
+```python
+# Create a Kinesis Data Stream
+stream = kinesis.Stream(self, "MemoryEventStream",
+    stream_name="memory-events"
+)
+
+memory = agentcore.Memory(self, "MemoryWithStreamDelivery",
+    memory_name="memory_with_stream",
+    description="Memory with Kinesis stream delivery",
+    expiration_duration=cdk.Duration.days(90),
+    stream_delivery_resources=[
+        agentcore.StreamDeliveryResource.kinesis(stream,
+            content_configurations=[agentcore.StreamDeliveryContentConfiguration(
+                type=agentcore.StreamDeliveryContentType.MEMORY_RECORDS,
+                level=agentcore.StreamDeliveryContentLevel.METADATA_ONLY
+            )
+            ]
+        )
+    ]
+)
+```
+
+There is no default content level — you must choose one explicitly. `METADATA_ONLY` delivers only the record ID, timestamps, and event type. `FULL_CONTENT` delivers the complete memory record body, which can contain personally identifiable information and other sensitive conversation content, so make sure the destination stream and its consumers are an appropriate place for that data:
+
+```python
+stream = kinesis.Stream(self, "MemoryEventStream")
+
+memory = agentcore.Memory(self, "MemoryWithStreamDelivery",
+    memory_name="memory_with_stream",
+    stream_delivery_resources=[
+        agentcore.StreamDeliveryResource.kinesis(stream,
+            content_configurations=[agentcore.StreamDeliveryContentConfiguration(
+                type=agentcore.StreamDeliveryContentType.MEMORY_RECORDS,
+                # Streams complete memory record bodies, which may include sensitive data
+                level=agentcore.StreamDeliveryContentLevel.FULL_CONTENT
+            )
+            ]
+        )
+    ]
+)
+```
+
+You can also add stream delivery resources after instantiation using the `addStreamDeliveryResource()` method:
+
+```python
+memory = agentcore.Memory(self, "MyMemory",
+    memory_name="my_memory"
+)
+
+stream = kinesis.Stream(self, "EventStream")
+
+memory.add_stream_delivery_resource(agentcore.StreamDeliveryResource.kinesis(stream,
+    content_configurations=[agentcore.StreamDeliveryContentConfiguration(
+        type=agentcore.StreamDeliveryContentType.MEMORY_RECORDS,
+        level=agentcore.StreamDeliveryContentLevel.METADATA_ONLY
+    )
+    ]
+))
+```
+
+Only one stream delivery resource is currently supported (a CloudFormation maximum); providing more than one fails at synth with `TooManyStreamDeliveryResources`.
+
+The memory execution role is automatically granted write permissions (`kinesis:PutRecord`, `kinesis:PutRecords`, `kinesis:ListShards`, `kinesis:DescribeStream`) to each configured Kinesis stream. If the stream uses a customer-managed KMS key, encryption permissions are also granted automatically.
+
+Encryption permissions can only be granted when the stream's key is known to CDK — that is, for streams you create and for streams imported with `Stream.fromStreamAttributes({ encryptionKey })`. A stream imported with `Stream.fromStreamArn()` carries no key reference, so grant the key permissions yourself in that case.
+
 ## Online Evaluation
 
 The Online Evaluation construct enables continuous monitoring and assessment of your agent's performance using live traffic. It automatically samples agent traces from CloudWatch Logs or Agent Endpoints and applies built-in evaluators to assess quality metrics like helpfulness, correctness, and safety.
@@ -3049,6 +3121,7 @@ if typing.TYPE_CHECKING:
     import aws_cdk.aws_ecr as _aws_ecr_7549cade
     import aws_cdk.aws_ecr_assets as _aws_ecr_assets_c4622a7f
     import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_kinesis as _aws_kinesis_63e98bdf
     import aws_cdk.aws_kinesisfirehose as _aws_kinesisfirehose_7262737d
     import aws_cdk.aws_kms as _aws_kms_ff87d74a
     import aws_cdk.aws_lambda as _aws_lambda_b8f2f472
@@ -3071,6 +3144,7 @@ else:
     _aws_ecr_7549cade = _LazyImport("aws_cdk.aws_ecr")
     _aws_ecr_assets_c4622a7f = _LazyImport("aws_cdk.aws_ecr_assets")
     _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_kinesis_63e98bdf = _LazyImport("aws_cdk.aws_kinesis")
     _aws_kinesisfirehose_7262737d = _LazyImport("aws_cdk.aws_kinesisfirehose")
     _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
     _aws_kms_ff87d74a = _LazyImport("aws_cdk.aws_kms")
@@ -55819,6 +55893,72 @@ class InvocationConfiguration:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.KinesisStreamDeliveryOptions",
+    jsii_struct_bases=[],
+    name_mapping={"content_configurations": "contentConfigurations"},
+)
+class KinesisStreamDeliveryOptions:
+    def __init__(
+        self,
+        *,
+        content_configurations: typing.Sequence[typing.Union["StreamDeliveryContentConfiguration", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Options for delivering memory record events to a Kinesis Data Stream.
+
+        :param content_configurations: Content configurations defining what to deliver to the stream. Currently exactly one configuration is supported.
+
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            stream = kinesis.Stream(self, "MemoryEventStream")
+            
+            memory = agentcore.Memory(self, "MemoryWithStreamDelivery",
+                memory_name="memory_with_stream",
+                stream_delivery_resources=[
+                    agentcore.StreamDeliveryResource.kinesis(stream,
+                        content_configurations=[agentcore.StreamDeliveryContentConfiguration(
+                            type=agentcore.StreamDeliveryContentType.MEMORY_RECORDS,
+                            # Streams complete memory record bodies, which may include sensitive data
+                            level=agentcore.StreamDeliveryContentLevel.FULL_CONTENT
+                        )
+                        ]
+                    )
+                ]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__045122b8974a5892811be895b6e3d346c1cdb9d9c24d5da6e740075355deb690)
+            check_type(argname="argument content_configurations", value=content_configurations, expected_type=type_hints["content_configurations"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "content_configurations": content_configurations,
+        }
+
+    @builtins.property
+    def content_configurations(
+        self,
+    ) -> typing.List["StreamDeliveryContentConfiguration"]:
+        '''Content configurations defining what to deliver to the stream.
+
+        Currently exactly one configuration is supported.
+        '''
+        result = self._values.get("content_configurations")
+        assert result is not None, "Required property 'content_configurations' is missing"
+        return typing.cast(typing.List["StreamDeliveryContentConfiguration"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "KinesisStreamDeliveryOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(IInterceptor)
 class LambdaInterceptor(
     metaclass=jsii.JSIIMeta,
@@ -57966,6 +58106,7 @@ typing.cast(typing.Any, MemoryBase).__jsii_proxy_class__ = lambda : _MemoryBaseP
         "kms_key": "kmsKey",
         "memory_name": "memoryName",
         "memory_strategies": "memoryStrategies",
+        "stream_delivery_resources": "streamDeliveryResources",
         "tags": "tags",
     },
 )
@@ -57979,6 +58120,7 @@ class MemoryProps:
         kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         memory_name: typing.Optional[builtins.str] = None,
         memory_strategies: typing.Optional[typing.Sequence["IMemoryStrategy"]] = None,
+        stream_delivery_resources: typing.Optional[typing.Sequence["StreamDeliveryResource"]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for creating a Memory resource.
@@ -57989,26 +58131,31 @@ class MemoryProps:
         :param kms_key: Custom KMS key to use for encryption. Default: - Your data is encrypted with a key that AWS owns and manages for you
         :param memory_name: The name of the memory Valid characters are a-z, A-Z, 0-9, _ (underscore) The name must start with a letter and can be up to 48 characters long Pattern: [a-zA-Z][a-zA-Z0-9_]{0,47}. Default: - auto generate
         :param memory_strategies: If you need long-term memory for context recall across sessions, you can setup memory extraction strategies to extract the relevant memory from the raw events. Default: - No extraction strategies (short term memory only)
+        :param stream_delivery_resources: Stream delivery resources for real-time push-based streaming of memory record lifecycle events (created, updated, deleted) to Amazon Kinesis Data Streams. The memory execution role will automatically be granted write permissions to each stream. Only one stream delivery resource is currently supported (CloudFormation maximum); providing more than one fails at synth with ``TooManyStreamDeliveryResources``:: declare const stream: kinesis.IStream; new agentcore.Memory(this, 'Memory', { streamDeliveryResources: [ agentcore.StreamDeliveryResource.kinesis(stream, { contentConfigurations: [{ type: agentcore.StreamDeliveryContentType.MEMORY_RECORDS, level: agentcore.StreamDeliveryContentLevel.METADATA_ONLY, }], }), ], }); Default: - No stream delivery (events are not pushed to Kinesis)
         :param tags: Tags (optional) A list of key:value pairs of tags to apply to this memory resource. Default: - no tags
 
         :exampleMetadata: fixture=default infused
 
         Example::
 
-            # Create a custom execution role
-            execution_role = iam.Role(self, "MemoryExecutionRole",
-                assumed_by=iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
-                managed_policies=[
-                    iam.ManagedPolicy.from_aws_managed_policy_name("AmazonBedrockAgentCoreMemoryBedrockModelInferenceExecutionRolePolicy")
-                ]
+            # Create a Kinesis Data Stream
+            stream = kinesis.Stream(self, "MemoryEventStream",
+                stream_name="memory-events"
             )
             
-            # Create memory with custom execution role
-            memory = agentcore.Memory(self, "MyMemory",
-                memory_name="my_memory",
-                description="Memory with custom execution role",
+            memory = agentcore.Memory(self, "MemoryWithStreamDelivery",
+                memory_name="memory_with_stream",
+                description="Memory with Kinesis stream delivery",
                 expiration_duration=cdk.Duration.days(90),
-                execution_role=execution_role
+                stream_delivery_resources=[
+                    agentcore.StreamDeliveryResource.kinesis(stream,
+                        content_configurations=[agentcore.StreamDeliveryContentConfiguration(
+                            type=agentcore.StreamDeliveryContentType.MEMORY_RECORDS,
+                            level=agentcore.StreamDeliveryContentLevel.METADATA_ONLY
+                        )
+                        ]
+                    )
+                ]
             )
         '''
         if __debug__:
@@ -58019,6 +58166,7 @@ class MemoryProps:
             check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
             check_type(argname="argument memory_name", value=memory_name, expected_type=type_hints["memory_name"])
             check_type(argname="argument memory_strategies", value=memory_strategies, expected_type=type_hints["memory_strategies"])
+            check_type(argname="argument stream_delivery_resources", value=stream_delivery_resources, expected_type=type_hints["stream_delivery_resources"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if description is not None:
@@ -58033,6 +58181,8 @@ class MemoryProps:
             self._values["memory_name"] = memory_name
         if memory_strategies is not None:
             self._values["memory_strategies"] = memory_strategies
+        if stream_delivery_resources is not None:
+            self._values["stream_delivery_resources"] = stream_delivery_resources
         if tags is not None:
             self._values["tags"] = tags
 
@@ -58092,6 +58242,37 @@ class MemoryProps:
         '''
         result = self._values.get("memory_strategies")
         return typing.cast(typing.Optional[typing.List["IMemoryStrategy"]], result)
+
+    @builtins.property
+    def stream_delivery_resources(
+        self,
+    ) -> typing.Optional[typing.List["StreamDeliveryResource"]]:
+        '''Stream delivery resources for real-time push-based streaming of memory record lifecycle events (created, updated, deleted) to Amazon Kinesis Data Streams.
+
+        The memory execution role will automatically be granted write permissions to each stream.
+
+        Only one stream delivery resource is currently supported (CloudFormation maximum);
+        providing more than one fails at synth with ``TooManyStreamDeliveryResources``::
+
+           # stream: kinesis.IStream
+
+           agentcore.Memory(self, "Memory",
+               stream_delivery_resources=[
+                   agentcore.StreamDeliveryResource.kinesis(stream,
+                       content_configurations=[agentcore.StreamDeliveryContentConfiguration(
+                           type=agentcore.StreamDeliveryContentType.MEMORY_RECORDS,
+                           level=agentcore.StreamDeliveryContentLevel.METADATA_ONLY
+                       )]
+                   )
+               ]
+           )
+
+        :default: - No stream delivery (events are not pushed to Kinesis)
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/memory-record-streaming.html
+        '''
+        result = self._values.get("stream_delivery_resources")
+        return typing.cast(typing.Optional[typing.List["StreamDeliveryResource"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -65497,6 +65678,214 @@ class SpotifyOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBasePr
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.StreamDeliveryContentConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={"level": "level", "type": "type"},
+)
+class StreamDeliveryContentConfiguration:
+    def __init__(
+        self,
+        *,
+        level: "StreamDeliveryContentLevel",
+        type: "StreamDeliveryContentType",
+    ) -> None:
+        '''Content configuration for a stream delivery resource.
+
+        Defines what content type and detail level to deliver.
+
+        :param level: The level of content detail to deliver. There is no default: the level must be chosen explicitly because ``FULL_CONTENT`` delivers complete memory record bodies, which can contain personally identifiable information and other sensitive conversation content. Use ``METADATA_ONLY`` unless the record body is required downstream.
+        :param type: The type of content to deliver.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+            
+            stream_delivery_content_configuration = bedrockagentcore.StreamDeliveryContentConfiguration(
+                level=bedrockagentcore.StreamDeliveryContentLevel.METADATA_ONLY,
+                type=bedrockagentcore.StreamDeliveryContentType.MEMORY_RECORDS
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__86373e1fa7dbe427696ae67f2cc248a002bdacf92dc5bceaeee4b20aab3c9fa3)
+            check_type(argname="argument level", value=level, expected_type=type_hints["level"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "level": level,
+            "type": type,
+        }
+
+    @builtins.property
+    def level(self) -> "StreamDeliveryContentLevel":
+        '''The level of content detail to deliver.
+
+        There is no default: the level must be chosen explicitly because
+        ``FULL_CONTENT`` delivers complete memory record bodies, which can contain
+        personally identifiable information and other sensitive conversation
+        content. Use ``METADATA_ONLY`` unless the record body is required downstream.
+        '''
+        result = self._values.get("level")
+        assert result is not None, "Required property 'level' is missing"
+        return typing.cast("StreamDeliveryContentLevel", result)
+
+    @builtins.property
+    def type(self) -> "StreamDeliveryContentType":
+        '''The type of content to deliver.'''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast("StreamDeliveryContentType", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StreamDeliveryContentConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_bedrockagentcore.StreamDeliveryContentLevel")
+class StreamDeliveryContentLevel(enum.Enum):
+    '''Content detail level for stream delivery.
+
+    Controls how much detail is included in each delivered record.
+
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        stream = kinesis.Stream(self, "MemoryEventStream")
+        
+        memory = agentcore.Memory(self, "MemoryWithStreamDelivery",
+            memory_name="memory_with_stream",
+            stream_delivery_resources=[
+                agentcore.StreamDeliveryResource.kinesis(stream,
+                    content_configurations=[agentcore.StreamDeliveryContentConfiguration(
+                        type=agentcore.StreamDeliveryContentType.MEMORY_RECORDS,
+                        # Streams complete memory record bodies, which may include sensitive data
+                        level=agentcore.StreamDeliveryContentLevel.FULL_CONTENT
+                    )
+                    ]
+                )
+            ]
+        )
+    '''
+
+    METADATA_ONLY = "METADATA_ONLY"
+    '''Deliver only metadata (record ID, timestamps, event type).'''
+    FULL_CONTENT = "FULL_CONTENT"
+    '''Deliver full content including the memory record body.'''
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_bedrockagentcore.StreamDeliveryContentType")
+class StreamDeliveryContentType(enum.Enum):
+    '''Content type for stream delivery.
+
+    Defines what kind of memory content is delivered to the Kinesis stream.
+
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        stream = kinesis.Stream(self, "MemoryEventStream")
+        
+        memory = agentcore.Memory(self, "MemoryWithStreamDelivery",
+            memory_name="memory_with_stream",
+            stream_delivery_resources=[
+                agentcore.StreamDeliveryResource.kinesis(stream,
+                    content_configurations=[agentcore.StreamDeliveryContentConfiguration(
+                        type=agentcore.StreamDeliveryContentType.MEMORY_RECORDS,
+                        # Streams complete memory record bodies, which may include sensitive data
+                        level=agentcore.StreamDeliveryContentLevel.FULL_CONTENT
+                    )
+                    ]
+                )
+            ]
+        )
+    '''
+
+    MEMORY_RECORDS = "MEMORY_RECORDS"
+    '''Deliver memory record lifecycle events (created, updated, deleted).'''
+
+
+class StreamDeliveryResource(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.StreamDeliveryResource",
+):
+    '''A delivery target for real-time streaming of memory record lifecycle events.
+
+    Instances are created through the static factory methods, one per delivery
+    target type, for example ``StreamDeliveryResource.kinesis()``.
+
+    :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/memory-record-streaming.html
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        stream = kinesis.Stream(self, "MemoryEventStream")
+        
+        memory = agentcore.Memory(self, "MemoryWithStreamDelivery",
+            memory_name="memory_with_stream",
+            stream_delivery_resources=[
+                agentcore.StreamDeliveryResource.kinesis(stream,
+                    content_configurations=[agentcore.StreamDeliveryContentConfiguration(
+                        type=agentcore.StreamDeliveryContentType.MEMORY_RECORDS,
+                        # Streams complete memory record bodies, which may include sensitive data
+                        level=agentcore.StreamDeliveryContentLevel.FULL_CONTENT
+                    )
+                    ]
+                )
+            ]
+        )
+    '''
+
+    @jsii.member(jsii_name="kinesis")
+    @builtins.classmethod
+    def kinesis(
+        cls,
+        stream: "_aws_kinesis_63e98bdf.IStream",
+        *,
+        content_configurations: typing.Sequence[typing.Union["StreamDeliveryContentConfiguration", typing.Dict[builtins.str, typing.Any]]],
+    ) -> "StreamDeliveryResource":
+        '''Deliver memory record lifecycle events to an Amazon Kinesis Data Stream.
+
+        The memory execution role is automatically granted write permissions to
+        the stream.
+
+        :param stream: The Kinesis Data Stream to deliver memory record events to.
+        :param content_configurations: Content configurations defining what to deliver to the stream. Currently exactly one configuration is supported.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d9dcadbf683b750607e851865fbeb79c36064c11205f250ed61243a05f391080)
+            check_type(argname="argument stream", value=stream, expected_type=type_hints["stream"])
+        options = KinesisStreamDeliveryOptions(
+            content_configurations=content_configurations
+        )
+
+        return typing.cast("StreamDeliveryResource", jsii.sinvoke(cls, "kinesis", [stream, options]))
+
+    @builtins.property
+    @jsii.member(jsii_name="contentConfigurations")
+    def content_configurations(
+        self,
+    ) -> typing.List["StreamDeliveryContentConfiguration"]:
+        '''Content configurations defining what is delivered to the stream.'''
+        return typing.cast(typing.List["StreamDeliveryContentConfiguration"], jsii.get(self, "contentConfigurations"))
+
+    @builtins.property
+    @jsii.member(jsii_name="stream")
+    def stream(self) -> "_aws_kinesis_63e98bdf.IStream":
+        '''The Kinesis Data Stream that memory record events are delivered to.'''
+        return typing.cast("_aws_kinesis_63e98bdf.IStream", jsii.get(self, "stream"))
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_bedrockagentcore.TargetConfigurationConfig",
     jsii_struct_bases=[],
     name_mapping={"bound": "bound"},
@@ -72512,20 +72901,24 @@ class Memory(
 
     Example::
 
-        # Create a custom execution role
-        execution_role = iam.Role(self, "MemoryExecutionRole",
-            assumed_by=iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
-            managed_policies=[
-                iam.ManagedPolicy.from_aws_managed_policy_name("AmazonBedrockAgentCoreMemoryBedrockModelInferenceExecutionRolePolicy")
-            ]
+        # Create a Kinesis Data Stream
+        stream = kinesis.Stream(self, "MemoryEventStream",
+            stream_name="memory-events"
         )
         
-        # Create memory with custom execution role
-        memory = agentcore.Memory(self, "MyMemory",
-            memory_name="my_memory",
-            description="Memory with custom execution role",
+        memory = agentcore.Memory(self, "MemoryWithStreamDelivery",
+            memory_name="memory_with_stream",
+            description="Memory with Kinesis stream delivery",
             expiration_duration=cdk.Duration.days(90),
-            execution_role=execution_role
+            stream_delivery_resources=[
+                agentcore.StreamDeliveryResource.kinesis(stream,
+                    content_configurations=[agentcore.StreamDeliveryContentConfiguration(
+                        type=agentcore.StreamDeliveryContentType.MEMORY_RECORDS,
+                        level=agentcore.StreamDeliveryContentLevel.METADATA_ONLY
+                    )
+                    ]
+                )
+            ]
         )
     '''
 
@@ -72540,6 +72933,7 @@ class Memory(
         kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         memory_name: typing.Optional[builtins.str] = None,
         memory_strategies: typing.Optional[typing.Sequence["IMemoryStrategy"]] = None,
+        stream_delivery_resources: typing.Optional[typing.Sequence["StreamDeliveryResource"]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
@@ -72551,6 +72945,7 @@ class Memory(
         :param kms_key: Custom KMS key to use for encryption. Default: - Your data is encrypted with a key that AWS owns and manages for you
         :param memory_name: The name of the memory Valid characters are a-z, A-Z, 0-9, _ (underscore) The name must start with a letter and can be up to 48 characters long Pattern: [a-zA-Z][a-zA-Z0-9_]{0,47}. Default: - auto generate
         :param memory_strategies: If you need long-term memory for context recall across sessions, you can setup memory extraction strategies to extract the relevant memory from the raw events. Default: - No extraction strategies (short term memory only)
+        :param stream_delivery_resources: Stream delivery resources for real-time push-based streaming of memory record lifecycle events (created, updated, deleted) to Amazon Kinesis Data Streams. The memory execution role will automatically be granted write permissions to each stream. Only one stream delivery resource is currently supported (CloudFormation maximum); providing more than one fails at synth with ``TooManyStreamDeliveryResources``:: declare const stream: kinesis.IStream; new agentcore.Memory(this, 'Memory', { streamDeliveryResources: [ agentcore.StreamDeliveryResource.kinesis(stream, { contentConfigurations: [{ type: agentcore.StreamDeliveryContentType.MEMORY_RECORDS, level: agentcore.StreamDeliveryContentLevel.METADATA_ONLY, }], }), ], }); Default: - No stream delivery (events are not pushed to Kinesis)
         :param tags: Tags (optional) A list of key:value pairs of tags to apply to this memory resource. Default: - no tags
         '''
         if __debug__:
@@ -72564,6 +72959,7 @@ class Memory(
             kms_key=kms_key,
             memory_name=memory_name,
             memory_strategies=memory_strategies,
+            stream_delivery_resources=stream_delivery_resources,
             tags=tags,
         )
 
@@ -72624,6 +73020,21 @@ class Memory(
             check_type(argname="argument memory_strategy", value=memory_strategy, expected_type=type_hints["memory_strategy"])
         return typing.cast(None, jsii.invoke(self, "addMemoryStrategy", [memory_strategy]))
 
+    @jsii.member(jsii_name="addStreamDeliveryResource")
+    def add_stream_delivery_resource(self, resource: "StreamDeliveryResource") -> None:
+        '''Add a stream delivery resource to the memory.
+
+        Grants Kinesis write permissions to the execution role automatically.
+
+        :param resource: - The stream delivery resource configuration.
+
+        :see: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/memory-record-streaming.html
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1bc482152839d46455a1f37fc618e0f526501c12ed58edca0c767f10f4c1d498)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(None, jsii.invoke(self, "addStreamDeliveryResource", [resource]))
+
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
@@ -72671,6 +73082,12 @@ class Memory(
         :attribute: true
         '''
         return typing.cast(typing.List["IMemoryStrategy"], jsii.get(self, "memoryStrategies"))
+
+    @builtins.property
+    @jsii.member(jsii_name="streamDeliveryResources")
+    def stream_delivery_resources(self) -> typing.List["StreamDeliveryResource"]:
+        '''The stream delivery resources configured for this memory.'''
+        return typing.cast(typing.List["StreamDeliveryResource"], jsii.get(self, "streamDeliveryResources"))
 
     @builtins.property
     @jsii.member(jsii_name="createdAt")
@@ -75360,6 +75777,7 @@ __all__ = [
     "InterceptorBindConfig",
     "InterceptorOptions",
     "InvocationConfiguration",
+    "KinesisStreamDeliveryOptions",
     "LambdaInterceptor",
     "LambdaTargetConfiguration",
     "LifecycleConfiguration",
@@ -75431,6 +75849,10 @@ __all__ = [
     "SlackOAuth2CredentialProviderProps",
     "SmithyTargetConfiguration",
     "SpotifyOAuth2CredentialProviderProps",
+    "StreamDeliveryContentConfiguration",
+    "StreamDeliveryContentLevel",
+    "StreamDeliveryContentType",
+    "StreamDeliveryResource",
     "TargetConfigurationConfig",
     "ToolDefinition",
     "ToolSchema",
@@ -81285,6 +81707,13 @@ def _typecheckingstub__2a938a2adbab5c763374333ae5ca1656e81a60facdf250a0b54d1455e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__045122b8974a5892811be895b6e3d346c1cdb9d9c24d5da6e740075355deb690(
+    *,
+    content_configurations: typing.Sequence[typing.Union[StreamDeliveryContentConfiguration, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__41849cc8cb8ee74376ce417315e6ceb56de794d1cc59b9e0cc8b5b994f558f38(
     lambda_function: _aws_lambda_b8f2f472.IFunction,
     *,
@@ -81595,6 +82024,7 @@ def _typecheckingstub__c48c4d70e5aad832f14b7165ebf0e923d63eedeb3fa08a3e753853853
     kms_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     memory_name: typing.Optional[builtins.str] = None,
     memory_strategies: typing.Optional[typing.Sequence[IMemoryStrategy]] = None,
+    stream_delivery_resources: typing.Optional[typing.Sequence[StreamDeliveryResource]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -82562,6 +82992,22 @@ def _typecheckingstub__700f0c7cce617d974746c4377b6f044ad629bbb1e69ab2d826af19f74
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     client_id: builtins.str,
     client_secret: _aws_cdk_0cae9daa.SecretValue,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86373e1fa7dbe427696ae67f2cc248a002bdacf92dc5bceaeee4b20aab3c9fa3(
+    *,
+    level: StreamDeliveryContentLevel,
+    type: StreamDeliveryContentType,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d9dcadbf683b750607e851865fbeb79c36064c11205f250ed61243a05f391080(
+    stream: _aws_kinesis_63e98bdf.IStream,
+    *,
+    content_configurations: typing.Sequence[typing.Union[StreamDeliveryContentConfiguration, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -83579,6 +84025,7 @@ def _typecheckingstub__1b8b341eb2e95fbfb9ada65e55fe2c6844540b3a95659e0c5276aad1f
     kms_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     memory_name: typing.Optional[builtins.str] = None,
     memory_strategies: typing.Optional[typing.Sequence[IMemoryStrategy]] = None,
+    stream_delivery_resources: typing.Optional[typing.Sequence[StreamDeliveryResource]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -83600,6 +84047,12 @@ def _typecheckingstub__c281f39a0ffe21b5f7968761327a60bd3efb51bcee1267cab505ee8fa
 
 def _typecheckingstub__d0e93f003fee9762cc8db544e1e5911997014ba30bd5ec8c33853a6c734de284(
     memory_strategy: IMemoryStrategy,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1bc482152839d46455a1f37fc618e0f526501c12ed58edca0c767f10f4c1d498(
+    resource: StreamDeliveryResource,
 ) -> None:
     """Type checking stubs"""
     pass

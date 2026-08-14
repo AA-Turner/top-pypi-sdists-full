@@ -23,6 +23,7 @@ class RequestTestHTTPClient:
     """An asynchronous HTTP client solely for testing purposes."""
 
     TIMEOUT_EXCEPTIONS = ()
+    SUPPORTS_DUPLEX_STREAMING: bool = True
 
     def __init__(self, *, client_config: HTTPClientConfiguration | None = None):
         self._client_config = client_config
@@ -41,6 +42,7 @@ class ResponseTestHTTPClient:
     """An asynchronous HTTP client solely for testing purposes."""
 
     TIMEOUT_EXCEPTIONS = ()
+    SUPPORTS_DUPLEX_STREAMING: bool = True
 
     def __init__(
         self,

@@ -1,0 +1,137 @@
+"""Authentication and authorization module for AI-Parrot.
+
+This module provides granular permission control for tools and toolkits.
+
+Public API:
+    Data Models:
+    - UserSession: Immutable session with user identity and role claims
+    - PermissionContext: Request-scoped wrapper for permission checking
+
+    Resolvers:
+    - AbstractPermissionResolver: ABC for custom permission implementations
+    - DefaultPermissionResolver: RBAC implementation with hierarchy and caching
+    - AllowAllResolver: Development/testing resolver (allows everything)
+    - DenyAllResolver: Lockdown resolver (denies restricted tools)
+
+Example:
+    >>> from parrot.auth import UserSession, PermissionContext, DefaultPermissionResolver
+    >>> session = UserSession(
+    ...     user_id="user-123",
+    ...     tenant_id="acme-corp",
+    ...     roles=frozenset({'jira.write', 'github.read'})
+    ... )
+    >>> ctx = PermissionContext(session=session, request_id="req-456")
+    >>> resolver = DefaultPermissionResolver(role_hierarchy={'jira.write': {'jira.read'}})
+    >>> result = await resolver.can_execute(ctx, "create_issue", {'jira.write'})
+    True
+"""
+
+from .context import UserContext
+from .permission import PermissionContext, UserSession
+from .resolver import (
+    AbstractPermissionResolver,
+    AllowAllResolver,
+    DefaultPermissionResolver,
+    DenyAllResolver,
+    PBACPermissionResolver,
+)
+from .pbac import setup_pbac
+# UserInfoService + EmployeeProfile (FEAT-406) — curated structured user
+# attributes, feeding both PBAC EvalContext enrichment and UserinfoTool.
+from .userinfo import EmployeeProfile, UserInfoService
+from .dataset_guard import DatasetPolicyGuard
+from .dataplane_guard import DataPlanePolicyGuard
+from .rls_registry import RlsRegistry, RlsRule, RlsPredicate
+from .models import PolicyRuleConfig
+from .exceptions import AuthorizationRequired
+from .agent_guard import AgentAccessDenied
+from .credentials import (
+    CredentialResolver,
+    OAuthCredentialResolver,
+    StaticCredentialResolver,
+    StaticCredentials,
+    # FEAT-264 additions
+    AuthKind,
+    ProviderCredentialConfig,
+    ResolvedCredential,
+    NeedsAuth,
+    CredentialRequired,
+)
+# FEAT-264: surface-agnostic CredentialBroker + factory
+from .broker import CredentialBroker, CredentialResolverFactory
+# Grants (bounded approval windows — FEAT-211)
+from .grants import (
+    Grant,
+    GrantConfig,
+    GrantStore,
+    InMemoryGrantStore,
+    GrantGuard,
+    GuardDecision,
+)
+# Confirmation (per-call HITL review — FEAT-235)
+from .confirmation import (
+    ConfirmationConfig,
+    ConfirmationDecision,
+    ConfirmationWindowStore,
+    InMemoryConfirmationWindowStore,
+    ConfirmationGuard,
+    compute_args_hash,
+)
+
+__all__ = [
+    # Data models
+    "UserSession",
+    "PermissionContext",
+    "UserContext",
+    # Resolvers
+    "AbstractPermissionResolver",
+    "DefaultPermissionResolver",
+    "AllowAllResolver",
+    "DenyAllResolver",
+    "PBACPermissionResolver",
+    # PBAC setup
+    "setup_pbac",
+    # UserInfoService + EmployeeProfile (FEAT-406)
+    "EmployeeProfile",
+    "UserInfoService",
+    # Dataset policy guard
+    "DatasetPolicyGuard",
+    # Data-plane policy guard (FEAT-228)
+    "DataPlanePolicyGuard",
+    # RLS registry (FEAT-228)
+    "RlsRegistry",
+    "RlsRule",
+    "RlsPredicate",
+    # Policy models
+    "PolicyRuleConfig",
+    # Exceptions
+    "AuthorizationRequired",
+    "AgentAccessDenied",
+    # Credential resolvers (pre-FEAT-264)
+    "CredentialResolver",
+    "OAuthCredentialResolver",
+    "StaticCredentialResolver",
+    "StaticCredentials",
+    # FEAT-264: broker models + signals
+    "AuthKind",
+    "ProviderCredentialConfig",
+    "ResolvedCredential",
+    "NeedsAuth",
+    "CredentialRequired",
+    "CredentialBroker",
+    "CredentialResolverFactory",
+    # Grants (bounded approval windows)
+    "Grant",
+    "GrantConfig",
+    "GrantStore",
+    "InMemoryGrantStore",
+    "GrantGuard",
+    "GuardDecision",
+    # Confirmation (per-call HITL review — FEAT-235)
+    "ConfirmationConfig",
+    "ConfirmationDecision",
+    "ConfirmationWindowStore",
+    "InMemoryConfirmationWindowStore",
+    "ConfirmationGuard",
+    "compute_args_hash",
+]

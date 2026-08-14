@@ -2527,6 +2527,7 @@ class BlockDeviceVolume(
         delete_on_termination: typing.Optional[builtins.bool] = None,
         iops: typing.Optional[jsii.Number] = None,
         throughput: typing.Optional[jsii.Number] = None,
+        volume_initialization_rate: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         volume_type: typing.Optional["EbsDeviceVolumeType"] = None,
     ) -> "BlockDeviceVolume":
         '''Creates a new Elastic Block Storage device.
@@ -2536,6 +2537,7 @@ class BlockDeviceVolume(
         :param delete_on_termination: Indicates whether to delete the volume when the instance is terminated. Default: - true for Amazon EC2 Auto Scaling, false otherwise (e.g. EBS)
         :param iops: The number of I/O operations per second (IOPS) to provision for the volume. Must only be set for ``volumeType``: ``EbsDeviceVolumeType.IO1`` The maximum ratio of IOPS to volume size (in GiB) is 50:1, so for 5,000 provisioned IOPS, you need at least 100 GiB storage on the volume. Default: - none, required for ``EbsDeviceVolumeType.IO1``
         :param throughput: The throughput that the volume supports, in MiB/s Takes a minimum of 125 and maximum of 2000. Default: - 125 MiB/s. Only valid on gp3 volumes.
+        :param volume_initialization_rate: The Amazon EBS Provisioned Rate for Volume Initialization, at which to download the snapshot blocks from Amazon S3 to the volume. Valid range is between 100 and 300 MiB/s. This parameter is supported only for volumes created from snapshots. Default: undefined - The volume initialization rate is not set.
         :param volume_type: The EBS volume type. Default: ``EbsDeviceVolumeType.GP2``
         '''
         if __debug__:
@@ -2546,6 +2548,7 @@ class BlockDeviceVolume(
             delete_on_termination=delete_on_termination,
             iops=iops,
             throughput=throughput,
+            volume_initialization_rate=volume_initialization_rate,
             volume_type=volume_type,
         )
 
@@ -2561,6 +2564,7 @@ class BlockDeviceVolume(
         delete_on_termination: typing.Optional[builtins.bool] = None,
         iops: typing.Optional[jsii.Number] = None,
         throughput: typing.Optional[jsii.Number] = None,
+        volume_initialization_rate: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         volume_type: typing.Optional["EbsDeviceVolumeType"] = None,
     ) -> "BlockDeviceVolume":
         '''Creates a new Elastic Block Storage device from an existing snapshot.
@@ -2570,6 +2574,7 @@ class BlockDeviceVolume(
         :param delete_on_termination: Indicates whether to delete the volume when the instance is terminated. Default: - true for Amazon EC2 Auto Scaling, false otherwise (e.g. EBS)
         :param iops: The number of I/O operations per second (IOPS) to provision for the volume. Must only be set for ``volumeType``: ``EbsDeviceVolumeType.IO1`` The maximum ratio of IOPS to volume size (in GiB) is 50:1, so for 5,000 provisioned IOPS, you need at least 100 GiB storage on the volume. Default: - none, required for ``EbsDeviceVolumeType.IO1``
         :param throughput: The throughput that the volume supports, in MiB/s Takes a minimum of 125 and maximum of 2000. Default: - 125 MiB/s. Only valid on gp3 volumes.
+        :param volume_initialization_rate: The Amazon EBS Provisioned Rate for Volume Initialization, at which to download the snapshot blocks from Amazon S3 to the volume. Valid range is between 100 and 300 MiB/s. This parameter is supported only for volumes created from snapshots. Default: undefined - The volume initialization rate is not set.
         :param volume_type: The EBS volume type. Default: ``EbsDeviceVolumeType.GP2``
         '''
         if __debug__:
@@ -2580,6 +2585,7 @@ class BlockDeviceVolume(
             delete_on_termination=delete_on_termination,
             iops=iops,
             throughput=throughput,
+            volume_initialization_rate=volume_initialization_rate,
             volume_type=volume_type,
         )
 
@@ -15013,6 +15019,7 @@ class DeletionProtection(enum.Enum):
         "delete_on_termination": "deleteOnTermination",
         "iops": "iops",
         "throughput": "throughput",
+        "volume_initialization_rate": "volumeInitializationRate",
         "volume_type": "volumeType",
     },
 )
@@ -15023,6 +15030,7 @@ class EbsDeviceOptionsBase:
         delete_on_termination: typing.Optional[builtins.bool] = None,
         iops: typing.Optional[jsii.Number] = None,
         throughput: typing.Optional[jsii.Number] = None,
+        volume_initialization_rate: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         volume_type: typing.Optional["EbsDeviceVolumeType"] = None,
     ) -> None:
         '''Base block device options for an EBS volume.
@@ -15030,6 +15038,7 @@ class EbsDeviceOptionsBase:
         :param delete_on_termination: Indicates whether to delete the volume when the instance is terminated. Default: - true for Amazon EC2 Auto Scaling, false otherwise (e.g. EBS)
         :param iops: The number of I/O operations per second (IOPS) to provision for the volume. Must only be set for ``volumeType``: ``EbsDeviceVolumeType.IO1`` The maximum ratio of IOPS to volume size (in GiB) is 50:1, so for 5,000 provisioned IOPS, you need at least 100 GiB storage on the volume. Default: - none, required for ``EbsDeviceVolumeType.IO1``
         :param throughput: The throughput that the volume supports, in MiB/s Takes a minimum of 125 and maximum of 2000. Default: - 125 MiB/s. Only valid on gp3 volumes.
+        :param volume_initialization_rate: The Amazon EBS Provisioned Rate for Volume Initialization, at which to download the snapshot blocks from Amazon S3 to the volume. Valid range is between 100 and 300 MiB/s. This parameter is supported only for volumes created from snapshots. Default: undefined - The volume initialization rate is not set.
         :param volume_type: The EBS volume type. Default: ``EbsDeviceVolumeType.GP2``
 
         :exampleMetadata: fixture=_generated
@@ -15038,12 +15047,16 @@ class EbsDeviceOptionsBase:
 
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
+            import aws_cdk as cdk
             from aws_cdk import aws_autoscaling as autoscaling
+            
+            # size: cdk.Size
             
             ebs_device_options_base = autoscaling.EbsDeviceOptionsBase(
                 delete_on_termination=False,
                 iops=123,
                 throughput=123,
+                volume_initialization_rate=size,
                 volume_type=autoscaling.EbsDeviceVolumeType.STANDARD
             )
         '''
@@ -15052,6 +15065,7 @@ class EbsDeviceOptionsBase:
             check_type(argname="argument delete_on_termination", value=delete_on_termination, expected_type=type_hints["delete_on_termination"])
             check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
             check_type(argname="argument throughput", value=throughput, expected_type=type_hints["throughput"])
+            check_type(argname="argument volume_initialization_rate", value=volume_initialization_rate, expected_type=type_hints["volume_initialization_rate"])
             check_type(argname="argument volume_type", value=volume_type, expected_type=type_hints["volume_type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if delete_on_termination is not None:
@@ -15060,6 +15074,8 @@ class EbsDeviceOptionsBase:
             self._values["iops"] = iops
         if throughput is not None:
             self._values["throughput"] = throughput
+        if volume_initialization_rate is not None:
+            self._values["volume_initialization_rate"] = volume_initialization_rate
         if volume_type is not None:
             self._values["volume_type"] = volume_type
 
@@ -15100,6 +15116,20 @@ class EbsDeviceOptionsBase:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
+    def volume_initialization_rate(self) -> typing.Optional["_aws_cdk_0cae9daa.Size"]:
+        '''The Amazon EBS Provisioned Rate for Volume Initialization, at which to download the snapshot blocks from Amazon S3 to the volume.
+
+        Valid range is between 100 and 300 MiB/s.
+        This parameter is supported only for volumes created from snapshots.
+
+        :default: undefined - The volume initialization rate is not set.
+
+        :see: https://docs.aws.amazon.com/ebs/latest/userguide/initalize-volume.html#volume-initialization-rate
+        '''
+        result = self._values.get("volume_initialization_rate")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Size"], result)
+
+    @builtins.property
     def volume_type(self) -> typing.Optional["EbsDeviceVolumeType"]:
         '''The EBS volume type.
 
@@ -15129,6 +15159,7 @@ class EbsDeviceOptionsBase:
         "delete_on_termination": "deleteOnTermination",
         "iops": "iops",
         "throughput": "throughput",
+        "volume_initialization_rate": "volumeInitializationRate",
         "volume_type": "volumeType",
         "volume_size": "volumeSize",
     },
@@ -15140,6 +15171,7 @@ class EbsDeviceSnapshotOptions(EbsDeviceOptionsBase):
         delete_on_termination: typing.Optional[builtins.bool] = None,
         iops: typing.Optional[jsii.Number] = None,
         throughput: typing.Optional[jsii.Number] = None,
+        volume_initialization_rate: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         volume_type: typing.Optional["EbsDeviceVolumeType"] = None,
         volume_size: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -15148,6 +15180,7 @@ class EbsDeviceSnapshotOptions(EbsDeviceOptionsBase):
         :param delete_on_termination: Indicates whether to delete the volume when the instance is terminated. Default: - true for Amazon EC2 Auto Scaling, false otherwise (e.g. EBS)
         :param iops: The number of I/O operations per second (IOPS) to provision for the volume. Must only be set for ``volumeType``: ``EbsDeviceVolumeType.IO1`` The maximum ratio of IOPS to volume size (in GiB) is 50:1, so for 5,000 provisioned IOPS, you need at least 100 GiB storage on the volume. Default: - none, required for ``EbsDeviceVolumeType.IO1``
         :param throughput: The throughput that the volume supports, in MiB/s Takes a minimum of 125 and maximum of 2000. Default: - 125 MiB/s. Only valid on gp3 volumes.
+        :param volume_initialization_rate: The Amazon EBS Provisioned Rate for Volume Initialization, at which to download the snapshot blocks from Amazon S3 to the volume. Valid range is between 100 and 300 MiB/s. This parameter is supported only for volumes created from snapshots. Default: undefined - The volume initialization rate is not set.
         :param volume_type: The EBS volume type. Default: ``EbsDeviceVolumeType.GP2``
         :param volume_size: The volume size, in Gibibytes (GiB). If you specify volumeSize, it must be equal or greater than the size of the snapshot. Default: - The snapshot size
 
@@ -15157,12 +15190,16 @@ class EbsDeviceSnapshotOptions(EbsDeviceOptionsBase):
 
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
+            import aws_cdk as cdk
             from aws_cdk import aws_autoscaling as autoscaling
+            
+            # size: cdk.Size
             
             ebs_device_snapshot_options = autoscaling.EbsDeviceSnapshotOptions(
                 delete_on_termination=False,
                 iops=123,
                 throughput=123,
+                volume_initialization_rate=size,
                 volume_size=123,
                 volume_type=autoscaling.EbsDeviceVolumeType.STANDARD
             )
@@ -15172,6 +15209,7 @@ class EbsDeviceSnapshotOptions(EbsDeviceOptionsBase):
             check_type(argname="argument delete_on_termination", value=delete_on_termination, expected_type=type_hints["delete_on_termination"])
             check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
             check_type(argname="argument throughput", value=throughput, expected_type=type_hints["throughput"])
+            check_type(argname="argument volume_initialization_rate", value=volume_initialization_rate, expected_type=type_hints["volume_initialization_rate"])
             check_type(argname="argument volume_type", value=volume_type, expected_type=type_hints["volume_type"])
             check_type(argname="argument volume_size", value=volume_size, expected_type=type_hints["volume_size"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -15181,6 +15219,8 @@ class EbsDeviceSnapshotOptions(EbsDeviceOptionsBase):
             self._values["iops"] = iops
         if throughput is not None:
             self._values["throughput"] = throughput
+        if volume_initialization_rate is not None:
+            self._values["volume_initialization_rate"] = volume_initialization_rate
         if volume_type is not None:
             self._values["volume_type"] = volume_type
         if volume_size is not None:
@@ -15221,6 +15261,20 @@ class EbsDeviceSnapshotOptions(EbsDeviceOptionsBase):
         '''
         result = self._values.get("throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def volume_initialization_rate(self) -> typing.Optional["_aws_cdk_0cae9daa.Size"]:
+        '''The Amazon EBS Provisioned Rate for Volume Initialization, at which to download the snapshot blocks from Amazon S3 to the volume.
+
+        Valid range is between 100 and 300 MiB/s.
+        This parameter is supported only for volumes created from snapshots.
+
+        :default: undefined - The volume initialization rate is not set.
+
+        :see: https://docs.aws.amazon.com/ebs/latest/userguide/initalize-volume.html#volume-initialization-rate
+        '''
+        result = self._values.get("volume_initialization_rate")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Size"], result)
 
     @builtins.property
     def volume_type(self) -> typing.Optional["EbsDeviceVolumeType"]:
@@ -22421,6 +22475,7 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         "delete_on_termination": "deleteOnTermination",
         "iops": "iops",
         "throughput": "throughput",
+        "volume_initialization_rate": "volumeInitializationRate",
         "volume_type": "volumeType",
         "encrypted": "encrypted",
     },
@@ -22432,6 +22487,7 @@ class EbsDeviceOptions(EbsDeviceOptionsBase):
         delete_on_termination: typing.Optional[builtins.bool] = None,
         iops: typing.Optional[jsii.Number] = None,
         throughput: typing.Optional[jsii.Number] = None,
+        volume_initialization_rate: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         volume_type: typing.Optional["EbsDeviceVolumeType"] = None,
         encrypted: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -22440,6 +22496,7 @@ class EbsDeviceOptions(EbsDeviceOptionsBase):
         :param delete_on_termination: Indicates whether to delete the volume when the instance is terminated. Default: - true for Amazon EC2 Auto Scaling, false otherwise (e.g. EBS)
         :param iops: The number of I/O operations per second (IOPS) to provision for the volume. Must only be set for ``volumeType``: ``EbsDeviceVolumeType.IO1`` The maximum ratio of IOPS to volume size (in GiB) is 50:1, so for 5,000 provisioned IOPS, you need at least 100 GiB storage on the volume. Default: - none, required for ``EbsDeviceVolumeType.IO1``
         :param throughput: The throughput that the volume supports, in MiB/s Takes a minimum of 125 and maximum of 2000. Default: - 125 MiB/s. Only valid on gp3 volumes.
+        :param volume_initialization_rate: The Amazon EBS Provisioned Rate for Volume Initialization, at which to download the snapshot blocks from Amazon S3 to the volume. Valid range is between 100 and 300 MiB/s. This parameter is supported only for volumes created from snapshots. Default: undefined - The volume initialization rate is not set.
         :param volume_type: The EBS volume type. Default: ``EbsDeviceVolumeType.GP2``
         :param encrypted: Specifies whether the EBS volume is encrypted. Encrypted EBS volumes can only be attached to instances that support Amazon EBS encryption Default: false
 
@@ -22471,6 +22528,7 @@ class EbsDeviceOptions(EbsDeviceOptionsBase):
             check_type(argname="argument delete_on_termination", value=delete_on_termination, expected_type=type_hints["delete_on_termination"])
             check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
             check_type(argname="argument throughput", value=throughput, expected_type=type_hints["throughput"])
+            check_type(argname="argument volume_initialization_rate", value=volume_initialization_rate, expected_type=type_hints["volume_initialization_rate"])
             check_type(argname="argument volume_type", value=volume_type, expected_type=type_hints["volume_type"])
             check_type(argname="argument encrypted", value=encrypted, expected_type=type_hints["encrypted"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -22480,6 +22538,8 @@ class EbsDeviceOptions(EbsDeviceOptionsBase):
             self._values["iops"] = iops
         if throughput is not None:
             self._values["throughput"] = throughput
+        if volume_initialization_rate is not None:
+            self._values["volume_initialization_rate"] = volume_initialization_rate
         if volume_type is not None:
             self._values["volume_type"] = volume_type
         if encrypted is not None:
@@ -22520,6 +22580,20 @@ class EbsDeviceOptions(EbsDeviceOptionsBase):
         '''
         result = self._values.get("throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def volume_initialization_rate(self) -> typing.Optional["_aws_cdk_0cae9daa.Size"]:
+        '''The Amazon EBS Provisioned Rate for Volume Initialization, at which to download the snapshot blocks from Amazon S3 to the volume.
+
+        Valid range is between 100 and 300 MiB/s.
+        This parameter is supported only for volumes created from snapshots.
+
+        :default: undefined - The volume initialization rate is not set.
+
+        :see: https://docs.aws.amazon.com/ebs/latest/userguide/initalize-volume.html#volume-initialization-rate
+        '''
+        result = self._values.get("volume_initialization_rate")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Size"], result)
 
     @builtins.property
     def volume_type(self) -> typing.Optional["EbsDeviceVolumeType"]:
@@ -22564,6 +22638,7 @@ class EbsDeviceOptions(EbsDeviceOptionsBase):
         "delete_on_termination": "deleteOnTermination",
         "iops": "iops",
         "throughput": "throughput",
+        "volume_initialization_rate": "volumeInitializationRate",
         "volume_type": "volumeType",
         "volume_size": "volumeSize",
         "snapshot_id": "snapshotId",
@@ -22576,6 +22651,7 @@ class EbsDeviceProps(EbsDeviceSnapshotOptions):
         delete_on_termination: typing.Optional[builtins.bool] = None,
         iops: typing.Optional[jsii.Number] = None,
         throughput: typing.Optional[jsii.Number] = None,
+        volume_initialization_rate: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
         volume_type: typing.Optional["EbsDeviceVolumeType"] = None,
         volume_size: typing.Optional[jsii.Number] = None,
         snapshot_id: typing.Optional[builtins.str] = None,
@@ -22585,6 +22661,7 @@ class EbsDeviceProps(EbsDeviceSnapshotOptions):
         :param delete_on_termination: Indicates whether to delete the volume when the instance is terminated. Default: - true for Amazon EC2 Auto Scaling, false otherwise (e.g. EBS)
         :param iops: The number of I/O operations per second (IOPS) to provision for the volume. Must only be set for ``volumeType``: ``EbsDeviceVolumeType.IO1`` The maximum ratio of IOPS to volume size (in GiB) is 50:1, so for 5,000 provisioned IOPS, you need at least 100 GiB storage on the volume. Default: - none, required for ``EbsDeviceVolumeType.IO1``
         :param throughput: The throughput that the volume supports, in MiB/s Takes a minimum of 125 and maximum of 2000. Default: - 125 MiB/s. Only valid on gp3 volumes.
+        :param volume_initialization_rate: The Amazon EBS Provisioned Rate for Volume Initialization, at which to download the snapshot blocks from Amazon S3 to the volume. Valid range is between 100 and 300 MiB/s. This parameter is supported only for volumes created from snapshots. Default: undefined - The volume initialization rate is not set.
         :param volume_type: The EBS volume type. Default: ``EbsDeviceVolumeType.GP2``
         :param volume_size: The volume size, in Gibibytes (GiB). If you specify volumeSize, it must be equal or greater than the size of the snapshot. Default: - The snapshot size
         :param snapshot_id: The snapshot ID of the volume to use. Default: - No snapshot will be used
@@ -22595,13 +22672,17 @@ class EbsDeviceProps(EbsDeviceSnapshotOptions):
 
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
+            import aws_cdk as cdk
             from aws_cdk import aws_autoscaling as autoscaling
+            
+            # size: cdk.Size
             
             ebs_device_props = autoscaling.EbsDeviceProps(
                 delete_on_termination=False,
                 iops=123,
                 snapshot_id="snapshotId",
                 throughput=123,
+                volume_initialization_rate=size,
                 volume_size=123,
                 volume_type=autoscaling.EbsDeviceVolumeType.STANDARD
             )
@@ -22611,6 +22692,7 @@ class EbsDeviceProps(EbsDeviceSnapshotOptions):
             check_type(argname="argument delete_on_termination", value=delete_on_termination, expected_type=type_hints["delete_on_termination"])
             check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
             check_type(argname="argument throughput", value=throughput, expected_type=type_hints["throughput"])
+            check_type(argname="argument volume_initialization_rate", value=volume_initialization_rate, expected_type=type_hints["volume_initialization_rate"])
             check_type(argname="argument volume_type", value=volume_type, expected_type=type_hints["volume_type"])
             check_type(argname="argument volume_size", value=volume_size, expected_type=type_hints["volume_size"])
             check_type(argname="argument snapshot_id", value=snapshot_id, expected_type=type_hints["snapshot_id"])
@@ -22621,6 +22703,8 @@ class EbsDeviceProps(EbsDeviceSnapshotOptions):
             self._values["iops"] = iops
         if throughput is not None:
             self._values["throughput"] = throughput
+        if volume_initialization_rate is not None:
+            self._values["volume_initialization_rate"] = volume_initialization_rate
         if volume_type is not None:
             self._values["volume_type"] = volume_type
         if volume_size is not None:
@@ -22663,6 +22747,20 @@ class EbsDeviceProps(EbsDeviceSnapshotOptions):
         '''
         result = self._values.get("throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def volume_initialization_rate(self) -> typing.Optional["_aws_cdk_0cae9daa.Size"]:
+        '''The Amazon EBS Provisioned Rate for Volume Initialization, at which to download the snapshot blocks from Amazon S3 to the volume.
+
+        Valid range is between 100 and 300 MiB/s.
+        This parameter is supported only for volumes created from snapshots.
+
+        :default: undefined - The volume initialization rate is not set.
+
+        :see: https://docs.aws.amazon.com/ebs/latest/userguide/initalize-volume.html#volume-initialization-rate
+        '''
+        result = self._values.get("volume_initialization_rate")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Size"], result)
 
     @builtins.property
     def volume_type(self) -> typing.Optional["EbsDeviceVolumeType"]:
@@ -22942,6 +23040,7 @@ def _typecheckingstub__1285ed0c0610fe02eac319ca1d52bf7e091b1afa9d904036d608a8534
     delete_on_termination: typing.Optional[builtins.bool] = None,
     iops: typing.Optional[jsii.Number] = None,
     throughput: typing.Optional[jsii.Number] = None,
+    volume_initialization_rate: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
     volume_type: typing.Optional[EbsDeviceVolumeType] = None,
 ) -> None:
     """Type checking stubs"""
@@ -22954,6 +23053,7 @@ def _typecheckingstub__41abea557528986e2f931c9dc068840019d81ce3ad4978c166925d5b7
     delete_on_termination: typing.Optional[builtins.bool] = None,
     iops: typing.Optional[jsii.Number] = None,
     throughput: typing.Optional[jsii.Number] = None,
+    volume_initialization_rate: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
     volume_type: typing.Optional[EbsDeviceVolumeType] = None,
 ) -> None:
     """Type checking stubs"""
@@ -24421,6 +24521,7 @@ def _typecheckingstub__96052136c5a766e5a075c844b44c04d660a7a8b58bc20689cb18dc69e
     delete_on_termination: typing.Optional[builtins.bool] = None,
     iops: typing.Optional[jsii.Number] = None,
     throughput: typing.Optional[jsii.Number] = None,
+    volume_initialization_rate: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
     volume_type: typing.Optional[EbsDeviceVolumeType] = None,
 ) -> None:
     """Type checking stubs"""
@@ -24431,6 +24532,7 @@ def _typecheckingstub__19e899c50f45e1e93ed8e6ceab2c1abd8b33cbf64c181c33cde0635f2
     delete_on_termination: typing.Optional[builtins.bool] = None,
     iops: typing.Optional[jsii.Number] = None,
     throughput: typing.Optional[jsii.Number] = None,
+    volume_initialization_rate: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
     volume_type: typing.Optional[EbsDeviceVolumeType] = None,
     volume_size: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -25214,6 +25316,7 @@ def _typecheckingstub__dc5c9b569db054bb55687b82eb42179a33c2eddb0d55a31d772a6f269
     delete_on_termination: typing.Optional[builtins.bool] = None,
     iops: typing.Optional[jsii.Number] = None,
     throughput: typing.Optional[jsii.Number] = None,
+    volume_initialization_rate: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
     volume_type: typing.Optional[EbsDeviceVolumeType] = None,
     encrypted: typing.Optional[builtins.bool] = None,
 ) -> None:
@@ -25225,6 +25328,7 @@ def _typecheckingstub__6ff963496b9575bed65676b74f3ced132fbbe3f66d21d3cf47ce3313d
     delete_on_termination: typing.Optional[builtins.bool] = None,
     iops: typing.Optional[jsii.Number] = None,
     throughput: typing.Optional[jsii.Number] = None,
+    volume_initialization_rate: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
     volume_type: typing.Optional[EbsDeviceVolumeType] = None,
     volume_size: typing.Optional[jsii.Number] = None,
     snapshot_id: typing.Optional[builtins.str] = None,

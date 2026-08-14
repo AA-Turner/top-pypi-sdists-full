@@ -11,8 +11,12 @@ from typing import TYPE_CHECKING
 
 from tomlrt._array import AoT, Array
 from tomlrt._comments import _split_preamble
-from tomlrt._container import Container, Document, Table
-from tomlrt._layout_ops import maybe_advance_body_tail, record_ref
+from tomlrt._container import Container, Document, Table, _file_host
+from tomlrt._layout_ops import (
+    file_own_header,
+    maybe_advance_body_tail,
+    record_ref,
+)
 from tomlrt._slots import KVSlot, StructuralHeaderSlot
 from tomlrt._values import (
     ArrayValue,
@@ -44,14 +48,13 @@ def _build_containers(root: Container, slots: list[Slot]) -> None:
     current_host = root
     for slot in slots:
         if isinstance(slot, StructuralHeaderSlot):
-            if slot.path == root._path:  # noqa: SLF001
+            path = slot.path
+            if path == root._path:  # noqa: SLF001
                 assert root._header_ref is None  # noqa: SLF001
-                own_ref = record_ref(root, slot)
-                root._header_ref = own_ref  # noqa: SLF001
-                root._body_tail = slot  # noqa: SLF001
+                file_own_header(root, slot)
                 current_host = root
             else:
-                current_host = _apply_header(root, slot)
+                current_host = _apply_header(root, slot, path)
         else:
             assert isinstance(slot, KVSlot)
             assert slot.host_path == current_host._path, (  # noqa: SLF001
@@ -62,24 +65,17 @@ def _build_containers(root: Container, slots: list[Slot]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Cache primitives
-# ---------------------------------------------------------------------------
-
-
-# ``record_ref`` and ``maybe_advance_body_tail`` are shared with
-# mutation paths, keeping cache maintenance in one place.
-
-
-# ---------------------------------------------------------------------------
 # Header handling
 # ---------------------------------------------------------------------------
 
 
-def _apply_header(root: Container, slot: StructuralHeaderSlot) -> Table:
-    if slot.kind == "aot-entry":
-        assert slot.entry is not None
-        return _open_aot_entry(root, slot, slot.entry)
-    return _open_table(root, slot)
+def _apply_header(
+    root: Container, slot: StructuralHeaderSlot, path: tuple[str, ...]
+) -> Table:
+    entry = slot.entry
+    if entry is not None:
+        return _open_aot_entry(root, slot, path, entry)
+    return _open_table(root, slot, path)
 
 
 def _resolve_parent(
@@ -96,21 +92,14 @@ def _resolve_parent(
     return parent, path[-1]
 
 
-def _finish_opened_table(table: Table, header: StructuralHeaderSlot) -> Table:
-    """Own-header ref + body-tail reset for a freshly opened ``table``."""
-    own_ref = record_ref(table, header)
-    table._header_ref = own_ref  # noqa: SLF001
-    table._body_tail = header  # noqa: SLF001
-    return table
-
-
-def _open_table(root: Container, header: StructuralHeaderSlot) -> Table:
+def _open_table(
+    root: Container, header: StructuralHeaderSlot, path: tuple[str, ...]
+) -> Table:
     """Open ``[a.b.c]`` — return the `Table` view for ``path``.
 
     Creates implicit ancestors as needed. A non-table intermediate is
     validator drift and raises.
     """
-    path = header.path
     parent, name = _resolve_parent(root, path, header)
     existing = parent.get(name)
     if existing is None:
@@ -122,23 +111,24 @@ def _open_table(root: Container, header: StructuralHeaderSlot) -> Table:
             f"{name!r} (got {type(existing).__name__}); validator drift"
         )
         table = existing
-    return _finish_opened_table(table, header)
+    file_own_header(table, header)
+    return table
 
 
 def _open_aot_entry(
     root: Container,
     header: StructuralHeaderSlot,
+    path: tuple[str, ...],
     entry: AoTEntry,
 ) -> Table:
     """Open ``[[a.b]]`` — append a fresh `Table` to the AoT at ``path``."""
-    path = header.path
     parent, name = _resolve_parent(root, path, header)
     aot = parent.get(name)
     if aot is None:
         aot = AoT()
         aot._layout_root = root._layout_root  # noqa: SLF001
         aot._path = path  # noqa: SLF001
-        aot._parent = parent  # noqa: SLF001
+        aot._host = parent  # noqa: SLF001
         dict.__setitem__(parent, name, aot)
     assert isinstance(aot, AoT), (
         f"AoT header [[{'.'.join(path)}]] collides with non-AoT at "
@@ -146,7 +136,8 @@ def _open_aot_entry(
     )
     table = _make_table(parent, path, owner=entry)
     list.append(aot, table)
-    return _finish_opened_table(table, header)
+    file_own_header(table, header)
+    return table
 
 
 def _resolve_table_child(
@@ -172,16 +163,14 @@ def _resolve_table_child(
         child._inline = inline  # noqa: SLF001
         dict.__setitem__(parent, name, child)
         return child
-    if isinstance(sub, Table):
-        return sub
     if descend_aot and isinstance(sub, AoT):
         assert sub, "validator should have rejected empty-AoT prefix"
         return sub[-1]
-    msg = (
+    assert isinstance(sub, Table), (
         f"path component {name!r} is bound to "
         f"{type(sub).__name__}, not a table (validator drift)"
     )
-    raise AssertionError(msg)
+    return sub
 
 
 def _make_table(
@@ -235,10 +224,10 @@ def _apply_kv(slot: KVSlot, *, host: Container) -> None:
         name,
         _decode_value(
             slot.value,
-            layout_root=target._layout_root,  # noqa: SLF001
-            parent=target,
-            name=name,
-            owner=target._owner_aot_entry,  # noqa: SLF001
+            target._layout_root,  # noqa: SLF001
+            target,
+            name,
+            target._owner_aot_entry,  # noqa: SLF001
         ),
     )
 
@@ -250,57 +239,69 @@ def _apply_kv(slot: KVSlot, *, host: Container) -> None:
 
 def _decode_value(
     value: Value,
-    *,
     layout_root: Document | None,
     parent: Container | None,
     name: str | None,
     owner: AoTEntry | None,
+    array_host: Array | None = None,
 ) -> object:
     """Decode any TOML value to its Python representation.
 
     ``parent``/``name`` -- the container and key ``value`` is bound
-    under -- are only consulted for an ``InlineTableValue``: its
-    decoded ``Table`` view is the one kind of result that needs a real
-    path for its own navigation, built here rather than by every
-    caller. Pass ``parent=None`` (with ``name=None``) for a value with
-    no such binding, e.g. an array element.
+    under -- give a key-hosted ``Array`` / ``Table`` view a real binding
+    and name for its own navigation and host lookup. ``array_host`` is
+    the array ``value`` is an element of, if any; the decoded view's
+    binding is filed here in one place so a decode site cannot forget,
+    and it derives its host from the array object. Pass ``parent=None``
+    (with ``name=None``) for a value with no key binding -- either an
+    array element or a wholly detached value.
+
+    An `Array` takes its binding at construction rather than by a stamp
+    afterwards: this runs once per element of every array in the
+    document, so the funnel hands `Array._view` the two fields it would
+    otherwise write twice. The decode helpers take their arguments
+    positionally for the same reason -- a keyword argument costs more
+    per call than a positional one, and this is the hottest path in the
+    build.
     """
     if isinstance(value, ArrayValue):
-        return _decode_array(value, layout_root=layout_root, owner=owner)
+        return _decode_array(
+            value,
+            layout_root,
+            name,
+            owner,
+            array_host if array_host is not None else parent,
+        )
     if isinstance(value, InlineTableValue):
         if parent is None:
             path: tuple[str, ...] = ()
         else:
             assert name is not None, "name is required whenever parent is given"
             path = (*parent._path, name)  # noqa: SLF001
-        return _decode_inline_table(
-            value, layout_root=layout_root, parent=parent, path=path, owner=owner
-        )
+        table = _decode_inline_table(value, layout_root, parent, path, owner)
+        _file_host(table, parent, array_host)
+        return table
     return value.value
 
 
 def _decode_array(
     value: ArrayValue,
-    *,
     layout_root: Document | None,
+    name: str | None,
     owner: AoTEntry | None,
+    host: Array | Container | None,
 ) -> Array:
-    arr = Array()
-    arr._value = value  # noqa: SLF001
-    arr._layout_root = layout_root  # noqa: SLF001
+    arr = Array._view(value, layout_root, name, host)  # noqa: SLF001
     for item in value.items:
         list.append(
             arr,
-            _decode_value(
-                item.value, layout_root=layout_root, parent=None, name=None, owner=owner
-            ),
+            _decode_value(item.value, layout_root, None, None, owner, arr),
         )
     return arr
 
 
 def _decode_inline_table(
     value: InlineTableValue,
-    *,
     layout_root: Document | None,
     parent: Container | None,
     path: tuple[str, ...],
@@ -324,9 +325,7 @@ def _decode_inline_table(
         dict.__setitem__(
             cur,
             leaf,
-            _decode_value(
-                entry.value, layout_root=layout_root, parent=cur, name=leaf, owner=owner
-            ),
+            _decode_value(entry.value, layout_root, cur, leaf, owner),
         )
     return table
 

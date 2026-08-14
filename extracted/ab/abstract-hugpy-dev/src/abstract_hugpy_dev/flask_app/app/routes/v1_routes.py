@@ -488,6 +488,22 @@ def v1_chat_completions():
 # mode "open":     single-operator instance, no login wall (distribution
 #                  default; the /v1 key system still gates programmatic use).
 # ──────────────────────────────────────────────────────────────────────────
+@v1_bp.route("/fleet/runbook", methods=["GET"])
+def fleet_runbook():
+    """Serve the SINGLE-SOURCE-OF-TRUTH fleet remediation runbook
+    (abstract_hugpy_dev/fleet_runbook.json). Both the console Docs 'Fleet
+    remediation runbook' page and the hugpy-agent read this one file — edit it
+    there only. Public GET (no secrets)."""
+    import os as _os, json as _json
+    import abstract_hugpy_dev as _pkg
+    path = _os.path.join(_os.path.dirname(_pkg.__file__), "fleet_runbook.json")
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            return jsonify(_json.load(fh))
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": "runbook unavailable", "detail": str(exc)}), 404
+
+
 @v1_bp.route("/auth/config", methods=["GET"])
 def auth_config():
     import os as _os

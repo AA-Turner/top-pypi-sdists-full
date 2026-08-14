@@ -1,0 +1,1098 @@
+"""PostgresToolkit — PostgreSQL-specific overrides of ``SQLToolkit``.
+
+Provides PG-specific EXPLAIN format, ``pg_class``/``pg_namespace``
+introspection, column comments via ``col_description()``,
+``postgresql+asyncpg://`` DSN mapping, and full first-class CRUD tools:
+``insert_row``, ``upsert_row``, ``update_row``, ``delete_row``,
+``select_rows``.
+
+Write tools are hidden from the LLM when ``read_only=True`` (the default)
+by extending ``exclude_tools`` before ``AbstractToolkit._generate_tools()``
+runs.
+"""
+from __future__ import annotations
+
+import json
+from contextlib import asynccontextmanager
+from typing import (
+    Any, AsyncIterator, Dict, FrozenSet, List, Optional, Type,
+)
+
+from pydantic import BaseModel
+
+from ..models import TableMetadata
+from .sql import SQLToolkit
+from . import _crud
+
+
+class PostgresToolkit(SQLToolkit):
+    """PostgreSQL-specific toolkit with first-class CRUD tools.
+
+    Overrides dialect hooks for PostgreSQL's richer introspection and
+    EXPLAIN output.  When ``read_only=False``, five LLM-callable tools are
+    exposed: ``db_insert_row``, ``db_upsert_row``, ``db_update_row``,
+    ``db_delete_row``, and ``db_select_rows``.
+
+    All write tools enforce a table whitelist (``self.tables``), validate
+    input via a per-table dynamic Pydantic model, and cache parameterized
+    SQL templates per instance.
+    """
+
+    _metadata_source: str = "pg_catalog"
+
+    @staticmethod
+    def _normalize_pg_dsn(dsn: Optional[str]) -> Optional[str]:
+        """Strip SQLAlchemy ``+driver`` suffix from a PostgreSQL DSN.
+
+        asyncdb/asyncpg only accept ``postgresql://`` or ``postgres://``
+        schemes; SQLAlchemy callers commonly pass ``postgresql+asyncpg://``.
+        Normalizing here lets the same env-supplied DSN serve both pools.
+        """
+        if not dsn:
+            return dsn
+        for prefix, replacement in (
+            ("postgresql+", "postgresql"),
+            ("postgres+", "postgres"),
+        ):
+            if dsn.startswith(prefix):
+                idx = dsn.find("://", len(prefix))
+                if idx != -1:
+                    return replacement + dsn[idx:]
+        return dsn
+
+    def __init__(
+        self,
+        dsn: str,
+        allowed_schemas: Optional[List[str]] = None,
+        primary_schema: Optional[str] = None,
+        tables: Optional[List[str]] = None,
+        read_only: bool = True,
+        use_pool: bool = False,
+        pool_params: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> None:
+        dsn = self._normalize_pg_dsn(dsn)
+        # --- CRUD instance state (before super().__init__ so exclude_tools is
+        #     set before AbstractToolkit._generate_tools() runs) ---
+        self._prepared_cache: Dict[str, tuple[str, List[str]]] = {}
+        self._json_cols_cache: Dict[str, FrozenSet[str]] = {}
+        self._hstore_cols_cache: Dict[str, FrozenSet[str]] = {}
+
+        # Gate write tools when read_only=True.
+        # CRITICAL: must happen BEFORE super().__init__ (which calls
+        # AbstractToolkit._generate_tools via chain).
+        extra_excludes: tuple[str, ...] = ()
+        if read_only:
+            extra_excludes = ("insert_row", "upsert_row", "update_row", "delete_row")
+
+        # Merge precedence:
+        #   1. Any subclass pre-set instance exclude_tools (e.g. NavigatorToolkit)
+        #   2. SQLToolkit class-level exclude_tools baseline
+        #   3. read_only write-tool gates added here
+        # Using `vars(self)` avoids picking up class-level attrs from the MRO
+        # so we only extend a subclass's explicit pre-init assignment.
+        subclass_excludes: tuple[str, ...] = vars(self).get("exclude_tools", ())
+        base: tuple[str, ...] = subclass_excludes or tuple(SQLToolkit.exclude_tools)
+        self.exclude_tools = base + extra_excludes
+
+        super().__init__(
+            dsn=dsn,
+            allowed_schemas=allowed_schemas,
+            primary_schema=primary_schema,
+            tables=tables,
+            read_only=read_only,
+            database_type="postgresql",
+            use_pool=use_pool,
+            pool_params=pool_params,
+            **kwargs,
+        )
+
+    # ------------------------------------------------------------------
+    # Dialect hooks
+    # ------------------------------------------------------------------
+
+    def _get_explain_prefix(self) -> str:
+        return "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)"
+
+    def _get_explain_prefix_planner_only(self) -> str:
+        # No ANALYZE, no BUFFERS — pure planner output, the statement is
+        # not executed. ``FORMAT JSON`` is preserved so the result remains
+        # parseable by ``format_explain_plan``.
+        return "EXPLAIN (FORMAT JSON)"
+
+    def _get_information_schema_query(
+        self,
+        search_term: str,
+        schemas: List[str],
+        limit: int = 20,
+    ) -> tuple[str, tuple]:
+        """Discover tables via ``pg_catalog.pg_class`` / ``pg_namespace``.
+
+        Uses pg_catalog directly (faster than information_schema views) and
+        returns ``obj_description()`` for table-level comments.  The caller-
+        provided *limit* is bound as ``$3`` — no hardcoded ``LIMIT 20``.
+
+        Args:
+            search_term: Term to match against table names (ILIKE).
+            schemas: List of schema names to restrict the search.
+            limit: Maximum rows to return.
+
+        Returns:
+            ``(sql, params_tuple)`` with ``$1=schemas, $2=term, $3=limit``.
+        """
+        sql = """
+            SELECT DISTINCT
+                n.nspname AS table_schema,
+                c.relname AS table_name,
+                CASE c.relkind
+                    WHEN 'r' THEN 'BASE TABLE'
+                    WHEN 'v' THEN 'VIEW'
+                    WHEN 'm' THEN 'VIEW'
+                    ELSE 'OTHER'
+                END AS table_type,
+                obj_description(c.oid) AS comment
+            FROM pg_catalog.pg_class c
+            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = ANY($1)
+            AND c.relkind IN ('r', 'v', 'm')
+            AND (
+                c.relname ILIKE $2
+                OR (n.nspname || '.' || c.relname) ILIKE $2
+            )
+            ORDER BY c.relname
+            LIMIT $3
+        """
+        return sql, (schemas, f"%{search_term}%", limit)
+
+    def _get_columns_query(
+        self, schema: str, table: str
+    ) -> tuple[str, tuple]:
+        """Query columns via ``pg_catalog.pg_attribute`` with comment support.
+
+        Filters out dropped columns (``attisdropped``) and system columns
+        (``attnum <= 0``) to match ``information_schema.columns`` visibility.
+        Column defaults come from ``pg_attrdef``; comments from
+        ``col_description()``.
+
+        Args:
+            schema: Schema name.
+            table: Table name.
+
+        Returns:
+            ``(sql, params_tuple)`` with ``$1=schema, $2=table``.
+        """
+        sql = """
+            SELECT
+                a.attname AS column_name,
+                pg_catalog.format_type(a.atttypid, a.atttypmod) AS data_type,
+                CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END AS is_nullable,
+                pg_get_expr(ad.adbin, ad.adrelid) AS column_default,
+                a.attnum AS ordinal_position,
+                col_description(a.attrelid, a.attnum) AS column_comment
+            FROM pg_catalog.pg_attribute a
+            JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
+            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+            LEFT JOIN pg_catalog.pg_attrdef ad
+                ON ad.adrelid = c.oid AND ad.adnum = a.attnum
+            WHERE n.nspname = $1
+            AND c.relname = $2
+            AND a.attnum > 0
+            AND NOT a.attisdropped
+            ORDER BY a.attnum
+        """
+        return sql, (schema, table)
+
+    def _get_primary_keys_query(self, schema: str, table: str) -> tuple[str, tuple]:
+        """Query primary-key columns via ``pg_catalog.pg_constraint``.
+
+        Args:
+            schema: Schema name.
+            table: Table name.
+
+        Returns:
+            ``(sql, params_tuple)`` with ``$1=schema, $2=table``.
+        """
+        sql = """
+            SELECT a.attname AS column_name
+            FROM pg_catalog.pg_constraint con
+            JOIN pg_catalog.pg_class c ON c.oid = con.conrelid
+            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+            JOIN pg_catalog.pg_attribute a
+                ON a.attrelid = c.oid AND a.attnum = ANY(con.conkey)
+            WHERE con.contype = 'p'
+            AND n.nspname = $1
+            AND c.relname = $2
+            ORDER BY array_position(con.conkey, a.attnum)
+        """
+        return sql, (schema, table)
+
+    def _get_unique_constraints_query(
+        self, schema: str, table: str
+    ) -> tuple[str, tuple]:
+        """Query UNIQUE constraint columns via ``pg_catalog.pg_constraint``.
+
+        Returns one row per constraint/column combination so the base-class
+        grouping logic in ``_build_table_metadata`` works unchanged.
+
+        Args:
+            schema: Schema name.
+            table: Table name.
+
+        Returns:
+            ``(sql, params_tuple)`` with ``$1=schema, $2=table``.
+        """
+        sql = """
+            SELECT
+                con.conname AS constraint_name,
+                a.attname AS column_name
+            FROM pg_catalog.pg_constraint con
+            JOIN pg_catalog.pg_class c ON c.oid = con.conrelid
+            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+            JOIN pg_catalog.pg_attribute a
+                ON a.attrelid = c.oid AND a.attnum = ANY(con.conkey)
+            WHERE con.contype = 'u'
+            AND n.nspname = $1
+            AND c.relname = $2
+            ORDER BY con.conname, array_position(con.conkey, a.attnum)
+        """
+        return sql, (schema, table)
+
+    def _get_indexes_query(self, schema: str, table: str) -> tuple[str, tuple]:
+        """Query indexes via ``pg_catalog.pg_index``.
+
+        Returns one row per index: name, uniqueness flag, primary flag, and
+        column expressions (evaluated via ``pg_get_indexdef``).
+
+        Args:
+            schema: Schema name.
+            table: Table name.
+
+        Returns:
+            ``(sql, params_tuple)`` with ``$1=schema, $2=table``.
+        """
+        sql = """
+            SELECT
+                i.relname AS index_name,
+                ix.indisunique AS is_unique,
+                ix.indisprimary AS is_primary,
+                ARRAY(
+                    SELECT pg_get_indexdef(ix.indexrelid, k + 1, true)
+                    FROM generate_subscripts(ix.indkey, 1) AS k
+                ) AS column_expressions
+            FROM pg_catalog.pg_index ix
+            JOIN pg_catalog.pg_class i ON i.oid = ix.indexrelid
+            JOIN pg_catalog.pg_class t ON t.oid = ix.indrelid
+            JOIN pg_catalog.pg_namespace n ON n.oid = t.relnamespace
+            WHERE n.nspname = $1 AND t.relname = $2
+            ORDER BY i.relname
+        """
+        return sql, (schema, table)
+
+    def _get_foreign_keys_query(self, schema: str, table: str) -> tuple[str, tuple]:
+        """Query foreign keys via ``pg_catalog.pg_constraint``.
+
+        Returns one row per FK constraint with referencing columns, referenced
+        schema/table/columns, and ON UPDATE / ON DELETE action codes.
+
+        Args:
+            schema: Schema name.
+            table: Table name.
+
+        Returns:
+            ``(sql, params_tuple)`` with ``$1=schema, $2=table``.
+        """
+        sql = """
+            SELECT
+                c.conname AS constraint_name,
+                ARRAY(
+                    SELECT a.attname
+                    FROM unnest(c.conkey) WITH ORDINALITY x(attnum, ord)
+                    JOIN pg_catalog.pg_attribute a
+                        ON a.attrelid = c.conrelid AND a.attnum = x.attnum
+                    ORDER BY x.ord
+                ) AS referencing_columns,
+                rn.nspname AS referenced_schema,
+                rt.relname AS referenced_table,
+                ARRAY(
+                    SELECT a.attname
+                    FROM unnest(c.confkey) WITH ORDINALITY x(attnum, ord)
+                    JOIN pg_catalog.pg_attribute a
+                        ON a.attrelid = c.confrelid AND a.attnum = x.attnum
+                    ORDER BY x.ord
+                ) AS referenced_columns,
+                c.confupdtype AS on_update,
+                c.confdeltype AS on_delete
+            FROM pg_catalog.pg_constraint c
+            JOIN pg_catalog.pg_class t ON t.oid = c.conrelid
+            JOIN pg_catalog.pg_namespace n ON n.oid = t.relnamespace
+            JOIN pg_catalog.pg_class rt ON rt.oid = c.confrelid
+            JOIN pg_catalog.pg_namespace rn ON rn.oid = rt.relnamespace
+            WHERE c.contype = 'f'
+            AND n.nspname = $1
+            AND t.relname = $2
+        """
+        return sql, (schema, table)
+
+    def _get_asyncdb_driver(self) -> str:
+        return "pg"
+
+    # ------------------------------------------------------------------
+    # CRUD private helpers
+    # ------------------------------------------------------------------
+
+    def _resolve_table(self, table: str) -> tuple[str, str, TableMetadata]:
+        """Parse *table* and look up its metadata.
+
+        Accepts ``"schema.table"`` or ``"table"`` (uses ``self.primary_schema``).
+        Enforces the ``self.tables`` whitelist.
+
+        Args:
+            table: ``"schema.table"`` or bare table name.
+
+        Returns:
+            ``(schema, table_name, metadata)`` triple.
+
+        Raises:
+            ValueError: If ``schema.table`` is not in ``self.tables``.
+            RuntimeError: If metadata is not available (not connected).
+        """
+        # Parse schema/table
+        if "." in table:
+            parts = table.split(".", 1)
+            schema = parts[0].strip().strip('"').lower()
+            table_name = parts[1].strip().strip('"').lower()
+        else:
+            schema = (self.primary_schema or "public").lower()
+            table_name = table.strip().strip('"').lower()
+
+        full = f"{schema}.{table_name}"
+
+        # Whitelist check
+        if self.tables:
+            whitelist = {
+                entry.lower().replace('"', '').replace(' ', '')
+                for entry in self.tables
+            }
+            if full not in whitelist:
+                raise ValueError(
+                    f"Table {full!r} is not in the allowed table list. "
+                    f"Allowed: {sorted(whitelist)}"
+                )
+
+        # Metadata lookup (synchronous — metadata should be warm after start())
+        meta: Optional[TableMetadata] = None
+        if self.cache_partition and hasattr(self.cache_partition, "schema_cache"):
+            sc = self.cache_partition.schema_cache.get(schema)
+            if sc and table_name in sc.tables:
+                meta = sc.tables[table_name]
+
+        if meta is None:
+            # Build a minimal stub for cases where cache is not warm
+            # (unit tests that mock _resolve_table can bypass this path)
+            raise RuntimeError(
+                f"No cached metadata for {full!r}. "
+                "Call await toolkit.start() first to warm the metadata cache."
+            )
+
+        return schema, table_name, meta
+
+    def _json_cols_for(self, meta: TableMetadata) -> FrozenSet[str]:
+        """Return the set of JSON/JSONB column names for *meta*, cached.
+
+        Hstore columns are reported separately by :meth:`_hstore_cols_for`
+        because they require a different SQL cast (``::hstore``) and a
+        different value serialization format.
+        """
+        key = f"{meta.schema}.{meta.tablename}"
+        cached = self._json_cols_cache.get(key)
+        if cached is not None:
+            return cached
+        cols: FrozenSet[str] = frozenset(
+            c["name"]
+            for c in meta.columns
+            if (c.get("type") or "").lower() in _crud._JSONB_CAST_TYPES
+        )
+        self._json_cols_cache[key] = cols
+        return cols
+
+    def _hstore_cols_for(self, meta: TableMetadata) -> FrozenSet[str]:
+        """Return the set of ``hstore`` column names for *meta*, cached."""
+        key = f"{meta.schema}.{meta.tablename}"
+        cached = self._hstore_cols_cache.get(key)
+        if cached is not None:
+            return cached
+        cols: FrozenSet[str] = frozenset(
+            c["name"]
+            for c in meta.columns
+            if (c.get("type") or "").lower() in _crud._HSTORE_TYPES
+        )
+        self._hstore_cols_cache[key] = cols
+        return cols
+
+    def _get_or_build_pydantic_model(self, meta: TableMetadata) -> Type[BaseModel]:
+        """Return (or build) the dynamic Pydantic model for *meta*."""
+        model_name = f"{meta.schema}_{meta.tablename}_model"
+        key = _crud._columns_key_from_metadata(meta)
+        return _crud._build_pydantic_model(model_name, key)
+
+    def _make_template_key(
+        self,
+        op: str,
+        schema: str,
+        table: str,
+        **kwargs: Any,
+    ) -> str:
+        """Build a deterministic string key for the prepared-statement cache."""
+        parts = [f"{op}|{schema}|{table}"]
+        for k, v in sorted(kwargs.items()):
+            if v is None:
+                parts.append(f"{k}=()")
+            elif isinstance(v, (list, tuple)):
+                parts.append(f"{k}={tuple(v)!r}")
+            else:
+                parts.append(f"{k}={v!r}")
+        return "|".join(parts)
+
+    def _get_or_build_template(
+        self,
+        op: str,
+        schema: str,
+        table: str,
+        meta: TableMetadata,
+        **kwargs: Any,
+    ) -> tuple[str, List[str]]:
+        """Return cached SQL template + param_order for *op* on *schema.table*.
+
+        Results are stored as ``(sql, param_order)`` tuples so that repeated
+        calls for the same operation shape short-circuit the builder entirely.
+        The builder is only invoked on a cache miss.
+        """
+        cache_key = self._make_template_key(op, schema, table, **kwargs)
+
+        cached = self._prepared_cache.get(cache_key)
+        if cached is not None:
+            self.logger.debug("Template cache hit: %s", cache_key)
+            return cached
+
+        self.logger.debug("Template cache miss: %s", cache_key)
+        json_cols = self._json_cols_for(meta)
+        hstore_cols = self._hstore_cols_for(meta)
+
+        if op == "insert":
+            columns = kwargs.get("columns", [])
+            returning = kwargs.get("returning")
+            result = _crud._build_insert_sql(
+                schema, table, columns,
+                returning=returning,
+                json_cols=json_cols,
+                hstore_cols=hstore_cols,
+            )
+        elif op == "upsert":
+            columns = kwargs.get("columns", [])
+            conflict_cols = kwargs.get("conflict_cols")
+            update_cols = kwargs.get("update_cols")
+            returning = kwargs.get("returning")
+            result = _crud._build_upsert_sql(
+                schema, table, columns,
+                conflict_cols=conflict_cols,
+                update_cols=update_cols,
+                returning=returning,
+                json_cols=json_cols,
+                hstore_cols=hstore_cols,
+            )
+        elif op == "update":
+            set_columns = kwargs.get("set_columns", [])
+            where_columns = kwargs.get("where_columns", [])
+            returning = kwargs.get("returning")
+            result = _crud._build_update_sql(
+                schema, table,
+                set_columns=set_columns,
+                where_columns=where_columns,
+                returning=returning,
+                json_cols=json_cols,
+                hstore_cols=hstore_cols,
+            )
+        elif op == "delete":
+            where_columns = kwargs.get("where_columns", [])
+            returning = kwargs.get("returning")
+            result = _crud._build_delete_sql(
+                schema, table,
+                where_columns=where_columns,
+                returning=returning,
+            )
+        elif op == "select":
+            columns = kwargs.get("columns")
+            where_columns = kwargs.get("where_columns")
+            order_by = kwargs.get("order_by")
+            limit = kwargs.get("limit")
+            distinct = kwargs.get("distinct", False)
+            # column_casts is stored as a sorted tuple of (col, cast) pairs
+            # for cache-key determinism; reconstruct a dict for the builder.
+            casts_key = kwargs.get("column_casts")
+            column_casts: Optional[Dict[str, str]] = dict(casts_key) if casts_key else None
+            result = _crud._build_select_sql(
+                schema, table,
+                columns=list(columns) if columns else None,
+                where_columns=list(where_columns) if where_columns else None,
+                order_by=list(order_by) if order_by else None,
+                limit=limit,
+                distinct=bool(distinct),
+                column_casts=column_casts,
+            )
+        else:
+            raise ValueError(f"Unknown CRUD operation: {op!r}")
+
+        self._prepared_cache[cache_key] = result
+        return result
+
+    def _prepare_args(
+        self,
+        data: Dict[str, Any],
+        param_order: List[str],
+        json_cols: FrozenSet[str],
+        hstore_cols: FrozenSet[str] = frozenset(),
+    ) -> tuple[Any, ...]:
+        """Build positional args tuple from *data* following *param_order*.
+
+        * JSON/JSONB column values are ``json.dumps``-serialized and the SQL
+          template applies a ``::text::jsonb`` cast.
+        * Hstore column values are serialized to the ``"k"=>"v", ...`` text
+          format via :func:`_crud._dict_to_hstore`; the SQL template applies
+          a ``::hstore`` cast.
+        """
+        args = []
+        for col in param_order:
+            value = data.get(col)
+            if value is not None:
+                if col in hstore_cols:
+                    value = _crud._dict_to_hstore(value)
+                elif col in json_cols:
+                    value = json.dumps(value)
+            args.append(value)
+        return tuple(args)
+
+    # ------------------------------------------------------------------
+    # CRUD tool methods
+    # ------------------------------------------------------------------
+
+    async def insert_row(
+        self,
+        table: str,
+        data: Dict[str, Any],
+        returning: Optional[List[str]] = None,
+        conn: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        """Insert a single row into *table*.
+
+        Validates *data* against the table's dynamic Pydantic model
+        (``extra="forbid"`` — unknown fields raise ``ValidationError``),
+        builds and caches the INSERT SQL, then executes via asyncdb.
+
+        Args:
+            table: Target table as ``"schema.table"`` or bare name (uses
+                ``primary_schema``).
+            data: Column-value mapping.  Unknown keys are rejected.
+            returning: Optional list of columns to RETURN.  When ``None``
+                only a ``{"status": "ok"}`` dict is returned.
+            conn: Optional existing transaction connection.  When provided,
+                the CRUD method reuses it instead of acquiring a new one.
+
+        Returns:
+            The RETURNING row as a dict, or ``{"status": "ok"}`` when no
+            RETURNING clause was requested.
+
+        Raises:
+            ValueError: Table not in whitelist.
+            pydantic.ValidationError: Unknown or invalid field in *data*.
+        """
+        schema, table_name, meta = self._resolve_table(table)
+        Model = self._get_or_build_pydantic_model(meta)
+        validated = Model(**data).model_dump(exclude_none=True)
+
+        columns = list(validated.keys())
+        sql, param_order = self._get_or_build_template(
+            "insert", schema, table_name, meta,
+            columns=tuple(columns),
+            returning=tuple(returning) if returning else None,
+        )
+        json_cols = self._json_cols_for(meta)
+        hstore_cols = self._hstore_cols_for(meta)
+        args = self._prepare_args(validated, param_order, json_cols, hstore_cols)
+
+        return await self._execute_crud(sql, args, returning, conn, single_row=True)
+
+    async def upsert_row(
+        self,
+        table: str,
+        data: Dict[str, Any],
+        conflict_cols: Optional[List[str]] = None,
+        update_cols: Optional[List[str]] = None,
+        returning: Optional[List[str]] = None,
+        conn: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        """Upsert a single row into *table* using ``ON CONFLICT``.
+
+        Defaults ``conflict_cols`` to ``meta.primary_keys`` when ``None``.
+        Defaults ``update_cols`` to all non-conflict data keys when ``None``.
+
+        When ``returning`` is provided but the ``DO UPDATE`` fires against
+        an identical row (PG RETURNING yields 0 rows), a follow-up SELECT
+        using ``conflict_cols`` is performed to return the existing row.
+
+        Args:
+            table: Target table.
+            data: Column-value mapping.
+            conflict_cols: Conflict target columns.  Defaults to PK columns.
+            update_cols: Columns to update on conflict.  ``[]`` = DO NOTHING.
+            returning: Optional RETURNING columns.
+            conn: Optional existing transaction connection.
+
+        Returns:
+            The upserted / existing row as dict, or ``{"status": "ok"}``.
+
+        Raises:
+            ValueError: Table not in whitelist or conflict_cols is empty.
+            pydantic.ValidationError: Invalid field in *data*.
+        """
+        schema, table_name, meta = self._resolve_table(table)
+        Model = self._get_or_build_pydantic_model(meta)
+        validated = Model(**data).model_dump(exclude_none=True)
+
+        effective_conflict = conflict_cols or meta.primary_keys
+        if not effective_conflict:
+            raise ValueError(
+                f"Cannot upsert into {table!r}: no conflict_cols provided "
+                "and the table has no primary_keys in metadata."
+            )
+
+        columns = list(validated.keys())
+        effective_update = update_cols
+        if effective_update is None:
+            conflict_set = set(effective_conflict)
+            effective_update = [c for c in columns if c not in conflict_set]
+
+        sql, param_order = self._get_or_build_template(
+            "upsert", schema, table_name, meta,
+            columns=tuple(columns),
+            conflict_cols=tuple(effective_conflict),
+            update_cols=tuple(effective_update),
+            returning=tuple(returning) if returning else None,
+        )
+        json_cols = self._json_cols_for(meta)
+        hstore_cols = self._hstore_cols_for(meta)
+        args = self._prepare_args(validated, param_order, json_cols, hstore_cols)
+
+        result = await self._execute_crud(sql, args, returning, conn, single_row=True)
+
+        # Idempotency: if RETURNING was requested but we got empty dict back
+        # (DO UPDATE fired on identical row with no actual change), perform
+        # a follow-up SELECT using conflict_cols.
+        if returning and not result:
+            where = {c: validated[c] for c in effective_conflict if c in validated}
+            if where:
+                fallback_sql, fallback_params = self._get_or_build_template(
+                    "select", schema, table_name, meta,
+                    columns=tuple(returning),
+                    where_columns=tuple(where.keys()),
+                    order_by=None,
+                    limit=1,
+                )
+                fallback_args = self._prepare_args(where, list(where.keys()), frozenset())
+                rows = await self._execute_crud(
+                    fallback_sql, fallback_args, returning, conn, single_row=False
+                )
+                if rows and isinstance(rows, list) and rows:
+                    return rows[0]
+
+        return result
+
+    async def update_row(
+        self,
+        table: str,
+        data: Dict[str, Any],
+        where: Dict[str, Any],
+        returning: Optional[List[str]] = None,
+        conn: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        """Update columns in *table* matching *where*.
+
+        Enforces ``require_pk_in_where=True`` via
+        :meth:`parrot.security.QueryValidator.validate_sql_ast`.
+
+        Args:
+            table: Target table.
+            data: Columns to SET and their new values.
+            where: Columns and values for the WHERE clause (PK must be present).
+            returning: Optional RETURNING columns.
+            conn: Optional existing transaction connection.
+
+        Returns:
+            Updated row dict, or ``{"status": "ok"}``.
+
+        Raises:
+            ValueError: Table not in whitelist or WHERE lacks a PK column.
+            pydantic.ValidationError: Invalid field in *data*.
+            RuntimeError: QueryValidator rejects the generated SQL.
+        """
+        from parrot.security import QueryValidator
+
+        schema, table_name, meta = self._resolve_table(table)
+        Model = self._get_or_build_pydantic_model(meta)
+        validated_data = Model(**data).model_dump(exclude_none=True)
+        validated_where = Model(**where).model_dump(exclude_none=True)
+
+        set_columns = list(validated_data.keys())
+        where_columns = list(validated_where.keys())
+
+        sql, param_order = self._get_or_build_template(
+            "update", schema, table_name, meta,
+            set_columns=tuple(set_columns),
+            where_columns=tuple(where_columns),
+            returning=tuple(returning) if returning else None,
+        )
+
+        # Enforce PK-in-WHERE safety
+        check = QueryValidator.validate_sql_ast(
+            sql,
+            dialect="postgres",
+            read_only=False,
+            require_pk_in_where=True,
+            primary_keys=meta.primary_keys,
+        )
+        if not check.get("is_safe"):
+            raise RuntimeError(
+                f"UPDATE rejected by QueryValidator: {check.get('message')}"
+            )
+
+        json_cols = self._json_cols_for(meta)
+        hstore_cols = self._hstore_cols_for(meta)
+        combined = {**validated_data, **validated_where}
+        args = self._prepare_args(combined, param_order, json_cols, hstore_cols)
+
+        return await self._execute_crud(sql, args, returning, conn, single_row=True)
+
+    async def delete_row(
+        self,
+        table: str,
+        where: Dict[str, Any],
+        returning: Optional[List[str]] = None,
+        conn: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        """Delete rows from *table* matching *where*.
+
+        Enforces ``require_pk_in_where=True`` via
+        :meth:`parrot.security.QueryValidator.validate_sql_ast`.
+
+        Args:
+            table: Target table.
+            where: Columns and values for the WHERE clause (PK must be present).
+            returning: Optional RETURNING columns.
+            conn: Optional existing transaction connection.
+
+        Returns:
+            Deleted row dict, or ``{"status": "ok"}``.
+
+        Raises:
+            ValueError: Table not in whitelist or WHERE lacks a PK column.
+            RuntimeError: QueryValidator rejects the generated SQL.
+        """
+        from parrot.security import QueryValidator
+
+        schema, table_name, meta = self._resolve_table(table)
+        Model = self._get_or_build_pydantic_model(meta)
+        validated_where = Model(**where).model_dump(exclude_none=True)
+
+        where_columns = list(validated_where.keys())
+        sql, param_order = self._get_or_build_template(
+            "delete", schema, table_name, meta,
+            where_columns=tuple(where_columns),
+            returning=tuple(returning) if returning else None,
+        )
+
+        check = QueryValidator.validate_sql_ast(
+            sql,
+            dialect="postgres",
+            read_only=False,
+            require_pk_in_where=True,
+            primary_keys=meta.primary_keys,
+        )
+        if not check.get("is_safe"):
+            raise RuntimeError(
+                f"DELETE rejected by QueryValidator: {check.get('message')}"
+            )
+
+        json_cols = self._json_cols_for(meta)
+        args = self._prepare_args(validated_where, param_order, json_cols)
+
+        return await self._execute_crud(sql, args, returning, conn, single_row=True)
+
+    async def select_rows(
+        self,
+        table: str,
+        where: Optional[Dict[str, Any]] = None,
+        columns: Optional[List[str]] = None,
+        order_by: Optional[List[str]] = None,
+        limit: Optional[int] = None,
+        conn: Optional[Any] = None,
+        distinct: bool = False,
+        column_casts: Optional[Dict[str, str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Select rows from *table*.
+
+        Args:
+            table: Target table.
+            where: Optional equality filter (``AND``-joined).
+            columns: Columns to retrieve.  ``None`` → all.
+            order_by: ORDER BY expressions, e.g. ``["created_at DESC"]``.
+            limit: Max rows.
+            conn: Optional existing connection.
+            distinct: If ``True``, emit ``SELECT DISTINCT``.
+            column_casts: Optional ``{column: cast_type}`` mapping.  Each
+                named column is emitted as ``col::type AS col``.  Cast types
+                must be in the whitelist (text, uuid, json, jsonb, integer,
+                bigint, numeric, timestamp, date).  When *columns* is
+                ``None``, it is expanded to all table columns from metadata
+                so that the cast can be applied to the correct position.
+
+        Returns:
+            List of row dicts.
+
+        Raises:
+            ValueError: Table not in whitelist, unsupported cast type, or
+                cast column not present in *columns*.
+        """
+        schema, table_name, meta = self._resolve_table(table)
+        where = where or {}
+
+        # Expand columns from metadata when column_casts is set but columns
+        # was not provided — required so cast keys can be validated.
+        effective_columns: Optional[List[str]] = columns
+        if column_casts and effective_columns is None:
+            effective_columns = list(meta.columns)
+
+        where_columns = list(where.keys()) if where else None
+        # Encode column_casts as a sorted tuple for a deterministic cache key.
+        casts_key = tuple(sorted(column_casts.items())) if column_casts else None
+        sql, param_order = self._get_or_build_template(
+            "select", schema, table_name, meta,
+            columns=tuple(effective_columns) if effective_columns else None,
+            where_columns=tuple(where_columns) if where_columns else None,
+            order_by=tuple(order_by) if order_by else None,
+            limit=limit,
+            distinct=distinct,
+            column_casts=casts_key,
+        )
+        json_cols = self._json_cols_for(meta)
+        args = self._prepare_args(where, param_order, json_cols) if where else ()
+
+        result = await self._execute_crud(
+            sql, args, effective_columns or ["*"], conn, single_row=False
+        )
+        if isinstance(result, list):
+            return result
+        return []
+
+    async def execute_sql(
+        self,
+        sql: str,
+        params: tuple[Any, ...] = (),
+        conn: Optional[Any] = None,
+        returning: bool = True,
+        single_row: bool = False,
+    ) -> Any:
+        """Execute a parameterized SQL statement, optionally within a transaction.
+
+        Unlike :meth:`execute_query` (which wraps results in a
+        ``QueryExecutionResponse`` and always acquires its own connection),
+        this method accepts positional *params*, honours *conn* for transaction
+        reuse, and returns raw row dicts.
+
+        Use this as the escape hatch for SQL that cannot be expressed through
+        the CRUD primitives — e.g. ``INSERT … ON CONFLICT … DO UPDATE``,
+        ``SELECT … = ANY($1::int[])``, or scalar sub-queries.
+
+        Args:
+            sql: Parameterized SQL string with ``$1``, ``$2``, …
+                positional placeholders.
+            params: Positional parameters tuple (default: empty tuple).
+            conn: Optional existing connection, e.g. one yielded by
+                :meth:`transaction`.  When provided the call participates
+                in the caller's transaction without acquiring a new one.
+            returning: When ``True`` (default) rows are fetched from the
+                result via ``fetch`` / ``fetchrow``.  When ``False`` the
+                statement is executed with ``execute`` and no rows are
+                returned (DML-only path).
+            single_row: When ``True`` and *returning* is ``True``, fetch
+                exactly one row via ``fetchrow`` and return a ``dict``
+                (empty dict when no row matched).  When ``False`` (default)
+                all matching rows are returned as a ``list`` via ``fetch``.
+
+        Returns:
+            * ``List[Dict[str, Any]]`` — when *returning=True* and
+              *single_row=False*.
+            * ``Dict[str, Any]`` (possibly ``{}``) — when *returning=True*
+              and *single_row=True*.
+            * ``{"status": "ok"}`` — when *returning=False*.
+
+        Example::
+
+            # Parameterised SELECT sharing the caller's transaction
+            async with self.transaction() as tx:
+                rows = await self.execute_sql(
+                    "SELECT client_id FROM auth.clients "
+                    "WHERE client_id = ANY($1::int[])",
+                    params=(client_ids,),
+                    conn=tx,
+                )
+
+            # DML without returning (INSERT … ON CONFLICT … DO UPDATE)
+            async with self.transaction() as tx:
+                await self.execute_sql(
+                    "INSERT INTO auth.program_clients "
+                    "(program_id, client_id, program_slug, client_slug, active) "
+                    "VALUES ($1,$2,$3,$4,true) "
+                    "ON CONFLICT (program_id, client_id) "
+                    "DO UPDATE SET active = EXCLUDED.active, "
+                    "              client_slug = EXCLUDED.client_slug",
+                    params=(pid, cid, program_slug, c_slug),
+                    conn=tx,
+                    returning=False,
+                )
+        """
+        returning_cols: Optional[List[str]] = ["*"] if returning else None
+        return await self._execute_crud(sql, params, returning_cols, conn, single_row)
+
+    async def _execute_crud(
+        self,
+        sql: str,
+        args: tuple[Any, ...],
+        returning: Optional[List[str]],
+        conn: Optional[Any],
+        single_row: bool,
+    ) -> Any:
+        """Execute *sql* with *args* using the given or acquired connection.
+
+        Dispatches to ``conn.execute`` (no rows), ``conn.fetchrow`` (single
+        row), or ``conn.fetch`` (multiple rows) depending on *returning* and
+        *single_row*.
+        """
+        if conn is not None:
+            return await self._run_on_conn(sql, args, returning, conn, single_row)
+
+        async with self._acquire_asyncdb_connection() as acquired_conn:
+            return await self._run_on_conn(sql, args, returning, acquired_conn, single_row)
+
+    @staticmethod
+    async def _run_on_conn(
+        sql: str,
+        args: tuple[Any, ...],
+        returning: Optional[List[str]],
+        conn: Any,
+        single_row: bool,
+    ) -> Any:
+        """Execute on a concrete connection object."""
+        if not returning:
+            await conn.execute(sql, *args)
+            return {"status": "ok"}
+        if single_row:
+            row = await conn.fetchrow(sql, *args)
+            return dict(row) if row else {}
+        else:
+            rows = await conn.fetch(sql, *args)
+            return [dict(r) for r in rows] if rows else []
+
+    # ------------------------------------------------------------------
+    # Transaction context manager
+    # ------------------------------------------------------------------
+
+    @asynccontextmanager
+    async def transaction(self) -> AsyncIterator[Any]:
+        """Yield a raw asyncpg connection inside a transaction block.
+
+        Commits on normal exit, rolls back on exception.  Supports nested
+        savepoints: callers can open an inner ``async with conn.transaction():``
+        block inside the yielded context — asyncpg automatically uses a
+        ``SAVEPOINT`` for the inner block and rolls back only that savepoint
+        on exception without aborting the outer transaction.
+
+        Yields:
+            Raw ``asyncpg.Connection`` that can be passed as ``conn=`` to
+            CRUD methods or used directly for ``fetch``/``execute``.
+
+        Example::
+
+            async with toolkit.transaction() as tx:
+                await toolkit.insert_row("auth.programs", data, conn=tx)
+                await toolkit.upsert_row("auth.program_clients", pc, conn=tx)
+
+            # Nested savepoint (inner rollback preserves outer):
+            async with toolkit.transaction() as tx:
+                await toolkit.insert_row("auth.programs", data, conn=tx)
+                async with tx.transaction():   # SAVEPOINT
+                    await toolkit.insert_row("auth.clients", c, conn=tx)
+                    raise SomeError()          # ROLLBACK TO SAVEPOINT
+                # outer transaction still active — will COMMIT
+        """
+        async with self._acquire_asyncdb_connection() as raw_conn:
+            async with raw_conn.transaction():
+                yield raw_conn
+
+    # ------------------------------------------------------------------
+    # Metadata reload
+    # ------------------------------------------------------------------
+
+    async def reload_metadata(self, schema_name: str, table: str) -> None:
+        """Purge and lazily re-warm cached metadata + templates for (schema_name, table).
+
+        Clears:
+        * The ``cache_partition`` entry for ``schema_name.table`` (both
+          ``schema_cache`` and ``hot_cache`` if accessible).
+        * All ``_prepared_cache`` keys containing ``|schema_name|table|``.
+        * The global Pydantic model LRU cache (whole cache — documented
+          blast radius; see implementation notes).
+
+        The next CRUD call will trigger a lazy re-warm via
+        ``_resolve_table → _build_table_metadata``.
+
+        Args:
+            schema_name: Schema of the table to invalidate.  Named
+                ``schema_name`` (not ``schema``) to avoid the Pydantic v2
+                ``BaseModel.schema`` class-method shadowing warning when
+                the tool-args model is generated.
+            table: Table name to invalidate.
+        """
+        # Internal alias for readability
+        schema = schema_name
+
+        # Clear schema_cache entry
+        if self.cache_partition:
+            sc = getattr(self.cache_partition, "schema_cache", {})
+            schema_meta = sc.get(schema)
+            if schema_meta:
+                tables_dict = getattr(schema_meta, "tables", {})
+                tables_dict.pop(table, None)
+
+            # Clear hot_cache entry
+            hot_cache = getattr(self.cache_partition, "hot_cache", None)
+            if hot_cache is not None:
+                hot_key = f"{schema}.{table}"
+                hot_cache.pop(hot_key, None)
+
+        # Clear prepared statement cache entries for this table
+        prefix = f"|{schema}|{table}|"
+        stale_keys = [k for k in self._prepared_cache if prefix in k]
+        for k in stale_keys:
+            del self._prepared_cache[k]
+
+        # Clear json_cols cache
+        self._json_cols_cache.pop(f"{schema}.{table}", None)
+
+        # Clear global Pydantic model cache
+        previous_size = _crud._build_pydantic_model.cache_info().currsize
+        _crud._build_pydantic_model.cache_clear()
+        self.logger.info(
+            "Cleared Pydantic model cache — %d entries evicted for %s.%s",
+            previous_size,
+            schema,
+            table,
+        )

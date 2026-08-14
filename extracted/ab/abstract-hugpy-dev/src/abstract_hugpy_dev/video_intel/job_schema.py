@@ -16,6 +16,7 @@ from .gen_schema import GenerateImageSpec
 from .movie_schema import MovieSpec
 from .scene_schema import GenerateSceneSpec
 from .studio.job import StudioI2VSpec
+from .studio.tester import StudioTesterSpec
 from .studio_movie_schema import StudioMovieSpec
 from .identity_reconstruction_schema import IdentityReconstructionSpec, IdentityMeshSpec
 from .identity_video_extract_schema import IdentityVideoExtractSpec
@@ -83,4 +84,12 @@ JOB_REGISTRY = {
     # ("mlt","render"); "media" (CPU) queue — NO GPU reservation template; a long timeout
     # since a real NLE timeline can be minutes.
     "mlt_render": JobSpec("mlt_render", MltRenderSpec, ("mlt", "render"), "media", 14400),
+    # Studio TESTER = a cross-model SWEEP: one prompt iterated across every servable
+    # model of a category's type, one battery row per model. It is a CPU ORCHESTRATOR
+    # (each inner generation manages its own GPU via the plane / the studio spine), so
+    # it runs on the "media" queue with NO GPU-reservation template — mirroring
+    # mlt_render. A full sweep is many renders, so its wall-clock is (models × per-gen)
+    # — a very long timeout (24h), the longest budget in the registry.
+    "studio_tester": JobSpec(
+        "studio_tester", StudioTesterSpec, ("studio", "tester"), "media", 86400),
 }

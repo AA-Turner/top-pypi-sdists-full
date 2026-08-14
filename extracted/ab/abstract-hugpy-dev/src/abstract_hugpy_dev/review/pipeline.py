@@ -192,7 +192,18 @@ def review_one(hub_id: str, crit: ReviewCriteria, api=None,
 # ── a full run ─────────────────────────────────────────────────────────────
 def run(crit: ReviewCriteria, hub_ids: list[str] | None = None,
         force: bool = False, log=print) -> dict:
-    """Screen a pool, then download+load the best survivors up to the run cap."""
+    """Screen a pool, then download+load the best survivors up to the run cap.
+
+    A criteria the console switched off (``enabled: false``, 2026-08-13)
+    no-ops here — BEFORE start_run, so a skipped night writes no run row.
+    The timer keeps firing; this is the cheap, root-less off switch. An
+    explicit ask still runs: ``force=True`` (the console's "Run now") or a
+    caller-supplied ``hub_ids`` list (screening specific repos was requested
+    by a human, not the schedule)."""
+    if not getattr(crit, "enabled", True) and not force and not hub_ids:
+        log(f"criteria '{crit.name}' is disabled (enabled: false) — skipping "
+            f"run; flip it on in the console settings or pass force")
+        return {"run_id": None, "criteria": crit.name, "skipped": "disabled"}
     run_id = store.start_run(crit.name)
     api = _hf_api()
     counts = {"screened": 0, "passed": 0, "downloaded": 0, "smoked": 0}

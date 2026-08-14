@@ -7,6 +7,8 @@
 import functools
 import inspect
 import logging
+import os
+import threading
 from typing import Callable
 
 import pandas
@@ -90,6 +92,108 @@ def _force_inline_python_udf_in_native_app() -> None:
 
     # Raising the threshold above any possible len(code) makes Snowpark inline.
     _sp_udf_utils._MAX_INLINE_CLOSURE_SIZE_BYTES = sys.maxsize
+
+
+# DUPLICATED from udtf_utils.py. This module's source is inlined verbatim into the
+# create-UDF stored procedure, which lacks snowpark_connect and so cannot import
+# udtf_utils; each *_utils module therefore carries the patch for its own sproc.
+# Server-side, the native_app_mode config callback reuses udtf_utils' copy.
+_VERSION_STAGE_IMPORT_PATCH_LOCK = threading.Lock()
+
+
+def _is_version_stage_relative(path: str) -> bool:
+    """A ``/...`` path that is not an existing local file. A local absolute path also starts
+    with ``/`` but exists on disk and must upload normally, so it is excluded."""
+    trimmed = path.strip()
+    return trimmed.startswith("/") and not os.path.exists(trimmed)
+
+
+def apply_version_stage_import_passthrough() -> None:
+    """Make Snowpark's import resolver emit version-stage-relative (``/...``) imports verbatim
+    rather than treating them as missing local files, so a scalar Python UDF created in the
+    versioned-schema create-UDF sproc can import files bundled at the version stage root.
+    Idempotent and lock-guarded; only ``/``-paths that aren't local files are intercepted."""
+    import snowflake.snowpark.session as _sp_session
+
+    session_cls = _sp_session.Session
+    with _VERSION_STAGE_IMPORT_PATCH_LOCK:
+        if getattr(session_cls, "_scos_version_stage_import_patch", False):
+            return
+
+        _orig_resolve_import_path = session_cls._resolve_import_path
+        _orig_resolve_imports = session_cls._resolve_imports
+
+        def _resolve_import_path(
+            path: str,
+            import_path: str | None = None,
+            chunk_size: int = 8192,
+            whole_file_hash: bool = False,
+        ) -> tuple[str, None, None]:
+            if _is_version_stage_relative(path):
+                return path.strip(), None, None
+            return _orig_resolve_import_path(
+                path, import_path, chunk_size, whole_file_hash
+            )
+
+        def _resolve_imports(
+            self,
+            import_only_stage: str,
+            upload_and_import_stage: str,
+            udf_level_import_paths: dict[str, tuple] | None = None,
+            *,
+            statement_params: dict[str, str] | None = None,
+        ) -> list[str]:
+            if udf_level_import_paths:
+                version_stage = [
+                    p for p in udf_level_import_paths if _is_version_stage_relative(p)
+                ]
+                rest = {
+                    p: v
+                    for p, v in udf_level_import_paths.items()
+                    if not _is_version_stage_relative(p)
+                }
+            else:
+                version_stage = []
+                rest = udf_level_import_paths
+            resolved = list(version_stage)
+            if rest or udf_level_import_paths is None:
+                resolved += _orig_resolve_imports(
+                    self,
+                    import_only_stage,
+                    upload_and_import_stage,
+                    rest if udf_level_import_paths is not None else None,
+                    statement_params=statement_params,
+                )
+            return resolved
+
+        session_cls._resolve_import_path = staticmethod(_resolve_import_path)
+        session_cls._resolve_imports = _resolve_imports
+        session_cls._scos_version_stage_import_patch = True
+
+
+def _ensure_version_stage_imports_passthrough(imports: list[str]) -> None:
+    """Sproc path: apply the passthrough when a version-stage import is present. Keyed on the
+    ``/`` import (not is_native_app_mode, which is unavailable in the inlined sproc)."""
+    if any(_is_version_stage_relative(i) for i in imports):
+        apply_version_stage_import_passthrough()
+
+
+def _reraise_missing_version_stage_import(err: Exception, imports: list[str]) -> None:
+    """Turn Snowflake's generic "Remote file not found" at CREATE FUNCTION into an
+    actionable message when a version-stage (``/...``) import is unresolved; otherwise
+    re-raise unchanged. Mirror of udtf_utils._reraise_missing_version_stage_import (this
+    module is inlined into the create-UDF sproc and cannot import udtf_utils)."""
+    version_stage = [i for i in imports if i.strip().startswith("/")]
+    msg = str(err).lower()
+    if version_stage and ("not found" in msg or "does not exist" in msg):
+        raise RuntimeError(
+            "[snowpark_connect::invalid_operation] Version-stage import(s) "
+            f"{version_stage} were not found at the version stage root. In a Native App, a "
+            "file imported by a UDF/UDTF must be bundled as an app artifact at the version "
+            "stage root (e.g. snowflake.yml `dest: ./`) — spark.addArtifact() alone stages "
+            "to a session stage, which a versioned schema cannot import from."
+        ) from err
+    raise err
 
 
 def create_telemetry_wrapper(func, udf_name):
@@ -624,6 +728,10 @@ class ProcessCommonInlineUserDefinedFunction:
             imports = [i.strip() for i in self._udf_imports.split(",") if i.strip()]
         else:
             imports = []
+        # Native App: '/'-relative imports must pass through Snowpark verbatim. Applied here
+        # (not only server-side) so it also covers the in-sproc UDF-creation path, which
+        # inlines this module but lacks the server's snowpark_connect patch.
+        _ensure_version_stage_imports_passthrough(imports)
 
         def callable_func(*args, **kwargs):
             if imports:
@@ -796,18 +904,21 @@ class ProcessCommonInlineUserDefinedFunction:
                 wrapped_func = create_telemetry_wrapper(
                     wrapped_func, self._function_name
                 )
-            return snowpark_fn.udf(
-                wrapped_func,
-                return_type=self._return_type,
-                input_types=self._input_types,
-                name=self._udf_name,
-                replace=self._replace,
-                packages=packages,
-                imports=imports,
-                immutable=self._is_deterministic,
-                artifact_repository=self._artifact_repository,
-                resource_constraint=self._resource_constraint,
-            )
+            try:
+                return snowpark_fn.udf(
+                    wrapped_func,
+                    return_type=self._return_type,
+                    input_types=self._input_types,
+                    name=self._udf_name,
+                    replace=self._replace,
+                    packages=packages,
+                    imports=imports,
+                    immutable=self._is_deterministic,
+                    artifact_repository=self._artifact_repository,
+                    resource_constraint=self._resource_constraint,
+                )
+            except Exception as e:
+                _reraise_missing_version_stage_import(e, imports)
 
         is_pandas_udf, _, return_types, _ = extract_return_input_types(
             callable_func,
@@ -894,18 +1005,21 @@ class ProcessCommonInlineUserDefinedFunction:
         if ENABLE_UDF_TELEMETRY:
             udf_function = create_telemetry_wrapper(udf_function, self._function_name)
 
-        return snowpark_fn.udf(
-            udf_function,
-            return_type=self._return_type,
-            input_types=self._input_types,
-            name=self._udf_name,
-            replace=self._replace,
-            packages=packages,
-            imports=imports,
-            immutable=self._is_deterministic,
-            artifact_repository=self._artifact_repository,
-            resource_constraint=self._resource_constraint,
-        )
+        try:
+            return snowpark_fn.udf(
+                udf_function,
+                return_type=self._return_type,
+                input_types=self._input_types,
+                name=self._udf_name,
+                replace=self._replace,
+                packages=packages,
+                imports=imports,
+                immutable=self._is_deterministic,
+                artifact_repository=self._artifact_repository,
+                resource_constraint=self._resource_constraint,
+            )
+        except Exception as e:
+            _reraise_missing_version_stage_import(e, imports)
 
     def create_udf(self):
         match self._function_type:

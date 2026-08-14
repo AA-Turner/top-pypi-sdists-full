@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,21 +28,18 @@ import (
 	"github.com/replicate/cog/pkg/global"
 	"github.com/replicate/cog/pkg/registry"
 	"github.com/replicate/cog/pkg/schema"
+	"github.com/replicate/cog/pkg/schema/openapi"
 	"github.com/replicate/cog/pkg/schema/python"
 	"github.com/replicate/cog/pkg/util/console"
 	"github.com/replicate/cog/pkg/util/files"
-	cogversion "github.com/replicate/cog/pkg/util/version"
 	weightslockfile "github.com/replicate/cog/pkg/weights/lockfile"
 	"github.com/replicate/cog/pkg/weightslegacy"
-	"github.com/replicate/cog/pkg/wheels"
 )
 
 // cogBuildContextName is the named build context for build staging
 // artifacts (.cog/build/). Dockerfile COPY instructions reference it
 // via --from=cog_build.
 const cogBuildContextName = "cog_build"
-
-const minimumStaticSchemaSDKVersion = "0.17.0"
 
 // defaultExcludePatterns filters .cog/ out of the project context mount
 // so weight blobs, mount dirs, and build caches are never sent to the
@@ -82,6 +80,7 @@ func Build(
 	useCudaBaseImage string,
 	progressOutput string,
 	schemaFile string,
+	openAPISchema []byte,
 	dockerfileFile string,
 	useCogBaseImage *bool,
 	strip bool,
@@ -120,30 +119,27 @@ func Build(
 
 	needsSchema := !skipSchemaValidation && schemaFile == ""
 
-	// --- Pre-build static schema generation ---
-	// Generate schema before the Docker build so schema errors fail fast and the
-	// schema file is available in the build context.
-	var schemaJSON []byte
-	switch {
-	case needsSchema:
-		if err := validateStaticSchemaSDKVersion(cfg); err != nil {
-			return "", err
-		}
-		console.Debug("Generating model schema (static)...")
-		data, err := generateStaticSchema(cfg, dir)
-		if err != nil {
+	// --- Predictor metadata (decorator concurrency, async detection) ---
+	// Statically parse the predictor for decorator-derived concurrency. When
+	// schema validation is skipped or an external schema is supplied, the user
+	// has opted out of static source parsing, so treat parse failures as
+	// non-fatal and fall back to cog.yaml-only concurrency instead of failing
+	// the build.
+	predictorInfo, err := generatePredictorMetadata(cfg, dir)
+	if err != nil {
+		if needsSchema {
 			return "", fmt.Errorf("image build failed: %w", err)
 		}
-		schemaJSON = data
-	case !skipSchemaValidation && schemaFile != "":
-		console.Infof("Validating model schema from %s...", schemaFile)
-		data, err := os.ReadFile(schemaFile)
-		if err != nil {
-			return "", fmt.Errorf("Failed to read schema file: %w", err)
-		}
-		schemaJSON = data
-	case skipSchemaValidation:
-		console.Debug("Skipping model schema validation")
+		console.Debugf("Skipping decorator concurrency detection: %v", err)
+		predictorInfo = nil
+	}
+
+	// --- Pre-build static schema generation ---
+	// Resolve the schema before the Docker build so schema errors fail fast and
+	// the schema file is available in the build context.
+	schemaJSON, err := resolveBuildSchema(cfg, dir, schemaFile, openAPISchema, needsSchema, skipSchemaValidation)
+	if err != nil {
+		return "", err
 	}
 
 	// Write and validate pre-build schema (static or from file).
@@ -157,6 +153,11 @@ func Build(
 		if err := files.Copy(bp.rootSchemaFile, bp.schemaFile); err != nil {
 			return "", err
 		}
+	}
+
+	dockerfileCfg, err := configWithDecoratorConcurrency(cfg, predictorInfo)
+	if err != nil {
+		return "", err
 	}
 
 	// --- Runtime weights manifest (/.cog/weights.json) ---
@@ -206,8 +207,11 @@ func Build(
 		if _, err := dockerCommand.ImageBuild(ctx, buildOpts); err != nil {
 			return "", fmt.Errorf("Failed to build Docker image: %w", err)
 		}
+		if err := addConcurrencyToCustomDockerfileImage(ctx, dockerCommand, tmpImageId, dockerfileCfg.Concurrency, progressOutput, bp.buildDir); err != nil {
+			return "", err
+		}
 	} else {
-		generator, err := dockerfile.NewStandardGenerator(cfg, dir, bp.buildDir, configFilename, dockerCommand, client, true)
+		generator, err := dockerfile.NewStandardGenerator(dockerfileCfg, dir, bp.buildDir, configFilename, dockerCommand, client, true)
 		if err != nil {
 			return "", fmt.Errorf("Error creating Dockerfile generator: %w", err)
 		}
@@ -327,7 +331,11 @@ func Build(
 	// We used to set the cog_version and config labels in Dockerfile, because we didn't require running the
 	// built image to get those. But, the escaping of JSON inside a label inside a Dockerfile was gnarly, and
 	// doesn't seem to be a problem here, so do it here instead.
-	configJSON, err := json.Marshal(cfg)
+	//
+	// Marshal the effective config (dockerfileCfg) so the label reflects
+	// decorator-derived concurrency baked into the image, keeping the config
+	// label consistent with the COG_MAX_CONCURRENCY runtime env.
+	configJSON, err := json.Marshal(dockerfileCfg)
 	if err != nil {
 		return "", fmt.Errorf("Failed to convert config to JSON: %w", err)
 	}
@@ -439,49 +447,114 @@ func BuildAddLabelsAndSchemaToImage(ctx context.Context, dockerClient command.Co
 	return imageID, nil
 }
 
-// generateStaticSchema runs the Go tree-sitter parser to produce the OpenAPI schema.
-// When both predict and train are configured, it generates both and merges them.
-func generateStaticSchema(cfg *config.Config, dir string) ([]byte, error) {
-	if cfg.Predict == "" && cfg.Train == "" {
-		return nil, fmt.Errorf("no predict or train reference found in cog.yaml")
+// resolveBuildSchema returns the OpenAPI schema JSON to use for the build,
+// choosing among (in priority order): a pre-generated schema supplied by the
+// caller, static generation from source, an external schema file, or nothing
+// when schema validation is skipped.
+func resolveBuildSchema(cfg *config.Config, dir, schemaFile string, openAPISchema []byte, needsSchema, skipSchemaValidation bool) ([]byte, error) {
+	switch {
+	case len(openAPISchema) > 0:
+		// The caller already generated (and validated) the schema for input
+		// preflight; reuse it so validation and the image label share one
+		// source of truth instead of regenerating.
+		console.Debug("Using pre-generated model schema...")
+		return openAPISchema, nil
+	case needsSchema:
+		console.Debug("Generating model schema (static)...")
+		generatedSchema, err := openapi.GenerateSchema(cfg, dir)
+		if err != nil {
+			return nil, fmt.Errorf("image build failed: %w", err)
+		}
+		return generatedSchema, nil
+	case !skipSchemaValidation && schemaFile != "":
+		console.Infof("Validating model schema from %s...", schemaFile)
+		data, err := os.ReadFile(schemaFile)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to read schema file: %w", err)
+		}
+		return data, nil
+	case skipSchemaValidation:
+		console.Debug("Skipping model schema validation")
 	}
-	return schema.GenerateCombined(dir, cfg.Predict, cfg.Train, schema.PathAwareParser(python.ParsePredictorWithSourcePath))
-
+	return nil, nil
 }
 
-func validateStaticSchemaSDKVersion(cfg *config.Config) error {
-	sdkVersion := explicitSDKVersion(cfg)
-	if sdkVersion == "" {
+func generatePredictorMetadata(cfg *config.Config, dir string) (*schema.PredictorInfo, error) {
+	if cfg.Predict == "" && cfg.Train == "" {
+		return nil, nil
+	}
+	if cfg.Predict != "" {
+		return schema.GenerateInfo(cfg.Predict, dir, schema.ModePredict, schema.PathAwareParser(python.ParsePredictorMetadataWithSourcePath))
+	}
+	return schema.GenerateInfo(cfg.Train, dir, schema.ModeTrain, schema.PathAwareParser(python.ParsePredictorMetadataWithSourcePath))
+}
+
+func configWithDecoratorConcurrency(cfg *config.Config, info *schema.PredictorInfo) (*config.Config, error) {
+	if cfg.Concurrency != nil && cfg.Concurrency.Max > 1 && info != nil && !info.IsAsync {
+		return nil, fmt.Errorf("concurrency.max > 1 requires an async run() or predict() method")
+	}
+	if cfg.Concurrency != nil || info == nil || info.ConcurrencyMax == nil {
+		return cfg, validateEffectiveConcurrency(cfg, info)
+	}
+	if *info.ConcurrencyMax > 1 && !info.IsAsync {
+		return nil, fmt.Errorf("@cog.concurrent(max > 1) requires an async run() or predict() method")
+	}
+	cfgCopy := *cfg
+	cfgCopy.Concurrency = &config.Concurrency{Max: *info.ConcurrencyMax}
+	return &cfgCopy, validateEffectiveConcurrency(&cfgCopy, info)
+}
+
+func addConcurrencyToCustomDockerfileImage(ctx context.Context, dockerCommand command.Command, imageName string, concurrency *config.Concurrency, progressOutput string, buildCacheDir string) error {
+	if concurrency == nil || concurrency.Max <= 0 {
 		return nil
 	}
-
-	base := sdkVersion
-	if m := wheels.BaseVersionRe.FindString(base); m != "" {
-		base = m
+	buildOpts := command.ImageBuildOptions{
+		DockerfileContents: concurrencyDockerfile(imageName, concurrency.Max),
+		ImageName:          imageName,
+		ProgressOutput:     progressOutput,
+		BuildCacheDir:      buildCacheDir,
 	}
-	ver, err := cogversion.NewVersion(base)
+	if _, err := dockerCommand.ImageBuild(ctx, buildOpts); err != nil {
+		return fmt.Errorf("Failed to add concurrency configuration to Docker image: %w", err)
+	}
+	return nil
+}
+
+func validateEffectiveConcurrency(cfg *config.Config, info *schema.PredictorInfo) error {
+	if cfg.Concurrency == nil || cfg.Concurrency.Max <= 1 {
+		return nil
+	}
+	if info != nil && !info.IsAsync {
+		return fmt.Errorf("concurrency.max > 1 requires an async run() or predict() method")
+	}
+	if cfg.Build == nil || cfg.Build.PythonVersion == "" {
+		return nil
+	}
+	major, minor, err := splitPythonVersionForBuild(cfg.Build.PythonVersion)
 	if err != nil {
 		return nil
 	}
-	minVer := cogversion.MustVersion(minimumStaticSchemaSDKVersion)
-	if ver.GreaterOrEqual(minVer) {
-		return nil
+	if major == config.MinimumMajorPythonVersion && minor < config.MinimumMinorPythonVersionForConcurrency {
+		return fmt.Errorf("concurrency requires Python %d.%d or higher", config.MinimumMajorPythonVersion, config.MinimumMinorPythonVersionForConcurrency)
 	}
-	return fmt.Errorf("SDK version %s is not supported by static schema generation; use %s or newer", sdkVersion, minimumStaticSchemaSDKVersion)
+	return nil
 }
 
-func explicitSDKVersion(cfg *config.Config) string {
-	if envVal := os.Getenv(wheels.CogSDKWheelEnvVar); envVal != "" {
-		wc := wheels.ParseWheelValue(envVal)
-		if wc != nil && wc.Source == wheels.WheelSourcePyPI && wc.Version != "" {
-			return wc.Version
-		}
-		return ""
+func splitPythonVersionForBuild(version string) (major int, minor int, err error) {
+	parts := strings.Split(version, ".")
+	if len(parts) < 2 {
+		return 0, 0, fmt.Errorf("invalid Python version %q", version)
 	}
-	if cfg.Build != nil && cfg.Build.SDKVersion != "" && cfg.Build.SDKVersion != wheels.PreReleaseSentinel {
-		return cfg.Build.SDKVersion
+	major, err = strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, err
 	}
-	return ""
+	minor, err = strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, err
+	}
+	return major, minor, nil
+
 }
 
 // writeAndValidateSchema validates the schema JSON as a well-formed OpenAPI 3.0
@@ -544,6 +617,10 @@ func bundleDockerfile(baseImage string, files []string) string {
 		fmt.Fprintf(&b, "COPY --from=%s %s %s/\n", cogBuildContextName, filepath.Base(f), dotcog.Name)
 	}
 	return b.String()
+}
+
+func concurrencyDockerfile(baseImage string, maxConcurrency int) string {
+	return fmt.Sprintf("FROM %s\nENV COG_MAX_CONCURRENCY=%d\n", baseImage, maxConcurrency)
 }
 
 func isGitWorkTree(ctx context.Context, dir string) bool {

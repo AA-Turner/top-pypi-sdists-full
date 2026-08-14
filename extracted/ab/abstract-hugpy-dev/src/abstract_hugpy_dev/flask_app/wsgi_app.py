@@ -1,6 +1,6 @@
 import os
 
-from flask import send_from_directory
+from flask import redirect, send_from_directory
 
 from .app import *
 from .app import routes as routes
@@ -66,6 +66,17 @@ def _mount_ui(app, dist_dir: str) -> None:
     """Serve the built SPA: real files from dist, everything else (deep links
     like /login) falls back to index.html. API rules are explicit routes, so
     Werkzeug always prefers them over this converter catch-all."""
+
+    # /studio — the public name for the Studio experience, whose stations live
+    # INSIDE the video arm (/video/). One redirect keeps the short URL working
+    # without duplicating a build or splitting the arm; the webpack devServer has
+    # the same rewrite (react/ui/webpack.config.js historyApiFallback) so dev and
+    # prod agree. 302 (not 301): the destination is a routing decision we may
+    # revisit, and a permanent redirect would be cached in browsers forever.
+    @app.route("/studio", defaults={"sub": ""})
+    @app.route("/studio/<path:sub>")
+    def _hugpy_studio(sub):
+        return redirect("/video/" + (sub or ""), code=302)
 
     @app.route("/", defaults={"asset": ""})
     @app.route("/<path:asset>")
@@ -203,6 +214,22 @@ def get_hugpy_flask(name=None,allowed_origins=None,debug=False):
         _logging.getLogger(__name__).warning(
             "model-group routes not mounted under /api: %s", _exc)
 
+    # Same /api dual-mount for the EXPLICIT priority groups, so the Models tab
+    # reads /api/llm/model-groups on the same prefix as every other panel. This
+    # blueprint DOES carry writes (POST/PUT/PATCH/DELETE), and they are listed
+    # in operator_auth._SENSITIVE — which strips the /api prefix before matching,
+    # so the gate covers both mounts identically.
+    try:
+        from .app.routes.model_group_routes import model_group_bp
+        app.register_blueprint(model_group_bp, url_prefix="/api",
+                               name="model_group_bp_api")
+    except (ValueError, AssertionError):
+        pass
+    except Exception as _exc:  # noqa: BLE001 — must not break boot
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "model priority-group routes not mounted under /api: %s", _exc)
+
     # Eviction telemetry: central's OWN emitted events (the video reservation
     # flush→evict path is the one eviction central drives — it does no local LLM
     # serving) go straight to the shared store, so they appear in the same
@@ -252,6 +279,34 @@ def get_hugpy_flask(name=None,allowed_origins=None,debug=False):
             roots = [os.path.realpath(r) for r in (UPLOADS_HOME, DEFAULT_ROOT) if r]
             if not any(rp == root or rp.startswith(root + os.sep) for root in roots):
                 return None  # outside the storage root -> refuse (no arbitrary read)
+            # OWNERSHIP (2026-08-06). The jail says "inside our storage"; it never
+            # said "yours". Uploads are namespaced per account
+            # (UPLOADS_HOME/<namespace>/…), so a MEMBER analyzing a path under
+            # UPLOADS_HOME must be inside THEIR namespace — otherwise this bridge
+            # would remain a read of any other account's upload by path.
+            # Scoped to members ONLY (a resolvable namespace), exactly like the
+            # /video/media rule: an operator, an operator-token/open-mode caller
+            # and an API-key M2M caller have no namespace and stay unrestricted,
+            # as do paths outside UPLOADS_HOME (job artifacts, whose per-artifact
+            # rule lives in video_routes). Refuses the handle on any error.
+            try:
+                from .app.operator_auth import (
+                    principal_role, principal_username, upload_namespace,
+                )
+                uploads_root = os.path.realpath(UPLOADS_HOME) if UPLOADS_HOME else None
+                if uploads_root and (rp == uploads_root
+                                     or rp.startswith(uploads_root + os.sep)):
+                    ns = (upload_namespace(principal_username())
+                          if principal_role() == "member" else None)
+                    if ns:
+                        home = os.path.join(uploads_root, ns)
+                        if not rp.startswith(home + os.sep):
+                            return None
+            except Exception:  # noqa: BLE001
+                import logging as _logging
+                _logging.getLogger(__name__).warning(
+                    "upload ownership check failed — refusing handle", exc_info=True)
+                return None
             return rp if os.path.isfile(rp) else None
 
         app.register_blueprint(_build_media_bridge(resolve_file=_resolve_upload))
@@ -309,6 +364,20 @@ def get_hugpy_flask(name=None,allowed_origins=None,debug=False):
     except Exception as _exc:
         import logging as _logging
         _logging.getLogger(__name__).error("video gate install failed: %s", _exc)
+
+    # Studio/Media plane gate (2026-08-06): /media, /ml, /uploads, /session and
+    # /chat were gated by NOTHING — an anonymous caller could upload into the
+    # shared store, run the media pipelines and spend GPU on /chat/stream. This
+    # gate requires a MEMBER (an approved central account with the hugpy /
+    # clownworld site grant), an operator, or a valid API key — deliberately a
+    # SEPARATE gate from the console one, so a member credential can never
+    # authorize a console/operator route. Never break boot.
+    try:
+        from .app.member_auth import install_member_gate
+        install_member_gate(app)
+    except Exception as _exc:
+        import logging as _logging
+        _logging.getLogger(__name__).error("member gate install failed: %s", _exc)
 
     # Human-friendly /endpoints: content-negotiate the abstract_flask endpoint
     # inspector so a browser hitting dev.hugpy.ai/endpoints gets a rendered,

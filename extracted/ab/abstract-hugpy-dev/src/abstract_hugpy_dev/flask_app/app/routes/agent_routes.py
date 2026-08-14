@@ -20,9 +20,9 @@ public-vs-internal curation the /endpoints inspector surfaces:
   * the terminal (operator, human-driven, no browser):
         GET  /agent/client.sh             serve the bash dispatch client   (open)
   * secure one-time install links (2026-07-23):
-        POST   /agent/install-links            mint scoped key + link   (operator, strict)
-        GET    /agent/install-links            list links + status      (operator, strict)
-        DELETE /agent/install-links/<id>       revoke link AND its key  (operator, strict)
+        POST   /agent/install-links            mint scoped key + link   (member|operator, strict)
+        GET    /agent/install-links            list links + status      (member: own only; operator: all)
+        DELETE /agent/install-links/<id>       revoke link AND its key  (operator OR the link's creator)
         GET    /agent/install/<link_id>        one-time templated .py download (link capability)
         GET    /agent/install/<link_id>.sh     POSIX wrapper (free fetch; .py is the use)
         GET    /agent/install/<link_id>.ps1    Windows wrapper (free fetch; .py is the use)
@@ -441,7 +441,13 @@ def _template_installer(source: str, raw_key: str,
 
 @agent_bp.route("/agent/install-links", methods=["POST"])
 def install_link_create():
-    """OPERATOR: mint a scoped key + its one-time install link.
+    """MEMBER or OPERATOR: mint a scoped key + its one-time install link.
+
+    2026-08-06: a member may mint a link for their own machine. The creating
+    username is recorded on the link (and onto the minted key's label /
+    created_by), and a non-operator's ``scopes`` request is CLAMPED to
+    ``_MEMBER_LINK_SCOPES`` — a member can never mint "full" or the
+    fleet-enrolling "agent-register".
     Body: {label (required), scopes (default ["v1"]), key_expires_at? (epoch s
     or ISO-8601), link_ttl_s (default 86400), max_uses (default 1)}.
     Returns {url, link_id, label, scopes, expires_at, max_uses, uses_left,
@@ -453,14 +459,46 @@ def install_link_create():
     (see ``_install_commands``) — additive, 2026-07-25. ``downloads`` is the
     downloadable-archive counterpart for the double-click flow (see
     ``_install_downloads``) — additive, 2026-07-25."""
-    _require_operator_strict()
+    _require_member_strict()
     body = request.get_json(silent=True) or {}
+    try:
+        link = _install_links_mod().create_install_link(**_link_mint_args(body))
+    except ValueError as exc:
+        abort(400, description=str(exc))
+    link["url"] = f"{_install_public_base()}/agent/install/{link['link_id']}"
+    link["commands"] = _install_commands(link["url"])
+    link["downloads"] = _install_downloads(link["url"])
+    return jsonify(link), 201
+
+
+def _link_mint_args(body: dict) -> dict:
+    """Validate + normalize the mint body shared by BOTH install-link kinds
+    (hugpy-agent and fleet-console — factored out 2026-08-13 when the console
+    mint landed, byte-identical rules to the historical inline validation).
+    Aborts 400/401/403 exactly as before; returns create_install_link kwargs
+    (label, scopes, key_expires_at, link_ttl_s, max_uses, owner)."""
+    is_operator = _caller_is_operator()
+    owner = None if is_operator else _caller_username()
     label = (body.get("label") or "").strip()
     if not label:
         abort(400, description="An install link requires a 'label'.")
     scopes = body.get("scopes")
     if scopes is not None and not isinstance(scopes, list):
         abort(400, description="'scopes' must be a list.")
+    if not is_operator:
+        # SCOPE CLAMP for a member mint. Refused loudly (400) rather than
+        # silently downgraded: a caller must never believe it holds a scope it
+        # was not given. Omitting `scopes` keeps the ["v1"] default.
+        if scopes:
+            bad = [s for s in scopes if str(s) not in _MEMBER_LINK_SCOPES]
+            if bad:
+                abort(403, description=(
+                    f"scope(s) {bad} are operator-only; a member install link "
+                    f"may request {list(_MEMBER_LINK_SCOPES)}."))
+        if owner is None:
+            # member_authenticated() passed but no username resolved — refuse to
+            # mint an UNATTRIBUTED credential from a non-operator caller.
+            abort(401, description="Authentication required for this route.")
     key_expires_at = body.get("key_expires_at")
     if isinstance(key_expires_at, str) and key_expires_at.strip():
         # Accept ISO-8601 too (the spec says "optional ISO"); epoch also fine.
@@ -472,20 +510,9 @@ def install_link_create():
             abort(400, description="'key_expires_at' must be epoch seconds or ISO-8601.")
     elif isinstance(key_expires_at, str):
         key_expires_at = None
-    try:
-        link = _install_links_mod().create_install_link(
-            label=label,
-            scopes=scopes,
-            key_expires_at=key_expires_at,
-            link_ttl_s=body.get("link_ttl_s"),
-            max_uses=body.get("max_uses"),
-        )
-    except ValueError as exc:
-        abort(400, description=str(exc))
-    link["url"] = f"{_install_public_base()}/agent/install/{link['link_id']}"
-    link["commands"] = _install_commands(link["url"])
-    link["downloads"] = _install_downloads(link["url"])
-    return jsonify(link), 201
+    return dict(label=label, scopes=scopes, key_expires_at=key_expires_at,
+                link_ttl_s=body.get("link_ttl_s"), max_uses=body.get("max_uses"),
+                owner=owner)
 
 
 def _install_commands(url: str, posix_args: str = "") -> dict:
@@ -578,19 +605,66 @@ def _install_public_base() -> str:
 
 @agent_bp.route("/agent/install-links", methods=["GET"])
 def install_link_list():
-    """OPERATOR: every link with computed status (active/exhausted/expired/
-    revoked) + use counts. Raw keys never appear (scrubbed store-side)."""
-    _require_operator_strict()
-    return jsonify({"links": _install_links_mod().list_install_links()})
+    """MEMBER or OPERATOR: links with computed status (active/exhausted/expired/
+    revoked) + use counts. Raw keys never appear (scrubbed store-side).
+
+    An OPERATOR sees the full ledger (unchanged). A MEMBER sees ONLY the links
+    they created — links with no owner (operator/open-mode mints, and every
+    pre-2026-08-06 record) are operator-only."""
+    _require_member_strict()
+    mod = _install_links_mod()
+    if _caller_is_operator():
+        return jsonify({"links": mod.list_install_links()})
+    owner = _caller_username()
+    if not owner:
+        abort(401, description="Authentication required for this route.")
+    return jsonify({"links": mod.list_install_links(owner=owner)})
 
 
 @agent_bp.route("/agent/install-links/<link_id>", methods=["DELETE"])
 def install_link_revoke(link_id):
-    """OPERATOR: revoke the link AND the key it minted."""
-    _require_operator_strict()
-    if not _install_links_mod().revoke_install_link(link_id):
+    """OPERATOR (any link) or the MEMBER who created it: revoke the link AND the
+    key it minted. A member revoking someone else's link — or an owner-less
+    (operator-minted) one — gets 403; an unknown id is a 404 either way.
+
+    ``?purge=1`` (2026-08-13) REMOVES the row from the ledger instead of
+    marking it revoked — the UI's "remove" affordance for dead-weight rows.
+    Same auth. Key lifecycle rules live in install_links.delete_install_link
+    (an exhausted row's delivered key is never killed by a purge; an active
+    row's undelivered key is)."""
+    _require_member_strict()
+    mod = _install_links_mod()
+    if not _caller_is_operator():
+        found, owner = mod.owner_of(link_id)
+        if not found:
+            abort(404, description="Unknown install link.")
+        if not owner or owner != _caller_username():
+            abort(403, description="This install link belongs to another account.")
+    purge = (request.args.get("purge") or "").strip() in ("1", "true", "yes")
+    ok = (mod.delete_install_link(link_id) if purge
+          else mod.revoke_install_link(link_id))
+    if not ok:
         abort(404, description="Unknown install link.")
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "purged": purge})
+
+
+@agent_bp.route("/agent/install-links/prune", methods=["POST"])
+def install_link_prune():
+    """Sweep DEAD rows (exhausted/expired/revoked) from the install-link
+    ledger — the bulk "clear the clutter" counterpart of ``?purge=1``
+    (2026-08-13). OPERATOR sweeps the whole ledger; a MEMBER sweeps only
+    their own rows. Active links are never touched, and no key is ever
+    revoked (see install_links.prune_install_links). Returns {pruned: n}."""
+    _require_member_strict()
+    mod = _install_links_mod()
+    if _caller_is_operator():
+        n = mod.prune_install_links()
+    else:
+        owner = _caller_username()
+        if not owner:
+            abort(401, description="Authentication required for this route.")
+        n = mod.prune_install_links(owner=owner)
+    return jsonify({"ok": True, "pruned": n})
 
 
 def _require_operator_strict() -> None:
@@ -605,6 +679,57 @@ def _require_operator_strict() -> None:
         abort(401, description="Operator authentication required for this route.")
     if not operator_authenticated():
         abort(401, description="Operator authentication required for this route.")
+
+
+# --------------------------------------------------------------------------- #
+# 2026-08-06 MEMBER TIER on the install-link surface.
+#
+# Minting an install link is a PRODUCT action, not a fleet-control action: a
+# member installs the fleet console on their own machine. So POST/GET moved off
+# the operator-only inventory (operator_auth._SENSITIVE) and are enforced HERE,
+# where "operator OR the member who created this link" is expressible.
+#
+# What a member's link can actually do is bounded by the KEY it mints:
+# install_links.create_install_link -> api_keys.create_api_key(scopes=…), whose
+# vocabulary is ("v1", "ml", "agent-register", "full") and whose DEFAULT for an
+# install link is ["v1"] — the public inference surface only. A key of ANY scope
+# is never an operator credential: operator_auth accepts only HUGPY_OPERATOR_TOKEN
+# or a central session, never an api key. The two scopes a member must still not
+# be able to request are clamped below: "full" (a superset that would cover any
+# FUTURE key-gated surface) and "agent-register" (enrolls a NODE into the fleet —
+# a fleet-control capability, not a product one).
+# --------------------------------------------------------------------------- #
+_MEMBER_LINK_SCOPES = ("v1", "ml")
+
+
+def _require_member_strict() -> None:
+    """Member-or-operator, with NO ``HUGPY_AGENT_OPEN`` waiver (this surface
+    mints credentials — same rule as _require_operator_strict). Fails closed if
+    the gate module is unavailable."""
+    try:
+        from ..operator_auth import member_authenticated
+    except Exception:
+        abort(401, description="Authentication required for this route.")
+    if not member_authenticated():
+        abort(401, description="Authentication required for this route.")
+
+
+def _caller_is_operator() -> bool:
+    try:
+        from ..operator_auth import operator_authenticated
+        return bool(operator_authenticated())
+    except Exception:  # noqa: BLE001 — fail closed (treat as non-operator)
+        return False
+
+
+def _caller_username():
+    """The central username behind this request, or None (operator-token M2M,
+    open mode, or no session). None is what makes a link "operator-owned"."""
+    try:
+        from ..operator_auth import principal_username
+        return principal_username()
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _serve_install_py(link_id: str):
@@ -1224,18 +1349,75 @@ def _console_artifact(prefix: str, suffix: str) -> "dict | None":
 
 @agent_bp.route("/agent/console/info", methods=["GET"])
 def console_dist_info():
-    """Public: what console artifacts are downloadable right now."""
+    """MEMBER or OPERATOR: what console artifacts are downloadable right now.
+
+    2026-08-06: was public. The fleet-console .deb / agent .whl are the client
+    half of the fleet product — distribution belongs to accounts entitled to it,
+    not to the open internet. Anonymous -> 401.
+
+    2026-08-12: also carries the curl-install one-liner (the script itself is
+    public — see console_install_sh) so the API tab can show it verbatim."""
+    _require_member_strict()
+    # 2026-08-13: base was request.host_url + script_root, which behind the
+    # /api-stripping nginx proxy rendered "http://dev.hugpy.ai/agent/..." —
+    # wrong scheme AND missing mount, so the copy-paste example 404'd.
+    # _install_public_base() is the one function that already solves exactly
+    # this (HUGPY_PUBLIC_BASE / X-Forwarded-* + unconditional /api).
+    base = _install_public_base()
     return jsonify({
         "deb": _console_artifact("fleet-console_", ".deb"),
         "agent_whl": _console_artifact("hugpy_agent-", ".whl"),
+        "install": {
+            "url": "/agent/console/install.sh",
+            "latest_deb": "/agent/console/latest.deb",
+            "example": ("curl -fsSL " + base + "/agent/console/install.sh"
+                        " | HUGPY_TOKEN=<token> bash"),
+        },
     })
+
+
+@agent_bp.route("/agent/console/install.sh", methods=["GET"])
+def console_install_sh():
+    """Public: the fleet-console curl installer, one line::
+
+        curl -fsSL https://dev.hugpy.ai/api/agent/console/install.sh \\
+            | HUGPY_TOKEN=<token> bash
+
+    Unauthenticated by the same rule as ``/agent/client.sh``: the script is
+    plain client code with NO embedded secret — it reads the member/operator
+    credential from the caller's environment at RUN time and presents it as a
+    bearer to the (member-gated) info + download routes, verifying the sha256
+    sidecar before installing via apt. The artifacts themselves stay gated."""
+    from flask import Response
+    path = os.path.join(_ICON_DIR, "console-install.sh")
+    if not os.path.isfile(path):
+        abort(404, description="console-install.sh not on this deployment.")
+    with open(path, encoding="utf-8") as fh:
+        return Response(fh.read(), mimetype="text/x-shellscript")
 
 
 @agent_bp.route("/agent/console/<path:filename>", methods=["GET"])
 def console_dist_download(filename):
-    """Public download of a staged console artifact. Only bare filenames that
-    actually sit in the artifacts dir and carry a distributable extension are
-    servable — no traversal, no sidecar/README leakage."""
+    """MEMBER or OPERATOR download of a staged console artifact (2026-08-06: was
+    public — see console_dist_info). Only bare filenames that actually sit in
+    the artifacts dir and carry a distributable extension are servable — no
+    traversal, no sidecar/README leakage.
+
+    2026-08-12: ``latest.deb`` / ``latest.whl`` are stable aliases resolving to
+    the newest staged artifact (same version sort as /info), so scripts don't
+    need the info round-trip; the response still downloads under the real
+    versioned filename."""
+    _require_member_strict()
+    if filename == "latest.deb":
+        row = _console_artifact("fleet-console_", ".deb")
+        if row is None:
+            abort(404, description="No fleet-console .deb staged.")
+        filename = row["filename"]
+    elif filename == "latest.whl":
+        row = _console_artifact("hugpy_agent-", ".whl")
+        if row is None:
+            abort(404, description="No hugpy_agent .whl staged.")
+        filename = row["filename"]
     if "/" in filename or filename != os.path.basename(filename):
         abort(404)
     if not (filename.endswith(".deb") or filename.endswith(".whl")):
@@ -1245,6 +1427,113 @@ def console_dist_download(filename):
         abort(404)
     from flask import send_file
     return send_file(path, as_attachment=True, download_name=filename,
+                     conditional=True)
+
+
+# ── fleet-console ONE-TIME install links (2026-08-13) ───────────────────────
+# The console-link counterpart of the hugpy-agent install links above: the
+# owner mints a labeled/scoped one-time link whose fetch installs the
+# fleet-console .deb AND delivers a freshly minted console API key — the
+# credential the hugpy agents inside the installed console use (written to
+# ~/.fleet/console-hugpy.env, the file the deb's console-api sidecar reads
+# HUGPY_API_KEY from live). Same store/ledger/revocation as the agent links
+# (install_links.py, kind="console"); same member tier and scope clamp.
+#
+# USE COUNTING differs by necessity: there is no .py payload — the .deb is a
+# generic artifact that can't carry a per-link key — so the templated .sh IS
+# the keyed payload and ITS fetch consumes the use. The script then fetches
+# the .deb through the same link, gated on link VALIDITY (unrevoked,
+# unexpired) but not uses_left, since the consuming fetch just happened —
+# see install_links.peek_artifact_serveable for the rationale.
+
+@agent_bp.route("/agent/console/install-links", methods=["POST"])
+def console_install_link_create():
+    """MEMBER or OPERATOR: mint a scoped key + one-time fleet-console install
+    link. Body/rules identical to the agent mint (label required, member
+    scope clamp, key_expires_at/link_ttl_s/max_uses). Returns the ledger row
+    + {url, commands: {linux}} — NEVER the raw key. 503 (not a dead link
+    later) when no .deb is staged: refuse to mint a link that cannot serve."""
+    _require_member_strict()
+    if _console_artifact("fleet-console_", ".deb") is None:
+        abort(503, description=(
+            "No fleet-console .deb staged on this central — stage one under "
+            "the console artifacts dir before minting install links."))
+    body = request.get_json(silent=True) or {}
+    try:
+        link = _install_links_mod().create_install_link(
+            kind="console", **_link_mint_args(body))
+    except ValueError as exc:
+        abort(400, description=str(exc))
+    url = f"{_install_public_base()}/agent/console/install/{link['link_id']}"
+    link["url"] = url
+    # Linux-only on purpose: the payload is a .deb. No windows/macos rows —
+    # consumers must not render a command that cannot work (the macos_pkg
+    # omission rule).
+    link["commands"] = {"linux": f"curl -fsSL {url}.sh | bash"}
+    return jsonify(link), 201
+
+
+@agent_bp.route("/agent/console/install/<link_id>.sh", methods=["GET"])
+def console_install_link_sh(link_id):
+    """The one-time download itself: template base/deb/sha/key into the
+    console-install-link.sh asset and CONSUME the use. Gated by the link_id
+    capability alone (same as the agent .py route); dead/mismatched links 410
+    without an oracle. Artifact-missing 404s BEFORE consuming — a use must
+    never be spent on a download that cannot complete."""
+    from flask import Response
+    mod = _install_links_mod()
+    tpl_path = os.path.join(_ICON_DIR, "console-install-link.sh")
+    if not os.path.isfile(tpl_path):
+        abort(404, description=(
+            "console-install-link.sh not on this deployment."))
+    row = _console_artifact("fleet-console_", ".deb")
+    if row is None:
+        abort(404, description="No fleet-console .deb staged.")
+    remote = (request.headers.get("X-Forwarded-For") or
+              request.remote_addr or "").split(",")[0].strip()
+    raw_key = mod.consume_download(link_id, remote_addr=remote,
+                                   expect_kind="console", audit_kind="sh")
+    if raw_key is None:
+        abort(410, description=(
+            "This install link is no longer valid — it was used up, expired, "
+            "or revoked. Ask the console owner to mint a fresh one."))
+    base = _install_public_base()
+    with open(tpl_path, encoding="utf-8") as fh:
+        body = fh.read()
+    body = (body
+            .replace("@@CENTRAL@@", base)
+            .replace("@@DEB_NAME@@", row["filename"])
+            .replace("@@DEB_SHA@@", row.get("sha256") or "")
+            .replace("@@DEB_URL@@",
+                     f"{base}/agent/console/install/{link_id}/latest.deb")
+            .replace("@@API_KEY@@", raw_key))
+    logger.info("console install link %s… served installer to %s",
+                link_id[:8], remote or "?")
+    resp = Response(body, mimetype="text/x-shellscript")
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@agent_bp.route("/agent/console/install/<link_id>/latest.deb", methods=["GET"])
+def console_install_link_deb(link_id):
+    """The .deb fetch the templated script performs: link-VALIDITY gated
+    (unrevoked, unexpired — uses_left deliberately not checked, see the
+    section comment), audited, never use-consuming. Serves the newest staged
+    deb under its real versioned name."""
+    mod = _install_links_mod()
+    if not mod.peek_artifact_serveable(link_id, expect_kind="console"):
+        abort(410, description=(
+            "This install link is no longer valid — it expired or was "
+            "revoked. Ask the console owner to mint a fresh one."))
+    row = _console_artifact("fleet-console_", ".deb")
+    if row is None:
+        abort(404, description="No fleet-console .deb staged.")
+    remote = (request.headers.get("X-Forwarded-For") or
+              request.remote_addr or "").split(",")[0].strip()
+    mod.note_wrapper_fetch(link_id, remote_addr=remote, kind="deb")
+    from flask import send_file
+    return send_file(os.path.join(_CONSOLE_ARTIFACTS_DIR, row["filename"]),
+                     as_attachment=True, download_name=row["filename"],
                      conditional=True)
 
 

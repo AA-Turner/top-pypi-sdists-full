@@ -29,7 +29,9 @@ __all__ = (
     "ConflictDetailLevelTypeEnumType",
     "ConflictResolutionStrategyTypeEnumType",
     "DescribePullRequestEventsPaginatorName",
+    "DiffChangeTypeType",
     "FileModeTypeEnumType",
+    "GetBlobDifferencesPaginatorName",
     "GetCommentsForComparedCommitPaginatorName",
     "GetCommentsForPullRequestPaginatorName",
     "GetDifferencesPaginatorName",
@@ -67,7 +69,9 @@ ConflictResolutionStrategyTypeEnumType = Literal[
     "ACCEPT_DESTINATION", "ACCEPT_SOURCE", "AUTOMERGE", "NONE"
 ]
 DescribePullRequestEventsPaginatorName = Literal["describe_pull_request_events"]
+DiffChangeTypeType = Literal["ADD", "CONTEXT", "DELETE"]
 FileModeTypeEnumType = Literal["EXECUTABLE", "NORMAL", "SYMLINK"]
+GetBlobDifferencesPaginatorName = Literal["get_blob_differences"]
 GetCommentsForComparedCommitPaginatorName = Literal["get_comments_for_compared_commit"]
 GetCommentsForPullRequestPaginatorName = Literal["get_comments_for_pull_request"]
 GetDifferencesPaginatorName = Literal["get_differences"]
@@ -100,8 +104,11 @@ CodeCommitServiceName = Literal["codecommit"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -290,8 +297,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -318,6 +323,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -385,10 +392,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -406,6 +413,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -421,6 +429,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -448,6 +457,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -469,7 +479,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -490,6 +499,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -527,6 +537,7 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal[
     "describe_pull_request_events",
+    "get_blob_differences",
     "get_comments_for_compared_commit",
     "get_comments_for_pull_request",
     "get_differences",

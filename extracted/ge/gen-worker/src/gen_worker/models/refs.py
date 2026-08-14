@@ -37,10 +37,23 @@ import re
 from dataclasses import dataclass
 from typing import NewType, Optional
 
-# th#597 C5: `#` fragment charset [a-z0-9][a-z0-9._-]{0,63} (matches
-# tensorhub's validation.IsValidFlavorToken). Cell fragments only — see the
-# module docstring.
-_TENSORHUB_FRAGMENT_RE = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}")
+from gen_worker.refgrammar import MAX_FRAGMENT_LEN as _MAX_FRAGMENT_LEN
+
+# th#597 C5: `#` fragment charset [a-z0-9][a-z0-9._-]*, bounded by
+# MAX_FRAGMENT_LEN (matches tensorhub's validation.IsValidFlavorToken). Cell
+# fragments only — see the module docstring.
+#
+# th#1897/pgw#1213: the bound is 96, MIRRORING tensorhub's
+# internal/refgrammar.MaxFragmentLen byte-for-byte. It lives in
+# gen_worker.refgrammar for the same reason Go puts it in a leaf package —
+# the ref parser and the compiled-graph key grammar both need it and neither
+# may import the other. The boundary is pinned by vectors at 96 and 97 in BOTH
+# vendored corpora, so a one-sided change to this number fails a gate rather
+# than surfacing 45 minutes into a mint.
+MAX_FRAGMENT_LEN = _MAX_FRAGMENT_LEN
+_TENSORHUB_FRAGMENT_RE = re.compile(
+    r"[a-z0-9][a-z0-9._-]{0,%d}" % (MAX_FRAGMENT_LEN - 1)
+)
 
 
 class FlavorSelectorRemoved(ValueError):

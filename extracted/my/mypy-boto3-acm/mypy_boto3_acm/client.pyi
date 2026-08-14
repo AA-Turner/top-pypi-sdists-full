@@ -31,6 +31,7 @@ from .paginator import (
     ListAcmeDomainValidationsPaginator,
     ListAcmeEndpointsPaginator,
     ListAcmeExternalAccountBindingsPaginator,
+    ListCertificateDomainValidationsPaginator,
     ListCertificatesPaginator,
     SearchCertificatesPaginator,
 )
@@ -74,6 +75,8 @@ from .type_defs import (
     ListAcmeEndpointsResponseTypeDef,
     ListAcmeExternalAccountBindingsRequestTypeDef,
     ListAcmeExternalAccountBindingsResponseTypeDef,
+    ListCertificateDomainValidationsRequestTypeDef,
+    ListCertificateDomainValidationsResponseTypeDef,
     ListCertificatesRequestTypeDef,
     ListCertificatesResponseTypeDef,
     ListTagsForCertificateRequestTypeDef,
@@ -395,6 +398,16 @@ class ACMClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#list_acme_external_account_bindings)
         """
 
+    def list_certificate_domain_validations(
+        self, **kwargs: Unpack[ListCertificateDomainValidationsRequestTypeDef]
+    ) -> ListCertificateDomainValidationsResponseTypeDef:
+        """
+        Returns per-domain validation summaries for an ACM certificate.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/list_certificate_domain_validations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#list_certificate_domain_validations)
+        """
+
     def list_certificates(
         self, **kwargs: Unpack[ListCertificatesRequestTypeDef]
     ) -> ListCertificatesResponseTypeDef:
@@ -562,7 +575,7 @@ class ACMClient(BaseClient):
         self, **kwargs: Unpack[UpdateCertificateOptionsRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Updates a certificate.
+        Updates certificate options.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/update_certificate_options.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#update_certificate_options)
@@ -605,6 +618,17 @@ class ACMClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_acme_external_account_bindings"]
     ) -> ListAcmeExternalAccountBindingsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_certificate_domain_validations"]
+    ) -> ListCertificateDomainValidationsPaginator:
         """
         Create a paginator for an operation.
 

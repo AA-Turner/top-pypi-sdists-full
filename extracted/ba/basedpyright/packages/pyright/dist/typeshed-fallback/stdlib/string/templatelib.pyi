@@ -17,7 +17,7 @@ class Template:  # TODO: consider making `Template` generic on `TypeVarTuple`
         """Return self+value."""
         ...
     def __class_getitem__(cls, item: Any, /) -> GenericAlias:
-        """See PEP 585"""
+        """Template supports [] for generic usage"""
         ...
     @property
     def values(self) -> tuple[Any, ...]:
@@ -37,7 +37,7 @@ class Interpolation(Generic[_T]):
         cls, value: _T, expression: str = "", conversion: Literal["a", "r", "s"] | None = None, format_spec: str = ""
     ) -> Interpolation[_T]: ...
     def __class_getitem__(cls, item: Any, /) -> GenericAlias:
-        """See PEP 585"""
+        """Interpolations are generic over the types of their values"""
         ...
 
 @overload

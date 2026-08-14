@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import errno
 import lzma
+import os
 import re
 import stat
 import sys
@@ -30,11 +31,13 @@ import zlib
 from email.parser import BytesParser, Parser
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import unquote, urljoin, urlparse, urlsplit
+from urllib.parse import unquote, urljoin, urlparse, urlsplit, urlunsplit
 from urllib.request import url2pathname
 
 from packaging.utils import canonicalize_name as _canonical
 from packaging.utils import parse_sdist_filename
+
+from nab_provider.errors import IndexAccessError, UnsupportedWheelError
 
 from ._pep503 import hash_fragment, metadata_declaration, read_page
 from .client import (
@@ -45,7 +48,6 @@ from .client import (
     _parse_wheel_filename,
     is_readable_filename,
 )
-from .errors import IndexAccessError
 
 if TYPE_CHECKING:
     from packaging.utils import NormalizedName
@@ -65,15 +67,6 @@ __all__ = [
     "read_wheel_metadata",
     "wheel_metadata_member",
 ]
-
-
-class UnsupportedWheelError(Exception):
-    """A local wheel's ``.dist-info`` contradicts its own filename.
-
-    Raised when a wheel carries more than one top-level ``.dist-info``
-    directory, or a single one whose name does not canonicalise to the
-    distribution named by the wheel's filename.
-    """
 
 
 class LocalIndexError(IndexAccessError):
@@ -227,6 +220,9 @@ def _scan_pep503_directory(
 ) -> tuple[list[WheelFile | SdistFile], bool]:
     """Parse ``<package>/index.html`` and return file records.
 
+    ``package_dir`` has to be absolute, because the page's URI is the base
+    for its relative links.
+
     The second element says the page linked a file in a format nab does
     not read, which tells a page of ``.zip`` sdists from an empty one.
     """
@@ -241,7 +237,10 @@ def _scan_pep503_directory(
         raise MalformedLocalListingError(msg) from exc
 
     anchors, base_href = read_page(text)
-    base_url = (package_dir.resolve() / "index.html").as_uri()
+
+    # RFC 3986 section 5.1.3: the base is the URI the page was read from, not
+    # its realpath.
+    base_url = index_html.as_uri()
     if base_href is not None:
         # A base href every relative anchor resolves against, so one that
         # cannot be parsed leaves the whole page's targets unknown. Fail
@@ -306,11 +305,12 @@ def _resolve_local_link(
     href_no_frag, _, fragment = href.partition("#")
     hashes = hash_fragment(fragment)
 
-    # A malformed authority (an unterminated IPv6 bracket) makes both of
-    # these raise, so the drop guard has to start here rather than at the
-    # path resolution below.
+    # A malformed authority (an unterminated IPv6 bracket) makes these raise,
+    # so the drop guard has to start here rather than at the path resolution
+    # below.  urljoin leaves an href alone when its scheme differs from the
+    # page's, so the split round trip is what drops a tab, CR or LF.
     try:
-        url = urljoin(base_url, href_no_frag)
+        url = urlunsplit(urlsplit(urljoin(base_url, href_no_frag)))
         parsed = urlparse(url)
     except ValueError:
         return (None, href_no_frag, None, hashes)
@@ -566,11 +566,14 @@ class LocalIndexClient:
     """
 
     def __init__(self, index_url: str) -> None:
-        """Hold the resolved root path for ``index_url``.
+        """Hold the absolute root path for ``index_url``.
 
         A ``file:`` URL may be cwd-relative; artefact URLs have to be absolute.
+        Dropping the dot segments must not follow symlinks, so a page keeps the
+        path it was reached by.
         """
-        self._root = parse_file_url(index_url).resolve()
+        root = parse_file_url(index_url)
+        self._root = Path(os.path.abspath(root))  # noqa: PTH100
         self._unreadable_only: set[str] = set()
 
     async def aclose(self) -> None:
@@ -619,8 +622,15 @@ class LocalIndexClient:
         version: str,  # noqa: ARG002
         metadata_url: str,
         metadata_hash: tuple[str, str] | None = None,  # noqa: ARG002
-    ) -> str:
-        """Return PEP 658 metadata text for a wheel sitting on disk.
+    ) -> str | None:
+        """Return metadata text for a wheel sitting on disk.
+
+        A wheel that publishes a sidecar is asked for at the sidecar's URL; one
+        that does not is asked for at its own, and its METADATA is read out of
+        the wheel.  A wheel that is not a readable zip, carries no METADATA
+        member, or whose ``.dist-info`` names another distribution answers
+        ``None``.  One the process cannot open raises
+        :class:`UnreadableLocalIndexError`, like a sidecar.
 
         The on-disk sidecar is trusted, so ``metadata_hash`` is accepted only
         to match the remote client signature and is not verified.  A missing
@@ -629,6 +639,11 @@ class LocalIndexClient:
         :class:`OSError` or :class:`UnicodeDecodeError` escapes.
         """
         path = _resolve_served_path(metadata_url)
+        if path.suffix == ".whl":
+            try:
+                return read_wheel_metadata(path)
+            except UnsupportedWheelError:
+                return None
         data = _read_served_bytes(path, "metadata sidecar")
         try:
             return data.decode("utf-8")

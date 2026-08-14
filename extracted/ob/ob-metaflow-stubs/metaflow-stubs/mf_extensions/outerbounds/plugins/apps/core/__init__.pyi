@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-07-23T20:46:33.267418                                                            #
+# Generated on 2026-08-13T18:38:42.572062                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -30,5 +30,6 @@ from .config.typed_configs import ResourceConfigDict as ResourceConfigDict
 from .config.typed_configs import AuthConfigDict as AuthConfigDict
 from .config.typed_configs import DependencyConfigDict as DependencyConfigDict
 from .config.typed_configs import PackageConfigDict as PackageConfigDict
+from .config.typed_configs import ProxyConfigDict as ProxyConfigDict
 from . import app_deploy_decorator as app_deploy_decorator
 

@@ -80,8 +80,8 @@ if sys.version_info >= (3, 14):
         """
         Maxheap variant of heappushpop.
 
-        The combined action runs more efficiently than heappush_max() followed by
-        a separate call to heappop_max().
+        The combined action runs more efficiently than heappush_max()
+        followed by a separate call to heappop_max().
         """
         ...
     def heapreplace_max(heap: list[_T], item: _T, /) -> _T:

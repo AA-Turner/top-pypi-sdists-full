@@ -8289,6 +8289,108 @@ fn sync_no_editable() -> Result<()> {
     Ok(())
 }
 
+/// Captures the behavior described in <https://github.com/astral-sh/uv/issues/15224>.
+#[test]
+fn sync_no_editable_ignores_source_changes() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    context
+        .temp_dir
+        .child("pyproject.toml")
+        .write_str(indoc! {r#"
+        [project]
+        name = "root"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["child"]
+
+        [build-system]
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
+
+        [tool.uv.sources]
+        child = { workspace = true }
+
+        [tool.uv.workspace]
+        members = ["child"]
+    "#})?;
+
+    let root_source = context.temp_dir.child("src/root/__init__.py");
+    root_source.write_str(indoc! {r#"
+        VALUE = "initial root"
+    "#})?;
+
+    let child = context.temp_dir.child("child");
+    child.child("pyproject.toml").write_str(indoc! {r#"
+        [project]
+        name = "child"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+
+        [build-system]
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
+    "#})?;
+
+    let child_source = child.child("src/child/__init__.py");
+    child_source.write_str(indoc! {r#"
+        VALUE = "initial child"
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.sync().arg("--no-editable"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    Prepared 2 packages in [TIME]
+    Installed 2 packages in [TIME]
+     + child==0.1.0 (from file://[TEMP_DIR]/child)
+     + root==0.1.0 (from file://[TEMP_DIR]/)
+    ");
+
+    root_source.write_str(indoc! {r#"
+        VALUE = "updated root"
+    "#})?;
+    child_source.write_str(indoc! {r#"
+        VALUE = "updated child"
+    "#})?;
+
+    // Source-only edits do not invalidate already installed non-editable packages.
+    uv_snapshot!(context.filters(), context.sync().arg("--no-editable"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    Checked 2 packages in [TIME]
+    ");
+
+    uv_snapshot!(context.filters(), context.run().arg("--no-sync").arg("python").arg("-c").arg("import root, child; print(root.VALUE); print(child.VALUE)"), @"
+    exit_code: 0 (success)
+    ----- stdout -----
+    initial root
+    initial child
+    ");
+
+    // A new environment also reuses the stale cached non-editable wheels.
+    uv_snapshot!(context.filters(), context.sync().arg("--no-editable").env(EnvVars::UV_PROJECT_ENVIRONMENT, "fresh"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Using CPython 3.12.[X] interpreter at: [PYTHON-3.12]
+    Creating virtual environment at: fresh
+    Resolved 2 packages in [TIME]
+    Installed 2 packages in [TIME]
+     + child==0.1.0 (from file://[TEMP_DIR]/child)
+     + root==0.1.0 (from file://[TEMP_DIR]/)
+    ");
+
+    uv_snapshot!(context.filters(), context.run().arg("--no-sync").arg("python").arg("-c").arg("import root, child; print(root.VALUE); print(child.VALUE)").env(EnvVars::UV_PROJECT_ENVIRONMENT, "fresh").env_remove(EnvVars::VIRTUAL_ENV), @"
+    exit_code: 0 (success)
+    ----- stdout -----
+    initial root
+    initial child
+    ");
+
+    Ok(())
+}
+
 #[test]
 /// Check warning message for <https://github.com/astral-sh/uv/issues/6998>
 /// if no `build-system` section is defined.
@@ -14984,13 +15086,10 @@ async fn sync_non_pep625_sdist() -> Result<()> {
     exit_code: 1 (failure)
     ----- stderr -----
       × No solution found when resolving dependencies:
-      ╰─▶ Because only basic-package==0.1.0 is available and basic-package==0.1.0 has a non-PEP 625-compliant source distribution filename, we can conclude that all versions of basic-package cannot be used.
+      ╰─▶ Because basic-package==0.1.0 has a non-PEP 625-compliant source distribution filename and only basic-package==0.1.0 is available, we can conclude that all versions of basic-package cannot be used.
           And because your project depends on basic-package, we can conclude that your project's requirements are unsatisfiable.
 
-    hint: `basic-package` was found on http://[LOCALHOST]/simple, but not at the requested version (all of:
-        basic-package<0.1.0
-        basic-package>0.1.0
-    ). A compatible version may be available on a subsequent index (e.g., https://pypi.org/simple). By default, uv will only consider versions that are published on the first index that contains a given package, to avoid dependency confusion attacks. If all indexes are equally trusted, use `--index-strategy unsafe-best-match` to consider all versions from all indexes, regardless of the order in which they were defined.
+    hint: `basic-package` was found on http://[LOCALHOST]/simple, but not at the requested version (basic-package==0.1.0). A compatible version may be available on a subsequent index (e.g., https://pypi.org/simple). By default, uv will only consider versions that are published on the first index that contains a given package, to avoid dependency confusion attacks. If all indexes are equally trusted, use `--index-strategy unsafe-best-match` to consider all versions from all indexes, regardless of the order in which they were defined.
     ");
 
     Ok(())

@@ -1,8 +1,8 @@
 """Aggregate raw-metric CSVs into one flat summary row.
 
-Mirrors the reference metric calculators
-(metrics/results_generation/metrics_calculators/) for the metrics the HF
-emulated workload produces. MFU/TFLOPs intentionally excluded.
+Computes step-time, checkpoint write/restore/delete, data-loading, and
+system-resource metrics for the HF emulated workload. MFU/TFLOPs
+intentionally excluded.
 """
 
 import argparse
@@ -18,7 +18,7 @@ STABLE_WINDOW_STABILIZATION_STEPS = 10
 
 
 def calc_step_time_metrics(step_rows: list) -> dict:
-    """Step-time metrics (mirrors TrainingMetricsCalculator)."""
+    """Step-time metrics: mean, plus stable/training window durations."""
     rows = [
         r
         for r in step_rows
@@ -38,6 +38,24 @@ def calc_step_time_metrics(step_rows: list) -> dict:
     ]
     if per_step_durations:
         out["mean_step_time"] = stats.mean(per_step_durations)
+
+    per_step_sps = [
+        r["samples_per_second"]
+        for r in rows
+        if r["step"] >= first_step + PER_STEP_STABILIZATION_STEPS
+        and r.get("samples_per_second") is not None
+    ]
+    if per_step_sps:
+        out["mean_samples_per_second"] = stats.mean(per_step_sps)
+
+    stable_sps = [
+        r["samples_per_second"]
+        for r in rows
+        if r["step"] >= first_step + STABLE_WINDOW_STABILIZATION_STEPS
+        and r.get("samples_per_second") is not None
+    ]
+    if stable_sps:
+        out["stable_window_avg_samples_per_second"] = stats.mean(stable_sps)
 
     # window metrics need step_end_time.
     end_rows = [r for r in rows if r.get("step_end_time") is not None]
@@ -168,6 +186,245 @@ def calc_data_loading_metrics(dl_rows: list) -> dict:
     }
 
 
+# The two Lightning profiler actions DataWaitProfiler watches; disjoint and
+# jointly exhaustive of the time the fit loop blocks on the train dataloader
+# (see the workload's DATA_WAIT_ACTIONS).
+_DATA_WAIT_SETUP_ACTION = "setup_train_dataloader"
+_DATA_WAIT_FETCH_ACTION = "[_TrainingEpochLoop].train_dataloader_next"
+
+
+def calc_data_wait_metrics(data_wait_rows: list) -> dict:
+    """Total dataloader-blocked time, taken from the bottleneck rank.
+
+    Every rank logs one ``Data Wait`` line per blocking span with a
+    monotonically increasing running total, so a rank's blocked time is the
+    max ``cumulative_total`` it logged -- accurate as of its last surviving
+    line even when tail lines are lost to Cloud Logging lag, unlike a sum of
+    ``duration``. The distributed step is gated by the slowest rank, so report
+    the rank with the greatest total, passing its setup/fetch split (summed
+    from the same rank's per-span durations) through together. The split can
+    undercount when that rank's lines were lost; the headline total cannot.
+    """
+    by_rank = defaultdict(list)
+    for r in data_wait_rows:
+        if r.get("global_rank") is not None and r.get("cumulative_total") is not None:
+            by_rank[r["global_rank"]].append(r)
+    if not by_rank:
+        return {}
+    totals = {
+        rank: max(r["cumulative_total"] for r in rows) for rank, rows in by_rank.items()
+    }
+    bottleneck = max(totals, key=lambda rank: totals[rank])
+    rows = by_rank[bottleneck]
+    setup = [
+        r["duration"]
+        for r in rows
+        if r.get("action") == _DATA_WAIT_SETUP_ACTION and r.get("duration") is not None
+    ]
+    fetch = [
+        r["duration"]
+        for r in rows
+        if r.get("action") == _DATA_WAIT_FETCH_ACTION and r.get("duration") is not None
+    ]
+    out = {
+        "data_wait_total_time": totals[bottleneck],
+        "num_data_wait_spans": len(rows),
+    }
+    if setup:
+        out["data_wait_iterator_setup_time"] = sum(setup)
+    if fetch:
+        out["data_wait_batch_fetch_time"] = sum(fetch)
+    return out
+
+
+def calc_dataset_build_metrics(dataset_build_rows: list) -> dict:
+    """Dataset-build duration (Parquet glob + shuffle-buffer wiring), bottleneck rank.
+
+    Every rank builds its own streaming dataset once before ``trainer.fit``
+    starts, so report the slowest rank's duration -- the metadata-listing call
+    that gates the first batch fetch, deterministic regardless of log/ingestion
+    order.
+    """
+    durations = [
+        r["duration"] for r in dataset_build_rows if r.get("duration") is not None
+    ]
+    if not durations:
+        return {}
+    return {"dataset_build_time": max(durations)}
+
+
+def calc_throughput_metrics(write_rows: list, size_rows: list) -> dict:
+    out = {}
+
+    written_sizes = [
+        r["size_bytes"] for r in size_rows if r.get("size_bytes") is not None
+    ]
+    if written_sizes:
+        out["checkpoint_size_bytes"] = max(written_sizes)
+
+    size_by_step = {
+        r["checkpoint_step"]: r["size_bytes"]
+        for r in size_rows
+        if r.get("checkpoint_step") is not None and r.get("size_bytes") is not None
+    }
+    write_groups = _durations_by_group(
+        write_rows, ("checkpoint_step", "checkpoint_location")
+    )
+    write_tps = [
+        size_by_step[step] / g["duration"]
+        for (step, _loc), g in write_groups.items()
+        if step in size_by_step and g["duration"] > 0
+    ]
+    if write_tps:
+        out["checkpoint_write_throughput_avg_bytes_per_sec"] = stats.mean(write_tps)
+
+    return out
+
+
+def _restore_throughput(restored_bytes, restore_duration):
+    if restored_bytes is not None and restore_duration:
+        return restored_bytes / restore_duration
+    return None
+
+
+# Maps series to schema columns. `None` mean-column means the series has no mean.
+_SYSTEM_SERIES_COLUMNS = {
+    "cpu": ("cpu_usage_peak_cores", "cpu_usage_mean_cores"),
+    "memory": ("memory_usage_peak_bytes", "memory_usage_mean_bytes"),
+    "network_received": (
+        "network_received_peak_bytes_per_sec",
+        "network_received_mean_bytes_per_sec",
+    ),
+    "network_sent": (
+        "network_sent_peak_bytes_per_sec",
+        "network_sent_mean_bytes_per_sec",
+    ),
+    "checkpoint_read_bytes": ("checkpoint_read_bytes", None),
+    "checkpoint_read_request_count": ("checkpoint_read_request_count", None),
+    "checkpoint_restored_bytes": ("checkpoint_restored_bytes", None),
+    "dataset_read_bytes": ("dataset_read_bytes", None),
+    "dataset_read_request_count": ("dataset_read_request_count", None),
+    "dataset_size_bytes": ("dataset_size_bytes", None),
+    "dataset_sample_count": ("dataset_sample_count", None),
+}
+
+# Columns reported as whole numbers (bytes / counts) rather than floats.
+_INT_COLUMNS = {
+    "memory_usage_peak_bytes",
+    "memory_usage_mean_bytes",
+    "checkpoint_read_bytes",
+    "checkpoint_read_request_count",
+    "checkpoint_restored_bytes",
+    "dataset_read_bytes",
+    "dataset_read_request_count",
+    "dataset_size_bytes",
+    "dataset_sample_count",
+}
+
+
+def _amplification(numerator, denominator):
+    """numerator / denominator, or None when either is absent/zero."""
+    if numerator is not None and denominator:
+        return numerator / denominator
+    return None
+
+
+def _max_peak(by_metric: dict, name: str):
+    """Max non-null ``peak`` among the rows for series ``name``, or None."""
+    peaks = [r["peak"] for r in by_metric.get(name, []) if r.get("peak") is not None]
+    return max(peaks) if peaks else None
+
+
+def executed_step_count(step_rows: list) -> int:
+    """Number of distinct optimizer steps observed (deduped across ranks).
+
+    Each rank emits one row per optimizer step, so the count of unique step
+    numbers -- not rows -- is how many steps the run actually executed.
+    """
+    return len(
+        {
+            r["step"]
+            for r in step_rows
+            if r.get("step") is not None and r.get("step_duration") is not None
+        }
+    )
+
+
+def dataset_read_amplification_ratio(
+    *,
+    dataset_read_bytes,
+    dataset_size_bytes,
+    dataset_sample_count,
+    executed_steps,
+    global_batch_size,
+):
+    """dataset_read_bytes / ideal_bytes, or None if any input is absent/zero.
+
+    ``ideal_bytes`` is the egress a perfectly sharded single pass over the
+    samples actually consumed (``executed_steps * global_batch_size *
+    dataset_size_bytes / dataset_sample_count``) would incur. Normalizing by
+    samples consumed, not the full dataset, makes the ratio independent of
+    dataset size and step count: ~1.0 means each byte was fetched once,
+    ~world_size means every rank re-read the same data.
+    """
+    if None in (
+        dataset_read_bytes,
+        dataset_size_bytes,
+        dataset_sample_count,
+        executed_steps,
+        global_batch_size,
+    ):
+        return None
+    ideal_bytes = (
+        executed_steps * global_batch_size * dataset_size_bytes / dataset_sample_count
+        if dataset_sample_count
+        else 0
+    )
+    if not ideal_bytes:
+        return None
+    return dataset_read_bytes / ideal_bytes
+
+
+def calc_system_metrics(system_rows: list) -> dict:
+    """Reduce per-pod/per-bucket metrics to the bottleneck value and derive ratios."""
+    out = {}
+    by_metric = defaultdict(list)
+    for r in system_rows:
+        by_metric[r.get("metric")].append(r)
+    for series, (peak_col, mean_col) in _SYSTEM_SERIES_COLUMNS.items():
+        rows = by_metric.get(series, [])
+        peaks = [r["peak"] for r in rows if r.get("peak") is not None]
+        if peaks:
+            val = max(peaks)
+            out[peak_col] = int(val) if peak_col in _INT_COLUMNS else val
+        if mean_col:
+            means = [r["mean"] for r in rows if r.get("mean") is not None]
+            if means:
+                val = max(means)
+                out[mean_col] = int(val) if mean_col in _INT_COLUMNS else val
+    ratio = _amplification(
+        out.get("checkpoint_read_bytes"), out.get("checkpoint_restored_bytes")
+    )
+    if ratio is not None:
+        out["checkpoint_read_amplification_ratio"] = ratio
+    # Stands in for GKE's `*/limit_utilization` metrics, which need a container
+    # limit we don't set: bottleneck-pod peak usage / node allocatable capacity.
+    cpu_util = _amplification(
+        out.get("cpu_usage_peak_cores"), _max_peak(by_metric, "node_allocatable_cores")
+    )
+    if cpu_util is not None:
+        out["cpu_limit_utilization_peak"] = cpu_util
+    mem_util = _amplification(
+        out.get("memory_usage_peak_bytes"),
+        _max_peak(by_metric, "node_allocatable_bytes"),
+    )
+    if mem_util is not None:
+        out["memory_limit_utilization_peak"] = mem_util
+    # Dataset ratio is derived in build_summary_row; it needs step/batch-size
+    # inputs this reducer doesn't have.
+    return out
+
+
 def build_summary_row(
     *,
     run_id: str,
@@ -178,6 +435,10 @@ def build_summary_row(
     restore_rows: list,
     delete_rows: list,
     dl_rows: list,
+    size_rows: list = None,
+    system_rows: list = None,
+    data_wait_rows: list = None,
+    dataset_build_rows: list = None,
     dimensions: dict = None,
 ) -> dict:
     row = {
@@ -192,6 +453,27 @@ def build_summary_row(
     row.update(calc_restore_metrics(restore_rows))
     row.update(calc_delete_metrics(delete_rows))
     row.update(calc_data_loading_metrics(dl_rows))
+    row.update(calc_data_wait_metrics(data_wait_rows or []))
+    row.update(calc_dataset_build_metrics(dataset_build_rows or []))
+    row.update(calc_throughput_metrics(write_rows, size_rows or []))
+    row.update(calc_system_metrics(system_rows or []))
+    restore_throughput = _restore_throughput(
+        row.get("checkpoint_restored_bytes"),
+        row.get("checkpoint_restore_time_initial"),
+    )
+    if restore_throughput is not None:
+        row["checkpoint_restore_throughput_avg_bytes_per_sec"] = restore_throughput
+    # Derived here, not in calc_system_metrics, since it needs executed_steps
+    # and global_batch_size alongside the raw dataset columns just produced.
+    ratio = dataset_read_amplification_ratio(
+        dataset_read_bytes=row.get("dataset_read_bytes"),
+        dataset_size_bytes=row.get("dataset_size_bytes"),
+        dataset_sample_count=row.get("dataset_sample_count"),
+        executed_steps=executed_step_count(step_rows),
+        global_batch_size=row.get("global_batch_size"),
+    )
+    if ratio is not None:
+        row["dataset_read_amplification_ratio"] = ratio
     return row
 
 
@@ -201,10 +483,12 @@ def validate_required_metrics(
     write_rows: list,
     restore_rows: list = None,
     dl_rows: list = None,
+    data_wait_rows: list = None,
     expected_steps: int = 0,
     min_write_datapoints: int = 0,
     min_restore_datapoints: int = 0,
     require_data_loading: bool = False,
+    require_data_wait: bool = False,
     resume_run: bool = False,
     checkpoint_interval: int = 0,
 ) -> None:
@@ -215,16 +499,17 @@ def validate_required_metrics(
         if r.get("step") is not None and r.get("step_duration") is not None
     }
     if expected_steps:
+        required_steps = 1 if expected_steps < 0 else expected_steps
         if resume_run:
-            if not observed_steps or max(observed_steps) < expected_steps:
+            if not observed_steps or max(observed_steps) < required_steps:
                 found = max(observed_steps) if observed_steps else "none"
                 _fail_validation(
-                    f"expected resumed run to reach step {expected_steps}, "
+                    f"expected resumed run to reach step {required_steps}, "
                     f"found {found}"
                 )
-        elif len(observed_steps) < expected_steps:
+        elif len(observed_steps) < required_steps:
             _fail_validation(
-                f"expected at least {expected_steps} step metrics, found "
+                f"expected at least {required_steps} step metrics, found "
                 f"{len(observed_steps)}"
             )
 
@@ -280,6 +565,32 @@ def validate_required_metrics(
                 "accelerator_blocked_percent"
             )
 
+    if require_data_wait:
+        # Data Wait lines are emitted throughout the run, but the setup span
+        # exists only when the image runs the zhixiangli/pytorch-lightning fork
+        # (the `setup_train_dataloader` profiler action + epoch-boundary fix).
+        # Requiring both span kinds fails loudly when an image was built with
+        # stock lightning, which would otherwise silently undercount
+        # data_wait_total_time by every worker-spawn/first-prefetch span.
+        rows = data_wait_rows or []
+        has_setup = any(
+            r.get("action") == _DATA_WAIT_SETUP_ACTION
+            and r.get("cumulative_total") is not None
+            for r in rows
+        )
+        has_fetch = any(
+            r.get("action") == _DATA_WAIT_FETCH_ACTION
+            and r.get("cumulative_total") is not None
+            for r in rows
+        )
+        if not (has_setup and has_fetch):
+            _fail_validation(
+                "required data-wait metrics missing: need at least one "
+                f"'{_DATA_WAIT_SETUP_ACTION}' and one '{_DATA_WAIT_FETCH_ACTION}' "
+                "Data Wait span (is the image running the patched lightning "
+                "fork and the DataWaitProfiler workload?)"
+            )
+
 
 def _fail_validation(message: str) -> None:
     print(f"ERROR: {message}", file=sys.stderr)
@@ -305,6 +616,11 @@ def main(argv=None) -> None:
         help="Fail unless a run-wide accelerator-blocked " "datapoint is present.",
     )
     parser.add_argument(
+        "--require-data-wait-metrics",
+        action="store_true",
+        help="Fail unless both Data Wait span kinds (setup + fetch) are present.",
+    )
+    parser.add_argument(
         "--resume-run",
         action="store_true",
         help="Validate against a resumed run's observed step "
@@ -322,10 +638,16 @@ def main(argv=None) -> None:
     parser.add_argument("--dataset-path")
     parser.add_argument("--model-id")
     parser.add_argument("--training-strategy")
+    parser.add_argument("--tensor-parallel-size", type=int)
+    parser.add_argument("--data-parallel-size", type=int)
     parser.add_argument("--simulated-step-compute-seconds", type=float)
     parser.add_argument("--per-device-batch", type=int)
     parser.add_argument("--grad-accum", type=int)
     parser.add_argument("--dataloader-workers", type=int)
+    parser.add_argument("--epochs", type=int)
+    parser.add_argument("--shuffle-buffer-size", type=int)
+    parser.add_argument("--shuffle-max-buffer-input-shards", type=int)
+    parser.add_argument("--dataloader-prefetch-factor", type=int)
     parser.add_argument("--image")
     args = parser.parse_args(argv)
 
@@ -335,16 +657,20 @@ def main(argv=None) -> None:
     restore_rows = tables.restore_rows
     delete_rows = tables.delete_rows
     dl_rows = tables.dl_rows
+    size_rows = tables.size_rows
+    system_rows = tables.system_rows
 
     validate_required_metrics(
         step_rows=step_rows,
         write_rows=write_rows,
         dl_rows=dl_rows,
+        data_wait_rows=tables.data_wait_rows,
         restore_rows=restore_rows,
         expected_steps=args.expected_steps,
         min_write_datapoints=args.min_write_datapoints,
         min_restore_datapoints=args.min_restore_datapoints,
         require_data_loading=args.require_data_loading_metrics,
+        require_data_wait=args.require_data_wait_metrics,
         resume_run=args.resume_run,
         checkpoint_interval=args.checkpoint_interval,
     )
@@ -365,6 +691,13 @@ def main(argv=None) -> None:
             args.per_device_batch * args.grad_accum * args.nodes * args.ranks_per_node
         )
 
+    # max_epochs can end a run before --steps is reached; report what ran.
+    recorded_steps = args.steps
+    if step_rows:
+        observed_steps = executed_step_count(step_rows)
+        if args.steps is None or args.steps < 0 or observed_steps < args.steps:
+            recorded_steps = observed_steps
+
     dimensions = {
         "bucket_type": args.bucket_type,
         "zone": args.zone,
@@ -372,7 +705,7 @@ def main(argv=None) -> None:
         "machine_type": args.machine_type,
         "nodes": args.nodes,
         "ranks_per_node": args.ranks_per_node,
-        "steps": args.steps,
+        "steps": recorded_steps,
         "checkpoint_interval": args.checkpoint_interval,
         "checkpoints_to_keep": args.checkpoints_to_keep,
         "dataset_path": args.dataset_path,
@@ -383,8 +716,17 @@ def main(argv=None) -> None:
         "gradient_accumulation_steps": args.grad_accum,
         "global_batch_size": global_batch_size,
         "dataloader_num_workers": args.dataloader_workers,
+        "num_train_epochs": args.epochs,
+        "shuffle_buffer_size": args.shuffle_buffer_size,
+        "shuffle_max_buffer_input_shards": args.shuffle_max_buffer_input_shards,
+        "dataloader_prefetch_factor": args.dataloader_prefetch_factor,
         "image": args.image,
     }
+    # TP/DP apply to model_parallel only; omitting them for ddp/fsdp lets
+    # DictWriter's restval="N/A" mark them not-applicable.
+    if (args.training_strategy or "").startswith("model_parallel"):
+        dimensions["tensor_parallel_size"] = args.tensor_parallel_size
+        dimensions["data_parallel_size"] = args.data_parallel_size
     row = build_summary_row(
         run_id=args.run_id,
         workload_name=args.workload_name,
@@ -394,6 +736,10 @@ def main(argv=None) -> None:
         restore_rows=restore_rows,
         delete_rows=delete_rows,
         dl_rows=dl_rows,
+        size_rows=size_rows,
+        system_rows=system_rows,
+        data_wait_rows=tables.data_wait_rows,
+        dataset_build_rows=tables.dataset_build_rows,
         dimensions=dimensions,
     )
 

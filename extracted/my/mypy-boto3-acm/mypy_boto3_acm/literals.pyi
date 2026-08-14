@@ -51,6 +51,7 @@ __all__ = (
     "ListAcmeDomainValidationsPaginatorName",
     "ListAcmeEndpointsPaginatorName",
     "ListAcmeExternalAccountBindingsPaginatorName",
+    "ListCertificateDomainValidationsPaginatorName",
     "ListCertificatesPaginatorName",
     "PaginatorName",
     "PrevalidationTypeType",
@@ -68,6 +69,8 @@ __all__ = (
     "SortByType",
     "SortOrderType",
     "TimeTypeType",
+    "UpdateStatusType",
+    "UpdateTypeType",
     "ValidationMethodType",
     "WaiterName",
 )
@@ -163,6 +166,7 @@ ListAcmeAccountsPaginatorName = Literal["list_acme_accounts"]
 ListAcmeDomainValidationsPaginatorName = Literal["list_acme_domain_validations"]
 ListAcmeEndpointsPaginatorName = Literal["list_acme_endpoints"]
 ListAcmeExternalAccountBindingsPaginatorName = Literal["list_acme_external_account_bindings"]
+ListCertificateDomainValidationsPaginatorName = Literal["list_certificate_domain_validations"]
 ListCertificatesPaginatorName = Literal["list_certificates"]
 PrevalidationTypeType = Literal["DNS_PREVALIDATION"]
 PublicKeyAlgorithmType = Literal["EC_prime256v1", "EC_secp384r1", "RSA_2048"]
@@ -210,13 +214,18 @@ SearchCertificatesSortOrderType = Literal["ASCENDING", "DESCENDING"]
 SortByType = Literal["CREATED_AT"]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
 TimeTypeType = Literal["DAYS", "HOURS", "MINUTES"]
+UpdateStatusType = Literal["FAILED", "PENDING_DOMAIN_VALIDATION", "SUCCESS"]
+UpdateTypeType = Literal["DOMAIN_VALIDATION_METHOD"]
 ValidationMethodType = Literal["DNS", "EMAIL", "HTTP"]
 ACMServiceName = Literal["acm"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -503,6 +512,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -520,6 +530,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -646,6 +657,7 @@ PaginatorName = Literal[
     "list_acme_domain_validations",
     "list_acme_endpoints",
     "list_acme_external_account_bindings",
+    "list_certificate_domain_validations",
     "list_certificates",
     "search_certificates",
 ]

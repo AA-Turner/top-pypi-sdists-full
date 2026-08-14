@@ -8,7 +8,6 @@ the actual PR merge dates from GitHub.
 from __future__ import annotations
 
 import datetime
-import re
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -17,6 +16,7 @@ from airbyte_ops_mcp.airbyte_repo.bump_version import (
     AIRBYTE_GITHUB_REPO,
     get_connector_doc_path,
 )
+from airbyte_ops_mcp.airbyte_repo.changelog_parser import parse_changelog_entries
 from airbyte_ops_mcp.airbyte_repo.list_connectors import get_all_connectors
 from airbyte_ops_mcp.github_api import GitHubAPIError, get_pr_merge_date
 
@@ -101,51 +101,6 @@ class ChangelogFixResult:
         return sum(1 for fix in self.fixes if fix.changed)
 
 
-def _parse_changelog_entries(
-    content: str,
-    github_repo: str = AIRBYTE_GITHUB_REPO,
-) -> list[tuple[int, str, str, int, int, str]]:
-    """Parse changelog entries from markdown content.
-
-    Args:
-        content: The markdown content of the documentation file.
-        github_repo: GitHub repository for PR links.
-
-    Returns:
-        List of tuples: (line_number, version, date_str, displayed_pr_number, url_pr_number, full_line)
-    """
-    # Regex to parse changelog table rows in the format:
-    # | version | date | [pr_num](url) | comment |
-    changelog_entry_re = (
-        # Match table row start and capture semantic version (e.g., "1.2.3")
-        r"^\| *(?P<version>[0-9]+\.[0-9]+\.[0-9]+) *\| *"
-        # Capture date in ISO format YYYY-MM-DD
-        r"(?P<date>[0-9]{4}-[0-9]{2}-[0-9]{2}) *\| *"
-        # Capture displayed PR number (may be in brackets as markdown link)
-        r"\[?(?P<displayed_pr>[0-9]+)\]?\(https://github.com/"
-        # GitHub repo portion (escaped to handle special chars)
-        + re.escape(github_repo)
-        # Capture PR number from URL path
-        + r"/pull/(?P<url_pr>[0-9]+)\) *\| *"
-        # Capture comment text until end of row
-        r"(?P<comment>.*?) *\| *$"
-    )
-
-    entries = []
-    lines = content.splitlines()
-
-    for line_num, line in enumerate(lines, start=1):
-        match = re.match(changelog_entry_re, line)
-        if match:
-            version = match.group("version")
-            date_str = match.group("date")
-            displayed_pr = int(match.group("displayed_pr"))
-            url_pr = int(match.group("url_pr"))
-            entries.append((line_num, version, date_str, displayed_pr, url_pr, line))
-
-    return entries
-
-
 def check_changelog(
     repo_path: str | Path,
     connector_name: str,
@@ -181,7 +136,7 @@ def check_changelog(
         )
 
     content = doc_path.read_text()
-    entries = _parse_changelog_entries(content, github_repo)
+    entries = parse_changelog_entries(content, github_repo)
 
     if not entries:
         return ChangelogCheckResult(
@@ -282,7 +237,7 @@ def fix_changelog_dates(
         )
 
     content = doc_path.read_text()
-    entries = _parse_changelog_entries(content, github_repo)
+    entries = parse_changelog_entries(content, github_repo)
 
     if not entries:
         return ChangelogFixResult(

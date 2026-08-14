@@ -219,7 +219,11 @@ def hf_spec():
         files=files,
     )
 
-    return jsonify({"spec": spec.model_dump(), "options": options.model_dump()})
+    # free_bytes: the same MODELS_DIR headroom the per-option fits_disk flags
+    # were computed against — the client's Auto-fit needs the budget itself,
+    # not just the per-file verdicts.
+    return jsonify({"spec": spec.model_dump(), "options": options.model_dump(),
+                    "free_bytes": free})
 
 
 # ── HF metadata cache observability (operator) ──────────────────────────────

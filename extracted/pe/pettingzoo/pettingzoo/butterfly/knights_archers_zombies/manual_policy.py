@@ -13,7 +13,7 @@ class ManualPolicy:
         # action mappings for all agents are the same
         if True:
             self.default_action = 5
-            self.action_mapping = dict()
+            self.action_mapping = {}
             self.action_mapping[pygame.K_w] = 0  # front
             self.action_mapping[pygame.K_s] = 1  # back
             self.action_mapping[pygame.K_a] = 2  # rotate left
@@ -22,9 +22,9 @@ class ManualPolicy:
 
     def __call__(self, observation, agent):
         # only trigger when we are the correct agent
-        assert (
-            agent == self.agent
-        ), f"Manual Policy only applied to agent: {self.agent}, but got tag for {agent}."
+        assert agent == self.agent, (
+            f"Manual Policy only applied to agent: {self.agent}, but got tag for {agent}."
+        )
 
         # set the default action
         action = self.default_action
@@ -51,12 +51,12 @@ class ManualPolicy:
 
 
 if __name__ == "__main__":
-    from pettingzoo.butterfly import knights_archers_zombies_v10
+    from pettingzoo.butterfly import knights_archers_zombies_v11
 
-    env = knights_archers_zombies_v10.env(render_mode="human")
+    env = knights_archers_zombies_v11.env(render_mode="human")
     env.reset()
 
-    manual_policy = knights_archers_zombies_v10.ManualPolicy(env)
+    manual_policy = knights_archers_zombies_v11.ManualPolicy(env)
 
     for agent in env.agent_iter():
         observation, reward, termination, truncation, info = env.last()

@@ -51,6 +51,7 @@ from snowflake import snowpark
 from snowflake.snowpark.types import StructType
 from snowflake.snowpark_connect.analyze_plan.map_tree_string import map_tree_string
 from snowflake.snowpark_connect.config import (
+    is_native_app_mode,
     route_config_proto,
     set_java_udf_creator_initialized_state,
 )
@@ -949,6 +950,59 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
                     else:
                         class_files[name.split("\\", 1)[-1]] = filepath
                     continue
+
+                # Native App: a versioned-schema UDF can only import from the version
+                # stage root, never the session stage. So an addArtifact'd pyfile,
+                # archive, or data file can't be uploaded-and-imported the normal way —
+                # skip the (unusable) session-stage PUT and register it as a
+                # version-stage-relative import (a pyfile as a Python import, an
+                # archive/data file as a plain import; Snowflake auto-extracts .zip/.jar
+                # imports into the function's import dir). The provider must bundle the
+                # file at the version stage root; otherwise CREATE FUNCTION fails with
+                # "Remote file not found" (a clear signal to bundle it).
+                if is_native_app_mode() and (
+                    name.startswith("pyfiles/")
+                    or name.startswith("archives/")
+                    or name.startswith("files/")
+                ):
+                    basename = filepath.split("/")[-1]
+                    # Archives are stored locally as '<name>.archive' (SCOS's session-stage
+                    # extraction convention). The provider bundles the natural name at the
+                    # version stage root, so strip that suffix; Snowflake auto-extracts a
+                    # .zip/.jar import onto sys.path.
+                    if name.startswith("archives/") and basename.endswith(".archive"):
+                        basename = basename[: -len(".archive")]
+                    kind = name.split("/", 1)[0]
+                    logger.warning(
+                        "native_app_mode: registering addArtifact %s as version-stage "
+                        "import '/%s'; bundle this file at the version stage root or "
+                        "CREATE FUNCTION will fail with 'Remote file not found'.",
+                        kind,
+                        basename,
+                    )
+                    # Snowflake only auto-extracts .zip/.jar imports; a tar-family archive
+                    # arrives un-extracted, so warn rather than let it fail later as an
+                    # opaque ModuleNotFoundError with no diagnostic.
+                    if name.startswith("archives/") and not basename.endswith(
+                        (".zip", ".jar")
+                    ):
+                        logger.warning(
+                            "native_app_mode: archive '/%s' is not a .zip/.jar; Snowflake "
+                            "auto-extracts only .zip/.jar imports, so it will arrive "
+                            "un-extracted. Repackage as .zip, or extract it from the "
+                            "function import directory at runtime.",
+                            basename,
+                        )
+                    if name.startswith("pyfiles/"):
+                        artifact_writer.add_python_file(f"/{basename}")
+                    else:
+                        artifact_writer.add_import_file(f"/{basename}")
+                    assert_artifact_name_is_safe(
+                        session.session_id, spark_session_id, name
+                    )
+                    os.remove(filepath)
+                    continue
+
                 session.file.put(
                     filepath,
                     session.get_session_stage(),

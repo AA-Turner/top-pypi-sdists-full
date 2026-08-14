@@ -20,8 +20,9 @@ import logging
 import math
 import os
 import warnings
+from fractions import Fraction
 from functools import reduce
-from typing import TYPE_CHECKING, Literal, cast, overload
+from typing import TYPE_CHECKING, Literal, SupportsIndex, cast, overload
 
 import numpy as np
 import orjson
@@ -632,7 +633,7 @@ class Slab(Structure):
 
     def add_adsorbate_atom(
         self,
-        indices: list[int],
+        indices: Sequence[SupportsIndex],
         species: str | Element | Species,
         distance: float,
         specie: Species | Element | str | None = None,
@@ -695,25 +696,25 @@ class Slab(Structure):
         self.append(species, point, coords_are_cartesian=coords_are_cartesian)
         self.append(species, equi_site, coords_are_cartesian=coords_are_cartesian)
 
-    def symmetrically_remove_atoms(self, indices: list[int]) -> None:
+    def symmetrically_remove_atoms(self, indices: Sequence[SupportsIndex]) -> None:
         """Remove sites from a list of indices. Will also remove the
         equivalent site on the other side of the slab to maintain symmetry.
 
         Args:
-            indices (list[int]): The indices of the sites to remove.
+            indices (Sequence[SupportsIndex]): The indices of the sites to remove.
 
         TODO(@DanielYang59):
         1. Reuse public method get_symmetric_site to get equi sites?
         2. If not 1, get_equi_sites has multiple nested loops
         """
 
-        def get_equi_sites(slab: Slab, sites: list[int]) -> list[int]:
+        def get_equi_sites(slab: Slab, sites: Sequence[SupportsIndex]) -> list[SupportsIndex]:
             """
             Get the indices of the equivalent sites of given sites.
 
             Parameters:
                 slab (Slab): The slab structure.
-                sites (list[int]): Original indices of sites.
+                sites (Sequence[SupportsIndex]): Original indices of sites.
 
             Returns:
                 list[int]: Indices of the equivalent sites.
@@ -1236,6 +1237,67 @@ class SlabGenerator:
             energy=energy,
         )
 
+    def gen_possible_terminations(self, ftol: float = 0.1) -> list[float]:
+        """Generate possible terminations by clustering z coordinates.
+
+        Args:
+            ftol (float): Threshold (in the lattice length unit) for fcluster to check if
+                two atoms are on the same plane. Atoms count as part of the cluster if their
+                distance in the surface normal to the next cluster atom is no larger than `ftol`.
+
+        Returns:
+            termination_shifts (list[float]): Shifts for terminations that avoid breaking atom clusters.
+        """
+
+        def pbc_mean(frac_z_coord: NDArray) -> float:
+            """Circular mean: Means fractional z coordinates, even across PBC boundaries."""
+            # Angle is periodic in the 0 to 2pi range -> 0 to 1 via *2pi
+            equiv_angle = 2.0 * np.pi * (frac_z_coord)
+            # Compute mean over e^(i*angle)
+            mean = np.mean(np.exp(1j * equiv_angle))
+            # Re-transform mean to angle and then z-coordinate
+            # np.angle returns (-pi, pi] => (-0.5, 0.5] - apply PBC for [0, 1)
+            return float(np.mod(np.angle(mean) / (2.0 * np.pi), 1.0))
+
+        frac_coords = self.oriented_unit_cell.frac_coords
+        n_atoms = len(frac_coords)
+
+        # For safety, stop empty Structures from progressing further
+        if n_atoms == 0:
+            return []
+        # Skip clustering when there is only one atom
+        if n_atoms == 1:
+            # Put the atom to the center
+            termination = frac_coords[0, 2] + 0.5
+            return [termination - math.floor(termination)]
+
+        # Compute a Cartesian z-coordinate distance matrix
+        dist_matrix = np.zeros((n_atoms, n_atoms), dtype=np.float64)
+        for i, j in itertools.combinations(range(n_atoms), 2):
+            z_dist = frac_coords[i, 2] - frac_coords[j, 2]
+            # Apply PBC and project onto surface normal
+            z_dist = abs(z_dist - round(z_dist)) * self._proj_height
+            dist_matrix[i, j] = z_dist
+            dist_matrix[j, i] = z_dist
+
+        # Cluster the sites by z coordinates
+        z_matrix = linkage(squareform(dist_matrix))
+        clusters = fcluster(z_matrix, ftol, criterion="distance")
+
+        # Generate cluster to z-coordinate mapping including PBC
+        # As representative z coordinate, choose the arithmetic mean of the atom fractional z-coordinates
+        cluster_zs = sorted(pbc_mean(frac_coords[clusters == cluster_idx, 2]) for cluster_idx in np.unique(clusters))
+
+        # Calculate terminations from ascending cluster z (which is in [0, 1)):
+        # Calculate centers between all sequential cluster zs
+        terminations = [0.5 * (cluster_zs[i] + cluster_zs[i + 1]) for i in range(len(cluster_zs) - 1)]
+        # Add the last-first pair, which needs PBC (as first + 1 is outside 0-1)
+        terminations.append((0.5 * (cluster_zs[0] + 1 + cluster_zs[-1])) % 1.0)
+
+        # Sort to insert the last-first pair at the correct location
+        terminations.sort()
+        return terminations
+
     def get_slabs(
         self,
         bonds: dict[tuple[Species | Element | str, Species | Element | str], float] | None = None,
@@ -1275,58 +1337,6 @@ class SlabGenerator:
             list[Slab]: All possible Slabs of a particular surface,
                 sorted by the number of bonds broken.
         """
-
-        def gen_possible_terminations(ftol: float) -> list[float]:
-            """Generate possible terminations by clustering z coordinates.
-
-            Args:
-                ftol (float): Threshold for fcluster to check if
-                    two atoms are on the same plane.
-            """
-            frac_coords = self.oriented_unit_cell.frac_coords
-            n_atoms: int = len(frac_coords)
-
-            # Skip clustering when there is only one atom
-            if n_atoms == 1:
-                # Put the atom to the center
-                termination = frac_coords[0][2] + 0.5
-                return [termination - math.floor(termination)]
-
-            # Compute a Cartesian z-coordinate distance matrix
-            # TODO (@DanielYang59): account for periodic boundary condition
-            dist_matrix: NDArray = np.zeros((n_atoms, n_atoms), dtype=np.float64)
-            for i, j in itertools.combinations(range(n_atoms), 2):
-                if i != j:
-                    z_dist = frac_coords[i][2] - frac_coords[j][2]
-                    z_dist = abs(z_dist - round(z_dist)) * self._proj_height
-                    dist_matrix[i, j] = z_dist
-                    dist_matrix[j, i] = z_dist
-
-            # Cluster the sites by z coordinates
-            z_matrix = linkage(squareform(dist_matrix))
-            clusters = fcluster(z_matrix, ftol, criterion="distance")
-
-            # Generate cluster to z-coordinate mapping
-            clst_loc: dict[Any, float] = {clst: frac_coords[idx][2] for idx, clst in enumerate(clusters)}
-
-            # Wrap all clusters into the unit cell ([0, 1) range)
-            possible_clst: list[float] = [coord - math.floor(coord) for coord in sorted(clst_loc.values())]
-
-            # Calculate terminations
-            n_terms: int = len(possible_clst)
-            terminations: list[float] = []
-            for idx in range(n_terms):
-                # Handle the special case for the first-last pair of
-                # z coordinates (because of periodic boundary condition)
-                if idx == n_terms - 1:
-                    termination = (possible_clst[0] + 1 + possible_clst[idx]) * 0.5
-                else:
-                    termination = (possible_clst[idx] + possible_clst[idx + 1]) * 0.5
-
-                # Wrap termination to [0, 1) range
-                terminations.append(termination - math.floor(termination))
-
-            return sorted(terminations)
 
         def get_z_ranges(
             bonds: dict[tuple[Species | Element | str, Species | Element | str], float],
@@ -1373,7 +1383,7 @@ class SlabGenerator:
         z_ranges = [] if bonds is None else get_z_ranges(bonds, ztol)
 
         slabs: list[Slab] = []
-        for termination in gen_possible_terminations(ftol=ftol):
+        for termination in self.gen_possible_terminations(ftol=ftol):
             # Calculate total number of bonds broken (how often the
             # termination fall within the z_range occupied by a bond)
             bonds_broken = 0
@@ -1629,6 +1639,7 @@ def generate_all_slabs(
     include_reconstructions: bool = False,
     in_unit_planes: bool = False,
     allow_smaller_than_ouc: bool = False,
+    cell: Literal["input", "conventional", "primitive", "conv_np", "prim_2conv"] = "input",
 ) -> list[Slab]:
     """Find all unique Slabs up to a given Miller index.
 
@@ -1695,10 +1706,38 @@ def generate_all_slabs(
             This is relevant with primitivization, as the used algorithm may only
             find a different surface cell if the termination is better than in the
             OUC.
+        cell (Literal["input", "conventional", "primitive", "conv_np", "prim_2conv"] = "input"):
+            Cell type to base the Miller indices on.
+
+            "input": Use the structure as given and its direct symmetry operations.
+
+            "conventional": Use the conventional standard structure and its symmetry operations, except if the structure
+            is centered, use the symmetry operations of the primitive standard structure.
+            Use "conv_np" if this centering behaviour is unwanted.
+
+            "primitive": Use the primitive standard structure and its symmetry operations. Note that this means the
+            Miller indices apply to the primitive structure, not its conventional form. Use "prim_2conv" if you need
+            the equivalent conventional indices.
+
+            "conv_np": Use the conventional standard structure and its symmetry operations.
+            This is equivalent to "conventional", except if the conventional cell is centered. In that case,
+            it is treated as a larger cell instead of using the symmetry operations of the primitive cell.
+
+            "prim_2conv": Use the primitive standard structure and its symmetry operations, then convert the unique
+            indices (in the primitive basis) back to conventional indices.
+            Note that this is *not* the same as using "conventional" with the same `max_index`, as the latter will
+            include all distinct miller indices with a *conventional* index up to `max_index`, while the former returns
+            all distinct miller indices with a *primitive* index up to `max_index`
+            (but converted afterwards to conventional).
+
+    Returns:
+        all_slabs : list[Slab]
+            List of all distinct Slabs of all symmetrically distinct Miller indices according to the
+            settings.
     """
     all_slabs: list[Slab] = []
 
-    for miller in get_symmetrically_distinct_miller_indices(structure, max_index):
+    for miller in get_symmetrically_distinct_miller_indices(structure, max_index, cell=cell):
         gen = SlabGenerator(
             structure,
             miller,
@@ -2082,8 +2121,8 @@ def get_symmetrically_equivalent_miller_indices(
 def get_symmetrically_distinct_miller_indices(
     structure: Structure | IStructure,
     max_index: int,
-    return_hkil: Literal[False],
-    cell: Literal["input", "conventional", "primitive", "conv_np", "prim_2conv"],
+    return_hkil: Literal[False] = False,
+    cell: Literal["input", "conventional", "primitive", "conv_np", "prim_2conv"] = "input",
 ) -> list[tuple[int, int, int]]: ...
 
 
@@ -2092,7 +2131,7 @@ def get_symmetrically_distinct_miller_indices(
     structure: Structure | IStructure,
     max_index: int,
     return_hkil: Literal[True],
-    cell: Literal["input", "conventional", "primitive", "conv_np", "prim_2conv"],
+    cell: Literal["input", "conventional", "primitive", "conv_np", "prim_2conv"] = "input",
 ) -> list[tuple[int, int, int, int]]: ...
 
 
@@ -2274,30 +2313,49 @@ def _is_in_miller_family(
     return any(in_coord_list(miller_list, op.operate(miller_index)) for op in symm_ops)
 
 
-def hkl_transformation(
-    transf: np.ndarray,
-    miller_index: tuple[int, ...],
-) -> tuple[int, int, int]:
-    """Transform the Miller index from setting A to B with a transformation matrix.
-
-    Args:
-        transf (3x3 array): The matrix that transforms a lattice from A to B.
-        miller_index (tuple[int, ...]): The Miller index [h, k, l] to transform.
-    """
+def _index_transformation(transf: NDArray, index: tuple[int, int, int] | NDArray) -> NDArray[int]:
+    """Transforms a given index via transf @ index, while avoiding floats."""
     # Convert the elements of the transformation matrix to integers
-    reduced_transf = reduce(math.lcm, [int(1 / i) for i in itertools.chain(*transf) if i != 0]) * transf
-    reduced_transf = reduced_transf.astype(int)
+    fractions = [Fraction(value).limit_denominator(100) for value in itertools.chain.from_iterable(transf)]
+    reduced_transf = np.rint(math.lcm(*(f.denominator for f in fractions)) * transf).astype(int)
 
     # Perform the transformation
-    transf_hkl = np.dot(reduced_transf, miller_index)
-    divisor = abs(reduce(math.gcd, transf_hkl))  # type: ignore[arg-type]
-    transf_hkl = np.array([idx // divisor for idx in transf_hkl])
+    transf_hkl = reduced_transf @ np.asarray(index, dtype=int)
+    transf_hkl //= math.gcd(*transf_hkl)
+    return transf_hkl
 
-    # Get positive Miller index
-    if sum(idx < 0 for idx in transf_hkl) > 1:
+
+def hkl_transformation(transf: NDArray, miller_index: tuple[int, int, int] | NDArray) -> tuple[int, int, int]:
+    """Transform the Miller index (hkl) from setting A to B with a transformation matrix.
+
+    Args:
+        transf (3x3 array): The matrix that transforms a lattice A to B via B = transf @ A.
+        miller_index (tuple[int, int, int]): The Miller index (h, k, l) to transform.
+
+    Returns:
+        transformed_miller_index (tuple[int, int, int]): The Miller index in setting B.
+            Its first nonzero index is positive.
+    """
+    transf_hkl = _index_transformation(transf, miller_index)
+
+    # Get positive Miller index (first nonzero index positive)
+    if next(index for index in transf_hkl if index != 0) < 0:
         transf_hkl *= -1
 
-    return tuple(transf_hkl)
+    return cast("tuple[int, int, int]", tuple(transf_hkl))
+
+
+def uvw_transformation(transf: NDArray, uvw: tuple[int, int, int] | NDArray) -> tuple[int, int, int]:
+    """Transform the direction index (uvw) from setting A to B with a transformation matrix.
+
+    Args:
+        transf (3x3 array): The matrix that transforms a lattice A to B via B = transf @ A.
+        uvw (tuple[int, int, int]): The direction index (u, v, w) to transform.
+
+    Returns:
+        transformed_direction_index (tuple[int, int, int]): The direction index in setting B.
+    """
+    return cast("tuple[int, int, int]", tuple(_index_transformation(np.linalg.inv(transf).T, uvw)))
 
 
 def miller_index_from_sites(

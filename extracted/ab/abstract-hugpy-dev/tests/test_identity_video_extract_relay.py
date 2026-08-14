@@ -58,7 +58,7 @@ from abstract_hugpy_dev.imports.src.constants.constants import (  # noqa: E402
 # --------------------------------------------------------------------------- #
 # STORE + BUS isolation (mirrors test_identity_render_relay.py exactly).
 # --------------------------------------------------------------------------- #
-_TMP_IDENTITIES = tempfile.mkdtemp(prefix="hugpy-vx-store-", dir=DEFAULT_ROOT)
+_TMP_IDENTITIES = tempfile.mkdtemp(prefix="hugpy-vx-store-", dir=os.path.join(DEFAULT_ROOT, "video_intel", "_scratch"))
 identity_profiles.IDENTITIES_HOME = _TMP_IDENTITIES
 _TMP_PROJECTS = tempfile.mkdtemp(prefix="hugpy-vx-projects-")
 identity_profiles.PROJECTS_HOME = _TMP_PROJECTS

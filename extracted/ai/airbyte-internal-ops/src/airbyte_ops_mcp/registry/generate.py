@@ -42,6 +42,7 @@ from typing import Any
 import git as gitpython
 import requests
 import yaml
+from packaging.version import InvalidVersion, Version
 
 from airbyte_ops_mcp.registry._constants import (
     COMPONENTS_PY_FILE_NAME,
@@ -69,6 +70,7 @@ from airbyte_ops_mcp.registry._resolve_gcs_paths import (
     versioned_file_blob_path,
 )
 from airbyte_ops_mcp.registry._sbom_generation import generate_sbom
+from airbyte_ops_mcp.registry.release_attribution import build_release_attribution
 from airbyte_ops_mcp.registry.store import RegistryStore
 from airbyte_ops_mcp.registry.validate import (
     ValidateOptions,
@@ -568,8 +570,8 @@ def _get_git_info_for_file(file_path: Path) -> dict[str, str] | None:
         return {
             "commit_sha": commit.hexsha,
             "commit_timestamp": commit.authored_datetime.isoformat(),
-            "commit_author": commit.author.name,
-            "commit_author_email": commit.author.email,
+            "commit_author": commit.author.name or "",
+            "commit_author_email": commit.author.email or "",
         }
     except (gitpython.exc.InvalidGitRepositoryError, gitpython.exc.GitCommandError):
         logger.warning("Could not retrieve git info for %s.", file_path)
@@ -586,6 +588,54 @@ def _enrich_metadata_git_info(
         generated = metadata.setdefault("data", {}).setdefault("generated", {})
         generated["git"] = git_info
         logger.info("Enriched metadata with git info: %s", git_info["commit_sha"][:8])
+    return metadata
+
+
+def _enrich_metadata_release(
+    metadata: dict[str, Any],
+    metadata_file: Path,
+    *,
+    pr_number: int | None = None,
+) -> dict[str, Any]:
+    """Inject `data.generated.release` into the metadata dict."""
+    try:
+        repo = gitpython.Repo(
+            metadata_file.parent,
+            search_parent_directories=True,
+        )
+        if repo.working_tree_dir is None:
+            raise ValueError(f"Git repository has no working tree: {metadata_file}")
+        repo_root = Path(repo.working_tree_dir)
+        version = metadata.get("data", {}).get("dockerImageTag")
+        try:
+            is_prerelease = Version(str(version)).is_prerelease
+        except InvalidVersion:
+            is_prerelease = False
+        release = build_release_attribution(
+            repo_root,
+            metadata_file,
+            pr_number=pr_number,
+            is_prerelease=is_prerelease,
+        )
+    except (
+        OSError,
+        ValueError,
+        gitpython.exc.InvalidGitRepositoryError,
+        gitpython.exc.GitCommandError,
+    ) as exc:
+        logger.warning(
+            "Could not retrieve release attribution for %s: %s",
+            metadata_file,
+            exc,
+        )
+        return metadata
+
+    generated = metadata.setdefault("data", {}).setdefault("generated", {})
+    generated["release"] = release.model_dump(mode="json")
+    logger.info(
+        "Enriched metadata with release attribution: %s",
+        release.pr_number or release.merge_commit_sha,
+    )
     return metadata
 
 
@@ -651,6 +701,7 @@ def generate_version_artifacts(
     with_validate: bool = True,
     with_dependency_dump: bool = True,
     with_sbom: bool = True,
+    pr_number: int | None = None,
 ) -> GenerateResult:
     """Generate all version artifacts for a connector release.
 
@@ -727,6 +778,11 @@ def generate_version_artifacts(
     # --- Enrich metadata with git info *before* building registry entries so
     #     that `generated.git` propagates into `cloud.json` / `oss.json`. ---
     raw_metadata = _enrich_metadata_git_info(raw_metadata, metadata_file)
+    raw_metadata = _enrich_metadata_release(
+        raw_metadata,
+        metadata_file,
+        pr_number=pr_number,
+    )
 
     # --- Generate SBOM from the connector Docker image ---
     sbom_generated = False

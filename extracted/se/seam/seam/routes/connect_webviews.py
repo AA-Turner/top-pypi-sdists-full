@@ -1,6 +1,8 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
+from ..null import Null
 from ..resources import ConnectWebview
 
 
@@ -19,7 +21,7 @@ class AbstractConnectWebviews(abc.ABC):
         customer_key: Optional[str] = None,
         excluded_providers: Optional[List[str]] = None,
         provider_category: Optional[str] = None,
-        wait_for_device_creation: Optional[bool] = None
+        wait_for_device_creation: Optional[bool] = None,
     ) -> ConnectWebview:
         """Creates a new `Connect Webview <https://docs.seam.co/core-concepts/connect-webviews>`_.
 
@@ -58,7 +60,9 @@ class AbstractConnectWebviews(abc.ABC):
 
         You do not need to delete a Connect Webview once a user completes it. Instead, you can simply ignore completed Connect Webviews.
 
-        :param connect_webview_id: ID of the Connect Webview that you want to delete."""
+        :param connect_webview_id: ID of the Connect Webview that you want to delete.
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -69,7 +73,9 @@ class AbstractConnectWebviews(abc.ABC):
 
         :param connect_webview_id: ID of the Connect Webview that you want to get.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -79,9 +85,9 @@ class AbstractConnectWebviews(abc.ABC):
         custom_metadata_has: Optional[Dict[str, Any]] = None,
         customer_key: Optional[str] = None,
         limit: Optional[float] = None,
-        page_cursor: Optional[str] = None,
+        page_cursor: Optional[Union[str, Null]] = None,
         search: Optional[str] = None,
-        user_identifier_key: Optional[str] = None
+        user_identifier_key: Optional[str] = None,
     ) -> List[ConnectWebview]:
         """Returns a list of all `Connect Webviews <https://docs.seam.co/core-concepts/connect-webviews>`_.
 
@@ -106,6 +112,11 @@ class ConnectWebviews(AbstractConnectWebviews):
         self.client = client
         self.defaults = defaults
 
+    @route_metadata(
+        path="/connect_webviews/create",
+        has_required_parameters=False,
+        has_pagination=False,
+    )
     def create(
         self,
         *,
@@ -118,7 +129,7 @@ class ConnectWebviews(AbstractConnectWebviews):
         customer_key: Optional[str] = None,
         excluded_providers: Optional[List[str]] = None,
         provider_category: Optional[str] = None,
-        wait_for_device_creation: Optional[bool] = None
+        wait_for_device_creation: Optional[bool] = None,
     ) -> ConnectWebview:
         """Creates a new `Connect Webview <https://docs.seam.co/core-concepts/connect-webviews>`_.
 
@@ -149,7 +160,7 @@ class ConnectWebviews(AbstractConnectWebviews):
         :param wait_for_device_creation: Indicates whether Seam should finish syncing all devices in a newly-connected account before completing the associated Connect Webview. See also: `Customize the Behavior Settings of Your Connect Webviews <https://docs.seam.co/core-concepts/connect-webviews/customizing-connect-webviews#customize-the-behavior-settings-of-your-connect-webviews>`_.
 
         :returns: OK"""
-        json_payload = {}
+        json_payload: Dict[str, Any] = {}
 
         if accepted_capabilities is not None:
             json_payload["accepted_capabilities"] = accepted_capabilities
@@ -178,21 +189,36 @@ class ConnectWebviews(AbstractConnectWebviews):
 
         return ConnectWebview.from_dict(res["connect_webview"])
 
+    @route_metadata(
+        path="/connect_webviews/delete",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def delete(self, *, connect_webview_id: str) -> None:
         """Deletes a `Connect Webview <https://docs.seam.co/core-concepts/connect-webviews>`_.
 
         You do not need to delete a Connect Webview once a user completes it. Instead, you can simply ignore completed Connect Webviews.
 
-        :param connect_webview_id: ID of the Connect Webview that you want to delete."""
-        json_payload = {}
+        :param connect_webview_id: ID of the Connect Webview that you want to delete.
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if connect_webview_id is not None:
-            json_payload["connect_webview_id"] = connect_webview_id
+            params["connect_webview_id"] = connect_webview_id
 
-        self.client.post("/connect_webviews/delete", json=json_payload)
+        if not params:
+            raise ValueError(
+                "At least one parameter is required for /connect_webviews/delete"
+            )
+
+        self.client.delete("/connect_webviews/delete", params=params)
 
         return None
 
+    @route_metadata(
+        path="/connect_webviews/get", has_required_parameters=True, has_pagination=False
+    )
     def get(self, *, connect_webview_id: str) -> ConnectWebview:
         """Returns a specified `Connect Webview <https://docs.seam.co/core-concepts/connect-webviews>`_.
 
@@ -200,25 +226,37 @@ class ConnectWebviews(AbstractConnectWebviews):
 
         :param connect_webview_id: ID of the Connect Webview that you want to get.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if connect_webview_id is not None:
-            json_payload["connect_webview_id"] = connect_webview_id
+            params["connect_webview_id"] = connect_webview_id
 
-        res = self.client.post("/connect_webviews/get", json=json_payload)
+        if not params:
+            raise ValueError(
+                "At least one parameter is required for /connect_webviews/get"
+            )
+
+        res = self.client.get("/connect_webviews/get", params=params)
 
         return ConnectWebview.from_dict(res["connect_webview"])
 
+    @route_metadata(
+        path="/connect_webviews/list",
+        has_required_parameters=False,
+        has_pagination=True,
+    )
     def list(
         self,
         *,
         custom_metadata_has: Optional[Dict[str, Any]] = None,
         customer_key: Optional[str] = None,
         limit: Optional[float] = None,
-        page_cursor: Optional[str] = None,
+        page_cursor: Optional[Union[str, Null]] = None,
         search: Optional[str] = None,
-        user_identifier_key: Optional[str] = None
+        user_identifier_key: Optional[str] = None,
     ) -> List[ConnectWebview]:
         """Returns a list of all `Connect Webviews <https://docs.seam.co/core-concepts/connect-webviews>`_.
 
@@ -235,7 +273,7 @@ class ConnectWebviews(AbstractConnectWebviews):
         :param user_identifier_key: Your user ID for the user by which you want to filter Connect Webviews.
 
         :returns: OK"""
-        json_payload = {}
+        json_payload: Dict[str, Any] = {}
 
         if custom_metadata_has is not None:
             json_payload["custom_metadata_has"] = custom_metadata_has

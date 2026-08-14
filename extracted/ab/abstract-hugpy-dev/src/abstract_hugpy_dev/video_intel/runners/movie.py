@@ -47,7 +47,7 @@ from abstract_hugpy_dev.imports.src.utils import slugify
 
 from ..gen_schema import text_part
 from ..media_store import ingest
-from ..movie_schema import MovieSpec, total_frames
+from ..movie_schema import MovieSpec, goal_effective, total_frames
 from ..result_schema import JobError, JobResult
 from ..scene_schema import make_generate_scene
 from ._img2img import img2img_available
@@ -248,7 +248,9 @@ def _finalize_movie(assets_root: str, projectmeta: str, segment_mp4s: "list[str]
     # ---- movie.json manifest (superset of the original keys + partial flags) ----
     movie_manifest = {
         "goals": [
-            {"start_frame": g.start_frame, "end_frame": g.end_frame, "prompt": g.prompt}
+            {"start_frame": g.start_frame, "end_frame": g.end_frame, "prompt": g.prompt,
+             # per-goal effective model (k92) — None-safe: the movie default when unset
+             "model": (g.model_id or spec.model_id)}
             for g in spec.goals
         ],
         "drift": drift_mode,
@@ -285,10 +287,18 @@ def run_generate_movie(spec: MovieSpec, job_id: str) -> JobResult:
     os.makedirs(assets_root, exist_ok=True)
     os.makedirs(work_dir, exist_ok=True)
 
-    # Cross-segment DRIFT feasibility, probed ONCE: carry the previous last frame
-    # as the next segment's start image only when the fleet can serve img2img for
-    # this model; else fall back to INDEPENDENT segments (v1 text-to-image) + concat.
-    can_carry = img2img_available(spec.model_id)
+    # Cross-segment DRIFT feasibility. Each goal may pin its OWN model (k92), so
+    # img2img support can differ segment to segment — probe PER effective model,
+    # memoized so a repeated model is asked once. ``drift_mode`` reports the
+    # movie-level default model's support (a summary for movie.json).
+    _carry_cache: "dict[str, bool]" = {}
+
+    def _can_carry(model_id: str) -> bool:
+        if model_id not in _carry_cache:
+            _carry_cache[model_id] = img2img_available(model_id)
+        return _carry_cache[model_id]
+
+    can_carry = _can_carry(spec.model_id)
     drift_mode = "carry" if can_carry else "independent (image-to-image unavailable on the fleet)"
     logger.info("movie %s: %d segment(s), %d total frame(s), drift=%s",
                 job_id, seg_total, n_frames_total, drift_mode)
@@ -296,7 +306,10 @@ def run_generate_movie(spec: MovieSpec, job_id: str) -> JobResult:
     # live per-segment meta (mutated in place; emitted in the nested progress blob)
     segments_meta = [
         {"index": i, "goal": g.prompt, "prompt": g.prompt, "attempt": 0,
-         "score": None, "status": "pending", "frames": []}
+         "score": None, "status": "pending", "frames": [],
+         # per-goal effective model (k92) — attribution shows WHICH model a segment
+         # uses right in the live timeline, not just in movie.json after the render.
+         "model": (g.model_id or spec.model_id)}
         for i, g in enumerate(spec.goals)
     ]
     segment_records: "list[dict]" = []   # movie.json / JobResult.movie segments
@@ -365,6 +378,10 @@ def run_generate_movie(spec: MovieSpec, job_id: str) -> JobResult:
         seg_bundle = os.path.join(assets_root, seg_name)
         seg_n = goal.end_frame - goal.start_frame
 
+        # ---- resolve THIS goal's effective knobs (k92): its own override when set,
+        # else the movie-level value. A goal with no overrides == the old behavior. ----
+        eff = goal_effective(goal, spec)
+
         # ---- RESUME: a completed segment bundle short-circuits the render ----
         resumed = _resume_segment(seg_bundle)
         if resumed is not None:
@@ -379,6 +396,7 @@ def run_generate_movie(spec: MovieSpec, job_id: str) -> JobResult:
                 frames=[asdict(r) for r in frame_refs if r.kind == "image"])
             segment_records.append({
                 "index": seg_i, "goal": goal.prompt, "prompt": goal.prompt,
+                "model": (goal.model_id or spec.model_id),
                 "seed": seed_val, "attempts": 0, "scores": [], "chosen_take": None,
                 "status": "resumed", "mp4": (f"{seg_name}/video.mp4" if mp4_path else None),
             })
@@ -390,8 +408,10 @@ def run_generate_movie(spec: MovieSpec, job_id: str) -> JobResult:
             continue
 
         # ---- decide this segment's start image (explicit ref, else drift carry) ----
+        # Carry feasibility keys off THIS segment's effective model (k92), not the
+        # movie default — a segment whose model can't img2img renders independent.
         explicit = goal.ref.uri if goal.ref is not None else None
-        carry = prev_last_frame if (can_carry and seg_i > 0) else None
+        carry = prev_last_frame if (_can_carry(eff["model_id"]) and seg_i > 0) else None
         seg_start_frame = explicit if explicit is not None else carry
 
         label_prompt = goal.prompt if len(goal.prompt) <= 60 else goal.prompt[:59] + "…"
@@ -402,7 +422,8 @@ def run_generate_movie(spec: MovieSpec, job_id: str) -> JobResult:
         attempt_scores: "list" = []
         for attempt in range(spec.max_attempts_per_segment):
             # deterministic bumped seed: base + segment_index*1000 + attempt
-            seg_seed = None if spec.seed is None else (spec.seed + seg_i * 1000 + attempt)
+            # (base is this goal's EFFECTIVE seed — its own override, else spec.seed)
+            seg_seed = None if eff["seed"] is None else (eff["seed"] + seg_i * 1000 + attempt)
             seg_out = os.path.join(work_dir, f"seg_{seg_i:02d}_att_{attempt}")
 
             seg_refs: "list" = []
@@ -425,7 +446,7 @@ def run_generate_movie(spec: MovieSpec, job_id: str) -> JobResult:
                     "stage": "generating",
                     "label": (f"segment {seg_i + 1}/{seg_total} · attempt {_att + 1} · "
                               f"frame {len(_paths)}/{seg_n} — {label_prompt}"),
-                    "model": spec.model_id,
+                    "model": eff["model_id"],
                     "frames": [asdict(r) for r in _refs if r.kind == "image"],
                 }
                 segments_meta[seg_i].update(
@@ -434,18 +455,18 @@ def run_generate_movie(spec: MovieSpec, job_id: str) -> JobResult:
                 _emit("generating", current)
 
             err = render_scene_frames(
-                model_id=spec.model_id,
+                model_id=eff["model_id"],
                 base_prompt=goal.prompt,
                 n_frames=seg_n,
-                width=spec.width,
-                height=spec.height,
-                steps=spec.steps,
-                guidance=spec.guidance,
+                width=eff["width"],
+                height=eff["height"],
+                steps=eff["steps"],
+                guidance=eff["guidance"],
                 seed=seg_seed,
-                motion=None,
-                negative=spec.negative,
-                strength=spec.strength,
-                chain=spec.chain,
+                motion=eff["motion"],
+                negative=eff["negative"],
+                strength=eff["strength"],
+                chain=eff["chain"],
                 start_frame=seg_start_frame,
                 out_dir=seg_out,
                 job_id=job_id,
@@ -517,11 +538,11 @@ def run_generate_movie(spec: MovieSpec, job_id: str) -> JobResult:
 
         seg_spec = make_generate_scene(
             parts=(text_part(goal.prompt),),
-            model_id=spec.model_id, width=spec.width, height=spec.height,
-            steps=spec.steps, guidance=spec.guidance,
+            model_id=eff["model_id"], width=eff["width"], height=eff["height"],
+            steps=eff["steps"], guidance=eff["guidance"],
             n_frames=seg_n, fps=spec.fps, assemble=spec.assemble,
-            seed=best["seed"], negative=spec.negative,
-            chain=spec.chain, strength=spec.strength, project=spec.project,
+            seed=best["seed"], motion=eff["motion"], negative=eff["negative"],
+            chain=eff["chain"], strength=eff["strength"], project=spec.project,
         )
         try:
             _write_bundle(
@@ -547,6 +568,7 @@ def run_generate_movie(spec: MovieSpec, job_id: str) -> JobResult:
             frames=[asdict(r) for r in best["refs"] if r.kind == "image"])
         segment_records.append({
             "index": seg_i, "goal": goal.prompt, "prompt": goal.prompt,
+            "model": eff["model_id"],
             "seed": best["seed"], "attempts": len(attempt_scores),
             "scores": attempt_scores, "chosen_take": best["attempt"],
             "status": "done",

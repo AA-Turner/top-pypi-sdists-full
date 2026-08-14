@@ -1,6 +1,7 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
 from ..resources import InstantKey
 
 
@@ -10,7 +11,9 @@ class AbstractInstantKeys(abc.ABC):
     def delete(self, *, instant_key_id: str) -> None:
         """Deletes a specified `Instant Key <https://docs.seam.co/capability-guides/instant-keys>`_.
 
-        :param instant_key_id: ID of the Instant Key that you want to delete."""
+        :param instant_key_id: ID of the Instant Key that you want to delete.
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -18,7 +21,7 @@ class AbstractInstantKeys(abc.ABC):
         self,
         *,
         instant_key_id: Optional[str] = None,
-        instant_key_url: Optional[str] = None
+        instant_key_url: Optional[str] = None,
     ) -> InstantKey:
         """Gets an `instant key <https://docs.seam.co/capability-guides/instant-keys>`_.
 
@@ -26,7 +29,9 @@ class AbstractInstantKeys(abc.ABC):
 
         :param instant_key_url: URL of the instant key to get.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -44,24 +49,37 @@ class InstantKeys(AbstractInstantKeys):
         self.client = client
         self.defaults = defaults
 
+    @route_metadata(
+        path="/instant_keys/delete", has_required_parameters=True, has_pagination=False
+    )
     def delete(self, *, instant_key_id: str) -> None:
         """Deletes a specified `Instant Key <https://docs.seam.co/capability-guides/instant-keys>`_.
 
-        :param instant_key_id: ID of the Instant Key that you want to delete."""
-        json_payload = {}
+        :param instant_key_id: ID of the Instant Key that you want to delete.
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if instant_key_id is not None:
-            json_payload["instant_key_id"] = instant_key_id
+            params["instant_key_id"] = instant_key_id
 
-        self.client.post("/instant_keys/delete", json=json_payload)
+        if not params:
+            raise ValueError(
+                "At least one parameter is required for /instant_keys/delete"
+            )
+
+        self.client.delete("/instant_keys/delete", params=params)
 
         return None
 
+    @route_metadata(
+        path="/instant_keys/get", has_required_parameters=True, has_pagination=False
+    )
     def get(
         self,
         *,
         instant_key_id: Optional[str] = None,
-        instant_key_url: Optional[str] = None
+        instant_key_url: Optional[str] = None,
     ) -> InstantKey:
         """Gets an `instant key <https://docs.seam.co/capability-guides/instant-keys>`_.
 
@@ -69,29 +87,37 @@ class InstantKeys(AbstractInstantKeys):
 
         :param instant_key_url: URL of the instant key to get.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if instant_key_id is not None:
-            json_payload["instant_key_id"] = instant_key_id
+            params["instant_key_id"] = instant_key_id
         if instant_key_url is not None:
-            json_payload["instant_key_url"] = instant_key_url
+            params["instant_key_url"] = instant_key_url
 
-        res = self.client.post("/instant_keys/get", json=json_payload)
+        if not params:
+            raise ValueError("At least one parameter is required for /instant_keys/get")
+
+        res = self.client.get("/instant_keys/get", params=params)
 
         return InstantKey.from_dict(res["instant_key"])
 
+    @route_metadata(
+        path="/instant_keys/list", has_required_parameters=False, has_pagination=False
+    )
     def list(self, *, user_identity_id: Optional[str] = None) -> List[InstantKey]:
         """Returns a list of all `instant keys <https://docs.seam.co/capability-guides/instant-keys>`_.
 
         :param user_identity_id: ID of the user identity by which you want to filter the list of Instant Keys.
 
         :returns: OK"""
-        json_payload = {}
+        params: Dict[str, Any] = {}
 
         if user_identity_id is not None:
-            json_payload["user_identity_id"] = user_identity_id
+            params["user_identity_id"] = user_identity_id
 
-        res = self.client.post("/instant_keys/list", json=json_payload)
+        res = self.client.get("/instant_keys/list", params=params)
 
         return [InstantKey.from_dict(item) for item in res["instant_keys"]]

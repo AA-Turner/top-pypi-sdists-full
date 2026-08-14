@@ -20,8 +20,7 @@ project. It allows you to define Amazon Data Firehose delivery streams.
 
 ## Defining a Delivery Stream
 
-In order to define a Delivery Stream, you must specify a destination. An S3 bucket can be
-used as a destination. Currently the CDK supports only S3 as a destination which is covered [below](#destinations).
+In order to define a Delivery Stream, you must specify a destination. S3, HTTP endpoint, and Datadog can be used as destinations, as covered [below](#destinations).
 
 ```python
 bucket = s3.Bucket(self, "Bucket")
@@ -84,7 +83,34 @@ Data must be provided via "direct put", ie., by using a `PutRecord` or
 
 Amazon Data Firehose supports multiple AWS and third-party services as destinations, including Amazon S3, Amazon Redshift, and more. You can find the full list of supported destination [here](https://docs.aws.amazon.com/firehose/latest/dev/create-destination.html).
 
-Currently in the AWS CDK, only S3 is implemented as an L2 construct destination. Other destinations can still be configured using L1 constructs.
+Currently in the AWS CDK, S3, HTTP endpoint, and Datadog are implemented as L2 construct destinations. Other destinations can still be configured using L1 constructs.
+
+### HTTP
+
+Defining a delivery stream with an HTTP destination:
+
+```python
+# endpoint_config: firehose.HttpEndpointConfig
+
+http_destination = firehose.HttpEndpoint(
+    endpoint_config=endpoint_config
+)
+```
+
+### Datadog
+
+Defining a delivery stream with a Datadog destination:
+
+```python
+import aws_cdk.aws_secretsmanager as secretsmanager
+
+# api_key: secretsmanager.Secret
+
+datadog_destination = firehose.Datadog(
+    api_key=api_key,
+    endpoint=firehose.DatadogEndpoint.LOGS_US1
+)
+```
 
 ### S3
 
@@ -937,6 +963,7 @@ if typing.TYPE_CHECKING:
     import aws_cdk.aws_lambda as _aws_lambda_b8f2f472
     import aws_cdk.aws_logs as _aws_logs_ab8ef8ce
     import aws_cdk.aws_s3 as _aws_s3_01158f40
+    import aws_cdk.aws_secretsmanager as _aws_secretsmanager_64b8a1c5
     import aws_cdk.interfaces.aws_kinesis as _aws_kinesis_40f1d96a
     import aws_cdk.interfaces.aws_kinesisfirehose as _aws_kinesisfirehose_0487cfc9
     import constructs as _constructs_77d1e7e8
@@ -954,6 +981,7 @@ else:
     _aws_lambda_b8f2f472 = _LazyImport("aws_cdk.aws_lambda")
     _aws_logs_ab8ef8ce = _LazyImport("aws_cdk.aws_logs")
     _aws_s3_01158f40 = _LazyImport("aws_cdk.aws_s3")
+    _aws_secretsmanager_64b8a1c5 = _LazyImport("aws_cdk.aws_secretsmanager")
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
@@ -10969,6 +10997,384 @@ class DataProcessorProps:
         )
 
 
+class DatadogEndpoint(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kinesisfirehose.DatadogEndpoint",
+):
+    '''A Datadog endpoint URL for use with Kinesis Data Firehose.
+
+    Use one of the predefined static members for a known Datadog region, or
+    ``DatadogEndpoint.of(url)`` for a custom URL.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_secretsmanager as secretsmanager
+        
+        # api_key: secretsmanager.Secret
+        
+        datadog_destination = firehose.Datadog(
+            api_key=api_key,
+            endpoint=firehose.DatadogEndpoint.LOGS_US1
+        )
+    '''
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(cls, url: builtins.str) -> "DatadogEndpoint":
+        '''Use a custom Datadog endpoint URL.
+
+        This is an escape hatch for endpoints not covered by the predefined members (for
+        example a new region or a proxy in front of Datadog). The value is passed through
+        as-is and is not validated by CDK. It must be a valid HTTPS Datadog intake URL: the
+        Firehose API requires the endpoint URL to match ``https://``, so an invalid value fails
+        at deployment. The caller is responsible for providing a correct URL.
+
+        :param url: The full HTTPS endpoint URL.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9e62d9aae4cca27dfb675759038c728e4f9f0fc1bef1fab9f18a796d7d8ca3af)
+            check_type(argname="argument url", value=url, expected_type=type_hints["url"])
+        return typing.cast("DatadogEndpoint", jsii.sinvoke(cls, "of", [url]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CONFIGURATION_AP1")
+    def CONFIGURATION_AP1(cls) -> "DatadogEndpoint":
+        '''Configurations — AP1 (Japan).'''
+        return typing.cast("DatadogEndpoint", jsii.sget(cls, "CONFIGURATION_AP1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CONFIGURATION_EU")
+    def CONFIGURATION_EU(cls) -> "DatadogEndpoint":
+        '''Configurations — EU.'''
+        return typing.cast("DatadogEndpoint", jsii.sget(cls, "CONFIGURATION_EU"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CONFIGURATION_US_GOV")
+    def CONFIGURATION_US_GOV(cls) -> "DatadogEndpoint":
+        '''Configurations — US Government.'''
+        return typing.cast("DatadogEndpoint", jsii.sget(cls, "CONFIGURATION_US_GOV"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CONFIGURATION_US1")
+    def CONFIGURATION_US1(cls) -> "DatadogEndpoint":
+        '''Configurations — US1.'''
+        return typing.cast("DatadogEndpoint", jsii.sget(cls, "CONFIGURATION_US1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CONFIGURATION_US3")
+    def CONFIGURATION_US3(cls) -> "DatadogEndpoint":
+        '''Configurations — US3.'''
+        return typing.cast("DatadogEndpoint", jsii.sget(cls, "CONFIGURATION_US3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CONFIGURATION_US5")
+    def CONFIGURATION_US5(cls) -> "DatadogEndpoint":
+        '''Configurations — US5.'''
+        return typing.cast("DatadogEndpoint", jsii.sget(cls, "CONFIGURATION_US5"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="LOGS_AP1")
+    def LOGS_AP1(cls) -> "DatadogEndpoint":
+        '''Logs — AP1 (Japan).'''
+        return typing.cast("DatadogEndpoint", jsii.sget(cls, "LOGS_AP1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="LOGS_EU")
+    def LOGS_EU(cls) -> "DatadogEndpoint":
+        '''Logs — EU.'''
+        return typing.cast("DatadogEndpoint", jsii.sget(cls, "LOGS_EU"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="LOGS_GOV")
+    def LOGS_GOV(cls) -> "DatadogEndpoint":
+        '''Logs — US Government.'''
+        return typing.cast("DatadogEndpoint", jsii.sget(cls, "LOGS_GOV"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="LOGS_US1")
+    def LOGS_US1(cls) -> "DatadogEndpoint":
+        '''Logs — US1.'''
+        return typing.cast("DatadogEndpoint", jsii.sget(cls, "LOGS_US1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="LOGS_US3")
+    def LOGS_US3(cls) -> "DatadogEndpoint":
+        '''Logs — US3.'''
+        return typing.cast("DatadogEndpoint", jsii.sget(cls, "LOGS_US3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="LOGS_US5")
+    def LOGS_US5(cls) -> "DatadogEndpoint":
+        '''Logs — US5.'''
+        return typing.cast("DatadogEndpoint", jsii.sget(cls, "LOGS_US5"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="METRICS_AP1")
+    def METRICS_AP1(cls) -> "DatadogEndpoint":
+        '''Metrics — AP1 (Japan).'''
+        return typing.cast("DatadogEndpoint", jsii.sget(cls, "METRICS_AP1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="METRICS_EU")
+    def METRICS_EU(cls) -> "DatadogEndpoint":
+        '''Metrics — EU.'''
+        return typing.cast("DatadogEndpoint", jsii.sget(cls, "METRICS_EU"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="METRICS_US")
+    def METRICS_US(cls) -> "DatadogEndpoint":
+        '''Metrics — US.'''
+        return typing.cast("DatadogEndpoint", jsii.sget(cls, "METRICS_US"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="METRICS_US5")
+    def METRICS_US5(cls) -> "DatadogEndpoint":
+        '''Metrics — US5.'''
+        return typing.cast("DatadogEndpoint", jsii.sget(cls, "METRICS_US5"))
+
+    @builtins.property
+    @jsii.member(jsii_name="url")
+    def url(self) -> builtins.str:
+        '''The endpoint URL string.'''
+        return typing.cast(builtins.str, jsii.get(self, "url"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisfirehose.DatadogProps",
+    jsii_struct_bases=[CommonDestinationProps],
+    name_mapping={
+        "logging_config": "loggingConfig",
+        "processor": "processor",
+        "processors": "processors",
+        "role": "role",
+        "s3_backup": "s3Backup",
+        "api_key": "apiKey",
+        "endpoint": "endpoint",
+        "backup_mode": "backupMode",
+        "buffering_hints": "bufferingHints",
+        "request_compression": "requestCompression",
+        "retry_options": "retryOptions",
+        "tags": "tags",
+    },
+)
+class DatadogProps(CommonDestinationProps):
+    def __init__(
+        self,
+        *,
+        logging_config: typing.Optional["ILoggingConfig"] = None,
+        processor: typing.Optional["IDataProcessor"] = None,
+        processors: typing.Optional[typing.Sequence["IDataProcessor"]] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        s3_backup: typing.Optional[typing.Union["DestinationS3BackupProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        api_key: "_aws_secretsmanager_64b8a1c5.ISecret",
+        endpoint: "DatadogEndpoint",
+        backup_mode: typing.Optional["HttpBackupMode"] = None,
+        buffering_hints: typing.Optional[typing.Union["HttpBufferingHints", typing.Dict[builtins.str, typing.Any]]] = None,
+        request_compression: typing.Optional["HttpCompression"] = None,
+        retry_options: typing.Optional[typing.Union["HttpRetryOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["HttpAttribute", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Props for defining a Datadog destination of a Kinesis Data Firehose delivery stream.
+
+        :param logging_config: Configuration that determines whether to log errors during data transformation or delivery failures, and specifies the CloudWatch log group for storing error logs. Default: - errors will be logged and a log group will be created for you.
+        :param processor: (deprecated) The data transformation that should be performed on the data before writing to the destination. Default: - no data transformation will occur.
+        :param processors: The data transformation that should be performed on the data before writing to the destination. Default: - no data transformation will occur.
+        :param role: The IAM role associated with this destination. Assumed by Amazon Data Firehose to invoke processors and write to destinations Default: - a role will be created with default permissions.
+        :param s3_backup: The configuration for backing up source records to S3. Default: - source records will not be backed up to S3.
+        :param api_key: The API key used to authenticate with Datadog. Delivered to Firehose through AWS Secrets Manager (Firehose retrieves it at runtime rather than embedding it in the template).
+        :param endpoint: The Datadog endpoint to send data to.
+        :param backup_mode: Describes the S3 bucket backup options for the data that Kinesis Data Firehose delivers to Datadog. Default: HttpBackupMode.FAILED
+        :param buffering_hints: Buffering hints for data delivery to the Datadog endpoint. Default: - interval of 60 seconds, size of 4 MiB
+        :param request_compression: Content encoding applied to the request body before delivery. Default: HttpCompression.GZIP
+        :param retry_options: Retry behavior when Kinesis Data Firehose cannot deliver data to Datadog. Default: - duration of 60 seconds
+        :param tags: Datadog tags to apply for filtering. Default: - No tags.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_secretsmanager as secretsmanager
+            
+            # api_key: secretsmanager.Secret
+            
+            datadog_destination = firehose.Datadog(
+                api_key=api_key,
+                endpoint=firehose.DatadogEndpoint.LOGS_US1
+            )
+        '''
+        if isinstance(s3_backup, dict):
+            s3_backup = DestinationS3BackupProps(**s3_backup)
+        if isinstance(buffering_hints, dict):
+            buffering_hints = HttpBufferingHints(**buffering_hints)
+        if isinstance(retry_options, dict):
+            retry_options = HttpRetryOptions(**retry_options)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__228a6d92dd7efe8bccbbd0fe3f0b87b70af08d16c749026400ccb0bd0ef317ca)
+            check_type(argname="argument logging_config", value=logging_config, expected_type=type_hints["logging_config"])
+            check_type(argname="argument processor", value=processor, expected_type=type_hints["processor"])
+            check_type(argname="argument processors", value=processors, expected_type=type_hints["processors"])
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument s3_backup", value=s3_backup, expected_type=type_hints["s3_backup"])
+            check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
+            check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+            check_type(argname="argument backup_mode", value=backup_mode, expected_type=type_hints["backup_mode"])
+            check_type(argname="argument buffering_hints", value=buffering_hints, expected_type=type_hints["buffering_hints"])
+            check_type(argname="argument request_compression", value=request_compression, expected_type=type_hints["request_compression"])
+            check_type(argname="argument retry_options", value=retry_options, expected_type=type_hints["retry_options"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "api_key": api_key,
+            "endpoint": endpoint,
+        }
+        if logging_config is not None:
+            self._values["logging_config"] = logging_config
+        if processor is not None:
+            self._values["processor"] = processor
+        if processors is not None:
+            self._values["processors"] = processors
+        if role is not None:
+            self._values["role"] = role
+        if s3_backup is not None:
+            self._values["s3_backup"] = s3_backup
+        if backup_mode is not None:
+            self._values["backup_mode"] = backup_mode
+        if buffering_hints is not None:
+            self._values["buffering_hints"] = buffering_hints
+        if request_compression is not None:
+            self._values["request_compression"] = request_compression
+        if retry_options is not None:
+            self._values["retry_options"] = retry_options
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def logging_config(self) -> typing.Optional["ILoggingConfig"]:
+        '''Configuration that determines whether to log errors during data transformation or delivery failures, and specifies the CloudWatch log group for storing error logs.
+
+        :default: - errors will be logged and a log group will be created for you.
+        '''
+        result = self._values.get("logging_config")
+        return typing.cast(typing.Optional["ILoggingConfig"], result)
+
+    @builtins.property
+    def processor(self) -> typing.Optional["IDataProcessor"]:
+        '''(deprecated) The data transformation that should be performed on the data before writing to the destination.
+
+        :default: - no data transformation will occur.
+
+        :deprecated: Use ``processors`` instead.
+
+        :stability: deprecated
+        '''
+        result = self._values.get("processor")
+        return typing.cast(typing.Optional["IDataProcessor"], result)
+
+    @builtins.property
+    def processors(self) -> typing.Optional[typing.List["IDataProcessor"]]:
+        '''The data transformation that should be performed on the data before writing to the destination.
+
+        :default: - no data transformation will occur.
+        '''
+        result = self._values.get("processors")
+        return typing.cast(typing.Optional[typing.List["IDataProcessor"]], result)
+
+    @builtins.property
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
+        '''The IAM role associated with this destination.
+
+        Assumed by Amazon Data Firehose to invoke processors and write to destinations
+
+        :default: - a role will be created with default permissions.
+        '''
+        result = self._values.get("role")
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
+
+    @builtins.property
+    def s3_backup(self) -> typing.Optional["DestinationS3BackupProps"]:
+        '''The configuration for backing up source records to S3.
+
+        :default: - source records will not be backed up to S3.
+        '''
+        result = self._values.get("s3_backup")
+        return typing.cast(typing.Optional["DestinationS3BackupProps"], result)
+
+    @builtins.property
+    def api_key(self) -> "_aws_secretsmanager_64b8a1c5.ISecret":
+        '''The API key used to authenticate with Datadog.
+
+        Delivered to Firehose through AWS Secrets Manager (Firehose retrieves it at runtime rather
+        than embedding it in the template).
+        '''
+        result = self._values.get("api_key")
+        assert result is not None, "Required property 'api_key' is missing"
+        return typing.cast("_aws_secretsmanager_64b8a1c5.ISecret", result)
+
+    @builtins.property
+    def endpoint(self) -> "DatadogEndpoint":
+        '''The Datadog endpoint to send data to.'''
+        result = self._values.get("endpoint")
+        assert result is not None, "Required property 'endpoint' is missing"
+        return typing.cast("DatadogEndpoint", result)
+
+    @builtins.property
+    def backup_mode(self) -> typing.Optional["HttpBackupMode"]:
+        '''Describes the S3 bucket backup options for the data that Kinesis Data Firehose delivers to Datadog.
+
+        :default: HttpBackupMode.FAILED
+        '''
+        result = self._values.get("backup_mode")
+        return typing.cast(typing.Optional["HttpBackupMode"], result)
+
+    @builtins.property
+    def buffering_hints(self) -> typing.Optional["HttpBufferingHints"]:
+        '''Buffering hints for data delivery to the Datadog endpoint.
+
+        :default: - interval of 60 seconds, size of 4 MiB
+        '''
+        result = self._values.get("buffering_hints")
+        return typing.cast(typing.Optional["HttpBufferingHints"], result)
+
+    @builtins.property
+    def request_compression(self) -> typing.Optional["HttpCompression"]:
+        '''Content encoding applied to the request body before delivery.
+
+        :default: HttpCompression.GZIP
+        '''
+        result = self._values.get("request_compression")
+        return typing.cast(typing.Optional["HttpCompression"], result)
+
+    @builtins.property
+    def retry_options(self) -> typing.Optional["HttpRetryOptions"]:
+        '''Retry behavior when Kinesis Data Firehose cannot deliver data to Datadog.
+
+        :default: - duration of 60 seconds
+        '''
+        result = self._values.get("retry_options")
+        return typing.cast(typing.Optional["HttpRetryOptions"], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["HttpAttribute"]]:
+        '''Datadog tags to apply for filtering.
+
+        :default: - No tags.
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["HttpAttribute"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DatadogProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class DecompressionProcessorCompressionFormat(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kinesisfirehose.DecompressionProcessorCompressionFormat",
@@ -11414,6 +11820,7 @@ class DestinationBindOptions:
     name_mapping={
         "dependables": "dependables",
         "extended_s3_destination_configuration": "extendedS3DestinationConfiguration",
+        "http_endpoint_destination_configuration": "httpEndpointDestinationConfiguration",
     },
 )
 class DestinationConfig:
@@ -11422,11 +11829,13 @@ class DestinationConfig:
         *,
         dependables: typing.Optional[typing.Sequence["_constructs_77d1e7e8.IDependable"]] = None,
         extended_s3_destination_configuration: typing.Optional[typing.Union["CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        http_endpoint_destination_configuration: typing.Optional[typing.Union["CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''An Amazon Data Firehose delivery stream destination configuration.
 
         :param dependables: Any resources that were created by the destination when binding it to the stack that must be deployed before the delivery stream is deployed. Default: []
         :param extended_s3_destination_configuration: S3 destination configuration properties. Default: - S3 destination is not used.
+        :param http_endpoint_destination_configuration: Datadog destination configuration properties. Default: - HTTP destination is not used.
 
         :exampleMetadata: fixture=_generated
 
@@ -11558,20 +11967,100 @@ class DestinationConfig:
                         prefix="prefix"
                     ),
                     s3_backup_mode="s3BackupMode"
+                ),
+                http_endpoint_destination_configuration=kinesisfirehose.CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty(
+                    endpoint_configuration=kinesisfirehose.CfnDeliveryStream.HttpEndpointConfigurationProperty(
+                        url="url",
+            
+                        # the properties below are optional
+                        access_key="accessKey",
+                        name="name"
+                    ),
+                    s3_configuration=kinesisfirehose.CfnDeliveryStream.S3DestinationConfigurationProperty(
+                        bucket_arn="bucketArn",
+                        role_arn="roleArn",
+            
+                        # the properties below are optional
+                        buffering_hints=kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
+                            interval_in_seconds=123,
+                            size_in_m_bs=123
+                        ),
+                        cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
+                            enabled=False,
+                            log_group_name="logGroupName",
+                            log_stream_name="logStreamName"
+                        ),
+                        compression_format="compressionFormat",
+                        encryption_configuration=kinesisfirehose.CfnDeliveryStream.EncryptionConfigurationProperty(
+                            kms_encryption_config=kinesisfirehose.CfnDeliveryStream.KMSEncryptionConfigProperty(
+                                awskms_key_arn="awskmsKeyArn"
+                            ),
+                            no_encryption_config="noEncryptionConfig"
+                        ),
+                        error_output_prefix="errorOutputPrefix",
+                        prefix="prefix"
+                    ),
+            
+                    # the properties below are optional
+                    buffering_hints=kinesisfirehose.CfnDeliveryStream.BufferingHintsProperty(
+                        interval_in_seconds=123,
+                        size_in_m_bs=123
+                    ),
+                    cloud_watch_logging_options=kinesisfirehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
+                        enabled=False,
+                        log_group_name="logGroupName",
+                        log_stream_name="logStreamName"
+                    ),
+                    processing_configuration=kinesisfirehose.CfnDeliveryStream.ProcessingConfigurationProperty(
+                        enabled=False,
+                        processors=[kinesisfirehose.CfnDeliveryStream.ProcessorProperty(
+                            type="type",
+            
+                            # the properties below are optional
+                            parameters=[kinesisfirehose.CfnDeliveryStream.ProcessorParameterProperty(
+                                parameter_name="parameterName",
+                                parameter_value="parameterValue"
+                            )]
+                        )]
+                    ),
+                    request_configuration=kinesisfirehose.CfnDeliveryStream.HttpEndpointRequestConfigurationProperty(
+                        common_attributes=[kinesisfirehose.CfnDeliveryStream.HttpEndpointCommonAttributeProperty(
+                            attribute_name="attributeName",
+                            attribute_value="attributeValue"
+                        )],
+                        content_encoding="contentEncoding"
+                    ),
+                    retry_options=kinesisfirehose.CfnDeliveryStream.RetryOptionsProperty(
+                        duration_in_seconds=123
+                    ),
+                    role_arn="roleArn",
+                    s3_backup_mode="s3BackupMode",
+                    secrets_manager_configuration=kinesisfirehose.CfnDeliveryStream.SecretsManagerConfigurationProperty(
+                        enabled=False,
+            
+                        # the properties below are optional
+                        role_arn="roleArn",
+                        secret_arn="secretArn"
+                    )
                 )
             )
         '''
         if isinstance(extended_s3_destination_configuration, dict):
             extended_s3_destination_configuration = CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty(**extended_s3_destination_configuration)
+        if isinstance(http_endpoint_destination_configuration, dict):
+            http_endpoint_destination_configuration = CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty(**http_endpoint_destination_configuration)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c4dd310df912fa42818751c79c7d5fea4583bec8e28275de2a13e058f30cb19b)
             check_type(argname="argument dependables", value=dependables, expected_type=type_hints["dependables"])
             check_type(argname="argument extended_s3_destination_configuration", value=extended_s3_destination_configuration, expected_type=type_hints["extended_s3_destination_configuration"])
+            check_type(argname="argument http_endpoint_destination_configuration", value=http_endpoint_destination_configuration, expected_type=type_hints["http_endpoint_destination_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if dependables is not None:
             self._values["dependables"] = dependables
         if extended_s3_destination_configuration is not None:
             self._values["extended_s3_destination_configuration"] = extended_s3_destination_configuration
+        if http_endpoint_destination_configuration is not None:
+            self._values["http_endpoint_destination_configuration"] = http_endpoint_destination_configuration
 
     @builtins.property
     def dependables(
@@ -11594,6 +12083,17 @@ class DestinationConfig:
         '''
         result = self._values.get("extended_s3_destination_configuration")
         return typing.cast(typing.Optional["CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty"], result)
+
+    @builtins.property
+    def http_endpoint_destination_configuration(
+        self,
+    ) -> typing.Optional["CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty"]:
+        '''Datadog destination configuration properties.
+
+        :default: - HTTP destination is not used.
+        '''
+        result = self._values.get("http_endpoint_destination_configuration")
+        return typing.cast(typing.Optional["CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11964,6 +12464,535 @@ class HiveJsonInputFormatProps:
 
     def __repr__(self) -> str:
         return "HiveJsonInputFormatProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisfirehose.HttpAttribute",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "value": "value"},
+)
+class HttpAttribute:
+    def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
+        '''Describes the metadata sent to the Http endpoint destination.
+
+        :param name: The name of the Http endpoint common attribute.
+        :param value: The value of the Http endpoint common attribute.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisfirehose as kinesisfirehose
+            
+            http_attribute = kinesisfirehose.HttpAttribute(
+                name="name",
+                value="value"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6cc9981ec46fe435b1c1ef54aae8b58bc258a86a95ed89fa3284f57e52f25c5d)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "value": value,
+        }
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the Http endpoint common attribute.'''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def value(self) -> builtins.str:
+        '''The value of the Http endpoint common attribute.'''
+        result = self._values.get("value")
+        assert result is not None, "Required property 'value' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HttpAttribute(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_kinesisfirehose.HttpBackupMode")
+class HttpBackupMode(enum.Enum):
+    '''Describes the S3 bucket backup options for the data that Kinesis Data Firehose delivers to the Http endpoint destination.'''
+
+    FAILED = "FAILED"
+    '''Back up only the documents that Kinesis Data Firehose could not deliver.'''
+    ALL = "ALL"
+    '''Back up all documents.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisfirehose.HttpBufferingHints",
+    jsii_struct_bases=[],
+    name_mapping={"interval": "interval", "size": "size"},
+)
+class HttpBufferingHints:
+    def __init__(
+        self,
+        *,
+        interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        size: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
+    ) -> None:
+        '''The buffering options that can be used before data is delivered to the specified destination.
+
+        :param interval: The higher interval allows more time to collect data and the size of data may be bigger. The lower interval sends the data more frequently and may be more advantageous when looking at shorter cycles of data activity. Default: 300 seconds
+        :param size: The higher buffer size may be lower in cost with higher latency. The lower buffer size will be faster in delivery with higher cost and less latency. Default: 5 MiB
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            from aws_cdk import aws_kinesisfirehose as kinesisfirehose
+            
+            # size: cdk.Size
+            
+            http_buffering_hints = kinesisfirehose.HttpBufferingHints(
+                interval=cdk.Duration.minutes(30),
+                size=size
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e609e734da0fa0df9c49ce8a9c9e734870f2b6b6ed4eb22e6c48fa55fc6d8ee8)
+            check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
+            check_type(argname="argument size", value=size, expected_type=type_hints["size"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if interval is not None:
+            self._values["interval"] = interval
+        if size is not None:
+            self._values["size"] = size
+
+    @builtins.property
+    def interval(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
+        '''The higher interval allows more time to collect data and the size of data may be bigger.
+
+        The lower interval sends the data more frequently and may be more advantageous when looking at shorter cycles of data activity.
+
+        :default: 300 seconds
+        '''
+        result = self._values.get("interval")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
+
+    @builtins.property
+    def size(self) -> typing.Optional["_aws_cdk_0cae9daa.Size"]:
+        '''The higher buffer size may be lower in cost with higher latency.
+
+        The lower buffer size will be faster in delivery with higher cost and less latency.
+
+        :default: 5 MiB
+        '''
+        result = self._values.get("size")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Size"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HttpBufferingHints(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_kinesisfirehose.HttpCompression")
+class HttpCompression(enum.Enum):
+    '''Kinesis Data Firehose uses the content encoding to compress the body of a request before sending the request to the destination.'''
+
+    GZIP = "GZIP"
+    '''GZIP.'''
+    NONE = "NONE"
+    '''NONE.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisfirehose.HttpEndpointConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "url": "url",
+        "access_key": "accessKey",
+        "name": "name",
+        "secret": "secret",
+    },
+)
+class HttpEndpointConfig:
+    def __init__(
+        self,
+        *,
+        url: builtins.str,
+        access_key: typing.Optional["_aws_cdk_0cae9daa.SecretValue"] = None,
+        name: typing.Optional[builtins.str] = None,
+        secret: typing.Optional["_aws_secretsmanager_64b8a1c5.ISecret"] = None,
+    ) -> None:
+        '''Describes the configuration of the Http endpoint to which Kinesis Firehose delivers data.
+
+        :param url: The URL of the Http endpoint selected as the destination.
+        :param access_key: The access key used to authenticate with the Http endpoint. Used only when ``secret`` is not set. If both ``accessKey`` and ``secret`` are provided, ``secret`` (AWS Secrets Manager) takes precedence and this value is ignored. The access key is rendered into the CloudFormation template. Default: - none; authentication uses ``secret`` if provided, otherwise no access key
+        :param name: The name of the Http endpoint selected as the destination. Default: - None
+        :param secret: A Secrets Manager secret used to authenticate with the Http endpoint. When set, Firehose retrieves the credential from AWS Secrets Manager, and this takes precedence over ``accessKey``. Default: - none; ``accessKey`` is used if provided
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # endpoint_config: firehose.HttpEndpointConfig
+            
+            http_destination = firehose.HttpEndpoint(
+                endpoint_config=endpoint_config
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__354b0b4abd4ec6148de7dfd0b5f227b42fa76f78efada37ee9184c6e523cb0fc)
+            check_type(argname="argument url", value=url, expected_type=type_hints["url"])
+            check_type(argname="argument access_key", value=access_key, expected_type=type_hints["access_key"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "url": url,
+        }
+        if access_key is not None:
+            self._values["access_key"] = access_key
+        if name is not None:
+            self._values["name"] = name
+        if secret is not None:
+            self._values["secret"] = secret
+
+    @builtins.property
+    def url(self) -> builtins.str:
+        '''The URL of the Http endpoint selected as the destination.'''
+        result = self._values.get("url")
+        assert result is not None, "Required property 'url' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_key(self) -> typing.Optional["_aws_cdk_0cae9daa.SecretValue"]:
+        '''The access key used to authenticate with the Http endpoint.
+
+        Used only when ``secret`` is not set. If both ``accessKey`` and ``secret`` are provided,
+        ``secret`` (AWS Secrets Manager) takes precedence and this value is ignored. The access
+        key is rendered into the CloudFormation template.
+
+        :default: - none; authentication uses ``secret`` if provided, otherwise no access key
+        '''
+        result = self._values.get("access_key")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SecretValue"], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the Http endpoint selected as the destination.
+
+        :default: - None
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def secret(self) -> typing.Optional["_aws_secretsmanager_64b8a1c5.ISecret"]:
+        '''A Secrets Manager secret used to authenticate with the Http endpoint.
+
+        When set, Firehose retrieves the credential from AWS Secrets Manager, and this takes
+        precedence over ``accessKey``.
+
+        :default: - none; ``accessKey`` is used if provided
+        '''
+        result = self._values.get("secret")
+        return typing.cast(typing.Optional["_aws_secretsmanager_64b8a1c5.ISecret"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HttpEndpointConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisfirehose.HttpEndpointProps",
+    jsii_struct_bases=[CommonDestinationProps],
+    name_mapping={
+        "logging_config": "loggingConfig",
+        "processor": "processor",
+        "processors": "processors",
+        "role": "role",
+        "s3_backup": "s3Backup",
+        "endpoint_config": "endpointConfig",
+        "attributes": "attributes",
+        "backup_mode": "backupMode",
+        "buffering_hints": "bufferingHints",
+        "request_compression": "requestCompression",
+        "retry_options": "retryOptions",
+    },
+)
+class HttpEndpointProps(CommonDestinationProps):
+    def __init__(
+        self,
+        *,
+        logging_config: typing.Optional["ILoggingConfig"] = None,
+        processor: typing.Optional["IDataProcessor"] = None,
+        processors: typing.Optional[typing.Sequence["IDataProcessor"]] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        s3_backup: typing.Optional[typing.Union["DestinationS3BackupProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        endpoint_config: typing.Union["HttpEndpointConfig", typing.Dict[builtins.str, typing.Any]],
+        attributes: typing.Optional[typing.Sequence[typing.Union["HttpAttribute", typing.Dict[builtins.str, typing.Any]]]] = None,
+        backup_mode: typing.Optional["HttpBackupMode"] = None,
+        buffering_hints: typing.Optional[typing.Union["HttpBufferingHints", typing.Dict[builtins.str, typing.Any]]] = None,
+        request_compression: typing.Optional["HttpCompression"] = None,
+        retry_options: typing.Optional[typing.Union["HttpRetryOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''Props for defining an Http destination of a Kinesis Data Firehose delivery stream.
+
+        :param logging_config: Configuration that determines whether to log errors during data transformation or delivery failures, and specifies the CloudWatch log group for storing error logs. Default: - errors will be logged and a log group will be created for you.
+        :param processor: (deprecated) The data transformation that should be performed on the data before writing to the destination. Default: - no data transformation will occur.
+        :param processors: The data transformation that should be performed on the data before writing to the destination. Default: - no data transformation will occur.
+        :param role: The IAM role associated with this destination. Assumed by Amazon Data Firehose to invoke processors and write to destinations Default: - a role will be created with default permissions.
+        :param s3_backup: The configuration for backing up source records to S3. Default: - source records will not be backed up to S3.
+        :param endpoint_config: Describes the configuration of the Http endpoint to which Kinesis Firehose delivers data.
+        :param attributes: Describes the metadata sent to the Http endpoint destination. Default: - None
+        :param backup_mode: Describes the S3 bucket backup options for the data that Kinesis Data Firehose delivers to the Http endpoint destination. Default: - Failed data only
+        :param buffering_hints: The buffering options that can be used before data is delivered to the specified destination. Default: - None
+        :param request_compression: Compress the body of a request before sending the request to the destination. Default: - None
+        :param retry_options: The total amount of time that Kinesis Data Firehose spends on retries. Default: - None
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # endpoint_config: firehose.HttpEndpointConfig
+            
+            http_destination = firehose.HttpEndpoint(
+                endpoint_config=endpoint_config
+            )
+        '''
+        if isinstance(s3_backup, dict):
+            s3_backup = DestinationS3BackupProps(**s3_backup)
+        if isinstance(endpoint_config, dict):
+            endpoint_config = HttpEndpointConfig(**endpoint_config)
+        if isinstance(buffering_hints, dict):
+            buffering_hints = HttpBufferingHints(**buffering_hints)
+        if isinstance(retry_options, dict):
+            retry_options = HttpRetryOptions(**retry_options)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ba10e42774e4a5575536beb4104debda1ba569d93a57c030929c7e4065e87186)
+            check_type(argname="argument logging_config", value=logging_config, expected_type=type_hints["logging_config"])
+            check_type(argname="argument processor", value=processor, expected_type=type_hints["processor"])
+            check_type(argname="argument processors", value=processors, expected_type=type_hints["processors"])
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument s3_backup", value=s3_backup, expected_type=type_hints["s3_backup"])
+            check_type(argname="argument endpoint_config", value=endpoint_config, expected_type=type_hints["endpoint_config"])
+            check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
+            check_type(argname="argument backup_mode", value=backup_mode, expected_type=type_hints["backup_mode"])
+            check_type(argname="argument buffering_hints", value=buffering_hints, expected_type=type_hints["buffering_hints"])
+            check_type(argname="argument request_compression", value=request_compression, expected_type=type_hints["request_compression"])
+            check_type(argname="argument retry_options", value=retry_options, expected_type=type_hints["retry_options"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "endpoint_config": endpoint_config,
+        }
+        if logging_config is not None:
+            self._values["logging_config"] = logging_config
+        if processor is not None:
+            self._values["processor"] = processor
+        if processors is not None:
+            self._values["processors"] = processors
+        if role is not None:
+            self._values["role"] = role
+        if s3_backup is not None:
+            self._values["s3_backup"] = s3_backup
+        if attributes is not None:
+            self._values["attributes"] = attributes
+        if backup_mode is not None:
+            self._values["backup_mode"] = backup_mode
+        if buffering_hints is not None:
+            self._values["buffering_hints"] = buffering_hints
+        if request_compression is not None:
+            self._values["request_compression"] = request_compression
+        if retry_options is not None:
+            self._values["retry_options"] = retry_options
+
+    @builtins.property
+    def logging_config(self) -> typing.Optional["ILoggingConfig"]:
+        '''Configuration that determines whether to log errors during data transformation or delivery failures, and specifies the CloudWatch log group for storing error logs.
+
+        :default: - errors will be logged and a log group will be created for you.
+        '''
+        result = self._values.get("logging_config")
+        return typing.cast(typing.Optional["ILoggingConfig"], result)
+
+    @builtins.property
+    def processor(self) -> typing.Optional["IDataProcessor"]:
+        '''(deprecated) The data transformation that should be performed on the data before writing to the destination.
+
+        :default: - no data transformation will occur.
+
+        :deprecated: Use ``processors`` instead.
+
+        :stability: deprecated
+        '''
+        result = self._values.get("processor")
+        return typing.cast(typing.Optional["IDataProcessor"], result)
+
+    @builtins.property
+    def processors(self) -> typing.Optional[typing.List["IDataProcessor"]]:
+        '''The data transformation that should be performed on the data before writing to the destination.
+
+        :default: - no data transformation will occur.
+        '''
+        result = self._values.get("processors")
+        return typing.cast(typing.Optional[typing.List["IDataProcessor"]], result)
+
+    @builtins.property
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
+        '''The IAM role associated with this destination.
+
+        Assumed by Amazon Data Firehose to invoke processors and write to destinations
+
+        :default: - a role will be created with default permissions.
+        '''
+        result = self._values.get("role")
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
+
+    @builtins.property
+    def s3_backup(self) -> typing.Optional["DestinationS3BackupProps"]:
+        '''The configuration for backing up source records to S3.
+
+        :default: - source records will not be backed up to S3.
+        '''
+        result = self._values.get("s3_backup")
+        return typing.cast(typing.Optional["DestinationS3BackupProps"], result)
+
+    @builtins.property
+    def endpoint_config(self) -> "HttpEndpointConfig":
+        '''Describes the configuration of the Http endpoint to which Kinesis Firehose delivers data.'''
+        result = self._values.get("endpoint_config")
+        assert result is not None, "Required property 'endpoint_config' is missing"
+        return typing.cast("HttpEndpointConfig", result)
+
+    @builtins.property
+    def attributes(self) -> typing.Optional[typing.List["HttpAttribute"]]:
+        '''Describes the metadata sent to the Http endpoint destination.
+
+        :default: - None
+        '''
+        result = self._values.get("attributes")
+        return typing.cast(typing.Optional[typing.List["HttpAttribute"]], result)
+
+    @builtins.property
+    def backup_mode(self) -> typing.Optional["HttpBackupMode"]:
+        '''Describes the S3 bucket backup options for the data that Kinesis Data Firehose delivers to the Http endpoint destination.
+
+        :default: - Failed data only
+        '''
+        result = self._values.get("backup_mode")
+        return typing.cast(typing.Optional["HttpBackupMode"], result)
+
+    @builtins.property
+    def buffering_hints(self) -> typing.Optional["HttpBufferingHints"]:
+        '''The buffering options that can be used before data is delivered to the specified destination.
+
+        :default: - None
+        '''
+        result = self._values.get("buffering_hints")
+        return typing.cast(typing.Optional["HttpBufferingHints"], result)
+
+    @builtins.property
+    def request_compression(self) -> typing.Optional["HttpCompression"]:
+        '''Compress the body of a request before sending the request to the destination.
+
+        :default: - None
+        '''
+        result = self._values.get("request_compression")
+        return typing.cast(typing.Optional["HttpCompression"], result)
+
+    @builtins.property
+    def retry_options(self) -> typing.Optional["HttpRetryOptions"]:
+        '''The total amount of time that Kinesis Data Firehose spends on retries.
+
+        :default: - None
+        '''
+        result = self._values.get("retry_options")
+        return typing.cast(typing.Optional["HttpRetryOptions"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HttpEndpointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisfirehose.HttpRetryOptions",
+    jsii_struct_bases=[],
+    name_mapping={"duration": "duration"},
+)
+class HttpRetryOptions:
+    def __init__(self, *, duration: "_aws_cdk_0cae9daa.Duration") -> None:
+        '''Describes the retry behavior in case Kinesis Data Firehose is unable to deliver data to the specified Http endpoint destination, or if it doesn't receive a valid acknowledgment of receipt from the specified Http endpoint destination.
+
+        :param duration: The total amount of time that Kinesis Data Firehose spends on retries.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            from aws_cdk import aws_kinesisfirehose as kinesisfirehose
+            
+            http_retry_options = kinesisfirehose.HttpRetryOptions(
+                duration=cdk.Duration.minutes(30)
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c1714a4f48717a66549ebcb84f6ea9aa490b408b7ad2f01057a684a313d8bbc0)
+            check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "duration": duration,
+        }
+
+    @builtins.property
+    def duration(self) -> "_aws_cdk_0cae9daa.Duration":
+        '''The total amount of time that Kinesis Data Firehose spends on retries.'''
+        result = self._values.get("duration")
+        assert result is not None, "Required property 'duration' is missing"
+        return typing.cast("_aws_cdk_0cae9daa.Duration", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HttpRetryOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -16000,6 +17029,153 @@ class HiveJsonInputFormat(
         return typing.cast(typing.Optional["HiveJsonInputFormatProps"], jsii.get(self, "props"))
 
 
+@jsii.implements(IDestination)
+class HttpEndpoint(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kinesisfirehose.HttpEndpoint",
+):
+    '''An Http destination for data from a Kinesis Data Firehose delivery stream.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # endpoint_config: firehose.HttpEndpointConfig
+        
+        http_destination = firehose.HttpEndpoint(
+            endpoint_config=endpoint_config
+        )
+    '''
+
+    def __init__(
+        self,
+        *,
+        endpoint_config: typing.Union["HttpEndpointConfig", typing.Dict[builtins.str, typing.Any]],
+        attributes: typing.Optional[typing.Sequence[typing.Union["HttpAttribute", typing.Dict[builtins.str, typing.Any]]]] = None,
+        backup_mode: typing.Optional["HttpBackupMode"] = None,
+        buffering_hints: typing.Optional[typing.Union["HttpBufferingHints", typing.Dict[builtins.str, typing.Any]]] = None,
+        request_compression: typing.Optional["HttpCompression"] = None,
+        retry_options: typing.Optional[typing.Union["HttpRetryOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging_config: typing.Optional["ILoggingConfig"] = None,
+        processor: typing.Optional["IDataProcessor"] = None,
+        processors: typing.Optional[typing.Sequence["IDataProcessor"]] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        s3_backup: typing.Optional[typing.Union["DestinationS3BackupProps", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param endpoint_config: Describes the configuration of the Http endpoint to which Kinesis Firehose delivers data.
+        :param attributes: Describes the metadata sent to the Http endpoint destination. Default: - None
+        :param backup_mode: Describes the S3 bucket backup options for the data that Kinesis Data Firehose delivers to the Http endpoint destination. Default: - Failed data only
+        :param buffering_hints: The buffering options that can be used before data is delivered to the specified destination. Default: - None
+        :param request_compression: Compress the body of a request before sending the request to the destination. Default: - None
+        :param retry_options: The total amount of time that Kinesis Data Firehose spends on retries. Default: - None
+        :param logging_config: Configuration that determines whether to log errors during data transformation or delivery failures, and specifies the CloudWatch log group for storing error logs. Default: - errors will be logged and a log group will be created for you.
+        :param processor: (deprecated) The data transformation that should be performed on the data before writing to the destination. Default: - no data transformation will occur.
+        :param processors: The data transformation that should be performed on the data before writing to the destination. Default: - no data transformation will occur.
+        :param role: The IAM role associated with this destination. Assumed by Amazon Data Firehose to invoke processors and write to destinations Default: - a role will be created with default permissions.
+        :param s3_backup: The configuration for backing up source records to S3. Default: - source records will not be backed up to S3.
+        '''
+        props = HttpEndpointProps(
+            endpoint_config=endpoint_config,
+            attributes=attributes,
+            backup_mode=backup_mode,
+            buffering_hints=buffering_hints,
+            request_compression=request_compression,
+            retry_options=retry_options,
+            logging_config=logging_config,
+            processor=processor,
+            processors=processors,
+            role=role,
+            s3_backup=s3_backup,
+        )
+
+        jsii.create(self.__class__, self, [props])
+
+    @jsii.member(jsii_name="bind")
+    def bind(self, scope: "_constructs_77d1e7e8.Construct") -> "DestinationConfig":
+        '''Binds this destination to the Amazon Data Firehose delivery stream.
+
+        Implementers should use this method to bind resources to the stack and initialize values using the provided stream.
+
+        :param scope: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f57f7c4693da799ec71d1cf12283bdca7b6f2231ddca8fe689cf2d016a6158b4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        _options = DestinationBindOptions()
+
+        return typing.cast("DestinationConfig", jsii.invoke(self, "bind", [scope, _options]))
+
+
+class Datadog(
+    HttpEndpoint,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kinesisfirehose.Datadog",
+):
+    '''A Datadog destination for data from a Kinesis Data Firehose delivery stream.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_secretsmanager as secretsmanager
+        
+        # api_key: secretsmanager.Secret
+        
+        datadog_destination = firehose.Datadog(
+            api_key=api_key,
+            endpoint=firehose.DatadogEndpoint.LOGS_US1
+        )
+    '''
+
+    def __init__(
+        self,
+        *,
+        api_key: "_aws_secretsmanager_64b8a1c5.ISecret",
+        endpoint: "DatadogEndpoint",
+        backup_mode: typing.Optional["HttpBackupMode"] = None,
+        buffering_hints: typing.Optional[typing.Union["HttpBufferingHints", typing.Dict[builtins.str, typing.Any]]] = None,
+        request_compression: typing.Optional["HttpCompression"] = None,
+        retry_options: typing.Optional[typing.Union["HttpRetryOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["HttpAttribute", typing.Dict[builtins.str, typing.Any]]]] = None,
+        logging_config: typing.Optional["ILoggingConfig"] = None,
+        processor: typing.Optional["IDataProcessor"] = None,
+        processors: typing.Optional[typing.Sequence["IDataProcessor"]] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        s3_backup: typing.Optional[typing.Union["DestinationS3BackupProps", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param api_key: The API key used to authenticate with Datadog. Delivered to Firehose through AWS Secrets Manager (Firehose retrieves it at runtime rather than embedding it in the template).
+        :param endpoint: The Datadog endpoint to send data to.
+        :param backup_mode: Describes the S3 bucket backup options for the data that Kinesis Data Firehose delivers to Datadog. Default: HttpBackupMode.FAILED
+        :param buffering_hints: Buffering hints for data delivery to the Datadog endpoint. Default: - interval of 60 seconds, size of 4 MiB
+        :param request_compression: Content encoding applied to the request body before delivery. Default: HttpCompression.GZIP
+        :param retry_options: Retry behavior when Kinesis Data Firehose cannot deliver data to Datadog. Default: - duration of 60 seconds
+        :param tags: Datadog tags to apply for filtering. Default: - No tags.
+        :param logging_config: Configuration that determines whether to log errors during data transformation or delivery failures, and specifies the CloudWatch log group for storing error logs. Default: - errors will be logged and a log group will be created for you.
+        :param processor: (deprecated) The data transformation that should be performed on the data before writing to the destination. Default: - no data transformation will occur.
+        :param processors: The data transformation that should be performed on the data before writing to the destination. Default: - no data transformation will occur.
+        :param role: The IAM role associated with this destination. Assumed by Amazon Data Firehose to invoke processors and write to destinations Default: - a role will be created with default permissions.
+        :param s3_backup: The configuration for backing up source records to S3. Default: - source records will not be backed up to S3.
+        '''
+        props = DatadogProps(
+            api_key=api_key,
+            endpoint=endpoint,
+            backup_mode=backup_mode,
+            buffering_hints=buffering_hints,
+            request_compression=request_compression,
+            retry_options=retry_options,
+            tags=tags,
+            logging_config=logging_config,
+            processor=processor,
+            processors=processors,
+            role=role,
+            s3_backup=s3_backup,
+        )
+
+        jsii.create(self.__class__, self, [props])
+
+
 __all__ = [
     "AppendDelimiterToRecordProcessor",
     "BackupMode",
@@ -16015,6 +17191,9 @@ __all__ = [
     "DataProcessorConfig",
     "DataProcessorIdentifier",
     "DataProcessorProps",
+    "Datadog",
+    "DatadogEndpoint",
+    "DatadogProps",
     "DecompressionProcessor",
     "DecompressionProcessorCompressionFormat",
     "DecompressionProcessorOptions",
@@ -16030,6 +17209,14 @@ __all__ = [
     "EnableLogging",
     "HiveJsonInputFormat",
     "HiveJsonInputFormatProps",
+    "HttpAttribute",
+    "HttpBackupMode",
+    "HttpBufferingHints",
+    "HttpCompression",
+    "HttpEndpoint",
+    "HttpEndpointConfig",
+    "HttpEndpointProps",
+    "HttpRetryOptions",
     "IDataProcessor",
     "IDeliveryStream",
     "IDestination",
@@ -17002,6 +18189,30 @@ def _typecheckingstub__824567e49e82c5e0ed6a55fe92d29f1a69f55d0bfe50df023c1b00b9f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9e62d9aae4cca27dfb675759038c728e4f9f0fc1bef1fab9f18a796d7d8ca3af(
+    url: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__228a6d92dd7efe8bccbbd0fe3f0b87b70af08d16c749026400ccb0bd0ef317ca(
+    *,
+    logging_config: typing.Optional[ILoggingConfig] = None,
+    processor: typing.Optional[IDataProcessor] = None,
+    processors: typing.Optional[typing.Sequence[IDataProcessor]] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    s3_backup: typing.Optional[typing.Union[DestinationS3BackupProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    api_key: _aws_secretsmanager_64b8a1c5.ISecret,
+    endpoint: DatadogEndpoint,
+    backup_mode: typing.Optional[HttpBackupMode] = None,
+    buffering_hints: typing.Optional[typing.Union[HttpBufferingHints, typing.Dict[builtins.str, typing.Any]]] = None,
+    request_compression: typing.Optional[HttpCompression] = None,
+    retry_options: typing.Optional[typing.Union[HttpRetryOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[HttpAttribute, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f3ec50f5bb1061ad042391c7a0e6b79a631eb886ee85d65e276a31e398ffc1c2(
     compression_format: builtins.str,
 ) -> None:
@@ -17060,6 +18271,7 @@ def _typecheckingstub__c4dd310df912fa42818751c79c7d5fea4583bec8e28275de2a13e058f
     *,
     dependables: typing.Optional[typing.Sequence[_constructs_77d1e7e8.IDependable]] = None,
     extended_s3_destination_configuration: typing.Optional[typing.Union[CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+    http_endpoint_destination_configuration: typing.Optional[typing.Union[CfnDeliveryStream.HttpEndpointDestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17090,6 +18302,56 @@ def _typecheckingstub__953d793257f6341928007f4259103ce23413568194e2d75f03d6b7c13
 def _typecheckingstub__0afd5b01612b3cc327b3c1600a9eb4aa5aaa6f3ee92bada98ae2a5d7e07bf664(
     *,
     timestamp_parsers: typing.Optional[typing.Sequence[TimestampParser]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6cc9981ec46fe435b1c1ef54aae8b58bc258a86a95ed89fa3284f57e52f25c5d(
+    *,
+    name: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e609e734da0fa0df9c49ce8a9c9e734870f2b6b6ed4eb22e6c48fa55fc6d8ee8(
+    *,
+    interval: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    size: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__354b0b4abd4ec6148de7dfd0b5f227b42fa76f78efada37ee9184c6e523cb0fc(
+    *,
+    url: builtins.str,
+    access_key: typing.Optional[_aws_cdk_0cae9daa.SecretValue] = None,
+    name: typing.Optional[builtins.str] = None,
+    secret: typing.Optional[_aws_secretsmanager_64b8a1c5.ISecret] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba10e42774e4a5575536beb4104debda1ba569d93a57c030929c7e4065e87186(
+    *,
+    logging_config: typing.Optional[ILoggingConfig] = None,
+    processor: typing.Optional[IDataProcessor] = None,
+    processors: typing.Optional[typing.Sequence[IDataProcessor]] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    s3_backup: typing.Optional[typing.Union[DestinationS3BackupProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    endpoint_config: typing.Union[HttpEndpointConfig, typing.Dict[builtins.str, typing.Any]],
+    attributes: typing.Optional[typing.Sequence[typing.Union[HttpAttribute, typing.Dict[builtins.str, typing.Any]]]] = None,
+    backup_mode: typing.Optional[HttpBackupMode] = None,
+    buffering_hints: typing.Optional[typing.Union[HttpBufferingHints, typing.Dict[builtins.str, typing.Any]]] = None,
+    request_compression: typing.Optional[HttpCompression] = None,
+    retry_options: typing.Optional[typing.Union[HttpRetryOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c1714a4f48717a66549ebcb84f6ea9aa490b408b7ad2f01057a684a313d8bbc0(
+    *,
+    duration: _aws_cdk_0cae9daa.Duration,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17487,6 +18749,12 @@ def _typecheckingstub__86f3b1e63c4046b14a20d8f095529962a56cb82f03a0f9a310b5c1b70
 
 def _typecheckingstub__ba11d69a3d91c8a6ba63c6ed55a7bbd149c317325863da3c41ebf373cf256b7c(
     log_group: typing.Optional[_aws_logs_ab8ef8ce.ILogGroup] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f57f7c4693da799ec71d1cf12283bdca7b6f2231ddca8fe689cf2d016a6158b4(
+    scope: _constructs_77d1e7e8.Construct,
 ) -> None:
     """Type checking stubs"""
     pass

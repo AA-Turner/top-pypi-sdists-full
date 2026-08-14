@@ -1042,10 +1042,28 @@ fn check_environment_compatibility(
     Ok(())
 }
 
+/// The policy for discovering and initializing a project environment.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum ProjectEnvironmentPolicy {
+    /// An environment is unnecessary; ignore it if invalid or incompatible.
+    Optional,
+
+    /// Require a valid environment compatible with the Python requirements.
+    ///
+    /// Replace an existing environment if it is incompatible.
+    Compatible,
+
+    /// Preserve a valid existing environment, even if incompatible.
+    ///
+    /// Create an environment if none exists, or replace an invalid virtual environment.
+    Preserve,
+}
+
 /// Discover an existing project environment at `root` without validating its compatibility.
 fn existing_project_environment(
     root: &Path,
     centralized: bool,
+    policy: ProjectEnvironmentPolicy,
     cache: &Cache,
 ) -> Result<Option<PythonEnvironment>, ProjectError> {
     let environment = match PythonEnvironment::from_root(root, cache) {
@@ -1060,7 +1078,8 @@ fn existing_project_environment(
                     ));
                 }
                 InvalidEnvironmentKind::MissingExecutable(_) => {
-                    if !centralized
+                    if !matches!(policy, ProjectEnvironmentPolicy::Optional)
+                        && !centralized
                         && fs_err::read_dir(root).is_ok_and(|mut dir| dir.next().is_some())
                     {
                         if !root.join("pyvenv.cfg").try_exists().unwrap_or_default() {
@@ -1111,24 +1130,45 @@ fn discover_project_environment(
     python_request: Option<&PythonRequest>,
     python_preference: PythonPreference,
     requires_python: Option<&RequiresPython>,
-    keep_incompatible: bool,
+    policy: ProjectEnvironmentPolicy,
     centralized: bool,
     cache: &Cache,
 ) -> Result<Option<PythonEnvironment>, ProjectError> {
-    let Some(environment) = existing_project_environment(root, centralized, cache)? else {
+    let Some(environment) = existing_project_environment(root, centralized, policy, cache)? else {
         return Ok(None);
     };
 
-    match check_environment_compatibility(
+    let compatibility = check_environment_compatibility(
         &environment,
         EnvironmentKind::Project,
         python_request,
         python_preference,
         requires_python,
         cache,
-    ) {
+    );
+
+    // Conflicting versions for the same base interpreter indicate its cached metadata may be
+    // corrupted. Clear the entry before interpreter discovery can select stale metadata.
+    if matches!(
+        &compatibility,
+        Err(EnvironmentIncompatibilityError::PyenvVersionConflict(..))
+    ) && let Ok(base_executable) = environment.interpreter().to_base_python()
+        && let Ok(base_interpreter) = Interpreter::query(&base_executable, cache)
+        && environment.uses(&base_interpreter)
+        && environment.interpreter().python_version() != base_interpreter.python_version()
+    {
+        debug!(
+            "Clearing cached interpreter info for {} after finding conflicting Python versions ({} and {})",
+            base_executable.user_display(),
+            base_interpreter.python_version(),
+            environment.interpreter().python_version(),
+        );
+        Interpreter::clear_cache(&base_executable, cache)?;
+    }
+
+    match compatibility {
         Ok(()) => Ok(Some(environment)),
-        Err(err) if keep_incompatible => {
+        Err(err) if matches!(policy, ProjectEnvironmentPolicy::Preserve) => {
             if centralized {
                 let root = environment.root();
                 warn_user!(
@@ -1381,7 +1421,12 @@ impl ProjectInterpreter {
             root
         };
 
-        existing_project_environment(&root, centralized, cache)
+        existing_project_environment(
+            &root,
+            centralized,
+            ProjectEnvironmentPolicy::Optional,
+            cache,
+        )
     }
 
     /// Discover the interpreter to use in the current [`Workspace`].
@@ -1393,7 +1438,7 @@ impl ProjectInterpreter {
         python_preference: PythonPreference,
         python_downloads: PythonDownloads,
         install_mirrors: &PythonInstallMirrors,
-        keep_incompatible: bool,
+        policy: ProjectEnvironmentPolicy,
         active: Option<bool>,
         cache: &Cache,
         printer: Printer,
@@ -1432,7 +1477,7 @@ impl ProjectInterpreter {
                     python_request.as_ref(),
                     python_preference,
                     requires_python.as_ref(),
-                    keep_incompatible,
+                    policy,
                     centralized,
                     cache,
                 )? {
@@ -1454,7 +1499,7 @@ impl ProjectInterpreter {
                     python_request.as_ref(),
                     python_preference,
                     requires_python.as_ref(),
-                    keep_incompatible,
+                    policy,
                     centralized,
                     cache,
                 )?
@@ -1488,7 +1533,7 @@ impl ProjectInterpreter {
                 python_request.as_ref(),
                 python_preference,
                 requires_python.as_ref(),
-                keep_incompatible,
+                policy,
                 centralized,
                 cache,
             )? {
@@ -1855,7 +1900,11 @@ impl ProjectEnvironment {
             python_preference,
             python_downloads,
             install_mirrors,
-            no_sync,
+            if no_sync {
+                ProjectEnvironmentPolicy::Preserve
+            } else {
+                ProjectEnvironmentPolicy::Compatible
+            },
             active,
             cache,
             printer,

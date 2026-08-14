@@ -25,6 +25,7 @@ from .literals import (
     AccessBudgetTypeType,
     AdditionalAnalysesType,
     AggregateFunctionNameType,
+    AllowedAggregateExpressionTypeType,
     AnalysisFormatType,
     AnalysisLogExportStatusType,
     AnalysisMethodType,
@@ -91,6 +92,8 @@ __all__ = (
     "AggregateColumnOutputTypeDef",
     "AggregateColumnTypeDef",
     "AggregationConstraintTypeDef",
+    "AggregationThresholdOutputTypeDef",
+    "AggregationThresholdTypeDef",
     "AnalysisLogExportErrorTypeDef",
     "AnalysisLogExportOutputConfigurationTypeDef",
     "AnalysisLogExportResultConfigurationTypeDef",
@@ -163,6 +166,8 @@ __all__ = (
     "ColumnClassificationDetailsTypeDef",
     "ColumnLineageEntryTypeDef",
     "ColumnTypeDef",
+    "ComparisonControlsOutputTypeDef",
+    "ComparisonControlsTypeDef",
     "ComputeConfigurationOutputTypeDef",
     "ComputeConfigurationTypeDef",
     "ComputeConfigurationUnionTypeDef",
@@ -440,6 +445,7 @@ __all__ = (
     "MembershipTypeDef",
     "ModelInferencePaymentConfigTypeDef",
     "ModelTrainingPaymentConfigTypeDef",
+    "OutputColumnThresholdTypeDef",
     "PaginatorConfigTypeDef",
     "PaymentConfigurationTypeDef",
     "PopulateIdMappingTableInputTypeDef",
@@ -616,6 +622,10 @@ AggregationConstraintTypeDef = TypedDict(
     },
 )
 
+class OutputColumnThresholdTypeDef(TypedDict):
+    outputColumnName: str
+    minimumIdentityCount: int
+
 class AnalysisLogExportErrorTypeDef(TypedDict):
     code: str
     message: str
@@ -639,6 +649,14 @@ AnalysisParameterTypeDef = TypedDict(
         "defaultValue": NotRequired[str],
     },
 )
+
+class ComparisonControlsOutputTypeDef(TypedDict):
+    allowedLiteralComparisonColumns: list[str]
+    allowedColumnComparisonColumns: list[str]
+
+class ComparisonControlsTypeDef(TypedDict):
+    allowedLiteralComparisonColumns: Sequence[str]
+    allowedColumnComparisonColumns: Sequence[str]
 
 class AnalysisRuleListOutputTypeDef(TypedDict):
     joinColumns: list[str]
@@ -1690,6 +1708,27 @@ class ConsolidatedPolicyAggregationTypeDef(TypedDict):
     allowedResultReceivers: NotRequired[list[str]]
     allowedAdditionalAnalyses: NotRequired[list[str]]
 
+AggregationThresholdOutputTypeDef = TypedDict(
+    "AggregationThresholdOutputTypeDef",
+    {
+        "identityColumns": list[str],
+        "minimumIdentityCount": int,
+        "type": Literal["COUNT_DISTINCT"],
+        "allowedAggregateExpressionType": AllowedAggregateExpressionTypeType,
+        "outputColumnThresholds": NotRequired[list[OutputColumnThresholdTypeDef]],
+    },
+)
+AggregationThresholdTypeDef = TypedDict(
+    "AggregationThresholdTypeDef",
+    {
+        "identityColumns": Sequence[str],
+        "minimumIdentityCount": int,
+        "type": Literal["COUNT_DISTINCT"],
+        "allowedAggregateExpressionType": AllowedAggregateExpressionTypeType,
+        "outputColumnThresholds": NotRequired[Sequence[OutputColumnThresholdTypeDef]],
+    },
+)
+
 class AnalysisLogExportOutputConfigurationTypeDef(TypedDict):
     s3: AnalysisLogExportS3OutputConfigurationTypeDef
 
@@ -2370,6 +2409,8 @@ class AnalysisRuleCustomOutputTypeDef(TypedDict):
     additionalAnalyses: NotRequired[AdditionalAnalysesType]
     disallowedOutputColumns: NotRequired[list[str]]
     differentialPrivacy: NotRequired[DifferentialPrivacyConfigurationOutputTypeDef]
+    aggregationThresholds: NotRequired[list[AggregationThresholdOutputTypeDef]]
+    comparisonControls: NotRequired[ComparisonControlsOutputTypeDef]
     allowedResultReceivers: NotRequired[list[str]]
     allowedAdditionalAnalyses: NotRequired[list[str]]
 
@@ -2379,6 +2420,8 @@ class ConsolidatedPolicyCustomTypeDef(TypedDict):
     additionalAnalyses: NotRequired[AdditionalAnalysesType]
     disallowedOutputColumns: NotRequired[list[str]]
     differentialPrivacy: NotRequired[DifferentialPrivacyConfigurationOutputTypeDef]
+    aggregationThresholds: NotRequired[list[AggregationThresholdOutputTypeDef]]
+    comparisonControls: NotRequired[ComparisonControlsOutputTypeDef]
     allowedResultReceivers: NotRequired[list[str]]
     allowedAdditionalAnalyses: NotRequired[list[str]]
 
@@ -2390,6 +2433,8 @@ class IntermediateTableAnalysisRuleCustomOutputTypeDef(TypedDict):
     allowedResultReceivers: NotRequired[list[str]]
     differentialPrivacy: NotRequired[DifferentialPrivacyConfigurationOutputTypeDef]
     disallowedOutputColumns: NotRequired[list[str]]
+    aggregationThresholds: NotRequired[list[AggregationThresholdOutputTypeDef]]
+    comparisonControls: NotRequired[ComparisonControlsOutputTypeDef]
 
 class AnalysisRuleCustomTypeDef(TypedDict):
     allowedAnalyses: Sequence[str]
@@ -2397,6 +2442,8 @@ class AnalysisRuleCustomTypeDef(TypedDict):
     additionalAnalyses: NotRequired[AdditionalAnalysesType]
     disallowedOutputColumns: NotRequired[Sequence[str]]
     differentialPrivacy: NotRequired[DifferentialPrivacyConfigurationTypeDef]
+    aggregationThresholds: NotRequired[Sequence[AggregationThresholdTypeDef]]
+    comparisonControls: NotRequired[ComparisonControlsTypeDef]
     allowedResultReceivers: NotRequired[Sequence[str]]
     allowedAdditionalAnalyses: NotRequired[Sequence[str]]
 
@@ -2408,6 +2455,8 @@ class IntermediateTableAnalysisRuleCustomTypeDef(TypedDict):
     allowedResultReceivers: NotRequired[Sequence[str]]
     differentialPrivacy: NotRequired[DifferentialPrivacyConfigurationTypeDef]
     disallowedOutputColumns: NotRequired[Sequence[str]]
+    aggregationThresholds: NotRequired[Sequence[AggregationThresholdTypeDef]]
+    comparisonControls: NotRequired[ComparisonControlsTypeDef]
 
 class PrivacyImpactTypeDef(TypedDict):
     differentialPrivacy: NotRequired[DifferentialPrivacyPrivacyImpactTypeDef]

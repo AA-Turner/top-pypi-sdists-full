@@ -22,6 +22,20 @@ func TestValidateConfigFile(t *testing.T) {
 	require.False(t, result.HasErrors(), "expected no errors, got: %v", result.Errors)
 }
 
+func TestValidateConfigFileIgnoresLocalArtifactPackageNames(t *testing.T) {
+	cfg := &configFile{
+		Build: &buildFile{
+			GPU:            new(true),
+			PythonVersion:  new("3.10"),
+			PythonPackages: []string{"tensorflow==2.15.0 source.tar.gz"},
+			CUDA:           new("11.8"),
+		},
+	}
+
+	result := ValidateConfigFile(cfg)
+	require.False(t, result.HasErrors(), "expected no errors, got: %v", result.Errors)
+}
+
 func TestValidateConfigFileSuccess(t *testing.T) {
 	cfg := &configFile{
 		Build: &buildFile{
@@ -159,6 +173,25 @@ func TestValidateConfigFileConcurrencyType(t *testing.T) {
 
 	result := ValidateConfigFile(cfg)
 	require.False(t, result.HasErrors(), "expected no errors, got: %v", result.Errors)
+	require.Contains(t, result.Warnings, DeprecationWarning{
+		Field:       "concurrency.max",
+		Replacement: "@cog.concurrent(max=...)",
+		Message:     "configure prediction concurrency with @cog.concurrent on your async run() method instead",
+	})
+}
+
+func TestValidateConfigFileConcurrencyDeprecationWithoutBuild(t *testing.T) {
+	cfg := &configFile{
+		Run: new("run.py:Runner"),
+		Concurrency: &concurrencyFile{
+			Max: new(2),
+		},
+	}
+
+	result := ValidateConfigFile(cfg)
+	require.False(t, result.HasErrors())
+	require.Len(t, result.Warnings, 1)
+	require.Equal(t, "concurrency.max", result.Warnings[0].Field)
 }
 
 func TestValidateConfigFileDeprecatedPythonPackages(t *testing.T) {

@@ -2042,11 +2042,6 @@ async function loadUnpackedExtensionsIntoBrowser(
   console.error(
     `[⚙️] Loading ${validExtensions.length} unpacked chrome extensions into browser...`
   );
-  const perExtensionTimeout = Math.max(
-    250,
-    getEnvInt("CHROME_EXTENSION_DISCOVERY_TIMEOUT_MS", Math.min(timeout, 2000))
-  );
-
   const browserConnection =
     typeof browser.connection === "function"
       ? browser.connection()
@@ -2118,6 +2113,8 @@ async function loadUnpackedExtensionsIntoBrowser(
           );
         }
         extension.id = id;
+        const manifest = loadExtensionManifest(extension.unpacked_path);
+        extension.manifest_version = manifest?.manifest_version || null;
         delete extension.load_error;
       } catch (error) {
         const detail = `${error.name}: ${error.message}`;
@@ -2133,51 +2130,8 @@ async function loadUnpackedExtensionsIntoBrowser(
         }
       }
 
-      try {
-        const manifest =
-          extension.manifest || loadExtensionManifest(extension.unpacked_path);
-        const wakePath = manifest?.action?.default_popup
-          ? `/${String(manifest.action.default_popup).replace(/^\/+/, "")}`
-          : null;
-        const target = await waitForExtensionTargetHandle(
-          browser,
-          extension.id,
-          perExtensionTimeout,
-          null,
-          { wakePath }
-        );
-        const loaded = await withTimeout(
-          () =>
-            loadExtensionFromTarget(extensions, target, {
-              manifestTimeoutMs: Math.min(perExtensionTimeout, 1000),
-            }),
-          perExtensionTimeout,
-          `Timed out attaching extension target for ${extension.id}`
-        );
-        if (!loaded) {
-          throw new Error(
-            `Unable to attach extension target for ${extension.id}`
-          );
-        }
-        delete extension.target_error;
-      } catch (error) {
-        const detail = `${error.name}: ${error.message}`;
-        extension.target_error = detail;
-        if (!extension.manifest) {
-          const manifest = loadExtensionManifest(extension.unpacked_path);
-          if (manifest) {
-            extension.manifest = manifest;
-            extension.manifest_version = manifest.manifest_version || null;
-          }
-        }
-        console.warn(
-          `[⚠️] Could not attach Chrome extension ${
-            extension.name || extension.unpacked_path
-          } target after Extensions.loadUnpacked returned ${
-            extension.id
-          }: ${detail}`
-        );
-      }
+      // Extensions.loadUnpacked returning an id is the durable launch contract.
+      // Hooks resolve their own short-lived MV3 worker target when they use it.
     }
   } finally {
     if (cdpSession) {
@@ -2781,17 +2735,23 @@ async function waitForChromeSessionState(chromeSessionDir, options = {}) {
     let inspectionPending = false;
     let watcher = null;
     let timeout = null;
+    let recheck = null;
 
     const finish = (state) => {
       if (settled) return;
       settled = true;
       if (timeout) clearTimeout(timeout);
+      if (recheck) clearTimeout(recheck);
       if (watcher) watcher.close();
       resolve(state);
     };
 
     const inspect = async () => {
       if (settled) return;
+      if (recheck) {
+        clearTimeout(recheck);
+        recheck = null;
+      }
       if (inspectionRunning) {
         inspectionPending = true;
         return;
@@ -2825,6 +2785,11 @@ async function waitForChromeSessionState(chromeSessionDir, options = {}) {
         if (inspectionPending && !settled) {
           inspectionPending = false;
           void inspect();
+        } else if (!settled && requireConnectable) {
+          recheck = setTimeout(() => {
+            recheck = null;
+            void inspect();
+          }, Math.min(Math.max(probeTimeoutMs, 100), 1000));
         }
       }
     };
@@ -2843,6 +2808,7 @@ async function waitForChromeSessionState(chromeSessionDir, options = {}) {
       if (!settled) {
         settled = true;
         if (timeout) clearTimeout(timeout);
+        if (recheck) clearTimeout(recheck);
         watcher.close();
         reject(error);
       }
@@ -3000,6 +2966,47 @@ async function setBrowserDownloadBehavior(options = {}) {
   } catch (browserError) {
     throw new Error(`Browser.setDownloadBehavior failed: ${browserError.message}`);
   }
+}
+
+/**
+ * Wait for Chrome to finish the download with the exact requested filename.
+ * Browser.downloadProgress is the completion boundary; the destination file
+ * may exist at zero bytes while Chrome is still writing it.
+ */
+function waitForBrowserDownload(session, expectedFilename, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    let downloadGuid = null;
+    const cleanup = () => {
+      clearTimeout(timer);
+      session.off("Browser.downloadWillBegin", onDownloadWillBegin);
+      session.off("Browser.downloadProgress", onDownloadProgress);
+    };
+    const fail = (error) => {
+      cleanup();
+      reject(error);
+    };
+    const onDownloadWillBegin = (event) => {
+      if (event.suggestedFilename === expectedFilename) {
+        downloadGuid = event.guid;
+      }
+    };
+    const onDownloadProgress = (event) => {
+      if (!downloadGuid || event.guid !== downloadGuid) return;
+      if (event.state === "interrupted") {
+        fail(new Error(`Download ${expectedFilename} was interrupted`));
+      } else if (event.state === "completed") {
+        cleanup();
+        resolve(event);
+      }
+    };
+    const timer = setTimeout(
+      () => fail(new Error(`Download ${expectedFilename} did not complete within ${timeoutMs}ms`)),
+      timeoutMs
+    );
+
+    session.on("Browser.downloadWillBegin", onDownloadWillBegin);
+    session.on("Browser.downloadProgress", onDownloadProgress);
+  });
 }
 
 function getTargetIdFromTarget(target) {
@@ -4502,6 +4509,7 @@ module.exports = {
   connectToPage,
   waitForNavigationComplete,
   setBrowserDownloadBehavior,
+  waitForBrowserDownload,
   getCookiesViaCdp,
 };
 

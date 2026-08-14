@@ -10,6 +10,11 @@ from codex_plugin_scanner.guard.runtime.secret_file_requests import extract_sens
 from tests.command_extension_contracts import assert_reviewed_command_cases, assert_safe_command_cases
 
 CICD_REVIEW_CASES: tuple[tuple[str, str, str], ...] = (
+    (
+        "gh run rerun 31707639186 --repo owner/project --failed",
+        "GitHub workflow rerun",
+        "command.github.workflow-mutation",
+    ),
     ("gh run cancel 123", "GitHub Actions administrative command", "command.cicd.github.run-administration"),
     ("gh run delete 123", "GitHub Actions administrative command", "command.cicd.github.run-administration"),
     (

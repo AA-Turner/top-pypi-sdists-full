@@ -1,6 +1,7 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
 from ..resources import CustomerPortal
 
 
@@ -20,7 +21,7 @@ class AbstractCustomers(abc.ABC):
         locale: Optional[str] = None,
         navigation_mode: Optional[str] = None,
         read_only: Optional[bool] = None,
-        customer_data: Optional[Dict[str, Any]] = None
+        customer_data: Optional[Dict[str, Any]] = None,
     ) -> CustomerPortal:
         """Creates a new customer portal magic link with configurable features.
 
@@ -71,7 +72,7 @@ class AbstractCustomers(abc.ABC):
         tenant_keys: Optional[List[str]] = None,
         unit_keys: Optional[List[str]] = None,
         user_identity_keys: Optional[List[str]] = None,
-        user_keys: Optional[List[str]] = None
+        user_keys: Optional[List[str]] = None,
     ) -> None:
         """Deletes customer data including resources like spaces, properties, rooms, users, etc.
         This will delete the partner resources and any related Seam resources (user identities, access grants, spaces).
@@ -138,7 +139,7 @@ class AbstractCustomers(abc.ABC):
         tenants: Optional[List[Dict[str, Any]]] = None,
         units: Optional[List[Dict[str, Any]]] = None,
         user_identities: Optional[List[Dict[str, Any]]] = None,
-        users: Optional[List[Dict[str, Any]]] = None
+        users: Optional[List[Dict[str, Any]]] = None,
     ) -> None:
         """Pushes customer data including resources like spaces, properties, rooms, users, etc.
 
@@ -180,7 +181,9 @@ class AbstractCustomers(abc.ABC):
 
         :param user_identities: List of user identities.
 
-        :param users: List of users."""
+        :param users: List of users.
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
 
@@ -189,6 +192,11 @@ class Customers(AbstractCustomers):
         self.client = client
         self.defaults = defaults
 
+    @route_metadata(
+        path="/customers/create_portal",
+        has_required_parameters=False,
+        has_pagination=False,
+    )
     def create_portal(
         self,
         *,
@@ -202,7 +210,7 @@ class Customers(AbstractCustomers):
         locale: Optional[str] = None,
         navigation_mode: Optional[str] = None,
         read_only: Optional[bool] = None,
-        customer_data: Optional[Dict[str, Any]] = None
+        customer_data: Optional[Dict[str, Any]] = None,
     ) -> CustomerPortal:
         """Creates a new customer portal magic link with configurable features.
 
@@ -229,7 +237,7 @@ class Customers(AbstractCustomers):
         :param customer_data:
 
         :returns: OK"""
-        json_payload = {}
+        json_payload: Dict[str, Any] = {}
 
         if customer_resources_filters is not None:
             json_payload["customer_resources_filters"] = customer_resources_filters
@@ -258,6 +266,11 @@ class Customers(AbstractCustomers):
 
         return CustomerPortal.from_dict(res["customer_portal"])
 
+    @route_metadata(
+        path="/customers/delete_data",
+        has_required_parameters=False,
+        has_pagination=False,
+    )
     def delete_data(
         self,
         *,
@@ -279,7 +292,7 @@ class Customers(AbstractCustomers):
         tenant_keys: Optional[List[str]] = None,
         unit_keys: Optional[List[str]] = None,
         user_identity_keys: Optional[List[str]] = None,
-        user_keys: Optional[List[str]] = None
+        user_keys: Optional[List[str]] = None,
     ) -> None:
         """Deletes customer data including resources like spaces, properties, rooms, users, etc.
         This will delete the partner resources and any related Seam resources (user identities, access grants, spaces).
@@ -321,7 +334,7 @@ class Customers(AbstractCustomers):
         :param user_identity_keys: List of user identity keys to delete.
 
         :param user_keys: List of user keys to delete."""
-        json_payload = {}
+        json_payload: Dict[str, Any] = {}
 
         if access_grant_keys is not None:
             json_payload["access_grant_keys"] = access_grant_keys
@@ -366,6 +379,9 @@ class Customers(AbstractCustomers):
 
         return None
 
+    @route_metadata(
+        path="/customers/push_data", has_required_parameters=True, has_pagination=False
+    )
     def push_data(
         self,
         *,
@@ -388,7 +404,7 @@ class Customers(AbstractCustomers):
         tenants: Optional[List[Dict[str, Any]]] = None,
         units: Optional[List[Dict[str, Any]]] = None,
         user_identities: Optional[List[Dict[str, Any]]] = None,
-        users: Optional[List[Dict[str, Any]]] = None
+        users: Optional[List[Dict[str, Any]]] = None,
     ) -> None:
         """Pushes customer data including resources like spaces, properties, rooms, users, etc.
 
@@ -430,8 +446,10 @@ class Customers(AbstractCustomers):
 
         :param user_identities: List of user identities.
 
-        :param users: List of users."""
-        json_payload = {}
+        :param users: List of users.
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if customer_key is not None:
             json_payload["customer_key"] = customer_key
@@ -473,6 +491,11 @@ class Customers(AbstractCustomers):
             json_payload["user_identities"] = user_identities
         if users is not None:
             json_payload["users"] = users
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /customers/push_data"
+            )
 
         self.client.post("/customers/push_data", json=json_payload)
 

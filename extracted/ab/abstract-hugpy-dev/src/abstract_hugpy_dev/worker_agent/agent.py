@@ -251,11 +251,20 @@ def _engine_build() -> "str | None":
         return _ENGINE_BUILD_CACHE or None
     build: "str | None" = None
     try:
-        from ..engine.resolve import server_bin
+        from ..engine.resolve import ld_library_path_with_engine, server_bin
         binpath = server_bin()
         if binpath:
+            # Same LD_LIBRARY_PATH derivation as the real spawn sites (k94): a
+            # managed engine's binary needs its sibling libs to exec at all, and
+            # this probe must not report null build for an engine that serves.
+            env = dict(os.environ)
+            _ld = ld_library_path_with_engine(env.get("LD_LIBRARY_PATH"),
+                                              bin_path=binpath)
+            if _ld:
+                env["LD_LIBRARY_PATH"] = _ld
             proc = subprocess.run([binpath, "--version"],
-                                  capture_output=True, text=True, timeout=10)
+                                  capture_output=True, text=True, timeout=10,
+                                  env=env)
             blob = (proc.stderr or "") + "\n" + (proc.stdout or "")
             for line in blob.splitlines():
                 line = line.strip()
@@ -283,11 +292,31 @@ def llama_cpp_cuda_status() -> dict:
     """
     global _LLAMA_PROBE_CACHE
     if _LLAMA_PROBE_CACHE is not None:
-        return _LLAMA_PROBE_CACHE
-    result = _probe_llama_cpp_subprocess()
-    if result.get("installed"):
-        _LLAMA_PROBE_CACHE = result
-    return result
+        result = _LLAMA_PROBE_CACHE
+    else:
+        result = _probe_llama_cpp_subprocess()
+        if result.get("installed"):
+            _LLAMA_PROBE_CACHE = result
+    # k94: the NATIVE llama-server state rides in the same dict central already
+    # snapshots as "engine", so "installed but unusable" (a resolvable binary
+    # whose exec dies on missing sibling libs) is finally visible remotely.
+    # Merged fresh on every call — the python-binding probe above is cached for
+    # the process life, but the native binary can appear/break at runtime (its
+    # own probe carries a short TTL in engine.resolve).
+    out = dict(result)
+    out["native_engine"] = _native_engine_status_safe()
+    return out
+
+
+def _native_engine_status_safe() -> dict:
+    """``engine.resolve.native_engine_status()`` that can never raise into a
+    heartbeat or /health response."""
+    try:
+        from ..engine.resolve import native_engine_status
+        return native_engine_status()
+    except Exception as exc:  # noqa: BLE001 — telemetry never breaks a beat
+        return {"found": False, "path": None, "source": None,
+                "spawn_ok": None, "error": f"{type(exc).__name__}: {exc}"}
 
 
 def _probe_llama_cpp_subprocess() -> dict:
@@ -3549,6 +3578,9 @@ def build_app(state: "WorkerState") -> Flask:
                 "gpus": detect_gpus(),
                 "cuda": torch_cuda_status(),
                 "llama_cpp": llama_cpp_cuda_status(),
+                # k94: the native llama-server truth, as its own field (also
+                # inside llama_cpp/engine for the central snapshot path).
+                "native_engine": _native_engine_status_safe(),
                 "assigned_models": state.assigned_models,
                 "provisioning": sorted(state._provisioning),
                 "provision_progress": state.provision_snapshot(),
@@ -4298,6 +4330,22 @@ def build_app(state: "WorkerState") -> Flask:
             return jsonify({"ok": False, "dry_run": dry_run, "results": [],
                             "reaped_count": 0, "term_failed_count": 0,
                             "skipped_count": 0, "reapable_vram_bytes": 0,
+                            "error": f"{type(exc).__name__}: {exc}"})
+
+    @app.route("/ops/vram-holders", methods=["GET"])
+    def ops_vram_holders():
+        # VRAM-holder meter (incident 2026-08-05): READ-ONLY per-card breakdown
+        # + a row per VRAM holder, with the idle own-venv squatter flagged
+        # EXPLICITLY. Reuses the reaper's four-gate classification (labelling
+        # only — never signals, never calls the kill verb). Same trust model as
+        # every /ops/* (central's relay). Never 500s the control plane.
+        try:
+            return jsonify(_vram_holders(state))
+        except Exception as exc:  # noqa: BLE001 — telemetry must never 500
+            return jsonify({"ok": False, "cards": [], "holders": [],
+                            "squatters": [], "gpu_util_pct": None,
+                            "vram_total_bytes": None, "vram_used_bytes": None,
+                            "vram_free_bytes": None, "min_age_s": _ORPHAN_MIN_AGE_S,
                             "error": f"{type(exc).__name__}: {exc}"})
 
     @app.route("/slots/<slot_id>/relaunch", methods=["POST"])
@@ -7710,6 +7758,241 @@ def _reap_gpu_orphans(state: "WorkerState", dry_run: bool = True) -> dict:
     }
 
 
+# ── VRAM-HOLDER METER (incident 2026-08-05: an 8GB studio render fork held the
+#    card at 0% GPU util for minutes, blind to central, and wedged new loads) ──
+# The operator's principle: "if it's not doing work it's evictable; if it's NOT
+# evictable and NOT doing work, that must be EXPLICIT." This is the VISIBILITY
+# half. It NEVER kills — it enumerates every VRAM holder and labels the idle
+# own-venv squatter so central can surface it. The PID-reaper stays gated behind
+# the operator (p27, 2026-07-23); nothing here calls it with dry_run=False, and
+# nothing here calls _reap_gpu_orphans at all (that verb must never run from a
+# loop/heartbeat — see its doctrine). Instead the SQUATTER classification below
+# MIRRORS the reaper's four gates using the SAME shared primitives
+# (_reap_own_pids / _self_venv_marker / _slot_statuses / _ORPHAN_MIN_AGE_S /
+# _proc_age_s / _COMFY_NAME_MARKER), so "reapable" here and there agree by
+# construction — labelling only, no signal ever sent.
+
+_GPU_CARD_TTL_S = 8.0
+_GPU_CARD_CACHE: dict = {"at": 0.0, "value": None}
+
+
+def _gpu_card_stats() -> list:
+    """Per-card ``[{index, mem_total_bytes, mem_used_bytes, mem_free_bytes,
+    util_pct}]`` from ``nvidia-smi --query-gpu``. ``util_pct`` is the WHOLE-CARD
+    utilization (0..100) — the only "is this card doing ANY work" signal
+    nvidia-smi offers; per-PROCESS GPU util is NOT available from
+    --query-compute-apps, so a holder's work-state can only borrow this coarse
+    per-card number. ``[]`` when nvidia-smi is absent/errors (no-GPU box behaves
+    exactly as before). Cached ~heartbeat cadence, like _gpu_process_vram."""
+    now = time.time()
+    cached = _GPU_CARD_CACHE["value"]
+    if cached is not None and now - _GPU_CARD_CACHE["at"] < _GPU_CARD_TTL_S:
+        return cached
+    cards: list = []
+
+    def _int(x):
+        try:
+            return int(float(x))
+        except (TypeError, ValueError):
+            return None
+
+    try:
+        proc = subprocess.run(
+            ["nvidia-smi",
+             "--query-gpu=index,memory.total,memory.used,memory.free,"
+             "utilization.gpu",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5)
+        if proc.returncode == 0:
+            for line in proc.stdout.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                parts = [p.strip() for p in line.split(",")]
+                if len(parts) < 5:
+                    continue
+                total, used, free = _int(parts[1]), _int(parts[2]), _int(parts[3])
+                cards.append({
+                    "index": _int(parts[0]),
+                    "mem_total_bytes": total * _MIB if total is not None else None,
+                    "mem_used_bytes": used * _MIB if used is not None else None,
+                    "mem_free_bytes": free * _MIB if free is not None else None,
+                    # "[N/A]" util on a card with no util counter → None, honest.
+                    "util_pct": _int(parts[4]),
+                })
+    except (FileNotFoundError, OSError, subprocess.SubprocessError):
+        cards = []
+    _GPU_CARD_CACHE.update(at=now, value=cards)
+    return cards
+
+
+def _vram_holders(state: "WorkerState") -> dict:
+    """READ-ONLY per-card VRAM breakdown + a ROW PER HOLDER, for the operator's
+    VRAM-holder meter. Exposed as GET /ops/vram-holders and folded onto the
+    heartbeat. Never kills, never signals, never calls the reaper verb.
+
+    Per-holder row::
+
+        {pid, name, vram_bytes, kind, model_key?, serving?, reapable, squatter,
+         reason, age_s, work_state}
+
+    ``kind`` ∈ {slot, comfy, own-orphan, foreign, infra}. For SLOT rows the
+    status comes from _slot_statuses (model_key + measured serving/busy). For
+    every NON-slot row the four-gate classification MIRRORS _reap_gpu_orphans
+    (own-venv marker, no live slot claim, holds VRAM, past _ORPHAN_MIN_AGE_S)
+    using its shared primitives — so a NON-SERVING own-venv holder past min-age
+    reads ``reapable=True`` here exactly as the reaper's dry-run would report it,
+    and is flagged the SQUATTER (``squatter=True``). Comfy, foreign, infra and
+    slot rows are never reapable and never squatters.
+
+    ``work_state`` is the coarse work signal: slots use their measured
+    serving/idle; the idle own-venv squatter is labelled ``idle-squatter``;
+    other non-slots carry ``unknown-per-process`` since per-PID GPU util does not
+    exist — only the whole-card ``gpu_util_pct`` (max across cards) says whether
+    the card is doing ANY work at all. Degrades to empty holders on a no-GPU /
+    no-nvidia-smi box."""
+    gpu_procs = _gpu_process_vram() or {}
+    slots = _slot_statuses()
+    cards = _gpu_card_stats()
+    now = time.time()
+
+    # Slot child_pid -> its status row (the exact per-model VRAM claim).
+    slot_by_pid: dict = {}
+    for s in (slots or []):
+        cp = (s or {}).get("child_pid")
+        if cp is not None:
+            try:
+                slot_by_pid[int(cp)] = s
+            except (TypeError, ValueError):
+                continue
+
+    # The SAME primitives the reaper's gates read (never the kill verb itself).
+    own = _reap_own_pids()
+    marker = _self_venv_marker()
+    try:
+        from .pid_registry import _COMFY_NAME_MARKER as _comfy_marker
+        from .pid_registry import _default_proc_info as _proc_info
+    except Exception:  # noqa: BLE001 — no registry -> comfy-by-name only, own-venv fails closed
+        _comfy_marker, _proc_info = "comfyui", (lambda _pid: None)
+
+    holders: list = []
+    for pid, meta in sorted(gpu_procs.items()):
+        name = str((meta or {}).get("name") or "")
+        mib = int((meta or {}).get("mib") or 0)
+        vram_bytes = mib * _MIB
+        model_key = None
+        serving = None
+        age_s = None
+        reapable = False
+
+        if pid in slot_by_pid:
+            s = slot_by_pid[pid]
+            kind = "slot"
+            model_key = s.get("model_key")
+            serving = _slot_serving(s, now)
+            reason = ("serving slot child (live model_key claim)" if serving
+                      else "idle slot child — seated, holds VRAM, not serving")
+            work_state = "serving" if serving else "idle"
+        elif _comfy_marker in name.lower():
+            kind = "comfy"
+            reason = "external ComfyUI process — never reapable (adopted service)"
+            work_state = "external-comfy"
+        elif pid in own:
+            kind = "infra"
+            reason = "agent's own pid / slot supervisor — never reapable"
+            work_state = "agent-infra"
+        else:
+            # Non-slot, non-comfy, non-own: own-venv orphan or foreign? MIRROR
+            # the reaper's OWN-VENV gate (Gate 1) exactly.
+            cmdline = str((_proc_info(pid) or {}).get("cmdline") or "")
+            is_own_venv = bool(marker) and (marker in name or marker in cmdline)
+            if is_own_venv:
+                kind = "own-orphan"
+                age_s = _proc_age_s(pid)
+                # Gates 2 (no live claim: not in slot_by_pid, established above),
+                # 3 (holds VRAM: mib>0) and 4 (min age) — fail-closed on an
+                # unmeasurable age, exactly like the reaper.
+                if mib <= 0:
+                    reason = "own-venv process holds no VRAM (mib<=0)"
+                elif age_s is None:
+                    reason = ("own-venv orphan, age unmeasurable — reaper would "
+                              "fail closed (not counted reapable)")
+                elif age_s < _ORPHAN_MIN_AGE_S:
+                    reason = (f"own-venv orphan too young ({age_s:.0f}s < "
+                              f"{_ORPHAN_MIN_AGE_S:.0f}s) — mid-spawn grace")
+                else:
+                    reapable = True
+                    reason = ("holds VRAM, no live slot claim, own venv, past "
+                              "min-age — reapable but NOT auto-reaped")
+                work_state = "idle-squatter" if reapable else "own-venv-holder"
+            else:
+                kind = "foreign"
+                reason = ("foreign process — not this worker's venv, out of "
+                          "scope (never reapable)")
+                work_state = "foreign"
+
+        # The SQUATTER: an own-orphan that passed every gate and is not a serving
+        # slot (own-orphans are never slots, so serving is None here). This is the
+        # exact row the operator wants surfaced EXPLICITLY.
+        squatter = bool(reapable and kind == "own-orphan" and serving is not True)
+
+        row = {
+            "pid": pid,
+            "name": name,
+            "vram_bytes": vram_bytes,
+            "kind": kind,
+            "reapable": reapable,
+            "squatter": squatter,
+            "reason": reason,
+            "work_state": work_state,
+        }
+        if kind == "slot":
+            row["model_key"] = model_key
+            row["serving"] = serving
+        if age_s is not None:
+            row["age_s"] = round(age_s, 1)
+        holders.append(row)
+
+    # Whole-box coarse work signal: the MAX card utilization. This is the ONLY
+    # "is the GPU doing anything" reading available — it is per-CARD, never
+    # per-process, so it cannot say WHICH holder is busy (an idle squatter on a
+    # card another process is driving still reads high). Callers must treat it as
+    # a coarse gate, not per-holder attribution.
+    utils = [c.get("util_pct") for c in cards if c.get("util_pct") is not None]
+    gpu_util_pct = max(utils) if utils else None
+
+    def _sum(key):
+        vals = [c.get(key) for c in cards if c.get(key) is not None]
+        return sum(vals) if vals else None
+
+    squatters = [h for h in holders if h.get("squatter")]
+    return {
+        "ok": True,
+        "cards": cards,
+        "vram_total_bytes": _sum("mem_total_bytes"),
+        "vram_used_bytes": _sum("mem_used_bytes"),
+        "vram_free_bytes": _sum("mem_free_bytes"),
+        "gpu_util_pct": gpu_util_pct,
+        "gpu_util_source": ("nvidia-smi utilization.gpu — WHOLE-CARD, not "
+                            "per-process; coarse 'card doing any work' signal"),
+        "holders": holders,
+        "squatters": squatters,
+        "min_age_s": _ORPHAN_MIN_AGE_S,
+    }
+
+
+def _vram_holders_beat(state: "WorkerState") -> "dict | None":
+    """Heartbeat-safe wrapper around :func:`_vram_holders`. The beat must NEVER
+    fail over telemetry (a missed heartbeat drops the worker off the fleet), so
+    any error degrades to ``None`` and central simply omits the meter this beat —
+    the exact contract every other optional beat field keeps."""
+    try:
+        return _vram_holders(state)
+    except Exception as exc:  # noqa: BLE001 — telemetry never breaks a beat
+        logger.debug("vram-holders beat capture failed: %s", exc)
+        return None
+
+
 # ── VRAM evict-to-fit at admission (slice 10, the VRAM twin of disk evict-to-fit) ─
 # The operator's ruling (2026-07-17): "everything is on demand — the process not
 # actively replying and not ahead of the subject in the queue, as well as not
@@ -8550,11 +8833,20 @@ def _vram_evict_to_fit(state: "WorkerState", model_key: str,
     # k56: read the polite flag ONCE, here, so every branch below asks the same
     # question of the same request (the env is per-request and cleared when
     # absent, so a mid-admission re-read could disagree with itself).
+    # k96: a request-scoped "no_makeroom" (dispatch contextvar — set when this
+    # process serves the flagged request itself rather than receiving it as a
+    # relayed spill) is the same promise and takes the same polite branch.
     try:
         from ..managers.spill import no_evict_env
         polite = no_evict_env()
     except Exception:  # noqa: BLE001 — an unreadable flag is not a policy
         polite = False
+    if not polite:
+        try:
+            from ..managers.dispatch.dispatch import no_makeroom_active
+            polite = no_makeroom_active()
+        except Exception:  # noqa: BLE001 — an unreadable flag is not a policy
+            pass
     total = _total_vram_bytes()
     if not total:
         return {"action": "proceed", "evicted": [], "freed_bytes": 0,
@@ -10574,6 +10866,15 @@ def _heartbeat_loop(client: CentralClient, state: WorkerState, args) -> None:
                     # evict-to-fit at admission increments this so the churn data
                     # includes GPU evictions, not just disk reaps.
                     "vram_evictions": dict(_VRAM_EVICTIONS),
+                    # VRAM-HOLDER METER (incident 2026-08-05): per-card VRAM
+                    # breakdown + a row per holder, with the idle own-venv
+                    # squatter flagged EXPLICITLY (holds VRAM, no live slot claim,
+                    # not serving — reapable but never auto-reaped). Read-only,
+                    # best-effort: a telemetry error must NEVER skip a beat (a
+                    # missed heartbeat drops the worker off the fleet), so it
+                    # degrades to None exactly like a no-GPU box. Additive/optional
+                    # (extra='ignore' drops it for older central).
+                    "vram_holders": _vram_holders_beat(state),
                     "install": _install_shape(),
                     # Concurrency hardening (2026-07-11): advertise this box's
                     # safe in-process concurrency + whether it can seat a native

@@ -94,6 +94,16 @@ from snowflake.snowpark_connect.relation.catalogs.utils import (
     CURRENT_CATALOG_NAME,
     _get_current_temp_objects,
 )
+from snowflake.snowpark_connect.relation.iceberg_branch_ddl import (
+    translate_create_or_replace_branch,
+    translate_drop_branch,
+)
+from snowflake.snowpark_connect.relation.iceberg_branch_dml import (
+    IcebergRefDmlTarget,
+    relation_identifier_parts,
+    resolve_iceberg_ref_dml_target_from_parts,
+    snowpark_table_for_ref_dml,
+)
 from snowflake.snowpark_connect.relation.iceberg_sql_branch_tag_suffix import (
     try_parse_iceberg_branch_tag_suffix,
 )
@@ -566,16 +576,8 @@ def _spark_to_snowflake(multipart_id: jpype.JObject) -> str:
     review on cld_context.py:113). If there is no entry for these
     parts, every part defaults to "not backtick-quoted".
     """
-    from ..utils.identifiers import get_multipart_backtick_flags
-
     parts = [str(part) for part in as_java_list(multipart_id)]
-    flags = get_multipart_backtick_flags(tuple(parts))
-    if flags is None or len(flags) != len(parts):
-        flags = (False,) * len(parts)
-    return ".".join(
-        spark_to_sf_single_id(part, is_backtick_quoted=flag)
-        for part, flag in zip(parts, flags)
-    )
+    return _multipart_parts_to_snowflake(parts)
 
 
 def _spark_table_sql_to_snowflake(table_sql: str) -> str:
@@ -587,6 +589,40 @@ def _spark_table_sql_to_snowflake(table_sql: str) -> str:
         spark_to_sf_single_id(part, is_backtick_quoted=flag)
         for part, flag in zip(parts, flags)
     )
+
+
+def _multipart_parts_to_snowflake(parts: list[str]) -> str:
+    """Resolve multipart identifier segments to Snowflake SQL (preserves quoting)."""
+    from ..utils.identifiers import get_multipart_backtick_flags
+
+    flags = get_multipart_backtick_flags(tuple(parts))
+    if flags is None or len(flags) != len(parts):
+        flags = (False,) * len(parts)
+    return ".".join(
+        spark_to_sf_single_id(part, is_backtick_quoted=flag)
+        for part, flag in zip(parts, flags)
+    )
+
+
+def _parts_to_snowflake(parts: list[str]) -> str:
+    return _multipart_parts_to_snowflake(parts)
+
+
+def _resolve_sql_dml_target(name_obj, *, is_multi_part: bool) -> IcebergRefDmlTarget:
+    parts = relation_identifier_parts(name_obj, is_multi_part=is_multi_part)
+    spark_table = ".".join(parts)
+    return resolve_iceberg_ref_dml_target_from_parts(
+        parts,
+        spark_table_name=spark_table,
+        parts_to_snowflake_fn=_parts_to_snowflake,
+    )
+
+
+def _merge_dml_target(target_rel) -> IcebergRefDmlTarget:
+    """Resolve MERGE target identifiers via the same parts-based path as other DML."""
+    if target_rel.getClass().getSimpleName() == "UnresolvedRelation":
+        return _resolve_sql_dml_target(target_rel, is_multi_part=True)
+    return _resolve_sql_dml_target(target_rel.child(), is_multi_part=True)
 
 
 def _get_original_identifier_from_origin(rel) -> str | None:
@@ -1032,7 +1068,9 @@ def _insert_into_table(logical_plan, session: Session) -> int | None:
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception
 
-    name = get_relation_identifier_name(logical_plan.table(), True)
+    dml_target = _resolve_sql_dml_target(logical_plan.table(), is_multi_part=True)
+    name = dml_target.dml_snowflake_sql
+    schema_table_name = dml_target.base_snowflake_sql
 
     user_columns = [
         spark_to_sf_single_id(str(col), is_column=True)
@@ -1051,13 +1089,13 @@ def _insert_into_table(logical_plan, session: Session) -> int | None:
         if value_option.isDefined():
             partition_columns[col_name] = value_option.get()
 
-    target_table = session.table(name)
+    target_table = session.table(schema_table_name)
     target_schema = target_table.schema
-    is_iceberg_table = get_table_type(name, session) == "ICEBERG"
+    is_iceberg_table = get_table_type(schema_table_name, session) == "ICEBERG"
     table_partition_spec = None
     if is_iceberg_table and logical_plan.overwrite():
         # we need the table's partition spec to validate and perform the overwrite operation
-        table_partition_spec = get_partition_spec(name, session)
+        table_partition_spec = get_partition_spec(schema_table_name, session)
 
     if partition_columns and logical_plan.overwrite() and is_iceberg_table:
         # confirm that partition_columns are in the table's partition spec
@@ -1975,12 +2013,12 @@ def _relation_time_travel_extensions_disabled_exception() -> AnalysisException:
 
 
 def _iceberg_tag_ddl_extensions_disabled_exception() -> AnalysisException:
-    """Build the error when tag DDL is requested without Iceberg extensions."""
+    """Build the error when tag/branch DDL is requested without extensions."""
     exception = AnalysisException(
-        "Iceberg tag DDL ('ALTER TABLE … CREATE TAG' / 'DROP TAG') "
-        "is gated on the 'spark.sql.extensions' config naming the "
-        "Iceberg Spark SQL extensions class. SCOS translates tag DDL "
-        "to Snowflake 'VERSION_TAG' SQL natively (no extra JAR install "
+        "Iceberg tag/branch DDL ('ALTER TABLE … CREATE TAG/BRANCH' / "
+        "'DROP TAG/BRANCH') is gated on the 'spark.sql.extensions' config "
+        "naming the Iceberg Spark SQL extensions class. SCOS translates "
+        "tag/branch DDL to Snowflake SQL natively (no extra JAR install "
         "is required), but the customer-visible support contract still "
         "requires the flag so Snowpark Connect only activates the "
         "Iceberg Spark SQL Extensions parser path when the customer has "
@@ -2176,6 +2214,21 @@ def map_sql_to_pandas_df(
                 _require_iceberg_sql_extensions_for_tag_ddl()
                 table_name = _spark_to_snowflake(logical_plan.table())
                 snowflake_sql = translate_create_or_replace_tag(
+                    logical_plan, table_name
+                )
+                session.sql(snowflake_sql).collect()
+            case "CreateOrReplaceBranch":
+                # Iceberg Spark SQL Extension branch DDL:
+                #   ALTER TABLE <t> CREATE [OR REPLACE] BRANCH <name>
+                #       [IF NOT EXISTS] [AS OF VERSION <id>]
+                # Translated to Snowflake ``CREATE [OR REPLACE] BRANCH
+                # '<name>'`` on ``ALTER ICEBERG TABLE``. Snapshot-pinned
+                # branch create and bare REPLACE raise
+                # ``UNSUPPORTED_OPERATION`` — see ``iceberg_branch_ddl``.
+                # Gated on ``spark.sql.extensions``.
+                _require_iceberg_sql_extensions_for_tag_ddl()
+                table_name = _spark_to_snowflake(logical_plan.table())
+                snowflake_sql = translate_create_or_replace_branch(
                     logical_plan, table_name
                 )
                 session.sql(snowflake_sql).collect()
@@ -2638,6 +2691,16 @@ def map_sql_to_pandas_df(
                 table_name = _spark_to_snowflake(logical_plan.table())
                 snowflake_sql = translate_drop_tag(logical_plan, table_name)
                 session.sql(snowflake_sql).collect()
+            case "DropBranch":
+                # Iceberg Spark SQL Extension branch DDL:
+                #   ALTER TABLE <t> DROP BRANCH [IF EXISTS] <name>
+                # Translated to Snowflake ``DROP BRANCH '<name>'`` on
+                # ``ALTER ICEBERG TABLE``. See ``iceberg_branch_ddl``.
+                # Gated on ``spark.sql.extensions``.
+                _require_iceberg_sql_extensions_for_tag_ddl()
+                table_name = _spark_to_snowflake(logical_plan.table())
+                snowflake_sql = translate_drop_branch(logical_plan, table_name)
+                session.sql(snowflake_sql).collect()
             case "DropView":
                 # DROP VIEW drops a temp view (in-memory or Snowflake-backed) or
                 # a permanent view; a name resolving to a TABLE raises
@@ -2738,19 +2801,9 @@ def map_sql_to_pandas_df(
                 )
                 target_df = target_df_container.dataframe
 
-                if (
-                    logical_plan.targetTable().getClass().getSimpleName()
-                    == "UnresolvedRelation"
-                ):
-                    target_table_name = _spark_to_snowflake(
-                        logical_plan.targetTable().multipartIdentifier()
-                    )
-                else:
-                    target_table_name = _spark_to_snowflake(
-                        logical_plan.targetTable().child().multipartIdentifier()
-                    )
+                dml_target = _merge_dml_target(logical_plan.targetTable())
 
-                target_table = session.table(target_table_name)
+                target_table = snowpark_table_for_ref_dml(session, dml_target)
                 target_table_columns = target_table.columns
                 target_df_spark_names = [
                     c.spark_name for c in target_df_container.column_map.columns
@@ -2865,8 +2918,11 @@ def map_sql_to_pandas_df(
                 df_container = map_relation(
                     map_logical_plan_relation(logical_plan.table())
                 )
-                name = get_relation_identifier_name(logical_plan.table(), True)
-                table = session.table(name)
+                dml_target = _resolve_sql_dml_target(
+                    logical_plan.table(), is_multi_part=True
+                )
+                name = dml_target.dml_snowflake_sql
+                table = snowpark_table_for_ref_dml(session, dml_target)
                 table_columns = table.columns
                 df = df_container.dataframe
                 spark_names = [c.spark_name for c in df_container.column_map.columns]
@@ -2906,8 +2962,10 @@ def map_sql_to_pandas_df(
                 df_container = map_relation(
                     map_logical_plan_relation(logical_plan.table())
                 )
-                name = get_relation_identifier_name(logical_plan.table(), True)
-                tbl = session.table(name)
+                dml_target = _resolve_sql_dml_target(
+                    logical_plan.table(), is_multi_part=True
+                )
+                tbl = snowpark_table_for_ref_dml(session, dml_target)
                 table_columns = tbl.columns
                 df = df_container.dataframe
                 spark_names = []

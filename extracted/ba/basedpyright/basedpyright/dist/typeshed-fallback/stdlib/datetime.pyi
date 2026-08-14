@@ -80,8 +80,8 @@ class date:
         """
         Create a date from a POSIX timestamp.
 
-        The timestamp is a number, e.g. created via time.time(), that is interpreted
-        as local time.
+        The timestamp is a number, e.g. created via time.time(), that is
+        interpreted as local time.
         """
         ...
     @classmethod

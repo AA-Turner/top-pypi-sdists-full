@@ -1,15 +1,17 @@
-# pyright: reportGeneralTypeIssues=false
 import copy
 import warnings
 from collections import defaultdict
-from typing import Callable, Dict, Optional
+from collections.abc import Callable
+from typing import Any, cast
+
+from typing_extensions import override
 
 from pettingzoo.utils import AgentSelector
 from pettingzoo.utils.env import ActionType, AECEnv, AgentID, ObsType, ParallelEnv
 from pettingzoo.utils.wrappers import OrderEnforcingWrapper
 
 
-def parallel_wrapper_fn(env_fn: Callable) -> Callable:
+def parallel_wrapper_fn(env_fn: Callable[..., Any]) -> Callable[..., Any]:
     def par_fn(**kwargs):
         env = env_fn(**kwargs)
         env = aec_to_parallel_wrapper(env)
@@ -18,7 +20,7 @@ def parallel_wrapper_fn(env_fn: Callable) -> Callable:
     return par_fn
 
 
-def aec_wrapper_fn(par_env_fn: Callable) -> Callable:
+def aec_wrapper_fn(par_env_fn: Callable[..., Any]) -> Callable[..., Any]:
     """Converts class(pettingzoo.utils.env.ParallelEnv) -> class(pettingzoo.utils.env.AECEnv).
 
     Args:
@@ -42,7 +44,7 @@ def aec_wrapper_fn(par_env_fn: Callable) -> Callable:
 
 
 def aec_to_parallel(
-    aec_env: AECEnv[AgentID, ObsType, ActionType]
+    aec_env: AECEnv[AgentID, ObsType, ActionType],
 ) -> ParallelEnv[AgentID, ObsType, ActionType]:
     """Converts an AEC environment to a Parallel environment.
 
@@ -53,14 +55,13 @@ def aec_to_parallel(
         aec_env.env, parallel_to_aec_wrapper
     ):
         return aec_env.env.env
-    else:
-        par_env = aec_to_parallel_wrapper(aec_env)
-        return par_env
+    par_env = aec_to_parallel_wrapper(aec_env)
+    return par_env
 
 
 def parallel_to_aec(
-    par_env: ParallelEnv[AgentID, ObsType, Optional[ActionType]]
-) -> AECEnv[AgentID, ObsType, Optional[ActionType]]:
+    par_env: ParallelEnv[AgentID, ObsType, ActionType | None],
+) -> AECEnv[AgentID, ObsType, ActionType | None]:
     """Converts a Parallel environment to an AEC environment.
 
     In the case of an existing AEC environment wrapped using a `aec_to_parallel_wrapper`, this function will return the original AEC environment.
@@ -68,24 +69,22 @@ def parallel_to_aec(
     """
     if isinstance(par_env, aec_to_parallel_wrapper):
         return par_env.aec_env
-    else:
-        aec_env = parallel_to_aec_wrapper(par_env)
-        ordered_env = OrderEnforcingWrapper(aec_env)
-        return ordered_env
+    aec_env = parallel_to_aec_wrapper(par_env)
+    ordered_env = OrderEnforcingWrapper(aec_env)
+    return ordered_env
 
 
 def turn_based_aec_to_parallel(
-    aec_env: AECEnv[AgentID, ObsType, Optional[ActionType]]
-) -> ParallelEnv[AgentID, ObsType, Optional[ActionType]]:
+    aec_env: AECEnv[AgentID, ObsType, ActionType | None],
+) -> ParallelEnv[AgentID, ObsType, ActionType | None]:
     if isinstance(aec_env, parallel_to_aec_wrapper):
-        return aec_env.env
-    else:
-        par_env = turn_based_aec_to_parallel_wrapper(aec_env)
-        return par_env
+        return cast("ParallelEnv[AgentID, ObsType, ActionType | None]", aec_env.env)
+    par_env = turn_based_aec_to_parallel_wrapper(aec_env)
+    return par_env
 
 
 def to_parallel(
-    aec_env: AECEnv[AgentID, ObsType, ActionType]
+    aec_env: AECEnv[AgentID, ObsType, ActionType],
 ) -> ParallelEnv[AgentID, ObsType, ActionType]:
     warnings.warn(
         "The `to_parallel` function is deprecated. Use the `aec_to_parallel` function instead."
@@ -94,8 +93,8 @@ def to_parallel(
 
 
 def from_parallel(
-    par_env: ParallelEnv[AgentID, ObsType, Optional[ActionType]]
-) -> AECEnv[AgentID, ObsType, Optional[ActionType]]:
+    par_env: ParallelEnv[AgentID, ObsType, ActionType | None],
+) -> AECEnv[AgentID, ObsType, ActionType | None]:
     warnings.warn(
         "The `from_parallel` function is deprecated. Use the `parallel_to_aec` function instead."
     )
@@ -125,9 +124,7 @@ class aec_to_parallel_wrapper(ParallelEnv[AgentID, ObsType, ActionType]):
         self.metadata = aec_env.metadata
 
         try:
-            self.render_mode = (
-                self.aec_env.render_mode  # pyright: ignore[reportGeneralTypeIssues]
-            )
+            self.render_mode = self.aec_env.render_mode
         except AttributeError:
             warnings.warn(
                 f"The base environment `{aec_env}` does not have a `render_mode` defined."
@@ -140,6 +137,7 @@ class aec_to_parallel_wrapper(ParallelEnv[AgentID, ObsType, ActionType]):
             pass
 
     @property
+    @override
     def observation_spaces(self):
         warnings.warn(
             "The `observation_spaces` dictionary is deprecated. Use the `observation_space` function instead."
@@ -154,6 +152,7 @@ class aec_to_parallel_wrapper(ParallelEnv[AgentID, ObsType, ActionType]):
             ) from e
 
     @property
+    @override
     def action_spaces(self):
         warnings.warn(
             "The `action_spaces` dictionary is deprecated. Use the `action_space` function instead."
@@ -165,16 +164,20 @@ class aec_to_parallel_wrapper(ParallelEnv[AgentID, ObsType, ActionType]):
                 "The base environment does not have an action_spaces dict attribute. Use the environments `action_space` method instead"
             ) from e
 
+    @override
     def observation_space(self, agent):
         return self.aec_env.observation_space(agent)
 
+    @override
     def action_space(self, agent):
         return self.aec_env.action_space(agent)
 
     @property
+    @override
     def unwrapped(self):
         return self.aec_env.unwrapped
 
+    @override
     def reset(self, seed=None, options=None):
         self.aec_env.reset(seed=seed, options=options)
         self.agents = self.aec_env.agents[:]
@@ -187,6 +190,7 @@ class aec_to_parallel_wrapper(ParallelEnv[AgentID, ObsType, ActionType]):
         infos = dict(**self.aec_env.infos)
         return observations, infos
 
+    @override
     def step(self, actions):
         rewards = defaultdict(int)
         terminations = {}
@@ -199,10 +203,9 @@ class aec_to_parallel_wrapper(ParallelEnv[AgentID, ObsType, ActionType]):
                     raise AssertionError(
                         f"expected agent {agent} got termination or truncation agent {self.aec_env.agent_selection}. Parallel environment wrapper expects all agent death (setting an agent's self.terminations or self.truncations entry to True) to happen only at the end of a cycle."
                     )
-                else:
-                    raise AssertionError(
-                        f"expected agent {agent} got agent {self.aec_env.agent_selection}, Parallel environment wrapper expects agents to step in a cycle."
-                    )
+                raise AssertionError(
+                    f"expected agent {agent} got agent {self.aec_env.agent_selection}, Parallel environment wrapper expects agents to step in a cycle."
+                )
             obs, rew, termination, truncation, info = self.aec_env.last()
             self.aec_env.step(actions[agent])
             for agent in self.aec_env.agents:
@@ -223,31 +226,30 @@ class aec_to_parallel_wrapper(ParallelEnv[AgentID, ObsType, ActionType]):
         self.agents = self.aec_env.agents
         return observations, rewards, terminations, truncations, infos
 
+    @override
     def render(self):
         return self.aec_env.render()
 
+    @override
     def state(self):
         return self.aec_env.state()
 
+    @override
     def close(self):
         return self.aec_env.close()
 
 
-class parallel_to_aec_wrapper(AECEnv[AgentID, ObsType, Optional[ActionType]]):
+class parallel_to_aec_wrapper(AECEnv[AgentID, ObsType, ActionType | None]):
     """Converts a Parallel environment into an AEC environment."""
 
-    def __init__(
-        self, parallel_env: ParallelEnv[AgentID, ObsType, Optional[ActionType]]
-    ):
+    def __init__(self, parallel_env: ParallelEnv[AgentID, ObsType, ActionType | None]):
         self.env = parallel_env
 
         self.metadata = {**parallel_env.metadata}
         self.metadata["is_parallelizable"] = True
 
         try:
-            self.render_mode = (
-                self.env.render_mode  # pyright: ignore[reportGeneralTypeIssues]
-            )
+            self.render_mode = self.env.render_mode  # type: ignore
         except AttributeError:
             warnings.warn(
                 f"The base environment `{parallel_env}` does not have a `render_mode` defined."
@@ -260,17 +262,17 @@ class parallel_to_aec_wrapper(AECEnv[AgentID, ObsType, Optional[ActionType]]):
 
         # Not every environment has the .state_space attribute implemented
         try:
-            self.state_space = (
-                self.env.state_space  # pyright: ignore[reportGeneralTypeIssues]
-            )
+            self.state_space = self.env.state_space  # type: ignore
         except AttributeError:
             pass
 
     @property
+    @override
     def unwrapped(self):
         return self.env.unwrapped
 
     @property
+    @override
     def observation_spaces(self):
         warnings.warn(
             "The `observation_spaces` dictionary is deprecated. Use the `observation_space` function instead."
@@ -285,6 +287,7 @@ class parallel_to_aec_wrapper(AECEnv[AgentID, ObsType, Optional[ActionType]]):
             ) from e
 
     @property
+    @override
     def action_spaces(self):
         warnings.warn(
             "The `action_spaces` dictionary is deprecated. Use the `action_space` function instead."
@@ -296,24 +299,25 @@ class parallel_to_aec_wrapper(AECEnv[AgentID, ObsType, Optional[ActionType]]):
                 "The base environment does not have an action_spaces dict attribute. Use the environments `action_space` method instead"
             ) from e
 
+    @override
     def observation_space(self, agent):
         return self.env.observation_space(agent)
 
+    @override
     def action_space(self, agent):
         return self.env.action_space(agent)
 
+    @override
     def reset(self, seed=None, options=None):
         self._observations, self.infos = self.env.reset(seed=seed, options=options)
         self.agents = self.env.agents[:]
         self._live_agents = self.agents[:]
-        self._actions: Dict[AgentID, Optional[ActionType]] = {
-            agent: None for agent in self.agents
-        }
+        self._actions: dict[AgentID, ActionType | None] = dict.fromkeys(self.agents)
         self._agent_selector = AgentSelector(self._live_agents)
         self.agent_selection = self._agent_selector.reset()
-        self.terminations = {agent: False for agent in self.agents}
-        self.truncations = {agent: False for agent in self.agents}
-        self.rewards = {agent: 0 for agent in self.agents}
+        self.terminations = dict.fromkeys(self.agents, False)
+        self.truncations = dict.fromkeys(self.agents, False)
+        self.rewards = dict.fromkeys(self.agents, 0)
 
         # Every environment needs to return infos that contain self.agents as their keys
         if not self.infos:
@@ -322,18 +326,21 @@ class parallel_to_aec_wrapper(AECEnv[AgentID, ObsType, Optional[ActionType]]):
             )
             self.infos = {agent: {} for agent in self.agents}
         elif set(self.infos.keys()) != set(self.agents):
-            self.infos = {agent: {self.infos.copy()} for agent in self.agents}
+            current_info = cast("dict[str, Any]", self.infos)
+            self.infos = {agent: current_info.copy() for agent in self.agents}
             warnings.warn(
                 f"The `infos` dictionary returned by `env.reset()` is not valid: must contain keys for each agent defined in self.agents: {self.agents}. Overwriting with current info duplicated for each agent: {self.infos}"
             )
 
-        self._cumulative_rewards = {agent: 0 for agent in self.agents}
+        self._cumulative_rewards = dict.fromkeys(self.agents, 0)
         self.new_agents = []
         self.new_values = {}
 
+    @override
     def observe(self, agent):
         return self._observations[agent]
 
+    @override
     def state(self):
         return self.env.state()
 
@@ -348,7 +355,8 @@ class parallel_to_aec_wrapper(AECEnv[AgentID, ObsType, Optional[ActionType]]):
         self.rewards[new_agent] = 0
         self._cumulative_rewards[new_agent] = 0
 
-    def step(self, action: Optional[ActionType]):
+    @override
+    def step(self, action: ActionType | None):
         if (
             self.terminations[self.agent_selection]
             or self.truncations[self.agent_selection]
@@ -387,6 +395,7 @@ class parallel_to_aec_wrapper(AECEnv[AgentID, ObsType, Optional[ActionType]]):
 
             self.agent_selection = self._agent_selector.next()
 
+    @override
     def last(self, observe=True):
         agent = self.agent_selection
         observation = self.observe(agent) if observe else None
@@ -398,20 +407,23 @@ class parallel_to_aec_wrapper(AECEnv[AgentID, ObsType, Optional[ActionType]]):
             self.infos[agent],
         )
 
+    @override
     def render(self):
         return self.env.render()
 
+    @override
     def close(self):
         self.env.close()
 
+    @override
     def __str__(self):
         return str(self.env)
 
 
 class turn_based_aec_to_parallel_wrapper(
-    ParallelEnv[AgentID, ObsType, Optional[ActionType]]
+    ParallelEnv[AgentID, ObsType, ActionType | None]
 ):
-    def __init__(self, aec_env: AECEnv[AgentID, ObsType, Optional[ActionType]]):
+    def __init__(self, aec_env: AECEnv[AgentID, ObsType, ActionType | None]):
         self.aec_env = aec_env
 
         try:
@@ -423,26 +435,24 @@ class turn_based_aec_to_parallel_wrapper(
 
         # Not every environment has the .state_space attribute implemented
         try:
-            self.state_space = (
-                self.aec_env.state_space  # pyright: ignore[reportGeneralTypeIssues]
-            )
+            self.state_space = self.aec_env.state_space  # type: ignore
         except AttributeError:
             pass
 
         try:
-            self.render_mode = (
-                self.aec_env.render_mode  # pyright: ignore[reportGeneralTypeIssues]
-            )
+            self.render_mode = self.aec_env.render_mode  # type: ignore
         except AttributeError:
             warnings.warn(
                 f"The base environment `{aec_env}` does not have a `render_mode` defined."
             )
 
     @property
+    @override
     def unwrapped(self):
         return self.aec_env.unwrapped
 
     @property
+    @override
     def observation_spaces(self):
         warnings.warn(
             "The `observation_spaces` dictionary is deprecated. Use the `observation_space` function instead."
@@ -457,6 +467,7 @@ class turn_based_aec_to_parallel_wrapper(
             ) from e
 
     @property
+    @override
     def action_spaces(self):
         warnings.warn(
             "The `action_spaces` dictionary is deprecated. Use the `action_space` function instead."
@@ -468,12 +479,15 @@ class turn_based_aec_to_parallel_wrapper(
                 "The base environment does not have an action_spaces dict attribute. Use the environments `action_space` method instead"
             ) from e
 
+    @override
     def observation_space(self, agent):
         return self.aec_env.observation_space(agent)
 
+    @override
     def action_space(self, agent):
         return self.aec_env.action_space(agent)
 
+    @override
     def reset(self, seed=None, options=None):
         self.aec_env.reset(seed=seed, options=options)
         self.agents = self.aec_env.agents[:]
@@ -486,6 +500,7 @@ class turn_based_aec_to_parallel_wrapper(
         infos = {**self.aec_env.infos}
         return observations, infos
 
+    @override
     def step(self, actions):
         if not self.agents:
             return {}, {}, {}, {}
@@ -513,11 +528,14 @@ class turn_based_aec_to_parallel_wrapper(
         self.agents = self.aec_env.agents
         return observations, rewards, terminations, truncations, infos
 
+    @override
     def render(self):
         return self.aec_env.render()
 
+    @override
     def state(self):
         return self.aec_env.state()
 
+    @override
     def close(self):
         return self.aec_env.close()

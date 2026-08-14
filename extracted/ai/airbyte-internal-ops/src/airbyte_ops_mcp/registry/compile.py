@@ -50,7 +50,7 @@ import re
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 import dpath.util
 import gcsfs
@@ -65,6 +65,9 @@ from airbyte_ops_mcp.registry._gcs_helpers import (
     get_gcs_credentials_token,
     get_gcs_storage_client,
 )
+from airbyte_ops_mcp.registry.breaking_changes import (
+    version_declares_breaking_change,
+)
 from airbyte_ops_mcp.registry.generate import (
     _get_registry_override,
     is_registry_enabled,
@@ -77,9 +80,21 @@ from airbyte_ops_mcp.registry.metrics import (
     apply_metrics_to_registry_entries,
     read_latest_connector_metrics,
 )
+from airbyte_ops_mcp.registry.release_attribution import (
+    ReleaseAttribution,
+    ReleaseAttributionIndex,
+)
 from airbyte_ops_mcp.registry.store import RegistryStore, StoreType
 
 logger = logging.getLogger(__name__)
+
+
+class _ReadableRegistryFileSystem(Protocol):
+    """Minimal filesystem interface needed to build a version index."""
+
+    def open(self, path: str, mode: str = "r") -> Any:
+        """Open a registry object for reading."""
+
 
 # Regex for the `version=<semver>` marker filename inside `latest/`
 _VERSION_MARKER_RE = re.compile(r"^version=(.+)$")
@@ -121,6 +136,7 @@ class CompileResult:
     metrics_source: str | None = None
     metrics_error: str | None = None
     version_indexes_written: int = 0
+    version_indexes_skipped: int = 0
     specs_secrets_mask_properties: int = 0
     errors: list[str] = field(default_factory=list)
     dry_run: bool = False
@@ -144,7 +160,8 @@ class CompileResult:
             f"composite={self.composite_registry_entries}. "
             f"Metrics loaded for {self.metrics_connector_count} connectors, "
             f"injected into {self.metrics_registry_entries} registry entries. "
-            f"Version indexes: {self.version_indexes_written}. "
+            f"Version indexes: {self.version_indexes_written} written, "
+            f"{self.version_indexes_skipped} unchanged. "
             f"Specs secrets mask: {self.specs_secrets_mask_properties} properties. "
             f"Errors: {len(self.errors)}."
         )
@@ -407,7 +424,8 @@ def _read_rc_registry_entry(
 ) -> dict[str, Any] | None:
     """Read a release candidate's cloud.json or oss.json from its versioned dir.
 
-    Returns the parsed JSON dict, or None if the file does not exist.
+    Returns the parsed JSON dict, or None if the file does not exist or
+    declares a breaking change for `rc_version`.
     """
     base = f"{store.bucket_root}/{METADATA_FOLDER}/airbyte"
     entry_path = f"{base}/{connector}/{rc_version}/{registry_type}.json"
@@ -415,7 +433,21 @@ def _read_rc_registry_entry(
         if not fs.exists(entry_path):
             return None
         with fs.open(entry_path, "r") as f:
-            return json.load(f)  # type: ignore[no-any-return]
+            entry = json.load(f)
+        releases = entry.get("releases", {})
+        breaking_changes = (
+            releases.get("breakingChanges") if isinstance(releases, dict) else None
+        )
+        if version_declares_breaking_change(rc_version, breaking_changes):
+            logger.info(
+                "Ignoring progressive rollout settings for %s@%s; version is "
+                "declared as a breaking change. (%s registry)",
+                connector,
+                rc_version,
+                registry_type,
+            )
+            return None
+        return entry
     except Exception as exc:
         logger.warning(
             "Failed to read RC %s.json for %s@%s: %s",
@@ -1293,7 +1325,7 @@ def _extract_secret_property_names(
 
 
 def _build_version_index(
-    fs: gcsfs.GCSFileSystem,
+    fs: _ReadableRegistryFileSystem,
     *,
     store: RegistryStore,
     connector: str,
@@ -1302,6 +1334,9 @@ def _build_version_index(
     latest_version: str | None,
     rc_version: str | None = None,
     rc_versions_all: list[str] | None = None,
+    previous_index: dict[str, Any] | None = None,
+    full_restate: bool = False,
+    release_attribution: dict[str, ReleaseAttribution] | None = None,
 ) -> dict[str, Any]:
     """Build the per-connector versions.json content.
 
@@ -1319,7 +1354,13 @@ def _build_version_index(
     base = f"{store.bucket_root}/{METADATA_FOLDER}/airbyte/{connector}"
     rc_version_set = set(rc_versions_all) if rc_versions_all else set()
 
+    previous_entries = {
+        entry.get("version"): entry
+        for entry in (previous_index or {}).get("versions", [])
+        if isinstance(entry, dict) and entry.get("version")
+    }
     version_entries: list[dict[str, Any]] = []
+    latest_metadata_data: dict[str, Any] | None = None
     for v_str in sorted(
         versions, key=lambda s: _parse_version(s) or Version("0"), reverse=True
     ):
@@ -1335,33 +1376,87 @@ def _build_version_index(
         if is_rc:
             entry["is_release_candidate"] = True
 
-        # For the latest version, enrich with metadata fields
-        if is_latest:
+        previous_entry = previous_entries.get(v_str)
+        previous_release_pending = (
+            isinstance(previous_entry, dict)
+            and previous_entry.get("release_pending") is True
+        )
+        if (
+            not full_restate
+            and isinstance(previous_entry, dict)
+            and "release" in previous_entry
+        ):
+            entry["release"] = copy.deepcopy(previous_entry["release"])
+        elif release_attribution and v_str in release_attribution:
+            entry["release"] = release_attribution[v_str].model_dump(mode="json")
+
+        metadata_data: dict[str, Any] | None = None
+        has_seed = release_attribution is not None and v_str in release_attribution
+        needs_metadata = (
+            is_latest
+            or full_restate
+            or previous_release_pending
+            or (v_str not in previous_entries and not has_seed)
+        )
+        metadata_read_succeeded = False
+        if needs_metadata:
             try:
                 meta_path = f"{base}/{v_str}/metadata.yaml"
                 with fs.open(meta_path, "r") as f:
                     raw = yaml.safe_load(f)
-                data = raw.get("data", {})
-                entry["release_stage"] = data.get("releaseStage")
-                entry["support_level"] = data.get("supportLevel")
+                metadata_read_succeeded = True
+                if isinstance(raw, dict) and isinstance(raw.get("data"), dict):
+                    metadata_data = raw["data"]
+                else:
+                    logger.warning(
+                        "Metadata for %s@%s is not a mapping",
+                        connector,
+                        v_str,
+                    )
             except Exception as exc:
+                entry["release_pending"] = True
                 logger.warning(
                     "Failed to read metadata for %s@%s: %s", connector, v_str, exc
                 )
 
+        if metadata_read_succeeded:
+            entry.pop("release_pending", None)
+
+        if is_latest and metadata_data is not None:
+            latest_metadata_data = metadata_data
+            entry["release_stage"] = metadata_data.get("releaseStage")
+            entry["support_level"] = metadata_data.get("supportLevel")
+
+        generated = (
+            metadata_data.get("generated") if metadata_data is not None else None
+        )
+        if (
+            isinstance(generated, dict)
+            and isinstance(generated.get("release"), dict)
+            and (full_restate or "release" not in entry)
+        ):
+            entry["release"] = copy.deepcopy(generated["release"])
+
         version_entries.append(entry)
 
     definition_id = None
-    if latest_version:
-        # Try to get the definition ID from the latest version's metadata
-        try:
-            meta_path = f"{base}/{latest_version}/metadata.yaml"
-            with fs.open(meta_path, "r") as f:
-                raw = yaml.safe_load(f)
-            data = raw.get("data", {})
-            definition_id = data.get("definitionId")
-        except Exception:
-            pass
+    if latest_metadata_data is not None:
+        definition_id = latest_metadata_data.get("definitionId")
+        if not definition_id and isinstance(previous_index, dict):
+            prior_definition_id = previous_index.get("definition_id")
+            if prior_definition_id:
+                definition_id = prior_definition_id
+    elif latest_version is not None:
+        logger.warning(
+            "Could not read metadata for latest version %s@%s; "
+            "preserving prior definition_id if available.",
+            connector,
+            latest_version,
+        )
+        if isinstance(previous_index, dict):
+            prior_definition_id = previous_index.get("definition_id")
+            if prior_definition_id:
+                definition_id = prior_definition_id
 
     result: dict[str, Any] = {
         "connector": connector,
@@ -1375,6 +1470,51 @@ def _build_version_index(
         result["release_candidates"] = rc_versions_all
 
     return result
+
+
+def _read_previous_version_index(
+    fs: _ReadableRegistryFileSystem,
+    index_path: str,
+    *,
+    connector: str,
+) -> dict[str, Any] | None:
+    """Read a prior versions index, adding one GCS read per connector."""
+    try:
+        with fs.open(index_path, "r") as f:
+            value = json.load(f)
+    except FileNotFoundError:
+        logger.debug("No prior versions.json for %s; rebuilding it.", connector)
+        return None
+    except Exception as exc:
+        logger.warning(
+            "Could not read prior versions.json for %s; rebuilding it: %s",
+            connector,
+            exc,
+        )
+        return None
+
+    if not isinstance(value, dict) or not isinstance(value.get("versions"), list):
+        logger.warning(
+            "Prior versions.json for %s is corrupt; rebuilding it.",
+            connector,
+        )
+        return None
+    return value
+
+
+def _version_index_content(index: dict[str, Any]) -> str:
+    """Serialize a version index using the registry's canonical format."""
+    return json.dumps(index, indent=2, sort_keys=True) + "\n"
+
+
+def _version_index_is_unchanged(
+    previous_index: dict[str, Any] | None,
+    index: dict[str, Any],
+) -> bool:
+    """Return whether a computed index matches a valid prior index."""
+    return previous_index is not None and _version_index_content(
+        previous_index
+    ) == _version_index_content(index)
 
 
 # ---------------------------------------------------------------------------
@@ -1611,6 +1751,8 @@ def compile_registry(
     with_legacy_migration: str | None = None,
     with_metrics: bool = True,
     force: bool = False,
+    with_full_restate: bool = False,
+    release_attribution_index: ReleaseAttributionIndex | None = None,
 ) -> CompileResult:
     """Compile the registry: sync latest/ dirs and write index files.
 
@@ -1632,9 +1774,9 @@ def compile_registry(
     Args:
         store: Registry store (bucket + optional prefix).
         connector_name: If provided, only resync `latest/` directories for
-            these connectors (steps 5-6).  Index rebuilds (steps 9-12)
-            always operate on the full set of connectors so that global
-            registry files remain complete.
+            these connectors (steps 5-6). Global registry indexes always
+            operate on the full set so they remain complete; per-connector
+            `versions.json` writes are scoped to the requested connectors.
         dry_run: If True, report what would be done without writing.
         with_secrets_mask: If True, regenerate `specs_secrets_mask.yaml`.
         with_legacy_migration: If set, run the named migration step.
@@ -1646,6 +1788,18 @@ def compile_registry(
         force: If True, resync all connectors' latest/ directories even if the
             existing version marker matches the computed latest version. This
             is useful when metadata content changes without a version bump.
+        with_full_restate: If `True`, re-read every version's `metadata.yaml`
+            instead of carrying forward existing release attribution. This is
+            expensive for all connectors, at approximately 33.5k reads. When
+            no `release_attribution_index` is supplied, historical release
+            blocks that exist only in the attribution index cannot be
+            re-derived and will be discarded.
+        release_attribution_index: Optional Phase 1 index used to seed missing
+            per-version release blocks without rewriting historical metadata.
+
+    The compile performs one additional GCS read per connector for its prior
+    `versions.json`, trading approximately 716 reads for avoiding historical
+    metadata reads on the default path.
 
     Returns:
         A `CompileResult` describing what was done.
@@ -2011,13 +2165,23 @@ def compile_registry(
         _COMPILE_WRITE_MAX_WORKERS,
     )
     base = f"{store.bucket_root}/{METADATA_FOLDER}/airbyte"
-    sorted_connectors = sorted(connector_versions)
+    sorted_connectors = sorted(
+        set(connector_versions)
+        if connector_name is None
+        else set(connector_name) & set(connector_versions)
+    )
 
-    def _write_one_version_index(connector: str) -> None:
+    def _write_one_version_index(connector: str) -> bool:
         """Build and write a single connector's versions.json."""
         versions = connector_versions[connector]
         latest_v = latest_versions.get(connector)
         rc_v_list = rc_versions.get(connector)
+        index_path = f"{base}/{connector}/versions.json"
+        previous_index = _read_previous_version_index(
+            fs,
+            index_path,
+            connector=connector,
+        )
         index = _build_version_index(
             fs,
             store=store,
@@ -2027,8 +2191,19 @@ def compile_registry(
             latest_version=latest_v,
             rc_version=rc_v_list[0] if rc_v_list else None,
             rc_versions_all=rc_v_list,
+            previous_index=previous_index,
+            full_restate=with_full_restate,
+            release_attribution=(
+                release_attribution_index.connectors.get(connector)
+                if release_attribution_index
+                else None
+            ),
         )
-        index_path = f"{base}/{connector}/versions.json"
+        content = _version_index_content(index)
+        if _version_index_is_unchanged(previous_index, index):
+            action = "Would skip unchanged" if dry_run else "Skipped unchanged"
+            _log_progress("  %s %s/versions.json", action, connector)
+            return False
         if dry_run:
             _log_progress(
                 "  [DRY RUN] Would write %s/versions.json (%d versions)",
@@ -2036,9 +2211,9 @@ def compile_registry(
                 len(versions),
             )
         else:
-            content = json.dumps(index, indent=2, sort_keys=True) + "\n"
             with fs.open(index_path, "w") as f:
                 f.write(content)
+        return True
 
     with ThreadPoolExecutor(max_workers=_COMPILE_WRITE_MAX_WORKERS) as pool:
         futures = {
@@ -2047,8 +2222,11 @@ def compile_registry(
         for i, future in enumerate(as_completed(futures), 1):
             connector = futures[future]
             try:
-                future.result()
-                result.version_indexes_written += 1
+                wrote = future.result()
+                if wrote:
+                    result.version_indexes_written += 1
+                else:
+                    result.version_indexes_skipped += 1
             except Exception as exc:
                 error_msg = f"Failed to write versions.json for {connector}: {exc}"
                 logger.error(error_msg)

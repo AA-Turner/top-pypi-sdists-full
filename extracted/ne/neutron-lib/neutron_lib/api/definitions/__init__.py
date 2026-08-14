@@ -58,6 +58,7 @@ from neutron_lib.api.definitions import flavors
 from neutron_lib.api.definitions import floating_ip_port_forwarding
 from neutron_lib.api.definitions import floatingip_autodelete_internal
 from neutron_lib.api.definitions import floatingip_pools
+from neutron_lib.api.definitions import floatingip_router_writable
 from neutron_lib.api.definitions import flowclassifier
 from neutron_lib.api.definitions import ip_allocation
 from neutron_lib.api.definitions import ip_substring_port_filtering
@@ -88,6 +89,7 @@ from neutron_lib.api.definitions import network_ip_availability_details
 from neutron_lib.api.definitions import network_mtu
 from neutron_lib.api.definitions import network_mtu_writable
 from neutron_lib.api.definitions import network_segment_range
+from neutron_lib.api.definitions import ovn_bgp
 from neutron_lib.api.definitions import pagination
 from neutron_lib.api.definitions import port
 from neutron_lib.api.definitions import port_device_profile
@@ -136,6 +138,7 @@ from neutron_lib.api.definitions import router_availability_zone
 from neutron_lib.api.definitions import router_enable_snat
 from neutron_lib.api.definitions import routerservicetype
 from neutron_lib.api.definitions import security_groups_default_statefulness
+from neutron_lib.api.definitions import security_groups_name_restrictions
 from neutron_lib.api.definitions import security_groups_normalized_cidr
 from neutron_lib.api.definitions import security_groups_port_filtering
 from neutron_lib.api.definitions import security_groups_remote_address_group
@@ -227,6 +230,7 @@ _ALL_API_DEFINITIONS = {
     fip_pf_description,
     floatingip_autodelete_internal,
     floatingip_pools,
+    floatingip_router_writable,
     ip_allocation,
     ip_substring_port_filtering,
     l2_adjacency,
@@ -257,6 +261,7 @@ _ALL_API_DEFINITIONS = {
     network_mtu,
     network_mtu_writable,
     network_segment_range,
+    ovn_bgp,
     pagination,
     port,
     port_device_profile,
@@ -305,6 +310,7 @@ _ALL_API_DEFINITIONS = {
     router_enable_snat,
     routerservicetype,
     security_groups_default_statefulness,
+    security_groups_name_restrictions,
     security_groups_normalized_cidr,
     security_groups_port_filtering,
     security_groups_remote_address_group,

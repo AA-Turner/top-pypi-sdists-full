@@ -250,6 +250,108 @@ def ICC(data, icc_type=(2,1), per_param=False):
 
     return icc if per_param else icc.item()
 
+def dim_ICC(data, axis=None, icc_type=(2,1), per_param=False):
+    """
+    Intraclass correlation coefficient (ICC) via two-way ANOVA decomposition.
+    Following Shrout & Fleiss (1979) notation.
+
+    Parameters
+    ----------
+    data : array-like of shape (k, n)
+        Rows are judges/raters (k), columns are targets (n).
+    axis: int or iterable of int, default=None
+        Axis to measure ICC for. Last dimension is considered to be the target dimension
+        If None, ICC is measured across all observation dimensions, equivalent to standard ICC.
+    icc_type : tuple
+        (1,1)    - one-way random, single measures
+        (1,None) - one-way random, average of k measures
+        (2,1)    - two-way random, absolute agreement, single measures
+        (2,None) - two-way random, absolute agreement, average measures
+        (3,1)    - two-way mixed, consistency, single measures
+        (3,None) - two-way mixed, consistency, average measures
+    per_param : bool
+        If True, return per-target ICC of shape (n,).
+
+    Returns
+    -------
+    float or np.ndarray
+        ICC value(s).
+    """
+    assert len(icc_type)==2, f'icc_type must be 2D (case, avg), received: {icc_type}'
+    case, avg = icc_type[0], icc_type[1]
+    assert case in (1,2,3) and avg in (1, None), f'Unknown icc type: {icc_type}. Choose from (1,1), (1,None), (2,1), (2,None), (3,1), (3,None)'
+    avg = icc_type[1] is None
+    assert not (per_param and avg), 'per_param and icc_type=(n, None) is currently undefined'
+
+    data = np.asarray(data, dtype=float)
+    dim_all = tuple(range(data.ndim-1))
+    axis = dim_all if axis is None else T.sklearn.metrics.axis_fix(axis, ndim=data.ndim)
+    assert (np.array(axis) < data.ndim-1).all(), 'axis cannot be the last dimension which is the target dimension'
+    axis_other = tuple(set(dim_all) - set(axis))
+
+    shape = np.array(data.shape)
+    n_other = np.prod(shape[list(axis_other)])
+    n_focus = np.prod(shape[list(axis)])
+    n = data.shape[-1] # n targets (columns)
+    k = n_other*n_focus
+
+    data = np.transpose(data, (*axis_other, *axis, -1)) # (axis_other, axis, target)
+    data = data.reshape(n_other, n_focus, n)
+
+    # o: other, j: target
+    mu_oj = np.mean(data, axis=1, keepdims=True)
+    SS_oj = (data - mu_oj)**2
+
+    # SSWF_oj = (data - mu_oj).sum(axis=1) # Don't need per-other analysis.
+    SSWF_j = SS_oj.sum(axis=(0,1)) if per_param else None
+    SSWF = SS_oj.sum()
+
+    WFMS_j = SSWF_j / (n_other * (n_focus-1)) if per_param else None
+    WFMS = SSWF / (n * n_other * (n_focus-1)) # WFMS_j.mean()==WFMS
+
+    # Theoretically mu_oj -> mu_j -> mu can be computed most efficiently, but could result in accumulated numerical precision errors.
+    mu   = data.mean()
+    mu_j = data.mean(axis=(0,1)) # (n,) column means (targets)
+    SSC  = k * ((mu_j - mu) ** 2).sum()
+    SSW = ((data-mu_j)**2).sum() # == SST-SSC
+
+    BMS  = SSC / (n - 1)
+    WMS = (SSW) / (n * (k - 1))
+
+    if case in (2,3):
+        mu_R = data.mean(axis=-1)  # (k,) row means (judges)
+        SSR  = n * ((mu_R - mu) ** 2).sum()
+        SSE = SSW - SSR # == SST - SSC - SSR
+        JMS = SSR / (k - 1)
+        EMS  = SSE / ((n - 1) * (k - 1))
+
+    if case == 1:
+        if avg:
+            icc = (BMS - WMS) / BMS
+        else:
+            # icc = (BMS - WMS) / (BMS + (k - 1) * WMS)
+            icc = 1 - k * (WFMS_j if per_param else WFMS) / (BMS + (k - 1) * WMS) # identical, matter of perspective
+            
+    elif case == 2:
+        if avg:
+            icc = (BMS - EMS) / (BMS + (JMS - EMS) / n)
+        else:
+            # icc = (BMS - EMS) / (BMS + (k - 1) * EMS + k * (JMS - EMS) / n)
+            icc = 1 - k * (WFMS_j if per_param else WFMS) / (BMS - EMS + k * WMS) # identical, matter of perspective
+
+    elif case == 3:
+        if avg:
+            icc = (BMS - EMS) / BMS
+        else:
+            if per_param:
+                icc = 1 - ( k / (n-1) ) * ( n * WFMS_j - JMS) / (BMS + (k - 1) * EMS)
+            else:
+                # icc = (BMS - EMS) / (BMS + (k - 1) * EMS)
+                icc = 1 - ( k / (n-1) ) * ( n * WFMS - JMS) / (BMS + (k - 1) * EMS)
+                # icc = 1 - k * EMS / (BMS + (k - 1) * EMS) # identical, matter of perspective
+
+    return icc if per_param else icc.item()
+
 # Binary classification
 def sensitivity_score(y_true, y_pred): # alias
     '''sensitivity == recall == tpr'''

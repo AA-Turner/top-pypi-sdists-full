@@ -51,7 +51,7 @@ from abstract_hugpy_dev.imports.src.constants.constants import (  # noqa: E402
 # --------------------------------------------------------------------------- #
 # STORE + BUS isolation (mirrors test_identity_vision_setting.py exactly).
 # --------------------------------------------------------------------------- #
-_TMP_IDENTITIES = tempfile.mkdtemp(prefix="hugpy-cleanuproute-store-", dir=DEFAULT_ROOT)
+_TMP_IDENTITIES = tempfile.mkdtemp(prefix="hugpy-cleanuproute-store-", dir=os.path.join(DEFAULT_ROOT, "video_intel", "_scratch"))
 identity_profiles.IDENTITIES_HOME = _TMP_IDENTITIES
 _TMP_PROJECTS = tempfile.mkdtemp(prefix="hugpy-cleanuproute-projects-")
 identity_profiles.PROJECTS_HOME = _TMP_PROJECTS
@@ -106,7 +106,7 @@ def _capture_generate_spec(slug: str, body: dict):
     """POST /generate with media_bus.enqueue mocked to capture the built spec; return it."""
     captured = {}
 
-    def _fake_enqueue(name, spec):
+    def _fake_enqueue(name, spec, **kwargs):   # principal/owner attribution
         captured["name"] = name
         captured["spec"] = spec
         return "job-fake-1"

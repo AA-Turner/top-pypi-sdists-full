@@ -1,6 +1,7 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
 from ..resources import ActionAttempt
 from ..modules.action_attempts import resolve_action_attempt
 
@@ -13,7 +14,7 @@ class AbstractLocksSimulate(abc.ABC):
         *,
         code: str,
         device_id: str,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Simulates the entry of a code on a keypad. You can only perform this action for `August <https://docs.seam.co/device-and-system-integration-guides/august-locks>`_ devices within `sandbox workspaces <https://docs.seam.co/core-concepts/workspaces#sandbox-workspaces>`_.
 
@@ -23,7 +24,9 @@ class AbstractLocksSimulate(abc.ABC):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -31,7 +34,7 @@ class AbstractLocksSimulate(abc.ABC):
         self,
         *,
         device_id: str,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Simulates a manual lock action using a keypad. You can only perform this action for `August <https://docs.seam.co/device-and-system-integration-guides/august-locks>`_ devices within `sandbox workspaces <https://docs.seam.co/core-concepts/workspaces#sandbox-workspaces>`_.
 
@@ -39,7 +42,9 @@ class AbstractLocksSimulate(abc.ABC):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
 
@@ -48,12 +53,17 @@ class LocksSimulate(AbstractLocksSimulate):
         self.client = client
         self.defaults = defaults
 
+    @route_metadata(
+        path="/locks/simulate/keypad_code_entry",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def keypad_code_entry(
         self,
         *,
         code: str,
         device_id: str,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Simulates the entry of a code on a keypad. You can only perform this action for `August <https://docs.seam.co/device-and-system-integration-guides/august-locks>`_ devices within `sandbox workspaces <https://docs.seam.co/core-concepts/workspaces#sandbox-workspaces>`_.
 
@@ -63,13 +73,20 @@ class LocksSimulate(AbstractLocksSimulate):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if code is not None:
             json_payload["code"] = code
         if device_id is not None:
             json_payload["device_id"] = device_id
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /locks/simulate/keypad_code_entry"
+            )
 
         res = self.client.post("/locks/simulate/keypad_code_entry", json=json_payload)
 
@@ -85,11 +102,16 @@ class LocksSimulate(AbstractLocksSimulate):
             wait_for_action_attempt=wait_for_action_attempt,
         )
 
+    @route_metadata(
+        path="/locks/simulate/manual_lock_via_keypad",
+        has_required_parameters=True,
+        has_pagination=False,
+    )
     def manual_lock_via_keypad(
         self,
         *,
         device_id: str,
-        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
+        wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None,
     ) -> ActionAttempt:
         """Simulates a manual lock action using a keypad. You can only perform this action for `August <https://docs.seam.co/device-and-system-integration-guides/august-locks>`_ devices within `sandbox workspaces <https://docs.seam.co/core-concepts/workspaces#sandbox-workspaces>`_.
 
@@ -97,11 +119,18 @@ class LocksSimulate(AbstractLocksSimulate):
 
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if device_id is not None:
             json_payload["device_id"] = device_id
+
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /locks/simulate/manual_lock_via_keypad"
+            )
 
         res = self.client.post(
             "/locks/simulate/manual_lock_via_keypad", json=json_payload

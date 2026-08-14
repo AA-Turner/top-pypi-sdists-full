@@ -1,9 +1,17 @@
+"""`python -m progressbar`: a partial reimplementation of Unix `pv`.
+
+Pipes data from one or more input files (or stdin) to an output file
+(or stdout) while rendering a progress bar, with optional rate
+limiting. See `create_argument_parser` for the supported flags.
+"""
+
 from __future__ import annotations
 
 import argparse
 import contextlib
 import pathlib
 import sys
+import time
 import typing
 from pathlib import Path
 from typing import IO, BinaryIO, TextIO
@@ -12,11 +20,10 @@ import progressbar
 
 
 def size_to_bytes(size_str: str) -> int:
-    """
-    Convert a size string with suffixes 'k', 'm', etc., to bytes.
+    """Convert a size string with suffixes 'k', 'm', etc., to bytes.
 
-    Note: This function also supports '@' as a prefix to a file path to get the
-    file size.
+    A `@`-prefixed argument is treated as a file path and returns that
+    file's size.
 
     >>> size_to_bytes('1024k')
     1048576
@@ -27,10 +34,8 @@ def size_to_bytes(size_str: str) -> int:
     >>> size_to_bytes('1024')
     1024
     >>> size_to_bytes('1024p')
-    1125899906842624
+    1152921504606846976
     """
-
-    # Define conversion rates
     suffix_exponent = {
         'k': 1,
         'm': 2,
@@ -39,37 +44,27 @@ def size_to_bytes(size_str: str) -> int:
         'p': 5,
     }
 
-    # Initialize the default exponent to 0 (for bytes)
     exponent = 0
 
-    # Check if the size starts with '@' (for file sizes, not handled here)
     if size_str.startswith('@'):
         return pathlib.Path(size_str[1:]).stat().st_size
 
-    # Check if the last character is a known suffix and adjust the multiplier
     if size_str[-1].lower() in suffix_exponent:
-        # Update exponent based on the suffix
         exponent = suffix_exponent[size_str[-1].lower()]
-        # Remove the suffix from the size_str
         size_str = size_str[:-1]
 
-    # Convert the size_str to an integer and apply the exponent
     return int(size_str) * (1024**exponent)
 
 
 def create_argument_parser() -> argparse.ArgumentParser:
-    """
-    Create the argument parser for the `progressbar` command.
-    """
-
-    parser = argparse.ArgumentParser(
-        description="""
+    """Create the argument parser for the `progressbar` command."""
+    description = """
         Monitor the progress of data through a pipe.
 
-        Note that this is a Python implementation of the original `pv` command
-        that is functional but not yet feature complete.
+        A Python implementation of the original `pv` command: functional
+        but not yet feature complete.
     """
-    )
+    parser = argparse.ArgumentParser(description=description)
 
     # Display switches
     parser.add_argument(
@@ -272,15 +267,130 @@ def create_argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> None:  # noqa: C901
-    """
-    Main function for the `progressbar` command.
+def _default_widgets(
+    filesize_available: bool,
+) -> list[progressbar.widgets.WidgetBase | str]:
+    """Build the widget list used when no display flag was passed.
 
     Args:
-        argv (list[str] | None): Command-line arguments passed to the script.
+        filesize_available: Whether a total size is known, so
+            progress can be shown as a percentage/bar rather than a
+            raw count.
 
     Returns:
-        None
+        A percentage/bar/timer/speed layout if a size is known,
+        otherwise a count/data-size/timer layout.
+    """
+    if filesize_available:
+        return [
+            progressbar.Percentage(),
+            ' ',
+            progressbar.Bar(),
+            ' ',
+            progressbar.Timer(),
+            ' ',
+            progressbar.FileTransferSpeed(),
+        ]
+    return [
+        progressbar.SimpleProgress(),
+        ' ',
+        progressbar.DataSize(),
+        ' ',
+        progressbar.Timer(),
+    ]
+
+
+def _append_widget_group(
+    widgets: list[progressbar.widgets.WidgetBase | str],
+    group: typing.Sequence[progressbar.widgets.WidgetBase | str],
+) -> None:
+    """Append `group` to `widgets` in place, spacing groups apart."""
+    if widgets:
+        widgets.append(' ')
+    widgets.extend(group)
+
+
+def _build_widgets(
+    args: argparse.Namespace,
+    filesize_available: bool,
+) -> list[progressbar.widgets.WidgetBase | str]:
+    """Build the widget list from the display flags the user passed.
+
+    Each display flag (`-p`, `-b`, `-t`, `-e`, `-I`, `-r`/`-a`) that
+    was set contributes its own widget group, in a fixed order,
+    space-separated. Unset flags contribute nothing. With no display
+    flag at all, falls back to `_default_widgets`.
+
+    Args:
+        args: The parsed command-line arguments.
+        filesize_available: Whether a total size is known, passed
+            through to `_default_widgets`.
+
+    Returns:
+        The assembled widget list, or `[]` if `--quiet` was passed.
+    """
+    if args.quiet:
+        return []
+
+    requested_widgets = [
+        (args.progress, [progressbar.Percentage(), ' ', progressbar.Bar()]),
+        (args.bytes, [progressbar.DataSize()]),
+        (args.timer, [progressbar.Timer()]),
+        (args.eta, [progressbar.AdaptiveETA()]),
+        (args.fineta, [progressbar.AbsoluteETA()]),
+        (args.rate or args.average_rate, [progressbar.FileTransferSpeed()]),
+    ]
+    selected_widgets = [
+        group for selected, group in requested_widgets if selected
+    ]
+    if not selected_widgets:
+        return _default_widgets(filesize_available)
+
+    widgets: list[progressbar.widgets.WidgetBase | str] = []
+    for group in selected_widgets:
+        _append_widget_group(widgets, group)
+
+    return widgets
+
+
+def _sleep_for_rate_limit(
+    rate_limit: int | None,
+    transferred: int,
+    started_at: float,
+    now: float | None = None,
+) -> None:
+    """Block until `transferred` bytes are on pace for `rate_limit`.
+
+    Compares how long transferring `transferred` bytes at
+    `rate_limit` bytes/second *should* have taken against how long it
+    actually took since `started_at`, and sleeps off the difference
+    when running ahead of schedule. A no-op once actual elapsed time
+    has caught up or overtaken the expected pace.
+
+    Args:
+        rate_limit: Target transfer rate in bytes/second, or `None`/
+            `0` to disable rate limiting entirely.
+        transferred: Total bytes transferred so far.
+        started_at: `time.monotonic()` reading taken when the
+            transfer began.
+        now: `time.monotonic()` reading to treat as "now", sampled
+            internally if not given (a test seam).
+    """
+    if not rate_limit:
+        return
+    now = time.monotonic() if now is None else now
+    expected_elapsed = transferred / rate_limit
+    actual_elapsed = now - started_at
+    delay = expected_elapsed - actual_elapsed
+    if delay > 0:
+        time.sleep(delay)
+
+
+def main(argv: list[str] | None = None) -> None:  # noqa: C901
+    """Run the `progressbar` command.
+
+    Args:
+        argv: Command-line arguments. Defaults to `sys.argv[1:]`.
     """
     parser: argparse.ArgumentParser = create_argument_parser()
     args: argparse.Namespace = parser.parse_args(argv)
@@ -317,50 +427,42 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901
             total_size = size_to_bytes(args.size)
             filesize_available = True
 
-        if filesize_available:
-            # Create the progress bar components
-            widgets = [
-                progressbar.Percentage(),
-                ' ',
-                progressbar.Bar(),
-                ' ',
-                progressbar.Timer(),
-                ' ',
-                progressbar.FileTransferSpeed(),
-            ]
-        else:
-            widgets = [
-                progressbar.SimpleProgress(),
-                ' ',
-                progressbar.DataSize(),
-                ' ',
-                progressbar.Timer(),
-            ]
-
-        if args.eta:
-            widgets.append(' ')
-            widgets.append(progressbar.AdaptiveETA())
-
-        # Initialize the progress bar
-        bar = progressbar.ProgressBar(
-            # widgets=widgets,
-            max_value=total_size or None,
-            max_error=False,
+        widgets = _build_widgets(args, filesize_available)
+        progress_bar_class: type[progressbar.ProgressBar] = (
+            progressbar.NullBar if args.quiet else progressbar.ProgressBar
         )
 
-        # Data processing and updating the progress bar
+        bar = progress_bar_class(
+            widgets=widgets,
+            max_value=total_size if filesize_available else None,
+            max_error=False,
+            line_breaks=True if args.numeric else None,
+        )
+
         buffer_size = (
             size_to_bytes(args.buffer_size) if args.buffer_size else 1024
         )
+        rate_limit = (
+            size_to_bytes(args.rate_limit) if args.rate_limit else None
+        )
+        started_at = time.monotonic()
         total_transferred = 0
 
         bar.start()
-        with contextlib.suppress(KeyboardInterrupt):
+        with contextlib.suppress(KeyboardInterrupt, BrokenPipeError):
             for input_path in input_paths:
                 if isinstance(input_path, pathlib.Path):
-                    input_stream = stack.enter_context(
-                        input_path.open('r' if args.line_mode else 'rb')
-                    )
+                    if args.line_mode:
+                        # newline='' disables universal-newline
+                        # translation so the byte count matches the file
+                        # size for CRLF files as well
+                        input_stream = stack.enter_context(
+                            input_path.open('r', newline=''),
+                        )
+                    else:
+                        input_stream = stack.enter_context(
+                            input_path.open('rb'),
+                        )
                 else:
                     input_stream = input_path
 
@@ -375,8 +477,24 @@ def main(argv: list[str] | None = None) -> None:  # noqa: C901
                         break
 
                     output_stream.write(data)
-                    total_transferred += len(data)
+                    if isinstance(data, str):
+                        # The total size is measured in bytes, so progress
+                        # must be tracked in bytes as well
+                        encoding = (
+                            getattr(input_stream, 'encoding', None) or 'utf-8'
+                        )
+                        total_transferred += len(
+                            data.encode(encoding, errors='replace'),
+                        )
+                    else:
+                        total_transferred += len(data)
+
                     bar.update(total_transferred)
+                    _sleep_for_rate_limit(
+                        rate_limit,
+                        total_transferred,
+                        started_at,
+                    )
 
         bar.finish(dirty=True)
 
@@ -386,9 +504,21 @@ def _get_output_stream(
     line_mode: bool,
     stack: contextlib.ExitStack,
 ) -> typing.IO[typing.Any]:
+    """Open (or pick) the output stream: a file, or stdout for `-`/unset.
+
+    Files are registered with `stack` so they close on exit. In line
+    mode the stream is text with newline translation disabled,
+    otherwise binary.
+    """
     if output and output != '-':
-        mode = 'w' if line_mode else 'wb'
-        return stack.enter_context(open(output, mode))  # noqa: SIM115
+        if line_mode:
+            # newline='' passes the data through without newline
+            # translation, mirroring the input handling
+            return stack.enter_context(
+                open(output, 'w', newline=''),  # noqa: SIM115
+            )
+
+        return stack.enter_context(open(output, 'wb'))  # noqa: SIM115
     elif line_mode:
         return sys.stdout
     else:

@@ -10,7 +10,7 @@ view rather than the shared connector-centric detail panels.
 
 from __future__ import annotations
 
-from prefab_ui.actions import SetState
+from prefab_ui.actions import SetState, ShowToast
 from prefab_ui.actions.mcp import CallTool
 from prefab_ui.components import (
     H2,
@@ -36,12 +36,15 @@ from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     context_success_actions,
     fail_context_actions,
     fail_tool_call,
+    finish_tool_call,
     render_loading_feedback,
     start_tool_call,
 )
 from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
+    invalidate_registry_cache,
     load_active_rollouts_tab,
     load_connector_version_context,
+    load_latest_versions_tab,
     load_org_pin_versions,
     load_org_pins,
     load_pinned_versions_tab,
@@ -64,8 +67,22 @@ _TAB_LIST_CLASS = "max-h-[480px] overflow-auto"
 def render_connector_selector(state: dict[str, object]) -> None:
     """Render the connector version selector with four DataTable tabs."""
     with AbCard():
-        with CardHeader():
+        with (
+            CardHeader(),
+            Row(
+                gap=2,
+                align="center",
+                css_class="justify-between",
+            ),
+        ):
             H2("Select a Connector Version")
+            Button(
+                label="",
+                icon="refresh-cw",
+                variant="outline",
+                size="icon-sm",
+                on_click=_refresh_connector_context_actions(),
+            )
         with (
             CardContent(),
             Tabs(
@@ -89,6 +106,10 @@ def render_connector_selector(state: dict[str, object]) -> None:
                     loading_label="Loading recent releases\u2026",
                     empty_label="No recent releases found.",
                     render_fn=_render_recent_releases_table,
+                    load_arguments={"limit": STATE.recent_release_limit},
+                    success_actions=[
+                        SetState("recent_release_limit", RESULT.limit),
+                    ],
                 )
             with Tab("Pinned Versions", value="pinned-versions"):
                 _render_lazy_tab(
@@ -110,6 +131,72 @@ def render_connector_selector(state: dict[str, object]) -> None:
                 _render_latest_versions_tab()
             with Tab("Organization Pins", value="organization-pins"):
                 _render_organization_pins_tab()
+
+
+def _refresh_connector_context_actions() -> list:
+    """Invalidate registry data and lazily reload selector rows and context."""
+    reset_steps = [
+        ("progressive_rollout_rows", "progressive_rollout_rows_loaded"),
+        ("recent_release_rows", "recent_release_rows_loaded"),
+        ("pinned_version_rows", "pinned_version_rows_loaded"),
+        ("yanked_version_rows", "yanked_version_rows_loaded"),
+    ]
+    return [
+        SetState("context_loading", True),
+        SetState("context_error", ""),
+        *start_tool_call("Refreshing connector registry…"),
+        CallTool(
+            invalidate_registry_cache,
+            on_success=[
+                action
+                for state_key, loaded_key in reset_steps
+                for action in (
+                    SetState(state_key, []),
+                    SetState(loaded_key, False),
+                )
+            ]
+            + [
+                CallTool(
+                    load_latest_versions_tab,
+                    on_success=[
+                        SetState("latest_version_rows", RESULT.rows),
+                        CallTool(
+                            load_connector_version_context,
+                            arguments={
+                                "connector_id": STATE.selected_connector_id,
+                                "version_tag": STATE.selected_version_tag,
+                                "scope_type": STATE.scope_type,
+                                "scope_id": STATE.scope_id,
+                                "actor_workspace_id": STATE.actor_workspace_id,
+                                "context_guid": STATE.context_guid,
+                                "auth_bearer_token": STATE.auth_bearer_token,
+                            },
+                            on_success=[
+                                *_version_context_success_actions(),
+                                ShowToast(
+                                    "Connector registry refreshed",
+                                    description=(
+                                        "Registry lists refreshed; selected version "
+                                        "context refreshed when a connector was selected."
+                                    ),
+                                    variant="success",
+                                ),
+                            ],
+                            on_error=fail_context_actions(),
+                        ),
+                    ],
+                    on_error=[
+                        SetState("context_loading", False),
+                        *fail_tool_call("Failed to refresh default versions."),
+                    ],
+                )
+            ],
+            on_error=[
+                SetState("context_loading", False),
+                *fail_tool_call("Failed to invalidate the connector registry cache."),
+            ],
+        ),
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -160,6 +247,8 @@ def _render_lazy_tab(
     loading_label: str,
     empty_label: str,
     render_fn: object,
+    load_arguments: dict[str, object] | None = None,
+    success_actions: list | None = None,
 ) -> None:
     """Render a lazy-loaded tab that fetches data on first activation.
 
@@ -179,9 +268,11 @@ def _render_lazy_tab(
             on_mount=[
                 CallTool(
                     tool,
+                    arguments=load_arguments or {},
                     on_success=[
                         SetState(state_key, RESULT.rows),
                         SetState(f"{state_key}_loaded", True),
+                        *(success_actions or []),
                     ],
                     on_error=[
                         SetState(f"{state_key}_loaded", True),
@@ -202,12 +293,14 @@ def _render_lazy_tab(
 
 
 # ---------------------------------------------------------------------------
-# Tab 2: Recent Releases (all versions published in last 30 days, max 50)
-# (Previously tab 2, unchanged)
+# Tab 2: Recent Releases
 # ---------------------------------------------------------------------------
 
 
 def _render_recent_releases_table() -> None:
+    AbStatValue(
+        content=STATE.recent_release_rows.length().number() + " releases loaded",
+    )
     with Div(css_class=_TAB_LIST_CLASS):
         DataTable(
             columns=[
@@ -233,6 +326,31 @@ def _render_recent_releases_table() -> None:
                 connector_id_key="connector_id",
                 version_tag_key="docker_image_tag",
             ),
+        )
+    with (
+        If(STATE.recent_release_rows.length().__ge__(STATE.recent_release_limit)),
+        Row(gap=2, align="center"),
+    ):
+        with If(STATE.is_loading):
+            render_loading_feedback("Loading more recent releases…")
+        Button(
+            "Load more",
+            variant="outline",
+            size="sm",
+            disabled=STATE.is_loading,
+            on_click=[
+                *start_tool_call("Loading more recent releases…"),
+                CallTool(
+                    load_recent_releases_tab,
+                    arguments={"limit": STATE.recent_release_limit + 250},
+                    on_success=[
+                        SetState("recent_release_rows", RESULT.rows),
+                        SetState("recent_release_limit", RESULT.limit),
+                        *finish_tool_call(),
+                    ],
+                    on_error=fail_tool_call("Failed to load more recent releases."),
+                ),
+            ],
         )
 
 
@@ -722,6 +840,10 @@ def _version_context_success_actions() -> list:
         SetState("latest_version_release_date", RESULT.latest_version_release_date),
         SetState("selected_version_display", RESULT.selected_version_display),
         SetState("default_version_display", RESULT.default_version_display),
+        SetState("default_version_tag", RESULT.default_version_tag),
+        SetState("ga_default_version_display", RESULT.ga_default_version_display),
+        SetState("ga_default_version_tag", RESULT.ga_default_version_tag),
+        SetState("promoting_version_display", RESULT.promoting_version_display),
         # Selected-version yank detail
         SetState("selected_version_yanked", RESULT.selected_version_yanked),
         SetState(
@@ -737,6 +859,38 @@ def _version_context_success_actions() -> list:
             RESULT.selected_version_yank_approval_url,
         ),
         SetState("selected_version_yank_raw", RESULT.selected_version_yank_raw),
+        SetState(
+            "selected_version_promotion_pending",
+            RESULT.selected_version_promotion_pending,
+        ),
+        SetState(
+            "selected_version_promotion_requested_at",
+            RESULT.selected_version_promotion_requested_at,
+        ),
+        SetState(
+            "selected_version_promotion_requested_at_display",
+            RESULT.selected_version_promotion_requested_at_display,
+        ),
+        SetState(
+            "selected_version_promotion_requested_by",
+            RESULT.selected_version_promotion_requested_by,
+        ),
+        SetState(
+            "selected_version_promotion_rollout_id",
+            RESULT.selected_version_promotion_rollout_id,
+        ),
+        SetState(
+            "selected_version_promotion_raw",
+            RESULT.selected_version_promotion_raw,
+        ),
+        SetState(
+            "selected_version_promotion_state",
+            RESULT.selected_version_promotion_state,
+        ),
+        SetState(
+            "selected_version_promotion_marker_date",
+            RESULT.selected_version_promotion_marker_date,
+        ),
         SetState("selected_pin_index", -1),
         SetState("selected_pin_checks", []),
         SetState("selected_pin", EMPTY_PIN_STATE),
@@ -773,6 +927,10 @@ def _row_click_actions(
         SetState("latest_version_release_date", ""),
         SetState("selected_version_display", ""),
         SetState("default_version_display", ""),
+        SetState("default_version_tag", ""),
+        SetState("ga_default_version_display", ""),
+        SetState("ga_default_version_tag", ""),
+        SetState("promoting_version_display", ""),
         # Invalidate stale yank detail for the previously-selected version.
         SetState("selected_version_yanked", False),
         SetState("selected_version_yank_yanked_at", ""),
@@ -780,6 +938,14 @@ def _row_click_actions(
         SetState("selected_version_yank_reason", ""),
         SetState("selected_version_yank_approval_url", ""),
         SetState("selected_version_yank_raw", ""),
+        SetState("selected_version_promotion_pending", False),
+        SetState("selected_version_promotion_requested_at", ""),
+        SetState("selected_version_promotion_requested_at_display", ""),
+        SetState("selected_version_promotion_requested_by", ""),
+        SetState("selected_version_promotion_rollout_id", ""),
+        SetState("selected_version_promotion_raw", ""),
+        SetState("selected_version_promotion_state", ""),
+        SetState("selected_version_promotion_marker_date", ""),
         # Set selected version / connector refs for context call.
         SetState("selected_connector_id", connector_id_ref),
         SetState("target_version", version_tag_ref),

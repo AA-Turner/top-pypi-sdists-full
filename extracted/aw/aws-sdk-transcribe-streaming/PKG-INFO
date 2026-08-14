@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: aws_sdk_transcribe_streaming
-Version: 0.8.0
+Version: 0.9.0
 Summary: aws_sdk_transcribe_streaming client
 License: Apache-2.0
 License-File: LICENSE
@@ -18,8 +18,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.12
-Requires-Dist: smithy-aws-core[eventstream,json]~=0.8.0
-Requires-Dist: smithy-core~=0.7.0
+Requires-Dist: smithy-aws-core[eventstream,json]~=0.9.0
+Requires-Dist: smithy-core~=0.8.0
 Requires-Dist: smithy-http[awscrt]~=0.4.0
 Description-Content-Type: text/markdown
 

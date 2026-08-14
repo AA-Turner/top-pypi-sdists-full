@@ -39,6 +39,10 @@ if TYPE_CHECKING:
     from rapidata.service.openapi_service import OpenAPIService
 
 
+# A batch-wide failure would otherwise print one full error block per sample.
+_MAX_REPORTED_FAILURES = 5
+
+
 class RapidataBenchmark:
     """
     An instance of a Rapidata benchmark.
@@ -786,6 +790,12 @@ class RapidataBenchmark:
         This method creates a participant, uploads media, but does NOT submit the participant.
         Use `participant.run()` or `benchmark.run()` to submit afterwards.
 
+        If any sample fails to upload, a recovery sweep runs automatically: the
+        intended samples are diffed against what the server actually holds and
+        only the difference is re-uploaded. Anything still missing afterwards is
+        logged with its reason; `participant.missing_counts(identifiers)` reports
+        how many samples each identifier is still short.
+
         Args:
             name: The name of the model.
             media: The generated media or text that will be used to evaluate the model.
@@ -857,6 +867,24 @@ class RapidataBenchmark:
                     data_type=data_type,
                 )
 
+                if failed_uploads:
+                    # On a flaky link failures cluster in time, so the three
+                    # immediate attempts all land in the same bad window. A
+                    # sweep at the end of the batch is far enough removed to
+                    # recover most of them, and diffing against the server first
+                    # keeps it from duplicating a sample whose write outlived
+                    # its timeout.
+                    logger.warning(
+                        "%s sample(s) failed; sweeping against server state before giving up",
+                        len(failed_uploads),
+                    )
+                    recovered, failed_uploads = participant.retry_missing(
+                        media,
+                        identifiers,
+                        data_type=data_type,
+                    )
+                    successful_uploads.extend(recovered)
+
                 total_uploads = len(media)
                 success_rate = (
                     (len(successful_uploads) / total_uploads * 100)
@@ -868,9 +896,18 @@ class RapidataBenchmark:
                 )
 
                 if failed_uploads:
-                    logger.error(f"Failed uploads for media: {failed_uploads}")
+                    for failure in failed_uploads[:_MAX_REPORTED_FAILURES]:
+                        logger.error(failure.format_error_details())
+                    if len(failed_uploads) > _MAX_REPORTED_FAILURES:
+                        logger.error(
+                            "... and %s more failed upload(s). Enable INFO logging to see each one.",
+                            len(failed_uploads) - _MAX_REPORTED_FAILURES,
+                        )
                     logger.warning(
-                        "Some uploads failed. The model evaluation may be incomplete."
+                        "Some uploads failed. The model evaluation may be incomplete. "
+                        "Call `participant.retry_missing(media, identifiers)` to try "
+                        "again, or `participant.missing_counts(identifiers)` to see "
+                        "which identifiers are still short."
                     )
 
                 if len(successful_uploads) == 0:

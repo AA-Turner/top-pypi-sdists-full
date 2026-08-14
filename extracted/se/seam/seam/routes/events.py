@@ -1,6 +1,7 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
 from ..resources import SeamEvent
 
 
@@ -12,7 +13,7 @@ class AbstractEvents(abc.ABC):
         *,
         event_id: Optional[str] = None,
         device_id: Optional[str] = None,
-        event_type: Optional[str] = None
+        event_type: Optional[str] = None,
     ) -> SeamEvent:
         """Returns a specified event. This endpoint returns the same event that would be sent to a `webhook <https://docs.seam.co/developer-tools/webhooks>`_, but it enables you to retrieve an event that already took place.
 
@@ -22,7 +23,9 @@ class AbstractEvents(abc.ABC):
 
         :param event_type: Type of the event that you want to get.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -42,7 +45,7 @@ class AbstractEvents(abc.ABC):
         acs_system_id: Optional[str] = None,
         acs_system_ids: Optional[List[str]] = None,
         acs_user_id: Optional[str] = None,
-        between: Optional[List[Dict[str, Any]]] = None,
+        between: Optional[List[str]] = None,
         connect_webview_id: Optional[str] = None,
         connected_account_id: Optional[str] = None,
         customer_key: Optional[str] = None,
@@ -56,7 +59,7 @@ class AbstractEvents(abc.ABC):
         space_id: Optional[str] = None,
         space_ids: Optional[List[str]] = None,
         unstable_offset: Optional[float] = None,
-        user_identity_id: Optional[str] = None
+        user_identity_id: Optional[str] = None,
     ) -> List[SeamEvent]:
         """Returns a list of all events. This endpoint returns the same events that would be sent to a `webhook <https://docs.seam.co/developer-tools/webhooks>`_, but it enables you to filter or see events that already took place.
 
@@ -116,7 +119,9 @@ class AbstractEvents(abc.ABC):
 
         :param user_identity_id: ID of the user identity for which you want to list events.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
 
@@ -125,12 +130,15 @@ class Events(AbstractEvents):
         self.client = client
         self.defaults = defaults
 
+    @route_metadata(
+        path="/events/get", has_required_parameters=True, has_pagination=False
+    )
     def get(
         self,
         *,
         event_id: Optional[str] = None,
         device_id: Optional[str] = None,
-        event_type: Optional[str] = None
+        event_type: Optional[str] = None,
     ) -> SeamEvent:
         """Returns a specified event. This endpoint returns the same event that would be sent to a `webhook <https://docs.seam.co/developer-tools/webhooks>`_, but it enables you to retrieve an event that already took place.
 
@@ -140,20 +148,28 @@ class Events(AbstractEvents):
 
         :param event_type: Type of the event that you want to get.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        params: Dict[str, Any] = {}
 
         if event_id is not None:
-            json_payload["event_id"] = event_id
+            params["event_id"] = event_id
         if device_id is not None:
-            json_payload["device_id"] = device_id
+            params["device_id"] = device_id
         if event_type is not None:
-            json_payload["event_type"] = event_type
+            params["event_type"] = event_type
 
-        res = self.client.post("/events/get", json=json_payload)
+        if not params:
+            raise ValueError("At least one parameter is required for /events/get")
+
+        res = self.client.get("/events/get", params=params)
 
         return SeamEvent.from_dict(res["event"])
 
+    @route_metadata(
+        path="/events/list", has_required_parameters=True, has_pagination=False
+    )
     def list(
         self,
         *,
@@ -170,7 +186,7 @@ class Events(AbstractEvents):
         acs_system_id: Optional[str] = None,
         acs_system_ids: Optional[List[str]] = None,
         acs_user_id: Optional[str] = None,
-        between: Optional[List[Dict[str, Any]]] = None,
+        between: Optional[List[str]] = None,
         connect_webview_id: Optional[str] = None,
         connected_account_id: Optional[str] = None,
         customer_key: Optional[str] = None,
@@ -184,7 +200,7 @@ class Events(AbstractEvents):
         space_id: Optional[str] = None,
         space_ids: Optional[List[str]] = None,
         unstable_offset: Optional[float] = None,
-        user_identity_id: Optional[str] = None
+        user_identity_id: Optional[str] = None,
     ) -> List[SeamEvent]:
         """Returns a list of all events. This endpoint returns the same events that would be sent to a `webhook <https://docs.seam.co/developer-tools/webhooks>`_, but it enables you to filter or see events that already took place.
 
@@ -244,8 +260,10 @@ class Events(AbstractEvents):
 
         :param user_identity_id: ID of the user identity for which you want to list events.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if access_code_id is not None:
             json_payload["access_code_id"] = access_code_id
@@ -303,6 +321,9 @@ class Events(AbstractEvents):
             json_payload["unstable_offset"] = unstable_offset
         if user_identity_id is not None:
             json_payload["user_identity_id"] = user_identity_id
+
+        if not json_payload:
+            raise ValueError("At least one parameter is required for /events/list")
 
         res = self.client.post("/events/list", json=json_payload)
 

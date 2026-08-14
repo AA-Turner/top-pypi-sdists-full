@@ -24,10 +24,9 @@ from dbt.adapters.capability import Capability, CapabilityDict, CapabilitySuppor
 from dbt.adapters.clickhouse.cache import ClickHouseRelationsCache
 from dbt.adapters.clickhouse.column import ClickHouseColumn, ClickHouseColumnChanges
 from dbt.adapters.clickhouse.connections import ClickHouseConnectionManager
+from dbt.adapters.clickhouse.dbclient import ND_MUTATION_SETTING
 from dbt.adapters.clickhouse.errors import (
-    schema_change_datatype_error,
     schema_change_fail_error,
-    schema_change_missing_source_error,
 )
 from dbt.adapters.clickhouse.logger import logger
 from dbt.adapters.clickhouse.query import quote_identifier
@@ -158,6 +157,15 @@ class ClickHouseAdapter(SQLAdapter):
             return compare_versions(version, server_version) > 0
         return False
 
+    @available
+    def is_at_or_after_version(self, version: str) -> bool:
+        """True if the server version is at or after (inclusive) the given version."""
+        conn = self.connections.get_if_exists()
+        if conn:
+            server_version = conn.handle.server_version
+            return compare_versions(server_version, version) >= 0
+        return False
+
     @available.parse_none
     def supports_atomic_exchange(self) -> bool:
         conn = self.connections.get_if_exists()
@@ -202,7 +210,9 @@ class ClickHouseAdapter(SQLAdapter):
             )
         if strategy in ('delete_insert', 'microbatch') and not conn.handle.has_lw_deletes:
             raise DbtRuntimeError(
-                f"'{strategy}' strategy requires setting the profile config 'use_lw_deletes' to true."
+                f"'{strategy}' strategy requires lightweight deletes, but the required setting "
+                f"'{ND_MUTATION_SETTING}' could not be enabled on this ClickHouse server "
+                "(see the warnings logged at connection time)."
             )
         if strategy in ('delete_insert', 'microbatch') and not unique_key:
             raise DbtRuntimeError(f"'{strategy}' strategy requires a non-empty 'unique_key'.")
@@ -224,6 +234,7 @@ class ClickHouseAdapter(SQLAdapter):
         existing,
         target_sql,
         materialization: str = 'incremental',
+        query_settings: Optional[Dict[str, Any]] = None,
     ) -> ClickHouseColumnChanges:
         if on_schema_change not in ('fail', 'ignore', 'append_new_columns', 'sync_all_columns'):
             raise DbtRuntimeError(
@@ -232,7 +243,7 @@ class ClickHouseAdapter(SQLAdapter):
 
         source = self.get_columns_in_relation(existing)
         source_map = {column.name: column for column in source}
-        target = self.get_column_schema_from_query(target_sql)
+        target = self.get_column_schema_from_query(target_sql, query_settings=query_settings)
         target_map = {column.name: column for column in target}
 
         source_not_in_target = [column for column in source if column.name not in target_map.keys()]
@@ -281,9 +292,9 @@ class ClickHouseAdapter(SQLAdapter):
         aws_secret_access_key: str,
         role_arn: str,
         compression: str = '',
+        external_id: str = '',
     ) -> str:
-        s3config = self.config.vars.vars.get(config_name, {})
-        s3config.update(s3_model_config)
+        s3config = {**self.config.vars.vars.get(config_name, {}), **s3_model_config}
 
         structure = structure or s3config.get('structure', '')
         struct = ''
@@ -296,7 +307,7 @@ class ClickHouseAdapter(SQLAdapter):
             else:
                 struct = f",'{structure}'"
 
-        fmt = fmt or s3config.get('fmt')
+        fmt = fmt or s3config.get('fmt', '')
 
         bucket = bucket or s3config.get('bucket', '')
         path = path or s3config.get('path', '')
@@ -318,12 +329,18 @@ class ClickHouseAdapter(SQLAdapter):
 
         comp = compression or s3config.get('compression', '')
         if comp:
-            comp = f"', {comp}'"
+            if not struct:
+                struct = ", ''"
+            comp = f", '{comp}'"
 
         extra_credentials = ''
-        role_arn = role_arn or s3config.get('role_arn')
+        role_arn = role_arn or s3config.get('role_arn', '')
+        external_id = external_id or s3config.get('external_id', '')
+        if external_id and not role_arn:
+            raise DbtRuntimeError('S3 external_id specified without role_arn')
         if role_arn:
-            extra_credentials = f", extra_credentials(role_arn='{role_arn}')"
+            ext_id = f", external_id='{external_id}'" if external_id else ''
+            extra_credentials = f", extra_credentials(role_arn='{role_arn}'{ext_id})"
 
         return f"s3('{url}'{access}, '{fmt}'{struct}{comp}{extra_credentials})"
 
@@ -356,7 +373,16 @@ class ClickHouseAdapter(SQLAdapter):
 
         relations = []
         for row in results:
-            name, schema, type_info, db_engine, mvs_pointing_to_it, on_cluster = row
+            (
+                name,
+                schema,
+                type_info,
+                db_engine,
+                mvs_pointing_to_it,
+                is_refreshable,
+                refreshable_append,
+                on_cluster,
+            ) = row
             if type_info == 'materialized_view':
                 rel_type = ClickHouseRelationType.MaterializedView
             elif type_info == 'view':
@@ -380,6 +406,8 @@ class ClickHouseAdapter(SQLAdapter):
                 can_exchange=can_exchange,
                 can_on_cluster=can_on_cluster,
                 mvs_pointing_to_it=json.loads(mvs_pointing_to_it) or [],
+                is_refreshable=bool(is_refreshable),
+                refreshable_append=bool(refreshable_append),
             )
             relations.append(relation)
 
@@ -565,9 +593,21 @@ class ClickHouseAdapter(SQLAdapter):
         )
 
     @available.parse_none
-    def get_column_schema_from_query(self, sql: str, *_) -> List[ClickHouseColumn]:
-        """Get a list of the Columns with names and data types from the given sql."""
+    def get_column_schema_from_query(
+        self, sql: str, *args, query_settings: Optional[Dict[str, Any]] = None, **_
+    ) -> List[ClickHouseColumn]:
+        """Get a list of the Columns with names and data types from the given sql.
+
+        query_settings: optional ClickHouse settings applied when introspecting the
+        query schema so contract validation and schema-change detection match runtime
+        query behavior (e.g. join_use_nulls). Accepts a dict positionally as the second
+        argument for convenience from macros.
+        """
         conn = self.connections.get_if_exists()
+        if query_settings is None and args and isinstance(args[0], dict):
+            query_settings = args[0]
+        if query_settings:
+            return conn.handle.columns_in_query(sql, settings=dict(query_settings))
         return conn.handle.columns_in_query(sql)
 
     @available.parse_none

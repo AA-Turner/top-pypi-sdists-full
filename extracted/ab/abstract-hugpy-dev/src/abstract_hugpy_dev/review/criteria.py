@@ -58,6 +58,12 @@ class ReviewCriteria:
     incumbents: list[str] = field(default_factory=list)
 
     # ── pipeline behaviour ────────────────────────────────────────────────
+    # `enabled` (2026-08-13) is the console's off switch: pipeline.run()
+    # no-ops a disabled criteria unless forced, so the nightly timer can keep
+    # firing while the operator flips discovery on/off per-criteria from the
+    # settings UI (no systemctl, no root). Pre-existing files lack the field
+    # and read as True — nothing changes until someone turns it off.
+    enabled: bool = True
     pool_limit: int = 60                     # candidates pulled from HF search
     max_downloads_per_run: int = 2           # disk/bandwidth guard for the timer
     smoke_test: bool = True
@@ -69,7 +75,24 @@ class ReviewCriteria:
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "ReviewCriteria":
         known = {f for f in cls.__dataclass_fields__}          # ignore extras
-        return cls(**{k: v for k, v in (d or {}).items() if k in known})
+        vals = {k: v for k, v in (d or {}).items() if k in known}
+        # `criteria set --set max_age_days=120` stores the raw CLI string; a
+        # str landing in an int field detonated EVERY screen comparison
+        # ("'>' not supported between int and str" — 60/60 candidates
+        # rejected, 2026-08-06). Coerce scalars back to the field's declared
+        # numeric/bool type; a value that won't parse raises here, at load,
+        # instead of mid-screen.
+        for k, v in vals.items():
+            if not isinstance(v, str):
+                continue
+            decl = str(cls.__dataclass_fields__[k].type)
+            if "bool" in decl:
+                vals[k] = v.strip().lower() in ("1", "true", "yes", "on")
+            elif "int" in decl:
+                vals[k] = int(v)
+            elif "float" in decl:
+                vals[k] = float(v)
+        return cls(**vals)
 
     @property
     def usable_vram_bytes(self) -> int:

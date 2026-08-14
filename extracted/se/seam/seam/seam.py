@@ -1,8 +1,8 @@
 from typing import Any, Optional, Union, Dict, Callable
 from typing_extensions import Self
-from urllib3.util.retry import Retry
+from httpx_retries import Retry
 
-from .constants import DEFAULT_TIMEOUT, LTS_VERSION
+from .constants import DEFAULT_TIMEOUT
 from .parse_options import parse_options
 from .routes import Routes
 from .models import AbstractSeam
@@ -17,9 +17,6 @@ class Seam(AbstractSeam):
     Seam API endpoints,
     including devices, access codes, action_attempts, and more. It supports authentication via API key or personal access token.
 
-    :cvar lts_version: The long-term support (LTS) version of the Seam
-        Python SDK
-    :vartype lts_version: str
     :ivar defaults: Default settings for API requests
     :vartype defaults: Dict[str, Any]
     :ivar client: The HTTP client used for making API requests
@@ -31,8 +28,6 @@ class Seam(AbstractSeam):
     For more information about the Seam API, visit https://docs.seam.co/
     """
 
-    lts_version: str = LTS_VERSION
-
     def __init__(
         self,
         api_key: Optional[str] = None,
@@ -43,7 +38,7 @@ class Seam(AbstractSeam):
         wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = True,
         retries: Optional[Retry] = None,
         timeout: Optional[float] = DEFAULT_TIMEOUT,
-        niquests_options: Optional[Dict[str, Any]] = None,
+        httpx_options: Optional[Dict[str, Any]] = None,
     ):
         """Initialize a Seam client instance.
 
@@ -71,13 +66,13 @@ class Seam(AbstractSeam):
             'timeout' and 'poll_interval' keys
         :type wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]]
         :param retries: Configuration for retry behavior on failed requests
-        :type retries: Optional[urllib3.util.Retry]
+        :type retries: Optional[httpx_retries.Retry]
         :param timeout: The request timeout in seconds. Defaults to 30
             seconds. Pass None for no timeout
         :type timeout: Optional[float]
-        :param niquests_options: Options passed through to the underlying
-            niquests Session, for control the other options do not cover
-        :type niquests_options: Optional[Dict[str, Any]]
+        :param httpx_options: Options passed through to the underlying
+            httpx Client, for control the other options do not cover
+        :type httpx_options: Optional[Dict[str, Any]]
 
         :raises SeamInvalidOptionsError: If neither api_key nor
             personal_access_token is provided, or if workspace_id is missing
@@ -86,7 +81,6 @@ class Seam(AbstractSeam):
             access token format is invalid
         """
 
-        self.lts_version = Seam.lts_version
         self.wait_for_action_attempt = wait_for_action_attempt
         auth_headers, endpoint = parse_options(
             api_key=api_key,
@@ -101,10 +95,13 @@ class Seam(AbstractSeam):
             auth_headers=auth_headers,
             retries=retries,
             timeout=timeout,
-            niquests_options=niquests_options,
+            httpx_options=httpx_options,
         )
 
-        Routes.__init__(self, client=self.client, defaults=self.defaults)
+        # Seam and Routes are siblings under AbstractRoutes rather than parent
+        # and child, so borrowing this initializer to attach the route
+        # namespaces passes a self the signature does not admit.
+        Routes.__init__(self, client=self.client, defaults=self.defaults)  # type: ignore[arg-type]
 
     def create_paginator(
         self, request: Callable, params: Optional[Dict[str, Any]] = None, /
@@ -129,6 +126,18 @@ class Seam(AbstractSeam):
             >>> for connected_account in connected_accounts_paginator.flatten():
             >>>     print(connected_account.account_type_display_name)
         """
+        if not getattr(request, "__seam_has_pagination__", False):
+            raise ValueError("Cannot create a paginator for a non-paginated endpoint")
+
+        has_required_parameters = getattr(
+            request, "__seam_has_required_parameters__", False
+        )
+        if has_required_parameters and (
+            not params or not any(value is not None for value in params.values())
+        ):
+            path = getattr(request, "__seam_path__", "this endpoint")
+            raise ValueError(f"At least one parameter is required for {path}")
+
         return SeamPaginator(self.client, request, params)
 
     @classmethod
@@ -140,7 +149,7 @@ class Seam(AbstractSeam):
         wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = True,
         retries: Optional[Retry] = None,
         timeout: Optional[float] = DEFAULT_TIMEOUT,
-        niquests_options: Optional[Dict[str, Any]] = None,
+        httpx_options: Optional[Dict[str, Any]] = None,
     ) -> Self:
         """Create a Seam instance using an API key.
 
@@ -170,7 +179,7 @@ class Seam(AbstractSeam):
             wait_for_action_attempt=wait_for_action_attempt,
             retries=retries,
             timeout=timeout,
-            niquests_options=niquests_options,
+            httpx_options=httpx_options,
         )
 
     @classmethod
@@ -183,7 +192,7 @@ class Seam(AbstractSeam):
         wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = True,
         retries: Optional[Retry] = None,
         timeout: Optional[float] = DEFAULT_TIMEOUT,
-        niquests_options: Optional[Dict[str, Any]] = None,
+        httpx_options: Optional[Dict[str, Any]] = None,
     ) -> Self:
         """Create a Seam instance using a personal access token.
 
@@ -217,5 +226,5 @@ class Seam(AbstractSeam):
             wait_for_action_attempt=wait_for_action_attempt,
             retries=retries,
             timeout=timeout,
-            niquests_options=niquests_options,
+            httpx_options=httpx_options,
         )

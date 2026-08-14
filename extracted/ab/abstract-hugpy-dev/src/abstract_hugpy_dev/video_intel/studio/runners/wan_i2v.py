@@ -44,6 +44,7 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 from typing import Callable
 
 from ..artifacts import Artifact
@@ -127,22 +128,167 @@ def _resolve_model_dir(manifest: RenderManifest, weight_uri: str) -> tuple[str |
 
       1. ``STUDIO_WEIGHTS_HOT_ROOT`` set AND
          ``<hot>/<org>/<name>/model_index.json`` present -> (``<hot_dir>``, "hot");
-      2. else -> (``<shared_dir>`` | None, "shared") — ``_local_model_dir`` over the
-         shared weights root from the manifest snapshot (or process env), UNCHANGED;
-         None when no shared root is configured.
+      2. hot root set but no hot copy -> COPY-ON-FIRST-USE (operator tiering
+         doctrine 2026-08-13: llm_storage is the fleet's cold tier by contract,
+         the worker drive is the hot tier; the one-time copy wait is the accepted
+         price of every later load coming off local NVMe). The copy activates
+         ATOMICALLY and evicts least-recently-used hot copies when the disk is
+         short — see _ensure_hot_copy. Any shortfall falls through to…
+      3. (``<shared_dir>`` | None, "shared") — ``_local_model_dir`` over the
+         shared weights root from the manifest snapshot (or process env),
+         UNCHANGED; None when no shared root is configured.
 
     The hot presence gate is ``model_index.json`` (the same completeness gate the
     shared preflight uses), so a partial / in-flight hot copy transparently falls back
     to the shared store rather than loading half a model."""
     hot = _hot_weights_root()
+    shared_root = _weights_root(manifest)
     if hot:
         hot_dir = _local_model_dir(hot, weight_uri)
         if os.path.isfile(os.path.join(hot_dir, "model_index.json")):
+            _touch_hot_used(hot_dir)
             return hot_dir, "hot"
-    shared_root = _weights_root(manifest)
+        if shared_root:
+            shared_dir = _local_model_dir(shared_root, weight_uri)
+            if os.path.isfile(os.path.join(shared_dir, "model_index.json")):
+                warmed = _ensure_hot_copy(hot, shared_dir, weight_uri)
+                if warmed:
+                    _touch_hot_used(warmed)
+                    return warmed, "hot"
     if not shared_root:
         return None, "shared"
     return _local_model_dir(shared_root, weight_uri), "shared"
+
+
+# ── hot-tier copy-on-first-use + LRU eviction (operator doctrine 2026-08-13) ──
+# "It should evict models from that drive and rsync from central storage when
+# the hot drive needs a model it doesn't have — the one-time wait is the
+# tradeoff." Rules encoded here:
+#   * ATOMIC activation: copy into <name>.partial-<pid>, os.rename to <name>
+#     only when complete — the model_index.json gate above must NEVER see a
+#     half-copied dir as servable.
+#   * LRU eviction: only COMPLETE model dirs under the hot root are candidates
+#     (a .partial being written by a concurrent warm is skipped), ordered by
+#     the .hot-last-used marker _touch_hot_used maintains (dir mtime fallback),
+#     never the model being warmed.
+#   * SAFETY: if the hot root and shared root resolve to the same filesystem
+#     path (misconfiguration), copy AND eviction are disabled outright —
+#     eviction must never be able to delete canonical weights.
+#   * Best-effort throughout: any failure cleans up its partial dir and falls
+#     back to the shared root — slower, never broken.
+_HOT_EVICT_MARGIN_BYTES = 10 * 2**30
+_HOT_USED_MARKER = ".hot-last-used"
+
+
+def _touch_hot_used(hot_dir: str) -> None:
+    try:
+        with open(os.path.join(hot_dir, _HOT_USED_MARKER), "w") as fh:
+            fh.write(str(time.time()))
+    except OSError:
+        pass
+
+
+def _hot_last_used(hot_dir: str) -> float:
+    try:
+        return os.path.getmtime(os.path.join(hot_dir, _HOT_USED_MARKER))
+    except OSError:
+        try:
+            return os.path.getmtime(hot_dir)
+        except OSError:
+            return 0.0
+
+
+def _dir_bytes(path: str) -> int:
+    total = 0
+    for dirpath, _dirs, files in os.walk(path):
+        for f in files:
+            try:
+                total += os.path.getsize(os.path.join(dirpath, f))
+            except OSError:
+                pass
+    return total
+
+
+def _hot_copy_candidates(hot_root: str, keep_dir: str) -> list[str]:
+    """COMPLETE hot copies (never partials, never ``keep_dir``), LRU first."""
+    out: list[str] = []
+    try:
+        for org in os.listdir(hot_root):
+            org_dir = os.path.join(hot_root, org)
+            if not os.path.isdir(org_dir):
+                continue
+            for name in os.listdir(org_dir):
+                d = os.path.join(org_dir, name)
+                if (os.path.isdir(d) and ".partial-" not in name
+                        and os.path.realpath(d) != os.path.realpath(keep_dir)
+                        and os.path.isfile(os.path.join(d, "model_index.json"))):
+                    out.append(d)
+    except OSError:
+        return []
+    return sorted(out, key=_hot_last_used)
+
+
+def _ensure_hot_copy(hot_root: str, shared_dir: str, weight_uri: str) -> "str | None":
+    """Warm ``weight_uri`` from the shared (cold) store into the hot root.
+    Returns the hot dir on success, None on any shortfall (caller falls back to
+    the shared store — functional, just slower)."""
+    import shutil
+
+    hot_dir = _local_model_dir(hot_root, weight_uri)
+    # Misconfiguration guard: hot inside/equal to shared (or vice versa) would
+    # let eviction delete canonical weights. Refuse the whole feature.
+    hr, sr = os.path.realpath(hot_root), os.path.realpath(os.path.dirname(
+        os.path.dirname(shared_dir)))
+    if hr == sr or hr.startswith(sr + os.sep) or sr.startswith(hr + os.sep):
+        logger.warning("hot-copy disabled: hot root %s overlaps shared root %s",
+                       hot_root, sr)
+        return None
+    try:
+        need = _dir_bytes(shared_dir)
+        if need <= 0:
+            return None
+        st = os.statvfs(hot_root)
+        free = st.f_bavail * st.f_frsize
+        # Evict LRU complete copies until the copy fits (plus margin).
+        if free < need + _HOT_EVICT_MARGIN_BYTES:
+            for victim in _hot_copy_candidates(hot_root, hot_dir):
+                logger.info("hot-copy: evicting LRU %s to fit %s", victim, weight_uri)
+                shutil.rmtree(victim, ignore_errors=True)
+                st = os.statvfs(hot_root)
+                free = st.f_bavail * st.f_frsize
+                if free >= need + _HOT_EVICT_MARGIN_BYTES:
+                    break
+        if free < need + _HOT_EVICT_MARGIN_BYTES:
+            logger.warning("hot-copy: %s needs %.1fGiB but only %.1fGiB free after "
+                           "eviction — loading from the shared store this time",
+                           weight_uri, need / 2**30, free / 2**30)
+            return None
+        # Sweep stale partials (a crashed earlier warm), then copy atomically.
+        parent = os.path.dirname(hot_dir)
+        os.makedirs(parent, exist_ok=True)
+        for entry in os.listdir(parent):
+            if entry.startswith(os.path.basename(hot_dir) + ".partial-"):
+                shutil.rmtree(os.path.join(parent, entry), ignore_errors=True)
+        tmp = f"{hot_dir}.partial-{os.getpid()}"
+        t0 = time.time()
+        logger.info("hot-copy: warming %s (%.1fGiB) shared->hot — one-time cost, "
+                    "every later load reads local NVMe", weight_uri, need / 2**30)
+        shutil.copytree(shared_dir, tmp)
+        if os.path.isdir(hot_dir):        # concurrent warm won the race
+            shutil.rmtree(tmp, ignore_errors=True)
+            return hot_dir if os.path.isfile(
+                os.path.join(hot_dir, "model_index.json")) else None
+        os.rename(tmp, hot_dir)
+        logger.info("hot-copy: %s warmed in %.0fs", weight_uri, time.time() - t0)
+        return hot_dir
+    except Exception as exc:  # noqa: BLE001 — never fail a render over the cache
+        logger.warning("hot-copy: warm of %s failed (%s) — loading from the "
+                       "shared store this time", weight_uri, exc)
+        try:
+            shutil.rmtree(f"{hot_dir}.partial-{os.getpid()}", ignore_errors=True)
+        except Exception:  # noqa: BLE001
+            pass
+        return None
 
 
 def _weights_missing_msg(weight_uri: str, hot: str | None, shared_root: str | None) -> str:

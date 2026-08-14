@@ -42,6 +42,8 @@ from . import boot_phases
 from . import compile_posture
 from . import mint_workers
 from . import mint_process
+from .child_contract import (
+    CompileSpec, MintFrame, MintSlot)
 from . import progress as progress_mod
 from .mint_process import MintOutcome, MintRequest
 
@@ -84,8 +86,8 @@ class MintTask:
     # pgw#974: the parent's resolution of each setup slot — identity, bytes and
     # pgw#617 composition in ONE value, resolved together in
     # `_setup_locked_inner` and carried together from here to the child. See
-    # `mint_process.MintSlot`.
-    slots: Dict[str, mint_process.MintSlot] = field(default_factory=dict)
+    # `child_contract.MintSlot`.
+    slots: Dict[str, MintSlot] = field(default_factory=dict)
     weight_lane: str = ""
     execution_lane: str = ""
     configs: Dict[str, Dict[str, Any]] = field(default_factory=dict)
@@ -131,7 +133,7 @@ FAILED = "failed"
 ABANDONED = mint_process.ABANDONED
 
 
-def cfg_spec(cfg: Any) -> mint_process.CompileCellSpec:
+def cfg_spec(cfg: Any) -> CompileSpec:
     """Flatten the parent's ``CompileCell`` for the wire.
 
     The parent states the contract because the class-scoped guidance/text-len
@@ -140,7 +142,7 @@ def cfg_spec(cfg: Any) -> mint_process.CompileCellSpec:
     parent asked for. It carries what the child READS and nothing else
     (pgw#1034) — the child computes no key, so this is not a key-parity wire.
     """
-    return mint_process.CompileCellSpec(
+    return CompileSpec(
         shapes=tuple(tuple(int(v) for v in row) for row in (cfg.shapes or ())),
         targets=tuple(str(t) for t in (cfg.targets or ())),
         family=str(getattr(cfg, "family", "") or ""),
@@ -212,8 +214,57 @@ def _pool_stat(phases: Any, key: str) -> int:
         return 0
 
 
+def _bank_device_peaks(phases: Any, *, weight_lane: str) -> int:
+    """Bank every per-graph-class device reading in one phase table.
+
+    Returns how many rows were banked, so a caller can tell "no rows" from
+    "banked nothing" — an absent measurement is NO EVIDENCE, not a zero
+    (§4.33), and the two must not look alike here either.
+
+    Called on EVERY outcome, from the report AND from the snapshot, for the
+    reason pgw#848 gives about the host half and which is sharper here: the
+    attempt that ran out of device memory is the one whose reading the next
+    attempt most needs, and it is exactly the attempt that seals no cell and
+    writes no manifest. A bank whose writer only runs on success is not a bank.
+
+    ``weight_lane`` is the parent's own fact — the same axis it keys the RSS
+    bank by — and it is the one axis the child does not state, because the
+    parent is what knows it first-hand.
+    """
+    try:
+        block = (phases or {}).get("pool") or {}
+        rows = block.get("entry_device_peaks") or {}
+        prov = block.get("device_peak_provenance") or {}
+        if not isinstance(rows, dict) or not isinstance(prov, dict):
+            return 0
+    except (TypeError, AttributeError):
+        return 0
+    banked = 0
+    for graph_class, reading in rows.items():
+        if not isinstance(reading, dict):
+            continue
+        try:
+            key = mint_workers.DevicePeakKey(
+                graph_class=str(graph_class),
+                card=str(prov.get("card") or ""),
+                sm=str(prov.get("sm") or ""),
+                toolchain=str(prov.get("toolchain") or ""),
+                gen_worker=str(prov.get("gen_worker") or ""),
+                weight_lane=str(weight_lane or ""),
+                phase=str(prov.get("phase") or ""),
+            )
+            mint_workers.record_entry_device_peak(
+                key,
+                int(reading.get("allocated_bytes") or 0),
+                int(reading.get("reserved_bytes") or 0))
+        except (TypeError, ValueError):
+            continue
+        banked += 1
+    return banked
+
+
 def _on_frame(act: Any, watch: Optional[Watcher] = None) -> Any:
-    def _apply(frame: mint_process.MintFrame) -> None:
+    def _apply(frame: MintFrame) -> None:
         # No new protocol: the child's phase lands on the SAME
         # self_mint_compile activity the hub already reads, and ships on the
         # ordinary 10s beat — which now actually fires, because nothing on
@@ -294,7 +345,7 @@ def _on_evidence(act: Any) -> Any:
 #: fleet passes nothing and behaves exactly as before; ``local_serve`` passes a
 #: terminal renderer, because a 20-minute compile a user cannot see is a
 #: support ticket regardless of how correct it is.
-Watcher = Callable[[mint_process.MintFrame], None]
+Watcher = Callable[[MintFrame], None]
 
 
 async def build_cell(
@@ -358,6 +409,18 @@ async def build_cell(
         mint_workers.record_entry_peak_rss(
             family, task.weight_lane,
             _pool_stat(outcome.partial_phases, "peak_child_rss_bytes"))
+        # pgw#1205: the DEVICE reading, per graph class, from both sources for
+        # the same reason — the report when the child reached a terminus, the
+        # snapshot when it was killed. The rows are banked HERE, on this
+        # machine, because the consumer is local (K is decided in the mint
+        # child) and because a cell manifest cannot carry them: a mint that
+        # OOMs seals no cell. The identical rows ride `aot_mint_phases` to the
+        # hub below, so the two sinks cannot disagree — they are the same bytes.
+        if outcome.report is not None:
+            _bank_device_peaks(
+                outcome.report.mint_phases, weight_lane=task.weight_lane)
+        _bank_device_peaks(
+            outcome.partial_phases, weight_lane=task.weight_lane)
         # pgw#1010: every delegated mint is an AOT mint, so there is one
         # phase emitter. The JIT twin measured a child recipe that no longer
         # exists.
@@ -368,10 +431,13 @@ async def build_cell(
             return DelegatedResult(
                 status=ABANDONED, detail=outcome.detail, attempts=attempts)
 
-        if outcome.minted and outcome.artifact is not None:
+        if outcome.minted and outcome.artifacts:
             act.phase(activity_mod.PHASE_SEAL_PUBLISH)
+            # pgw#1176: the child produced one artifact per graph class; the
+            # adopt arms, gates and stores each, and a class that refuses
+            # costs itself.
             minted = fleet_cells.adopt_delegated_mint(
-                task.pipe, pending, outcome.artifact)
+                task.pipe, pending, outcome.artifacts)
             if minted is not None:
                 # pgw#848 item 5: the ONE terminus where the bank's job is
                 # finished. It survives every failure (that is the point) and

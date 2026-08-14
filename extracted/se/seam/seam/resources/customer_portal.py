@@ -29,7 +29,7 @@ class CustomerPortal:
     workspace_id: str
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]):
+    def from_dict(cls, d: Any):
         return cls(
             created_at=d.get("created_at", None),
             customer_key=d.get("customer_key", None),

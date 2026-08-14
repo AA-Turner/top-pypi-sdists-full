@@ -1,6 +1,8 @@
 from typing import Optional, Any, List, Dict, Union
 import abc
 from ..client import SeamHttpClient
+from ..route import route_metadata
+from ..null import Null
 from ..resources import Workspace, ActionAttempt
 from ..modules.action_attempts import resolve_action_attempt
 
@@ -13,14 +15,14 @@ class AbstractWorkspaces(abc.ABC):
         *,
         name: str,
         company_name: Optional[str] = None,
-        connect_partner_name: Optional[str] = None,
+        connect_partner_name: Optional[Union[str, Null]] = None,
         connect_webview_customization: Optional[Dict[str, Any]] = None,
         is_sandbox: Optional[bool] = None,
         organization_id: Optional[str] = None,
         webview_logo_shape: Optional[str] = None,
         webview_primary_button_color: Optional[str] = None,
         webview_primary_button_text_color: Optional[str] = None,
-        webview_success_message: Optional[str] = None
+        webview_success_message: Optional[str] = None,
     ) -> Workspace:
         """Creates a new `workspace <https://docs.seam.co/core-concepts/workspaces>`_.
 
@@ -44,7 +46,9 @@ class AbstractWorkspaces(abc.ABC):
 
         :param webview_success_message: Deprecated: Use ``connect_webview_customization.webview_success_message`` instead.
 
-        :returns: OK"""
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -81,7 +85,7 @@ class AbstractWorkspaces(abc.ABC):
         is_publishable_key_auth_enabled: Optional[bool] = None,
         is_suspended: Optional[bool] = None,
         name: Optional[str] = None,
-        organization_id: Optional[str] = None
+        organization_id: Optional[str] = None,
     ) -> None:
         """Updates the `workspace <https://docs.seam.co/core-concepts/workspaces>`_ associated with the authentication value.
 
@@ -105,19 +109,22 @@ class Workspaces(AbstractWorkspaces):
         self.client = client
         self.defaults = defaults
 
+    @route_metadata(
+        path="/workspaces/create", has_required_parameters=True, has_pagination=False
+    )
     def create(
         self,
         *,
         name: str,
         company_name: Optional[str] = None,
-        connect_partner_name: Optional[str] = None,
+        connect_partner_name: Optional[Union[str, Null]] = None,
         connect_webview_customization: Optional[Dict[str, Any]] = None,
         is_sandbox: Optional[bool] = None,
         organization_id: Optional[str] = None,
         webview_logo_shape: Optional[str] = None,
         webview_primary_button_color: Optional[str] = None,
         webview_primary_button_text_color: Optional[str] = None,
-        webview_success_message: Optional[str] = None
+        webview_success_message: Optional[str] = None,
     ) -> Workspace:
         """Creates a new `workspace <https://docs.seam.co/core-concepts/workspaces>`_.
 
@@ -141,8 +148,10 @@ class Workspaces(AbstractWorkspaces):
 
         :param webview_success_message: Deprecated: Use ``connect_webview_customization.webview_success_message`` instead.
 
-        :returns: OK"""
-        json_payload = {}
+        :returns: OK
+
+        :raises ValueError: At least one parameter must be provided."""
+        json_payload: Dict[str, Any] = {}
 
         if name is not None:
             json_payload["name"] = name
@@ -169,30 +178,46 @@ class Workspaces(AbstractWorkspaces):
         if webview_success_message is not None:
             json_payload["webview_success_message"] = webview_success_message
 
+        if not json_payload:
+            raise ValueError(
+                "At least one parameter is required for /workspaces/create"
+            )
+
         res = self.client.post("/workspaces/create", json=json_payload)
 
         return Workspace.from_dict(res["workspace"])
 
+    @route_metadata(
+        path="/workspaces/get", has_required_parameters=False, has_pagination=False
+    )
     def get(self) -> Workspace:
         """Returns the `workspace <https://docs.seam.co/core-concepts/workspaces>`_ associated with the authentication value.
 
         :returns: OK"""
-        json_payload = {}
+        params: Dict[str, Any] = {}
 
-        res = self.client.post("/workspaces/get", json=json_payload)
+        res = self.client.get("/workspaces/get", params=params)
 
         return Workspace.from_dict(res["workspace"])
 
+    @route_metadata(
+        path="/workspaces/list", has_required_parameters=False, has_pagination=False
+    )
     def list(self) -> List[Workspace]:
         """Returns a list of `workspaces <https://docs.seam.co/core-concepts/workspaces>`_ associated with the authentication value.
 
         :returns: OK"""
-        json_payload = {}
+        params: Dict[str, Any] = {}
 
-        res = self.client.post("/workspaces/list", json=json_payload)
+        res = self.client.get("/workspaces/list", params=params)
 
         return [Workspace.from_dict(item) for item in res["workspaces"]]
 
+    @route_metadata(
+        path="/workspaces/reset_sandbox",
+        has_required_parameters=False,
+        has_pagination=False,
+    )
     def reset_sandbox(
         self, *, wait_for_action_attempt: Optional[Union[bool, Dict[str, float]]] = None
     ) -> ActionAttempt:
@@ -201,7 +226,7 @@ class Workspaces(AbstractWorkspaces):
         :param wait_for_action_attempt: Whether, and for how long, to wait for the action attempt to finish.
 
         :returns: OK"""
-        json_payload = {}
+        json_payload: Dict[str, Any] = {}
 
         res = self.client.post("/workspaces/reset_sandbox", json=json_payload)
 
@@ -217,6 +242,9 @@ class Workspaces(AbstractWorkspaces):
             wait_for_action_attempt=wait_for_action_attempt,
         )
 
+    @route_metadata(
+        path="/workspaces/update", has_required_parameters=False, has_pagination=False
+    )
     def update(
         self,
         *,
@@ -225,7 +253,7 @@ class Workspaces(AbstractWorkspaces):
         is_publishable_key_auth_enabled: Optional[bool] = None,
         is_suspended: Optional[bool] = None,
         name: Optional[str] = None,
-        organization_id: Optional[str] = None
+        organization_id: Optional[str] = None,
     ) -> None:
         """Updates the `workspace <https://docs.seam.co/core-concepts/workspaces>`_ associated with the authentication value.
 
@@ -241,7 +269,7 @@ class Workspaces(AbstractWorkspaces):
 
         :param organization_id: ID of the organization to assign the workspace to. The authenticated user must be the owner of the workspace and an admin of the target organization.
         """
-        json_payload = {}
+        json_payload: Dict[str, Any] = {}
 
         if connect_partner_name is not None:
             json_payload["connect_partner_name"] = connect_partner_name
@@ -260,6 +288,6 @@ class Workspaces(AbstractWorkspaces):
         if organization_id is not None:
             json_payload["organization_id"] = organization_id
 
-        self.client.post("/workspaces/update", json=json_payload)
+        self.client.patch("/workspaces/update", json=json_payload)
 
         return None

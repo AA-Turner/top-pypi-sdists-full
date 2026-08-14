@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scitex-dev
-Version: 0.49.0
+Version: 0.49.3
 Summary: Shared developer utilities for the SciTeX ecosystem
 Author-email: Yusuke Watanabe <ywatanabe@scitex.ai>
 License-Expression: AGPL-3.0-only
@@ -25,6 +25,7 @@ Requires-Dist: tomlkit>=0.12.0
 Requires-Dist: textual>=0.50.0
 Requires-Dist: packaging>=21.0
 Requires-Dist: rich>=13.0.0
+Requires-Dist: psycopg[binary]>=3.1
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: pytest-cov>=4.0.0; extra == "dev"

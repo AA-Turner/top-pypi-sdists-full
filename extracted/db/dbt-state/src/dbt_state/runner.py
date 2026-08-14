@@ -88,6 +88,7 @@ class RunnerOverride:
     def __init__(
         self,
         original_execute: t.Callable[[ModelRunner, ModelOrSnapshotNode, Manifest], RunResult],
+        original_run_with_hooks: t.Callable[[ModelRunner, Manifest], RunResult],
         original_microbatch_execute: t.Optional[
             t.Callable[[MicrobatchModelRunner, ModelNode, Manifest], RunResult]
         ],
@@ -98,6 +99,7 @@ class RunnerOverride:
         query_cache_client: QueryCacheGrpcClient | None = None,
     ) -> None:
         self._original_execute = original_execute
+        self._original_run_with_hooks = original_run_with_hooks
         self._original_microbatch_execute = original_microbatch_execute
         self._original_generate_runtime_model_context = original_generate_runtime_model_context
         self._query_cache_client = query_cache_client
@@ -108,6 +110,19 @@ class RunnerOverride:
         self._session: t.Optional[SessionManager] = None
         self._org_info: t.Optional[Org] = None
         events.register_callback("runner-override-end-of-run-message", self._on_event)
+
+    def run_with_hooks_override(self, runner: ModelRunner, manifest: Manifest) -> RunResult:
+        """Attach a State decision ID to dbt Core's final per-node result."""
+        result = self._original_run_with_hooks(runner, manifest)
+
+        # Microbatch batch runners share the model unique ID, but the State decision belongs
+        # to the outer model result rather than each internal batch result.
+        if MicrobatchBatchRunner is not None and isinstance(runner, MicrobatchBatchRunner):
+            return result
+
+        if self._run_cache is not None:
+            self._run_cache.attach_state_decision_id(t.cast(ManifestNode, result.node), result)
+        return result
 
     def defer_to_manifest_override(self, task: GraphRunnableTask) -> None:
         """Sets defer_relation on unselected manifest nodes to enable dbt's native deferral."""
@@ -376,7 +391,9 @@ class RunnerOverride:
     def print_result_line_override(self, runner: TestRunner, result: RunResult) -> None:
         """Override for printing test results to include NO-OP status."""
         try:
-            model = result.node
+            model = t.cast(ManifestNode, result.node)
+            if self._run_cache is not None:
+                self._run_cache.attach_state_decision_id(model, result)
             kwargs: t.Dict[str, t.Any] = {}
             try:
                 from dbt.task import group_lookup

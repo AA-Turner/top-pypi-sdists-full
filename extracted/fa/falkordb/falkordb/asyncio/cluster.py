@@ -1,3 +1,4 @@
+import inspect
 import socket
 
 import redis as sync_redis  # type: ignore[import-not-found]
@@ -22,6 +23,13 @@ def Is_Cluster(conn: redis.Redis):
     if pool.connection_class is redis.UnixDomainSocketConnection:
         kwargs["unix_socket_path"] = kwargs.pop("path")
 
+    # Keep only the parameters the synchronous constructor actually accepts.
+    # redis-py stores internal state in ``connection_kwargs`` that is not part
+    # of the ``Redis.__init__`` signature — redis 8.1.0 added ``himport_registry``
+    # there — and forwarding those raises TypeError before any I/O happens.
+    accepted = inspect.signature(sync_redis.Redis.__init__).parameters
+    kwargs = {k: v for k, v in kwargs.items() if k in accepted}
+
     # Create a synchronous Redis client with the same parameters
     # as the connection pool just to keep Is_Cluster synchronous
     info = sync_redis.Redis(**kwargs).info(section="server")
@@ -40,7 +48,7 @@ def Cluster_Conn(
     read_from_replicas=False,
     address_remap=None,
 ):
-    connection_kwargs = conn.connection_pool.connection_kwargs
+    connection_kwargs = conn.connection_pool.connection_kwargs.copy()
     host = connection_kwargs.pop("host")
     port = connection_kwargs.pop("port")
     username = connection_kwargs.pop("username")

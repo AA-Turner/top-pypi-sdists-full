@@ -10,6 +10,7 @@
 #     ./on_Snapshot__08_archivedotorg.finite.bg.py --url=<url> > events.jsonl
 
 import signal
+import sys
 
 # Snapshot cleanup sends SIGTERM to the whole hook process group as the polite
 # shutdown signal before the hard SIGKILL deadline. This hook is a finite
@@ -21,7 +22,6 @@ import signal
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 import os
-import sys
 from http.client import RemoteDisconnected
 from ipaddress import ip_address
 from pathlib import Path

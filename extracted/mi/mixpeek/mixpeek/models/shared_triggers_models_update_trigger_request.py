@@ -29,9 +29,10 @@ class SharedTriggersModelsUpdateTriggerRequest(BaseModel):
     Request to update an existing trigger.  Only provided fields will be updated.
     """ # noqa: E501
     schedule_config: Optional[Dict[str, Any]] = Field(default=None, description="Updated schedule configuration")
+    name: Optional[StrictStr] = Field(default=None, description="Updated trigger name")
     description: Optional[StrictStr] = Field(default=None, description="Updated description")
     status: Optional[SharedTriggersModelsTriggerStatus] = Field(default=None, description="Updated status")
-    __properties: ClassVar[List[str]] = ["schedule_config", "description", "status"]
+    __properties: ClassVar[List[str]] = ["schedule_config", "name", "description", "status"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -85,6 +86,7 @@ class SharedTriggersModelsUpdateTriggerRequest(BaseModel):
 
         _obj = cls.model_validate({
             "schedule_config": obj.get("schedule_config"),
+            "name": obj.get("name"),
             "description": obj.get("description"),
             "status": obj.get("status")
         })

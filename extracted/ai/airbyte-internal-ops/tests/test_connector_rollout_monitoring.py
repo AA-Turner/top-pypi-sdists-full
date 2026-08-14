@@ -6,7 +6,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from airbyte.exceptions import PyAirbyteInputError
 
-from airbyte_ops_mcp.cloud_admin.api_client import get_actor_sync_info
+from airbyte_ops_mcp.cloud_admin.api_client import (
+    get_actor_sync_info,
+    pause_connector_rollout,
+)
 from airbyte_ops_mcp.mcp.connector_versions import (
     RolloutActorSelectionInfo,
     RolloutActorSyncStats,
@@ -156,6 +159,40 @@ def test_get_actor_sync_info_api_call() -> None:
         assert call_args[1]["json"] == {"id": "test-rollout-id"}
         assert "Authorization" in call_args[1]["headers"]
         assert result == {"data": {"actor_selection_info": {}, "syncs": {}}}
+
+
+@pytest.mark.unit
+def test_pause_connector_rollout_uses_manual_pause_payload() -> None:
+    """Pause sends the state and reason fields without a finalize pin flag."""
+    with patch(
+        "airbyte_ops_mcp.cloud_admin.api_client._get_access_token",
+        return_value="test-access-token",
+    ), patch("airbyte_ops_mcp.cloud_admin.api_client.requests.post") as mock_post:
+        mock_response = MagicMock(status_code=200)
+        mock_response.json.return_value = {"state": "paused"}
+        mock_post.return_value = mock_response
+
+        result = pause_connector_rollout(
+            docker_repository="airbyte/source-faker",
+            docker_image_tag="7.2.0-rc.1",
+            actor_definition_id="actor-definition",
+            rollout_id="rollout-id",
+            updated_by="user-id",
+            paused_reason="Failure threshold exceeded: 2 failures (threshold=1)",
+            config_api_root="https://api.test.com",
+            bearer_token="test-token",
+        )
+
+        assert result == {"state": "paused"}
+        assert mock_post.call_args.kwargs["json"] == {
+            "docker_repository": "airbyte/source-faker",
+            "docker_image_tag": "7.2.0-rc.1",
+            "actor_definition_id": "actor-definition",
+            "id": "rollout-id",
+            "state": "paused",
+            "paused_reason": "Failure threshold exceeded: 2 failures (threshold=1)",
+            "updated_by": "user-id",
+        }
 
 
 @pytest.mark.unit

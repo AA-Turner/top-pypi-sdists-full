@@ -116,6 +116,8 @@ def _nss_read_csv(
     session: snowpark.Session,
     paths: list[str],
     options: CsvReaderConfig,
+    *,
+    relax_schema_nullability: bool = False,
 ) -> DataFrameContainer | None:
     """Read CSV through the NSS ``STAGE_FILE_READER`` path when enabled.
 
@@ -124,6 +126,9 @@ def _nss_read_csv(
     ``INFER_STAGE_FILE_SCHEMA`` — which returns columns in file order (sorted by
     ``ORDER_ID``), so the positional CSV read (Spark's ``enforceSchema`` default) stays
     aligned.
+
+    ``relax_schema_nullability`` mirrors the caller's ``_make_schema_nullable`` decision
+    onto the proto schema this branch re-parses (SNOW-3891605).
     """
     if not is_nss_enabled():
         return None
@@ -154,20 +159,33 @@ def _nss_read_csv(
     if stage_path.startswith("'") and stage_path.endswith("'"):
         stage_path = stage_path[1:-1]
 
-    # Resolved corrupt-record column: read .option -> spark.sql.columnNameOfCorruptRecord.
-    corrupt_record_column_name = (
-        options.config.get("columnnameofcorruptrecord")
-        or get_string_session_config_param("spark.sql.columnNameOfCorruptRecord")
-        or "_corrupt_record"
+    # options.config is seeded with the _corrupt_record default, so inspect the raw
+    # request options to tell an explicit .option from the default; otherwise the
+    # default masks spark.sql.columnNameOfCorruptRecord (SNOW-3899671).
+    has_explicit_corrupt_record_option = any(
+        key.lower() == "columnnameofcorruptrecord"
+        for key in rel.read.data_source.options
     )
+    corrupt_record_column_name = (
+        options.config.get("columnnameofcorruptrecord", "_corrupt_record")
+        if has_explicit_corrupt_record_option
+        else (
+            get_string_session_config_param("spark.sql.columnNameOfCorruptRecord")
+            or "_corrupt_record"
+        )
+    )
+    if corrupt_record_column_name == "":
+        corrupt_record_column_name = None
 
     # STAGE_FILE_READER produces the file's data columns directly from DATA_SCHEMA
     # — no per-schema decoder UDTF. Filter to Spark CSV read options (also collapses
     # the 2-char COPY-escaped escape/quote/sep back to a single char for Spark).
     from snowflake.snowpark_connect.nss.nss_scan_options import (
         _unquote_name,
+        cache_if_corrupt_record_present,
         columns_from_spark_schema,
         filter_reader_options,
+        py_schema_as_nullable,
     )
     from snowflake.snowpark_connect.nss.nss_stage_file_reader import (
         nss_read_via_stage_file_reader,
@@ -176,7 +194,12 @@ def _nss_read_csv(
     # Filter to Spark CSV read options once and reuse for BOTH inference and the read, so the
     # inferred column layout matches the read: header/sep/delimiter/quote/escape must reach
     # INFER_STAGE_FILE_SCHEMA too, not just STAGE_FILE_READER.
-    nss_reader_options = filter_reader_options("csv", dict(options.config))
+    # ``user_option_keys`` lets the filter drop SCOS's own COPY-oriented defaults that would
+    # otherwise override the sandbox Spark reader — notably the default ``sep``, which
+    # shadows a user ``delimiter`` (SNOW-3861940).
+    nss_reader_options = filter_reader_options(
+        "csv", dict(options.config), options.user_option_keys
+    )
     if corrupt_record_column_name:
         nss_reader_options["columnnameofcorruptrecord"] = corrupt_record_column_name
 
@@ -219,6 +242,8 @@ def _nss_read_csv(
             )
             attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
             raise exception
+        if relax_schema_nullability:
+            parsed_spark_schema = py_schema_as_nullable(parsed_spark_schema)
         nss_columns = columns_from_spark_schema(parsed_spark_schema)
 
     # NSS read path (keyword kept out of the customer-visible log message)
@@ -233,12 +258,15 @@ def _nss_read_csv(
             "snowpark.connect.nss.stage_file_reader_fqn"
         ),
     )
+    df = cache_if_corrupt_record_present(df, corrupt_record_column_name, nss_columns)
 
     # Column names are already known from nss_columns (the TVF output order), so derive the
     # Spark names from them rather than mapping back from Snowflake's uppercased df.columns.
     # (This doesn't avoid a describe round-trip — rename_columns_as_snowflake_standard reads
     # df.columns anyway — but it uses the authoritative original names.)
-    spark_column_names = [_unquote_name(c.name) for c in nss_columns]
+    spark_column_names = [
+        _unquote_name(c.name) or f"_c{i}" for i, c in enumerate(nss_columns)
+    ]
     renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
         df, rel.common.plan_id
     )
@@ -304,7 +332,14 @@ def map_read_csv(
         # in the sandbox) instead of COPY INTO — inferring the schema via
         # INFER_STAGE_FILE_SCHEMA when the caller supplied none. Falls through to
         # the COPY path only when NSS is off (see _nss_read_csv).
-        nss_container = _nss_read_csv(rel, schema, session, paths, options)
+        nss_container = _nss_read_csv(
+            rel,
+            schema,
+            session,
+            paths,
+            options,
+            relax_schema_nullability=io_validations_mode == "strict",
+        )
         if nss_container is not None:
             return nss_container
         # ── End NSS branch ───────────────────────────────────────────────────

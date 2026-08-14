@@ -958,6 +958,7 @@ def create_databricks_webhook_key(ctx, integration_name: Optional[str], **kwargs
 @click.option("--port", help="HTTP port.", default=5439, type=click.INT, show_default=True)
 @add_common_options(warehouse_create_option())
 @add_common_options(DATABASE_OPTIONS)
+@add_common_options(BASIC_SSL_OPTIONS)
 @add_common_options(ONBOARDING_CONFIGURATION_OPTIONS)
 @add_common_options(NETWORK_OPTIONS)
 @click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
@@ -1854,6 +1855,7 @@ def add_sql_server(ctx, name, **kwargs):
     + port_create_option(default_port=5432)
     + DATABASE_OPTIONS
     + ONBOARDING_CONFIGURATION_OPTIONS
+    + BASIC_SSL_OPTIONS
 )
 @click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
 @click.option(

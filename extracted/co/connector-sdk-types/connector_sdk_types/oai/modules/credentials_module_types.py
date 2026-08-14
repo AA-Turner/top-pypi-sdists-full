@@ -99,13 +99,12 @@ class CredentialConfig(BaseModel):
         default=False,
         description=(
             """Denotes whether this credential is optional, for example, if the integration can function just fine with one credential, and another credential is not strictly required, eg. the app will operate under a limited scope.
-        If you don't supply any allowed credentials (as part of credentials settings), and all of your credentials are optional, the connector will offer the following authentication options:
-        1. credential_id_1
-        2. credential_id_2
+If you don't supply any allowed credentials (as part of credentials settings), and all of your credentials are optional, the connector will offer the following authentication options:
+1. credential_id_1
+2. credential_id_2
 
-        If you don't supply any allowed credentials, and both are required, the connector will offer the following authentication options:
-        1. credential_id_1, credential_id_2
-        """
+If you don't supply any allowed credentials, and both are required, the connector will offer the following authentication options:
+1. credential_id_1, credential_id_2"""
         ),
     )
     input_model: t.Any | None = Field(

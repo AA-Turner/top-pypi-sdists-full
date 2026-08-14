@@ -887,8 +887,10 @@ class SetInstanceProtectionQueryTypeDef(TypedDict):
 
 
 class TerminateInstanceInAutoScalingGroupTypeTypeDef(TypedDict):
-    InstanceId: str
     ShouldDecrementDesiredCapacity: bool
+    InstanceId: NotRequired[str]
+    InstanceIds: NotRequired[Sequence[str]]
+    AutoScalingGroupName: NotRequired[str]
 
 
 class ActivitiesTypeTypeDef(TypedDict):
@@ -899,6 +901,7 @@ class ActivitiesTypeTypeDef(TypedDict):
 
 class ActivityTypeTypeDef(TypedDict):
     Activity: ActivityTypeDef
+    Activities: list[ActivityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

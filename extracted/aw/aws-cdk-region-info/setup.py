@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk.region-info",
-    "version": "2.264.0",
+    "version": "2.265.0",
     "description": "AWS region information, such as service principal names",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk.region_info._jsii": [
-            "region-info@2.264.0.jsii.tgz"
+            "region-info@2.265.0.jsii.tgz"
         ],
         "aws_cdk.region_info": [
             "py.typed"
@@ -34,7 +34,7 @@ kwargs = json.loads(
     },
     "python_requires": ">=3.10",
     "install_requires": [
-        "jsii>=1.138.0, <2.0.0",
+        "jsii>=1.139.0, <2.0.0",
         "publication>=0.0.3"
     ],
     "classifiers": [

@@ -1,9 +1,9 @@
 """HF Llama benchmark log parser.
 
-The 7 regex constants below are byte-identical to tessellations
-metrics/raw_metrics_extraction/hf.py (lines 32-38). parse_entries reproduces
-hf.py's matching/pairing logic over an injectable iterable of LogEntry, so it is
-unit-testable without a Cloud Logging client.
+The 10 regex constants below match the log lines emitted by
+``llama_3_1_8b_cpu_sim.py``. parse_entries matches/pairs them over an
+injectable iterable of LogEntry, so it is unit-testable without a Cloud
+Logging client.
 """
 
 import argparse
@@ -14,10 +14,10 @@ from typing import Dict, Iterable, List
 
 from metrics import raw_store, schema
 
-# --- regexes (verbatim from tessellations hf.py) ---------------------------
+# --- regexes -----------------------------------------------------------
 STEP_METRICS_PATTERN = (
     r"Global Rank: 0 \| Step: ([0-9]+) \| Loss: [0-9.]+ \| "
-    r"Step Time: ([0-9.]+)s \| Throughput: [0-9.]+ samples/s"
+    r"Step Time: ([0-9.]+)s \| Throughput: ([0-9.]+) samples/s"
 )
 CHECKPOINT_START_PATTERN = (
     r"Checkpoint Save : Rank: ([0-9]+) : Step: ([0-9]+) : "
@@ -45,6 +45,27 @@ ACCELERATOR_BLOCKED_TIME_PATTERN = (
     r"(?:\|\s+[\d\.]+\s+){2}\|\s+([\d\.]+)\s+\|\s+([\d\.]+)\s+\|"
 )
 
+CHECKPOINT_SIZE_PATTERN = (
+    r"Checkpoint Size : Rank : ([0-9]+) : Step : ([0-9]+) : "
+    r"Bytes : ([0-9]+) : Path: (.*)"
+)
+
+# DataWaitProfiler's real-time per-span lines: every moment the fit loop blocks
+# on the dataloader, from every rank, with a running per-rank total -- unlike
+# ACCELERATOR_BLOCKED_TIME_PATTERN's end-of-fit report row, which only local
+# rank 0 prints, omits the setup spans, and is lost when a pod is preempted.
+DATA_WAIT_PATTERN = (
+    r"Data Wait : Rank : ([0-9]+) : Fetch : ([0-9]+) : Action : (\S+) : "
+    r"Duration : ([0-9.]+) seconds : Total : ([0-9.]+) seconds"
+)
+
+# Per-rank ``build_train_dataset`` duration -- the Parquet glob + shuffle-buffer
+# wiring that runs once before ``trainer.fit``, outside DATA_WAIT_PATTERN's
+# span (see schema.DatasetBuildMetrics).
+DATASET_BUILD_PATTERN = (
+    r"Dataset Build : Rank : ([0-9]+) : Duration : ([0-9.]+) seconds : Path: (.*)"
+)
+
 ALL_PATTERNS = [
     STEP_METRICS_PATTERN,
     CHECKPOINT_START_PATTERN,
@@ -53,6 +74,9 @@ ALL_PATTERNS = [
     CHECKPOINT_RESTORE_END_PATTERN,
     CHECKPOINT_DELETE_PATTERN,
     ACCELERATOR_BLOCKED_TIME_PATTERN,
+    CHECKPOINT_SIZE_PATTERN,
+    DATA_WAIT_PATTERN,
+    DATASET_BUILD_PATTERN,
 ]
 
 
@@ -75,12 +99,17 @@ class ParsedRawMetrics:
         default_factory=lambda: defaultdict(list)
     )
     data_loading_metrics: List[schema.DataLoadingMetrics] = field(default_factory=list)
+    checkpoint_sizes: List[schema.CheckpointSizeMetrics] = field(default_factory=list)
+    data_wait_metrics: List[schema.DataWaitMetrics] = field(default_factory=list)
+    dataset_build_metrics: List[schema.DatasetBuildMetrics] = field(
+        default_factory=list
+    )
 
 
 def parse_entries(
     entries: Iterable[LogEntry], *, run_id: str, checkpoint_location: str
 ) -> ParsedRawMetrics:
-    """Scrape raw metrics from log entries (mirrors hf.py._scrape_raw_metrics)."""
+    """Scrape raw metrics from log entries."""
     out = ParsedRawMetrics()
     checkpoint_starts = {}  # (step, rank) -> {start_time, path}
     restore_starts = {}  # rank -> {start_time, path}
@@ -99,6 +128,7 @@ def parse_entries(
                         step=int(m.group(1)),
                         step_duration=float(m.group(2)),
                         step_end_time=ts,
+                        samples_per_second=float(m.group(3)),
                     )
                 )
             except (ValueError, IndexError):
@@ -206,11 +236,117 @@ def parse_entries(
                     f"metrics from: {message}"
                 )
 
+        m = re.search(CHECKPOINT_SIZE_PATTERN, message)
+        if m:
+            try:
+                out.checkpoint_sizes.append(
+                    schema.CheckpointSizeMetrics(
+                        global_rank=int(m.group(1)),
+                        checkpoint_step=int(m.group(2)),
+                        size_bytes=int(m.group(3)),
+                        checkpoint_location=m.group(4),
+                    )
+                )
+            except (ValueError, IndexError):
+                print(f"Warning: Could not parse checkpoint size from: {message}")
+
+        m = re.search(DATA_WAIT_PATTERN, message)
+        if m:
+            try:
+                out.data_wait_metrics.append(
+                    schema.DataWaitMetrics(
+                        global_rank=int(m.group(1)),
+                        fetch_index=int(m.group(2)),
+                        action=m.group(3),
+                        duration=float(m.group(4)),
+                        cumulative_total=float(m.group(5)),
+                    )
+                )
+            except (ValueError, IndexError):
+                print(f"Warning: Could not parse data wait metrics from: {message}")
+
+        m = re.search(DATASET_BUILD_PATTERN, message)
+        if m:
+            try:
+                out.dataset_build_metrics.append(
+                    schema.DatasetBuildMetrics(
+                        global_rank=int(m.group(1)),
+                        duration=float(m.group(2)),
+                        dataset_path=m.group(3),
+                    )
+                )
+            except (ValueError, IndexError):
+                print(f"Warning: Could not parse dataset build metrics from: {message}")
+
     return out
 
 
+_MAX_PAGE_SIZE = 1000
+
+
+def _default_read_retry():
+    from google.api_core import exceptions as gexc
+    from google.api_core import retry as retries
+
+    return retries.Retry(
+        predicate=retries.if_exception_type(gexc.ResourceExhausted),
+        initial=2.0,
+        maximum=60.0,
+        multiplier=2.0,
+        deadline=180.0,
+    )
+
+
+def _to_log_entry(entry) -> LogEntry:
+    payload = entry.text_payload or (
+        dict(entry.json_payload) if entry.json_payload else ""
+    )
+    message = (
+        payload
+        if isinstance(payload, str)
+        else (payload.get("message", "") if payload else "")
+    )
+    return LogEntry(timestamp=entry.timestamp.timestamp(), message=message)
+
+
+def iter_log_entries(
+    client,
+    project: str,
+    filter_string: str,
+    *,
+    page_size: int = _MAX_PAGE_SIZE,
+    retry=None,
+) -> Iterable[LogEntry]:
+    if retry is None:
+        retry = _default_read_retry()
+
+    def _fetch(token):
+        request = {
+            "resource_names": [f"projects/{project}"],
+            "filter": filter_string,
+            "order_by": "timestamp asc",
+            "page_size": page_size,
+            "page_token": token,
+        }
+        pager = client.list_log_entries(request=request)
+        page = next(pager.pages, None)
+        if page is None:
+            return None, None
+        return page.entries, page.next_page_token
+
+    page_token = None
+    while True:
+        page, page_token = retry(_fetch)(page_token)
+        if page is None:
+            return
+        for entry in page:
+            yield _to_log_entry(entry)
+        if not page_token:
+            return
+
+
 def build_filter(*, project: str, run_id: str, start_time: str, end_time: str) -> str:
-    """Cloud Logging filter mirroring hf.py._scrape_raw_metrics."""
+    """Cloud Logging filter matching the patterns in ``ALL_PATTERNS``."""
     regex_or = " OR ".join(f'textPayload =~ "{p}"' for p in ALL_PATTERNS)
     return (
         'resource.type="k8s_container" '
@@ -236,9 +372,11 @@ def main(argv=None) -> None:
     parser.add_argument("--run-type", default="perf_optimization")
     args = parser.parse_args(argv)
 
-    from google.cloud import logging as cloud_logging
+    from google.cloud.logging_v2.services.logging_service_v2 import (
+        LoggingServiceV2Client,
+    )
 
-    client = cloud_logging.Client(project=args.project)
+    client = LoggingServiceV2Client()
     filter_string = build_filter(
         project=args.project,
         run_id=args.run_id,
@@ -246,17 +384,10 @@ def main(argv=None) -> None:
         end_time=args.end_time,
     )
 
-    def _entries():
-        for e in client.list_entries(filter_=filter_string, order_by="timestamp asc"):
-            payload = (
-                e.payload
-                if isinstance(e.payload, str)
-                else (e.payload.get("message", "") if e.payload else "")
-            )
-            yield LogEntry(timestamp=e.timestamp.timestamp(), message=payload)
-
     parsed = parse_entries(
-        _entries(), run_id=args.run_id, checkpoint_location=args.checkpoint_location
+        iter_log_entries(client, args.project, filter_string),
+        run_id=args.run_id,
+        checkpoint_location=args.checkpoint_location,
     )
     raw_store.write_raw_metrics(parsed, args.out_dir, run_type=args.run_type)
     print(f"Wrote raw metrics to {args.out_dir}")

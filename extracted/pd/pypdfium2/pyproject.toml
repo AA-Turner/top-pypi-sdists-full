@@ -4,12 +4,51 @@
 [build-system]
 build-backend = "setuptools.build_meta"
 requires = [
-    "setuptools",
+    "setuptools",  # >= 59 ?
+    "ctypesgen @ git+https://github.com/pypdfium2-team/ctypesgen@956523ebca0a5d6dcf93aa3eea2454e295470031",
     "packaging",
-    # XXX dependence on wheel is historical, with setuptools >= v70.1.0 this is not needed anymore
+    # NB: wheel is no longer needed with setuptools >= v70.1.0, but we still specify it for backward compatibility
     "wheel !=0.38.0, !=0.38.1",
-    "ctypesgen @ git+https://github.com/pypdfium2-team/ctypesgen@758e24abd2b2a6209872b7b1de182b8595eb67b3",
 ]
+
+# We prefer dependency-groups (PEP 735) over optional-dependencies (extras), for two main reasons:
+# - Installation is independent of pypdfium2 itself. e.g. you can install the setup group first, then install pypdfium2 with --no-build-isolation. Likewise, you may want to install the converters or test dependencies without re-installing pypdfium2.
+# - BUG(177): PyPI actually refuses upload if external (@ git+) dependencies end up in package metadata. PEP 735 emphasizes the idea that dependency groups "are not included in any built distribution of the project".
+[dependency-groups]
+converters = [
+    "pillow",
+    "numpy",
+]
+test = [
+    "pytest",
+    "tabulate",
+    {include-group = "converters"}
+]
+setup = [
+    "setuptools >= v70.1.0",  # or older setuptools + `wheel`
+    "ctypesgen @ git+https://github.com/pypdfium2-team/ctypesgen@956523ebca0a5d6dcf93aa3eea2454e295470031",
+    "build",
+    "macholib; sys_platform == 'darwin'",
+]
+docs = [
+    "sphinx >= 7.2.5",
+    "sphinx-rtd-theme",
+    "sphinxcontrib-programoutput",
+    "sphinx-issues",
+    "myst-parser",
+]
+check = [
+    "autoflake",
+    "codespell",
+    "reuse",
+    "zizmor",
+]
+distcheck = [
+    "twine",
+    "check-wheel-contents",
+]
+# Reminder: When updating the GN version, remember to update the references below as well.
+gn = ["gn-dist==2407.3"]
 
 [tool.check-wheel-contents]
 # W002: erroneous detection of __init__.py files as duplicates
@@ -19,16 +58,17 @@ ignore = ["W002", "W009", "W010"]
 
 [tool.cibuildwheel]
 build-frontend = {name="build", args=["-xn"]}
+environment-pass = ["TEST_PDFIUM", "PDFIUM_VER", "USE_SYSROOT"]
 before-build = [
-    "pip install -r {project}/req/setup.txt",
+    "pip install --uploaded-prior-to P7D --group setup",
 ]
 test-command = [
+    "python -m pypdfium2_cli --help",
     "python -m pypdfium2_cli --version",
     "python {project}/utils/minitest.py",
 ]
 
 [tool.cibuildwheel.linux]
-environment-pass = ["TEST_PDFIUM", "PDFIUM_VER", "USE_SYSROOT"]
 manylinux-armv7l-image = "ghcr.io/mayeut/manylinux_2_35:latest"
 
 [tool.cibuildwheel.linux.environment]
@@ -48,13 +88,33 @@ SYSTEM_VERSION_COMPAT = "0"
 [tool.cibuildwheel.windows.environment]
 PDFIUM_PLATFORM = "sourcebuild-toolchained"
 
+[tool.cibuildwheel.pyodide.environment]
+PDFIUM_PLATFORM = "sourcebuild-native"
+BUILD_PARAMS = "--pyodide --vendor all --no-vendor libc++"
+
 [[tool.cibuildwheel.overrides]]
 # run actual test suite on platforms that have pillow and numpy prebuilds on PyPI
-select = "*-*linux_{x86_64,aarch64} *-macosx_{x86_64,arm64} *-win_amd64 *-win32"
+select = "*-*linux_{x86_64,aarch64} *-macosx_{x86_64,arm64} *-win_{amd64,arm64} *-win32 *-pyodide_*"
 test-requires = ["pytest", "pillow", "numpy"]
 inherit.test-command = "append"
 test-command = [
     "python -m pytest {project}/tests",
+]
+
+[[tool.cibuildwheel.overrides]]
+select = "*-pyodide_*"
+build-frontend = {name="pyodide-build", args=["-xn"]}
+
+# Suppress possible test suite failure with pyodide (it's flaky).
+# We don't publish pyemscripten wheels to PyPI because of these known issues, just upload the experimental builds to GH, so suppression is OK here, and actually necessary to not risk failing the entire release (otherwise we'd just have to exclude pyodide, while this allows us to carry it along as experimental).
+[[tool.cibuildwheel.overrides]]
+select = "*-pyodide_*"
+inherit.test-command = "none"
+test-command = [
+    "python -m pypdfium2_cli --help",
+    "python -m pypdfium2_cli --version",
+    "python {project}/utils/minitest.py",
+    "sh -c 'python -m pytest {project}/tests || true'",
 ]
 
 [[tool.cibuildwheel.overrides]]
@@ -83,17 +143,18 @@ inherit.environment = "append"
 environment.PATH = "/usr/lib/ninja-build/bin:$PATH"
 
 [[tool.cibuildwheel.overrides]]
-select = "*-*linux_{x86_64,i686,aarch64,armv7l,ppc64le,s390x,riscv64}"  # not loongarch64
+select = "*-*linux_{x86_64,i686,aarch64,armv7l,ppc64le,s390x,riscv64} *-pyodide_*"  # not loongarch64
 inherit.before-build = "append"
 before-build = [
-    "pip install --only-binary :all: -r {project}/req/gn.txt",
+    # TODO install latest gn-dist if it's latest pdfium
+    "pip install --no-deps --only-binary :all: --group gn",
 ]
 
 [[tool.cibuildwheel.overrides]]
 select = "*-manylinux_loongarch64"
 inherit.before-build = "append"
 before-build = [
-    "curl -LO 'https://github.com/pypdfium2-team/gn-dist/releases/download/2407.1/gn_dist-2407.1-py3-none-manylinux_2_36_loongarch64.manylinux_2_38_loongarch64.whl'",
+    "curl -LO 'https://github.com/pypdfium2-team/gn-dist/releases/download/2407.3/gn_dist-2407.3-py3-none-manylinux_2_36_loongarch64.manylinux_2_38_loongarch64.whl'",
     "pip install ./gn_dist-*_loongarch64.whl"
 ]
 
@@ -101,7 +162,7 @@ before-build = [
 select = "*-musllinux_loongarch64"
 inherit.before-build = "append"
 before-build = [
-    "curl -LO 'https://github.com/pypdfium2-team/gn-dist/releases/download/2407.1/gn_dist-2407.1-py3-none-musllinux_1_2_loongarch64.whl'",
+    "curl -LO 'https://github.com/pypdfium2-team/gn-dist/releases/download/2407.3/gn_dist-2407.3-py3-none-musllinux_1_2_loongarch64.whl'",
     "pip install ./gn_dist-*_loongarch64.whl"
 ]
 

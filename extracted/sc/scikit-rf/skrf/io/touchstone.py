@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..media import DefinedGammaZ0
 
+import io
 import os
 import re
 import typing
@@ -81,21 +82,6 @@ class ParserState:
     parameter: str = "s"
     format: str = "ma"
     resistance: complex = complex(50)
-
-    @property
-    def n_ansys_impedance_values(self) -> int:
-        """Returns the number of port impedances returned by Ansys HFSS.
-
-        Currently this function returns rank * 2.
-
-        Returns:
-            int: number of impedance values.
-        """
-        # See https://github.com/scikit-rf/scikit-rf/issues/354 for details.
-        #if self.ansys_data_type == "terminal":
-        #    return self.rank**2 * 2
-
-        return self.rank * 2
 
     @cached_property
     def numbers_per_line(self) -> int:
@@ -187,12 +173,14 @@ class Touchstone:
 
     The reference for writing this class is the draft of the
     Touchstone(R) File Format Specification Rev 2.0 [#]_ and
-    Touchstone(R) File Format Specification Version 2.0 [#]_
+    Touchstone(R) File Format Specification Version 2.0 [#]_ and
+    Touchstone(R) File Format Specification Version 2.1 [#]_
 
     References
     ----------
     .. [#] https://ibis.org/interconnect_wip/touchstone_spec2_draft.pdf
     .. [#] https://ibis.org/touchstone_ver2.0/touchstone_ver2_0.pdf
+    .. [#] https://ibis.org/touchstone_ver2.1/touchstone_ver2_1.pdf
     """
 
     def __init__(self, file: str | Path | typing.TextIO, encoding: str | None = None):
@@ -266,38 +254,24 @@ class Touchstone:
         self.s_def = None
         self.port_modes = np.array([])
 
-        # open the file depending on encoding
-        # Guessing the encoding by trial-and-error, unless specified encoding
+        if isinstance(file, str | Path):
+            file_path = Path(file)
+            if encoding is None:
+                try:
+                    file_contents = file_path.read_text(encoding="utf-8-sig")
+                except UnicodeDecodeError:
+                    file_contents = file_path.read_text(encoding="ISO-8859-1")
+            else:
+                file_contents = file_path.read_text(encoding=encoding)
+
+            fid = io.StringIO(file_contents)
+            fid.name = str(file_path)
+        else:
+            fid = get_fid(file)
+
         try:
-            try:
-                if encoding is not None:
-                    fid = get_fid(file, encoding=encoding)
-                    self.filename = fid.name
-                    self.load_file(fid)
-                else:
-                    # Assume default encoding
-                    fid = get_fid(file)
-                    self.filename = fid.name
-                    self.load_file(fid)
-            except Exception as e:
-                fid.close()
-                raise e
-
-        except UnicodeDecodeError:
-            # Unicode fails -> Force Latin-1
-            fid = get_fid(file, encoding="ISO-8859-1")
             self.filename = fid.name
             self.load_file(fid)
-
-        except ValueError:
-            # Assume Microsoft UTF-8 variant encoding with BOM
-            fid = get_fid(file, encoding="utf-8-sig")
-            self.filename = fid.name
-            self.load_file(fid)
-
-        except Exception as e:
-            raise ValueError("Something went wrong by the file opening") from e
-
         finally:
             fid.close()
 
@@ -343,6 +317,66 @@ class Touchstone:
 
         return ret
 
+    @staticmethod
+    def _parse_float_block(*, line: str, fid: typing.TextIO) -> list[float]:
+        """Parse a whole HFSS comment block, however many values it holds.
+
+        HFSS writes one value per port or a full matrix, wrapped over continuation lines either
+        way, so the count is not known in advance. The block is delimited instead: it ends at
+        the first line that is not a comment holding only numbers.
+
+        Args:
+            line (str): The keyword line.
+            fid (typing.TextIO): File descriptor to read continuation lines from.
+
+        Returns:
+            list[float]: Every value of the block.
+        """
+        values = []
+        for token in line.rpartition("!")[2].split():
+            try:
+                values.append(float(token))
+            except ValueError:
+                pass
+
+        while True:
+            position = fid.tell()
+            continuation = fid.readline().strip()
+            more = None
+            if continuation.startswith("!"):
+                try:
+                    more = [float(token) for token in continuation[1:].split()]
+                except ValueError:
+                    more = None
+            if not more:
+                # the line belongs to the main parse loop, hand it back
+                fid.seek(position)
+                break
+            values.extend(more)
+
+        return values
+
+    def _hfss_port_values(self, blocks: list[list[float]]) -> np.ndarray:
+        """Reduce parsed HFSS comment blocks to one complex value per port and frequency.
+
+        Args:
+            blocks (list[list[float]]): One parsed block per frequency point.
+
+        Returns:
+            np.ndarray: Values of shape (frequencies, rank).
+        """
+        values = np.array(blocks).view(np.complex128)
+        if values.shape[-1] == self.rank**2 != self.rank:
+            # Driven Terminal exports the full matrix, only its diagonal is per port (#354)
+            return np.diagonal(values.reshape(-1, self.rank, self.rank), axis1=1, axis2=2)
+        if values.shape[-1] != self.rank:
+            warnings.warn(
+                f"Expected {self.rank} or {self.rank**2} values per frequency in the HFSS "
+                f"comments of {self.filename}, got {values.shape[-1]}.",
+                stacklevel=2,
+            )
+        return values
+
     @property
     def version(self) -> str:
         """The version string.
@@ -355,7 +389,7 @@ class Touchstone:
     @version.setter
     def version(self, x: str) -> None:
         self._version = x
-        if x == "2.0":
+        if x in {"2.0", "2.1"}:
             self._parse_dict.update(self._parse_dict_v2)
 
     def _parse_port(self, fid: typing.TextIO) -> list[str]:
@@ -441,16 +475,9 @@ class Touchstone:
         self._parse_dict: dict[str, Callable[[str], None]] = {
             "[version]": lambda x: setattr(self, "version", x.split()[1]),
             "#": lambda x: state.parse_option_line(x),
-            "! gamma": lambda x: state.hfss_gamma.append(
-                self._parse_n_floats(line=x, fid=fid, n=state.rank * 2, before_comment=False)
-            ),
+            "! gamma": lambda x: state.hfss_gamma.append(self._parse_float_block(line=x, fid=fid)),
             "! port impedance": lambda x: state.hfss_impedance.append(
-                self._parse_n_floats(
-                    line=remove_prefix(x.lower(), "! port impedance"),
-                    fid=fid,
-                    n=state.n_ansys_impedance_values,
-                    before_comment=False,
-                )
+                self._parse_float_block(line=remove_prefix(x.lower(), "! port impedance"), fid=fid)
             ),
             "! port": state.parse_port,
             "! terminal data exported": lambda _: setattr(state, "ansys_data_type", "terminal"),
@@ -553,7 +580,7 @@ class Touchstone:
                 self.port_names[k] = v
 
         if state.hfss_gamma:
-            self.gamma = np.array(state.hfss_gamma).view(np.complex128)
+            self.gamma = self._hfss_port_values(state.hfss_gamma)
 
 
         # Impedance is parsed in the following order:
@@ -561,11 +588,7 @@ class Touchstone:
         # - TS v2 Reference keyword for each port.
         # - Reference impedance from option line.
         if state.hfss_impedance:
-            self.z0 = np.array(state.hfss_impedance).view(np.complex128)
-            # Comment the line in, when we need when to expect port impedances in NxN format.
-            # See https://github.com/scikit-rf/scikit-rf/issues/354 for details.
-            #if state.ansys_data_type == "terminal":
-            #    self.z0 = np.diagonal(self.z0.reshape(-1, self.rank, self.rank), axis1=1, axis2=2)
+            self.z0 = self._hfss_port_values(state.hfss_impedance)
 
             self.s_def = S_DEF_HFSS_DEFAULT
             self.has_hfss_port_impedances = True
@@ -932,7 +955,11 @@ def hfss_touchstone_2_network(filename: str) -> Network:
     return my_network
 
 
-def read_zipped_touchstones(ziparchive: zipfile.ZipFile, dir: str = "") -> dict[str, Network]:
+def read_zipped_touchstones(
+    ziparchive: zipfile.ZipFile,
+    dir: str = "",
+    encoding: str | None = None,
+) -> dict[str, Network]:
     """
     similar to skrf.io.read_all_networks, which works for directories but only for Touchstones in ziparchives.
 
@@ -942,6 +969,9 @@ def read_zipped_touchstones(ziparchive: zipfile.ZipFile, dir: str = "") -> dict[
         an zip archive file, containing Touchstone files and open for reading
     dir : str
         the directory of the ziparchive to read networks from, default is "" which reads only the root directory
+    encoding : str, optional
+        File encoding. Supported encodings are ISO-8859-1 and UTF-8.
+        If omitted, encoding is detected for each file.
 
     Returns
     -------
@@ -952,7 +982,7 @@ def read_zipped_touchstones(ziparchive: zipfile.ZipFile, dir: str = "") -> dict[
     networks = dict()
     for fname in ziparchive.namelist():  # type: str
         directory = os.path.split(fname)[0]
-        if dir == directory and  re.search(r"s\d+p$", fname.lower()):
-            network = Network.zipped_touchstone(fname, ziparchive)
+        if dir == directory and re.search(r"\.(?:s\d+p|ts)$", fname.lower()):
+            network = Network.zipped_touchstone(fname, ziparchive, encoding=encoding)
             networks[network.name] = network
     return networks

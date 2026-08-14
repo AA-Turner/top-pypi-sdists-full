@@ -6,6 +6,9 @@ import time
 from dataclasses import asdict
 
 from airbyte_ops_mcp.connector_ops.rollouts.constants import CustomerTier
+from airbyte_ops_mcp.registry.progressive_rollout_marker import (
+    ProgressiveRolloutMarkerAnnotationResult,
+)
 
 from airbyte_ops_webapp.models import (
     ConnectorOption,
@@ -17,6 +20,7 @@ from airbyte_ops_webapp.models import (
     CurrentVersionState,
     OperationResult,
     OverridePlan,
+    ProgressiveRolloutMarkerDetail,
     RolloutSyncSummary,
     ScopedConfiguration,
     ScopeType,
@@ -587,7 +591,16 @@ MOCK_ROLLOUTS: dict[str, tuple[ConnectorRollout, ...]] = {
             connector_name="source-postgres",
             connector_type="source",
             docker_repository="airbyte/source-postgres",
-            state="in_progress",
+            # Autopilot pauses (rather than cancels) a tier whose failure
+            # threshold trips, writing FAILURE_THRESHOLD_EXCEEDED_MARKER into
+            # `paused_reason`. The later TIER_1 rollout below is already
+            # running, so this row also covers the inference-rule regression:
+            # a held tier must stay ⚠️ and never be promoted to ☑️.
+            state="paused",
+            paused_reason=(
+                "Failure threshold exceeded: 2 failures (threshold=1). "
+                "Pause/rollback recommended."
+            ),
             rc_docker_image_tag="3.8.0-rc.12",
             initial_docker_image_tag="3.7.2",
             current_target_rollout_pct="50",
@@ -908,6 +921,83 @@ class MockPinningAdapter(OpsMcpAdapter):
                     raw="\n".join(raw_lines) + "\n",
                 )
         return None
+
+    def get_progressive_rollout_marker(
+        self,
+        connector_name: str,
+        version: str,
+    ) -> ProgressiveRolloutMarkerDetail | None:
+        """Return a realistic pending promotion marker for the demo RC."""
+        if connector_name == "source-github" and version == "1.10.0-rc.1":
+            return ProgressiveRolloutMarkerDetail(
+                connector_id="ef69ef6e-aa7f-4af1-a01d-ef775033524e",
+                connector_name=connector_name,
+                docker_image_tag=version,
+                progressive_rollout=True,
+                created_at="2026-06-20T11:30:00Z",
+                promotion_requested_at="2026-06-20T15:00:00Z",
+                promotion_requested_by="ops@example.com",
+                rollout_id="rollout_demo_github",
+                raw=(
+                    "progressive_rollout: true\n"
+                    "created_at: '2026-06-20T11:30:00Z'\n"
+                    "promotion_requested_at: '2026-06-20T15:00:00Z'\n"
+                    "promotion_requested_by: ops@example.com\n"
+                    "rollout_id: rollout_demo_github\n"
+                ),
+                state="active",
+                marker_date="",
+            )
+        if connector_name == "source-github" and version == "1.10.0":
+            return ProgressiveRolloutMarkerDetail(
+                connector_id="ef69ef6e-aa7f-4af1-a01d-ef775033524e",
+                connector_name=connector_name,
+                docker_image_tag=version,
+                progressive_rollout=True,
+                created_at="2026-06-20T11:30:00Z",
+                promotion_requested_at="2026-06-20T15:00:00Z",
+                promotion_requested_by="ops@example.com",
+                rollout_id="rollout_demo_github",
+                raw=(
+                    "progressive_rollout: true\n"
+                    "created_at: '2026-06-20T11:30:00Z'\n"
+                    "promotion_requested_at: '2026-06-20T15:00:00Z'\n"
+                    "promotion_requested_by: ops@example.com\n"
+                    "rollout_id: rollout_demo_github\n"
+                ),
+                state="promoted",
+                marker_date="20260620",
+            )
+        return None
+
+    def annotate_progressive_rollout_marker(
+        self,
+        connector_name: str,
+        version: str,
+        *,
+        promotion_requested_by: str,
+        rollout_id: str,
+    ) -> ProgressiveRolloutMarkerAnnotationResult:
+        """Return a successful demo annotation result."""
+        marker = self.get_progressive_rollout_marker(connector_name, version)
+        if marker is None:
+            return ProgressiveRolloutMarkerAnnotationResult(
+                connector_name=connector_name,
+                version=version,
+                bucket_name="mock",
+                action="annotate",
+                success=False,
+                message="No active progressive rollout marker found.",
+            )
+        return ProgressiveRolloutMarkerAnnotationResult(
+            connector_name=connector_name,
+            version=version,
+            bucket_name="mock",
+            action="annotate",
+            success=True,
+            message="Annotated active progressive rollout marker.",
+            marker=marker,
+        )
 
     def list_recent_releases(
         self,

@@ -7,6 +7,8 @@ from enum import Enum, StrEnum
 
 from airbyte.exceptions import PyAirbyteInputError
 
+from airbyte_ops_mcp.registry._constants import PROD_METADATA_SERVICE_BUCKET_NAME
+
 MCP_SERVER_NAME = "airbyte-internal-ops"
 """The name of the MCP server."""
 
@@ -82,6 +84,12 @@ CLOUD_REGISTRY_URL = (
     "https://connectors.airbyte.com/files/registries/v0/cloud_registry.json"
 )
 """URL for the Airbyte Cloud connector registry."""
+
+CLOUD_REGISTRY_GCS_URL = (
+    "https://storage.googleapis.com/"
+    f"{PROD_METADATA_SERVICE_BUCKET_NAME}/registries/v0/cloud_registry.json"
+)
+"""Direct GCS URL for the Airbyte Cloud connector registry."""
 
 # =============================================================================
 # Organization ID Aliases

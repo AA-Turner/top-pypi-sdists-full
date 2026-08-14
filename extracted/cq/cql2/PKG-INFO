@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cql2
-Version: 0.5.7
+Version: 0.6.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -10,6 +10,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
+License-File: NOTICE
 Summary: Parse, validate, and convert Common Query Language (CQL2) text and JSON
 Keywords: cql2
 Home-Page: https://github.com/developmentseed/cql2-rs
@@ -30,15 +31,18 @@ pip install cql2
 Then:
 
 ```python
+from cql2 import Expr, parse_file
+
 expr = Expr("landsat:scene_id = 'LC82030282019133LGN00'")
 # or
-expr = cql2.parse_file("fixtures/text/example01.txt")
+expr = parse_file("examples/text/example01.txt")
 
 s = expr.to_text()
 d = expr.to_json()
 sql = expr.to_sql()
-print("SQL query:", sql.query)
-print("SQL params:", sql.params)
+print("cql2-text:", s)
+print("cql2-json:", d)
+print("SQL:", sql)
 ```
 
 Or from via the command-line interface:

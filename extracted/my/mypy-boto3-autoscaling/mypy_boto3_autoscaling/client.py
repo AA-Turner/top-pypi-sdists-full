@@ -148,6 +148,7 @@ class Exceptions(BaseClientExceptions):
     ActiveInstanceRefreshNotFoundFault: type[BotocoreClientError]
     AlreadyExistsFault: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
+    IdempotentCallInProgressFault: type[BotocoreClientError]
     IdempotentParameterMismatchError: type[BotocoreClientError]
     InstanceRefreshInProgressFault: type[BotocoreClientError]
     InvalidNextToken: type[BotocoreClientError]

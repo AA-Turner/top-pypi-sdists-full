@@ -18,11 +18,11 @@ from pettingzoo.utils.conversions import parallel_to_aec_wrapper, parallel_wrapp
 from pettingzoo.utils.env import ParallelEnv
 
 __all__ = [
-    "parallel_wrapper_fn",
-    "parallel_to_aec_wrapper",
-    "base_env_wrapper_fn",
     "BaseAtariEnv",
     "ParallelAtariEnv",
+    "base_env_wrapper_fn",
+    "parallel_to_aec_wrapper",
+    "parallel_wrapper_fn",
 ]
 
 AgentID = NewType("AgentID", str)
@@ -33,7 +33,7 @@ StateType = npt.NDArray[np.int8]
 
 
 def base_env_wrapper_fn(
-    raw_env_fn: Callable[..., AtariAECEnv]
+    raw_env_fn: Callable[..., AtariAECEnv],
 ) -> Callable[..., AtariAECEnv]:
     def env_fn(**kwargs: Any) -> AtariAECEnv:
         env = raw_env_fn(**kwargs)
@@ -134,9 +134,9 @@ class ParallelAtariEnv(ParallelEnv[AgentID, ObsType, ActionType], EzPickle):
             mode = all_modes[0]
         else:
             mode = mode_num
-            assert (
-                mode in all_modes
-            ), f"mode_num parameter is wrong. Mode {mode_num} selected, only {list(all_modes)} modes are supported"
+            assert mode in all_modes, (
+                f"mode_num parameter is wrong. Mode {mode_num} selected, only {list(all_modes)} modes are supported"
+            )
 
         self.mode = mode
         self.ale.setMode(self.mode)
@@ -176,9 +176,7 @@ class ParallelAtariEnv(ParallelEnv[AgentID, ObsType, ActionType], EzPickle):
             agent: gymnasium.spaces.Discrete(action_size)
             for agent in self.possible_agents
         }
-        self.observation_spaces = {
-            agent: observation_space for agent in self.possible_agents
-        }
+        self.observation_spaces = dict.fromkeys(self.possible_agents, observation_space)
 
         self._screen: pygame.Surface | None = None
         self._seed(seed)
@@ -198,14 +196,14 @@ class ParallelAtariEnv(ParallelEnv[AgentID, ObsType, ActionType], EzPickle):
             self.np_random, seed = seeding.np_random()
         self.ale.reset_game()
         self.agents = self.possible_agents[:]
-        self.terminations = {agent: False for agent in self.possible_agents}
+        self.terminations = dict.fromkeys(self.possible_agents, False)
         self.frame = 0
 
         obs = self._observe()
         infos: dict[AgentID, dict[str, Any]] = {
             agent: {} for agent in self.possible_agents if agent in self.agents
         }
-        return {agent: obs for agent in self.agents}, infos
+        return dict.fromkeys(self.agents, obs), infos
 
     def observation_space(self, agent: AgentID) -> gymnasium.spaces.Space[Any]:
         return self.observation_spaces[agent]
@@ -217,14 +215,13 @@ class ParallelAtariEnv(ParallelEnv[AgentID, ObsType, ActionType], EzPickle):
         if self.obs_type == "ram":
             bytes = self.ale.getRAM()
             return cast(ObsType, bytes)
-        elif self.obs_type == "rgb_image":
+        if self.obs_type == "rgb_image":
             return cast(ObsType, self.ale.getScreenRGB())
-        elif self.obs_type == "grayscale_image":
+        if self.obs_type == "grayscale_image":
             return cast(ObsType, self.ale.getScreenGrayscale())
-        else:
-            raise ValueError(
-                "obs_type must  either be 'ram' or 'rgb_image' or 'grayscale_image'"
-            )
+        raise ValueError(
+            "obs_type must  either be 'ram' or 'rgb_image' or 'grayscale_image'"
+        )
 
     def step(
         self, action_dict: dict[AgentID, ActionType]
@@ -243,10 +240,10 @@ class ParallelAtariEnv(ParallelEnv[AgentID, ObsType, ActionType], EzPickle):
         actions = self.action_mapping[actions]
         rewards = self.ale.act(actions)
         self.frame += 1
-        truncations = {agent: self.frame >= self.max_cycles for agent in self.agents}
+        truncations = dict.fromkeys(self.agents, self.frame >= self.max_cycles)
 
         if self.ale.game_over():
-            terminations = {agent: True for agent in self.agents}
+            terminations = dict.fromkeys(self.agents, True)
         else:
             lives = self.ale.allLives()
             # an inactive agent in ale gets a -1 life.
@@ -257,7 +254,7 @@ class ParallelAtariEnv(ParallelEnv[AgentID, ObsType, ActionType], EzPickle):
             }
 
         obs = self._observe()
-        observations = {agent: obs for agent in self.agents}
+        observations = dict.fromkeys(self.agents, obs)
         rewards = {
             agent: rew
             for agent, rew in zip(self.possible_agents, rewards)
@@ -279,15 +276,15 @@ class ParallelAtariEnv(ParallelEnv[AgentID, ObsType, ActionType], EzPickle):
             )
             return None
 
-        assert (
-            self.render_mode in self.metadata["render_modes"]
-        ), f"{self.render_mode} is not a valid render mode"
+        assert self.render_mode in self.metadata["render_modes"], (
+            f"{self.render_mode} is not a valid render mode"
+        )
         (screen_width, screen_height) = self.ale.getScreenDims()
         image = cast(npt.NDArray[np.int8], self.ale.getScreenRGB())
         if self.render_mode == "human":
             zoom_factor = 4
             if self._screen is None:
-                pygame.init()
+                pygame.display.init()
                 self._screen = pygame.display.set_mode(
                     (screen_width * zoom_factor, screen_height * zoom_factor)
                 )

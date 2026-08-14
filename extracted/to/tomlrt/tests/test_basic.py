@@ -370,6 +370,42 @@ def test_parse_error_position_counts_crlf_as_one_line() -> None:
     assert (err.line, err.col, err.offset) == (2, 5, 11)
 
 
+@pytest.mark.parametrize(
+    ("src", "position"),
+    [
+        # Error on the very first character: no preceding newline.
+        ("@\n", (1, 1, 0)),
+        # Error past the last character of a source with no trailing newline.
+        ("a =", (1, 4, 3)),
+        # Error on a newline character itself: it belongs to the line it ends.
+        ('a = "abc\n', (1, 9, 8)),
+        # Error at the very end of the source, just after a final newline.
+        ("a = 1\n[", (2, 2, 7)),
+        # Reported by the validator rather than the scanner: the
+        # duplicate header itself, not wherever the cursor ended up.
+        ("[a]\n[a]\n", (2, 1, 4)),
+        # Ditto for a duplicate key.
+        ("a = 1\na = 2\n", (2, 1, 6)),
+        # An indented offender points at the key, not at the indent.
+        ("[t]\nb.c = 1\n  b = 2\n", (3, 3, 14)),
+        # No trailing newline: still the header, not the end of the line.
+        ("[a]\n[a]", (2, 1, 4)),
+        # Leading blank lines still count.
+        ("\n\n@\n", (3, 1, 2)),
+        # Columns count code points, not UTF-8 bytes: each emoji is one column.
+        ('a = "\U0001f600\U0001f600" @\n', (1, 10, 9)),
+        # A lone CR inside a basic string is not a line break.
+        ('a=1\r\nb="x\ry"\r\n', (2, 5, 9)),
+    ],
+)
+def test_parse_error_positions(src: str, position: tuple[int, int, int]) -> None:
+    with pytest.raises(tomlrt.TOMLParseError) as exc_info:
+        tomlrt.loads(src)
+    err = exc_info.value
+    assert (err.line, err.col, err.offset) == position
+    assert str(err).endswith(f"(line {position[0]}, column {position[1]})")
+
+
 def test_parse_error_is_value_error() -> None:
     # `tomllib.TOMLDecodeError` extends `ValueError`; tomlrt should be
     # catchable the same way for drop-in compatibility.

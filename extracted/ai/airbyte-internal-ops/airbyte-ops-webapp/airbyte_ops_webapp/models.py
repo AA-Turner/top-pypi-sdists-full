@@ -171,6 +171,23 @@ class YankMarkerDetail:
 
 
 @dataclass(frozen=True)
+class ProgressiveRolloutMarkerDetail:
+    """Parsed contents of a single progressive rollout marker."""
+
+    connector_id: str
+    connector_name: str
+    docker_image_tag: str
+    progressive_rollout: bool
+    created_at: str
+    promotion_requested_at: str
+    promotion_requested_by: str
+    rollout_id: str
+    raw: str
+    state: str = "active"
+    marker_date: str = ""
+
+
+@dataclass(frozen=True)
 class ConnectorVersion:
     """Published connector version row."""
 

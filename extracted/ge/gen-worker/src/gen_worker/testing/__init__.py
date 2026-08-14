@@ -1,8 +1,8 @@
-"""Test helpers for authoring gen-worker endpoints (pgw#524 item 3).
+"""Test helpers for authoring gen-worker endpoints.
 
 Every ``Slot``-declared endpoint needs a ``ctx.slots["<name>"]`` stub to
-unit-test its handler without a live hub — before this module, every
-endpoint hand-rolled its own ``FakeCtx``. :func:`fake_context` builds a real
+unit-test its handler without a live hub, so that no endpoint hand-rolls its
+own ``FakeCtx``. :func:`fake_context` builds a real
 :class:`~gen_worker.request_context.RequestContext` (or a producer-kind
 subclass) with ``ctx.slots`` pre-resolved from plain ``(ref, defaults)``
 pairs::
@@ -17,7 +17,7 @@ pairs::
     out = Generate().generate(ctx, TextToImage(prompt="a cat"))
 
 Pass a :class:`Recorder` to assert what the handler SAVED and LOGGED
-(pgw#942) — the outputs go through the SDK's real encode/stamp/write path
+ — the outputs go through the SDK's real encode/stamp/write path
 and land in an inspectable list::
 
     rec = Recorder()
@@ -28,10 +28,9 @@ and land in an inspectable list::
     assert rec.images[0].read_bytes()[:4] == b"RIFF"     # a real webp encode
     assert "loaded 2 loras" in rec.messages
 
-That is the half 23 endpoint suites were hand-rolling: a ``_Ctx`` subclass
-overriding ``save_image``/``save_audio`` to capture the call. Overriding it
-is what made those suites green over an encode path they never ran; the
-recorder captures the same facts on the way THROUGH it.
+Do NOT hand-roll a ``_Ctx`` subclass overriding ``save_image``/``save_audio``
+to capture calls: overriding them makes a suite green over an encode path it
+never ran. The recorder captures the same facts on the way THROUGH it.
 
 Not imported by ``gen_worker`` itself — production code has no reason to
 import test helpers; import ``gen_worker.testing`` explicitly from test
@@ -63,13 +62,6 @@ from typing import (
 import msgspec
 
 from ..api.binding import ModelRef
-from ..api.sdk_shape import (
-    DELETED_FIELDS,
-    DeclarationShapeError,
-    DeletedField,
-    assert_declaration_shape,
-    assert_sdk_shape,
-)
 from ..api.slot import ResolvedSlot
 from ..api.types import Asset, AudioAsset, ImageAsset, VideoAsset
 from ..families.base import GenerationDefaults
@@ -80,12 +72,12 @@ if TYPE_CHECKING:  # heavy optional deps — imported only for signature fidelit
     import torch
     from PIL import Image
 
-C = TypeVar("C", bound=RequestContext)
+C = TypeVar("C", bound="RequestContext[Any]")
 
 
 def stub_slots(
     slots: Mapping[str, Tuple[ModelRef, GenerationDefaults]],
-) -> Dict[str, "ResolvedSlot[Any]"]:
+) -> Dict[str, "ResolvedSlot[GenerationDefaults]"]:
     """``{slot_name: (ref, defaults)}`` -> ``{slot_name: ResolvedSlot}`` —
     the same shape ``ctx.slots`` hands a handler in production, built
     directly instead of via the repo-metadata resolution chain."""
@@ -326,7 +318,7 @@ def fake_context(
     :class:`RequestContext` constructor kwarg (``owner``, ``invoker_id``,
     ...) passes through via ``**kwargs``.
 
-    ``recorder`` (pgw#942) turns on RECORDING MODE: saves land in
+    ``recorder`` turns on RECORDING MODE: saves land in
     ``recorder.saved`` and events in ``recorder.events``, and outputs are
     written into the recorder's own directory instead of being uploaded — so
     the handler runs the SDK's real encode path with no hub and no network.
@@ -360,14 +352,9 @@ def fake_context(
 
 
 __all__ = [
-    "DELETED_FIELDS",
-    "DeclarationShapeError",
-    "DeletedField",
     "RecordedEvent",
     "Recorder",
     "SavedArtifact",
-    "assert_declaration_shape",
-    "assert_sdk_shape",
     "fake_context",
     "stub_slots",
 ]

@@ -135,7 +135,7 @@ def _command_critical_floor_factors(
             segment,
             index,
             executable,
-            indirect=depth > 0 or str(segment.executable or "").lower().endswith(".exe"),
+            indirect=depth > 0 or bool(command.wrapper_chain) or str(segment.executable or "").lower().endswith(".exe"),
             authorized_action_class=authorized_action_class,
         )
         if github_factor is not None:
@@ -182,7 +182,10 @@ def _github_factor(
         and github_capability_action_class(assessment) == authorized_action_class
     ):
         return None
-    if assessment.action_floor == "allow" and not (indirect and "routine_merge_remote" in assessment.capabilities):
+    indirect_routine_mutation = indirect and bool(
+        {"routine_merge_remote", "routine_workflow_remote"}.intersection(assessment.capabilities)
+    )
+    if assessment.action_floor == "allow" and not indirect_routine_mutation:
         return None
     action_floor = assessment.action_floor
     if indirect and action_floor != "block":

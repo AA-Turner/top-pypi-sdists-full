@@ -110,12 +110,12 @@ def make_keypart(name: str) -> KeyPart:
     return KeyPart(quote_basic_key(name), name)
 
 
-def make_keyparts(path: tuple[str, ...]) -> list[KeyPart]:
-    """Build a list of ``KeyPart``s for each segment of ``path``."""
-    return [make_keypart(p) for p in path]
+def make_keyparts(path: tuple[str, ...]) -> tuple[KeyPart, ...]:
+    """Build a ``KeyPart`` for each segment of ``path``."""
+    return tuple([make_keypart(p) for p in path])
 
 
-def render_dotted(parts: list[KeyPart], seps: list[str]) -> str:
+def render_dotted(parts: tuple[KeyPart, ...], seps: tuple[str, ...]) -> str:
     """Render a dotted key as ``part0 sep0 part1 sep1 ...``.
 
     ``seps`` has length ``len(parts) - 1``; each entry is the literal
@@ -151,11 +151,14 @@ class CommaItem:
     has_comma: bool
     post_comma_trivia: str
 
+    def render_tail(self) -> str:
+        """Everything the item renders after its value."""
+        if not self.has_comma:
+            return self.trailing
+        return f"{self.trailing},{self.post_comma_trivia}"
+
     def render(self) -> str:
-        out = f"{self.leading}{self.value.render()}{self.trailing}"
-        if self.has_comma:
-            out += f",{self.post_comma_trivia}"
-        return out
+        return f"{self.leading}{self.value.render()}{self.render_tail()}"
 
 
 @dataclass(slots=True, eq=False)
@@ -169,13 +172,18 @@ class InlineTableEntry(CommaItem):
 
     The shared trivia/comma machinery lives on `CommaItem`; this leaf
     adds only the key-prefix fields and keyed rendering.
+
+    Its fields are positional, like a `Slot`'s and for the same reason:
+    an entry is built once per parsed ``key = value``, and binding ten
+    fields by keyword costs several times as much as binding them
+    positionally.
     """
 
-    key_parts: list[KeyPart] = field(kw_only=True)
-    key_seps: list[str] = field(kw_only=True)  # len = len(key_parts) - 1
-    pre_eq: str = field(kw_only=True)
-    post_eq: str = field(kw_only=True)
-    key_path: tuple[str, ...] = field(kw_only=True)
+    key_parts: tuple[KeyPart, ...]
+    key_seps: tuple[str, ...]  # len = len(key_parts) - 1
+    pre_eq: str
+    post_eq: str
+    key_path: tuple[str, ...]
     """Decoded dotted-key path.
 
     Set by every construction site and read by inline-table validation,
@@ -187,14 +195,11 @@ class InlineTableEntry(CommaItem):
 
     @override
     def render(self) -> str:
-        out = (
+        return (
             f"{self.leading}{self.render_key()}"
             f"{self.pre_eq}={self.post_eq}"
-            f"{self.value.render()}{self.trailing}"
+            f"{self.value.render()}{self.render_tail()}"
         )
-        if self.has_comma:
-            out += f",{self.post_comma_trivia}"
-        return out
 
 
 _ItemT = TypeVar("_ItemT", bound=CommaItem)
@@ -222,10 +227,9 @@ class CommaValue(Generic[_ItemT]):
     header_trivia: str = ""
     final_trivia: str = ""
 
-    # Memoised `is_multiline()` result; None means "not computed".
-    # Append/insert/sort/reorder preserve multi-line shape, so the hot
-    # build path leaves it warm; only item removal and the explicit
-    # single<->multi toggle can flip it, and those invalidate it.
+    # Memoised `is_multiline()` result; None means "not computed". Mutations
+    # that preserve multi-line shape (append/insert/sort/reorder) leave it
+    # warm; item removal and the explicit single<->multi toggle invalidate it.
     _ml_cache: bool | None = field(default=None, init=False, compare=False, repr=False)
 
     _open: ClassVar[str] = ""
@@ -243,23 +247,21 @@ class CommaValue(Generic[_ItemT]):
     def is_multiline(self) -> bool:
         """Whether this value renders across multiple physical lines.
 
-        Memoised: the scan is O(n) for a single-line value, but the answer
-        only flips on item removal or an explicit single<->multi toggle (see
-        ``reset_multiline_cache``), so building a value with repeated appends
-        stays linear overall.
+        Memoised via `_ml_cache`: the first call after a cache-invalidating
+        mutation costs an O(n) scan, every other call is O(1).
         """
         if self._ml_cache is None:
             self._ml_cache = _scan_multiline(self)
         return self._ml_cache
 
     def reset_multiline_cache(self) -> None:
-        """Drop the memoised ``is_multiline`` result so it recomputes.
+        """Drop the memoised `is_multiline` result so it recomputes.
 
-        Call after any mutation that can change the multi-line shape: item
-        removal (the removed item may carry the sole newline, or emptying may
-        collapse the bracket pads) and the explicit single<->multi toggle.
-        Append / insert / sort / reorder preserve the shape and deliberately
-        do *not* reset it, keeping the build path warm.
+        Call after any mutation that can change the multi-line shape:
+        item removal (the removed item may carry the sole newline, or
+        emptying may collapse the bracket pads), or the explicit
+        single<->multi toggle. Append / insert / sort / reorder preserve
+        the shape and deliberately leave the cache alone.
         """
         self._ml_cache = None
 

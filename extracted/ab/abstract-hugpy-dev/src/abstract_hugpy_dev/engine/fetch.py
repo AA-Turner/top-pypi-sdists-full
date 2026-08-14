@@ -175,10 +175,20 @@ def _flatten_single_dir(dest: str) -> None:
 
 
 def _resolved(note: str) -> dict:
+    server = resolve.server_bin()
     return {
         "note": note,
         "engine_dir": engine_dir(),
-        "server_bin": resolve.server_bin(),
+        "server_bin": server,
         "rpc_bin": resolve.rpc_bin(),
         "cli_bin": resolve.cli_bin(),
+        # k94: record the install in the box's persisted config so a worker
+        # service under a different user/HOME resolves it too (the install used
+        # to persist nothing and the operator reinstalled forever). Runs on the
+        # already-installed early return as well, so one install-engine run
+        # repairs a box that installed before persistence existed. A system/PATH
+        # llama-server is not ours to pin — nothing is recorded for it.
+        "persisted_to": (resolve.persist_install(engine_dir(), server)
+                         if server and resolve.managed_engine_root(server)
+                         else None),
     }

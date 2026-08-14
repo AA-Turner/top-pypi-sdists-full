@@ -28,6 +28,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     DescribePullRequestEventsPaginator,
+    GetBlobDifferencesPaginator,
     GetCommentsForComparedCommitPaginator,
     GetCommentsForPullRequestPaginator,
     GetDifferencesPaginator,
@@ -82,6 +83,8 @@ from .type_defs import (
     EvaluatePullRequestApprovalRulesOutputTypeDef,
     GetApprovalRuleTemplateInputTypeDef,
     GetApprovalRuleTemplateOutputTypeDef,
+    GetBlobDifferencesInputTypeDef,
+    GetBlobDifferencesOutputTypeDef,
     GetBlobInputTypeDef,
     GetBlobOutputTypeDef,
     GetBranchInputTypeDef,
@@ -384,6 +387,7 @@ class Exceptions(BaseClientExceptions):
     TipsDivergenceExceededException: type[BotocoreClientError]
     TitleRequiredException: type[BotocoreClientError]
     TooManyTagsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class CodeCommitClient(BaseClient):
     """
@@ -676,6 +680,16 @@ class CodeCommitClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/codecommit/client/get_blob.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_codecommit/client/#get_blob)
+        """
+
+    def get_blob_differences(
+        self, **kwargs: Unpack[GetBlobDifferencesInputTypeDef]
+    ) -> GetBlobDifferencesOutputTypeDef:
+        """
+        Returns a structured, line-level diff between two blob versions in a repository.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/codecommit/client/get_blob_differences.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_codecommit/client/#get_blob_differences)
         """
 
     def get_branch(self, **kwargs: Unpack[GetBranchInputTypeDef]) -> GetBranchOutputTypeDef:
@@ -1235,6 +1249,17 @@ class CodeCommitClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_pull_request_events"]
     ) -> DescribePullRequestEventsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/codecommit/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_codecommit/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_blob_differences"]
+    ) -> GetBlobDifferencesPaginator:
         """
         Create a paginator for an operation.
 

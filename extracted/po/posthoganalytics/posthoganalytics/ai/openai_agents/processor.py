@@ -21,7 +21,7 @@ from agents.tracing.span_data import (
 
 from posthoganalytics import setup
 from posthoganalytics.ai.media import ensure_serializable as _ensure_serializable
-from posthoganalytics.ai.sanitization import _multimodal_capture_enabled, _placeholder
+from posthoganalytics.ai.sanitization import _full_ai_capture_enabled, _placeholder
 from posthoganalytics.ai.utils import _capture_ai_event, finalize_ai_content
 from posthoganalytics.client import Client
 
@@ -801,7 +801,7 @@ class PostHogTracingProcessor(TracingProcessor):
             if span_type == "transcription":
                 audio_input: Any = (
                     span_data.input
-                    if _multimodal_capture_enabled(self._client)
+                    if _full_ai_capture_enabled(self._client)
                     else _placeholder(
                         getattr(span_data, "input_format", None) or "audio"
                     )

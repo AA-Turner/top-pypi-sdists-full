@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pettingzoo
-Version: 1.26.1
+Version: 1.27.0
 Summary: Gymnasium for multi-agent reinforcement learning.
 Author-email: Farama Foundation <contact@farama.org>
 License: MIT License
@@ -12,7 +12,6 @@ Keywords: Reinforcement Learning,game,RL,AI,gymnasium
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -20,11 +19,12 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: <3.15,>=3.9
+Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.21.0
 Requires-Dist: gymnasium>=1.0.0
+Requires-Dist: typing-extensions>=4.4.0
 Provides-Extra: atari
 Requires-Dist: multi_agent_ale_py>=0.1.11; extra == "atari"
 Requires-Dist: pygame-ce>=2.3.0; extra == "atari"
@@ -32,17 +32,21 @@ Provides-Extra: classic
 Requires-Dist: chess>=1.9.4; extra == "classic"
 Requires-Dist: rlcard>=1.0.5; extra == "classic"
 Requires-Dist: pygame-ce>=2.3.0; extra == "classic"
-Requires-Dist: shimmy[openspiel]>=1.2.0; extra == "classic"
+Requires-Dist: shimmy>=1.2.0; extra == "classic"
+Requires-Dist: open_spiel>=1.6.15; python_version >= "3.11" and extra == "classic"
 Provides-Extra: butterfly
 Requires-Dist: pygame-ce>=2.3.0; extra == "butterfly"
 Requires-Dist: pymunk>=6.2.0; extra == "butterfly"
 Provides-Extra: sisl
 Requires-Dist: pygame-ce>=2.3.0; extra == "sisl"
 Requires-Dist: pymunk>=6.2.0; extra == "sisl"
-Requires-Dist: box2d-py>=2.3.5; extra == "sisl"
 Requires-Dist: scipy>=1.4.1; extra == "sisl"
+Requires-Dist: box2d==2.3.10; python_version < "3.14" and extra == "sisl"
+Requires-Dist: box2d-py==2.3.8; python_version >= "3.14" and extra == "sisl"
+Requires-Dist: swig==4.*; python_version >= "3.14" and extra == "sisl"
 Provides-Extra: other
 Requires-Dist: pillow>=8.0.1; extra == "other"
+Requires-Dist: moviepy>=2.2.1; extra == "other"
 Provides-Extra: testing
 Requires-Dist: pynput>=1.7.6; extra == "testing"
 Requires-Dist: pytest>=8.0.0; extra == "testing"
@@ -52,18 +56,10 @@ Requires-Dist: pytest-xdist>=3.5.0; extra == "testing"
 Requires-Dist: pre-commit>=3.5.0; extra == "testing"
 Requires-Dist: pytest-markdown-docs>=0.5.0; extra == "testing"
 Provides-Extra: all
-Requires-Dist: multi_agent_ale_py>=0.1.11; extra == "all"
-Requires-Dist: pygame-ce>=2.3.0; extra == "all"
-Requires-Dist: chess>=1.9.4; extra == "all"
-Requires-Dist: rlcard>=1.0.5; extra == "all"
-Requires-Dist: shimmy[openspiel]>=1.2.0; extra == "all"
-Requires-Dist: pymunk>=6.2.0; extra == "all"
-Requires-Dist: box2d-py>=2.3.5; extra == "all"
-Requires-Dist: scipy>=1.4.1; extra == "all"
-Requires-Dist: pillow>=8.0.1; extra == "all"
+Requires-Dist: pettingzoo[atari,butterfly,classic,other,sisl]; extra == "all"
 Dynamic: license-file
 
-[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://pre-commit.com/) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Python](https://img.shields.io/pypi/pyversions/pettingzoo.svg)](https://badge.fury.io/py/pettingzoo) [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://pre-commit.com/) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 <p align="center">
     <a href = "https://pettingzoo.farama.org/" target = "_blank"><img src="https://raw.githubusercontent.com/Farama-Foundation/PettingZoo/master/pettingzoo-text.png" width="500px"/> </a>
@@ -90,9 +86,7 @@ This does not include dependencies for all families of environments (some enviro
 
 To install the dependencies for one family, use `pip install 'pettingzoo[atari]'`, or use `pip install 'pettingzoo[all]'` to install all dependencies.
 
-We support and maintain PettingZoo for Python 3.9, 3.10, 3.11, 3.12, 3.13, and 3.14 on Linux and macOS. We will accept PRs related to Windows, but do not officially support it.
-
-Note: Some Linux distributions may require manual installation of `cmake`, `swig`, or `zlib1g-dev` (e.g., `sudo apt install cmake swig zlib1g-dev`)
+We support and maintain PettingZoo for Linux and macOS. We will accept PRs related to Windows, but do not officially support it.
 
 ## Getting started
 
@@ -109,8 +103,8 @@ PettingZoo model environments as [*Agent Environment Cycle* (AEC) games](https:/
 Using environments in PettingZoo is very similar to Gymnasium, i.e. you initialize an environment via:
 
 ```python
-from pettingzoo.butterfly import pistonball_v6
-env = pistonball_v6.env()
+from pettingzoo import make
+env = make("aec", "butterfly/pistonball-v6")  # need to specify aec or parallel API
 ```
 
 Environments can be interacted with in a manner very similar to Gymnasium:
@@ -154,5 +148,4 @@ To cite this project in publication, please use
 
 ## Project Maintainers
 - Project Manager: [Travis Virgil](https://github.com/virgilt) - `travis@farama.org`
-- Maintainer: [Albert Han](https://github.com/yjhan96) - `yjhan96@gmail.com`.
 - Maintenance for this project is also contributed by the broader Farama team: [farama.org/team](https://farama.org/team).

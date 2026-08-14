@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: smithy-http
-Version: 0.4.3
+Version: 0.4.4
 Summary: HTTP components for Smithy tooling.
 Project-URL: Changelog, https://github.com/smithy-lang/smithy-python/blob/develop/packages/smithy-http/CHANGELOG.md
 Project-URL: Code, https://github.com/smithy-lang/smithy-python/blob/develop/packages/smithy-http/

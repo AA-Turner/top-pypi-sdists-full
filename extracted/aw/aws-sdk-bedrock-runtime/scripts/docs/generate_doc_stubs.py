@@ -1,7 +1,7 @@
 """
 Generate markdown API Reference stubs for AWS SDK for Python clients.
 
-This script generates MkDocs markdown stub files for a single client package.
+This script generates markdown stub files for a single client package.
 It uses griffe to analyze the Python source and outputs mkdocstrings directives
 for the client, operations, models (structures, unions, enums), and errors.
 """

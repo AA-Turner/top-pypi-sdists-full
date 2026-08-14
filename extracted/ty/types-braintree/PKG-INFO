@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-braintree
-Version: 4.45.0.20260807
+Version: 4.46.0.20260814
 Summary: Typing stubs for braintree
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -21,7 +21,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`braintree`](https://github.com/braintree/braintree_python) package. It can be used by type checkers
 to check code that uses `braintree`. This version of
 `types-braintree` aims to provide accurate annotations for
-`braintree==4.45.*`.
+`braintree==4.46.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -32,8 +32,9 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 2.3.0
+* [pyrefly](https://pyrefly.org/) 1.3.0.dev1
 * [pyright](https://github.com/microsoft/pyright) 1.1.411
 * [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`e0efbeef901e9b6998d016e1ab9352678f09ae77`](https://github.com/python/typeshed/commit/e0efbeef901e9b6998d016e1ab9352678f09ae77).
+[`8f448a724e8a1ed31a4b582e642c576d5481c44e`](https://github.com/python/typeshed/commit/8f448a724e8a1ed31a4b582e642c576d5481c44e).

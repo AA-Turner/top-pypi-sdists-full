@@ -36,28 +36,53 @@ from typing import TYPE_CHECKING
 
 import click
 from click.core import ParameterSource
-from fastapi import FastAPI
-import uvicorn
 
 from .. import version
-from ..agents.run_config import StreamingMode
-from ..evaluation.constants import MISSING_EVAL_DEPENDENCIES_MESSAGE
+from ..agents._streaming_mode import StreamingMode
 from ..features import FeatureName
 from ..features import override_feature_enabled
 from ..utils._telemetry_config import read_telemetry_consent
 from ..utils._telemetry_config import write_telemetry_consent
 from ._telemetry._metrics_collector import MetricsCollector
-from .cli import run_cli
 from .utils import envs
 from .utils import logs
 
 if TYPE_CHECKING:
+  from fastapi import FastAPI
+
   from ..agents.llm_agent import LlmAgent
+
 
 LOG_LEVELS = click.Choice(
     ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
     case_sensitive=False,
 )
+
+_STREAMING_MODE_CHOICES = tuple(str(mode.value) for mode in StreamingMode)
+
+
+def _missing_eval_dependencies_message() -> str:
+  # Imported lazily so loading the CLI does not pull in the evaluation stack.
+  from ..evaluation.constants import MISSING_EVAL_DEPENDENCIES_MESSAGE
+
+  return MISSING_EVAL_DEPENDENCIES_MESSAGE
+
+
+def _parse_streaming_mode(
+    _ctx: click.Context,
+    param: click.Parameter,
+    value: str | None,
+) -> StreamingMode | None:
+  """Converts a validated CLI value to its streaming mode."""
+  if value is None:
+    return None
+
+  mode = next(
+      (m for m in StreamingMode if str(m.value).lower() == value.lower()), None
+  )
+  if mode is None:
+    raise click.BadParameter(f"unknown streaming mode {value!r}", param=param)
+  return mode
 
 
 def _logging_options():
@@ -268,8 +293,12 @@ class TelemetryGroup(click.Group):
       )
       raise
     except BaseException as e:
-      exit_code = 1
-      exception_type = type(e).__name__
+      if isinstance(e, KeyboardInterrupt) and ctx.meta.get("server_started"):
+        exit_code = 0
+        exception_type = ""
+      else:
+        exit_code = 1
+        exception_type = type(e).__name__
       raise
     finally:
       # Exclude help requests and telemetry command group itself
@@ -316,6 +345,7 @@ class TelemetryGroup(click.Group):
                   exit_code=exit_code,
                   duration_ms=int((time.monotonic() - start_time) * 1000),
                   exception_type=exception_type,
+                  express_mode_action=ctx.meta.get("express_mode_action", ""),
               )
         except Exception:  # pylint: disable=broad-except
           # Failsafe: telemetry errors must never crash the CLI
@@ -429,13 +459,8 @@ def conformance():
 )
 @click.argument(
     "streaming-mode",
-    type=click.Choice(
-        [str(m.value) for m in StreamingMode], case_sensitive=False
-    ),
-    callback=lambda ctx, param, value: next(
-        (m for m in StreamingMode if str(m.value).lower() == value.lower()),
-        value,
-    ),
+    type=click.Choice(_STREAMING_MODE_CHOICES, case_sensitive=False),
+    callback=_parse_streaming_mode,
 )
 @click.pass_context
 def cli_conformance_record(
@@ -519,15 +544,8 @@ def cli_conformance_record(
 )
 @click.option(
     "--streaming-mode",
-    type=click.Choice(
-        [str(m.value) for m in StreamingMode], case_sensitive=False
-    ),
-    callback=lambda ctx, param, value: next(
-        (m for m in StreamingMode if str(m.value).lower() == value.lower()),
-        value,
-    )
-    if value is not None
-    else None,
+    type=click.Choice(_STREAMING_MODE_CHOICES, case_sensitive=False),
+    callback=_parse_streaming_mode,
     required=False,
     default=None,
 )
@@ -943,6 +961,8 @@ def cli_run(
     sys.exit(exit_code)
   else:
     # Legacy interactive mode
+    from .cli import run_cli
+
     asyncio.run(
         run_cli(
             agent_parent_dir=agent_parent_folder,
@@ -1081,6 +1101,33 @@ def eval_options():
   return decorator
 
 
+def _resolve_eval_config_file_path(
+    config_file_path: Optional[str],
+    eval_set_file_or_id_to_evals: dict[str, list[str]],
+) -> Optional[str]:
+  """Returns config file path for eval command.
+
+  If `config_file_path` is provided, it is used as-is. If omitted and evals are
+  loaded from a single file, this returns
+  `<eval_set_file_dir>/test_config.json`. Otherwise, returns None.
+  """
+  if config_file_path:
+    return config_file_path
+
+  if not eval_set_file_or_id_to_evals:
+    return None
+
+  if len(eval_set_file_or_id_to_evals) != 1:
+    return None
+
+  first_eval_set = next(iter(eval_set_file_or_id_to_evals))
+  if os.path.exists(first_eval_set):
+    eval_set_dir = os.path.dirname(first_eval_set)
+    return os.path.join(eval_set_dir, "test_config.json")
+
+  return None
+
+
 @main.command("eval", cls=HelpfulCommand)
 @feature_options()
 @click.argument(
@@ -1181,27 +1228,13 @@ def cli_eval(
     from ..evaluation.simulation.user_simulator_provider import UserSimulatorProvider
     from .cli_eval import _collect_eval_results
     from .cli_eval import _collect_inferences
-    from .cli_eval import get_root_agent
+    from .cli_eval import get_app_or_root_agent
     from .cli_eval import parse_and_get_evals_to_run
     from .cli_eval import pretty_print_eval_result
   except ModuleNotFoundError as mnf:
-    raise click.ClickException(MISSING_EVAL_DEPENDENCIES_MESSAGE) from mnf
+    raise click.ClickException(_missing_eval_dependencies_message()) from mnf
 
-  eval_config = get_evaluation_criteria_or_default(config_file_path)
-  print(f"Using evaluation criteria: {eval_config}")
-  eval_metrics = get_eval_metrics_from_config(eval_config)
-
-  # Live mode is resolved from the eval config, consistent with how
-  # `user_simulator_config` and other eval settings are sourced.
-  if eval_config.live_model_config:
-    inference_config = InferenceConfig(
-        use_live=True,
-        live_timeout_seconds=eval_config.live_model_config.timeout_seconds,
-    )
-  else:
-    inference_config = InferenceConfig(use_live=False)
-
-  root_agent = asyncio.run(get_root_agent(agent_module_file_path))
+  app, root_agent = asyncio.run(get_app_or_root_agent(agent_module_file_path))
   app_name = os.path.basename(agent_module_file_path)
   agents_dir = os.path.dirname(agent_module_file_path)
   eval_sets_manager = None
@@ -1222,6 +1255,23 @@ def cli_eval(
   eval_set_file_or_id_to_evals = parse_and_get_evals_to_run(
       eval_set_file_path_or_id
   )
+  resolved_config_file_path = _resolve_eval_config_file_path(
+      config_file_path=config_file_path,
+      eval_set_file_or_id_to_evals=eval_set_file_or_id_to_evals,
+  )
+  eval_config = get_evaluation_criteria_or_default(resolved_config_file_path)
+  print(f"Using evaluation criteria: {eval_config}")
+  eval_metrics = get_eval_metrics_from_config(eval_config)
+
+  # Live mode is resolved from the eval config, consistent with how
+  # `user_simulator_config` and other eval settings are sourced.
+  if eval_config.live_model_config:
+    inference_config = InferenceConfig(
+        use_live=True,
+        live_timeout_seconds=eval_config.live_model_config.timeout_seconds,
+    )
+  else:
+    inference_config = InferenceConfig(use_live=False)
 
   # Check if the first entry is a file that exists, if it does then we assume
   # rest of the entries are also files. We enforce this assumption in the if
@@ -1293,6 +1343,7 @@ def cli_eval(
         eval_set_results_manager=eval_set_results_manager,
         user_simulator_provider=user_simulator_provider,
         metric_evaluator_registry=metric_evaluator_registry,
+        app=app,
     )
 
     inference_results = asyncio.run(
@@ -1308,7 +1359,7 @@ def cli_eval(
         )
     )
   except ModuleNotFoundError as mnf:
-    raise click.ClickException(MISSING_EVAL_DEPENDENCIES_MESSAGE) from mnf
+    raise click.ClickException(_missing_eval_dependencies_message()) from mnf
 
   click.echo(
       "*********************************************************************"
@@ -1416,7 +1467,7 @@ def cli_optimize(
     from .cli_eval import get_root_agent
 
   except ModuleNotFoundError as mnf:
-    raise click.ClickException(MISSING_EVAL_DEPENDENCIES_MESSAGE) from mnf
+    raise click.ClickException(_missing_eval_dependencies_message()) from mnf
 
   with open(sampler_config_file_path, "r", encoding="utf-8") as f:
     content = f.read()
@@ -1554,7 +1605,7 @@ def cli_add_eval_case(
     from .cli_eval import get_eval_sets_manager
 
   except ModuleNotFoundError as mnf:
-    raise click.ClickException(MISSING_EVAL_DEPENDENCIES_MESSAGE) from mnf
+    raise click.ClickException(_missing_eval_dependencies_message()) from mnf
 
   app_name = os.path.basename(agent_module_file_path)
   agents_dir = os.path.dirname(agent_module_file_path)
@@ -1652,7 +1703,7 @@ def cli_generate_eval_cases(
     from .utils.state import create_empty_state
 
   except ModuleNotFoundError as mnf:
-    raise click.ClickException(MISSING_EVAL_DEPENDENCIES_MESSAGE) from mnf
+    raise click.ClickException(_missing_eval_dependencies_message()) from mnf
 
   app_name = os.path.basename(agent_module_file_path)
   agents_dir = os.path.dirname(agent_module_file_path)
@@ -1964,6 +2015,10 @@ def cli_web(
   agent containing `agent.py`, `__init__.py`, or `root_agent.yaml`) or a path
   pointing directly to a single agent folder.
 
+  This server is intended for local development. Its endpoints are
+  unauthenticated, so run it on a trusted network only and do not expose it to
+  untrusted or public networks.
+
   Example:
 
     adk web --session_service_uri=[uri] --port=[port] path/to/agents_dir
@@ -1984,24 +2039,8 @@ def cli_web(
 """,
         fg="green",
     )
-    try:
-      if (
-          ctx
-          and read_telemetry_consent() is True
-          and not ctx.meta.get("telemetry_recorded")
-      ):
-        start_time = ctx.meta.get("telemetry_start_time", time.monotonic())
-        collector = MetricsCollector()
-        collector.record_command_run(
-            command="web",
-            exit_code=0,
-            duration_ms=int((time.monotonic() - start_time) * 1000),
-            exception_type="",
-        )
-        ctx.meta["telemetry_recorded"] = True
-    except Exception:  # pylint: disable=broad-except
-      # Failsafe: telemetry errors must never crash the CLI
-      pass
+    if ctx:
+      ctx.meta["server_started"] = True
     yield  # Startup is done, now app is running
     click.secho(
         """
@@ -2011,6 +2050,8 @@ def cli_web(
 """,
         fg="green",
     )
+
+  import uvicorn
 
   from .fast_api import get_fast_api_app
 
@@ -2028,6 +2069,7 @@ def cli_web(
       lifespan=_lifespan,
       a2a=a2a,
       host=host,
+      bind_host=host,
       port=port,
       url_prefix=url_prefix,
       reload_agents=reload_agents,
@@ -2124,6 +2166,10 @@ def cli_api_server(
   agent containing `agent.py`, `__init__.py`, or `root_agent.yaml`) or a path
   pointing directly to a single agent folder.
 
+  This server's endpoints are unauthenticated. Run it on a trusted network
+  only, and put it behind your own authentication and authorization layer
+  before exposing it to untrusted or public networks or serving multiple users.
+
   Example:
 
     adk api_server --session_service_uri=[uri] --port=[port] path/to/agents_dir
@@ -2140,28 +2186,14 @@ def cli_api_server(
 
   from contextlib import asynccontextmanager
 
+  import uvicorn
+
   from .fast_api import get_fast_api_app
 
   @asynccontextmanager
   async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
-    try:
-      if (
-          ctx
-          and read_telemetry_consent() is True
-          and not ctx.meta.get("telemetry_recorded")
-      ):
-        start_time = ctx.meta.get("telemetry_start_time", time.monotonic())
-        collector = MetricsCollector()
-        collector.record_command_run(
-            command="api_server",
-            exit_code=0,
-            duration_ms=int((time.monotonic() - start_time) * 1000),
-            exception_type="",
-        )
-        ctx.meta["telemetry_recorded"] = True
-    except Exception:  # pylint: disable=broad-except
-      # Failsafe: telemetry errors must never crash the CLI
-      pass
+    if ctx:
+      ctx.meta["server_started"] = True
     yield
 
   config = uvicorn.Config(
@@ -2178,6 +2210,7 @@ def cli_api_server(
           otel_to_cloud=otel_to_cloud,
           a2a=a2a,
           host=host,
+          bind_host=host,
           port=port,
           url_prefix=url_prefix,
           reload_agents=reload_agents,

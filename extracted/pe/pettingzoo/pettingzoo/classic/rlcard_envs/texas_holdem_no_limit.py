@@ -9,7 +9,7 @@
 
 This environment is part of the <a href='..'>classic environments</a>. Please read that page first for general information.
 
-| Import             | `from pettingzoo.classic import texas_holdem_no_limit_v6` |
+| Creation           | `make("aec", "classic/texas_holdem_no_limit-v6")`         |
 |--------------------|-----------------------------------------------------------|
 | Actions            | Discrete                                                  |
 | Parallel API       | Yes                                                       |
@@ -28,8 +28,10 @@ Our implementation wraps [RLCard](http://rlcard.org/games.html#no-limit-texas-ho
 
 ### Arguments
 
-``` python
-texas_holdem_no_limit_v6.env(num_players=2)
+```python
+from pettingzoo import make
+
+make("aec", "classic/texas_holdem_no_limit-v6", num_players=2)
 ```
 
 `num_players`: Sets the number of players in the game. Minimum is 2.
@@ -53,8 +55,8 @@ The main observation space is similar to Texas Hold'em. The first 52 entries rep
 | 13 - 25 | Hearts<br>_`13`: A, `14`: 2, ..., `25`: K_   |  [0, 1]  |
 | 26 - 38 | Diamonds<br>_`26`: A, `27`: 2, ..., `38`: K_ |  [0, 1]  |
 | 39 - 51 | Clubs<br>_`39`: A, `40`: 2, ..., `51`: K_    |  [0, 1]  |
-|    52   | Number of Chips of player_0                  | [0, 100] |
-|    53   | Number of Chips of player_1                  | [0, 100] |
+|    52   | Number of Chips of current acting player     | [0, 100] |
+|    53   | Max Number of Chips of all players           | [0, 100] |
 
 #### Legal Actions Mask
 
@@ -88,6 +90,7 @@ whose turn it is. Taking an illegal move ends the game with a reward of -1 for t
 * v0: Initial versions release (1.0.0)
 
 """
+
 from __future__ import annotations
 
 import numpy as np

@@ -57,6 +57,7 @@ if TYPE_CHECKING:
     from pydoll.protocol.browser.types import Bounds, PermissionType
     from pydoll.protocol.fetch.events import RequestPausedEvent
     from pydoll.protocol.fetch.types import HeaderEntry
+    from pydoll.protocol.fingerprint.types import FingerprintConfig
     from pydoll.protocol.network.types import (
         Cookie,
         CookieParam,
@@ -120,6 +121,8 @@ class Browser(ABC):  # noqa: PLR0904
         self._backup_preferences_dir = ''
         self._tabs_opened: dict[str, Tab] = {}
         self._context_proxy_auth: dict[str, tuple[str, str]] = {}
+        self._context_fingerprints: dict[Optional[str], 'FingerprintConfig'] = {}
+        self._context_worker_callbacks: dict[Optional[str], int] = {}
         logger.debug(
             f'Browser initialized: port={self._connection_port}, '
             f'headless={getattr(self.options, "headless", None)}'
@@ -136,10 +139,11 @@ class Browser(ABC):  # noqa: PLR0904
         if self._backup_preferences_dir:
             logger.debug(f'Restoring backup preferences directory: {self._backup_preferences_dir}')
             user_data_dir = self._get_user_data_dir()
-            shutil.copy2(
-                self._backup_preferences_dir,
-                os.path.join(user_data_dir, 'Default', 'Preferences'),
-            )
+            if user_data_dir:
+                shutil.copy2(
+                    self._backup_preferences_dir,
+                    os.path.join(user_data_dir, 'Default', 'Preferences'),
+                )
         if await self._is_browser_running(timeout=2):
             await self.stop()
 
@@ -165,6 +169,8 @@ class Browser(ABC):  # noqa: PLR0904
         await self._setup_ws_address(ws_address)
         tabs = await self.get_opened_tabs()
         logger.info(f'Connected. Tabs available: {len(tabs)}')
+        if not tabs:
+            raise NoValidTabFound('No tabs available on remote browser')
         return tabs[0]
 
     async def start(self, headless: bool = False) -> Tab:
@@ -290,6 +296,11 @@ class Browser(ABC):  # noqa: PLR0904
             Closes all associated tabs immediately.
         """
         logger.info(f'Deleting browser context: {browser_context_id}')
+        self._context_proxy_auth.pop(browser_context_id, None)
+        self._context_fingerprints.pop(browser_context_id, None)
+        worker_callback_id = self._context_worker_callbacks.pop(browser_context_id, None)
+        if worker_callback_id is not None:
+            await self.remove_callback(worker_callback_id)
         return await self._execute_command(
             TargetCommands.dispose_browser_context(browser_context_id)
         )
@@ -358,11 +369,12 @@ class Browser(ABC):  # noqa: PLR0904
             for target in targets
             if target['type'] == 'page' and 'extension' not in target['url']
         ]
-        all_target_ids = [target['targetId'] for target in valid_tab_targets]
+        all_target_ids = {target['targetId'] for target in valid_tab_targets}
+        # Prune stale entries: close tabs whose IDs no longer appear in targets.
+        for stale_id in set(self._tabs_opened.keys()) - all_target_ids:
+            del self._tabs_opened[stale_id]
         existing_target_ids = list(self._tabs_opened.keys())
-        remaining_target_ids = [
-            target_id for target_id in all_target_ids if target_id not in existing_target_ids
-        ]
+        remaining_target_ids = list(all_target_ids - set(existing_target_ids))
         existing_tabs = [self._tabs_opened[target_id] for target_id in existing_target_ids]
         new_tabs = []
         for target_id in reversed(remaining_target_ids):

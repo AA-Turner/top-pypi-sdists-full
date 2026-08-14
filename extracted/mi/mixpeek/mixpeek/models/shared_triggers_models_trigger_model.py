@@ -52,11 +52,12 @@ class SharedTriggersModelsTriggerModel(BaseModel):
     last_drift_measurement: Optional[Dict[str, Any]] = Field(default=None, description="Result of most recent drift measurement check")
     last_volume_measurement: Optional[Dict[str, Any]] = Field(default=None, description="Result of most recent volume (document count) condition check")
     last_condition_check_at: Optional[datetime] = Field(default=None, description="When condition was last evaluated")
+    name: Optional[StrictStr] = Field(default=None, description="Human-readable trigger name (surfaced in list/get responses)")
     description: Optional[StrictStr] = Field(default=None, description="Human-readable description")
     created_at: Optional[datetime] = Field(default=None, description="Creation timestamp")
     updated_at: Optional[datetime] = Field(default=None, description="Last update timestamp")
     created_by: Optional[StrictStr] = Field(default=None, description="User who created trigger")
-    __properties: ClassVar[List[str]] = ["trigger_id", "namespace_id", "internal_id", "action_type", "action_config", "trigger_type", "schedule_config", "status", "last_triggered_at", "last_execution_task_id", "next_scheduled_at", "execution_count", "consecutive_failures", "last_execution_status", "last_execution_error", "event_counter", "last_cooldown_at", "baseline_snapshot", "last_drift_measurement", "last_volume_measurement", "last_condition_check_at", "description", "created_at", "updated_at", "created_by"]
+    __properties: ClassVar[List[str]] = ["trigger_id", "namespace_id", "internal_id", "action_type", "action_config", "trigger_type", "schedule_config", "status", "last_triggered_at", "last_execution_task_id", "next_scheduled_at", "execution_count", "consecutive_failures", "last_execution_status", "last_execution_error", "event_counter", "last_cooldown_at", "baseline_snapshot", "last_drift_measurement", "last_volume_measurement", "last_condition_check_at", "name", "description", "created_at", "updated_at", "created_by"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -130,6 +131,7 @@ class SharedTriggersModelsTriggerModel(BaseModel):
             "last_drift_measurement": obj.get("last_drift_measurement"),
             "last_volume_measurement": obj.get("last_volume_measurement"),
             "last_condition_check_at": obj.get("last_condition_check_at"),
+            "name": obj.get("name"),
             "description": obj.get("description"),
             "created_at": obj.get("created_at"),
             "updated_at": obj.get("updated_at"),

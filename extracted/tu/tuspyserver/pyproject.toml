@@ -1,6 +1,6 @@
 [project]
 name = "tuspyserver"
-version = "4.2.13"
+version = "4.4.1"
 description = "A Python tus server implementation as a FastAPI router"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -10,8 +10,11 @@ dependencies = ["fastapi>=0.110.0"]
 name = "Edi Hasaj"
 email = "edi.hasaj@applifyer.com"
 
+[project.optional-dependencies]
+s3 = ["boto3>=1.26"]
+
 [build-system]
-requires = ["uv_build>=0.6,<0.12"]
+requires = ["uv_build>=0.6,<0.13"]
 build-backend = "uv_build"
 
 [tool.uv.workspace]

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import copy
+from typing import Any
 
-from pettingzoo.utils.env import ActionType, AECEnv
+from typing_extensions import override
+
+from pettingzoo.utils.env import ActionType, AECEnv, AgentID, ObsType
 from pettingzoo.utils.wrappers.base import BaseWrapper
 
 
-class MultiEpisodeEnv(BaseWrapper):
+class MultiEpisodeEnv(BaseWrapper[AgentID, ObsType, ActionType]):
     """Creates a new environment using the base environment that runs for `num_episodes` before truncating.
 
     This is useful for creating evaluation environments.
@@ -15,21 +18,24 @@ class MultiEpisodeEnv(BaseWrapper):
     The result of this wrapper is that the environment is no longer Markovian around the environment reset.
     """
 
-    def __init__(self, env: AECEnv, num_episodes: int):
+    def __init__(self, env: AECEnv[AgentID, ObsType, ActionType], num_episodes: int):
         """__init__.
 
         Args:
             env (AECEnv): env
             num_episodes (int): num_episodes
         """
-        assert isinstance(
-            env, AECEnv
-        ), "MultiEpisodeEnv is only compatible with AEC environments"
+        assert isinstance(env, AECEnv), (
+            "MultiEpisodeEnv is only compatible with AEC environments"
+        )
         super().__init__(env)
 
         self._num_episodes = num_episodes
 
-    def reset(self, seed: int | None = None, options: dict | None = None) -> None:
+    @override
+    def reset(
+        self, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> None:
         """reset.
 
         Args:
@@ -44,6 +50,7 @@ class MultiEpisodeEnv(BaseWrapper):
         self._options = copy.deepcopy(options)
         super().reset(seed=seed, options=options)
 
+    @override
     def step(self, action: ActionType) -> None:
         """Steps the underlying environment for `num_episodes`.
 
@@ -65,7 +72,7 @@ class MultiEpisodeEnv(BaseWrapper):
         # if we've crossed num_episodes, truncate all agents
         # and let the environment terminate normally
         if self._episodes_elapsed >= self._num_episodes:
-            self.env.unwrapped.truncations = {agent: True for agent in self.env.agents}
+            self.env.unwrapped.truncations = dict.fromkeys(self.env.agents, True)
             return
 
         # if no more agents and haven't had enough episodes,
@@ -74,6 +81,7 @@ class MultiEpisodeEnv(BaseWrapper):
         self._seed = self._seed + 1 if self._seed else None
         super().reset(seed=self._seed, options=self._options)
 
+    @override
     def __str__(self) -> str:
         """__str__.
 

@@ -59,7 +59,12 @@ class ClickHouseConnectionManager(SQLConnectionManager):
         logger.debug('Cancel query \'{}\'', connection_name)
 
     def release(self):
-        pass  # There is no "release" type functionality in the existing ClickHouse connectors
+        # Default: keep the connection open (historical behavior). With
+        # `reuse_connections: false`, fall through to the base release()
+        # which closes the handle so the next model picks a fresh replica.
+        if self.profile.credentials.reuse_connections:
+            return
+        super().release()
 
     @classmethod
     def get_table_from_response(cls, response, column_names) -> "agate.Table":
@@ -72,7 +77,7 @@ class ClickHouseConnectionManager(SQLConnectionManager):
 
         data = []
         for row in response:
-            data.append(dict(zip(column_names, row)))
+            data.append(dict(zip(column_names, row, strict=True)))
 
         return table_from_data_flat(data, column_names)
 

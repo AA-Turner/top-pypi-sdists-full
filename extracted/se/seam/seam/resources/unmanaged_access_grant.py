@@ -56,10 +56,10 @@ class UnmanagedAccessGrant:
         created_at: str
         error_code: str
         message: str
-        missing_device_ids: List[str]
+        missing_device_ids: Optional[List[str]]
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 created_at=d.get("created_at", None),
                 error_code=d.get("error_code", None),
@@ -93,12 +93,12 @@ class UnmanagedAccessGrant:
 
             :ivar starts_at: Previous start time for access."""
 
-            device_ids: List[str]
-            ends_at: str
-            starts_at: str
+            device_ids: Optional[List[str]]
+            ends_at: Optional[str]
+            starts_at: Optional[str]
 
             @classmethod
-            def from_dict(cls, d: Dict[str, Any]):
+            def from_dict(cls, d: Any):
                 return cls(
                     device_ids=d.get("device_ids", None),
                     ends_at=d.get("ends_at", None),
@@ -117,13 +117,13 @@ class UnmanagedAccessGrant:
 
             :ivar starts_at: New start time for access."""
 
-            common_code_key: str
-            device_ids: List[str]
-            ends_at: str
-            starts_at: str
+            common_code_key: Optional[str]
+            device_ids: Optional[List[str]]
+            ends_at: Optional[str]
+            starts_at: Optional[str]
 
             @classmethod
-            def from_dict(cls, d: Dict[str, Any]):
+            def from_dict(cls, d: Any):
                 return cls(
                     common_code_key=d.get("common_code_key", None),
                     device_ids=d.get("device_ids", None),
@@ -132,14 +132,14 @@ class UnmanagedAccessGrant:
                 )
 
         created_at: str
-        from_: From
+        from_: Optional[From]
         message: str
         mutation_code: str
-        to: To
-        access_method_ids: List[str]
+        to: Optional[To]
+        access_method_ids: Optional[List[str]]
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 created_at=d.get("created_at", None),
                 from_=(
@@ -170,15 +170,15 @@ class UnmanagedAccessGrant:
         :ivar mode: Access method mode. Supported values: ``code``, ``card``, ``mobile_key``, ``cloud_key``.
         """
 
-        code: str
+        code: Optional[str]
         created_access_method_ids: List[str]
         created_at: str
         display_name: str
-        instant_key_max_use_count: int
+        instant_key_max_use_count: Optional[int]
         mode: str
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 code=d.get("code", None),
                 created_access_method_ids=d.get("created_access_method_ids", None),
@@ -226,7 +226,7 @@ class UnmanagedAccessGrant:
             message: str
 
             @classmethod
-            def from_dict(cls, d: Dict[str, Any]):
+            def from_dict(cls, d: Any):
                 return cls(
                     device_id=d.get("device_id", None),
                     error_code=d.get("error_code", None),
@@ -236,15 +236,15 @@ class UnmanagedAccessGrant:
         created_at: str
         message: str
         warning_code: str
-        failed_devices: List[FailedDevices]
-        access_method_ids: List[str]
-        device_id: str
-        new_code: str
-        original_code: str
-        reason: str
+        failed_devices: Optional[List[FailedDevices]]
+        access_method_ids: Optional[List[str]]
+        device_id: Optional[str]
+        new_code: Optional[str]
+        original_code: Optional[str]
+        reason: Optional[str]
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 created_at=d.get("created_at", None),
                 message=d.get("message", None),
@@ -264,21 +264,21 @@ class UnmanagedAccessGrant:
     access_method_ids: List[str]
     created_at: str
     display_name: str
-    ends_at: str
+    ends_at: Optional[str]
     errors: List[Errors]
     location_ids: List[str]
-    name: str
+    name: Optional[str]
     pending_mutations: List[PendingMutations]
     requested_access_methods: List[RequestedAccessMethods]
-    reservation_key: str
+    reservation_key: Optional[str]
     space_ids: List[str]
     starts_at: str
-    user_identity_id: str
+    user_identity_id: Optional[str]
     warnings: List[Warnings]
     workspace_id: str
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]):
+    def from_dict(cls, d: Any):
         return cls(
             access_grant_id=d.get("access_grant_id", None),
             access_method_ids=d.get("access_method_ids", None),

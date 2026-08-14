@@ -204,14 +204,24 @@ def llama_cpp_status() -> dict:
             supports = bool(llama_cpp.llama_supports_gpu_offload())
         except Exception:
             pass
-        return {
+        out = {
             "installed": True,
             "version": getattr(llama_cpp, "__version__", None),
             "supports_gpu_offload": supports,
             "supports_vision": _llama_cpp_supports_vision(),
         }
     except Exception as exc:  # noqa: BLE001
-        return {"installed": False, "error": f"{type(exc).__name__}: {exc}"}
+        out = {"installed": False, "error": f"{type(exc).__name__}: {exc}"}
+    # k94: native llama-server state beside the python binding, in the dict
+    # central snapshots as "engine" — an installed-but-unusable binary was
+    # invisible remotely. Guarded absolute import: this file also runs as a
+    # STANDALONE copy without the package, where the field simply stays absent.
+    try:
+        from abstract_hugpy_dev.engine.resolve import native_engine_status
+        out["native_engine"] = native_engine_status()
+    except Exception:  # noqa: BLE001
+        pass
+    return out
 
 
 def env_status() -> dict:

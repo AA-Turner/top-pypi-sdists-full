@@ -2542,6 +2542,53 @@ def test_array_set_multiline_custom_indent() -> None:
         """)
 
 
+def test_array_set_multiline_keeps_nested_inline_value_text() -> None:
+    # Laying the array out multi-line is a shape change on the array
+    # itself; the items' own text is not the caller's business.
+    doc = tomlrt.loads("a = [{x=1,  y=2}, 3]\n")
+    doc.array("a").set_multiline(multiline=True, indent=2)
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        a = [
+          {x=1,  y=2},
+          3,
+        ]
+        """)
+    assert _reparses(out) == {"a": [{"x": 1, "y": 2}, 3]}
+
+
+def test_array_set_multiline_on_multiline_array_is_a_no_op() -> None:
+    src = td("""
+        a = [
+          {x=1,  y=2},
+        ]
+        """)
+    doc = tomlrt.loads(src)
+    doc.array("a").set_multiline(multiline=True, indent=2)
+    assert tomlrt.dumps(doc) == src
+
+
+def test_array_set_multiline_keeps_comment_lexemes() -> None:
+    doc = tomlrt.loads("a = [1,#one\n2,#two\n]\n")
+    doc.array("a").set_multiline(multiline=True, indent=2)
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        a = [
+          1, #one
+          2, #two
+        ]
+        """)
+    assert _reparses(out) == {"a": [1, 2]}
+
+
+def test_array_format_still_canonicalises_nested_values() -> None:
+    # The opt-in canonicaliser keeps descending; only the shape-only
+    # `set_multiline` stops at the array it was called on.
+    doc = tomlrt.loads("a = [{x=1,  y=2}, 3]\n")
+    doc.array("a").format(options=tomlrt.FormatOptions(indent=2))
+    assert tomlrt.dumps(doc) == "a = [{ x = 1, y = 2 }, 3]\n"
+
+
 def test_array_set_multiline_preserves_crlf_newlines() -> None:
     doc = tomlrt.loads("a = [1, 2]\r\n")
     doc.array("a").set_multiline(multiline=True, indent=2)
@@ -2680,25 +2727,62 @@ def test_append_preserves_empty_array_inner_comment() -> None:
         """)
 
 
-def test_append_preserves_trailing_comment_in_single_item_array() -> None:
+@pytest.mark.parametrize(
+    ("eol", "rows"),
+    [
+        ("", ("# tail",)),
+        ("  # one", ("# tail",)),
+        ("  # one", ("# tail", "# and more")),
+    ],
+)
+def test_append_preserves_trailing_comment_in_single_item_array(
+    eol: str, rows: tuple[str, ...]
+) -> None:
     # A single-item multiline array whose last-item post-comma slot
     # carries a comment used to have that comment collapse onto the
-    # same line as the new item, producing valid-but-ugly output.
-    src = td("""
+    # same line as the new item, producing valid-but-ugly output. The
+    # comment belongs to the item below it whether the row break ahead
+    # of it comes from the pad or from the previous item's EOL section,
+    # and a block of several rows moves as a unit.
+    tail = "\n            ".join(rows)  # continuation rows keep the fixture indent
+    src = td(f"""
         a = [
-            1,
-            # tail
+            1,{eol}
+            {tail}
         ]
         """)
     doc = tomlrt.loads(src)
     doc.array("a").append(2)
-    assert tomlrt.dumps(doc) == td("""
+    assert tomlrt.dumps(doc) == td(f"""
         a = [
-            1,
-            # tail
+            1,{eol}
+            {tail}
             2,
         ]
         """)
+
+
+@pytest.mark.parametrize("eol", ["", " # one"])
+def test_assign_preserves_trailing_comment_in_inline_table(eol: str) -> None:
+    # Inline tables share the boundary machinery with arrays, so a
+    # comment on its own row before the closing brace stays above the
+    # newly added entry regardless of the previous entry's EOL comment.
+    src = td(f"""
+        t = {{
+            a = 1,{eol}
+            # tail
+        }}
+        """)
+    doc = tomlrt.loads(src)
+    doc.table("t")["b"] = 2
+    assert tomlrt.dumps(doc) == td(f"""
+        t = {{
+            a = 1,{eol}
+            # tail
+            b = 2,
+        }}
+        """)
+    assert _reparses(tomlrt.dumps(doc)) == {"t": {"a": 1, "b": 2}}
 
 
 def test_append_preserves_leading_comment_in_single_item_array() -> None:
@@ -2741,6 +2825,30 @@ def test_append_preserves_comma_first_boundary_in_array() -> None:
         a = [
               1 # comma is on the next line
              ,2
+             ,99
+            ]
+        """)
+
+
+def test_append_preserves_dangling_comment_in_comma_first_array() -> None:
+    # A comma-first array keeps its own comment-above-the-bracket rule:
+    # the block stays on its row and the appended item takes the next
+    # break-before-comma row below it.
+    src = td("""
+        a = [
+              1 # comma is on the next line
+             ,2
+             # tail
+            ]
+        """)
+    doc = tomlrt.loads(src)
+    assert tomlrt.dumps(doc) == src
+    doc.array("a").append(99)
+    assert tomlrt.dumps(doc) == td("""
+        a = [
+              1 # comma is on the next line
+             ,2
+             # tail
              ,99
             ]
         """)
@@ -3097,6 +3205,99 @@ def test_promoted_values_do_not_alias_displaced_views() -> None:
         values = [1]
         nested = {x=2}
         """)
+
+
+def test_promote_inline_separates_relocated_header() -> None:
+    """A promoted header lands blank-separated from the body above it.
+
+    The promoted ``[a]`` is appended past ``[z]``'s body, so it needs the
+    separator the install path chose, not the bare leading of the KV it
+    replaces.
+    """
+    src = td("""
+        a = {q = 1}
+
+        [z]
+        k = 1
+        """)
+    doc = tomlrt.loads(src)
+    doc.promote_inline("a")
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [z]
+        k = 1
+
+        [a]
+        q = 1
+        """)
+    assert _reparses(out) == {"z": {"k": 1}, "a": {"q": 1}}
+
+
+def test_promote_array_keeps_captured_blank_and_indent() -> None:
+    """``promote_array`` merges captured trivia the same way."""
+    src = td("""
+        [t]
+
+          # note
+          a = [{q = 1}]
+
+        [z]
+        k = 1
+        """)
+    doc = tomlrt.loads(src)
+    doc["t"].promote_array("a")
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [t]
+
+          # note
+          [[t.a]]
+        q = 1
+
+        [z]
+        k = 1
+        """)
+    assert _reparses(out) == {"t": {"a": [{"q": 1}]}, "z": {"k": 1}}
+
+
+def test_promote_sole_body_line_separates_from_parent_header() -> None:
+    """Promoting a section's only body line separates the two headers.
+
+    The predecessor left behind by the delete is the parent's own
+    header, so the captured KV leading alone would glue ``[q.x]`` /
+    ``[[q.x]]`` to ``[q]``.
+    """
+    doc = tomlrt.loads(
+        td("""
+            [q]
+            x = {a = 1}
+            """)
+    )
+    doc["q"].promote_inline("x")
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [q]
+
+        [q.x]
+        a = 1
+        """)
+    assert _reparses(out) == {"q": {"x": {"a": 1}}}
+
+    doc = tomlrt.loads(
+        td("""
+            [q]
+            x = [{a = 1}]
+            """)
+    )
+    doc["q"].promote_array("x")
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [q]
+
+        [[q.x]]
+        a = 1
+        """)
+    assert _reparses(out) == {"q": {"x": [{"a": 1}]}}
 
 
 def test_promote_array_rejects_empty_array() -> None:
@@ -4788,6 +4989,192 @@ def test_scalar_overwrite_of_explicit_subsection_preserves_position() -> None:
         """)
 
 
+def test_structural_overwrite_of_scalar_separates_new_header() -> None:
+    """A header replacing a scalar KV keeps its blank-line separator.
+
+    The KV's captured leading positions the new binding, but a generated
+    ``[other.n1]`` / ``[[other.n1]]`` header must not end up glued to the
+    key/value line above it.
+    """
+    src = td("""
+        [other]
+        p = 1
+        n1 = 5
+        """)
+    doc = tomlrt.loads(src)
+    doc["other"]["n1"] = Table.section({"q": 1})
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [other]
+        p = 1
+
+        [other.n1]
+        q = 1
+        """)
+    assert _reparses(out) == {"other": {"p": 1, "n1": {"q": 1}}}
+
+    doc = tomlrt.loads(src)
+    doc["other"]["n1"] = AoT([{"q": 1}])
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [other]
+        p = 1
+
+        [[other.n1]]
+        q = 1
+        """)
+    assert _reparses(out) == {"other": {"p": 1, "n1": [{"q": 1}]}}
+
+
+def test_structural_overwrite_of_sole_body_scalar_separates_new_header() -> None:
+    """Same when the replaced KV is the section's only body line.
+
+    The line above the new header is then the parent's own header, which
+    still wants the separator the install path chose.
+    """
+    src = td("""
+        [other]
+        n1 = 5
+        """)
+    doc = tomlrt.loads(src)
+    doc["other"]["n1"] = Table.section({"q": 1})
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [other]
+
+        [other.n1]
+        q = 1
+        """)
+    assert _reparses(out) == {"other": {"n1": {"q": 1}}}
+
+    doc = tomlrt.loads(src)
+    doc["other"]["n1"] = AoT([{"q": 1}])
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [other]
+
+        [[other.n1]]
+        q = 1
+        """)
+    assert _reparses(out) == {"other": {"n1": [{"q": 1}]}}
+
+
+def test_structural_overwrite_keeps_captured_blank_line() -> None:
+    """Captured trivia that already separates is not doubled up."""
+    src = td("""
+        [other]
+        p = 1
+
+        # about n1
+        n1 = 5
+        """)
+    doc = tomlrt.loads(src)
+    doc["other"]["n1"] = Table.section({"q": 1})
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [other]
+        p = 1
+
+        # about n1
+        [other.n1]
+        q = 1
+        """)
+    assert _reparses(out) == {"other": {"p": 1, "n1": {"q": 1}}}
+
+
+def test_structural_overwrite_of_first_line_keeps_document_flush() -> None:
+    """A header replacing the document's first line gains no separator.
+
+    There is no line above to separate from, so the captured (empty)
+    leading wins over the separator the install path chose.
+    """
+    src = td("""
+        x = 1
+
+        [s]
+        q = 2
+        """)
+    doc = tomlrt.loads(src)
+    doc["x"] = Table.section({"a": 1})
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [x]
+        a = 1
+
+        [s]
+        q = 2
+        """)
+    assert _reparses(out) == {"x": {"a": 1}, "s": {"q": 2}}
+
+    doc = tomlrt.loads(src)
+    doc["x"] = AoT([{"a": 1}])
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[x]]
+        a = 1
+
+        [s]
+        q = 2
+        """)
+    assert _reparses(out) == {"x": [{"a": 1}], "s": {"q": 2}}
+
+
+def test_structural_overwrite_of_section_restores_leading_verbatim() -> None:
+    """A header replacing a header inherits its spacing, glued or not.
+
+    The captured leading already positions a header, so the document's
+    own convention wins over the separator the install path chose.
+    """
+    src = td("""
+        x = 1
+        [b]
+        y = 2
+        """)
+    expected = td("""
+        x = 1
+        [b]
+        q = 1
+        """)
+    doc = tomlrt.loads(src)
+    doc["b"] = Table.section({"q": 1})
+    out = tomlrt.dumps(doc)
+    assert out == expected
+    assert _reparses(out) == {"x": 1, "b": {"q": 1}}
+
+    aot_doc = tomlrt.loads(src.replace("[b]", "[[b]]"))
+    aot_doc["b"] = Table.section({"q": 1})
+    out = tomlrt.dumps(aot_doc)
+    assert out == expected
+    assert _reparses(out) == {"x": 1, "b": {"q": 1}}
+
+
+def test_scalar_overwrite_of_dotted_key_restores_captured_indent() -> None:
+    """A KV replacing a KV takes the captured indent, not the fresh one.
+
+    The reinstalled binding is placed as a new peer of ``b`` — after the
+    blank line and at its indent — before the move puts it back where
+    ``c.d`` was, where only the captured leading applies.
+    """
+    src = td("""
+        [t]
+          a = 1
+
+          b = 2
+          c.d = 3
+        """)
+    doc = tomlrt.loads(src)
+    doc["t"]["c"] = 5
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [t]
+          a = 1
+
+          b = 2
+          c = 5
+        """)
+    assert _reparses(out) == {"t": {"a": 1, "b": 2, "c": 5}}
+
+
 def test_synth_inline_overwrite_of_implicit_table_preserves_position() -> None:
     """Same shape as the scalar case but with a ``{}`` (synth-inline) value."""
     src = td("""
@@ -5419,6 +5806,141 @@ def test_append_samples_indent_past_a_column_zero_comment() -> None:
               2,
         ]
         """)
+
+
+def test_append_samples_indent_from_a_row_that_packs_items() -> None:
+    """A value whose first row holds several items still lends its indent.
+
+    The separator is sampled from item 1, which here shares row zero and
+    so carries no break; the indent then has to come from the first item
+    that does open a row, not from the four-space fallback.
+    """
+    doc = tomlrt.loads(
+        td("""
+        abcdef = [1, 2,
+                  3, 4]
+        """)
+    )
+    doc.array("abcdef").append(9)
+    assert tomlrt.dumps(doc) == td("""
+        abcdef = [1, 2,
+                  3, 4,
+                  9]
+        """)
+    assert _reparses(tomlrt.dumps(doc)) == {"abcdef": [1, 2, 3, 4, 9]}
+
+
+def test_inline_table_insert_samples_indent_from_a_packed_row() -> None:
+    """The packed-row indent sampling is shared with inline tables."""
+    doc = tomlrt.loads(
+        td("""
+        t = { x = 1, y = 2,
+              z = 3 }
+        """)
+    )
+    doc.table("t")["w"] = 4
+    assert tomlrt.dumps(doc) == td("""
+        t = { x = 1, y = 2,
+              z = 3,
+              w = 4 }
+        """)
+    assert _reparses(tomlrt.dumps(doc)) == {"t": {"x": 1, "y": 2, "z": 3, "w": 4}}
+
+
+def test_insert_into_a_packed_row_uses_that_row_indent() -> None:
+    """An interior insert opens its row at the sampled indent too."""
+    doc = tomlrt.loads(
+        td("""
+        a = [1, 2,
+             3, 4]
+        """)
+    )
+    doc.array("a").insert(2, 9)
+    assert tomlrt.dumps(doc) == td("""
+        a = [1, 2,
+             9,
+             3, 4]
+        """)
+    assert _reparses(tomlrt.dumps(doc)) == {"a": [1, 2, 9, 3, 4]}
+
+
+def test_append_samples_indent_past_a_first_row_eol_comment() -> None:
+    """A row break parked in an EOL section still lends its indent.
+
+    Item 1's leading holds only the indent -- the break sits in item 0's
+    post-comma EOL section -- so the separator falls back to the sampled
+    indent, which must be the authored one.
+    """
+    doc = tomlrt.loads(
+        td("""
+        a = [1, # c
+             2]
+        """)
+    )
+    doc.array("a").append(9)
+    assert tomlrt.dumps(doc) == td("""
+        a = [1, # c
+             2,
+             9]
+        """)
+    assert _reparses(tomlrt.dumps(doc)) == {"a": [1, 2, 9]}
+
+
+def test_append_to_column_zero_rows_stays_at_column_zero() -> None:
+    """Rows authored at column zero are matched, not indented to four."""
+    doc = tomlrt.loads(
+        td("""
+        a = [1, 2,
+        3, 4]
+        """)
+    )
+    doc.array("a").append(9)
+    assert tomlrt.dumps(doc) == td("""
+        a = [1, 2,
+        3, 4,
+        9]
+        """)
+    assert _reparses(tomlrt.dumps(doc)) == {"a": [1, 2, 3, 4, 9]}
+
+
+def test_append_prefers_an_indented_row_over_a_flush_one() -> None:
+    """A row at column zero yields to a later indented row.
+
+    The indent is sampled from the first indented row the value opens,
+    wherever the break that opens it lives -- so an opening row flush
+    against the bracket does not decide the question on its own.
+    """
+    doc = tomlrt.loads(
+        td("""
+        a = [
+        1, 2,
+            3, 4]
+        """)
+    )
+    doc.array("a").append(9)
+    assert tomlrt.dumps(doc) == td("""
+        a = [
+        1, 2,
+            3, 4,
+            9]
+        """)
+    assert _reparses(tomlrt.dumps(doc)) == {"a": [1, 2, 3, 4, 9]}
+
+    doc = tomlrt.loads(
+        td("""
+        t = {
+        x = 1, y = 2,
+            z = 3}
+        """)
+    )
+    doc.table("t")["w"] = 4
+    assert tomlrt.dumps(doc) == td("""
+        t = {
+        x = 1, y = 2,
+            z = 3,
+            w = 4}
+        """)
+    assert _reparses(tomlrt.dumps(doc)) == {"t": {"x": 1, "y": 2, "z": 3, "w": 4}}
 
 
 def test_comma_first_insert_uses_the_comma_row_indent() -> None:

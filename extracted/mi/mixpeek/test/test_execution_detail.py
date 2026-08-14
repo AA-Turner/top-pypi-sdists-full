@@ -63,6 +63,9 @@ class TestExecutionDetail(unittest.TestCase):
                     total_time_ms = 0.0, 
                     credits_used = 0.0, 
                     server_service_ms = 0.0, ),
+                facets = [
+                    { }
+                    ],
                 budget = { },
                 cached_at = 1.337,
                 warnings = [

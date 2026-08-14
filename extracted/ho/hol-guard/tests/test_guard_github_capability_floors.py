@@ -22,6 +22,7 @@ _EXPECTED_FLOORS = {
     "read_remote": "allow",
     "propose_remote": "allow",
     "routine_merge_remote": "allow",
+    "routine_workflow_remote": "require-reapproval",
     "routine_review_thread_remote": "allow",
     "write_local": "review",
     "maintain_remote": "review",
@@ -124,7 +125,13 @@ def test_every_capability_has_an_explicit_floor(capability: GitHubCommandCapabil
 
 @pytest.mark.parametrize(
     "capability",
-    ("read_local", "read_remote", "propose_remote", "routine_merge_remote", "routine_review_thread_remote"),
+    (
+        "read_local",
+        "read_remote",
+        "propose_remote",
+        "routine_merge_remote",
+        "routine_review_thread_remote",
+    ),
 )
 def test_prompt_free_capabilities_cannot_be_rendered_as_review_actions(capability: GitHubCommandCapability) -> None:
     assessment = github_assessment(capability, "test.read", "test read")
@@ -178,6 +185,53 @@ def test_shell_composition_preserves_read_and_mutating_capabilities(
     assert assessment is not None
     assert assessment.capabilities == capabilities
     assert assessment.workflow_authorizable is False
+
+
+def test_empty_shell_segments_do_not_break_github_capability_analysis(tmp_path: Path) -> None:
+    assessment = classify_github_shell_capabilities(
+        "echo first; ; echo second && || ; ; gh pr view 1",
+        home_dir=tmp_path,
+    )
+
+    assert assessment is not None
+    assert assessment.capabilities == ("read_remote",)
+
+
+@pytest.mark.parametrize(
+    "command",
+    (
+        "false && ; gh pr view 1",
+        "false && && gh pr view 1",
+        "true || ; gh pr view 1",
+        "true || || gh pr view 1",
+    ),
+)
+def test_malformed_separators_do_not_carry_stale_conditional_state(
+    tmp_path: Path,
+    command: str,
+) -> None:
+    assessment = classify_github_shell_capabilities(command, home_dir=tmp_path)
+
+    assert assessment is not None
+    assert assessment.capabilities == ("read_remote",)
+
+
+@pytest.mark.parametrize(
+    ("command", "capabilities"),
+    (
+        ("false | true && gh pr view 1", ("read_remote",)),
+        ("false | true && gh repo delete example/project --yes", ("delete_remote",)),
+    ),
+)
+def test_pipeline_boundary_preserves_following_github_capability(
+    tmp_path: Path,
+    command: str,
+    capabilities: tuple[GitHubCommandCapability, ...],
+) -> None:
+    assessment = classify_github_shell_capabilities(command, home_dir=tmp_path)
+
+    assert assessment is not None
+    assert assessment.capabilities == capabilities
 
 
 def test_local_write_cannot_mask_remote_secret_capability(tmp_path: Path) -> None:

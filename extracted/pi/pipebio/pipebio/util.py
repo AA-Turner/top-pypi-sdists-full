@@ -92,6 +92,25 @@ class Util:
             return SequenceDocumentKind.AA
 
     @staticmethod
+    def split_extension(filename: str) -> tuple[str, str]:
+        """Split a filename into (stem, extension), keeping compound extensions.
+
+        Unlike os.path.splitext, 'name.tsv.gz' splits as ('name', '.tsv.gz')
+        rather than ('name.tsv', '.gz'), so callers appending an index to the
+        stem produce 'name_1.tsv.gz' instead of 'name.tsv_1.gz'.
+
+        The inner suffix must be alphabetic, so a version-like 'v1.2.gz' keeps
+        its '.2' in the stem rather than splitting as ('v1', '.2.gz').
+        """
+        compression_suffixes = {'.gz', '.bz2', '.xz', '.zst', '.zip'}
+        stem, extension = os.path.splitext(filename)
+        if extension.lower() in compression_suffixes:
+            inner_stem, inner_extension = os.path.splitext(stem)
+            if inner_extension[1:].isalpha():
+                return inner_stem, inner_extension + extension
+        return stem, extension
+
+    @staticmethod
     def get_organization_id(user: Any) -> str:
         # Default to first org in list
         return user['org']['id']

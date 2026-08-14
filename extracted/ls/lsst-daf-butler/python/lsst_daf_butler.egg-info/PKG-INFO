@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lsst-daf-butler
-Version: 30.2026.3200
+Version: 30.2026.3300
 Summary: An abstraction layer for reading and writing astronomical data to datastores.
 Author-email: Rubin Observatory Data Management <dm-admin@lists.lsst.org>
 License-Expression: BSD-3-Clause OR GPL-3.0-or-later

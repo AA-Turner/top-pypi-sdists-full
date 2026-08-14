@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: emval
-Version: 0.1.12
+Version: 0.1.13
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Rust
@@ -10,10 +10,10 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS
-Requires-Dist: pytest ; extra == 'tests'
 Requires-Dist: polars>=1.32.2 ; extra == 'polars'
-Provides-Extra: tests
+Requires-Dist: pytest ; extra == 'tests'
 Provides-Extra: polars
+Provides-Extra: tests
 License-File: LICENSE
 Summary: emval is a blazingly fast email validator
 Home-Page: https://github.com/bnkc/emval
@@ -208,6 +208,7 @@ result = result.with_columns(
     domain_address=pl.col("validated").struct.field("domain_address"),
     domain_name=pl.col("validated").struct.field("domain_name"),
     is_deliverable=pl.col("validated").struct.field("is_deliverable"),
+    email_status=pl.col("validated").struct.field("error"),
 )
 
 print(result)
@@ -223,8 +224,9 @@ The `validate_email` function returns a struct with the following fields:
 - `domain_address`: The IP address if a domain literal was used (null otherwise)
 - `domain_name`: The domain name (null if invalid)
 - `is_deliverable`: Whether the email is deliverable based on MX records (null if invalid or not checked)
+- `error`: The validation error message (null for valid emails and null inputs)
 
-Invalid emails will have all fields set to null, making it easy to filter valid emails:
+Invalid emails have null validation fields and a populated `error` field. This makes it easy to filter valid emails:
 
 ```python
 # Filter to only valid emails

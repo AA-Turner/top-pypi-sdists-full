@@ -198,7 +198,7 @@ class Match(Generic[AnyStr]):
     def __copy__(self) -> Match[AnyStr]: ...
     def __deepcopy__(self, memo: Any, /) -> Match[AnyStr]: ...
     def __class_getitem__(cls, item: Any, /) -> GenericAlias:
-        """See PEP 585"""
+        """Matches are generic over the type of string which was matched (str or bytes)"""
         ...
 
 @final
@@ -375,7 +375,7 @@ class Pattern(Generic[AnyStr]):
         """Return hash(self)."""
         ...
     def __class_getitem__(cls, item: Any, /) -> GenericAlias:
-        """See PEP 585"""
+        """Patterns are generic over the type of string they handle (str or bytes)"""
         ...
 
 # ----- re variables and constants -----

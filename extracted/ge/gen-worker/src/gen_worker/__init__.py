@@ -14,7 +14,7 @@ subclass from ``@endpoint(kind=...)`` before dispatch.
 """
 
 from . import io
-from .api.binding import Civitai, HF, Hub, ModelRef, ModelScope
+from .api.binding import Binding, Civitai, HF, Hub, ModelRef, ModelScope
 from .api.compile_axis import AxisClass, CompileAxis
 from .api.decorators import (
     Compile,
@@ -47,10 +47,10 @@ from .api.derive import (
     override_delta,
 )
 from .api.formula import RuntimeFormula
-from .api.slot import OBJECTIVES, ObjectiveMismatchError, ResolvedSlot, Slot
+from .api.slot import OBJECTIVES, ObjectiveMismatchError, ResolvedSlot, Slot, resolve_slot
 from .families import GenerationDefaults
 from .models.provision import (arm_compile, report_applied_attention,
-                               report_applied_lane)
+                               report_applied_lane, report_attention_backend)
 from .text_pin import TextLengthExceededError, pad_text_sequence
 from .geometry import (
     FamilyGeometry,
@@ -63,21 +63,10 @@ from .geometry import (
     restore,
     set_upscaler,
 )
-from .references import (
-    EditFamily,
-    EditRequest,
-    PromptRewrite,
-    Reference,
-    ReferenceRefusal,
-    condition_tokens,
-    fit_edit_request,
-    normalize_references,
-    plan_edit,
-    rewrite_prompt,
-)
-from .url_fetch import FetchedUrl, fetch_bytes, fetch_image
+from .url_fetch import FetchedUrl, fetch_bytes
 from .view import for_request
 from .api.errors import (
+    AuthError,
     CanceledError,
     ChildCallError,
     ChildCallRefusedError,
@@ -86,9 +75,15 @@ from .api.errors import (
     ChildRequestFailedError,
     FatalError,
     IllegalCombination,
+    OutputTooLargeError,
+    RefCompatibilitySurprise,
+    ResourceError,
     RetryableError,
+    SnapshotBuildFailedError,
     ValidationError,
+    WorkerError,
 )
+from .hub_error import HubApiError, HubError, parse_hub_error, raise_for_hub_error
 from .callout import ChildRequest
 from .api.progress import diffusers_step_callback
 from .api.streaming import (
@@ -106,8 +101,10 @@ from .api.types import (
     AudioAsset,
     ExpectedOutput,
     ImageAsset,
+    MediaAsset,
     PromptRole,
     StringEnum,
+    Tensors,
     VideoAsset,
 )
 from .request_context import (
@@ -154,11 +151,13 @@ __all__ = [
     # pgw#1104: the serve-time recipe reports the lane it APPLIED.
     "report_applied_attention",
     "report_applied_lane",
+    # th#1871 P1: the attention KERNEL axis, which the sparsity reporter
+    # correctly refuses to carry.
+    "report_attention_backend",
     # SDK v2 per-request views + text pinning.
     "for_request",
     "FetchedUrl",
     "fetch_bytes",
-    "fetch_image",
     # pgw#664/ie#599 fit-to-native geometry: mechanism here, table in the family.
     "FamilyGeometry",
     "FitMode",
@@ -169,28 +168,19 @@ __all__ = [
     "nearest_bucket",
     "restore",
     "set_upscaler",
-    # ie#600 edit/compose references: mechanism here, EditFamily row in the family.
-    "EditFamily",
-    "EditRequest",
-    "PromptRewrite",
-    "Reference",
-    "ReferenceRefusal",
-    "condition_tokens",
-    "fit_edit_request",
-    "normalize_references",
-    "plan_edit",
-    "rewrite_prompt",
     "pad_text_sequence",
     "TextLengthExceededError",
     "HF",
     "Hub",
     "Civitai",
+    "Binding",
     "ModelRef",
     "ModelScope",
     # Curated model-selection (payload `model=` placement key).
     # Hub-resolved model slots (pgw#520) + the per-family defaults vocabulary.
     "Slot",
     "ResolvedSlot",
+    "resolve_slot",
     "GenerationDefaults",
     # pgw#654 objective vocabulary (checkpoint training-objective facts).
     "OBJECTIVES",
@@ -212,6 +202,17 @@ __all__ = [
     "ValidationError",
     "FatalError",
     "IllegalCombination",
+    "AuthError",
+    "OutputTooLargeError",
+    "RefCompatibilitySurprise",
+    "ResourceError",
+    "SnapshotBuildFailedError",
+    "WorkerError",
+    # pgw#1229: the hub's typed error envelope, for any endpoint HTTP call.
+    "HubApiError",
+    "HubError",
+    "parse_hub_error",
+    "raise_for_hub_error",
     # th#826 call-out primitive (ctx.call_endpoint / ctx.workflow_checkpoint).
     "ChildRequest",
     "ChildCallError",
@@ -233,8 +234,10 @@ __all__ = [
     "AudioAsset",
     "ExpectedOutput",
     "ImageAsset",
+    "MediaAsset",
     "PromptRole",
     "StringEnum",
+    "Tensors",
     "VideoAsset",
     "io",
 ]

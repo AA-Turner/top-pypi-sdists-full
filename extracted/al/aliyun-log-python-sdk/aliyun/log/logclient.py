@@ -55,6 +55,8 @@ from .shard_response import *
 from .shipper_response import *
 from .resource_response import *
 from .resource_params import *
+from .resource_policy import ResourcePolicyResourceType
+from .resource_policy_response import *
 from .tag_response import GetResourceTagsResponse
 from .topostore_response import *
 from .topostore_params import *
@@ -3297,6 +3299,116 @@ class LogClient(object):
 
         (resp, header) = self._send("DELETE", project_name, None, resource, params, headers)
         return DeleteProjectResponse(header, resp)
+
+    @staticmethod
+    def _validate_resource_policy_target(project_name, resource_type):
+        if not project_name:
+            raise LogException("InvalidParameter", "project_name must not be empty")
+        if resource_type not in (
+                ResourcePolicyResourceType.PROJECT,
+                ResourcePolicyResourceType.LOGSTORE):
+            raise LogException(
+                "InvalidParameter",
+                "resource_type must be project or logstore"
+            )
+
+    def put_resource_policy(self, project_name, resource_type, policy_document,
+                            resource_name=None, dry_run=False):
+        """Create or update a resource policy for a project or logstore.
+
+        :type project_name: string
+        :param project_name: the project name
+
+        :type resource_type: string
+        :param resource_type: ``project`` or ``logstore``
+
+        :type policy_document: string
+        :param policy_document: the JSON policy document
+
+        :type resource_name: string
+        :param resource_name: optional resource name; required by the service for logstore policies
+
+        :type dry_run: bool
+        :param dry_run: validate the policy without persisting it
+
+        :return: PutResourcePolicyResponse
+
+        :raise: LogException
+        """
+        self._validate_resource_policy_target(project_name, resource_type)
+        if not policy_document:
+            raise LogException("InvalidParameter", "policy_document must not be empty")
+
+        body = {
+            "resourceType": resource_type,
+            "policyDocument": policy_document,
+            "dryRun": bool(dry_run),
+        }
+        if resource_name:
+            body["resourceName"] = resource_name
+
+        body_str = six.b(json.dumps(body))
+        headers = {
+            "Content-Type": "application/json",
+            "x-log-bodyrawsize": str(len(body_str)),
+        }
+        (resp, header) = self._send(
+            "PUT", project_name, body_str, "/resource-policies", {}, headers
+        )
+        return PutResourcePolicyResponse(header, resp)
+
+    def get_resource_policy(self, project_name, resource_type, resource_name=None):
+        """Get a resource policy for a project or logstore.
+
+        :type project_name: string
+        :param project_name: the project name
+
+        :type resource_type: string
+        :param resource_type: ``project`` or ``logstore``
+
+        :type resource_name: string
+        :param resource_name: optional resource name; required by the service for logstore policies
+
+        :return: GetResourcePolicyResponse
+
+        :raise: LogException
+        """
+        self._validate_resource_policy_target(project_name, resource_type)
+        params = {"resourceType": resource_type}
+        if resource_name:
+            params["resourceName"] = resource_name
+
+        (resp, header) = self._send(
+            "GET", project_name, None, "/resource-policies", params,
+            {"Content-Type": "application/json"}
+        )
+        return GetResourcePolicyResponse(resp, header)
+
+    def delete_resource_policy(self, project_name, resource_type, resource_name=None):
+        """Delete a resource policy for a project or logstore.
+
+        :type project_name: string
+        :param project_name: the project name
+
+        :type resource_type: string
+        :param resource_type: ``project`` or ``logstore``
+
+        :type resource_name: string
+        :param resource_name: optional resource name; required by the service for logstore policies
+
+        :return: DeleteResourcePolicyResponse
+
+        :raise: LogException
+        """
+        self._validate_resource_policy_target(project_name, resource_type)
+        params = {"resourceType": resource_type}
+        if resource_name:
+            params["resourceName"] = resource_name
+
+        (resp, header) = self._send(
+            "DELETE", project_name, None, "/resource-policies", params, {}
+        )
+        return DeleteResourcePolicyResponse(header, resp)
 
     def change_resource_group(self, resource_id, resource_group_id, resource_type="PROJECT"):
         """

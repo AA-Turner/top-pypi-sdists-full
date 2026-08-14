@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-redis
-Version: 1.0.0b260730
+Version: 1.0.0b260813
 Summary: Redis integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10

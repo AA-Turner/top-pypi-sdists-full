@@ -52,7 +52,7 @@ class AcsEncoder:
         message: str
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 created_at=d.get("created_at", None),
                 error_code=d.get("error_code", None),
@@ -68,7 +68,7 @@ class AcsEncoder:
     workspace_id: str
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]):
+    def from_dict(cls, d: Any):
         return cls(
             acs_encoder_id=d.get("acs_encoder_id", None),
             acs_system_id=d.get("acs_system_id", None),

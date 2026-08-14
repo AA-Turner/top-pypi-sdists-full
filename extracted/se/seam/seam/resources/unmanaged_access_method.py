@@ -54,7 +54,7 @@ class UnmanagedAccessMethod:
         message: str
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 created_at=d.get("created_at", None),
                 error_code=d.get("error_code", None),
@@ -85,12 +85,12 @@ class UnmanagedAccessMethod:
 
             :ivar starts_at: Previous start time for access."""
 
-            device_ids: List[str]
-            ends_at: str
-            starts_at: str
+            device_ids: Optional[List[str]]
+            ends_at: Optional[str]
+            starts_at: Optional[str]
 
             @classmethod
-            def from_dict(cls, d: Dict[str, Any]):
+            def from_dict(cls, d: Any):
                 return cls(
                     device_ids=d.get("device_ids", None),
                     ends_at=d.get("ends_at", None),
@@ -107,12 +107,12 @@ class UnmanagedAccessMethod:
 
             :ivar starts_at: New start time for access."""
 
-            device_ids: List[str]
-            ends_at: str
-            starts_at: str
+            device_ids: Optional[List[str]]
+            ends_at: Optional[str]
+            starts_at: Optional[str]
 
             @classmethod
-            def from_dict(cls, d: Dict[str, Any]):
+            def from_dict(cls, d: Any):
                 return cls(
                     device_ids=d.get("device_ids", None),
                     ends_at=d.get("ends_at", None),
@@ -120,13 +120,13 @@ class UnmanagedAccessMethod:
                 )
 
         created_at: str
-        from_: From
+        from_: Optional[From]
         message: str
         mutation_code: str
-        to: To
+        to: Optional[To]
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 created_at=d.get("created_at", None),
                 from_=(
@@ -155,10 +155,10 @@ class UnmanagedAccessMethod:
         created_at: str
         message: str
         warning_code: str
-        original_access_method_id: str
+        original_access_method_id: Optional[str]
 
         @classmethod
-        def from_dict(cls, d: Dict[str, Any]):
+        def from_dict(cls, d: Any):
             return cls(
                 created_at=d.get("created_at", None),
                 message=d.get("message", None),
@@ -167,23 +167,23 @@ class UnmanagedAccessMethod:
             )
 
     access_method_id: str
-    code: str
+    code: Optional[str]
     created_at: str
     display_name: str
     errors: List[Errors]
-    is_assignment_required: bool
-    is_encoding_required: bool
+    is_assignment_required: Optional[bool]
+    is_encoding_required: Optional[bool]
     is_issued: bool
-    is_ready_for_assignment: bool
-    is_ready_for_encoding: bool
-    issued_at: str
+    is_ready_for_assignment: Optional[bool]
+    is_ready_for_encoding: Optional[bool]
+    issued_at: Optional[str]
     mode: str
     pending_mutations: List[PendingMutations]
     warnings: List[Warnings]
     workspace_id: str
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]):
+    def from_dict(cls, d: Any):
         return cls(
             access_method_id=d.get("access_method_id", None),
             code=d.get("code", None),

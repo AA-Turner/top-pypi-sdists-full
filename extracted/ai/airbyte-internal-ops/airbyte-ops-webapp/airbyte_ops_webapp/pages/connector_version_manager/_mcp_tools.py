@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Mapping
 from dataclasses import asdict
@@ -10,6 +11,9 @@ from typing import Any
 
 from airbyte.exceptions import PyAirbyteInputError
 from airbyte_ops_mcp.cloud_admin import api_client as cloud_api
+from airbyte_ops_mcp.cloud_admin.registry_lookup import (
+    invalidate_cloud_registry_cache,
+)
 from airbyte_ops_mcp.connector_ops.rollouts.constants import CustomerTier
 from airbyte_ops_mcp.github_actions import trigger_workflow_dispatch
 from airbyte_ops_mcp.github_api import resolve_ci_trigger_github_token
@@ -34,6 +38,7 @@ from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     fallback_current_state,
     get_adapter,
     json_text,
+    latest_version_rows,
     org_connector_pin_rows,
     org_pin_version_rows,
     pinned_version_rows,
@@ -53,6 +58,7 @@ from airbyte_ops_webapp.pages.connector_version_manager._state import (
     CompoundContextResult,
     ConnectorContextResult,
     ConnectorVersionContextResult,
+    RegistryCacheInvalidationResult,
     RemovePinsResult,
     RolloutActionResult,
     ScopeResolutionResult,
@@ -74,6 +80,7 @@ from airbyte_ops_webapp.services.connector_version_manager.demo_mode import (
 from airbyte_ops_webapp.state import mock_only_enabled
 
 connector_version_manager_app = FastMCPApp("Connector Version Manager")
+logger = logging.getLogger(__name__)
 
 # Number of pins fetched per "Load More" click.
 _PIN_BATCH_SIZE = 100
@@ -84,6 +91,16 @@ _YANK_WORKFLOW_REPO_NAME = "airbyte"
 _YANK_WORKFLOW_DEFAULT_BRANCH = "master"
 _YANK_WORKFLOW_FILE = "version-yank-command.yml"
 YANK_STORE = "coral:prod"
+FINALIZE_ROLLOUT_WORKFLOW_URL = (
+    "https://github.com/airbytehq/airbyte/actions/workflows/finalize_rollout.yml"
+)
+
+
+@connector_version_manager_app.tool()
+def invalidate_registry_cache() -> RegistryCacheInvalidationResult:
+    """Invalidate cached cloud registry responses before a refresh."""
+    invalidate_cloud_registry_cache()
+    return RegistryCacheInvalidationResult(invalidated=True)
 
 
 def _connector_is_destination(
@@ -181,15 +198,22 @@ def _override_plan(
 
 
 @connector_version_manager_app.tool()
-def load_recent_releases_tab() -> TabRowsResult:
+def load_recent_releases_tab(limit: int = 250) -> TabRowsResult:
     """Load Recent Releases tab data on demand (lazy)."""
-    return TabRowsResult(rows=recent_release_rows())
+    rows = recent_release_rows(limit=limit)
+    return TabRowsResult(rows=rows, limit=limit)
 
 
 @connector_version_manager_app.tool()
 def load_active_rollouts_tab() -> TabRowsResult:
     """Load Active Rollouts tab data on demand (lazy)."""
     return TabRowsResult(rows=progressive_rollout_rows())
+
+
+@connector_version_manager_app.tool()
+def load_latest_versions_tab() -> TabRowsResult:
+    """Load Default Versions tab data on demand."""
+    return TabRowsResult(rows=latest_version_rows())
 
 
 @connector_version_manager_app.tool()
@@ -698,6 +722,9 @@ def load_connector_version_context(
     call so that clicking a row in the version selector tabs populates both
     the rollout status and pin detail sections in one round-trip.
     """
+    if not connector_id:
+        return ConnectorVersionContextResult()
+
     context = load_connector_context(
         connector_id=connector_id,
         scope_type=scope_type,
@@ -708,22 +735,34 @@ def load_connector_version_context(
     )
     latest_version = context.connector.latest_version
     effective_version = version_tag or latest_version
+    default_version = context.rollout_summary.initial_docker_image_tag or latest_version
 
     # Resolve version_id and release dates from the versions list
     resolved_version_id = ""
     selected_version_release_date = ""
     latest_version_release_date = ""
+    default_version_release_date = ""
+    promoting_version_release_date = ""
     for v in context.versions:
         tag = v.get("docker_image_tag", "")
         if tag == effective_version:
             resolved_version_id = str(v.get("version_id", "") or "")
             selected_version_release_date = str(v.get("last_published", "") or "")
+        if tag == default_version:
+            default_version_release_date = str(v.get("last_published", "") or "")
         if tag == latest_version:
             latest_version_release_date = str(v.get("last_published", "") or "")
+        if tag == context.rollout_summary.rc_docker_image_tag:
+            promoting_version_release_date = str(v.get("last_published", "") or "")
 
     adapter = get_adapter(auth_bearer_token or None)
 
     yank_fields = _selected_version_yank_fields(
+        adapter,
+        connector_name=context.connector.name,
+        version=effective_version,
+    )
+    promotion_fields = _selected_version_promotion_fields(
         adapter,
         connector_name=context.connector.name,
         version=effective_version,
@@ -756,12 +795,22 @@ def load_connector_version_context(
         default_version_display=_version_with_date(
             latest_version, latest_version_release_date
         ),
+        default_version_tag=latest_version,
+        ga_default_version_display=_version_with_date(
+            default_version, default_version_release_date
+        ),
+        ga_default_version_tag=default_version,
+        promoting_version_display=_version_with_date(
+            context.rollout_summary.rc_docker_image_tag,
+            promoting_version_release_date,
+        ),
         version_pins=version_pins,
         version_pins_total=version_pins_total,
         version_pins_offset=version_pins_offset,
         selected_version_id=selected_version_id,
         selected_version_tag=effective_version,
         **yank_fields,
+        **promotion_fields,
     )
 
 
@@ -802,6 +851,51 @@ def _selected_version_yank_fields(
         "selected_version_yank_reason": marker.reason,
         "selected_version_yank_approval_url": marker.approval_url,
         "selected_version_yank_raw": marker.raw,
+    }
+
+
+def _selected_version_promotion_fields(
+    adapter: OpsMcpAdapter,
+    *,
+    connector_name: str,
+    version: str,
+) -> dict[str, Any]:
+    """Resolve the selected version's promotion-pending marker fields.
+
+    Any missing marker or adapter error degrades to an empty, non-pending
+    result so registry availability cannot prevent the context from loading.
+    """
+    empty: dict[str, Any] = {
+        "selected_version_promotion_pending": False,
+        "selected_version_promotion_requested_at": "",
+        "selected_version_promotion_requested_at_display": "",
+        "selected_version_promotion_requested_by": "",
+        "selected_version_promotion_rollout_id": "",
+        "selected_version_promotion_raw": "",
+        "selected_version_promotion_state": "",
+        "selected_version_promotion_marker_date": "",
+    }
+    if not connector_name or not version:
+        return empty
+    try:
+        marker = adapter.get_progressive_rollout_marker(connector_name, version)
+    except Exception:
+        return empty
+    if marker is None or (
+        marker.state == "active" and not marker.promotion_requested_at
+    ):
+        return empty
+    return {
+        "selected_version_promotion_pending": True,
+        "selected_version_promotion_requested_at": marker.promotion_requested_at,
+        "selected_version_promotion_requested_at_display": _fmt_date_long(
+            marker.promotion_requested_at
+        ),
+        "selected_version_promotion_requested_by": marker.promotion_requested_by,
+        "selected_version_promotion_rollout_id": marker.rollout_id,
+        "selected_version_promotion_raw": marker.raw,
+        "selected_version_promotion_state": marker.state,
+        "selected_version_promotion_marker_date": marker.marker_date,
     }
 
 
@@ -1090,12 +1184,37 @@ def finalize_rollout(
         "canceled": "canceled",
         "failed_rolled_back": "rolled back",
     }.get(state, state)
+    message = (
+        f"Successfully {action_label} rollout for "
+        f"{docker_repository}:{docker_image_tag}."
+    )
+    if state == "succeeded":
+        connector_name = docker_repository.removeprefix("airbyte/")
+        try:
+            annotation = adapter.annotate_progressive_rollout_marker(
+                connector_name,
+                docker_image_tag,
+                promotion_requested_by=user_email,
+                rollout_id=rollout_id,
+            )
+            if not annotation.success:
+                message += f" Promotion pending marker warning: {annotation.message}"
+        except Exception as exc:
+            logger.warning(
+                "Failed to annotate promotion-pending marker for %s:%s: %s",
+                connector_name,
+                docker_image_tag,
+                exc,
+                exc_info=True,
+            )
+            message += f" Promotion pending marker warning: {exc}"
+        message += (
+            f" Monitor the promotion job in GitHub Actions: "
+            f"{FINALIZE_ROLLOUT_WORKFLOW_URL}"
+        )
 
     return RolloutActionResult(
-        rollout_action_result=(
-            f"Successfully {action_label} rollout for "
-            f"{docker_repository}:{docker_image_tag}."
-        ),
+        rollout_action_result=message,
         rollout_action_success=True,
     )
 

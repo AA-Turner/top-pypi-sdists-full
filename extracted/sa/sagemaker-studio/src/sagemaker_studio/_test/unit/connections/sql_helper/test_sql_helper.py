@@ -1,5 +1,4 @@
 from dataclasses import make_dataclass
-from unittest.mock import patch
 
 from sagemaker_studio.connections.sql_helper.athena_sql_helper import AthenaSqlHelper
 from sagemaker_studio.connections.sql_helper.big_query_sql_helper import BigQuerySqlHelper
@@ -208,36 +207,24 @@ def test_to_snowflake_helper_sql_config_pem_private_key():
     assert "pem_private_key" not in result
 
 
-@patch(
-    "sagemaker_studio.connections.sql_helper.athena_sql_helper.AthenaSqlHelper._get_s3_staging_dir"
-)
-def test_to_athena_helper_sql_config_returns_basic_config(mock_get_s3_staging_dir):
-    mock_get_s3_staging_dir.return_value = "s3://test-bucket/athena-results/"
-
+def test_to_athena_helper_sql_config_returns_basic_config():
     result = AthenaSqlHelper.to_sql_config(athena_connection)
     assert result == {
         "region": "us-east-1",
         "work_group": "test-workgroup",
-        "s3_staging_dir": "s3://test-bucket/athena-results/",
         "aws_access_key_id": "dummy_access_key_id",
         "aws_secret_access_key": "dummy_secret_access_key",
         "aws_session_token": "dummy_session_token",
     }
 
 
-@patch(
-    "sagemaker_studio.connections.sql_helper.athena_sql_helper.AthenaSqlHelper._get_s3_staging_dir"
-)
-def test_to_athena_helper_sql_config_with_override(mock_get_s3_staging_dir):
-    mock_get_s3_staging_dir.return_value = "s3://test-bucket/athena-results/"
-
+def test_to_athena_helper_sql_config_with_override():
     result = AthenaSqlHelper.to_sql_config(
         athena_connection, catalog_name="test_catalog", schema_name="test_schema"
     )
     assert result == {
         "region": "us-east-1",
         "work_group": "test-workgroup",
-        "s3_staging_dir": "s3://test-bucket/athena-results/",
         "aws_access_key_id": "dummy_access_key_id",
         "aws_secret_access_key": "dummy_secret_access_key",
         "aws_session_token": "dummy_session_token",
@@ -263,12 +250,8 @@ def test_to_redshift_helper_sql_config_uses_user_selected_database():
     assert result["database_name"] == "user_selected_db"
 
 
-@patch(
-    "sagemaker_studio.connections.sql_helper.athena_sql_helper.AthenaSqlHelper._get_s3_staging_dir"
-)
-def test_to_athena_helper_sql_config_with_credential_provider(mock_get_s3_staging_dir):
+def test_to_athena_helper_sql_config_with_credential_provider():
     """Test Athena helper uses credential_provider when provided"""
-    mock_get_s3_staging_dir.return_value = "s3://test-bucket/athena-results/"
 
     def mock_credential_provider():
         return {
@@ -284,7 +267,6 @@ def test_to_athena_helper_sql_config_with_credential_provider(mock_get_s3_stagin
     assert result == {
         "region": "us-east-1",
         "work_group": "test-workgroup",
-        "s3_staging_dir": "s3://test-bucket/athena-results/",
         "credential_provider": mock_credential_provider,
     }
     assert "aws_access_key_id" not in result

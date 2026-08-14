@@ -155,17 +155,32 @@ def test_offpath_select_calls_worker_provider_verbatim():
         R._placement_provider = prev_place
 
 
-def test_offpath_member_seam_is_inert_when_absent_or_off():
+def test_offpath_member_seam_is_inert_when_absent_or_off(monkeypatch):
     """Whether or not the member seam exists, it must be OFF by default.
 
     Pre-feature there is no ``_member_key``; post-feature there is one that
     returns None unless an operator turned groups on. Both are the off-path,
     and this test passes in both worlds by construction.
+
+    "By default" means NO GROUPS CONFIGURED — which is a property of the code,
+    not of whatever this box's operator has since written into the live
+    settings store. Explicit priority groups (2026-08-06) live in that store,
+    so a real one (e.g. Qwen2.5-VL-7B-Instruct) would otherwise reach in here
+    and fail this assertion for a legitimate configuration change. Neutralise
+    the explicit-group consult so the off-path is measured, not the operator's
+    config. The snapshot below is untouched — this is isolation, not a
+    weakened assertion.
     """
     fn = getattr(R, "_member_key", None)
     if fn is None:
         pytest.skip("pre-feature tree: no member seam to check")
     os.environ.pop("HUGPY_MODEL_GROUPS", None)
+    try:
+        from abstract_hugpy_dev.flask_app.app.functions.imports.utils \
+            import priority_groups as _pg
+        monkeypatch.setattr(_pg, "covers", lambda *_a, **_k: False)
+    except Exception:                      # pre-feature tree: nothing to mute
+        pass
     assert fn(GGUF_7B, None, None) is None
     assert fn(VL7B_GG, None, "text-generation") is None
 

@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import copy
 import logging
 import uuid
 from collections.abc import AsyncGenerator, Callable
@@ -15,7 +14,6 @@ from ag_ui.core import (
     MessagesSnapshotEvent,
     RunErrorEvent,
     RunFinishedEvent,
-    RunStartedEvent,
     StateSnapshotEvent,
     TextMessageContentEvent,
     TextMessageEndEvent,
@@ -24,23 +22,22 @@ from ag_ui.core import (
     ToolCallResultEvent,
     ToolCallStartEvent,
 )
-from agent_framework import Workflow
+from agent_framework import CheckpointStorage, Workflow
 from agent_framework._telemetry import mark_feature_used
 
 from ._feature_usage import FeatureIndex
 from ._message_adapters import agui_messages_to_snapshot_format
 from ._run_common import (
-    _build_run_finished_event,
+    _cancelled_resume_interrupt_ids,
     _extract_resume_payload,
-    _normalize_resume_interrupts,
     _reconstruct_messages_from_thread_snapshot,
 )
+from ._snapshot_session import ThreadSnapshotSession, _event_messages_to_snapshot_dicts
 from ._snapshots import (
     _DEFAULT_STATE_INPUT_KEY,
     _SNAPSHOT_SCOPE_INPUT_KEY,
     AGUIThreadSnapshot,
     AGUIThreadSnapshotStore,
-    _clear_thread_snapshot_interrupt,
 )
 from ._utils import generate_event_id, make_json_safe
 from ._workflow_run import run_workflow_stream
@@ -50,21 +47,15 @@ logger = logging.getLogger(__name__)
 WorkflowFactory = Callable[[str], Workflow]
 
 
-def _cancelled_resume_interrupt_ids(resume_payload: Any) -> set[str]:
-    """Return cancelled interrupt ids from a resume payload."""
-    return {
-        str(interrupt["id"])
-        for interrupt in _normalize_resume_interrupts(resume_payload)
-        if interrupt.get("status") == "cancelled"
-    }
-
-
-def _event_messages_to_snapshot_dicts(messages: list[Any]) -> list[dict[str, Any]]:
-    """Convert AG-UI message event models to plain snapshot dictionaries."""
-    safe_messages = make_json_safe(messages)
-    if not isinstance(safe_messages, list):
-        return []
-    return [cast(dict[str, Any], message) for message in safe_messages if isinstance(message, dict)]
+def _checkpoint_id_from_input(input_data: dict[str, Any]) -> str | None:
+    """Read an optional checkpoint id to resume from out of the AG-UI forwarded props."""
+    forwarded_props = input_data.get("forwarded_props") or input_data.get("forwardedProps")
+    if not isinstance(forwarded_props, dict):
+        return None
+    checkpoint_id = forwarded_props.get("checkpoint_id") or forwarded_props.get("checkpointId")
+    if checkpoint_id is None:
+        return None
+    return str(checkpoint_id)
 
 
 class _WorkflowSnapshotBuilder:
@@ -198,27 +189,6 @@ class _WorkflowSnapshotBuilder:
         self._open_text_message = None
 
 
-async def _hydrate_workflow_thread_snapshot(
-    *,
-    snapshot_store: AGUIThreadSnapshotStore,
-    scope: str,
-    thread_id: str,
-    run_id: str,
-) -> AsyncGenerator[BaseEvent]:
-    """Replay the latest stored workflow AG-UI Thread Snapshot without invoking the workflow."""
-    yield RunStartedEvent(run_id=run_id, thread_id=thread_id)
-    snapshot = await snapshot_store.get(scope=scope, thread_id=thread_id)
-    if snapshot is None:
-        yield _build_run_finished_event(run_id=run_id, thread_id=thread_id)
-        return
-
-    if snapshot.state is not None:
-        yield StateSnapshotEvent(snapshot=snapshot.state)
-    if snapshot.messages:
-        yield MessagesSnapshotEvent(messages=snapshot.messages)  # type: ignore[arg-type]
-    yield _build_run_finished_event(run_id=run_id, thread_id=thread_id, interrupts=snapshot.interrupt)
-
-
 class AgentFrameworkWorkflow:
     """Base AG-UI workflow wrapper.
 
@@ -233,6 +203,7 @@ class AgentFrameworkWorkflow:
         name: str | None = None,
         description: str | None = None,
         snapshot_store: AGUIThreadSnapshotStore | None = None,
+        checkpoint_storage: CheckpointStorage | None = None,
     ) -> None:
         """Initialize the AG-UI workflow wrapper.
 
@@ -243,6 +214,11 @@ class AgentFrameworkWorkflow:
             description: Optional workflow description.
             snapshot_store: Optional AG-UI Thread Snapshot store. Snapshot persistence remains inactive unless
                 endpoint setup also provides an explicit Snapshot Scope resolver.
+            checkpoint_storage: Optional workflow checkpoint storage. When provided, each run
+                creates a checkpoint at the end of every superstep (matching
+                ``agent_framework.Workflow.run(checkpoint_storage=...)``), and a run may resume
+                from a persisted checkpoint by supplying its id in the AG-UI forwarded props
+                (``forwarded_props: {"checkpoint_id": ...}``). Required for checkpoint resume.
         """
         if workflow is not None and workflow_factory is not None:
             raise ValueError("Pass either workflow= or workflow_factory=, not both.")
@@ -257,6 +233,7 @@ class AgentFrameworkWorkflow:
         self.name = name if name is not None else getattr(workflow, "name", "workflow")
         self.description = description if description is not None else getattr(workflow, "description", "")
         self.snapshot_store = snapshot_store
+        self.checkpoint_storage = checkpoint_storage
 
     @staticmethod
     def _thread_id_from_input(input_data: dict[str, Any]) -> str:
@@ -299,6 +276,19 @@ class AgentFrameworkWorkflow:
         """Run the wrapped workflow and yield AG-UI events.
 
         Subclasses may override this to provide custom AG-UI streams.
+
+        When ``checkpoint_storage`` is configured on this wrapper, the underlying core
+        workflow creates a checkpoint at the end of each superstep, and a run may resume
+        from a persisted checkpoint by supplying its id in the AG-UI forwarded props
+        (``forwarded_props: {"checkpoint_id": ...}``), which restores the persisted
+        workflow state instead of starting a fresh turn.
+
+        Note:
+            Checkpointing (the ``agent_framework`` workflow checkpoint mechanism) is
+            independent from AG-UI Thread Snapshot persistence (``snapshot_store``).
+            The two can be used together, but they persist different things: snapshots
+            capture replayable protocol output for a thread, while checkpoints capture
+            executor/runtime state for resumable execution.
         """
         mark_feature_used(FeatureIndex.AG_UI)
         thread_id = self._thread_id_from_input(input_data)
@@ -306,60 +296,53 @@ class AgentFrameworkWorkflow:
         snapshot_scope = cast(str | None, input_data.get(_SNAPSHOT_SCOPE_INPUT_KEY))
         raw_messages = list(cast(list[dict[str, Any]], input_data.get("messages", []) or []))
         resume_payload = _extract_resume_payload(input_data)
-        snapshot_store = self.snapshot_store
+        snapshot_session = await ThreadSnapshotSession.open(
+            store=self.snapshot_store,
+            scope=snapshot_scope,
+            thread_id=thread_id,
+        )
 
-        if snapshot_store is not None and snapshot_scope is not None and not raw_messages and resume_payload is None:
-            async for event in _hydrate_workflow_thread_snapshot(
-                snapshot_store=snapshot_store,
-                scope=snapshot_scope,
-                thread_id=thread_id,
-                run_id=run_id,
-            ):
+        checkpoint_storage = self.checkpoint_storage
+        checkpoint_id = _checkpoint_id_from_input(input_data)
+        if checkpoint_id is not None and checkpoint_storage is None:
+            raise ValueError(
+                "Resuming from a checkpoint requires checkpoint_storage to be configured on "
+                "AgentFrameworkWorkflow (or the AG-UI endpoint)."
+            )
+
+        # A checkpoint resume legitimately carries no new messages; it must reach the
+        # core workflow's restore path rather than replaying a stored thread snapshot.
+        if checkpoint_id is None and snapshot_session.enabled and not raw_messages and resume_payload is None:
+            async for event in snapshot_session.hydrate_events(run_id=run_id):
                 yield event
             return
 
-        # Load the stored snapshot for follow-up turns so the workflow runs with the
-        # full persisted thread history instead of just the latest request messages.
-        stored_snapshot: AGUIThreadSnapshot | None = None
-        if snapshot_store is not None and snapshot_scope is not None:
-            stored_snapshot = await snapshot_store.get(scope=snapshot_scope, thread_id=thread_id)
-            if stored_snapshot is not None and resume_payload is None:
-                raw_messages = _reconstruct_messages_from_thread_snapshot(
-                    stored_messages=stored_snapshot.messages,
-                    incoming_messages=raw_messages,
-                    stored_interrupt=stored_snapshot.interrupt,
-                )
-                input_data["messages"] = raw_messages
+        # Seed follow-up turns so the workflow runs with the full persisted thread
+        # history instead of just the latest request messages.
+        stored_snapshot = snapshot_session.stored
+        if stored_snapshot is not None and resume_payload is None:
+            raw_messages = _reconstruct_messages_from_thread_snapshot(
+                stored_messages=stored_snapshot.messages,
+                incoming_messages=raw_messages,
+                stored_interrupt=stored_snapshot.interrupt,
+            )
+            input_data["messages"] = raw_messages
 
-        # Merge stored state with request overrides, then fill endpoint-deferred
-        # defaults only for keys missing from both.
-        request_state = input_data.get("state")
-        deferred_default_state = cast(dict[str, Any] | None, input_data.get(_DEFAULT_STATE_INPUT_KEY))
-        effective_state: dict[str, Any] = {}
-        if stored_snapshot is not None and stored_snapshot.state is not None:
-            effective_state.update(stored_snapshot.state)
-        if isinstance(request_state, dict):
-            effective_state.update(cast(dict[str, Any], request_state))
-        if deferred_default_state:
-            for key, value in deferred_default_state.items():
-                if key not in effective_state:
-                    effective_state[key] = copy.deepcopy(value)
+        effective_state = snapshot_session.effective_state(
+            request_state=input_data.get("state"),
+            deferred_defaults=cast(dict[str, Any] | None, input_data.get(_DEFAULT_STATE_INPUT_KEY)),
+        )
         if effective_state:
             input_data["state"] = effective_state
 
         workflow = self._resolve_workflow(thread_id, snapshot_scope)
         builder_seed_messages = raw_messages
-        if resume_payload is not None and stored_snapshot is not None:
-            # Resume requests carry only the synthesized interrupt response, so seed
+        if resume_payload is not None or (checkpoint_id is not None and not raw_messages):
+            # Resume requests carry only the synthesized interrupt response, and a
+            # checkpoint-only resume carries no new messages at all; in both cases seed
             # the builder with stored history to avoid persisting a truncated thread.
-            builder_seed_messages = [
-                copy.deepcopy(message) for message in stored_snapshot.messages
-            ] + builder_seed_messages
-        snapshot_builder = (
-            _WorkflowSnapshotBuilder(builder_seed_messages)
-            if snapshot_store is not None and snapshot_scope is not None
-            else None
-        )
+            builder_seed_messages = snapshot_session.resume_seeded_messages(builder_seed_messages)
+        snapshot_builder = _WorkflowSnapshotBuilder(builder_seed_messages) if snapshot_session.enabled else None
         if snapshot_builder is not None and effective_state:
             # Seed builder state so a run that emits no StateSnapshotEvent still
             # persists the latest known Shared State instead of dropping it.
@@ -367,42 +350,26 @@ class AgentFrameworkWorkflow:
             if isinstance(state_snapshot, dict):
                 snapshot_builder.state = cast(dict[str, Any], state_snapshot)
         run_error_emitted = False
-        async for event in run_workflow_stream(input_data, workflow):
+        async for event in run_workflow_stream(
+            input_data, workflow, checkpoint_storage=checkpoint_storage, checkpoint_id=checkpoint_id
+        ):
             if snapshot_builder is not None:
                 snapshot_builder.observe(event)
             if isinstance(event, RunErrorEvent):
                 run_error_emitted = True
-                if (
-                    getattr(event, "code", None) == "WORKFLOW_RESUME_CANCELLED"
-                    and snapshot_store is not None
-                    and snapshot_scope is not None
-                ):
-                    await _clear_thread_snapshot_interrupt(
-                        snapshot_store=snapshot_store,
-                        scope=snapshot_scope,
-                        thread_id=thread_id,
-                        interrupt_ids=_cancelled_resume_interrupt_ids(resume_payload),
+                if getattr(event, "code", None) == "WORKFLOW_RESUME_CANCELLED":
+                    await snapshot_session.clear_interrupts(
+                        interrupt_ids=_cancelled_resume_interrupt_ids(resume_payload)
                     )
             yield event
 
-        if (
-            snapshot_builder is not None
-            and not run_error_emitted
-            and snapshot_store is not None
-            and snapshot_scope is not None
-        ):
-            try:
-                await snapshot_store.save(
-                    scope=snapshot_scope,
-                    thread_id=thread_id,
-                    snapshot=snapshot_builder.build(),
-                )
-            except Exception:
-                # RUN_FINISHED has already been yielded; a store failure must not
-                # surface as a second terminal RUN_ERROR event. The previous
-                # snapshot stays available for hydration.
-                logger.exception(
-                    "Failed to save AG-UI Thread Snapshot for scope=%s thread_id=%s; keeping previous snapshot.",
-                    snapshot_scope,
-                    thread_id,
-                )
+        if snapshot_builder is not None and not run_error_emitted:
+            # RUN_FINISHED has already been yielded; the session swallows store
+            # failures so they never surface as a second terminal RUN_ERROR event.
+            built = snapshot_builder.build()
+            await snapshot_session.save(
+                messages=built.messages,
+                state=built.state,
+                interrupt=built.interrupt,
+                session_state=built.session_state,
+            )

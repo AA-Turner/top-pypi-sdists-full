@@ -230,28 +230,18 @@ _MODELS = (
         accepts_adapters=_ID_ADAPTERS,
         notes="Identity-lock workhorse (ID-4: lock a still, then animate). FP8/INT8 to fit 3090.",
     ),
-    ModelConfig(
-        model_id="wan2.2-t2v-a14b", family=Framework.WAN,
-        tasks=(Task.T2V,), capabilities=(Capability.T2V,),
-        vram=E((Precision.BF16, 42.0), (Precision.FP8, 20.0), (Precision.INT8, 16.0)),
-        resolutions=(R_720P, R_480P), max_frames=81, max_duration_s=5.0,
-        license=LicenseClass.APACHE_2_0,
-        weight_uri="Wan-AI/Wan2.2-T2V-A14B", source_url=HF + "Wan-AI/Wan2.2-T2V-A14B",
-        default_determinism=DeterminismClass.SEEDED_APPROX, unpinned=True,
-        accepts_adapters=frozenset({AdapterKind.IDENTITY_LORA, AdapterKind.CAMERA_CTRL}),
-        notes="MoE ~27B total / ~14B active (high-noise + low-noise experts).",
-    ),
-    ModelConfig(
-        model_id="wan2.2-i2v-a14b", family=Framework.WAN,
-        tasks=(Task.I2V,), capabilities=(Capability.I2V, Capability.ID_LOCK),
-        vram=E((Precision.BF16, 42.0), (Precision.FP8, 20.0), (Precision.INT8, 16.0)),
-        resolutions=(R_720P, R_720P_V, R_480P), max_frames=81, max_duration_s=5.0,
-        license=LicenseClass.APACHE_2_0,
-        weight_uri="Wan-AI/Wan2.2-I2V-A14B", source_url=HF + "Wan-AI/Wan2.2-I2V-A14B",
-        default_determinism=DeterminismClass.SEEDED_APPROX, unpinned=True,
-        accepts_adapters=_ID_ADAPTERS,
-        notes="Best first-frame motion quality of the open i2v models per mid-2026 comparisons.",
-    ),
+    # ── wan2.2-t2v-a14b / wan2.2-i2v-a14b: REMOVED (operator, 2026-08-13) ────
+    # The model battery measured the nf4-quantized MoE (both experts resident)
+    # at a 22.2 GiB peak vs ~22.0 GiB usable on this fleet's 24 GB 3090 — seven
+    # mitigation attempts deep (weights root, stall window, GPU fully cleared,
+    # LLM blocked, explicit budget, expandable segments, ComfyUI stopped), it
+    # cannot complete a render here. Operator ruling: rather than carry rows the
+    # router must refuse every time, drop them from the registry and every
+    # picker. The 118 GiB weight pairs remain on
+    # /mnt/llm_storage/video_intel/studio/weights/Wan-AI/ — restore the rows
+    # from models_seed.py.bak-battery-20260813 (with the battery's HONEST
+    # envelopes: FP8 23.0 / INT8 27.0, NOT the original 20/16 fiction) if a
+    # bigger card or a single-expert/offload loading path lands.
     ModelConfig(
         model_id="wan2.1-vace-1.3b", family=Framework.WAN,
         tasks=(Task.VACE_CONTROL,),

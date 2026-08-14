@@ -1,4 +1,4 @@
-from typing import List, Any, Literal, Required, TypedDict, Dict
+from typing import TypedDict, Any, Required, Literal, List, Dict
 
 
 class PayloadV3(TypedDict, total=False):

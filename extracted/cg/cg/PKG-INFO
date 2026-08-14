@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cg
-Version: 88.1.4
+Version: 88.2.1
 Summary: Clinical Genomics command center
 Requires-Python: >=3.11,<3.13
 Classifier: Programming Language :: Python
@@ -9,6 +9,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Provides-Extra: coveralls
 Provides-Extra: mock
 Provides-Extra: pre-commit
+Provides-Extra: pyfakefs
 Provides-Extra: pytest
 Provides-Extra: pytest-cov
 Provides-Extra: pytest-freezegun
@@ -46,13 +47,13 @@ Requires-Dist: mock ; extra == "mock"
 Requires-Dist: nats-py (>=2.14.0,<3.0.0)
 Requires-Dist: openpyxl
 Requires-Dist: packaging
-Requires-Dist: pandas
 Requires-Dist: paramiko
 Requires-Dist: petname
 Requires-Dist: pre-commit ; extra == "pre-commit"
 Requires-Dist: psutil
 Requires-Dist: pydantic (==2.7.4)
 Requires-Dist: pydantic-settings (>=2.3.3)
+Requires-Dist: pyfakefs ; extra == "pyfakefs"
 Requires-Dist: pytest ; extra == "pytest"
 Requires-Dist: pytest-cov ; extra == "pytest-cov"
 Requires-Dist: pytest-freezegun ; extra == "pytest-freezegun"

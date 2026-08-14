@@ -1,28 +1,32 @@
+from collections.abc import Mapping
 from typing import Any, Dict, Optional
-from urllib.parse import urljoin
-import niquests as requests
 from importlib.metadata import version
-from inspect import signature
-from urllib3.util import Retry
 import abc
 
-from .constants import DEFAULT_TIMEOUT, LTS_VERSION
+import httpx
+from httpx import Response
+from httpx_retries import Retry, RetryTransport
+
+from .constants import DEFAULT_TIMEOUT
 from .exceptions import (
     SeamHttpApiError,
     SeamHttpInvalidInputError,
     SeamHttpUnauthorizedError,
 )
+from .null import replace_null
+from .strict_url_search_params_serializer import serialize_url_search_params
 
 SDK_HEADERS = {
     "seam-sdk-name": "seamapi/python",
     "seam-sdk-version": version("seam"),
-    "seam-lts-version": LTS_VERSION,
 }
 
-DEFAULT_RETRIES = Retry()
-
-NIQUESTS_TIMEOUT_DEFAULT = (
-    signature(requests.Session.post).parameters["timeout"].default
+DEFAULT_RETRIES = Retry(
+    total=2,
+    allowed_methods=["GET", "HEAD", "OPTIONS", "PUT", "DELETE"],
+    status_forcelist=[429, *range(500, 600)],
+    backoff_factor=0.12,
+    backoff_jitter=1 / 6,
 )
 
 
@@ -36,55 +40,82 @@ class AbstractSeamHttpClient(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def _handle_response(self, response: requests.Response):
+    def _handle_response(self, response: Response):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def _handle_error_response(self, response: requests.Response):
+    def _handle_error_response(self, response: Response):
         raise NotImplementedError
 
 
-class SeamHttpClient(requests.Session, AbstractSeamHttpClient):
+class SeamHttpClient(httpx.Client, AbstractSeamHttpClient):
     def __init__(
         self,
         base_url: str,
         auth_headers: Dict[str, str],
         retries: Optional[Retry] = DEFAULT_RETRIES,
         timeout: Optional[float] = DEFAULT_TIMEOUT,
-        niquests_options: Optional[Dict[str, Any]] = None,
-        **kwargs
+        httpx_options: Optional[Dict[str, Any]] = None,
+        **kwargs,
     ):
-        # niquests.Session mounts its adapters while initializing, so retries
-        # must be passed through here. Assigning self.retries afterwards leaves
-        # the mounted adapters on their default and the option has no effect.
         options = {
-            "retries": DEFAULT_RETRIES if retries is None else retries,
+            "base_url": base_url,
+            "timeout": timeout,
             **kwargs,
-            **(niquests_options or {}),
+            **(httpx_options or {}),
         }
 
         custom_headers = options.pop("headers", {})
+        self._retry_policy = DEFAULT_RETRIES if retries is None else retries
 
         super().__init__(**options)
-
-        self.base_url = base_url
-
-        self.timeout = timeout
 
         headers = {**auth_headers, **custom_headers, **SDK_HEADERS}
         self.headers.update(headers)
 
-    def request(self, method, url, *args, **kwargs):
-        url = urljoin(self.base_url, url)
+    def _init_transport(self, *args, **kwargs) -> httpx.BaseTransport:
+        transport = super()._init_transport(*args, **kwargs)
 
-        if kwargs.get("timeout", NIQUESTS_TIMEOUT_DEFAULT) == NIQUESTS_TIMEOUT_DEFAULT:
-            kwargs["timeout"] = self.timeout
+        if kwargs.get("transport") is not None:
+            return transport
+
+        return RetryTransport(transport=transport, retry=self._retry_policy)
+
+    def _init_proxy_transport(self, *args, **kwargs) -> httpx.BaseTransport:
+        transport = super()._init_proxy_transport(*args, **kwargs)
+        return RetryTransport(transport=transport, retry=self._retry_policy)
+
+    # request returns the decoded body rather than the Response that
+    # httpx.Client promises, so the verb helpers routed through it have to
+    # say so too. Without these overrides callers see the inherited Response
+    # type and indexing the returned payload does not type check.
+    def get(self, url, **kwargs) -> Any:
+        return self.request("GET", url, **kwargs)
+
+    def post(self, url, data=None, json=None, **kwargs) -> Any:
+        return self.request("POST", url, data=data, json=json, **kwargs)
+
+    def put(self, url, data=None, json=None, **kwargs) -> Any:
+        return self.request("PUT", url, data=data, json=json, **kwargs)
+
+    def patch(self, url, data=None, json=None, **kwargs) -> Any:
+        return self.request("PATCH", url, data=data, json=json, **kwargs)
+
+    def delete(self, url, json=None, **kwargs) -> Any:
+        return self.request("DELETE", url, json=json, **kwargs)
+
+    def request(self, method, url, *args, **kwargs) -> Any:
+        if isinstance(kwargs.get("params"), Mapping):
+            url = with_search_params(url, kwargs.pop("params"))
+
+        if "json" in kwargs:
+            kwargs["json"] = replace_null(kwargs["json"])
 
         response = super().request(method, url, *args, **kwargs)
 
         return self._handle_response(response)
 
-    def _handle_response(self, response: requests.Response):
+    def _handle_response(self, response: Response):
         if not 200 <= response.status_code < 300:
             self._handle_error_response(response)
 
@@ -93,7 +124,7 @@ class SeamHttpClient(requests.Session, AbstractSeamHttpClient):
 
         return response.text
 
-    def _handle_error_response(self, response: requests.Response):
+    def _handle_error_response(self, response: Response):
         status_code = response.status_code
         request_id = response.headers.get("seam-request-id")
 
@@ -115,12 +146,22 @@ class SeamHttpClient(requests.Session, AbstractSeamHttpClient):
         }
 
         if error_type == "invalid_input":
+            error_details["validation_errors"] = error.get("validation_errors")
             raise SeamHttpInvalidInputError(error_details, status_code, request_id)
 
         raise SeamHttpApiError(error_details, status_code, request_id)
 
 
-def is_api_error_response(response: requests.Response) -> bool:
+def with_search_params(url: Any, params: Mapping[str, Any]) -> Any:
+    query = serialize_url_search_params(params)
+
+    if not query:
+        return url
+
+    return httpx.URL(url, query=query.encode())
+
+
+def is_api_error_response(response: Response) -> bool:
     try:
         content_type = response.headers.get("content-type", "")
 
@@ -130,7 +171,7 @@ def is_api_error_response(response: requests.Response) -> bool:
             return False
 
         data = response.json()
-    except (ValueError, requests.exceptions.JSONDecodeError):
+    except ValueError:
         return False
 
     if not isinstance(data, dict):

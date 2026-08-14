@@ -1,11 +1,28 @@
 import os
 import sys
 
+# This import also populate registries with built-in environments
+from pettingzoo.env_registry.registration import (
+    EnvSpec,
+    aec_registry,
+    make,
+    parallel_registry,
+    pprint_registry,
+    register,
+    spec,
+)
 from pettingzoo.utils import AECEnv, ParallelEnv
 
 __all__ = [
     "AECEnv",
+    "EnvSpec",
     "ParallelEnv",
+    "aec_registry",
+    "make",
+    "parallel_registry",
+    "pprint_registry",
+    "register",
+    "spec",
 ]
 # Initializing pygame initializes audio connections through SDL. SDL uses alsa by default on all Linux systems
 # SDL connecting to alsa frequently create these giant lists of warnings every time you import an environment using pygame
@@ -16,7 +33,7 @@ if sys.platform.startswith("linux"):
 
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 
-__version__ = "1.26.1"
+__version__ = "1.27.0"
 
 try:
     import sys

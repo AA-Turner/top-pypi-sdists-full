@@ -29,6 +29,10 @@ from .studio_i2v import run_studio_i2v
 # INLINE through the produce_clip spine. Import-safe like studio_i2v (studio/numpy
 # imports stay lazy inside the runner), so this never breaks app boot.
 from .studio_movie import run_generate_studio_movie
+# Studio TESTER — the cross-model sweep runner. Import-safe like the studio runners
+# (plane/studio-spine imports stay lazy inside studio.tester), so this top-level
+# import can never break app boot.
+from .studio_tester import run_studio_tester
 # Identity reconstruction (studio stage (b)) — the orchestrator that renders an
 # identity-locked turnaround set from a profile + description. Import-safe like the
 # studio runners (studio/media_store imports stay lazy inside the runner).
@@ -56,6 +60,7 @@ DISPATCH = {
     ("diffusers", "generate_movie"): run_generate_movie,
     ("studio", "i2v"): run_studio_i2v,
     ("studio", "movie"): run_generate_studio_movie,
+    ("studio", "tester"): run_studio_tester,
     ("identity", "reconstruction"): run_identity_reconstruction,
     ("identity", "mesh_build"): run_identity_mesh_build,
     ("identity", "video_extract"): run_identity_video_extract,

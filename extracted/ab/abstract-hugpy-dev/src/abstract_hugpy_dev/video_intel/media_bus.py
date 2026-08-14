@@ -37,6 +37,7 @@ from .media_schema import make_media_ref
 from .movie_schema import GoalInterval, make_movie
 from .scene_schema import make_generate_scene
 from .studio.job import studio_i2v_from_dict
+from .studio.tester import studio_tester_from_dict
 from .studio_movie_schema import studio_movie_from_dict
 from .identity_reconstruction_schema import (
     identity_reconstruction_from_dict,
@@ -175,6 +176,18 @@ def _generate_movie_from_dict(d: dict):
             end_frame=gd["end_frame"],
             prompt=gd["prompt"],
             ref=ref,
+            # per-goal PROMPT-COMPONENT overrides (k92) — carried through a
+            # re-enqueue (RESUME) so the rebuilt spec is identical.
+            model_id=gd.get("model_id"),
+            width=gd.get("width"),
+            height=gd.get("height"),
+            steps=gd.get("steps"),
+            guidance=gd.get("guidance"),
+            seed=gd.get("seed"),
+            negative=gd.get("negative"),
+            strength=gd.get("strength"),
+            chain=gd.get("chain"),
+            motion=gd.get("motion"),
         ))
     return make_movie(
         goals=tuple(goals),
@@ -227,6 +240,10 @@ SPEC_DESERIALIZERS: Dict[str, Callable[[dict], object]] = {
     # MLT/Kdenlive headless render (k22) — rehydrates through its own validate-at-construction
     # factory (mlt_render_from_dict). The runner path-maps the project + renders it with melt.
     "mlt_render": mlt_render_from_dict,
+    # Studio TESTER (cross-model sweep) — rehydrates through its own validate-at-construction
+    # factory (studio.tester.studio_tester_from_dict). The runner iterates the prompt across
+    # every servable model of the category's type, recording one battery row per model.
+    "studio_tester": studio_tester_from_dict,
 }
 
 
@@ -332,6 +349,20 @@ def _ensure_db() -> None:
                 conn.execute("ALTER TABLE media_jobs ADD COLUMN stage_log_json TEXT")
             except sqlite3.OperationalError:
                 pass  # column already present (fresh CREATE or prior migration)
+            # 2026-08-06 ARTIFACT OWNERSHIP: the central-account USERNAME that
+            # created this job. Same idempotent ADD COLUMN shape as the
+            # migrations above. This is deliberately NOT `principal` (which is a
+            # coarse attribution STRING — "operator", "share:<id>" — for the
+            # /llm/jobs mirror): owner is the identity the listing/serve routes
+            # FILTER on, so a member sees only their own clips and jobs.
+            # NULL = legacy/unattributed (every pre-2026-08-06 row, plus any job
+            # enqueued by an operator-token M2M caller or a share link). The
+            # routes treat NULL as ADMIN-ONLY — a member is never shown an
+            # artifact whose ownership the store cannot vouch for.
+            try:
+                conn.execute("ALTER TABLE media_jobs ADD COLUMN owner TEXT")
+            except sqlite3.OperationalError:
+                pass  # column already present (fresh CREATE or prior migration)
             # k57 LISTING INDEXES. The catalog table has carried only its implicit
             # PRIMARY KEY since day one, so every GET /video/jobs query was a FULL
             # SCAN + sort over the whole history — on a live central that is ~1.5k
@@ -345,6 +376,14 @@ def _ensure_db() -> None:
                 "ON media_jobs(status, created)",
                 "CREATE INDEX IF NOT EXISTS idx_media_jobs_status_updated "
                 "ON media_jobs(status, updated)",
+                # Ownership index (2026-08-06): every member-scoped listing adds
+                # `AND owner = ?` to the queries above, and the clips list also
+                # orders by updated — so the store can range-scan a member's own
+                # rows instead of scanning the whole catalog to filter them out.
+                "CREATE INDEX IF NOT EXISTS idx_media_jobs_owner "
+                "ON media_jobs(owner)",
+                "CREATE INDEX IF NOT EXISTS idx_media_jobs_owner_updated "
+                "ON media_jobs(owner, updated)",
             ):
                 try:
                     conn.execute(_idx_sql)
@@ -938,13 +977,22 @@ def claim_admissible(worker_token: str) -> Optional[str]:
 # --------------------------------------------------------------------------- #
 # API
 # --------------------------------------------------------------------------- #
-def enqueue(name: str, spec, principal: Optional[str] = None) -> str:
+def enqueue(name: str, spec, principal: Optional[str] = None,
+            owner: Optional[str] = None) -> str:
     """Mint a job_id, serialize the spec, insert status='queued'. Returns job_id.
 
     ``principal`` (k9) is the comms attribution string for whoever enqueued this
     job — resolved by the caller in the REQUEST context (this module has no Flask
     coupling). It is persisted on the row so the bus->JobStore bridge can stamp it
-    onto /llm/jobs from the (possibly different) process that runs the job."""
+    onto /llm/jobs from the (possibly different) process that runs the job.
+
+    ``owner`` (2026-08-06) is the central-account USERNAME the artifact belongs
+    to — resolved in the same request context and persisted for the SAME reason,
+    but consumed differently: it is what the listing/serve routes FILTER on, so a
+    member sees only their own clips. None (the default, and every non-request
+    caller — the selftests, a CLI enqueue, a re-enqueue by a runner) stores NULL,
+    which the routes read as legacy/unattributed => admin-only. Additive: the
+    parameter is keyword-optional, so every existing call site is unchanged."""
     if name not in JOB_REGISTRY:
         raise KeyError(f"unknown job name {name!r}; registered: {sorted(JOB_REGISTRY)}")
     _ensure_db()
@@ -955,9 +1003,9 @@ def enqueue(name: str, spec, principal: Optional[str] = None) -> str:
     try:
         conn.execute(
             "INSERT INTO media_jobs "
-            "(job_id, name, status, spec_json, result_json, claim_token, created, updated, principal) "
-            "VALUES (?, ?, 'queued', ?, NULL, NULL, ?, ?, ?)",
-            (job_id, name, spec_json, now, now, principal),
+            "(job_id, name, status, spec_json, result_json, claim_token, created, updated, principal, owner) "
+            "VALUES (?, ?, 'queued', ?, NULL, NULL, ?, ?, ?, ?)",
+            (job_id, name, spec_json, now, now, principal, owner),
         )
     finally:
         conn.close()
@@ -1328,7 +1376,8 @@ def get(job_id: str) -> dict:
     conn = _connect_ro()
     try:
         row = conn.execute(
-            "SELECT name, status, result_json, progress_json, stage_log_json, updated "
+            "SELECT name, status, result_json, progress_json, stage_log_json, updated, "
+            "owner "
             "FROM media_jobs WHERE job_id=?",
             (job_id,),
         ).fetchone()
@@ -1336,17 +1385,20 @@ def get(job_id: str) -> dict:
         conn.close()
     if row is None:
         return {"job_id": job_id, "name": None, "status": None,
-                "result": None, "progress": None,
+                "result": None, "progress": None, "owner": None,
                 # Additive telemetry fields (empty for an unknown id) so a consumer
                 # can read them unconditionally without a shape check.
                 "stage_log": [], "failure": None,
                 "last_movement_ts": None, "current_stage": None}
-    name, status, result_json, progress_json, stage_log_json, updated = row
+    name, status, result_json, progress_json, stage_log_json, updated, owner = row
     result = json.loads(result_json) if result_json else None
     progress = json.loads(progress_json) if progress_json else None
     stage_log = _load_stage_log(stage_log_json)
     return {"job_id": job_id, "name": name, "status": status,
             "result": result, "progress": progress,
+            # The artifact OWNER (central username, NULL/None for legacy rows).
+            # Additive; the /video routes read it to decide who may see this job.
+            "owner": owner,
             # ADDITIVE (the exhaustive per-process telemetry): the retained stage
             # TIMELINE (survives terminal), the terminal FAILURE summary (stage/code/
             # message/retryable — "where it's failing"), the last-movement ts (honest
@@ -1393,6 +1445,26 @@ _STAGE_TAIL = 6
 # status forever. The ORPHAN SWEEP (_reap_orphans, near _runner_loop) is the write
 # side that terminalizes them; it reuses this same window as its claimed/running
 # movement gate, for exactly the held-job reason above.
+def owner_of(job_id: str) -> Tuple[bool, Optional[str]]:
+    """``(found, owner)`` for a job id — the cheap ownership probe the /video
+    routes call before serving or detailing one row (``get()`` parses megabyte
+    result blobs this question does not need).
+
+    ``found=False`` means no such row. ``owner=None`` on a found row means a
+    legacy/unattributed artifact, which the routes treat as ADMIN-ONLY."""
+    _ensure_db()
+    conn = _connect_ro()
+    try:
+        row = conn.execute(
+            "SELECT owner FROM media_jobs WHERE job_id=?", (job_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        return (False, None)
+    return (True, row[0])
+
+
 def _stale_inflight_seconds() -> float:
     raw = (os.environ.get("HUGPY_MEDIA_BUS_STALE_SECONDS") or "").strip()
     if not raw:
@@ -1407,7 +1479,10 @@ def _stale_inflight_seconds() -> float:
 def _project_job_row(r, *, tail: bool = False, now: Optional[float] = None,
                      stale_cutoff: Optional[float] = None) -> dict:
     (job_id, name, status, created, updated, principal, progress_json,
-     stage_log_json, result_json) = r
+     stage_log_json, result_json) = r[:9]
+    # owner rides as a trailing column (added 2026-08-06). Tolerant unpack so a
+    # caller projecting an older 9-column row shape is unaffected.
+    owner = r[9] if len(r) > 9 else None
     stage_log = _load_stage_log(stage_log_json)
     result = json.loads(result_json) if result_json else None
     progress = _load_progress(progress_json)
@@ -1419,6 +1494,9 @@ def _project_job_row(r, *, tail: bool = False, now: Optional[float] = None,
         "created": created,
         "updated": updated,
         "principal": principal,
+        # Artifact OWNER (central username; None = legacy/unattributed). The
+        # route filters on it; the panel may render it for an admin.
+        "owner": owner,
         "progress": progress,
         # ADDITIVE per-process telemetry (identical to media_bus.get()'s): the
         # retained stage TIMELINE, the terminal FAILURE summary, the last-movement
@@ -1444,8 +1522,17 @@ def _project_job_row(r, *, tail: bool = False, now: Optional[float] = None,
 
 _INFLIGHT_SELECT = (
     "SELECT job_id, name, status, created, updated, principal, progress_json, "
-    "stage_log_json, NULL "
+    "stage_log_json, NULL, owner "
     "FROM media_jobs WHERE status IN (?,?,?,?) ORDER BY created ASC LIMIT ?")
+
+# OWNER-SCOPED twins of the three listing queries (2026-08-06). A member's
+# listing adds `AND owner = ?`; NULL-owner (legacy/unattributed) rows can never
+# match an equality test, which is exactly the policy — they are admin-only.
+_INFLIGHT_SELECT_OWNED = (
+    "SELECT job_id, name, status, created, updated, principal, progress_json, "
+    "stage_log_json, NULL, owner "
+    "FROM media_jobs WHERE status IN (?,?,?,?) AND owner = ? "
+    "ORDER BY created ASC LIMIT ?")
 
 # The same query with the stale rows dropped in SQL. `updated` is bumped by every
 # write that also moves the timeline, so movement_ts <= updated always: an
@@ -1454,8 +1541,14 @@ _INFLIGHT_SELECT = (
 # The exact (timeline-based) test still runs per row afterwards for the rest.
 _INFLIGHT_SELECT_FRESH = (
     "SELECT job_id, name, status, created, updated, principal, progress_json, "
-    "stage_log_json, NULL "
+    "stage_log_json, NULL, owner "
     "FROM media_jobs WHERE status IN (?,?,?,?) AND updated >= ? "
+    "ORDER BY created ASC LIMIT ?")
+
+_INFLIGHT_SELECT_FRESH_OWNED = (
+    "SELECT job_id, name, status, created, updated, principal, progress_json, "
+    "stage_log_json, NULL, owner "
+    "FROM media_jobs WHERE status IN (?,?,?,?) AND updated >= ? AND owner = ? "
     "ORDER BY created ASC LIMIT ?")
 
 # Terminal rows need result_json for the failure envelope — but ONLY a FAILED row
@@ -1465,12 +1558,19 @@ _INFLIGHT_SELECT_FRESH = (
 # rows whose result we would discard anyway.
 _TERMINAL_SELECT = (
     "SELECT job_id, name, status, created, updated, principal, progress_json, "
-    "stage_log_json, CASE WHEN status='failed' THEN result_json END "
+    "stage_log_json, CASE WHEN status='failed' THEN result_json END, owner "
     "FROM media_jobs WHERE status IN (?,?,?) ORDER BY updated DESC LIMIT ?")
+
+_TERMINAL_SELECT_OWNED = (
+    "SELECT job_id, name, status, created, updated, principal, progress_json, "
+    "stage_log_json, CASE WHEN status='failed' THEN result_json END, owner "
+    "FROM media_jobs WHERE status IN (?,?,?) AND owner = ? "
+    "ORDER BY updated DESC LIMIT ?")
 
 
 def list_jobs(include_terminal: bool = False, limit: int = 50,
-              include_stale: bool = False) -> List[dict]:
+              include_stale: bool = False,
+              owner: Optional[str] = None) -> List[dict]:
     """Bus-wide job listing for GET /video/jobs.
 
     In-flight rows (queued/claimed/running/cancelling) in FIFO order by ``created``
@@ -1484,6 +1584,11 @@ def list_jobs(include_terminal: bool = False, limit: int = 50,
     STALE in-flight rows (no movement for ``_stale_inflight_seconds``, i.e. a job
     orphaned by a dead process) are hidden unless ``include_stale``; they are still
     reachable per-id and via the terminal/stale filters, and are never mutated here.
+
+    ``owner`` (2026-08-06) scopes the listing to ONE central username — what a
+    member's GET /video/jobs passes, so they see their own jobs and nothing else.
+    Legacy rows (owner NULL) never satisfy the equality and so stay admin-only.
+    None (the default) is the unscoped, pre-ownership query, byte-for-byte.
 
     READ-ONLY BY CONSTRUCTION (k57): opened ``mode=ro``, so this path cannot take a
     write lock even by accident, and it does NO per-row work beyond parsing the
@@ -1501,18 +1606,23 @@ def list_jobs(include_terminal: bool = False, limit: int = 50,
     conn = _connect_ro()
     try:
         if include_stale:
-            rows = conn.execute(_INFLIGHT_SELECT,
-                                (*_INFLIGHT_STATES, limit)).fetchall()
+            sql = _INFLIGHT_SELECT_OWNED if owner else _INFLIGHT_SELECT
+            args = ((*_INFLIGHT_STATES, owner, limit) if owner
+                    else (*_INFLIGHT_STATES, limit))
         else:
-            rows = conn.execute(_INFLIGHT_SELECT_FRESH,
-                                (*_INFLIGHT_STATES, stale_cutoff, limit)).fetchall()
+            sql = _INFLIGHT_SELECT_FRESH_OWNED if owner else _INFLIGHT_SELECT_FRESH
+            args = ((*_INFLIGHT_STATES, stale_cutoff, owner, limit) if owner
+                    else (*_INFLIGHT_STATES, stale_cutoff, limit))
+        rows = conn.execute(sql, args).fetchall()
         out = [_project_job_row(r, tail=True, now=now, stale_cutoff=stale_cutoff)
                for r in rows]
         if not include_stale:
             out = [row for row in out if not row.get("stale")]
         if include_terminal:
-            trows = conn.execute(_TERMINAL_SELECT,
-                                 (*_TERMINAL_STATES, limit)).fetchall()
+            tsql = _TERMINAL_SELECT_OWNED if owner else _TERMINAL_SELECT
+            targs = ((*_TERMINAL_STATES, owner, limit) if owner
+                     else (*_TERMINAL_STATES, limit))
+            trows = conn.execute(tsql, targs).fetchall()
             out.extend(_project_job_row(r) for r in trows)
         return out
     finally:

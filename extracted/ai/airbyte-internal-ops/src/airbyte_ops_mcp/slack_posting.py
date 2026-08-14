@@ -315,6 +315,23 @@ def _format_mention(identifier: str, slack_id: str | None) -> str:
     return f"`{mention_id}` (could not resolve to Slack)"
 
 
+def format_github_login_contact(github_login: str) -> str:
+    """Format a GitHub login as a Slack mention when the roster resolves it."""
+    try:
+        roster = fetch_roster()
+        slack_id = _resolve_to_slack_id(github_login, roster)
+    except Exception as exc:
+        logger.warning(
+            "Could not resolve GitHub login %s through the internal roster: %s",
+            github_login,
+            exc,
+        )
+        return github_login
+    if slack_id:
+        return _format_mention(github_login, slack_id)
+    return github_login
+
+
 def _extract_short_session_token(url: str, length: int = 8) -> str | None:
     """Extract a short token from the trailing path segment of a URL.
 

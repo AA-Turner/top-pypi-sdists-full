@@ -63,11 +63,7 @@ def _find_entry(
 
 
 def _find_prefix_entries(iv: InlineTableValue, key_path: tuple[str, ...]) -> list[int]:
-    """Return indices of entries whose ``key_parts`` start with ``key_path``.
-
-    Used when deleting a synthetic dotted-prefix container, e.g.
-    ``del obj["a"]`` for ``{a.b = 1, a.c = 2}``.
-    """
+    """Return indices of entries whose ``key_parts`` start with ``key_path``."""
     n = len(key_path)
     out: list[int] = []
     for i, e in enumerate(iv.items):
@@ -111,18 +107,18 @@ def append_entry(t: Container, key: str, new_value: Value) -> None:
         eq_pre = " "
         eq_post = " "
     new_entry = InlineTableEntry(
-        leading="",
-        value=new_value,
-        trailing="",
-        has_comma=False,
-        post_comma_trivia="",
-        key_parts=make_keyparts(key_path),
-        key_seps=["."] * (len(key_path) - 1),
-        pre_eq=eq_pre,
-        post_eq=eq_post,
-        key_path=key_path,
+        "",
+        new_value,
+        "",
+        False,  # noqa: FBT003
+        "",
+        make_keyparts(key_path),
+        (".",) * (len(key_path) - 1),
+        eq_pre,
+        eq_post,
+        key_path,
     )
-    style = detect_style(iv, nl=root._doc_newline)  # noqa: SLF001
+    style = detect_style(iv)
     splice_in(iv, new_entry, style, root._doc_newline)  # noqa: SLF001
 
 
@@ -213,11 +209,14 @@ def set_inline_multiline(root: Container, *, multiline: bool, indent: str) -> No
     """
     iv = root._value  # noqa: SLF001
     assert iv is not None
+    from tomlrt._container import _host_kv_slot  # noqa: PLC0415
+
     set_comma_value_multiline(
         iv,
         multiline=multiline,
         nl=root._doc_newline,  # noqa: SLF001
         indent=indent,
+        host=_host_kv_slot(root),
     )
 
 

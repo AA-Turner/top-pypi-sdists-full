@@ -27346,7 +27346,7 @@ class PriceClass(enum.Enum):
     PRICE_CLASS_100 = "PRICE_CLASS_100"
     '''USA, Canada, Europe, & Israel.'''
     PRICE_CLASS_200 = "PRICE_CLASS_200"
-    '''PRICE_CLASS_100 + South Africa, Kenya, Middle East, Japan, Singapore, South Korea, Taiwan, Hong Kong, & Philippines.'''
+    '''PRICE_CLASS_100 + South Africa, Kenya, Middle East, Japan, Singapore, South Korea, Taiwan, Hong Kong, Philippines, India, Indonesia, Thailand, Malaysia, Vietnam, Nigeria, Egypt, & Türkiye.'''
     PRICE_CLASS_ALL = "PRICE_CLASS_ALL"
     '''All locations.'''
 
@@ -33348,6 +33348,7 @@ __all__ = [
 # Type-checking-only imports for static analyzers (pyright/mypy).
 # At runtime TYPE_CHECKING is False, preserving lazy loading.
 if typing.TYPE_CHECKING:
+    pass
     from . import experimental as experimental
 
 publication.publish()

@@ -209,7 +209,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
     def __init__(  # noqa: PLR0913
         self,
         *,
-        n_estimators: int = 8,
+        n_estimators: int | Literal["auto"] = "auto",
         auto_scale_n_estimators: bool = True,
         categorical_features_indices: Sequence[int] | None = None,
         softmax_temperature: float = 0.9,
@@ -233,7 +233,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         ] = "fit_preprocessors",
         memory_saving_mode: MemorySavingMode = "auto",
         keep_cache_on_device: bool = True,
-        kv_cache_precision: Literal["auto", "int8"] | None = None,
+        kv_cache_precision: Literal["auto", "int8", "fp8"] | None = None,
         random_state: int | np.random.RandomState | np.random.Generator | None = 0,
         n_jobs: Annotated[int | None, deprecated("Use n_preprocessing_jobs")] = None,
         n_preprocessing_jobs: int = 1,
@@ -255,18 +255,25 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
                  predictions of `n_estimators`-many forward passes of TabPFN. Each
                  forward pass has (slightly) different input data. Think of this as an
                  ensemble of `n_estimators`-many "prompts" of the input data.
+                 With the default `"auto"`, this is `DEFAULT_N_ESTIMATORS`, raised
+                 on wide datasets so every feature is seen by some estimator (i.e.
+                 when the data has more than `max_features_per_estimator` features
+                 per estimator), to the smallest value that lets every feature
+                 appear in at least one ensemble member, emitting a warning when it
+                 does so. That auto-scaled value is capped at
+                 `MAX_AUTO_SCALED_N_ESTIMATORS`; beyond that some features may never
+                 be sampled unless you raise `n_estimators` yourself. An explicit
+                 integer is never overridden — if it is too small to cover every
+                 feature, a warning is emitted at fit time and the value is used
+                 as given.
 
             auto_scale_n_estimators:
-                Whether to automatically increase `n_estimators` when the dataset
-                has more features than a single estimator can see (i.e. more than
-                `max_features_per_estimator` features per estimator). When `True`
-                (default), `n_estimators` is raised to the smallest value that lets
-                every feature appear in at least one ensemble member, emitting a
-                warning when it does so. The auto-scaled value is capped at
-                `MAX_AUTO_SCALED_N_ESTIMATORS`; beyond that some features may
-                never be sampled unless you raise `n_estimators` yourself. Set to
-                `False` to keep `n_estimators` exactly as provided; note that some
-                features may then never be sampled.
+                Deprecated, removed in v9 — pass an explicit `n_estimators`
+                instead. Only applies when `n_estimators="auto"`, where `False`
+                keeps the auto value at `DEFAULT_N_ESTIMATORS` rather than raising
+                it for feature coverage, exactly what passing
+                `n_estimators=DEFAULT_N_ESTIMATORS` does. Passing `False` emits a
+                `FutureWarning` at fit time.
 
             categorical_features_indices:
                 The indices of the columns that are suggested to be treated as
@@ -425,9 +432,11 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
                 what the model architecture supports. `None` (default) picks the
                 architecture default (`"int8"` when it can quantize, e.g. TabPFN-3,
                 else `"auto"`); `"int8"` quantizes the key-value cache to save
-                memory; `"auto"` keeps the computed dtype. Requesting `"int8"` on
-                an architecture that cannot quantize warns and falls back to
-                `"auto"`.
+                memory; `"fp8"` stores it as 8-bit floats instead (same size,
+                float rounding semantics; not supported on MPS);
+                `"auto"` keeps the computed dtype. Requesting a
+                quantized precision on an architecture that cannot quantize
+                warns and falls back to `"auto"`.
 
             random_state:
                 Controls the randomness of the model. Pass an int for reproducible
@@ -544,7 +553,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
                 "model_path": prepend_cache_path(
                     ModelSource.get_classifier_v2().default_filename
                 ),
-                "n_estimators": 8,
+                "n_estimators": "auto",
                 "softmax_temperature": 0.9,
             }
         elif version == ModelVersion.V2_5:
@@ -552,7 +561,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
                 "model_path": prepend_cache_path(
                     ModelSource.get_classifier_v2_5().default_filename
                 ),
-                "n_estimators": 8,
+                "n_estimators": "auto",
                 "softmax_temperature": 0.9,
             }
         elif version == ModelVersion.V2_6:
@@ -560,7 +569,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
                 "model_path": prepend_cache_path(
                     ModelSource.get_classifier_v2_6().default_filename
                 ),
-                "n_estimators": 8,
+                "n_estimators": "auto",
                 "softmax_temperature": 0.9,
             }
         elif version == ModelVersion.V3:
@@ -568,7 +577,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
                 "model_path": prepend_cache_path(
                     ModelSource.get_classifier_v3().default_filename
                 ),
-                "n_estimators": 8,
+                "n_estimators": "auto",
                 "softmax_temperature": 0.9,
             }
         else:
@@ -987,7 +996,9 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
             NotImplementedError: If ``balance_probabilities`` or ``tuning_config``
                 is configured on the estimator — their state is per-dataset and
                 cannot be applied correctly across a shared batch. Score those
-                datasets individually with ``predict_proba``.
+                datasets individually with ``predict_proba``. Also raised for
+                ``inference_precision=torch.float64``, which the fused forward
+                does not support.
         """
         # Both imported here rather than at module scope to avoid circular imports:
         # architectures.interface imported at runtime from classifier is circular
@@ -1022,6 +1033,12 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
                 "predict_proba_batched does not support tuning_config (tuned "
                 "decision thresholds / temperature calibration); score datasets "
                 "individually with predict_proba."
+            )
+        if self.inference_precision == torch.float64:
+            raise NotImplementedError(
+                "predict_proba_batched does not support "
+                "inference_precision=torch.float64; the fused forward runs at "
+                "float32. Use predict_proba per dataset instead."
             )
 
         # All datasets are scored with a single, shared n_classes_ (one fused

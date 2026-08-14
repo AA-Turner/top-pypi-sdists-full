@@ -16,7 +16,6 @@ import sys
 import tarfile
 import zlib
 from collections.abc import Mapping
-from dataclasses import dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin, urlsplit, urlunsplit
@@ -24,9 +23,17 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 from packaging.utils import canonicalize_name, parse_sdist_filename
 from packaging.version import Version
 
+from nab_provider.errors import (
+    MalformedSimpleResponseError,
+    MetadataHashMismatchError,
+    SdistHashMismatchError,
+    WheelHashMismatchError,
+)
+from nab_provider.records import ACCEPTED_HASH_ALGORITHMS, SdistFile, WheelFile
+from nab_provider.serialization import SimpleSerialization, simple_accept_header
+
 from ._pep503 import json_listing
-from .serialization import SimpleSerialization, simple_accept_header
-from .transport import IDENTITY_HEADERS, HttpError, raise_unless_ok
+from .transport import IDENTITY_HEADERS, raise_unless_ok
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -56,41 +63,18 @@ __all__ = [
 # have been checked, so every field is narrowed where it is read.
 _FileEntry = Mapping[Any, object]
 
-# Verification order; sha256 is pip's hash-checking baseline.
-ACCEPTED_HASH_ALGORITHMS: tuple[str, ...] = ("sha256", "sha384", "sha512")
-
 # The tar ``data`` filter (PEP 706) landed in 3.12 and was backported to
 # 3.10.12 / 3.11.4; sdist extraction requires it (see extract_sdist_archive).
 # data_filter appears with the same change, so its presence detects support.
 _SUPPORTS_DATA_FILTER = hasattr(tarfile, "data_filter")
 
 
-class MalformedSimpleResponseError(HttpError):
-    """The index served a 200 response that is not a usable Simple-API body.
-
-    Covers a listing that is neither valid JSON nor decodable HTML, and a
-    PEP 658 metadata sidecar that is not valid UTF-8. Subclasses
-    :class:`HttpError` so a broken body is caught alongside transport and
-    4xx/5xx failures.
-    """
-
-
-class MetadataHashMismatchError(Exception):
-    """Fetched PEP 658 metadata did not match its published hash."""
-
-
-class SdistHashMismatchError(Exception):
-    """A fetched sdist archive did not match its published hash."""
-
-
-class WheelHashMismatchError(Exception):
-    """A range-recovered wheel's bytes did not match its published hash."""
-
-
 # Mirrors packaging.utils._build_tag_regex: PEP 427 build numbers start with a digit.
 _BUILD_TAG_RE = re.compile(r"(\d+)(.*)", re.ASCII)
-# Mirrors packaging.utils' PEP 427 project-name check (re.match, not fullmatch).
-_WHEEL_NAME_RE = re.compile(r"^[\w\d._]*$", re.UNICODE)
+# Mirrors packaging.utils' PEP 427 project-name check. One character minimum, so
+# an empty name is rejected, and ``\Z`` rather than ``$`` so a trailing newline is
+# not accepted as the end of the name.
+_WHEEL_NAME_RE = re.compile(r"^[\w._]+\Z", re.UNICODE)
 # A wheel filename has 4 dashes, or 5 when it carries a build tag.
 _WHEEL_DASHES = (4, 5)
 _WHEEL_DASHES_WITH_BUILD = 5
@@ -108,6 +92,19 @@ def _intern_name(name: str) -> NormalizedName:
     return canonicalize_name(name)
 
 
+def _tag_triple_is_parseable(tag_str: str) -> bool:
+    """Whether ``parse_tag`` would expand this ``python-abi-platform`` triple.
+
+    ``tag_str`` must carry exactly two dashes. Each field may be a PEP 425
+    compressed set with no empty member, and an interpreter names an
+    implementation and a version, so it is an identifier.
+    """
+    interpreters, abis, platforms = tag_str.split("-")
+    if not all(part.isidentifier() for part in interpreters.split(".")):
+        return False
+    return all("" not in field.split(".") for field in (abis, platforms))
+
+
 def _parse_wheel_filename(filename: str) -> tuple[NormalizedName, str] | None:
     """Parse a wheel filename per PEP 427.
 
@@ -121,10 +118,17 @@ def _parse_wheel_filename(filename: str) -> tuple[NormalizedName, str] | None:
     declaring ``2.0.0`` in its filename comes back as ``"2.0.0"``,
     not ``"2"``.
 
-    This reproduces :func:`packaging.utils.parse_wheel_filename`'s
-    name/version validation and its rejection of empty tag components,
-    but discards the ``frozenset[Tag]`` that the tag parser builds and
-    nab does not use.
+    This accepts what nab-provider's vendored ``parse_wheel_filename`` accepts,
+    but discards the ``frozenset[Tag]`` the tag parser builds and nab does not
+    use. The vendored copy is the one to match, not the released ``packaging``
+    this package depends on, because the vendored tag parser ranks whatever is
+    admitted here; the two can differ on an empty project name, which releases
+    before 26.3 accept.
+
+    A build tag past that same digit limit is admitted rather than rejected:
+    ``parse_wheel_filename`` raises ``ValueError`` out of ``int()`` on one, but
+    nab reads a build tag only to sort by it and sorts an unconvertible run
+    lowest.
     """
     if not filename.endswith(".whl"):
         return None
@@ -148,9 +152,10 @@ def _parse_wheel_filename(filename: str) -> tuple[NormalizedName, str] | None:
     bad_build = (
         dashes == _WHEEL_DASHES_WITH_BUILD and _BUILD_TAG_RE.match(parts[2]) is None
     )
-    # No tag component may be empty (the tag triple is parts[-1]).
-    empty_tag = any("" in component.split(".") for component in parts[-1].split("-"))
-    if bad_build or empty_tag:
+
+    # parts[-1] is the whole tag triple, so it carries the two dashes
+    # _tag_triple_is_parseable unpacks on.
+    if bad_build or not _tag_triple_is_parseable(parts[-1]):
         return None
 
     return (_intern_name(name_part), version)
@@ -305,68 +310,6 @@ def _listing_body(
         raise MalformedSimpleResponseError(msg) from exc
 
 
-@dataclass(frozen=True, slots=True)
-class WheelFile:
-    """Wheel file record returned by the Simple-API client.
-
-    ``hashes`` is a tuple of ``(algorithm, hex_digest)`` pairs in the
-    order PEP 691 declared them (tuple form keeps the dataclass
-    hashable).  ``has_metadata`` says whether the index advertised a
-    PEP 658/714 sidecar; :attr:`metadata_url` derives the URL lazily.
-
-    ``local_path`` is the on-disk path of a wheel served from a local
-    index, and ``None`` for one fetched from a remote index.  It lets
-    downstream code use the path directly instead of reversing the
-    ``file:`` URL, which is lossy across platforms.
-
-    ``metadata_hash`` is the published ``(algorithm, hex_digest)`` for
-    the PEP 658/714 sidecar, or ``None`` when the index advertised the
-    sidecar without a hash.  The fetcher verifies the sidecar bytes
-    against it.
-    """
-
-    filename: str
-    url: str
-    version: str
-    requires_python: str | None
-    has_metadata: bool
-    upload_time: str | None
-    hashes: tuple[tuple[str, str], ...] = ()
-    size: int | None = None
-    local_path: Path | None = None
-    metadata_hash: tuple[str, str] | None = None
-
-    @property
-    def metadata_url(self) -> str | None:
-        """Return the PEP 658/714 metadata URL, or None when unsupported.
-
-        The suffix goes on the path, so a PEP 503 hash fragment is dropped.
-        """
-        if not self.has_metadata:
-            return None
-
-        parts = urlsplit(self.url)
-        return urlunsplit(parts._replace(path=parts.path + ".metadata", fragment=""))
-
-
-@dataclass(frozen=True, slots=True)
-class SdistFile:
-    """A source distribution from the Simple API.
-
-    See :class:`WheelFile` for the meaning of ``hashes``, ``size`` and
-    ``local_path``.
-    """
-
-    filename: str
-    url: str
-    version: str
-    requires_python: str | None
-    upload_time: str | None
-    hashes: tuple[tuple[str, str], ...] = ()
-    size: int | None = None
-    local_path: Path | None = None
-
-
 class AsyncSimpleClient:
     """Async PyPI Simple API client.
 
@@ -455,7 +398,7 @@ def _parse_files(
     PEP 592 ``yanked`` files are dropped unconditionally.
 
     A single malformed *entry* (non-dict, missing string ``filename`` /
-    ``url``, or a ``url`` that does not parse) is skipped so the usable
+    ``url``, or a ``url`` that cannot be used) is skipped so the usable
     entries in the same listing are kept.  A malformed *body* (not a JSON
     object, or a ``files`` value that is not a list) is a broken response,
     not an empty one, so it raises :class:`MalformedSimpleResponseError`
@@ -498,22 +441,33 @@ def _parse_files(
 
 
 def _resolve_file_url(raw_url: str, base_url: str) -> str | None:
-    """Return the entry's absolute URL, or None when it does not parse.
+    """Return the entry's absolute URL, or None when it is not usable.
 
     PEP 691 allows a relative ``url``, which resolves against the package
-    page.  ``urlsplit`` raises on a netloc it cannot parse, such as an
-    unbalanced bracket in an IPv6 host.
+    page.  ``urlsplit`` rejects a netloc it cannot parse, such as an
+    unbalanced bracket in an IPv6 host, and ``encode`` rejects a string
+    with no UTF-8 form, such as one holding an unpaired surrogate; both
+    signal it with a ``ValueError``.
+
+    ``urlsplit`` deletes a tab, CR or LF anywhere in a URL, so the split
+    round trip stores the URL a later parse of the record would yield.
     """
     try:
-        if raw_url.startswith(("https://", "http://")):
-            # Split only to reject a host urllib cannot parse; urljoin
-            # would hand back this same string.
-            urlsplit(raw_url)
-            return raw_url
+        # urljoin resolves a same-scheme URL against the base, which would
+        # hand ``https:///pkg.whl`` the base's authority.
+        absolute = (
+            raw_url
+            if raw_url.startswith(("https://", "http://"))
+            else urljoin(base_url, raw_url)
+        )
+        file_url = urlunsplit(urlsplit(absolute))
 
-        return urljoin(base_url, raw_url)
+        # Encode only to reject a string with no UTF-8 form.
+        file_url.encode()
     except ValueError:
         return None
+
+    return file_url
 
 
 def _parse_file_entry(
@@ -528,7 +482,7 @@ def _parse_file_entry(
     ``filename`` and ``raw_url`` are the entry's already-validated string
     fields.  ``expected`` is the queried package's canonical name; files
     whose parsed name differs, whose filename packaging does not
-    recognise, or whose URL does not parse are dropped (see
+    recognise, or whose URL cannot be used are dropped (see
     :func:`_parse_files`).
     """
     file_url = _resolve_file_url(raw_url, base_url)

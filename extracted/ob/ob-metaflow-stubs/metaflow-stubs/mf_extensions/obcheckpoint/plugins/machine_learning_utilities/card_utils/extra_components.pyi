@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-07-23T20:46:33.404188                                                            #
+# Generated on 2026-08-13T18:38:42.709857                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.plugins.cards.card_modules.components
     import metaflow.plugins.cards.card_modules.card
+    import metaflow.plugins.cards.card_modules.components
 
 from ......plugins.cards.card_modules.components import VegaChart as VegaChart
 from ......plugins.cards.card_modules.card import MetaflowCardComponent as MetaflowCardComponent

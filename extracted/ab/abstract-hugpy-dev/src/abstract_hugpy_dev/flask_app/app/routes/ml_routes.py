@@ -223,21 +223,12 @@ def _save_multipart_upload():
     return dest
 
 
-def _run_ml(task: str):
-    body = request.get_json(silent=True) or {}
-    # Multipart fallback: accept a direct multipart/form-data POST carrying a file
-    # part (in addition to the JSON {file:<server path>} the console sends after
-    # pre-uploading). Save it like /uploads and inject its server path so the
-    # downstream pipeline is identical to the JSON path.
-    if not body and request.files:
-        saved = _save_multipart_upload()
-        if saved is not None:
-            body = {**request.form.to_dict(), "file": saved}
-    # Deterministic ingest amenities (read a file / URL) bypass the model resolver.
-    if task == "document-extraction":
-        return _run_extract(body)
-    if task == "url-extraction":
-        return _run_fetch(body)
+def normalize_ml_kwargs(task: str, body: dict) -> dict:
+    """Body -> execute_prompt kwargs, exactly as /ml/<amenity> normalizes them.
+
+    Extracted from _run_ml (k91) so POST /oracle/route dispatches through the
+    SAME normalization (model fold, vision b64 fold, pool resolution) instead of
+    growing a rival one. Behavior-preserving: _run_ml calls this verbatim."""
     # Underscore-prefixed keys are internal routing controls; never client-set.
     kwargs = {k: v for k, v in body.items()
               if not k.startswith("_") and v is not None}
@@ -280,6 +271,25 @@ def _run_ml(task: str):
         kwargs["pool"] = eff
     else:
         kwargs.pop("pool", None)
+    return kwargs
+
+
+def _run_ml(task: str):
+    body = request.get_json(silent=True) or {}
+    # Multipart fallback: accept a direct multipart/form-data POST carrying a file
+    # part (in addition to the JSON {file:<server path>} the console sends after
+    # pre-uploading). Save it like /uploads and inject its server path so the
+    # downstream pipeline is identical to the JSON path.
+    if not body and request.files:
+        saved = _save_multipart_upload()
+        if saved is not None:
+            body = {**request.form.to_dict(), "file": saved}
+    # Deterministic ingest amenities (read a file / URL) bypass the model resolver.
+    if task == "document-extraction":
+        return _run_extract(body)
+    if task == "url-extraction":
+        return _run_fetch(body)
+    kwargs = normalize_ml_kwargs(task, body)
 
     from ..functions.imports import execute_prompt  # late import dodges circulars
     try:

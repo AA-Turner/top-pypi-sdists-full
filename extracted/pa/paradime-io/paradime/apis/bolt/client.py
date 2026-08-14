@@ -11,9 +11,11 @@ from paradime.apis.bolt.exception import (
 from paradime.apis.bolt.types import (
     BoltCommand,
     BoltCommandArtifact,
+    BoltCommandConfigInput,
     BoltCommandLogs,
     BoltDeferredSchedule,
     BoltDeferredScheduleConfigInput,
+    BoltEnvironment,
     BoltEnvironmentVariableInput,
     BoltIntegrationsInput,
     BoltLogLine,
@@ -130,17 +132,21 @@ class BoltClient:
         *,
         slug: Optional[str] = None,
         reason: Optional[str] = None,
+        command_configs: Optional[List[Union[BoltCommandConfigInput, Dict[str, Any]]]] = None,
+        continue_on_error: Optional[bool] = None,
     ) -> int:
         """
         Triggers a run for a given schedule.
 
         Args:
             schedule_name (Optional[str]): Deprecated alias for ``slug`` — carries a schedule slug. Kept for backwards compatibility with older SDK callers. Exactly one of ``slug`` or ``schedule_name`` must be provided.
-            commands (Optional[List[str]], optional): The list of commands to execute in the run. This will override the commands defined in the schedule. Defaults to None.
+            commands (Optional[List[str]], optional): The list of commands to execute in the run. This will override the commands defined in the schedule. At most one of ``commands`` or ``command_configs`` may be provided. Defaults to None.
             branch (Optional[str], optional): The branch or commit hash to run the commands on. Defaults to None.
             pr_number (Optional[int], optional): The pull request number to associate with the run. Defaults to None.
             slug (Optional[str]): The schedule slug returned by ``createBoltSchedule``. Preferred over ``schedule_name``.
             reason (Optional[str], optional): A freeform reason/label describing why or from where the run was triggered (e.g. the application that made the call). Defaults to None.
+            command_configs (Optional[List[Union[BoltCommandConfigInput, Dict[str, Any]]]], optional): Command override with per-command settings, e.g. ``[BoltCommandConfigInput(command="dbt run", continue_on_error=True)]``. At most one of ``commands`` or ``command_configs`` may be provided. Requires the Bolt continue-on-error feature to be enabled for the workspace. Defaults to None.
+            continue_on_error (Optional[bool], optional): Run-level default for continuing past a failed command; overrides the schedule-level setting for this run only. Requires the Bolt continue-on-error feature to be enabled for the workspace. Defaults to None.
 
         Returns:
             int: The ID of the triggered run.
@@ -149,10 +155,14 @@ class BoltClient:
         resolved_slug = _resolve_slug_or_schedule_name(
             slug=slug, schedule_name=schedule_name, method="trigger_run"
         )
+        if commands is not None and command_configs is not None:
+            raise ValueError(
+                "`trigger_run` accepts at most one of `commands` or `command_configs`."
+            )
 
         query = """
-            mutation triggerBoltRun($slug: String, $commands: [String!], $branch: String, $prNumber: Int, $reason: String) {
-                triggerBoltRun(slug: $slug, commands: $commands, branch: $branch, prNumber: $prNumber, reason: $reason){
+            mutation triggerBoltRun($slug: String, $commands: [String!], $branch: String, $prNumber: Int, $reason: String, $commandConfigs: [BoltCommandInput!], $continueOnError: Boolean) {
+                triggerBoltRun(slug: $slug, commands: $commands, branch: $branch, prNumber: $prNumber, reason: $reason, commandConfigs: $commandConfigs, continueOnError: $continueOnError){
                     runId
                 }
             }
@@ -166,6 +176,8 @@ class BoltClient:
                 "branch": branch,
                 "prNumber": pr_number,
                 "reason": reason,
+                "commandConfigs": _serialize_input_list(command_configs),
+                "continueOnError": continue_on_error,
             },
         )["triggerBoltRun"]
 
@@ -1316,6 +1328,38 @@ class BoltClient:
         """
         response = self.client._call_gql(query=query)["listAllScheduleNames"]
         return [(s["workspaceName"], s["name"]) for s in response["schedules"]]
+
+    def list_environments(self) -> List[BoltEnvironment]:
+        """List the workspace's Bolt (scheduler) environments.
+
+        A schedule's ``environment`` field must name one of these slugs.
+
+        Returns:
+            A list of environments; ``slug`` is the immutable identifier that
+            schedules reference, ``display_name`` the human-facing label, and
+            ``is_default`` marks the workspace default environment.
+        """
+        query = """
+            query listBoltEnvironments {
+                environments(environmentType: SCHEDULER) {
+                    ok
+                    environments {
+                        slug
+                        displayName
+                        isDefault
+                    }
+                }
+            }
+        """
+        response = self.client._call_gql(query=query)["environments"]
+        return [
+            BoltEnvironment(
+                slug=environment["slug"],
+                display_name=environment["displayName"],
+                is_default=environment["isDefault"],
+            )
+            for environment in response["environments"]
+        ]
 
     def create_schedule_slugs(self, display_names: List[str]) -> List[str]:
         """Mint slugs for a list of display names via the backend.

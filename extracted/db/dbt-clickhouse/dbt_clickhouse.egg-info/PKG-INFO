@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-clickhouse
-Version: 1.10.1
+Version: 1.10.2
 Summary: The Clickhouse plugin for dbt (data build tool)
 Author-email: "ClickHouse Inc." <guy@clickhouse.com>
 License-Expression: Apache-2.0

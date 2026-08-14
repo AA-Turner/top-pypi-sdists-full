@@ -10,20 +10,30 @@ help:
 	@sed -n '/^[a-zA-Z0-9_.]*:/s/:.*//p' <Makefile | sort
 
 test:
-	pixi run test-all
+	uv run --group dev --python 3.10 pytest tests/
+	uv run --group dev --python 3.11 pytest tests/
+	uv run --group dev --python 3.12 pytest tests/
+	uv run --group dev --python 3.13 pytest tests/
+	uv run --group dev --python 3.14 pytest tests/
 
 lint:
-	pixi run lint
+	uv run --group dev ruff check sqlparse/
+
+benchmark:
+	@for bench in benchmarks/bench_*.py; do \
+		uv run --group dev python $$bench || exit 1; \
+		echo; \
+	done
 
 coverage:
-	pixi run -e py311 coverage
-	pixi run -e py311 coverage-combine
-	pixi run -e py311 coverage-report
+	uv run --group dev coverage run -m pytest tests/
+	uv run --group dev coverage combine
+	uv run --group dev coverage report
 
 coverage-xml:
-	pixi run -e py311 coverage
-	pixi run -e py311 coverage-combine
-	pixi run -e py311 coverage-xml
+	uv run --group dev coverage run -m pytest tests/
+	uv run --group dev coverage combine
+	uv run --group dev coverage xml
 
 clean:
 	$(PYTHON) setup.py clean
@@ -32,6 +42,5 @@ clean:
 
 release:
 	@rm -rf dist/
-	python -m build
-	hatch publish
-	@echo "Reminder: Add release on github https://github.com/andialbrecht/sqlparse/releases"
+	uv run python -m build
+	uv run hatch publish

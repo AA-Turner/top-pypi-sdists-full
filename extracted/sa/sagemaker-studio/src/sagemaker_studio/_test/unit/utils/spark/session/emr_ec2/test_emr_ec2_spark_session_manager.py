@@ -472,6 +472,46 @@ class TestGetServiceSpecificConfigs:
         # OpenLineage configs should be absent (caught by try/except)
         assert "spark.extraListeners" not in configs
 
+    def test_merges_s3_access_grants_configs(self, manager):
+        """S3 Access Grants configs should be merged into the service configs."""
+        manager.project = MagicMock()
+        manager.project.domain_id = "dzd-test"
+        s3ag_configs = {
+            "spark.hadoop.fs.s3.s3AccessGrants.enabled": "true",
+            "spark.hadoop.fs.s3.s3AccessGrants.fallbackToIAM": "true",
+        }
+
+        with patch.object(manager, "_get_s3_access_grants_configs", return_value=s3ag_configs):
+            configs = manager._get_service_specific_configs()
+
+        assert configs["spark.hadoop.fs.s3.s3AccessGrants.enabled"] == "true"
+        assert configs["spark.hadoop.fs.s3.s3AccessGrants.fallbackToIAM"] == "true"
+
+
+class TestGetS3AccessGrantsConfigs:
+    """Logic lives in spark_config_builder.generate_s3_access_grants_configs and is tested
+    there; these cover this manager's delegation to it."""
+
+    def test_delegates_to_shared_builder_with_project(self, manager):
+        manager.project = MagicMock()
+        s3ag_configs = {
+            "spark.hadoop.fs.s3.s3AccessGrants.enabled": "true",
+            "spark.hadoop.fs.s3.s3AccessGrants.fallbackToIAM": "true",
+        }
+        with patch(
+            "sagemaker_studio.utils.spark.session.emr_ec2.emr_ec2_spark_session_manager"
+            ".generate_s3_access_grants_configs",
+            return_value=s3ag_configs,
+        ) as mock_generate:
+            result = manager._get_s3_access_grants_configs()
+
+        mock_generate.assert_called_once_with(manager.project)
+        assert result == s3ag_configs
+
+    def test_returns_empty_without_project(self, manager):
+        """project is unset until _lazy_init, so the delegate must not raise."""
+        assert manager._get_s3_access_grants_configs() == {}
+
 
 class TestStartSession:
     @patch("boto3.client")

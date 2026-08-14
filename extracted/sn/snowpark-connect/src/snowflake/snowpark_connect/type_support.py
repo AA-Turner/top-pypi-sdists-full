@@ -86,6 +86,16 @@ def emulate_integral_types(t: DataType) -> DataType:
     Returns:
         The transformed DataType with integral type conversions applied based on precision.
     """
+    if t is None:
+        # A bare, untyped Snowflake ARRAY resolves to ArrayType(element_type=None)
+        # under structured-type semantics, and the ArrayType branch below recurses
+        # into that None element. None is not a DataType: there is nothing to remap,
+        # and setting _is_already_mapped on it would raise AttributeError
+        # (SNOW-3899533). Return it untouched so the parent rebuilds an equivalent
+        # ArrayType(None). This guard is the recursion leaf, so it also covers a
+        # bare ARRAY nested inside a structured ARRAY, MAP, or OBJECT.
+        return t
+
     if (
         getattr(t, "_is_already_mapped", False)
         or not is_integral_types_conversion_enabled()

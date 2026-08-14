@@ -4901,7 +4901,7 @@ fn add_lower_bound_local() -> Result<()> {
         name = "a"
         version = "1.2.3+foo"
         source = { registry = "http://[LOCALHOST]/simple/" }
-        sdist = { url = "http://[LOCALHOST]/files/a-1.2.3+foo.tar.gz", hash = "sha256:d8c42806a0bf7b47451778ed2a909a2f9d22fe3a4bac673934fc8fb2537a886a", upload-time = "2024-03-24T00:00:00Z" }
+        sdist = { url = "http://[LOCALHOST]/files/a-1.2.3+foo.tar.gz", hash = "sha256:2fd6e9af06ed622c5b242c080167ffec11fd4c3360dc28d9700aba4c9f3d4a43", upload-time = "2024-03-24T00:00:00Z" }
         wheels = [
             { url = "http://[LOCALHOST]/files/a-1.2.3+foo-py3-none-any.whl", hash = "sha256:2fd8eec176cad72b6c4372682485914aff65d215fb8cd71c85e9ed4511fa8bbe", upload-time = "2024-03-24T00:00:00Z" },
         ]
@@ -11452,6 +11452,54 @@ fn add_preserves_end_of_line_comment_on_non_last_deps() -> Result<()> {
 }
 
 #[test]
+fn add_preserves_end_of_line_comment_on_updated_optional_dependency() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = []
+
+        [project.optional-dependencies]
+        typing = [
+            "pandas-stubs>=2.0.2",
+            "narwhals>=1.42.0" # narwhals are toothed whales native to the Arctic
+        ]
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.add().arg("narwhals>=1.42").arg("--optional=typing").arg("--frozen"), @"
+    exit_code: 0 (success)
+    ");
+
+    let pyproject_toml = context.read("pyproject.toml");
+
+    insta::with_settings!({
+        filters => context.filters(),
+    }, {
+        assert_snapshot!(
+            pyproject_toml, @r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = []
+
+        [project.optional-dependencies]
+        typing = [
+            "pandas-stubs>=2.0.2",
+            "narwhals>=1.42", # narwhals are toothed whales native to the Arctic
+        ]
+        "#
+        );
+    });
+
+    Ok(())
+}
+
+#[test]
 fn add_direct_url_subdirectory() -> Result<()> {
     let context = uv_test::test_context!("3.12");
 
@@ -13499,7 +13547,7 @@ async fn add_auth_policy_never_with_url_credentials_ignored() -> Result<()> {
     exit_code: 1 (failure)
     ----- stderr -----
       × No solution found when resolving dependencies:
-      ╰─▶ Because only anyio==4.3.0 is available and anyio==4.3.0 could not be fetched from the network (`401 Unauthorized`), we can conclude that all versions of anyio cannot be used.
+      ╰─▶ Because anyio==4.3.0 could not be fetched from the network (`401 Unauthorized`) and only anyio==4.3.0 is available, we can conclude that all versions of anyio cannot be used.
           And because your project depends on anyio, we can conclude that your project's requirements are unsatisfiable.
 
     hint: Metadata for `anyio` (v4.3.0) could not be fetched; the server returned: `401 Unauthorized`

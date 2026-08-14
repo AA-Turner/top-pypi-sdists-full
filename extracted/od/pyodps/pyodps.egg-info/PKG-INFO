@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyodps
-Version: 0.13.0
+Version: 0.13.1
 Summary: ODPS Python SDK and data analysis framework
 Author-email: Wu Wei <weiwu@cacheme.net>
 Maintainer-email: Wenjun Si <wenjun.swj@alibaba-inc.com>

@@ -59,9 +59,12 @@ def _build_chat_request(kwargs: Dict[str, Any], model_key: str) -> ChatRequest:
     # "zero hits across this package"); forwarding them here is what makes the
     # llama-server body keys reachable end-to-end, on central AND on the
     # worker's second builder pass.
+    # no_makeroom: k96 no-evict guarantee — same silent-drop trap as the keys
+    # above; without forwarding it here the relay never learns the request is
+    # polite and a cold brain load could evict a fleet resident.
     for k in ("max_new_tokens", "temperature", "top_p", "do_sample", "request_id",
               "unbounded", "max_chunks", "pool", "images", "alloc",
-              "chat_template_kwargs", "logit_bias"):
+              "chat_template_kwargs", "logit_bias", "no_makeroom"):
         if k in kwargs:
             out[k] = kwargs[k]
     out.setdefault("request_id", make_request_id())

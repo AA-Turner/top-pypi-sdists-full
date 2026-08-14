@@ -58,7 +58,7 @@ from abstract_hugpy_dev.imports.src.constants.constants import (  # noqa: E402
 # --------------------------------------------------------------------------- #
 # STORE + BUS isolation (mirrors test_identity_profiles.py exactly).
 # --------------------------------------------------------------------------- #
-_TMP_IDENTITIES = tempfile.mkdtemp(prefix="hugpy-relay-store-", dir=DEFAULT_ROOT)
+_TMP_IDENTITIES = tempfile.mkdtemp(prefix="hugpy-relay-store-", dir=os.path.join(DEFAULT_ROOT, "video_intel", "_scratch"))
 identity_profiles.IDENTITIES_HOME = _TMP_IDENTITIES
 _TMP_PROJECTS = tempfile.mkdtemp(prefix="hugpy-relay-projects-")
 identity_profiles.PROJECTS_HOME = _TMP_PROJECTS

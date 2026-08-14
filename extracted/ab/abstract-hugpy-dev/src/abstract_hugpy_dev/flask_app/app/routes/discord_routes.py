@@ -12,6 +12,14 @@ Two audiences, like worker_routes / phone_brick_routes:
         POST   /discord/outbox/drain                   -> {"messages": [...]}
         POST   /discord/channels   {"channels":[{id,name,guild,guild_id}]}  (bot reports)
         GET    /discord/channels   -> {"channels":[...], "channels_at": ts}  (UI dropdown)
+  * the /fleet screen (MEMBER, human-driven; 2026-08-06):
+        POST   /discord/bot-links          {"kind","label"?,"scopes"?,"ttl_days"?}
+        GET    /discord/bot-links          the caller's own bot keys (operator: all)
+        DELETE /discord/bot-links/<key_id> revoke one (operator, or its creator)
+    A per-account scoped hugpy API key + the config a member's OWN Discord bot
+    needs. Member-gated in this module (never in operator_auth._SENSITIVE) —
+    see the block above ``_BOT_LINK_CREATED_BY`` for what it does and does NOT
+    hand out.
 
 All state lives in functions.imports.utils.discord_bindings; this module only
 translates HTTP <-> that store. The blueprint is discovered + mounted bare
@@ -46,10 +54,14 @@ from ..functions.imports.utils.discord_bindings import (
     add_session,
     list_sessions,
     revoke_session,
+    delete_session,
+    prune_sessions,
     session_by_token,
 )
 import asyncio
 import inspect
+import os
+import time
 
 discord_bp, logger = get_bp("discord_bp", __name__)
 
@@ -520,9 +532,28 @@ def discord_sessions_list():
 
 @discord_bp.route("/discord/sessions/<session_id>", methods=["DELETE"])  # operator-gated
 def discord_sessions_revoke(session_id):
+    """``?purge=1`` (2026-08-13) removes the ROW from the ledger instead of
+    marking it revoked — the UI's dead-weight cleanup. Purging a still-live
+    session is revoke-and-erase in one step (the token's hash goes with the
+    row, so the bearer stops verifying)."""
+    purge = (request.args.get("purge") or "").strip() in ("1", "true", "yes")
+    if purge:
+        if not delete_session(session_id):
+            abort(404, description="Unknown session id.")
+        return jsonify({"ok": True, "id": session_id, "purged": True})
     if not revoke_session(session_id):
         abort(404, description="Unknown or already-revoked session id.")
     return jsonify({"ok": True, "id": session_id})
+
+
+@discord_bp.route("/discord/sessions/prune", methods=["POST"])  # operator-gated
+def discord_sessions_prune():
+    """Sweep every revoked/expired session row from the ledger — the bulk
+    "clear the clutter" counterpart of ``?purge=1`` (2026-08-13). Live
+    sessions are never touched. Returns {pruned: n}. Gated in operator_auth
+    (its own _SENSITIVE entry — the bare ^/discord/sessions$ regex does not
+    cover this subpath)."""
+    return jsonify({"ok": True, "pruned": prune_sessions()})
 
 
 def _session_or_404(token: str) -> dict:
@@ -592,6 +623,337 @@ def _validate_options(raw):
             abort(400, description="each option must be at most 80 chars.")
         clean.append(label)
     return clean
+
+
+# ── MEMBER bot links: per-account credentials for running a Discord bot ────
+#
+# 2026-08-06. The /fleet screen ("Your fleet") already lets a signed-in member
+# mint an agent install link and pull the fleet-console package. These two
+# blocks are the Discord half of the same product question — "give me what I
+# need to run a bot against this deployment, as ME".
+#
+# WHAT IS ACTUALLY GENERATED (one artifact, two targets)
+# -----------------------------------------------------
+# Both kinds mint the SAME underlying artifact: a scoped, owner-recorded hugpy
+# API key (api_keys.create_api_key) plus the config a bot process needs to use
+# it. They differ only in the TARGET they are rendered for:
+#
+#   kind="discord-bot"        your OWN Discord bot application talking to this
+#                             deployment — the key + the OpenAI-compatible /v1
+#                             base URL, usable from discord.py / discord.js.
+#   kind="hugpy-discord-bot"  the hugpy bot arm itself (abstract_hugpy_dev/bot,
+#                             `hugpy bot`) — the key as HUGPY_API_KEY plus the
+#                             .env / run lines that arm reads (see
+#                             bot/hugpy_client._default_api_key and bot/config).
+#
+# WHAT IS DELIBERATELY *NOT* GENERATED
+# ------------------------------------
+#   * the shared DISCORD_TOKEN. It is the operator's bot-account credential for
+#     the whole guild; it is never handed to a member, and it is not even
+#     readable here (the Flask unit does not load the tree's .env — see the
+#     docs' troubleshooting note). A member brings their own bot token from the
+#     Discord Developer Portal; the response says so explicitly.
+#   * a channel-scoped comms session (POST /discord/sessions). That mint stays
+#     OPERATOR-ONLY on purpose: a session is bound to a channel_id the caller
+#     names, and nothing in this deployment can prove a member controls the
+#     channel behind an id. A member-mintable session would therefore let any
+#     member read the transcript of — and send into — any channel the operator's
+#     bot can see, which is an escalation, not a product. Members get their own
+#     bot's credentials instead.
+#   * any scope beyond the product plane. A non-operator's request is CLAMPED to
+#     _MEMBER_BOT_SCOPES ("v1", "ml") and refused loudly if it asks for more —
+#     never "full", never the fleet-enrolling "agent-register". Identical rule
+#     and rationale to agent_routes._MEMBER_LINK_SCOPES.
+#
+# GATING. Not in operator_auth._SENSITIVE, for the same reason the install-link
+# routes are not: this is a MEMBER product action, and the rule that has to be
+# expressed is "operator OR the member who created this record", which a
+# (methods, path) rule cannot say. It is enforced HERE by _require_member_bot,
+# fails CLOSED for anonymous (401), and honors no testing waiver — this surface
+# mints credentials.
+#
+# OWNERSHIP. The creating username is recorded on the minted key as
+#   created_by = f"{_BOT_LINK_CREATED_BY}:{username}"
+# and the kind as the key's `name`, so GET can return exactly the caller's own
+# records and DELETE can refuse someone else's. An operator sees every bot-link
+# key. A non-operator caller with no resolvable username is refused rather than
+# handed an UNATTRIBUTED credential (same posture as install_link_create).
+
+_BOT_LINK_CREATED_BY = "discord-bot-link"
+_MEMBER_BOT_SCOPES = ("v1", "ml")
+_BOT_LINK_KINDS = ("discord-bot", "hugpy-discord-bot")
+# Human names, used in the response and matched by the /fleet help prompts.
+_BOT_LINK_TITLES = {
+    "discord-bot": "the discord bot",
+    "hugpy-discord-bot": "the hugpy discord bot",
+}
+# View Channels | Send Messages | Embed Links | Attach Files | Read History.
+# The minimum a relay bot needs; deliberately no moderation/manage bits.
+_BOT_INVITE_PERMISSIONS = 1024 + 2048 + 16384 + 32768 + 65536   # 117760
+
+
+def _require_member_bot() -> None:
+    """Member-or-operator gate for the bot-link surface. No HUGPY_AGENT_OPEN /
+    testing waiver: these routes MINT credentials. Fails closed if the gate
+    module is unavailable (mirrors agent_routes._require_member_strict)."""
+    try:
+        from ..operator_auth import member_authenticated
+    except Exception:  # noqa: BLE001
+        abort(401, description="Authentication required for this route.")
+    if not member_authenticated():
+        abort(401, description="Authentication required for this route.")
+
+
+def _bot_caller_is_operator() -> bool:
+    try:
+        from ..operator_auth import operator_authenticated
+        return bool(operator_authenticated())
+    except Exception:  # noqa: BLE001 — fail closed (treat as non-operator)
+        return False
+
+
+def _bot_caller_username():
+    try:
+        from ..operator_auth import principal_username
+        return principal_username()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _public_api_base() -> str:
+    """This deployment's public API base. Delegates to
+    ``agent_routes._install_public_base`` on purpose: ONE function decides what
+    the public base is (HUGPY_PUBLIC_BASE if set, else the forwarded
+    proto/host + the /api mount). A second copy here is exactly how the two
+    would drift — the install-link mint already hit that bug once."""
+    from .agent_routes import _install_public_base
+    return _install_public_base()
+
+
+def _discord_client_id() -> str:
+    """The hugpy bot application's PUBLIC OAuth client (application) id, or "".
+
+    Read from the environment only — never derived from DISCORD_TOKEN, which
+    this process does not load and must not touch. Unset today on this
+    deployment, so the invite URL is omitted and the caller is told which
+    variable to set instead of being handed a broken link."""
+    for var in ("HUGPY_DISCORD_CLIENT_ID", "DISCORD_CLIENT_ID",
+                "DISCORD_APPLICATION_ID"):
+        value = (os.getenv(var) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _bot_invite_url() -> str:
+    client_id = _discord_client_id()
+    if not client_id:
+        return ""
+    return ("https://discord.com/api/oauth2/authorize"
+            f"?client_id={client_id}"
+            f"&permissions={_BOT_INVITE_PERMISSIONS}"
+            "&scope=bot%20applications.commands")
+
+
+def _bot_link_config(kind: str, raw_key: str, api_base: str) -> dict:
+    """The ready-to-paste config for a kind. Built HERE, never hand-assembled by
+    a consumer — the same "one owner for this string shape" rule
+    agent_routes._install_commands follows for the install one-liners."""
+    if kind == "hugpy-discord-bot":
+        env = "\n".join([
+            "# .env for your own hugpy-discord bot instance",
+            "# DISCORD_TOKEN is YOURS — create a bot application at",
+            "# https://discord.com/developers/applications and paste its token.",
+            "DISCORD_TOKEN=<your own discord bot token>",
+            f"HUGPY_BASE_URL={api_base}",
+            f"HUGPY_API_KEY={raw_key}",
+        ])
+        commands = {
+            "install": "python3 -m venv ~/hugpy-bot/venv\n"
+                       "~/hugpy-bot/venv/bin/pip install --upgrade abstract_hugpy",
+            "run": "~/hugpy-bot/venv/bin/hugpy bot --env ./.env",
+        }
+    else:  # discord-bot
+        env = "\n".join([
+            "# .env for your own Discord bot talking to hugpy",
+            "# DISCORD_TOKEN is YOURS — create a bot application at",
+            "# https://discord.com/developers/applications and paste its token.",
+            "DISCORD_TOKEN=<your own discord bot token>",
+            f"HUGPY_BASE_URL={api_base}",
+            f"HUGPY_API_KEY={raw_key}",
+            f"OPENAI_BASE_URL={api_base.rsplit('/api', 1)[0]}/v1",
+            f"OPENAI_API_KEY={raw_key}",
+        ])
+        commands = {
+            "verify": f"curl -fsS -H 'X-API-Key: {raw_key}' {api_base}/health",
+        }
+    return {"env": env, "commands": commands}
+
+
+class BotLinkRequest(BaseModel):
+    kind: str
+    label: str | None = None
+    scopes: list[str] | None = None
+    ttl_days: float | None = None
+
+
+@discord_bp.route("/discord/bot-links", methods=["POST"])
+def discord_bot_link_create():
+    """MEMBER or OPERATOR: generate the credentials + config for running a
+    Discord bot against this deployment, scoped to the caller's account.
+
+    Body: ``{kind: "discord-bot"|"hugpy-discord-bot", label?, scopes?, ttl_days?}``.
+    Returns 201 with the raw key ONCE (``api_key``) plus ``env`` / ``commands``
+    / ``invite_url`` / ``notes``. The key is individually revocable
+    (``DELETE /discord/bot-links/<key_id>``) and never carries operator rights:
+    an api key of ANY scope is refused by operator_auth, which accepts only
+    HUGPY_OPERATOR_TOKEN or a central session."""
+    _require_member_bot()
+    body = BotLinkRequest(**(request.get_json(silent=True) or {}))
+    kind = (body.kind or "").strip()
+    if kind not in _BOT_LINK_KINDS:
+        abort(400, description=f"'kind' must be one of {list(_BOT_LINK_KINDS)}.")
+    is_operator = _bot_caller_is_operator()
+    owner = None if is_operator else _bot_caller_username()
+    if not is_operator and not owner:
+        # Passed member_authenticated() but no username resolved — refuse to
+        # mint an UNATTRIBUTED credential from a non-operator caller.
+        abort(401, description="Authentication required for this route.")
+    label = (body.label or "").strip() or _BOT_LINK_TITLES[kind]
+    scopes = body.scopes
+    if not is_operator and scopes:
+        bad = [s for s in scopes if str(s) not in _MEMBER_BOT_SCOPES]
+        if bad:
+            # Refused loudly, never silently downgraded: a caller must never
+            # believe it holds a scope it was not given.
+            abort(403, description=(
+                f"scope(s) {bad} are operator-only; a member bot key may "
+                f"request {list(_MEMBER_BOT_SCOPES)}."))
+    if not scopes:
+        scopes = ["v1"]
+    expires_at = None
+    if body.ttl_days:
+        try:
+            expires_at = time.time() + float(body.ttl_days) * 86400.0
+        except (TypeError, ValueError):
+            abort(400, description="'ttl_days' must be a number.")
+
+    from ..functions.imports.utils.api_keys import create_api_key
+    try:
+        key = create_api_key(
+            name=kind,
+            label=label,
+            scopes=scopes,
+            created_by=f"{_BOT_LINK_CREATED_BY}:{owner or 'operator'}",
+            expires_at=expires_at,
+        )
+    except ValueError as exc:
+        abort(400, description=str(exc))
+
+    api_base = _public_api_base()
+    raw_key = key.pop("key")          # shown exactly once, by this response
+    config = _bot_link_config(kind, raw_key, api_base)
+    invite_url = _bot_invite_url()
+    notes = [
+        "This key is scoped to your account and is shown once. Store it in the "
+        "bot's .env; you can revoke it any time.",
+        "The DISCORD_TOKEN is not issued here. Create your own bot application "
+        "at discord.com/developers/applications — hugpy never hands out the "
+        "shared bot token.",
+    ]
+    if not invite_url:
+        notes.append(
+            "No OAuth invite link is available: this deployment has no Discord "
+            "application id configured (set HUGPY_DISCORD_CLIENT_ID on the API "
+            "service). Invite your own bot from its own application page in "
+            "the Discord Developer Portal instead.")
+    logger.info("bot link minted: kind=%s key=%s owner=%s scopes=%s",
+                kind, key.get("id"), owner or "operator", scopes)
+    return jsonify({
+        "kind": kind,
+        "title": _BOT_LINK_TITLES[kind],
+        "key_id": key.get("id"),
+        "label": label,
+        "owner": owner,
+        "scopes": key.get("scopes"),
+        "prefix": key.get("prefix"),
+        "created_at": key.get("created_at"),
+        "expires_at": key.get("expires_at"),
+        "api_key": raw_key,
+        "api_base": api_base,
+        "invite_url": invite_url,
+        "client_id_configured": bool(invite_url),
+        "env": config["env"],
+        "commands": config["commands"],
+        "notes": notes,
+    }), 201
+
+
+def _bot_link_rows(username, is_operator: bool) -> list:
+    """The bot-link keys visible to this caller, newest first, WITHOUT any
+    secret (list_api_keys never returns a hash, and the raw key exists only in
+    the mint response)."""
+    from ..functions.imports.utils.api_keys import list_api_keys
+    mine = f"{_BOT_LINK_CREATED_BY}:{username}" if username else None
+    rows = []
+    for rec in list_api_keys():
+        created_by = rec.get("created_by") or ""
+        if not created_by.startswith(f"{_BOT_LINK_CREATED_BY}:"):
+            continue
+        if not is_operator and created_by != mine:
+            continue
+        kind = rec.get("name") or ""
+        rows.append({
+            "key_id": rec.get("id"),
+            "kind": kind,
+            "title": _BOT_LINK_TITLES.get(kind, kind),
+            "label": rec.get("label") or "",
+            "owner": created_by.split(":", 1)[1] or None,
+            "scopes": rec.get("scopes") or [],
+            "prefix": rec.get("prefix"),
+            "created_at": rec.get("created_at"),
+            "expires_at": rec.get("expires_at"),
+            "status": ("expired" if rec.get("expired")
+                       else "disabled" if rec.get("disabled") else "active"),
+        })
+    return rows
+
+
+@discord_bp.route("/discord/bot-links", methods=["GET"])
+def discord_bot_link_list():
+    """MEMBER or OPERATOR: the bot keys generated from this surface. A member
+    sees ONLY their own; an operator sees every bot-link key. Raw keys are never
+    returned — they exist exactly once, in the mint response."""
+    _require_member_bot()
+    is_operator = _bot_caller_is_operator()
+    username = _bot_caller_username()
+    if not is_operator and not username:
+        abort(401, description="Authentication required for this route.")
+    return jsonify({"links": _bot_link_rows(username, is_operator)})
+
+
+@discord_bp.route("/discord/bot-links/<key_id>", methods=["DELETE"])
+def discord_bot_link_revoke(key_id):
+    """OPERATOR (any) or the MEMBER who generated it: revoke the bot key. A
+    member revoking someone else's key gets 403; an unknown id is 404 either
+    way. Only keys minted from THIS surface are addressable here — the general
+    console key ledger stays operator-only at /keys."""
+    _require_member_bot()
+    is_operator = _bot_caller_is_operator()
+    username = _bot_caller_username()
+    if not is_operator and not username:
+        abort(401, description="Authentication required for this route.")
+    rows = _bot_link_rows(username, is_operator=True)
+    match = next((r for r in rows if r.get("key_id") == key_id), None)
+    if not match:
+        abort(404, description="Unknown bot link.")
+    if not is_operator and match.get("owner") != username:
+        abort(403, description="This bot link belongs to another account.")
+    from ..functions.imports.utils.api_keys import revoke_api_key
+    if not revoke_api_key(key_id):
+        abort(404, description="Unknown bot link.")
+    logger.info("bot link revoked: key=%s by=%s", key_id, username or "operator")
+    return jsonify({"ok": True, "key_id": key_id})
 
 
 @discord_bp.route("/discord/session/<token>/send", methods=["POST"])

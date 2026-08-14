@@ -105,6 +105,10 @@ OPS_MCP_OAUTH_CLIENT_SECRET_ID = "ops-mcp-oauth-client-secret"
 GITHUB_TOKEN_SECRET_ID = "internal-ops-github-pat"
 """Fine-grained GitHub PAT used for workflow dispatch and PR/issue reads/comments.
 
+Exposed to the Ops MCP runtime under *two* names: `GITHUB_TOKEN` for general
+GitHub API access, and `GITHUB_CI_WORKFLOW_TRIGGER_PAT` for the resolvers that
+require an `actions:write` user PAT and refuse to fall back to `GITHUB_TOKEN`.
+
 Shared container (`internal-ops-` prefix) so the Ops Webapp runtime SA can adopt
 it too; see `BOOTSTRAP.md`."""
 
@@ -196,6 +200,7 @@ AUTH_JWKS_URI_ENV = "AIRBYTE_MCP_AUTH_JWKS_URI"
 AUTH_ISSUER_ENV = "AIRBYTE_MCP_AUTH_ISSUER"
 AUTH_AUDIENCE_ENV = "AIRBYTE_MCP_AUTH_AUDIENCE"
 AUTH_ALGORITHM_ENV = "AIRBYTE_MCP_AUTH_ALGORITHM"
+AUTH_ALLOW_CLIENT_CREDENTIALS_ENV = "AIRBYTE_MCP_AUTH_ALLOW_CLIENT_CREDENTIALS"
 OPS_MCP_FIRESTORE_DATABASE = "ops-mcp-oauth"
 OPS_MCP_PREVIEW_FIRESTORE_DATABASE = "ops-mcp-oauth-preview"
 
@@ -340,6 +345,13 @@ def _cloud_mcp_auth_envs() -> list[gcp.cloudrunv2.ServiceTemplateContainerEnvArg
     deployment repo rather than baked into the generic library.
     """
     return [
+        # The released cloud-mcp image does not read this flag yet, so it is
+        # inert until the image is bumped to a version with client-credentials
+        # middleware. Once enabled, headless clients can send durable
+        # `Client-Id`/`Client-Secret` headers (or HTTP Basic); the server
+        # exchanges them for a short-lived token and rewrites the request to
+        # Bearer instead of requiring the client to re-mint tokens.
+        _env(AUTH_ALLOW_CLIENT_CREDENTIALS_ENV, "true"),
         _env(OIDC_CONFIG_URL_ENV, CLOUD_MCP_OIDC_CONFIG_URL),
         _env(AUTH_JWKS_URI_ENV, CLOUD_MCP_JWT_JWKS_URI),
         _env(AUTH_ISSUER_ENV, CLOUD_MCP_JWT_ISSUER),
@@ -515,7 +527,7 @@ def define_cloud_armor_policy(
             gcp.compute.SecurityPolicyRuleArgs(
                 action="throttle",
                 priority=100,
-                description="Rate limit: 60 requests per minute per IP",
+                description="Rate limit: 600 requests per minute per IP",
                 match=gcp.compute.SecurityPolicyRuleMatchArgs(
                     versioned_expr="SRC_IPS_V1",
                     config=gcp.compute.SecurityPolicyRuleMatchConfigArgs(
@@ -526,7 +538,7 @@ def define_cloud_armor_policy(
                     conform_action="allow",
                     exceed_action="deny(429)",
                     rate_limit_threshold=gcp.compute.SecurityPolicyRuleRateLimitOptionsRateLimitThresholdArgs(
-                        count=60,
+                        count=600,
                         interval_sec=60,
                     ),
                     enforce_on_key="IP",
@@ -942,6 +954,9 @@ def main() -> None:
     # `setIamPolicy` on secret containers it did not create. See `BOOTSTRAP.md`.
     ops_mcp_backend_envs = [
         _secret_env("GITHUB_TOKEN", GITHUB_TOKEN_SECRET_ID),
+        # Same PAT, second name: the workflow-trigger and Copilot-review
+        # resolvers read only this var and never fall back to `GITHUB_TOKEN`.
+        _secret_env("GITHUB_CI_WORKFLOW_TRIGGER_PAT", GITHUB_TOKEN_SECRET_ID),
         _secret_env("ORB_API_KEY", ORB_API_KEY_SECRET_ID),
         _secret_env("MOTHERDUCK_ADMIN_TOKEN", MOTHERDUCK_ADMIN_TOKEN_SECRET_ID),
         _secret_env("SLACK_BOT_TOKEN_HITL", SLACK_BOT_TOKEN_HITL_SECRET_ID),

@@ -131,6 +131,32 @@ def try_parse_iceberg_branch_tag_suffix(
     return base_name, {"tag": ref_name}
 
 
+def try_parse_iceberg_branch_tag_suffix_parts(
+    parts: list[str],
+) -> tuple[list[str], dict[str, str]] | None:
+    """Parse a branch/tag suffix from Catalyst multipart segments.
+
+    Unlike ``try_parse_iceberg_branch_tag_suffix``, this does **not** split the
+    identifier on ``.`` — required when an earlier segment itself contains dots
+    (e.g. Spark database ``blah.@#$`` with table ``$.%``).
+    """
+    if len(parts) < 2:
+        return None
+
+    suffix = _suffix_kind_and_name(parts[-1], False)
+    if suffix is None:
+        return None
+
+    kind, ref_name = suffix
+    if not ref_name.strip():
+        _raise_empty_suffix_name(kind)
+
+    base_parts = parts[:-1]
+    if kind == "branch":
+        return base_parts, {"branch": ref_name}
+    return base_parts, {"tag": ref_name}
+
+
 def iceberg_branch_tag_suffix_extensions_disabled_exception() -> AnalysisException:
     """Build the customer-visible error when extensions are unset."""
     exception = AnalysisException(

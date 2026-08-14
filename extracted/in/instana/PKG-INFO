@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: instana
-Version: 3.16.0
+Version: 3.17.0
 Summary: Python Distributed Tracing & Metrics Sensor for Instana.
 Project-URL: Documentation, https://ibm.biz/monitoring-python
 Project-URL: Issues, https://github.com/instana/python-sensor/issues

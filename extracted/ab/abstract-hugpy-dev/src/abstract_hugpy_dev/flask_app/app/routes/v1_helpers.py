@@ -80,6 +80,12 @@ def _completion_kwargs(payload: dict) -> dict:
     for k in ("chat_template_kwargs", "logit_bias"):
         if isinstance(payload.get(k), dict) and payload[k]:
             kwargs[k] = payload[k]
+    # k96 no-evict guarantee (agent brains): forwarded only when truthy so
+    # ordinary traffic stays byte-identical; dispatch runs the load politely
+    # and fails fast instead of evicting (see dispatch.ensure_headroom_for_load
+    # and ChatRequest.no_makeroom).
+    if payload.get("no_makeroom"):
+        kwargs["no_makeroom"] = True
     return kwargs
 
 

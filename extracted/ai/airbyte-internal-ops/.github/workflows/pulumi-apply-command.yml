@@ -171,7 +171,11 @@ jobs:
                 {name: "internal-mcp-servers", dir: "infra/internal-mcp-servers", changed: ($internal_mcp_servers == "true" or $workflow == "true")}
               ] | map(select(.changed)) | map(del(.changed))'
           )"
-          json="$(jq -c --arg event "$EVENT_NAME" --arg pr "$PR_NUMBER" --argjson all "$all_stacks" --argjson changed "$changed_stacks" 'if $event == "workflow_dispatch" and $pr == "" then $all else $changed end')"
+          json="$(jq -c -n --arg event "$EVENT_NAME" --arg pr "$PR_NUMBER" --argjson all "$all_stacks" --argjson changed "$changed_stacks" 'if $event == "workflow_dispatch" and $pr == "" then $all else $changed end')"
+          if [ -z "${json//[[:space:]]/}" ]; then
+            echo "::error::Resolved Pulumi stack matrix is blank; refusing to continue because stack detection produced no JSON output."
+            exit 1
+          fi
           echo "stacks=$json" | tee -a "$GITHUB_OUTPUT"
 
       - name: Append comment with job run link

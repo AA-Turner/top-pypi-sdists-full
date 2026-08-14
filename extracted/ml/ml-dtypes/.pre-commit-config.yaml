@@ -1,0 +1,31 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # v6.0.0
+    hooks:
+      - id: check-ast
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: debug-statements
+  - repo: https://github.com/google/pyink
+    rev: 1de8968a0d9a9ad4b8f7d9378602d14c5939602d  # v24.10.1
+    hooks:
+      - id: pyink
+        language_version: python3.12
+        args: [
+          "--line-length=80",
+          "--preview",
+          "--pyink-indentation=2",
+          "--pyink-use-majority-quotes"
+        ]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: 9c89adb347f6b973f4905a4be0051eb2ecf85dea  # v0.13.3
+    hooks:
+    - id: ruff
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: 719856d56a62953b8d2839fb9e851f25c3cfeef8  # v21.1.2
+    hooks:
+    - id: clang-format
+      files: ml_dtypes/

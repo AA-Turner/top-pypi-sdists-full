@@ -14,15 +14,15 @@ class ManualPolicy:
         # action mappings for all agents are the same
         if True:
             self.default_action = 0
-            self.action_mapping = dict()
+            self.action_mapping = {}
             self.action_mapping[pygame.K_w] = 1.0
             self.action_mapping[pygame.K_s] = -1.0
 
     def __call__(self, observation, agent):
         # only trigger when we are the correct agent
-        assert (
-            agent == self.agent
-        ), f"Manual Policy only applied to agent: {self.agent}, but got tag for {agent}."
+        assert agent == self.agent, (
+            f"Manual Policy only applied to agent: {self.agent}, but got tag for {agent}."
+        )
 
         # set the default action
         action = self.default_action

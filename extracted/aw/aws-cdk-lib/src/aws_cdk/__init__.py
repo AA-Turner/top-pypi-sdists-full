@@ -43749,6 +43749,7 @@ __all__ = [
 # Type-checking-only imports for static analyzers (pyright/mypy).
 # At runtime TYPE_CHECKING is False, preserving lazy loading.
 if typing.TYPE_CHECKING:
+    pass
     from . import alexa_ask as alexa_ask
     from . import assertions as assertions
     from . import aws_accessanalyzer as aws_accessanalyzer

@@ -168,6 +168,20 @@ def map_extension(
                 attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
                 raise exception
             right_query = right_queries[0]
+            # A UDTF invocation that get_udtf_project didn't recognize (e.g. a
+            # column-aliased `LATERAL udtf(x) AS t(a, b)`) produces a Project with no input
+            # relation, whose query string is empty; interpolating it below yields
+            # `... LATERAL ()`, which the parser rejects with an opaque "empty statement"
+            # error. Fail loudly with an actionable message instead.
+            if not right_query or not right_query.strip():
+                exception = SnowparkConnectNotImplementedError(
+                    "Unsupported LATERAL join right-hand side. For a table function, use "
+                    "`FROM left, LATERAL udtf(args)` with a registered UDTF; the "
+                    "column-aliased form `LATERAL udtf(args) AS t(col, ...)` is not yet "
+                    "supported in spark.sql() — alias the columns in the SELECT instead."
+                )
+                attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+                raise exception
             input_df_sql = f"WITH __left AS ({left_query}) SELECT * FROM __left INNER JOIN LATERAL ({right_query})"
             session = snowpark.Session.get_active_session()
             input_df = session.sql(input_df_sql)

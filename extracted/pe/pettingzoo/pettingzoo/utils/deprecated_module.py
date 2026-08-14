@@ -3,11 +3,36 @@ from __future__ import annotations
 import importlib.util
 import pkgutil
 import re
+from collections.abc import Iterable
 from types import ModuleType
-from typing import Iterable
 
 
 class DeprecatedEnv(ImportError):
+    pass
+
+
+CREATE_ENV_WITHOUT_REGISTRY = (
+    "The old environment creation API has been deprecated in favor of a Gymnasium-like"
+    " registry implementation, please use the make function instead.\nThe old API will"
+    " eventually be removed in a future release."
+)
+
+# Environments removed from PettingZoo entirely, mapped to the reason why. These
+# raise on attribute access rather than falling through as a missing module, so
+# that users upgrading from an older release get an actionable message.
+REMOVED_ENVS: dict[str, str] = {
+    "gin_rummy": (
+        "gin_rummy was removed from PettingZoo, see "
+        "https://github.com/Farama-Foundation/PettingZoo/issues/1383. The "
+        "underlying implementation remains available in RLCard: "
+        "https://github.com/datamllab/rlcard"
+    ),
+}
+
+
+# Must subclass AttributeError: this is raised from a __getattr__(), and raising
+# anything else breaks the default handling in getattr(obj, "key", "default").
+class RemovedEnv(AttributeError):
     pass
 
 
@@ -50,19 +75,23 @@ def deprecated_handler(
             )
         name, version = env_name.rsplit("_v")
 
-        for loader, alt_env_name, is_pkg in pkgutil.iter_modules(module_path):
+        if name in REMOVED_ENVS:
+            raise RemovedEnv(REMOVED_ENVS[name])
+
+        for _loader, alt_env_name, _is_pkg in pkgutil.iter_modules(module_path):
             if is_env(alt_env_name):
                 alt_name, alt_version = alt_env_name.rsplit("_v")
                 if alt_name == name:
                     if int(alt_version) > int(version):
                         return DeprecatedModule(name, version, alt_version)
-                    else:
-                        raise AttributeError(
-                            f"cannot import name '{env_name}' from '{module_name}'"
-                        )
+                    raise AttributeError(
+                        f"cannot import name '{env_name}' from '{module_name}'"
+                    )
+
+        # No module of this name exists at any version.
+        raise AttributeError(f"cannot import name '{env_name}' from '{module_name}'")
 
     # This constructs the module but doesn't execute its code
-    assert spec
     module = importlib.util.module_from_spec(spec)
     # This executes the module and will raise any exceptions
     # that would typically be raised by just `import blah`

@@ -67,6 +67,14 @@ from . import compile_posture, handler_proof, warm_spans
 from .api.errors import ValidationError
 from .api.export_contract import (
     blocker_refusal, export_declaration, open_blockers)
+from .child_contract import MintSlot, frame_line
+from .child_preflight import (
+    PreflightRefused,
+    assert_slots_resolvable,
+    bind_slots,
+    pick_compile_target,
+    select_specs,
+)
 from .mint_process import (
     EXIT_BAD_REQUEST,
     EXIT_MINTED,
@@ -74,8 +82,6 @@ from .mint_process import (
     EXIT_RESOURCE,
     MintReport,
     MintRequest,
-    MintSlot,
-    frame_line,
 )
 
 logger = logging.getLogger(__name__)
@@ -84,24 +90,6 @@ logger = logging.getLogger(__name__)
 #: also run produced a cell with no consumer, and it is deleted rather than
 #: kept behind a request field nobody may set.
 RECIPE_AOT = "aot"
-
-
-class MintChildRefused(RuntimeError):
-    """A named, deterministic reason this mint cannot happen here.
-
-    Never retried by the parent: re-running a named refusal buys a second
-    billed compile for the same sentence.
-
-    ``mint_phases`` carries the refusing mint's PARTIAL phase table when it
-    got far enough to have one (pgw#825) — the entries it exported and
-    compiled before refusing are real minutes and must reach the hub.
-    """
-
-    def __init__(
-        self, *args: Any, mint_phases: Optional[Mapping[str, Any]] = None,
-    ) -> None:
-        super().__init__(*args)
-        self.mint_phases: Dict[str, Any] = dict(mint_phases or {})
 
 
 def _assert_family_mintable(family: str) -> None:
@@ -119,17 +107,17 @@ def _assert_family_mintable(family: str) -> None:
     try:
         decl = export_declaration(family)
     except Exception as exc:  # noqa: BLE001 — a refusing declaration is a refusal
-        raise MintChildRefused(
+        raise PreflightRefused(
             f"family {family!r}'s export declaration refuses to build "
             f"({type(exc).__name__}): {exc}") from exc
     if decl is None:
         return
     blocked = open_blockers(decl)
     if blocked:
-        raise MintChildRefused(blocker_refusal(family, blocked))
+        raise PreflightRefused(blocker_refusal(family, blocked))
 
 
-def _declaration_refusal(exc: ValidationError) -> MintChildRefused:
+def _declaration_refusal(exc: ValidationError) -> PreflightRefused:
     """pgw#1075: a declared value this SDK's own vocabulary rejects is a
     REFUSAL, not a crash — and the author's fix is already in the message.
 
@@ -153,7 +141,7 @@ def _declaration_refusal(exc: ValidationError) -> MintChildRefused:
     to a custom op with no fake kernel (pgw#1062) — the message is the
     authoring contract, so it is carried whole and never summarised.
     """
-    return MintChildRefused(
+    return PreflightRefused(
         f"declaration refused: {type(exc).__name__}: {exc}",
         mint_phases=getattr(exc, "mint_phases", None))
 
@@ -207,34 +195,6 @@ def _write_report(path: Path, report: MintReport) -> None:
     os.replace(tmp, path)
 
 
-def select_specs(
-    specs: Sequence[Any], function: str,
-) -> Tuple[Any, List[Any]]:
-    """The requested function's spec plus every sibling sharing its instance.
-
-    Siblings matter: the warm plan is CLASS-scoped (pgw#654 — one cell per
-    class, so turbo and base seed the same capture). Minting from one
-    function's view is how a sibling lane ends up absent from the cell and
-    every adopting boot fails its per-object proof (gw#612).
-    """
-    chosen = next((s for s in specs if s.name == function), None)
-    if chosen is None:
-        raise MintChildRefused(
-            f"function {function!r} is not in this image "
-            f"(have: {sorted(s.name for s in specs)})")
-    if chosen.cls is None:
-        raise MintChildRefused(
-            f"function {function!r} is function-shaped — it has no instance "
-            "to compile")
-    siblings = [
-        s for s in specs
-        if s.cls is chosen.cls and s.instance_key == chosen.instance_key
-    ]
-    if chosen not in siblings:
-        siblings.append(chosen)
-    return chosen, siblings
-
-
 def mint_identity(request: MintRequest) -> str:
     """One sentence naming WHICH mint a message belongs to (pgw#969).
 
@@ -248,88 +208,6 @@ def mint_identity(request: MintRequest) -> str:
         f"mint family={request.family!r} arm_key={request.arm_token!r} "
         f"lane={request.execution_lane or '(unset)'!r} "
         f"fn={request.function!r}")
-
-
-def bind_slots(specs: Sequence[Any], resolved: Mapping[str, MintSlot]) -> None:
-    """Install the PARENT's resolved slot bindings onto rediscovered specs.
-
-    The child re-runs discovery in a fresh interpreter, so ``spec.models``
-    comes back holding only what ``@endpoint`` declared. For a hub-catalog
-    slot — ``Slot(cls, selected_by="model")`` with no ``default_checkpoint=``,
-    which is sdxl's shape and every multi-checkpoint family's — the decorator
-    declares no ref at all, and the resolution chain then has nothing to
-    resolve: ``ctx.slots["pipeline"]`` raises before a graph is traced.
-
-    Applied to the WHOLE sibling set, never one spec: ``instance_key`` is a
-    live property over ``spec.models``, so binding the chosen function alone
-    would move its key out from under its siblings and silently narrow the
-    class-scoped warm plan (pgw#654) to one lane.
-    """
-    for spec in specs:
-        for slot, res in resolved.items():
-            if slot in spec.slots or slot in spec.models:
-                spec.models[slot] = res.ref
-
-
-def assert_slots_resolvable(
-    specs: Sequence[Any],
-    slots: Mapping[str, MintSlot],
-    *,
-    what: str = "",
-) -> None:
-    """pgw#969: refuse a request whose slots cannot resolve — before the load.
-
-    ``slots`` + ``what`` rather than the whole ``MintRequest`` (pgw#1089): the
-    boot-trace child resolves the same slots for the same reason and must get
-    the same refusal, and a second copy of this check would be a second answer
-    to "can this process trace the checkpoint the parent serves".
-
-    Two distinct failures, both named rather than deferred to a handler's
-    first dereference nine seconds later:
-
-    * the parent sent no binding for a declared, non-optional slot (the wire
-      gap this issue exists for), and
-    * a slot the parent DID bind still fails the resolution chain here, which
-      is real divergence between the two processes and never a normal path.
-
-    An OPTIONAL slot the parent did not bind is deliberately silent: the
-    parent's own warm context resolves it exactly this way (the deploy chose
-    not to serve that lane), and refusing here would refuse a mint the parent
-    can serve.
-    """
-    from . import warmup as warmup_mod
-
-    bound = set(slots)
-    problems: List[str] = []
-    for spec in specs:
-        missing = sorted(
-            name for name, slot in spec.slots.items()
-            if name not in bound
-            and name not in spec.models
-            and not getattr(slot, "optional", False)
-        )
-        for name in missing:
-            problems.append(
-                f"slot {name!r} of {spec.name!r}: the parent sent no resolved "
-                f"binding for it and the endpoint declares no "
-                f"default_checkpoint, so this child has no checkpoint to "
-                f"trace (MintRequest.slots carries "
-                f"{sorted(bound) or '(nothing)'})")
-        errors = warmup_mod.resolved_slots_kwargs(spec, None)["slot_errors"]
-        for name, why in sorted(errors.items()):
-            resolved = slots.get(name)
-            if resolved is not None:
-                problems.append(
-                    f"slot {name!r} of {spec.name!r}: the parent's binding "
-                    f"{resolved.ref.path!r} "
-                    f"crossed but does not resolve in this process — {why}")
-    if not problems:
-        return
-    raise MintChildRefused(
-        f"{what or 'slot resolution'}: cannot build the warmup request — "
-        + "; ".join(problems)
-        + ". A mint cannot trace a graph for a pipeline it was never told "
-          "to load.")
 
 
 def assert_composable(resolved: Mapping[str, MintSlot]) -> None:
@@ -355,32 +233,12 @@ def assert_composable(resolved: Mapping[str, MintSlot]) -> None:
     )
     if not bad:
         return
-    raise MintChildRefused(
+    raise PreflightRefused(
         f"slot(s) {bad} were materialized as override-narrowed trees "
         f"(the overridden component's files were excluded from the fetch) "
         f"but this request carries no component override for them, so the "
         f"composition cannot be rebuilt: "
         + "; ".join(f"{slot}={resolved[slot].path}" for slot in bad))
-
-
-def pick_compile_target(loaded: Dict[str, Any], cfg: Any) -> Tuple[str, Any]:
-    """The loaded slot that actually carries the declared compile target(s).
-
-    Public since pgw#1089: the boot-trace child must pick the SAME slot this
-    child picks, and two pickers would be two compile targets.
-    """
-    from . import compile_cache as cc
-
-    for slot, obj in loaded.items():
-        try:
-            if cc.has_compile_target(obj, cfg):
-                return slot, obj
-        except Exception:
-            continue
-    raise MintChildRefused(
-        f"no compile target resolved on any loaded slot "
-        f"({sorted(loaded) or '(none)'}) for family {cfg.family!r} "
-        f"targets={list(cfg.targets)}")
 
 
 def _drive_warm_plan(
@@ -423,7 +281,7 @@ def _drive_warm_plan(
         except BaseException as exc:
             if _is_resource_error(exc) or not isinstance(exc, Exception):
                 raise
-            raise MintChildRefused(
+            raise PreflightRefused(
                 f"{mint_identity(request)}: the endpoint's own warm plan does "
                 f"not run — warm job {job.spec.name!r} raised "
                 f"{type(exc).__name__}: {exc}. A cell must not seal for a "
@@ -637,16 +495,25 @@ def _mint_aot(
         # that exposes no logs (pgw#760). pgw#825: the seconds it spent before
         # refusing ride WITH the sentence — a refusal after four paid compiles
         # and a refusal in the first second are not the same event.
-        raise MintChildRefused(
+        raise PreflightRefused(
             f"aot mint refused: {exc}",
             mint_phases=getattr(exc, "mint_phases", None)) from exc
 
-    frame(phase="seal_publish", note=f"packed {result.artifact.name}")
-    artifact = Path(result.artifact)
-    if artifact != target:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(artifact, target)
-    frame(phase="finalize", note=f"cell {result.cell_key}")
+    frame(phase="seal_publish",
+          note=f"packed {len(result.entries)} entry artifact(s)")
+    # pgw#1176: the child moves EVERY entry it packed into the parent's
+    # directory, one file per graph class, and reports the set. `target` names
+    # the directory the parent watches; the per-entry file names are the
+    # entries' own `cg-key-v1` keys, so the parent addresses each by identity rather
+    # than by position.
+    target.parent.mkdir(parents=True, exist_ok=True)
+    moved: List[Tuple[str, str, str]] = []
+    for row in result.entries:
+        dest = target.parent / f"{row.key}.tar.gz"
+        if Path(row.artifact) != dest:
+            os.replace(Path(row.artifact), dest)
+        moved.append((row.key, str(dest), sha256_file(dest)))
+    frame(phase="finalize", note=f"manifest {result.manifest}")
 
     # pgw#1053: the release resets the allocator's high-water so the pool can
     # regrant K — the TRUE peak was banked into the timings first, and the
@@ -663,18 +530,19 @@ def _mint_aot(
     marks.setdefault("export_peak_bytes", peak)
     return MintReport(
         status="minted",
-        artifact=str(target),
-        digest=sha256_file(target),
-        cell_key=str(result.cell_key),
+        entries=tuple(moved),
         detail=(
-            f"exported {len((result.metadata.get('entries') or {}))} graph "
-            f"class(es) for family {cfg.family!r} as one aot-inductor cell"),
+            f"exported {len(moved)} graph class(es) for family "
+            f"{cfg.family!r} as {len(moved)} independently keyed "
+            f"aot-inductor entries (manifest {result.manifest})"),
         phase="finalize",
         peak_vram_bytes=max(
             peak, int(marks.get("warm_proof_peak_bytes", 0) or 0)),
         elapsed_s=time.monotonic() - started,
         phases=_close_phases(),
-        mint_phases=dict(result.metadata.get("mint_phases") or {}),
+        mint_phases=dict(
+            (result.entries[0].metadata.get("mint_phases") or {})
+            if result.entries else {}),
         structure_only_components=tuple(
             marks.get("structure_only_components") or ()),
         structure_refusal=str(marks.get("structure_refusal") or ""),
@@ -687,7 +555,7 @@ def _mint_aot(
 
 
 def mint(request: MintRequest) -> MintReport:
-    """Build the cell. Raises ``MintChildRefused`` for a named refusal."""
+    """Build the cell. Raises ``PreflightRefused`` for a named refusal."""
     # The two views ``cli.run.run_setup`` takes, both DERIVED from the one
     # resolution (pgw#974) rather than carried beside it.
     paths = {slot: res.path for slot, res in request.slots.items()}
@@ -713,14 +581,14 @@ def mint(request: MintRequest) -> MintReport:
     env_seal.establish()
 
     if not cc.toolchain_present():
-        raise MintChildRefused(
+        raise PreflightRefused(
             "no C toolchain (cc/gcc/clang) — inductor cannot link a kernel")
     if not cc.cxx_toolchain_present():
         # pgw#823: AOTInductor's stricter requirement, asserted BEFORE the
         # weights are read. The guard above passes on a C compiler; AOTI needs
         # a C++ one, and without this the miss surfaces 336 s later as an
         # InductorError from inside the linker.
-        raise MintChildRefused(
+        raise PreflightRefused(
             "no C++ compiler (g++/clang++) — AOTInductor links a shared "
             "object and cannot build one")
 
@@ -778,6 +646,33 @@ def mint(request: MintRequest) -> MintReport:
             got = run_setup(
                 obj, dict(paths), arm_compile=False,
                 return_loaded=True, component_paths=overrides,
+                # pgw#1208: NO SERVING PLACEMENT on the weight-free path. The
+                # pgw#1124 seam, and the same argument one door over: the
+                # placement ladder is for a pipeline that will run a forward,
+                # and this one never will — it exports and nothing else. Since
+                # pgw#1199 the child runs no warm proof either, so the last
+                # reason to place it is gone.
+                #
+                # This is not a tuning choice, it is the whole of the sdxl
+                # and z-image export failures. The ladder installs OFFLOAD
+                # HOOKS, and an offload hook puts a `@torch.compiler.disable`d
+                # function in the traced path — which `torch.export(strict=True)`
+                # refuses to inline, fatally and deterministically:
+                #
+                #   Unsupported: Skip inlining `torch.compiler.disable()`d
+                #   function <function ModuleGroup.onload_>
+                #
+                # The MECHANISM is family-independent; only the hook class
+                # differs (`ModuleGroup.onload_` for sdxl's group offload,
+                # `CpuOffload.pre_forward` for z-image's). It is NOT a
+                # card-capacity story: z-image refused on a 48 GiB A40 holding
+                # a 19 GiB model, so offload here is a CONFIGURATION and not a
+                # response to memory pressure. `place_pipeline` has exactly one
+                # call site, guarded by `if place and ...`, and no endpoint
+                # installs offload itself — so this line removes every offload
+                # hook for every family. The hooks are not stripped; they are
+                # never installed.
+                place=False,
                 structure_only=structure_targets) or {}
         except StructureNotHonored as exc:
             # pgw#1080 z-image tail: the target WAS built weight-free and the
@@ -787,7 +682,7 @@ def mint(request: MintRequest) -> MintReport:
             # (ie#638). This is buildable-but-not-honored, NOT a stranded
             # family, so it FAILS CLOSED with the authoring cause named rather
             # than degrading to a real-weight export the meta gate never sees.
-            raise MintChildRefused(
+            raise PreflightRefused(
                 f"structure-only was requested for {mint_identity(request)} "
                 f"and the target built weight-free, but the composed pipeline "
                 f"did not carry it: {exc}") from exc
@@ -806,11 +701,17 @@ def mint(request: MintRequest) -> MintReport:
             frame(phase="load", note=(
                 f"structure-only {structure_only.refusal_token(exc)}: {exc}"))
             obj = spec.cls()
+            # The REAL-WEIGHT fallback keeps its placement, deliberately:
+            # structure-only was refused for this family, so this process
+            # holds the checkpoint AND runs the pgw#984 warm proof — a real
+            # forward, which needs a placed pipeline. Only the path that
+            # exports and never executes may skip the ladder.
             got = run_setup(
                 obj, dict(paths), arm_compile=False,
                 return_loaded=True, component_paths=overrides) or {}
         _slot, loaded_pipe = pick_compile_target(got, cfg)
         frame(phase="load", note=f"compile target on slot {_slot!r}")
+        assert_traceable_as_loaded(loaded_pipe, request)
         if cfg.lora_bucket:
             cc.apply_lora_execution_lane(loaded_pipe, cfg.lora_bucket)
         return obj, loaded_pipe, fleet_cells.aot_export_spec(loaded_pipe, cfg)
@@ -888,6 +789,60 @@ def mint(request: MintRequest) -> MintReport:
         footprint=footprint)
 
 
+def assert_traceable_as_loaded(pipeline: Any, request: MintRequest) -> None:
+    """Refuse ONCE, before any export, when this pipeline cannot be traced.
+
+    pgw#1208 (a). The weight-free path never places and so never acquires these
+    hooks; this is for the REAL-WEIGHT fallback, which loads a checkpoint into
+    this process and runs the serving placement ladder over it. An offload hook
+    puts a `@torch.compiler.disable`d function in the traced path — diffusers'
+    `ModuleGroup.onload_` (group offload) or accelerate's
+    `CpuOffload.pre_forward` (model/sequential offload) — and every one of the
+    family's declared graph classes then refuses `Unsupported: Skip …` for the
+    same reason.
+
+    **This is NOT a capacity verdict, and must never be read as one.** z-image
+    refused on a 48 GiB A40 holding a 19 GiB model, so offload is a pipeline
+    CONFIGURATION rather than a response to memory pressure — and §1.35 has
+    since ruled the whole card-filter concept out of existence (every model runs
+    on every GPU, best effort; feasibility is never asked). What this detects is
+    exactly what it says: the pipeline AS LOADED carries hooks that cannot be
+    traced.
+
+    Without this, pgw#1208's per-entry skip would do exactly what it is supposed
+    to do and dutifully skip all 36: thirty-six typed refusals and an hour of
+    wall clock to say once what was knowable before the first export began. The
+    per-entry skip is for a class that is individually unexportable. This is the
+    whole PIPELINE being untraceable as loaded, which is a different fact and
+    gets its own sentence.
+
+    Cost is already covered by the attempt-is-the-budget rule (§4.33); what this
+    buys is LEGIBILITY — a pod that cannot mint says why, once, in a countable
+    typed refusal, instead of emitting a refusal per class and publishing
+    nothing.
+
+    No placement logic and no card arithmetic: it asks the object in front of it
+    whether it carries disabled work, so it stays true for any future source of
+    such hooks rather than only for the offload rung that produced the first.
+    """
+    from .models import traceability
+
+    reason = traceability.untraceable_reason(pipeline)
+    if not reason:
+        return
+    raise PreflightRefused(
+        f"mint_pipeline_not_traceable: {mint_identity(request)} loaded real "
+        f"weights and the placement ladder installed offload hooks — {reason}. "
+        f"`torch.export` refuses a `torch.compiler.disable`d function rather "
+        f"than tracing around it, so EVERY declared graph class would refuse "
+        f"identically. Refused once, before the first export, instead of once "
+        f"per class. NOT a statement about this card (§1.35: every model runs "
+        f"on every GPU, feasibility is never asked) — it is a statement about "
+        f"this PIPELINE AS CONFIGURED. This pod serves the family eager "
+        f"exactly as before; only minting is unavailable while it is loaded "
+        f"this way.")
+
+
 def assert_handler_proven(request: MintRequest) -> None:
     """A weight-free mint REFUSES unless the parent proved the handler runs.
 
@@ -912,7 +867,7 @@ def assert_handler_proven(request: MintRequest) -> None:
     """
     if str(getattr(request, "handler_proof", "") or "").strip():
         return
-    raise MintChildRefused(
+    raise PreflightRefused(
         f"{mint_identity(request)}: this is a WEIGHT-FREE mint and the parent "
         f"sent no handler proof. pgw#984 requires the endpoint's own handler "
         f"to have run before a cell seals, and since pgw#1199 that proof "
@@ -1081,7 +1036,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             # this process — spec build, composition check, branch arm, export
             # declaration — can raise it and they all mean the same thing.
             raise _declaration_refusal(exc) from exc
-    except MintChildRefused as exc:
+    except PreflightRefused as exc:
         # th#1322: a refused mint's phase table is where it spent the time
         # BEFORE refusing — the most useful half of a failed mint. The OPEN
         # phase is read first on purpose: `_close_phases` closes it, and
@@ -1120,7 +1075,4 @@ if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
 
 
-__all__ = ["MintChildRefused", "assert_composable", "assert_slots_resolvable",
-           "pick_compile_target",
-           "bind_slots", "frame", "main",
-           "mint_identity", "mint", "select_specs"]
+__all__ = ["assert_composable", "frame", "main", "mint_identity", "mint"]

@@ -1441,10 +1441,14 @@ class Slot:
             # engine dir (libllama/libggml/…). Prepend those to the child's
             # LD_LIBRARY_PATH so it loads without a unit-level env hack (the ae
             # 2026-07-06 manual fix, now derived from HUGPY_ENGINE_DIR in code).
-            # Additive + Linux-only + no-op unless the engine dir is overridden.
+            # Additive + Linux-only. argv[0] (k94) extends the fix to a binary
+            # resolved from any hugpy-managed engine dir — the default data-dir
+            # install and the persisted-config location — while a system/PATH
+            # binary or the python child still adds nothing.
             try:
                 from ...engine.resolve import ld_library_path_with_engine
-                _ld = ld_library_path_with_engine(env.get("LD_LIBRARY_PATH"))
+                _ld = ld_library_path_with_engine(env.get("LD_LIBRARY_PATH"),
+                                                  bin_path=argv[0])
                 if _ld:
                     env["LD_LIBRARY_PATH"] = _ld
             except Exception:  # noqa: BLE001 — never block a load on lib-path derivation

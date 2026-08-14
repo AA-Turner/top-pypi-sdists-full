@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pypdf
-Version: 6.15.0
+Version: 6.16.0
 Summary: A pure-python PDF library capable of splitting, merging, cropping, and transforming PDF files
 Author-email: Mathieu Fenniak <biziqe@mathieu.fenniak.net>
 Maintainer: stefan6419846
@@ -57,6 +57,7 @@ Provides-Extra: fonts
 Provides-Extra: full
 Provides-Extra: image
 Provides-Extra: rtl-text
+Import-Name: pypdf
 
 [![PyPI version](https://badge.fury.io/py/pypdf.svg)](https://badge.fury.io/py/pypdf)
 [![Python Support](https://img.shields.io/pypi/pyversions/pypdf.svg)](https://pypi.org/project/pypdf/)

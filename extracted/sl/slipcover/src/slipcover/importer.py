@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, Union
 from .slipcover import Slipcover
 from .version import __version__
 from . import branch as br
@@ -17,14 +17,6 @@ else:
     from importlib.abc import ResourceReader as TraversableResources
 
 
-if sys.version_info[0:2] < (3,9):
-    # Path.is_relative_to is new in Python 3.9
-    def is_relative_to(self: Path, other: str) -> bool:
-        other = Path(other)
-        return other == self or other in self.parents
-    setattr(Path, 'is_relative_to', is_relative_to)
-
-
 class SlipcoverLoader(Loader):
     def __init__(self, sci: Slipcover, orig_loader: Loader, origin: str):
         self.sci = sci                  # Slipcover object measuring coverage
@@ -38,7 +30,7 @@ class SlipcoverLoader(Loader):
     # for compability with loaders supporting resources, used e.g. by sklearn
     def get_resource_reader(self, fullname: str) -> Optional[TraversableResources]:
         if hasattr(self.orig_loader, 'get_resource_reader'):
-            return self.orig_loader.get_resource_reader(fullname)
+            return self.orig_loader.get_resource_reader(fullname)  # type: ignore[attr-defined]
         return None
 
     def create_module(self, spec):
@@ -56,16 +48,17 @@ class SlipcoverLoader(Loader):
         else:
             code = self.orig_loader.get_code(module.__name__)  # type: ignore[attr-defined]
 
+        # get_code() can return None for loaders with no code object (e.g.
+        # built-ins) -- not expected for the loaders SlipcoverLoader wraps
+        assert code is not None
         self.sci.register_module(module)
         code = self.sci.instrument(code)
         exec(code, module.__dict__)
 
 
 class FileMatcher:
-    def __init__(self):
+    def __init__(self, sources=None, omit=None, default_dir=None):
         self.cwd = Path.cwd().resolve()
-        self.sources = []
-        self.omit = []
         self.pylib_paths = (
             Path(sysconfig.get_path("stdlib")).resolve(),
             Path(sysconfig.get_path("purelib")).resolve(),
@@ -73,18 +66,21 @@ class FileMatcher:
         # Don't instrument slipcover's own modules
         self._slipcover_path = Path(__file__).resolve().parent
 
-    def addSource(self, source : Path):
+        self.sources = [self._resolve_source(s) for s in (sources or [])]
+        self.omit = [self._resolve_omit(o) for o in (omit or [])]
+        self.default_dir = Path(default_dir).resolve() if default_dir is not None else self.cwd
+
+    def _resolve_source(self, source : Path):
         if isinstance(source, str):
             source = Path(source)
-        self.sources.append(source.resolve())
+        return source.resolve()
 
-    def addOmit(self, omit):
+    def _resolve_omit(self, omit):
         if not omit.startswith('*'):
             omit = self.cwd / omit
+        return omit
 
-        self.omit.append(omit)
-
-    def matches(self, filename : Optional[Path]):
+    def matches(self, filename : Optional[Union[Path, str]]):
         if filename is None:
             return False
 
@@ -102,7 +98,7 @@ class FileMatcher:
 
         if self.omit:
             from fnmatch import fnmatch
-            if any(fnmatch(filename, o) for o in self.omit):
+            if any(fnmatch(str(filename), str(o)) for o in self.omit):
                 return False
 
         if self.sources:
@@ -111,7 +107,7 @@ class FileMatcher:
         if any(filename.is_relative_to(p) for p in self.pylib_paths):
             return False
 
-        return filename.is_relative_to(self.cwd)
+        return filename.is_relative_to(self.default_dir)
 
 
 class MatchEverything:
