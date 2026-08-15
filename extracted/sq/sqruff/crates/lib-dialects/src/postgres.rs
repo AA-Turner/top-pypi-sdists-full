@@ -18,7 +18,7 @@ use sqruff_lib_core::parser::segments::meta::MetaSegment;
 use sqruff_lib_core::parser::types::ParseMode;
 
 use super::ansi;
-use super::postgres_keywords::POSTGRES_POSTGIS_DATATYPE_KEYWORDS;
+use super::postgres_keywords::{POSTGRES_PGVECTOR_KEYWORDS, POSTGRES_POSTGIS_DATATYPE_KEYWORDS};
 use crate::postgres_keywords::{get_keywords, postgres_keywords};
 use sqruff_lib_core::dialects::init::DialectConfig;
 use sqruff_lib_core::value::Value;
@@ -50,6 +50,12 @@ pub fn dialect(config: Option<&Value>) -> Dialect {
     }
 
     if dialect_config.pgvector {
+        postgres.sets_mut("unreserved_keywords").extend(
+            POSTGRES_PGVECTOR_KEYWORDS
+                .iter()
+                .map(|(keyword, _)| *keyword),
+        );
+
         postgres.replace_grammar("DatatypeSegment", build_datatype_segment_grammar(true));
 
         // Add pgvector distance operators: <-> (L2), <=> (cosine), <+> (L1), <#> (inner product)
@@ -78,6 +84,34 @@ pub fn dialect(config: Option<&Value>) -> Dialect {
     }
 
     postgres.config(|dialect| dialect.expand())
+}
+
+#[cfg(test)]
+mod tests {
+    use hashbrown::HashMap;
+    use sqruff_lib_core::value::Value;
+
+    use super::dialect;
+
+    const PGVECTOR_KEYWORDS: [&str; 3] = ["VECTOR", "HALFVEC", "SPARSEVEC"];
+
+    #[test]
+    fn pgvector_keywords_follow_extension_config() {
+        let postgres = dialect(None);
+        let unreserved_keywords = postgres.sets("unreserved_keywords");
+
+        for keyword in PGVECTOR_KEYWORDS {
+            assert!(!unreserved_keywords.contains(keyword));
+        }
+
+        let config = Value::Map(HashMap::from([("pgvector".into(), Value::Bool(true))]));
+        let postgres_with_pgvector = dialect(Some(&config));
+        let unreserved_keywords = postgres_with_pgvector.sets("unreserved_keywords");
+
+        for keyword in PGVECTOR_KEYWORDS {
+            assert!(unreserved_keywords.contains(keyword));
+        }
+    }
 }
 
 /// Build the ComparisonOperatorGrammar, optionally including pgvector operators.
@@ -431,9 +465,15 @@ pub fn raw_dialect() -> Dialect {
             r#"(?s)U&".+?"(\s*UESCAPE\s*\'[^0-9A-Fa-f\'+\-\s)]\')?"#,
             SyntaxKind::UnicodeDoubleQuote
         ),
+        // Verbatim from sqlfluff#6323, which fixed `@?`, `@@`, `?|` and `?&` (we
+        // track a 2023 sha, so this is pre-applied ahead of that port). The
+        // optional quantifiers matter: the lexer's combined regex is
+        // leftmost-first, not leftmost-longest, so spelling these as separate
+        // alternatives would need every operator ordered ahead of its own
+        // prefix.
         Matcher::regex(
             "json_operator",
-            r#"->>|#>>|->|#>|@>|<@|\?\|_|\?|\?&|#-"#,
+            r#"->>?|#>>?|@[>@?]|<@|\?[|&]?|#-"#,
             SyntaxKind::JsonOperator
         ),
         Matcher::string(
@@ -2309,6 +2349,12 @@ pub fn raw_dialect() -> Dialect {
                 ])
                 .to_matchable(),
                 Ref::new("WithCheckOptionSegment").to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("ON").to_matchable(),
+                    Ref::keyword("CONFLICT").to_matchable(),
+                ])
+                .to_matchable(),
+                Ref::keyword("RETURNING").to_matchable(),
             ];
             this.parse_mode(ParseMode::GreedyOnceStarted);
         })
@@ -6536,6 +6582,7 @@ pub fn raw_dialect() -> Dialect {
                                 Sequence::new(vec![
                                     one_of(vec![
                                         Ref::new("ColumnReferenceSegment").to_matchable(),
+                                        Ref::new("FunctionSegment").to_matchable(),
                                         Bracketed::new(vec![
                                             Ref::new("ExpressionSegment").to_matchable(),
                                         ])
@@ -8284,6 +8331,138 @@ pub fn raw_dialect() -> Dialect {
         ),
     ]);
 
+    postgres.add([
+        (
+            "CreateTextSearchConfigurationStatementSegment".into(),
+            NodeMatcher::new(SyntaxKind::CreateTextSearchConfigurationStatement, |_| {
+                Sequence::new(vec![
+                    Ref::keyword("CREATE").to_matchable(),
+                    Ref::keyword("TEXT").to_matchable(),
+                    Ref::keyword("SEARCH").to_matchable(),
+                    Ref::keyword("CONFIGURATION").to_matchable(),
+                    Ref::new("ObjectReferenceSegment").to_matchable(),
+                    Bracketed::new(vec![
+                        one_of(vec![
+                            Ref::keyword("PARSER").to_matchable(),
+                            Ref::keyword("COPY").to_matchable(),
+                        ])
+                        .to_matchable(),
+                        Ref::new("EqualsSegment").to_matchable(),
+                        Ref::new("ObjectReferenceSegment").to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "AlterTextSearchConfigurationStatementSegment".into(),
+            NodeMatcher::new(SyntaxKind::AlterTextSearchConfigurationStatement, |_| {
+                Sequence::new(vec![
+                    Ref::keyword("ALTER").to_matchable(),
+                    Ref::keyword("TEXT").to_matchable(),
+                    Ref::keyword("SEARCH").to_matchable(),
+                    Ref::keyword("CONFIGURATION").to_matchable(),
+                    Ref::new("ObjectReferenceSegment").to_matchable(),
+                    one_of(vec![
+                        Sequence::new(vec![
+                            one_of(vec![
+                                Ref::keyword("ADD").to_matchable(),
+                                Ref::keyword("ALTER").to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Ref::keyword("MAPPING").to_matchable(),
+                            Ref::keyword("FOR").to_matchable(),
+                            Delimited::new(vec![Ref::new("ObjectReferenceSegment").to_matchable()])
+                                .to_matchable(),
+                            Ref::keyword("WITH").to_matchable(),
+                            Delimited::new(vec![Ref::new("ObjectReferenceSegment").to_matchable()])
+                                .to_matchable(),
+                        ])
+                        .to_matchable(),
+                        Sequence::new(vec![
+                            Ref::keyword("ALTER").to_matchable(),
+                            Ref::keyword("MAPPING").to_matchable(),
+                            Ref::keyword("REPLACE").to_matchable(),
+                            Ref::new("ObjectReferenceSegment").to_matchable(),
+                            Ref::keyword("WITH").to_matchable(),
+                            Ref::new("ObjectReferenceSegment").to_matchable(),
+                        ])
+                        .to_matchable(),
+                        Sequence::new(vec![
+                            Ref::keyword("ALTER").to_matchable(),
+                            Ref::keyword("MAPPING").to_matchable(),
+                            Ref::keyword("FOR").to_matchable(),
+                            Delimited::new(vec![Ref::new("ObjectReferenceSegment").to_matchable()])
+                                .to_matchable(),
+                            Ref::keyword("REPLACE").to_matchable(),
+                            Ref::new("ObjectReferenceSegment").to_matchable(),
+                            Ref::keyword("WITH").to_matchable(),
+                            Ref::new("ObjectReferenceSegment").to_matchable(),
+                        ])
+                        .to_matchable(),
+                        Sequence::new(vec![
+                            Ref::keyword("DROP").to_matchable(),
+                            Ref::keyword("MAPPING").to_matchable(),
+                            Ref::new("IfExistsGrammar").optional().to_matchable(),
+                            Ref::keyword("FOR").to_matchable(),
+                            Delimited::new(vec![Ref::new("ObjectReferenceSegment").to_matchable()])
+                                .to_matchable(),
+                        ])
+                        .to_matchable(),
+                        Sequence::new(vec![
+                            Ref::keyword("RENAME").to_matchable(),
+                            Ref::keyword("TO").to_matchable(),
+                            Ref::new("ObjectReferenceSegment").to_matchable(),
+                        ])
+                        .to_matchable(),
+                        Sequence::new(vec![
+                            Ref::keyword("OWNER").to_matchable(),
+                            Ref::keyword("TO").to_matchable(),
+                            one_of(vec![
+                                Ref::new("ObjectReferenceSegment").to_matchable(),
+                                Ref::keyword("CURRENT_ROLE").to_matchable(),
+                                Ref::keyword("CURRENT_USER").to_matchable(),
+                                Ref::keyword("SESSION_USER").to_matchable(),
+                            ])
+                            .to_matchable(),
+                        ])
+                        .to_matchable(),
+                        Sequence::new(vec![
+                            Ref::keyword("SET").to_matchable(),
+                            Ref::keyword("SCHEMA").to_matchable(),
+                            Ref::new("ObjectReferenceSegment").to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "DropTextSearchConfigurationStatementSegment".into(),
+            NodeMatcher::new(SyntaxKind::DropTextSearchConfigurationStatement, |_| {
+                Sequence::new(vec![
+                    Ref::keyword("DROP").to_matchable(),
+                    Ref::keyword("TEXT").to_matchable(),
+                    Ref::keyword("SEARCH").to_matchable(),
+                    Ref::keyword("CONFIGURATION").to_matchable(),
+                    Ref::new("IfExistsGrammar").optional().to_matchable(),
+                    Ref::new("ObjectReferenceSegment").to_matchable(),
+                    Ref::new("DropBehaviorGrammar").optional().to_matchable(),
+                ])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
+    ]);
+
     postgres
 }
 
@@ -8339,6 +8518,9 @@ pub fn statement_segment() -> Matchable {
             Ref::new("DropPublicationStatementSegment").to_matchable(),
             Ref::new("CreateTypeStatementSegment").to_matchable(),
             Ref::new("AlterTypeStatementSegment").to_matchable(),
+            Ref::new("CreateTextSearchConfigurationStatementSegment").to_matchable(),
+            Ref::new("AlterTextSearchConfigurationStatementSegment").to_matchable(),
+            Ref::new("DropTextSearchConfigurationStatementSegment").to_matchable(),
             Ref::new("AlterSchemaStatementSegment").to_matchable(),
             Ref::new("LockTableStatementSegment").to_matchable(),
             Ref::new("ClusterStatementSegment").to_matchable(),

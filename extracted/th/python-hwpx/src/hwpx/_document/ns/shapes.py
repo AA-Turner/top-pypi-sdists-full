@@ -12,13 +12,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
 from .._resolve import resolve_section
 from ._base import _Namespace
 
 if TYPE_CHECKING:
     from ...model import InlineObject, Paragraph, Section, Shape
+    from ...oxml import ContainerMember
 
 __all__ = ["ShapesNamespace"]
 
@@ -65,6 +66,75 @@ class ShapesNamespace(_Namespace):
             treat_as_char=treat_as_char,
             paragraph=paragraph,
             section=self._section(section, section_index, "add_line"),
+        )
+
+    # -- 덧말·글자 겹치기 ---------------------------------------------------
+
+    def add_composed_character(
+        self,
+        compose_text: str,
+        char_pr_id_refs: Sequence[str | int] | None = None,
+        *,
+        circle_type: str | None = None,
+        char_sz: int | None = None,
+        compose_type: str | None = None,
+        paragraph: "Paragraph | None" = None,
+        section: "int | Section | None" = None,
+        section_index: int | None = None,
+        char_pr_id_ref: str | int | None = None,
+    ) -> "InlineObject":
+        """글자 겹치기(원문자·합자)를 넣는다."""
+
+        from .. import shapes as _shapes
+
+        return _shapes.add_composed_character(
+            self._doc,
+            compose_text,
+            char_pr_id_refs,
+            circle_type=circle_type,
+            char_sz=char_sz,
+            compose_type=compose_type,
+            paragraph=paragraph,
+            section=self._section(section, section_index, "add_composed_character"),
+            char_pr_id_ref=char_pr_id_ref,
+        )
+
+    def add_dutmal(
+        self,
+        main_text: str,
+        sub_text: str,
+        *,
+        pos_type: str = "TOP",
+        align: str = "CENTER",
+        sz_ratio: int | None = 0,
+        option: int | None = 0,
+        style_id_ref: str | int | None = None,
+        paragraph: "Paragraph | None" = None,
+        section: "int | Section | None" = None,
+        section_index: int | None = None,
+        char_pr_id_ref: str | int | None = None,
+    ) -> "InlineObject":
+        """덧말(루비형 주석 텍스트)을 넣는다.
+
+        낮은 확신 축(정직 고지): 실코퍼스 표본 1건에서 리버스엔지니어링했다
+        (macOS 편집기 메뉴 스캔이 1급 메뉴 항목으로는 확인했다). 자세한
+        근거는 ``hwpx.oxml.body.Dutmal``의 문서화 참조.
+        """
+
+        from .. import shapes as _shapes
+
+        return _shapes.add_dutmal(
+            self._doc,
+            main_text,
+            sub_text,
+            pos_type=pos_type,
+            align=align,
+            sz_ratio=sz_ratio,
+            option=option,
+            style_id_ref=style_id_ref,
+            paragraph=paragraph,
+            section=self._section(section, section_index, "add_dutmal"),
+            char_pr_id_ref=char_pr_id_ref,
         )
 
     def add_rectangle(
@@ -127,6 +197,88 @@ class ShapesNamespace(_Namespace):
             section=self._section(section, section_index, "add_ellipse"),
         )
 
+    def add_arc(
+        self,
+        width: int = 14400,
+        height: int = 14400,
+        *,
+        corner: str = "TOP_LEFT",
+        arc_type: str = "NORMAL",
+        line_color: str = "#000000",
+        line_width: str = "283",
+        fill_color: str | None = None,
+        treat_as_char: bool = True,
+        paragraph: "Paragraph | None" = None,
+        section: "int | Section | None" = None,
+        section_index: int | None = None,
+    ) -> "Shape":
+        """사분원(호)을 넣는다(`corner`로 꼭짓점 위치, `arc_type`으로 NORMAL/PIE/CHORD)."""
+
+        from .. import shapes as _shapes
+
+        return _shapes.add_arc(
+            self._doc,
+            width=width,
+            height=height,
+            corner=corner,
+            arc_type=arc_type,
+            line_color=line_color,
+            line_width=line_width,
+            fill_color=fill_color,
+            treat_as_char=treat_as_char,
+            paragraph=paragraph,
+            section=self._section(section, section_index, "add_arc"),
+        )
+
+    def add_polygon(
+        self,
+        points_mm: Sequence[tuple[float, float]],
+        *,
+        line_color: str = "#000000",
+        line_width: str = "283",
+        fill_color: str | None = None,
+        treat_as_char: bool = True,
+        paragraph: "Paragraph | None" = None,
+        section: "int | Section | None" = None,
+        section_index: int | None = None,
+    ) -> "Shape":
+        """다각형을 넣는다(꼭짓점은 mm, 자기 bbox 좌상단 원점 로컬 좌표계로 배치)."""
+
+        from .. import shapes as _shapes
+
+        return _shapes.add_polygon(
+            self._doc,
+            points_mm=points_mm,
+            line_color=line_color,
+            line_width=line_width,
+            fill_color=fill_color,
+            treat_as_char=treat_as_char,
+            paragraph=paragraph,
+            section=self._section(section, section_index, "add_polygon"),
+        )
+
+    def add_container(
+        self,
+        members: "Sequence[ContainerMember]",
+        *,
+        treat_as_char: bool = True,
+        paragraph: "Paragraph | None" = None,
+        section: "int | Section | None" = None,
+        section_index: int | None = None,
+    ) -> "Shape":
+        """도형을 그룹으로 묶는다(`ContainerMember.rect`/`.ellipse`/`.polygon`으로
+        각 부재를 그룹 로컬 좌표로 만들어 넘긴다)."""
+
+        from .. import shapes as _shapes
+
+        return _shapes.add_container(
+            self._doc,
+            members,
+            treat_as_char=treat_as_char,
+            paragraph=paragraph,
+            section=self._section(section, section_index, "add_container"),
+        )
+
     # -- 차트·수식 ---------------------------------------------------------
 
     def add_chart(
@@ -152,6 +304,35 @@ class ShapesNamespace(_Namespace):
             size=size,
             treat_as_char=treat_as_char,
             char_pr_id_ref=char_pr_id_ref,
+        )
+
+    def add_drop_cap(
+        self,
+        character: str,
+        *,
+        width: int,
+        height: int,
+        style: str = "TripleLine",
+        paragraph: "Paragraph | None" = None,
+        section: "int | Section | None" = None,
+        section_index: int | None = None,
+        char_pr_id_ref: str | int | None = None,
+        para_pr_id_ref: str | int | None = None,
+    ) -> "InlineObject":
+        """문단 첫 글자 장식(drop cap) — 실코퍼스 실측 기반, `style="TripleLine"`만
+        지원(`hwpx.oxml.drop_cap` 독스트링 참조). *width*/*height*는 HWPUNIT,
+        자동 계산 안 함(실측된 공식이 없음)."""
+
+        from .. import shapes as _shapes
+
+        return _shapes.add_drop_cap(
+            self._doc,
+            character,
+            width=width, height=height, style=style,
+            paragraph=paragraph,
+            section=self._section(section, section_index, "add_drop_cap"),
+            char_pr_id_ref=char_pr_id_ref,
+            para_pr_id_ref=para_pr_id_ref,
         )
 
     def add_equation(

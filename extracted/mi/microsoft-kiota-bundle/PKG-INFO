@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: microsoft-kiota-bundle
-Version: 1.11.8
+Version: 1.11.9
 Summary: Bundle package for kiota generated libraries in Python
 Keywords: kiota,openAPI,Microsoft,Graph
 Author-email: Microsoft <graphtooling+python@microsoft.com>

@@ -15,9 +15,9 @@ Examples:
     ./on_Snapshot__71_parse_txt_urls.py --url=https://example.com/urls.txt
 """
 
+import sys
 import json
 import re
-import sys
 import io
 from pathlib import Path
 

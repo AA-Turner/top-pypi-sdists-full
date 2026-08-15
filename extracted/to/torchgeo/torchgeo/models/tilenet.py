@@ -17,7 +17,7 @@ from torch import nn
 from torchvision.models._api import Weights, WeightsEnum
 
 
-class TileNet_Weights(WeightsEnum):  # type: ignore[misc]
+class TileNet_Weights(WeightsEnum):
     """TileNet (Tile2Vec) weights.
 
     NAIP-pretrained Tile2Vec encoder.
@@ -177,7 +177,8 @@ def tilenet(
 
     if weights:
         missing_keys, unexpected_keys = model.load_state_dict(
-            weights.get_state_dict(progress=True), strict=True
+            weights.get_state_dict(progress=True, check_hash=True, weights_only=True),
+            strict=True,
         )
         assert missing_keys == []
         assert unexpected_keys == []

@@ -19,10 +19,10 @@ Note: Requires readability-extractor from https://github.com/ArchiveBox/readabil
       This extractor looks for HTML source from other extractors (wget, singlefile, dom)
 """
 
+import sys
 import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
@@ -159,6 +159,7 @@ def main(url: str):
         binary = config.READABILITY_BINARY
 
         # Run extraction
+        print("Readability extraction started", flush=True)
         status, output = extract_readability(url, binary)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)

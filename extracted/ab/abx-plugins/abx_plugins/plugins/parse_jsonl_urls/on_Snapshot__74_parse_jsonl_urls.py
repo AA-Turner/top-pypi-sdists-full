@@ -18,9 +18,9 @@ Expected JSONL format (one object per line):
 Supports various field names for URL, title, timestamp, and tags.
 """
 
+import sys
 import json
 import os
-import sys
 from pathlib import Path
 from datetime import datetime
 from html import unescape

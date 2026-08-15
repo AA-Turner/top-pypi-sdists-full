@@ -315,11 +315,10 @@ static RE_HOTLINE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\b(1800|1900)[\s.\-�
 // (?<![\d.,]) prevents matching inside a dot-separated amount (1.000.000.000).
 static RE_LANDLINE: Lazy<FRegex> = Lazy::new(|| FRegex::new(r"(?<![\d.,])\(?(?:\+84\s?|0)\d{1,3}\)?\s\d{3,4}\s\d{3,4}(?!\d)").unwrap());
 
-// Colloquial money: "500k" -> five hundred thousand, "1tr"/"15tr" -> millions,
-// "1tr5" -> one and a half million. Restricted to lowercase k/tr and at most
-// four digits, which avoids uppercase model suffixes ("i9-14900K", "RTX"), while
-// the (?!\w) lookahead stops it eating "5kg", "5km" or "4trung".
-static RE_MONEY_K: Lazy<FRegex> = Lazy::new(|| FRegex::new(r"\b(\d{1,4})k(?![\w])").unwrap());
+// Colloquial money: "1tr"/"15tr" -> millions, "1tr5" -> one and a half million.
+// Restricted to lowercase "tr" and at most four digits, which avoids uppercase
+// model suffixes ("i9-14900K", "RTX"), while the (?!\w) lookahead stops it
+// eating "4trung". A glued "500k" is NOT expanded — see `expand_money_slang`.
 static RE_MONEY_TR: Lazy<FRegex> = Lazy::new(|| FRegex::new(r"\b(\d{1,4})tr(\d)?(?![\w])").unwrap());
 
 // ── Tier 2: fancy_regex (REQUIRED for look-around assertions) ────────────────
@@ -424,16 +423,17 @@ fn expand_scores(text: &str) -> String {
     }).into_owned()
 }
 
+/// "100tr" -> "một trăm triệu". Only the "tr" form is expanded: it is not a
+/// letter name, so leaving it alone would read "tê rờ". A glued "100k" is left
+/// for the letter pass — "một trăm ca" is idiomatic, and expanding it would be
+/// guessing that the writer meant thousands rather than a code or a size.
 fn expand_money_slang(text: &str) -> String {
-    let res = RE_MONEY_TR.replace_all(text, |caps: &FCaps| {
+    RE_MONEY_TR.replace_all(text, |caps: &FCaps| {
         let x = crate::lang::vi::num2vi::n2w(caps.get(1).unwrap().as_str());
         match caps.get(2) {
             Some(y) => format!(" {} triệu {} trăm nghìn ", x, crate::lang::vi::num2vi::n2w(y.as_str())),
             None => format!(" {} triệu ", x),
         }
-    }).into_owned();
-    RE_MONEY_K.replace_all(&res, |caps: &FCaps| {
-        format!(" {} nghìn ", crate::lang::vi::num2vi::n2w(caps.get(1).unwrap().as_str()))
     }).into_owned()
 }
 
@@ -444,9 +444,20 @@ fn split_concatenated_terms(text: &str) -> String {
 
     re_potential.replace_all(text, |caps: &Captures| {
         let word = caps.get(0).unwrap().as_str();
+        // A token carrying lowercase letters only stays whole if it is really a
+        // chemical formula. RE_ACRONYM alone cannot tell "NaCl" from "TiVi" —
+        // both are two capitals each with one lowercase — so it used to protect
+        // the brand names too and the acronym branch spelled them out: "TiVi"
+        // read "tê i vê i", "MoMo" read "mờ ô mờ ô". All-caps tokens keep the
+        // old test; they never used the lowercase part of the pattern.
+        let protected = if word.chars().any(|c: char| c.is_ascii_lowercase()) {
+            crate::lang::vi::resources::is_chemical_formula(word)
+        } else {
+            re_acronym.is_match(word).unwrap_or(false)
+        };
         // Keep known camelCase units (kWh, mAh, mWh) whole so the unit pass can
         // match them. Splitting "kWh" into "k Wh" would be read "ca wh".
-        if re_acronym.is_match(word).unwrap_or(false)
+        if protected
             || MEASUREMENT_KEY_VI.contains_key(word.to_lowercase().as_str())
         {
             word.to_string()
@@ -801,10 +812,10 @@ fn stage_ranges_signs(text: &str) -> String {
 ///
 /// Runs once every sign and numeric cluster is settled, because unit rules key
 /// on the number immediately to their left.
-fn stage_units(text: &str) -> String {
+fn stage_units(text: &str, ctx: Ctx) -> String {
     let mut out = expand_scientific_notation(text);
     out = expand_height_weight(&out);
-    out = crate::lang::vi::misc::expand_size_labels(&out);
+    out = crate::lang::vi::misc::expand_size_labels(&out, ctx.en_ctx);
     out = expand_compound_units(&out);
     out = expand_units_and_currency(&out);
     // Long digit runs left over (account numbers, IDs) are read figure by figure.
@@ -959,7 +970,7 @@ pub fn clean_vietnamese_text_ctx(text: &str, force_vi: bool) -> String {
 
     current_text = stage_phones(&current_text);
     current_text = stage_ranges_signs(&current_text);
-    current_text = stage_units(&current_text);
+    current_text = stage_units(&current_text, ctx);
     current_text = stage_decimals(&current_text);
     current_text = stage_residual(&current_text, ctx);
 

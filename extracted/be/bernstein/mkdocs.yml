@@ -106,6 +106,7 @@ plugins:
         'architecture/CLUSTER.md': 'operations/cluster-mode.md'
         'quickstart/remote.md': 'getting-started/remote.md'
         'operations/observability.md': 'operations/error-telemetry.md'
+        'security/security-acknowledgments.md': 'security/bug-bounty.md'
   - minify:
       minify_html: true
 
@@ -150,6 +151,7 @@ nav:
   - Home:
       - index.md
       - Use cases: use-cases.md
+      - Scope (what this does not do): scope.md
       - What's new: whats-new.md
       - Mentions: mentions.md
       - Benchmarks: benchmarks/BENCHMARKS.md
@@ -405,7 +407,6 @@ nav:
           - Autofix ladder: autofix/ladder.md
           - Telemetry-grounded autofix: autofix/telemetry-grounded.md
           - Review responder: operations/review-responder.md
-          - Review-bot acknowledgement: operations/review-bot-ack.md
           - Coverage ratchet: operations/coverage-ratchet.md
           - Nightly canary: operations/nightly-canary.md
           - CI: operations/ci.md
@@ -446,7 +447,6 @@ nav:
           - Promptware: security/promptware.md
           - Lethal trifecta: security/lethal-trifecta.md
           - Coordinated disclosure: security/bug-bounty.md
-          - Acknowledgments: security/security-acknowledgments.md
           - Log redaction: security/log-redaction.md
           - PII scan gate: security/pii-scan-gate.md
       - Compliance & audit:
@@ -520,6 +520,8 @@ nav:
       - Release notes:
           - Changelog: CHANGELOG.md
           - Unreleased: release-notes/unreleased.md
+          - v3.15.1: release-notes/v3.15.1.md
+          - v3.15.0: release-notes/v3.15.0.md
           - v3.14.159: release-notes/v3.14.159.md
           - v3.13.0: release-notes/v3.13.0.md
           - v3.12.0: release-notes/v3.12.0.md
@@ -629,6 +631,7 @@ nav:
           - Multi-cell orchestration: orchestration/multi-cell.md
           - Bulletin board: orchestration/bulletin-board.md
       - Decisions (ADRs):
+          - Index: decisions/index.md
           - Agent lifecycle: decisions/001-agent-lifecycle.md
           - Self-evolution: decisions/003-self-evolution.md
           - File-based state: decisions/004-file-based-state.md

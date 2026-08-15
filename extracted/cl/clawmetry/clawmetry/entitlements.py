@@ -98,10 +98,20 @@ PAID_RUNTIMES = frozenset(
         "copilot",
         "grok",
         "qm",
+        "deepseek_harness",
     }
 )
 
 ALL_RUNTIMES = FREE_RUNTIMES | PAID_RUNTIMES
+
+# The number quoted in user-facing copy ("observability for N agent
+# runtimes"). Derived here so there is exactly one place to change when a
+# runtime lands. ``setup.py`` parses this file for it (so the PyPI summary
+# cannot drift), ``scripts/sync_runtime_count.py`` rewrites every other
+# surface from it, and ``tests/test_runtime_count_copy_sync.py`` fails CI
+# if any surface disagrees. Burned 2026-08-15: README said 14, PyPI said
+# 12, FLYWHEEL said 12, the catalogue said 20.
+RUNTIME_COUNT = len(ALL_RUNTIMES)
 
 # Display labels for every known runtime.
 RUNTIME_LABELS = {
@@ -124,6 +134,7 @@ RUNTIME_LABELS = {
     "copilot": "GitHub Copilot",
     "grok": "Grok",
     "qm": "QM",
+    "deepseek_harness": "DeepSeek Harness",
 }
 
 # Canonical list of chat-channel adapters observable by ClawMetry, in the
@@ -217,6 +228,9 @@ RUNTIME_ALIASES = {
     "nano_claw": "nanoclaw",
     "deep-agents": "deepagents",
     "deep_agents": "deepagents",
+    "deepseek-harness": "deepseek_harness",
+    "deepseekharness": "deepseek_harness",
+    "dsh": "deepseek_harness",
 }
 
 TIER_LABELS = {
@@ -557,6 +571,19 @@ def _hard_block_flag_safe(ent) -> bool:
     try:
         from clawmetry import trial_enforcement as _te
         return bool(_te.is_hard_blocked(ent))
+    except Exception:
+        return False
+
+
+def _free_only_mode_flag_safe() -> bool:
+    """True when the user has opted into the "free runtimes only" fallback
+    after their trial expired. Kept alongside ``hard_blocked`` on every
+    :meth:`Entitlement.to_dict` payload so the frontend can render the
+    "you're on free-only mode" banner without a second round-trip. Never
+    raises — a missing module or filesystem error returns False."""
+    try:
+        from clawmetry import trial_enforcement as _te
+        return bool(_te.free_only_mode_enabled())
     except Exception:
         return False
 
@@ -2350,6 +2377,7 @@ class Entitlement:
             # request, so a UI that missed the flag still fails closed. Imported
             # late to avoid a circular import at module-load time.
             "hard_blocked": _hard_block_flag_safe(self),
+            "free_only_mode": _free_only_mode_flag_safe(),
         }
 
 
@@ -5465,7 +5493,15 @@ def canonical_runtime(runtime: str) -> str:
         return ""
     if rt in ALL_RUNTIMES:
         return rt
-    return RUNTIME_ALIASES.get(rt, rt)
+    if rt in RUNTIME_ALIASES:
+        return RUNTIME_ALIASES[rt]
+    # Any underscore runtime accepts its dashed form even when the alias
+    # table misses it (deepseek_harness shipped without one and the gap
+    # only surfaced under a CI hash seed that iterated it first).
+    swapped = rt.replace("-", "_")
+    if swapped in ALL_RUNTIMES:
+        return swapped
+    return rt
 
 
 def runtime_label(runtime: str) -> str:

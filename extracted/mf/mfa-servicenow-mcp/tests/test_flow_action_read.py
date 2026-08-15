@@ -22,7 +22,7 @@ _ACTION = {
     "active": True,
     "scope": "scope1",
     "scopename": "x_myapp",
-    "inputs": [{"name": "service_close", "label": "service_close", "type": "reference"}],
+    "inputs": [{"name": "sample_ref", "label": "sample_ref", "type": "reference"}],
     "outputs": [
         {"name": "success", "label": "success", "type": "string"},
         {"name": "first_approver", "label": "first_approver", "type": "reference"},
@@ -49,7 +49,7 @@ def test_action_summary_variables_and_script():
     assert a["kind"] == "action"
     assert a["name"] == "My Resolve Action"
     assert a["scope_name"] == "x_myapp"
-    assert [v["name"] for v in a["input_variables"]] == ["service_close"]
+    assert [v["name"] for v in a["input_variables"]] == ["sample_ref"]
     assert {v["name"] for v in a["output_variables"]} == {"success", "first_approver"}
     step = a["steps"][0]
     assert step["label"] == "Script step"

@@ -353,26 +353,7 @@ class OpsMcpAdapter:
             for row in sibling_rows + active_rows
             if row.get("rollout_id")
         }
-        rows_by_pair: dict[tuple[str, str], list[Mapping[str, object]]] = {}
-        for row in sibling_rows:
-            pair = (
-                str(row.get("actor_definition_id") or ""),
-                str(row.get("release_candidate_version_id") or ""),
-            )
-            rows_by_pair.setdefault(pair, []).append(row)
-        return tuple(
-            self._rollout_from_row(
-                row,
-                sibling_rows=rows_by_pair.get(
-                    (
-                        str(row.get("actor_definition_id") or ""),
-                        str(row.get("release_candidate_version_id") or ""),
-                    ),
-                    [],
-                ),
-            )
-            for row in rows_by_id.values()
-        )
+        return tuple(self._rollout_from_row(row) for row in rows_by_id.values())
 
     def list_progressive_rollouts(
         self,
@@ -405,27 +386,7 @@ class OpsMcpAdapter:
             for row in sibling_rows + active_rows
             if row.get("rollout_id")
         }
-        rows_to_parse = list(rows_by_id.values())
-        rows_by_pair: dict[tuple[str, str], list[Mapping[str, object]]] = {}
-        for row in sibling_rows:
-            pair = (
-                str(row.get("actor_definition_id") or ""),
-                str(row.get("release_candidate_version_id") or ""),
-            )
-            rows_by_pair.setdefault(pair, []).append(row)
-        return tuple(
-            self._rollout_from_row(
-                row,
-                sibling_rows=rows_by_pair.get(
-                    (
-                        str(row.get("actor_definition_id") or ""),
-                        str(row.get("release_candidate_version_id") or ""),
-                    ),
-                    [],
-                ),
-            )
-            for row in rows_to_parse
-        )
+        return tuple(self._rollout_from_row(row) for row in rows_by_id.values())
 
     def list_version_pins(
         self,
@@ -1293,26 +1254,11 @@ class OpsMcpAdapter:
     @staticmethod
     def _rollout_from_row(
         row: Mapping[str, object],
-        *,
-        sibling_rows: list[Mapping[str, object]] | None = None,
     ) -> ConnectorRollout:
         docker_repository = OpsMcpAdapter._string_field(row, "rc_docker_repository")
         rc_pin_count_raw = row.get("rc_pin_count", 0)
         declared_tag = OpsMcpAdapter._string_field(row, "tag")
         tier = declared_tag or OpsMcpAdapter._tier_from_filters(row.get("filters"))
-        if not declared_tag and not row.get("filters"):
-            has_explicit_progressive_sibling = any(
-                sibling.get("tag") in {"TIER_2", "TIER_1"}
-                or OpsMcpAdapter._tier_from_filters(sibling.get("filters"))
-                in {"TIER_2", "TIER_1"}
-                for sibling in sibling_rows or []
-                if sibling is not row
-            )
-            tier = (
-                CustomerTier.TIER_0.value
-                if has_explicit_progressive_sibling
-                else CustomerTier.ALL.value
-            )
         return ConnectorRollout(
             rollout_id=OpsMcpAdapter._string_field(row, "rollout_id"),
             connector_id=OpsMcpAdapter._string_field(row, "actor_definition_id"),

@@ -33,7 +33,13 @@ from bernstein.core.models import (
     RunCostProjection,
     RunCostReport,
 )
-from bernstein.core.tenanting import normalize_tenant_id
+from bernstein.core.persistence.anchored_write import (
+    AnchoredDir,
+    anchored_append,
+    anchored_write_text,
+    mkdir_anchored,
+)
+from bernstein.core.tenanting import DEFAULT_TENANT_ID, normalize_tenant_id
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +127,31 @@ DEFAULT_KILL_GRACE_PERIOD_S: int = 30
 # (totals, per-agent, per-model, cache savings) are maintained via
 # accumulators and remain correct after eviction.
 DEFAULT_USAGE_BUFFER: int = 10_000
+
+
+def _usage_tenant_scope(raw: object) -> str:
+    """Return the normalized tenant a persisted usage row belongs to.
+
+    Read before the row is deserialised, because this is what decides which
+    tenant's totals the row lands in.  ``TokenUsage.from_dict`` coerces the
+    stored field with ``str()``, which would turn a number or a boolean into
+    a plausible-looking scope label and file the row under a tenant nobody
+    ever had - so a stored value that is not a string is refused here instead
+    of being invented into one.
+
+    Absent, ``null`` and blank stay lenient and resolve to the default
+    tenant: rows predate the field, and a blank is what an unset tenant was
+    written as.  Padded strings normalize, so a row stored as ``"  acme  "``
+    is read as belonging to ``acme``.
+
+    Raises:
+        ValueError: The row carries a ``tenant_id`` that is not a string.
+    """
+    if raw is None:
+        return DEFAULT_TENANT_ID
+    if not isinstance(raw, str):
+        raise ValueError(f"usage tenant_id must be a string, got {type(raw).__name__}")
+    return normalize_tenant_id(raw)
 
 
 def _resolve_usage_buffer_size() -> int:
@@ -388,6 +419,24 @@ class TokenUsage:
         )
 
 
+def _validate_run_id(run_id: str) -> None:
+    """Refuse a run id that cannot be one filename component.
+
+    Cost state, the cost report, and the rotated usage log are all named after
+    the run id, so it has to be a single name. It comes from
+    ``BERNSTEIN_RUN_ID`` when the environment sets one
+    (``orchestration/orchestrator.py``), which makes it operator input rather
+    than something a caller controls.
+
+    Raises:
+        ValueError: If *run_id* is empty, is ``.`` or ``..``, or carries a path
+            separator or a NUL.
+    """
+    if not run_id or run_id in {".", ".."} or any(c in run_id for c in ("/", "\\", "\x00")):
+        msg = f"run_id must be a single path component, got {run_id!r} (from BERNSTEIN_RUN_ID?)"
+        raise ValueError(msg)
+
+
 @dataclass(frozen=True)
 class BudgetStatus:
     """Snapshot of the current budget state for a run.
@@ -593,7 +642,17 @@ class CostTracker:
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
 
     def __post_init__(self) -> None:
-        """Resolve the usage buffer size and rebuild the deque accordingly."""
+        """Validate the run id, then resolve the usage buffer and rebuild the deque.
+
+        ``run_id`` reaches disk as a filename component in three places, and it
+        arrives from ``BERNSTEIN_RUN_ID`` - operator input, not a constant. The
+        anchored writers refuse a component carrying a separator, which is
+        correct, but they refuse it at the write, deep inside best-effort
+        telemetry, after the in-memory accumulators have already moved. Refusing
+        it once here means a bad value fails on construction, naming itself,
+        instead of surfacing later as a rotation that cannot flush.
+        """
+        _validate_run_id(self.run_id)
         resolved = self.usage_buffer_size
         if resolved is None:
             resolved = _resolve_usage_buffer_size()
@@ -1117,9 +1176,13 @@ class CostTracker:
         Returns:
             Path to the written JSON file.
         """
-        costs_dir = base_dir / "runtime" / "costs"
-        costs_dir.mkdir(parents=True, exist_ok=True)
-        file_path = costs_dir / f"{self.run_id}.json"
+        # The anchor is created normally and the layout below it is not: a
+        # caller-supplied base directory is the location we are trusting, while
+        # ``runtime/costs`` is layout this module owns.  Same split as
+        # ``anchored_write`` draws between a root and its components.
+        base_dir.mkdir(parents=True, exist_ok=True)
+        costs_dir = AnchoredDir(root=base_dir, parts=("runtime", "costs"))
+        mkdir_anchored(costs_dir)
 
         data: dict[str, Any] = {
             "run_id": self.run_id,
@@ -1140,36 +1203,107 @@ class CostTracker:
             "spent_by_envelope": self._spent_by_envelope.copy(),
             "calls_by_envelope": self._calls_by_envelope.copy(),
         }
-        file_path.write_text(json.dumps(data, indent=2))
-        return file_path
+        return anchored_write_text(costs_dir, f"{self.run_id}.json", json.dumps(data, indent=2))
 
     @classmethod
-    def load(cls, base_dir: Path, run_id: str) -> CostTracker | None:
+    def load(
+        cls,
+        base_dir: Path,
+        run_id: str,
+        *,
+        tenant_id: str | None = None,
+        budget_usd: float | None = None,
+        hard_budget_usd: float | None = None,
+    ) -> CostTracker | None:
         """Load a previously persisted CostTracker from disk.
 
         Args:
             base_dir: The ``.sdd`` directory.
             run_id: Run identifier to look up.
+            tenant_id: When given, replay only the usages recorded for that
+                tenant.  A run file holds the usages of every tenant that
+                spent against it, so a reader that has to stay inside one
+                scope narrows the tracker here rather than filtering each
+                aggregate afterwards: every derived figure - ``status()``,
+                ``model_breakdowns()``, ``agent_summaries()``,
+                ``spent_by_model()``, envelope spend - is then computed from
+                the narrowed set and is in-scope by construction.  ``None``
+                keeps the whole file, for callers that legitimately span
+                tenants (the orchestrator's own budget enforcement).
+            budget_usd: Soft cap that applies to the scope being loaded.  The
+                cap persisted in a run file bounds the whole run across every
+                tenant that spent against it, so a narrowed load that leaves
+                it in place makes ``status()`` divide one tenant's spend by
+                everybody's cap.  A caller that narrows by tenant and reports
+                percentages, remaining amounts or warn/stop flags therefore
+                passes the tenant's own configured cap here.  ``None`` keeps
+                the persisted run-wide value, which is the right cap when the
+                run and the scope are the same thing.
+            hard_budget_usd: Hard cap for the scope being loaded, with the
+                same rule as *budget_usd*.  Pass ``0.0`` to load a scope that
+                has no hard cap of its own rather than inherit the run's.
 
         Returns:
-            Restored ``CostTracker``, or ``None`` if the file doesn't exist
-            or is corrupt.
+            Restored ``CostTracker``, or ``None`` if the file doesn't exist,
+            is corrupt, or *run_id* does not name one file.
+
+        Note:
+            Replay is bounded by what the run file holds.  ``save()`` writes
+            the retained ``usages`` buffer (see :attr:`usage_buffer_size`),
+            so on a run long enough to have evicted rows every load - scoped
+            or not - reflects the retained window rather than the run's whole
+            history.  Full history lives in the JSONL rotation files under
+            :attr:`rotation_dir` when one is configured.
         """
+        # Before the join, not after. `run_id` arrives here from
+        # `GET /costs/{run_id}` as well as from the orchestrator, and a path
+        # segment that survives URL decoding is not automatically a filename:
+        # on Windows `Path` treats a backslash as a separator, so `..\outside`
+        # reaches `runtime/outside.json`. Validating in `__post_init__` alone
+        # would check the value after the read it was supposed to gate.
+        try:
+            _validate_run_id(run_id)
+        except ValueError:
+            return None
         file_path = base_dir / "runtime" / "costs" / f"{run_id}.json"
         if not file_path.exists():
             return None
         try:
             data = json.loads(file_path.read_text())
+            # The filename was validated; the payload it holds was not. A
+            # `requested.json` carrying `{"run_id": "other"}` would otherwise
+            # build a tracker labelled `other`, and `GET /costs/requested`
+            # would answer with that identity and its spend. The file is
+            # authoritative about the numbers, never about whose they are.
+            if data.get("run_id") != run_id:
+                return None
             tracker = cls(
-                run_id=data["run_id"],
-                budget_usd=float(data.get("budget_usd", 0.0)),
-                hard_budget_usd=float(data.get("hard_budget_usd", 0.0)),
+                run_id=run_id,
+                budget_usd=float(data.get("budget_usd", 0.0) if budget_usd is None else budget_usd),
+                hard_budget_usd=float(data.get("hard_budget_usd", 0.0) if hard_budget_usd is None else hard_budget_usd),
                 warn_threshold=float(data.get("warn_threshold", DEFAULT_WARN_THRESHOLD)),
                 critical_threshold=float(data.get("critical_threshold", DEFAULT_CRITICAL_THRESHOLD)),
                 hard_stop_threshold=float(data.get("hard_stop_threshold", DEFAULT_HARD_STOP_THRESHOLD)),
             )
+            scope = normalize_tenant_id(tenant_id) if tenant_id is not None else None
             for u_dict in data.get("usages", []):
-                usage = TokenUsage.from_dict(u_dict)
+                # One row per iteration, each guarded on its own.  A run file
+                # accumulates thousands of rows over a long run; letting a
+                # single unreadable one abort the whole replay would discard
+                # every good row beside it and report the run as having spent
+                # nothing.  The outer guard still covers file-level damage.
+                try:
+                    row_tenant = _usage_tenant_scope(u_dict.get("tenant_id", None))
+                    if scope is not None and row_tenant != scope:
+                        continue
+                    usage = TokenUsage.from_dict(u_dict)
+                except (AttributeError, KeyError, TypeError, ValueError):
+                    # Validated before the row is built, so a row carrying a
+                    # tenant that is not a tenant id never reaches an
+                    # aggregate - scoped or whole-file - under a scope label
+                    # invented by coercing it.
+                    logger.warning("Skipping corrupt usage row in cost file: %s", file_path)
+                    continue
                 tracker._usages.append(usage)
                 tracker._spent_usd += usage.cost_usd
                 tracker._spent_by_agent[usage.agent_id] = (
@@ -1180,12 +1314,16 @@ class CostTracker:
                 # across reload (otherwise model_breakdowns() returns empty).
                 tracker._update_accumulators(usage)
 
-            # Restore cumulative token tracking for delta-safe recording
-            raw_cumul = data.get("cumulative_tokens", {})
-            for k_str, v_list in raw_cumul.items():
-                key = tuple(k_str.split("|"))
-                if len(key) == 3:
-                    tracker._cumulative_tokens[key] = tuple(v_list)  # type: ignore[assignment]
+            # Restore cumulative token tracking for delta-safe recording.
+            # Skipped for a narrowed load: these are whole-file rollups, and a
+            # scoped tracker is a read-only projection that must not carry
+            # totals accumulated outside its scope.
+            if scope is None:
+                raw_cumul = data.get("cumulative_tokens", {})
+                for k_str, v_list in raw_cumul.items():
+                    key = tuple(k_str.split("|"))
+                    if len(key) == 3:
+                        tracker._cumulative_tokens[key] = tuple(v_list)  # type: ignore[assignment]
 
             # Restore envelope state (issue #1405). Backwards compatible:
             # older snapshots without envelope blocks load as zero-state.
@@ -1196,12 +1334,16 @@ class CostTracker:
                     if isinstance(payload, dict):
                         env_map[name] = EnvelopeConfig.from_dict(name, cast("dict[str, Any]", payload))
                 tracker.envelopes = env_map
-            raw_env_spent = data.get("spent_by_envelope", {})
-            if isinstance(raw_env_spent, dict):
-                tracker._spent_by_envelope = {k: float(v) for k, v in cast("dict[str, Any]", raw_env_spent).items()}
-            raw_env_calls = data.get("calls_by_envelope", {})
-            if isinstance(raw_env_calls, dict):
-                tracker._calls_by_envelope = {k: int(v) for k, v in cast("dict[str, Any]", raw_env_calls).items()}
+            # Persisted envelope spend is a whole-file rollup. A narrowed load
+            # leaves it empty so the derive-from-usages step below rebuilds it
+            # from the in-scope usages only.
+            if scope is None:
+                raw_env_spent = data.get("spent_by_envelope", {})
+                if isinstance(raw_env_spent, dict):
+                    tracker._spent_by_envelope = {k: float(v) for k, v in cast("dict[str, Any]", raw_env_spent).items()}
+                raw_env_calls = data.get("calls_by_envelope", {})
+                if isinstance(raw_env_calls, dict):
+                    tracker._calls_by_envelope = {k: int(v) for k, v in cast("dict[str, Any]", raw_env_calls).items()}
 
             # If we loaded usages but not envelope spend, derive it from
             # usage records so old snapshots still aggregate by envelope.
@@ -1397,9 +1539,9 @@ class CostTracker:
 
         metrics_path = _Path(str(metrics_dir))
         metrics_path.mkdir(parents=True, exist_ok=True)
-        file_path = metrics_path / f"costs_{self.run_id}.json"
+        target = AnchoredDir(root=metrics_path)
         r = self.report()
-        file_path.write_text(json.dumps(r.to_dict(), indent=2))
+        file_path = anchored_write_text(target, f"costs_{self.run_id}.json", json.dumps(r.to_dict(), indent=2))
         logger.debug("Cost report for run %s saved to %s", self.run_id, file_path)
         return file_path
 
@@ -1484,10 +1626,13 @@ class CostTracker:
             return
         try:
             rotation_dir.mkdir(parents=True, exist_ok=True)
-            rotation_file = rotation_dir / f"usages-{self.run_id}.jsonl"
-            with rotation_file.open("a", encoding="utf-8") as fh:
+            with anchored_append(AnchoredDir(root=rotation_dir), f"usages-{self.run_id}.jsonl") as fh:
                 fh.write(json.dumps(usage.to_dict()) + "\n")
-        except OSError as exc:  # pragma: no cover - best-effort IO
+        except (OSError, ValueError) as exc:  # pragma: no cover - best-effort IO
+            # ``ValueError`` belongs here even though ``__post_init__`` rejects
+            # the run ids that cause it: telemetry rotation is the hot path,
+            # and a path refusal reaching an orchestrator through the rotation
+            # of an evicted row would abort a run over a dropped metric.
             logger.debug("Failed to rotate evicted cost usage for run %s: %s", self.run_id, exc)
 
     def attach_retry_budget(self, budget: object) -> None:

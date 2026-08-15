@@ -101,7 +101,10 @@ pub enum DialectKind {
     Databricks,
     Db2,
     Duckdb,
+    Exasol,
     Greenplum,
+    Hive,
+    Materialize,
     Mysql,
     Oracle,
     Postgres,
@@ -109,6 +112,8 @@ pub enum DialectKind {
     Snowflake,
     Sparksql,
     Sqlite,
+    Starrocks,
+    Teradata,
     Trino,
     Tsql,
 }
@@ -124,14 +129,19 @@ impl DialectKind {
             DialectKind::Databricks => "databricks",
             DialectKind::Db2 => "db2",
             DialectKind::Duckdb => "duckdb",
+            DialectKind::Exasol => "exasol",
             DialectKind::Greenplum => "greenplum",
+            DialectKind::Hive => "hive",
             DialectKind::Mysql => "mysql",
+            DialectKind::Materialize => "materialize",
             DialectKind::Oracle => "oracle",
             DialectKind::Postgres => "postgres",
             DialectKind::Redshift => "redshift",
             DialectKind::Snowflake => "snowflake",
             DialectKind::Sparksql => "sparksql",
             DialectKind::Sqlite => "sqlite",
+            DialectKind::Starrocks => "starrocks",
+            DialectKind::Teradata => "teradata",
             DialectKind::Trino => "trino",
             DialectKind::Tsql => "tsql",
         }
@@ -151,8 +161,11 @@ impl DialectKind {
             DialectKind::Databricks => "Databricks SQL dialect for lakehouse analytics.",
             DialectKind::Db2 => "IBM Db2 SQL dialect.",
             DialectKind::Duckdb => "DuckDB SQL dialect for in-process analytical database.",
+            DialectKind::Exasol => "Exasol SQL dialect for the Exasol analytics database.",
             DialectKind::Greenplum => "Greenplum SQL dialect, a massively parallel Postgres.",
+            DialectKind::Hive => "Apache Hive SQL dialect for data warehousing.",
             DialectKind::Mysql => "MySQL SQL dialect for the popular open-source database.",
+            DialectKind::Materialize => "Materialize SQL dialect for the streaming data warehouse.",
             DialectKind::Oracle => "Oracle SQL dialect for Oracle Database.",
             DialectKind::Postgres => {
                 "PostgreSQL SQL dialect for the advanced open-source database."
@@ -161,6 +174,8 @@ impl DialectKind {
             DialectKind::Snowflake => "Snowflake SQL dialect for cloud data platform.",
             DialectKind::Sparksql => "Apache Spark SQL dialect for big data processing.",
             DialectKind::Sqlite => "SQLite SQL dialect for embedded database.",
+            DialectKind::Starrocks => "StarRocks SQL dialect for real-time analytical workloads.",
+            DialectKind::Teradata => "Teradata SQL dialect for the Teradata analytics platform.",
             DialectKind::Trino => "Trino (formerly PrestoSQL) dialect for distributed SQL queries.",
             DialectKind::Tsql => "T-SQL dialect for Microsoft SQL Server and Azure SQL.",
         }
@@ -188,10 +203,13 @@ impl DialectKind {
             }
             DialectKind::Db2 => Some("https://www.ibm.com/docs/en/i/7.4?topic=overview-db2-i"),
             DialectKind::Duckdb => Some("https://duckdb.org/docs/sql/introduction"),
+            DialectKind::Exasol => Some("https://docs.exasol.com/db/latest/sql_references.htm"),
             DialectKind::Greenplum => {
                 Some("https://docs.vmware.com/en/VMware-Greenplum/index.html")
             }
+            DialectKind::Hive => Some("https://hive.apache.org/docs/latest/language/"),
             DialectKind::Mysql => Some("https://dev.mysql.com/doc/"),
+            DialectKind::Materialize => Some("https://materialize.com/docs/sql/"),
             DialectKind::Oracle => {
                 Some("https://www.oracle.com/database/technologies/appdev/sql.html")
             }
@@ -202,6 +220,8 @@ impl DialectKind {
             DialectKind::Snowflake => Some("https://docs.snowflake.com/en/sql-reference.html"),
             DialectKind::Sparksql => Some("https://spark.apache.org/sql/"),
             DialectKind::Sqlite => Some("https://www.sqlite.org/lang.html"),
+            DialectKind::Starrocks => Some("https://docs.starrocks.io/docs/sql-reference/"),
+            DialectKind::Teradata => Some("https://docs.teradata.com/"),
             DialectKind::Trino => Some("https://trino.io/docs/current/sql.html"),
             DialectKind::Tsql => {
                 Some("https://learn.microsoft.com/en-us/sql/t-sql/language-reference")

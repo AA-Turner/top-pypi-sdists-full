@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, TypeVar
+from typing import Any
+
+from typing_extensions import Self
 
 from ...client import Client
-
-
-SM = TypeVar("SM", bound="SerializableModel")
 
 
 def _remove_prefix(s: str, prefix: str):
@@ -18,7 +17,7 @@ def _remove_prefix(s: str, prefix: str):
 
 class SerializableModel:
     @classmethod
-    def from_dict(cls: type[SM], data: dict[str, Any], id: int | None = None) -> SM:
+    def from_dict(cls, data: dict[str, Any], id: int | None = None) -> Self:
         raise NotImplementedError
 
     def to_dict(self) -> dict[str, Any]:
@@ -129,7 +128,7 @@ class ModelWithMetadata(SerializableModel):
     @classmethod
     def _format_metadata(cls, config: dict[str, Any]) -> Any:
         metadata = {}
-        for key in {"created", "created_by", "last_edited_at", "last_edited_by"}:
+        for key in ("created", "created_by", "last_edited_at", "last_edited_by"):
             if key in config:
                 metadata[key] = config.pop(key)
         return metadata
@@ -194,7 +193,7 @@ class TableConfiguration(ModelWithMetadata):
             return False
         return all(
             getattr(self, prop) == getattr(other, prop)
-            for prop in {"id", "name", "config"}
+            for prop in ("id", "name", "config")
         )
 
 
@@ -248,5 +247,5 @@ class Check(ModelWithMetadata):
             return False
         return all(
             getattr(self, prop) == getattr(other, prop)
-            for prop in {"id", "check", "params"}
+            for prop in ("id", "check", "params")
         )

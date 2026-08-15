@@ -1,4 +1,4 @@
-// AUTO GENERATED ON 2026-07-28 AT 17:37:39
+// AUTO GENERATED ON 2026-08-14 AT 14:44:29
 // DO NOT EDIT BY HAND!
 //
 // To regenerate file, run
@@ -1110,13 +1110,6 @@ extern "C" {
     int64_t nextparents_length);
 
   EXPORT_SYMBOL ERROR
-  awkward_ListOffsetArray_reduce_local_outoffsets_64(
-    int64_t* outoffsets,
-    const int64_t* parents,
-    int64_t lenparents,
-    int64_t outlength);
-
-  EXPORT_SYMBOL ERROR
   awkward_ListOffsetArray_reduce_nonlocal_maxcount_offsetscopy_64(
     int64_t* maxcount,
     int64_t* offsetscopy,
@@ -1136,12 +1129,6 @@ extern "C" {
     int64_t maxcount,
     int64_t nextlen,
     const int64_t* nextcarry);
-
-  EXPORT_SYMBOL ERROR
-  awkward_ListOffsetArray_reduce_nonlocal_nextstarts_64(
-    int64_t* nextstarts,
-    const int64_t* nextparents,
-    int64_t nextlen);
 
   EXPORT_SYMBOL ERROR
   awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64(
@@ -3322,6 +3309,84 @@ extern "C" {
     const int64_t* offsets,
     int64_t outlength,
     int64_t n);
+
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_centered_sumofsquares_float64_int8_64(
+    double* toptr,
+    const int8_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    const double* means);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_centered_sumofsquares_float64_uint8_64(
+    double* toptr,
+    const uint8_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    const double* means);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_centered_sumofsquares_float64_int16_64(
+    double* toptr,
+    const int16_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    const double* means);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_centered_sumofsquares_float64_uint16_64(
+    double* toptr,
+    const uint16_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    const double* means);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_centered_sumofsquares_float64_int32_64(
+    double* toptr,
+    const int32_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    const double* means);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_centered_sumofsquares_float64_uint32_64(
+    double* toptr,
+    const uint32_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    const double* means);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_centered_sumofsquares_float64_int64_64(
+    double* toptr,
+    const int64_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    const double* means);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_centered_sumofsquares_float64_uint64_64(
+    double* toptr,
+    const uint64_t* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    const double* means);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_centered_sumofsquares_float64_bool_64(
+    double* toptr,
+    const bool* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    const double* means);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_centered_sumofsquares_float64_float32_64(
+    double* toptr,
+    const float* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    const double* means);
+  EXPORT_SYMBOL ERROR
+  awkward_reduce_centered_sumofsquares_float64_float64_64(
+    double* toptr,
+    const double* fromptr,
+    const int64_t* offsets,
+    int64_t outlength,
+    const double* means);
 
   EXPORT_SYMBOL ERROR
   awkward_reduce_sum_complex64_complex64_64(

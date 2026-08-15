@@ -94,6 +94,17 @@ class SymbolType(Enum):
 
 
 class Symbol:
+    """A node in the dataflow graph: a variable binding or object member.
+
+    A ``Symbol`` tracks the name it is bound under, a reference to the underlying
+    Python object (``obj``), the :class:`~ipyflow.data_model.timestamp.Timestamp`
+    at which it was last written, and its dataflow edges -- ``parents`` (the
+    symbols it was computed from) and ``children`` (the symbols computed from it).
+    The public ``ipyflow.api`` helpers (``deps``, ``users``, ``code``,
+    ``timestamp``, ...) are thin wrappers that resolve a value to its ``Symbol``
+    and read these attributes. Use ``lift(value)`` to obtain one directly.
+    """
+
     NULL = object()
 
     # object for virtual display symbol
@@ -249,12 +260,15 @@ class Symbol:
         return id(self) < id(other)
 
     def add_tag(self, tag_value: str) -> None:
+        """Attach the string tag ``tag_value`` to this symbol."""
         self._tags.add(tag_value)
 
     def remove_tag(self, tag_value: str) -> None:
+        """Remove the string tag ``tag_value`` from this symbol (a no-op if absent)."""
         self._tags.discard(tag_value)
 
     def has_tag(self, tag_value: str) -> bool:
+        """Return whether this symbol carries the tag ``tag_value``."""
         return tag_value in self._tags
 
     def temporary_disable_warnings(self) -> None:
@@ -313,6 +327,8 @@ class Symbol:
 
     @property
     def timestamp(self) -> Timestamp:
+        """The :class:`~ipyflow.data_model.timestamp.Timestamp` of the last write,
+        accounting for updates to the symbol's namespace members."""
         ts = self.shallow_timestamp
         if self.is_import or self.is_module:
             return ts
@@ -364,6 +380,13 @@ class Symbol:
     def code(
         self, format_type: Optional[Type[FormatType]] = None, version: int = -1
     ) -> Slice:
+        """Return the backward program slice that reconstructs this symbol.
+
+        :param format_type: optional output format (e.g. ``str``); defaults to a
+            rich :class:`~ipywidgets.HTML` when available, otherwise plain text.
+        :param version: which historical version of the symbol to slice for.
+            ``-1`` (the default) is the current version.
+        """
         return statements().format_multi_slice(
             self._get_timestamps_for_version(version=version),
             blacken=True,
@@ -388,6 +411,7 @@ class Symbol:
 
     @property
     def readable_name(self) -> str:
+        """The human-readable, namespace-qualified name of this symbol."""
         return self.containing_scope.make_namespace_qualified_name(self)
 
     @property
@@ -739,7 +763,19 @@ class Symbol:
     def _should_cancel_propagation(self, prev_obj: Optional[Any]) -> bool:
         if prev_obj is None:
             return False
-        if not self._cached_out_of_sync or self.obj_id == self.cached_obj_id:
+        if not self._cached_out_of_sync:
+            return True
+        if self.obj_id == self.cached_obj_id and not self.is_immutable:
+            # An unchanged obj_id normally means the symbol still points at the
+            # very same object, so re-running the assignment need not propagate
+            # staleness to dependents. This identity heuristic is unreliable for
+            # immutable primitives (small ints, interned strings, ...), which
+            # CPython caches/interns: re-running `x = 4` yields the same id(4)
+            # as before even though it is a genuine (re-)assignment. Treating
+            # that as "nothing changed" cancels propagation, so transitive
+            # dependents never get marked. We therefore only trust obj_id
+            # equality for mutable objects and fall through to propagate for
+            # primitives, so that re-execution is always a fresh update.
             return True
         if self.obj is None or prev_obj is Symbol.NULL:
             return self.obj is None and prev_obj is Symbol.NULL
@@ -891,6 +927,7 @@ class Symbol:
 
     @property
     def is_waiting(self) -> bool:
+        """Whether this symbol is stale -- i.e. a dependency has a newer timestamp."""
         if self.disable_warnings or self._temp_disable_warnings:
             return False
         if self.waiting_timestamp < self.required_timestamp.cell_num:

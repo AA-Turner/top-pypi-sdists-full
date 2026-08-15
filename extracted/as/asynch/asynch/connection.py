@@ -1,4 +1,4 @@
-from typing import Optional
+from __future__ import annotations
 
 from asynch.cursors import Cursor
 from asynch.errors import NotSupportedError
@@ -11,11 +11,11 @@ from asynch.proto.utils.dsn import parse_dsn
 class Connection:
     def __init__(
         self,
-        dsn: Optional[str] = None,
+        dsn: str | None = None,
         user: str = constants.DEFAULT_USER,
         password: str = constants.DEFAULT_PASSWORD,
         host: str = constants.DEFAULT_HOST,
-        port: int = constants.DEFAULT_PORT,
+        port: int | None = None,
         database: str = constants.DEFAULT_DATABASE,
         cursor_cls=Cursor,
         echo: bool = False,
@@ -28,7 +28,6 @@ class Connection:
             user = config.get("user", None) or user
             password = config.get("password", None) or password
             host = config.get("host", None) or host
-            port = config.get("port", None) or port
             database = config.get("database", None) or database
         else:
             self._connection = ProtoConnection(
@@ -40,6 +39,10 @@ class Connection:
                 stack_track=stack_track,
                 **kwargs,
             )
+        # The proto connection resolves an unspecified port from the scheme
+        # (9440 when secure, 9000 otherwise), so read the effective one back
+        # instead of second-guessing it here.
+        port = self._connection.hosts[0][1]
         self._dsn = dsn
         # dsn parts
         self._user = user
@@ -54,7 +57,7 @@ class Connection:
         self._connection_kwargs = kwargs
         self._echo = echo
 
-    async def __aenter__(self) -> "Connection":
+    async def __aenter__(self) -> Connection:
         await self.connect()
         return self
 
@@ -67,7 +70,7 @@ class Connection:
         return f"<{cls_name} object at 0x{id(self):x}; status: {status}>"
 
     @property
-    def opened(self) -> Optional[bool]:
+    def opened(self) -> bool | None:
         """Return True if the connection is opened.
 
         :returns: the connection open status
@@ -75,6 +78,19 @@ class Connection:
         """
 
         return self._opened
+
+    @property
+    def last_query(self):
+        """Statistics for the most recent query on this connection.
+
+        Exposes what the server reported while the query ran: `elapsed`
+        seconds, a `progress` counter (rows/bytes read) and `profile_info`
+        (including `rows_before_limit`). None before the first query.
+
+        :return: the QueryInfo of the last executed query, if any
+        """
+
+        return self._connection.last_query
 
     @property
     def closed(self) -> bool:
@@ -148,7 +164,7 @@ class Connection:
         if self._closed:
             self._closed = False
 
-    def cursor(self, cursor: Optional[type[Cursor]] = None, *, echo: bool = False) -> Cursor:
+    def cursor(self, cursor: type[Cursor] | None = None, *, echo: bool = False) -> Cursor:
         """Return the cursor object for the connection.
 
         When a parameter is interpreted as True,
@@ -178,6 +194,38 @@ class Connection:
             msg = f"Ping has failed for {self}"
             raise ConnectionError(msg)
 
+    async def cancel(self) -> bool:
+        """Ask the server to stop the query running on this connection.
+
+        Meant to be called from a different task than the one awaiting the
+        query: that task then finishes early. The connection is drained to the
+        end of the stream and stays usable afterwards.
+
+        Does nothing if no query is running.
+
+        :return: True if a query was cancelled
+        """
+
+        return await self._connection.cancel()
+
+    async def is_live(self) -> bool:
+        """Report whether the connection is still usable.
+
+        Unlike `_refresh`, this never reconnects and never raises: a caller
+        that holds a pool of connections wants to discard a dead one, not
+        resurrect it in place.
+
+        :return: True if the connection is opened and answers a ping
+        """
+
+        if self.status != ConnectionStatus.opened:
+            return False
+        try:
+            await self.ping()
+        except ConnectionError:
+            return False
+        return True
+
     async def _refresh(self) -> None:
         """Refresh the connection.
 
@@ -203,6 +251,11 @@ class Connection:
         try:
             await self.ping()
         except ConnectionError:
+            # `connect()` returns early while `_opened` is set, so the socket
+            # has to be torn down first - otherwise the reconnect is a no-op
+            # and the dead connection is handed back to the caller.
+            await self.close()
+            self._closed = False
             await self.connect()
 
     async def rollback(self):

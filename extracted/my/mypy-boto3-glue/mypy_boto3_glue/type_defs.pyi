@@ -1517,6 +1517,8 @@ class AssetTypeItemTypeDef(TypedDict):
 class AssociateGlossaryTermsRequestTypeDef(TypedDict):
     AssetIdentifier: str
     GlossaryTermIdentifiers: Sequence[str]
+    IterableFormName: NotRequired[str]
+    ItemIdentifier: NotRequired[str]
     ClientToken: NotRequired[str]
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -2830,6 +2832,8 @@ class DirectSchemaChangePolicyTypeDef(TypedDict):
 class DisassociateGlossaryTermsRequestTypeDef(TypedDict):
     AssetIdentifier: str
     GlossaryTermIdentifiers: Sequence[str]
+    IterableFormName: NotRequired[str]
+    ItemIdentifier: NotRequired[str]
     ClientToken: NotRequired[str]
 
 class DropDuplicatesTypeDef(TypedDict):
@@ -4342,6 +4346,8 @@ class PutAssetTypeRequestTypeDef(TypedDict):
 
 class AssociateGlossaryTermsResponseTypeDef(TypedDict):
     AssetIdentifier: str
+    IterableFormName: str
+    ItemIdentifier: str
     GlossaryTerms: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -4472,6 +4478,8 @@ class CreateWorkflowResponseTypeDef(TypedDict):
 
 class DeleteAttachmentResponseTypeDef(TypedDict):
     AssetIdentifier: str
+    IterableFormName: str
+    ItemIdentifier: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteBlueprintResponseTypeDef(TypedDict):
@@ -4516,6 +4524,8 @@ class DeleteWorkflowResponseTypeDef(TypedDict):
 
 class DisassociateGlossaryTermsResponseTypeDef(TypedDict):
     AssetIdentifier: str
+    IterableFormName: str
+    ItemIdentifier: str
     GlossaryTerms: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 

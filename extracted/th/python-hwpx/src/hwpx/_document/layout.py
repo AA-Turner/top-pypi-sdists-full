@@ -15,6 +15,7 @@ from ..objects.results import (
     ParagraphFormatResult,
     Units,
 )
+from ..oxml._document_primitives import NEW_NUM_KINDS
 from ..oxml.namespaces import HH
 from ._units import _mm_to_hwp_units, _pt_to_hwp_units
 
@@ -119,16 +120,31 @@ def set_paragraph_format(
     keep_with_next: bool | None = None,
     keep_lines: bool | None = None,
     page_break_before: bool | None = None,
+    column_break: bool | None = None,
     bottom_border: bool = False,
     border_color: str = "#BFBFBF",
     border_width: str = "0.12 mm",
+    tab_stops: Sequence[Mapping[str, Any]] | None = None,
+    auto_tab_left: bool | None = None,
+    auto_tab_right: bool | None = None,
 ) -> ParagraphFormatResult:
     """Apply paragraph-level formatting using human units.
 
     Millimetre inputs are converted to HWP units; paragraph spacing uses
     points; line spacing is stored as a percent value. ``keep_with_next`` /
     ``keep_lines`` / ``page_break_before`` set the paragraph's keep-together
-    (``<hh:breakSetting>``) flags via a freshly minted paraPr.
+    (``<hh:breakSetting>``) flags via a freshly minted paraPr. ``column_break``
+    is a different mechanism -- ``hp:p``'s own ``columnBreak`` attribute, a
+    per-paragraph-instance forced break (not a shared paraPr style property
+    like ``page_break_before``) -- applied directly to each target paragraph.
+
+    ``tab_stops`` is a sequence of ``{"pos_mm": ..., "type": "LEFT"|"RIGHT"|
+    "CENTER"|"DECIMAL", "leader": "NONE"|...}`` mappings (``type``/``leader``
+    default to the real-corpus-majority ``"LEFT"``/``"NONE"``) — order is
+    meaningful, matching how real multi-stop documents list them
+    position-ascending. Passing ``tab_stops``/``auto_tab_left``/
+    ``auto_tab_right`` mints (or reuses — dedupe) a ``hh:tabPr`` and wires
+    the paragraph's ``tabPrIDRef`` to it.
     """
 
     if not doc._root.headers:
@@ -181,6 +197,10 @@ def set_paragraph_format(
     if page_break_before is not None:
         break_setting["page_break_before"] = bool(page_break_before)
 
+    wants_tab_definition = (
+        tab_stops is not None or auto_tab_left is not None or auto_tab_right is not None
+    )
+
     if (
         alignment is None
         and line_spacing_percent is None
@@ -188,11 +208,35 @@ def set_paragraph_format(
         and heading is None
         and not bottom_border
         and not break_setting
+        and not wants_tab_definition
+        and column_break is None
     ):
         raise HwpxValueError(
             "at least one paragraph formatting option is required",
             code="paragraph-format-empty",
             suggestion="Pass alignment, line_spacing_percent, or another option to change.",
+        )
+
+    tab_pr_id: str | None = None
+    if wants_tab_definition:
+        converted_stops: list[dict[str, object]] = []
+        for index, stop in enumerate(tab_stops or ()):
+            if "pos_mm" not in stop or stop["pos_mm"] is None:
+                raise HwpxValueError(
+                    f"tab_stops[{index}] is missing 'pos_mm'",
+                    code="paragraph-tab-pos-invalid",
+                    context={"index": index},
+                    suggestion="각 tab stop은 'pos_mm'(mm, 0 이상)가 필요합니다.",
+                )
+            converted_stops.append({
+                "pos": _mm_to_hwp_units(float(stop["pos_mm"])),
+                "type": stop.get("type"),
+                "leader": stop.get("leader"),
+            })
+        tab_pr_id = header.ensure_tab_definition(
+            tab_stops=converted_stops,
+            auto_tab_left=bool(auto_tab_left),
+            auto_tab_right=bool(auto_tab_right),
         )
 
     border: dict[str, str] | None = None
@@ -212,22 +256,40 @@ def set_paragraph_format(
             "ignoreMargin": "0",
         }
 
+    # column_break bypasses paraPr entirely (it's hp:p's own attribute, not
+    # a shared style) -- only mint a new paraPr when one of the *other*
+    # options actually needs it, so a column_break-only call doesn't churn
+    # a needless duplicate paraPr id.
+    wants_para_pr_change = (
+        alignment is not None
+        or line_spacing_percent is not None
+        or bool(margins)
+        or heading is not None
+        or bottom_border
+        or bool(break_setting)
+        or wants_tab_definition
+    )
+
     targets = _resolve_paragraph_targets(doc,
         paragraph_index=paragraph_index,
         paragraph_indexes=paragraph_indexes,
     )
     formatted: list[int] = []
     for index, paragraph in targets:
-        para_pr_id = header.ensure_paragraph_format(
-            base_para_pr_id=paragraph.para_pr_id_ref,
-            alignment=alignment,
-            line_spacing_percent=line_spacing_percent,
-            margins=margins,
-            heading=heading,
-            border=border,
-            break_setting=break_setting or None,
-        )
-        paragraph.para_pr_id_ref = para_pr_id
+        if wants_para_pr_change:
+            para_pr_id = header.ensure_paragraph_format(
+                base_para_pr_id=paragraph.para_pr_id_ref,
+                alignment=alignment,
+                line_spacing_percent=line_spacing_percent,
+                margins=margins,
+                heading=heading,
+                border=border,
+                break_setting=break_setting or None,
+                tab_pr_id_ref=tab_pr_id,
+            )
+            paragraph.para_pr_id_ref = para_pr_id
+        if column_break is not None:
+            paragraph.column_break = column_break
         formatted.append(index)
 
     return ParagraphFormatResult(
@@ -764,6 +826,61 @@ def set_page_number(
         section=section,
         section_index=section_index,
         page_type=page_type,
+    )
+
+
+def restart_page_number(
+    doc: "HwpxDocument",
+    paragraph: "HwpxOxmlParagraph",
+    *,
+    number: int = 1,
+    kind: str = "PAGE",
+) -> "HwpxOxmlInlineObject":
+    """Restart *kind*'s running count at *number* from *paragraph* onward.
+
+    Inserts ``<hp:ctrl><hp:newNum num="{number}" numType="{kind}"/></hp:ctrl>``
+    — a section-mid restart point, distinct from ``set_page_number`` (which
+    places the *display* field in a header/footer). ``kind`` defaults to
+    ``"PAGE"``, the only value real corpus (hwpxlib_corpus) observes; the
+    other six (``FOOTNOTE``/``ENDNOTE``/``PICTURE``/``TABLE``/``EQUATION``/
+    ``TOTAL_PAGE``) are schema-legal but unattested.
+    """
+
+    normalized_kind = str(kind or "PAGE").upper()
+    if normalized_kind not in NEW_NUM_KINDS:
+        raise HwpxValueError(
+            f"unsupported kind {kind!r}",
+            code="page-new-num-kind-invalid",
+            context={"kind": normalized_kind, "allowed": sorted(NEW_NUM_KINDS)},
+            suggestion="Use one of: " + ", ".join(sorted(NEW_NUM_KINDS)),
+        )
+    return paragraph.add_new_num(number=number, kind=normalized_kind)
+
+
+def hide_page_elements(
+    doc: "HwpxDocument",
+    paragraph: "HwpxOxmlParagraph",
+    *,
+    header: bool = False,
+    footer: bool = False,
+    master_page: bool = False,
+    border: bool = False,
+    fill: bool = False,
+    page_num: bool = False,
+) -> "HwpxOxmlInlineObject":
+    """Hide the named page elements from *paragraph*'s page onward.
+
+    Inserts ``<hp:ctrl><hp:pageHiding .../></hp:ctrl>`` (``ParaList XML
+    schema.xml:148-163`` — six independent booleans, all default unhidden).
+    """
+
+    return paragraph.add_page_hiding(
+        header=header,
+        footer=footer,
+        master_page=master_page,
+        border=border,
+        fill=fill,
+        page_num=page_num,
     )
 
 

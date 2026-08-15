@@ -5,6 +5,7 @@ isort:skip_file
 
 import builtins
 import collections.abc
+import dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2
 import dbtlabs.proto.public.v1.events.vortex_pb2
 import google.protobuf.descriptor
 import google.protobuf.internal.containers
@@ -127,6 +128,36 @@ PLATFORM: LoginType.ValueType  # 1
 STATE: LoginType.ValueType  # 2
 Global___LoginType: typing_extensions.TypeAlias = LoginType
 
+class _LoginErrorCode:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _LoginErrorCodeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_LoginErrorCode.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    NOT_AUTHENTICATED: _LoginErrorCode.ValueType  # 0
+    AUTHENTICATION_EXPIRED: _LoginErrorCode.ValueType  # 1
+    INACCESSIBLE_SOURCE: _LoginErrorCode.ValueType  # 2
+    MALFORMED_CONFIG: _LoginErrorCode.ValueType  # 3
+    INTERACTIVE_FAILURE: _LoginErrorCode.ValueType  # 4
+    INADEQUATE_SCOPES: _LoginErrorCode.ValueType  # 5
+    REFRESH_FAILED: _LoginErrorCode.ValueType  # 6
+
+class LoginErrorCode(_LoginErrorCode, metaclass=_LoginErrorCodeEnumTypeWrapper):
+    """LoginErrorCode should mirror dbt_platform_auth::AuthError in the fs codebase.
+    This enum need not track the internal "Aborted" variant of that error enum because
+    it is an internal variant that is only used to signal that either the platform or
+    dbt state login callback was aborted because the other callback completed.
+    """
+
+NOT_AUTHENTICATED: LoginErrorCode.ValueType  # 0
+AUTHENTICATION_EXPIRED: LoginErrorCode.ValueType  # 1
+INACCESSIBLE_SOURCE: LoginErrorCode.ValueType  # 2
+MALFORMED_CONFIG: LoginErrorCode.ValueType  # 3
+INTERACTIVE_FAILURE: LoginErrorCode.ValueType  # 4
+INADEQUATE_SCOPES: LoginErrorCode.ValueType  # 5
+REFRESH_FAILED: LoginErrorCode.ValueType  # 6
+Global___LoginErrorCode: typing_extensions.TypeAlias = LoginErrorCode
+
 @typing.final
 class AdapterInfo(google.protobuf.message.Message):
     """
@@ -150,6 +181,7 @@ class AdapterInfo(google.protobuf.message.Message):
     INVOCATION_ID_FIELD_NUMBER: builtins.int
     ADAPTER_TYPE_FIELD_NUMBER: builtins.int
     ADAPTER_UNIQUE_ID_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     """event_id is the unique identifier for this event. It is a generated UUID."""
     invocation_id: builtins.str
@@ -170,6 +202,8 @@ class AdapterInfo(google.protobuf.message.Message):
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment:
         """This field is a toggle to enable enrichment of the message by the Vortex service."""
 
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
     def __init__(
         self,
         *,
@@ -178,9 +212,10 @@ class AdapterInfo(google.protobuf.message.Message):
         invocation_id: builtins.str = ...,
         adapter_type: builtins.str = ...,
         adapter_unique_id: builtins.str = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["adapter_type", b"adapter_type", "adapter_unique_id", b"adapter_unique_id", "enrichment", b"enrichment", "event_id", b"event_id", "invocation_id", b"invocation_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["adapter_type", b"adapter_type", "adapter_unique_id", b"adapter_unique_id", "common_context", b"common_context", "enrichment", b"enrichment", "event_id", b"event_id", "invocation_id", b"invocation_id"]) -> None: ...
 
 Global___AdapterInfo: typing_extensions.TypeAlias = AdapterInfo
 
@@ -218,6 +253,7 @@ class AdapterInfoV2(google.protobuf.message.Message):
     BASE_ADAPTER_VERSION_FIELD_NUMBER: builtins.int
     ADAPTER_VERSION_FIELD_NUMBER: builtins.int
     MODEL_ADAPTER_DETAILS_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     """event_id is the unique identifier for this event. It is a generated UUID."""
     run_model_id: builtins.str
@@ -245,6 +281,8 @@ class AdapterInfoV2(google.protobuf.message.Message):
         something else).
         """
 
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
     def __init__(
         self,
         *,
@@ -255,9 +293,10 @@ class AdapterInfoV2(google.protobuf.message.Message):
         base_adapter_version: builtins.str = ...,
         adapter_version: builtins.str = ...,
         model_adapter_details: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["adapter_name", b"adapter_name", "adapter_version", b"adapter_version", "base_adapter_version", b"base_adapter_version", "enrichment", b"enrichment", "event_id", b"event_id", "model_adapter_details", b"model_adapter_details", "run_model_id", b"run_model_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["adapter_name", b"adapter_name", "adapter_version", b"adapter_version", "base_adapter_version", b"base_adapter_version", "common_context", b"common_context", "enrichment", b"enrichment", "event_id", b"event_id", "model_adapter_details", b"model_adapter_details", "run_model_id", b"run_model_id"]) -> None: ...
 
 Global___AdapterInfoV2: typing_extensions.TypeAlias = AdapterInfoV2
 
@@ -283,6 +322,7 @@ class Invocation(google.protobuf.message.Message):
     RESULT_TYPE_FIELD_NUMBER: builtins.int
     GIT_COMMIT_SHA_FIELD_NUMBER: builtins.int
     DISTRIBUTION_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     """event_id is the unique identifier for this event. It is a generated UUID.
     Required.
@@ -338,6 +378,8 @@ class Invocation(google.protobuf.message.Message):
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment:
         """This field is a toggle to enable enrichment of the message by the Vortex service."""
 
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
     def __init__(
         self,
         *,
@@ -352,9 +394,10 @@ class Invocation(google.protobuf.message.Message):
         result_type: builtins.str = ...,
         git_commit_sha: builtins.str = ...,
         distribution: builtins.str = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["command", b"command", "distribution", b"distribution", "enrichment", b"enrichment", "event_id", b"event_id", "git_commit_sha", b"git_commit_sha", "invocation_id", b"invocation_id", "progress", b"progress", "project_id", b"project_id", "result_type", b"result_type", "user_id", b"user_id", "version", b"version"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["command", b"command", "common_context", b"common_context", "distribution", b"distribution", "enrichment", b"enrichment", "event_id", b"event_id", "git_commit_sha", b"git_commit_sha", "invocation_id", b"invocation_id", "progress", b"progress", "project_id", b"project_id", "result_type", b"result_type", "user_id", b"user_id", "version", b"version"]) -> None: ...
 
 Global___Invocation: typing_extensions.TypeAlias = Invocation
 
@@ -371,6 +414,7 @@ class InvocationEnv(google.protobuf.message.Message):
     EVENT_ID_FIELD_NUMBER: builtins.int
     INVOCATION_ID_FIELD_NUMBER: builtins.int
     ENVIRONMENT_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     """event_id is the unique identifier for this event. It is a generated UUID."""
     invocation_id: builtins.str
@@ -388,6 +432,8 @@ class InvocationEnv(google.protobuf.message.Message):
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment:
         """This field is a toggle to enable enrichment of the message by the Vortex service."""
 
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
     def __init__(
         self,
         *,
@@ -395,9 +441,10 @@ class InvocationEnv(google.protobuf.message.Message):
         event_id: builtins.str = ...,
         invocation_id: builtins.str = ...,
         environment: builtins.str = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["enrichment", b"enrichment", "environment", b"environment", "event_id", b"event_id", "invocation_id", b"invocation_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment", "environment", b"environment", "event_id", b"event_id", "invocation_id", b"invocation_id"]) -> None: ...
 
 Global___InvocationEnv: typing_extensions.TypeAlias = InvocationEnv
 
@@ -415,6 +462,7 @@ class PackageInstall(google.protobuf.message.Message):
     NAME_FIELD_NUMBER: builtins.int
     SOURCE_FIELD_NUMBER: builtins.int
     VERSION_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     """event_id is the unique identifier for this event. It is a generated UUID."""
     invocation_id: builtins.str
@@ -438,6 +486,8 @@ class PackageInstall(google.protobuf.message.Message):
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment:
         """This field is a toggle to enable enrichment of the message by the Vortex service."""
 
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
     def __init__(
         self,
         *,
@@ -447,9 +497,10 @@ class PackageInstall(google.protobuf.message.Message):
         name: builtins.str = ...,
         source: builtins.str = ...,
         version: builtins.str = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["enrichment", b"enrichment", "event_id", b"event_id", "invocation_id", b"invocation_id", "name", b"name", "source", b"source", "version", b"version"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment", "event_id", b"event_id", "invocation_id", b"invocation_id", "name", b"name", "source", b"source", "version", b"version"]) -> None: ...
 
 Global___PackageInstall: typing_extensions.TypeAlias = PackageInstall
 
@@ -482,6 +533,7 @@ class ResourceCounts(google.protobuf.message.Message):
     SEMANTIC_MODELS_FIELD_NUMBER: builtins.int
     SAVED_QUERIES_FIELD_NUMBER: builtins.int
     CATALOGS_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     """event_id is the unique identifier for this event. It is a generated UUID."""
     invocation_id: builtins.str
@@ -522,6 +574,8 @@ class ResourceCounts(google.protobuf.message.Message):
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment:
         """This field is a toggle to enable enrichment of the message by the Vortex service."""
 
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
     def __init__(
         self,
         *,
@@ -543,9 +597,10 @@ class ResourceCounts(google.protobuf.message.Message):
         semantic_models: builtins.int = ...,
         saved_queries: builtins.int = ...,
         catalogs: builtins.int = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["analyses", b"analyses", "catalogs", b"catalogs", "enrichment", b"enrichment", "event_id", b"event_id", "exposures", b"exposures", "groups", b"groups", "invocation_id", b"invocation_id", "macros", b"macros", "metrics", b"metrics", "models", b"models", "operations", b"operations", "saved_queries", b"saved_queries", "seeds", b"seeds", "semantic_models", b"semantic_models", "snapshots", b"snapshots", "sources", b"sources", "tests", b"tests", "unit_tests", b"unit_tests"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["analyses", b"analyses", "catalogs", b"catalogs", "common_context", b"common_context", "enrichment", b"enrichment", "event_id", b"event_id", "exposures", b"exposures", "groups", b"groups", "invocation_id", b"invocation_id", "macros", b"macros", "metrics", b"metrics", "models", b"models", "operations", b"operations", "saved_queries", b"saved_queries", "seeds", b"seeds", "semantic_models", b"semantic_models", "snapshots", b"snapshots", "sources", b"sources", "tests", b"tests", "unit_tests", b"unit_tests"]) -> None: ...
 
 Global___ResourceCounts: typing_extensions.TypeAlias = ResourceCounts
 
@@ -582,6 +637,7 @@ class RunModel(google.protobuf.message.Message):
     TABLE_FORMAT_FIELD_NUMBER: builtins.int
     CATALOG_NAME_FIELD_NUMBER: builtins.int
     CATALOG_TYPE_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     """event_id is the unique identifier for this event. It is a generated UUID."""
     invocation_id: builtins.str
@@ -654,6 +710,8 @@ class RunModel(google.protobuf.message.Message):
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment:
         """This field is a toggle to enable enrichment of the message by the Vortex service."""
 
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
     def __init__(
         self,
         *,
@@ -680,9 +738,10 @@ class RunModel(google.protobuf.message.Message):
         table_format: builtins.str = ...,
         catalog_name: builtins.str = ...,
         catalog_type: builtins.str = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["access", b"access", "catalog_name", b"catalog_name", "catalog_type", b"catalog_type", "contract_enforced", b"contract_enforced", "enrichment", b"enrichment", "event_id", b"event_id", "execution_time", b"execution_time", "has_group", b"has_group", "hashed_contents", b"hashed_contents", "index", b"index", "invocation_id", b"invocation_id", "language", b"language", "model_id", b"model_id", "model_incremental_strategy", b"model_incremental_strategy", "model_materialization", b"model_materialization", "resource_type", b"resource_type", "run_model_id", b"run_model_id", "run_skipped", b"run_skipped", "run_skipped_reason", b"run_skipped_reason", "run_status", b"run_status", "table_format", b"table_format", "total", b"total", "versioned", b"versioned"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["access", b"access", "catalog_name", b"catalog_name", "catalog_type", b"catalog_type", "common_context", b"common_context", "contract_enforced", b"contract_enforced", "enrichment", b"enrichment", "event_id", b"event_id", "execution_time", b"execution_time", "has_group", b"has_group", "hashed_contents", b"hashed_contents", "index", b"index", "invocation_id", b"invocation_id", "language", b"language", "model_id", b"model_id", "model_incremental_strategy", b"model_incremental_strategy", "model_materialization", b"model_materialization", "resource_type", b"resource_type", "run_model_id", b"run_model_id", "run_skipped", b"run_skipped", "run_skipped_reason", b"run_skipped_reason", "run_status", b"run_status", "table_format", b"table_format", "total", b"total", "versioned", b"versioned"]) -> None: ...
 
 Global___RunModel: typing_extensions.TypeAlias = RunModel
 
@@ -697,6 +756,7 @@ class Onboarding(google.protobuf.message.Message):
     ACTION_FIELD_NUMBER: builtins.int
     SUCCESS_FIELD_NUMBER: builtins.int
     USER_ID_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     """Unique identifier for this event (UUID).
     Required.
@@ -722,6 +782,8 @@ class Onboarding(google.protobuf.message.Message):
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment:
         """This field is a toggle to enable enrichment of the message by the Vortex service."""
 
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
     def __init__(
         self,
         *,
@@ -732,9 +794,10 @@ class Onboarding(google.protobuf.message.Message):
         action: Global___OnboardingAction.ValueType = ...,
         success: builtins.bool = ...,
         user_id: builtins.str = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["action", b"action", "enrichment", b"enrichment", "event_id", b"event_id", "invocation_id", b"invocation_id", "screen", b"screen", "success", b"success", "user_id", b"user_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["action", b"action", "common_context", b"common_context", "enrichment", b"enrichment", "event_id", b"event_id", "invocation_id", b"invocation_id", "screen", b"screen", "success", b"success", "user_id", b"user_id"]) -> None: ...
 
 Global___Onboarding: typing_extensions.TypeAlias = Onboarding
 
@@ -757,6 +820,9 @@ class Login(google.protobuf.message.Message):
     PLATFORM_USER_ID_FIELD_NUMBER: builtins.int
     PLATFORM_ACCOUNT_ID_FIELD_NUMBER: builtins.int
     PLATFORM_ACCOUNT_IDENTIFIER_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
+    ERROR_CODE_FIELD_NUMBER: builtins.int
+    ERROR_MESSAGE_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     """Unique identifier for this event (UUID). Required."""
     invocation_id: builtins.str
@@ -783,10 +849,14 @@ class Login(google.protobuf.message.Message):
     """Platform account identifier from the "https://dbt.com/account_identifier" JWT claim.
     Absent if no JWT is available or the claim is absent.
     """
+    error_code: Global___LoginErrorCode.ValueType
+    error_message: builtins.str
     @property
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment:
         """This field is a toggle to enable enrichment of the message by the Vortex service."""
 
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
     def __init__(
         self,
         *,
@@ -800,9 +870,16 @@ class Login(google.protobuf.message.Message):
         platform_user_id: builtins.int | None = ...,
         platform_account_id: builtins.int | None = ...,
         platform_account_identifier: builtins.str | None = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
+        error_code: Global___LoginErrorCode.ValueType | None = ...,
+        error_message: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_platform_account_id", b"_platform_account_id", "_platform_account_identifier", b"_platform_account_identifier", "_platform_user_id", b"_platform_user_id", "_project_id", b"_project_id", "enrichment", b"enrichment", "platform_account_id", b"platform_account_id", "platform_account_identifier", b"platform_account_identifier", "platform_user_id", b"platform_user_id", "project_id", b"project_id"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_platform_account_id", b"_platform_account_id", "_platform_account_identifier", b"_platform_account_identifier", "_platform_user_id", b"_platform_user_id", "_project_id", b"_project_id", "enrichment", b"enrichment", "event_id", b"event_id", "invocation_id", b"invocation_id", "login_type", b"login_type", "platform_account_id", b"platform_account_id", "platform_account_identifier", b"platform_account_identifier", "platform_user_id", b"platform_user_id", "project_id", b"project_id", "success", b"success", "user_cookie", b"user_cookie"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_error_code", b"_error_code", "_error_message", b"_error_message", "_platform_account_id", b"_platform_account_id", "_platform_account_identifier", b"_platform_account_identifier", "_platform_user_id", b"_platform_user_id", "_project_id", b"_project_id", "common_context", b"common_context", "enrichment", b"enrichment", "error_code", b"error_code", "error_message", b"error_message", "platform_account_id", b"platform_account_id", "platform_account_identifier", b"platform_account_identifier", "platform_user_id", b"platform_user_id", "project_id", b"project_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_error_code", b"_error_code", "_error_message", b"_error_message", "_platform_account_id", b"_platform_account_id", "_platform_account_identifier", b"_platform_account_identifier", "_platform_user_id", b"_platform_user_id", "_project_id", b"_project_id", "common_context", b"common_context", "enrichment", b"enrichment", "error_code", b"error_code", "error_message", b"error_message", "event_id", b"event_id", "invocation_id", b"invocation_id", "login_type", b"login_type", "platform_account_id", b"platform_account_id", "platform_account_identifier", b"platform_account_identifier", "platform_user_id", b"platform_user_id", "project_id", b"project_id", "success", b"success", "user_cookie", b"user_cookie"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_error_code", b"_error_code"]) -> typing.Literal["error_code"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_error_message", b"_error_message"]) -> typing.Literal["error_message"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_platform_account_id", b"_platform_account_id"]) -> typing.Literal["platform_account_id"] | None: ...
     @typing.overload
@@ -813,3 +890,65 @@ class Login(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing.Literal["_project_id", b"_project_id"]) -> typing.Literal["project_id"] | None: ...
 
 Global___Login: typing_extensions.TypeAlias = Login
+
+@typing.final
+class StaticAnalysisInvocation(google.protobuf.message.Message):
+    """StaticAnalysisInvocation is emitted once per invocation when static
+    analysis propagation completes, capturing the maximum SA level in use
+    and per-level node counts.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    ENRICHMENT_FIELD_NUMBER: builtins.int
+    EVENT_ID_FIELD_NUMBER: builtins.int
+    INVOCATION_ID_FIELD_NUMBER: builtins.int
+    PROJECT_ID_FIELD_NUMBER: builtins.int
+    MAX_STATIC_ANALYSIS_LEVEL_FIELD_NUMBER: builtins.int
+    SOURCE_FIELD_NUMBER: builtins.int
+    STRICT_NODE_COUNT_FIELD_NUMBER: builtins.int
+    BASELINE_NODE_COUNT_FIELD_NUMBER: builtins.int
+    OFF_NODE_COUNT_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
+    event_id: builtins.str
+    """Unique identifier for this event (UUID). Required."""
+    invocation_id: builtins.str
+    """Globally unique identifier for the fusion invocation. Required."""
+    project_id: builtins.str
+    """MD5 hash of the project name from dbt_project.yml."""
+    max_static_analysis_level: builtins.str
+    """Maximum static analysis level used across all scheduled nodes:
+    "strict", "baseline", "off", or "" when no nodes were scheduled.
+    """
+    source: builtins.str
+    """Originating caller: "cli" or an extension name (e.g. "lsp")."""
+    strict_node_count: builtins.int
+    """Count of nodes running strict static analysis after propagation."""
+    baseline_node_count: builtins.int
+    """Count of nodes running baseline static analysis after propagation."""
+    off_node_count: builtins.int
+    """Count of nodes with static analysis off after propagation."""
+    @property
+    def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment:
+        """This field is a toggle to enable enrichment of the message by the Vortex service."""
+
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
+    def __init__(
+        self,
+        *,
+        enrichment: dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment | None = ...,
+        event_id: builtins.str = ...,
+        invocation_id: builtins.str = ...,
+        project_id: builtins.str = ...,
+        max_static_analysis_level: builtins.str = ...,
+        source: builtins.str = ...,
+        strict_node_count: builtins.int = ...,
+        baseline_node_count: builtins.int = ...,
+        off_node_count: builtins.int = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["baseline_node_count", b"baseline_node_count", "common_context", b"common_context", "enrichment", b"enrichment", "event_id", b"event_id", "invocation_id", b"invocation_id", "max_static_analysis_level", b"max_static_analysis_level", "off_node_count", b"off_node_count", "project_id", b"project_id", "source", b"source", "strict_node_count", b"strict_node_count"]) -> None: ...
+
+Global___StaticAnalysisInvocation: typing_extensions.TypeAlias = StaticAnalysisInvocation

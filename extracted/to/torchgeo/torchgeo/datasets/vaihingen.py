@@ -5,7 +5,7 @@
 
 import os
 from collections.abc import Callable
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -124,9 +124,9 @@ class Vaihingen2D(NonGeoDataset):
     def __init__(
         self,
         root: Path = 'data',
-        split: str = 'train',
+        split: Literal['train', 'test'] = 'train',
         transforms: Callable[[Sample], Sample] | None = None,
-        checksum: bool = False,
+        checksum: bool = True,
     ) -> None:
         """Initialize a new Vaihingen2D dataset instance.
 
@@ -154,7 +154,7 @@ class Vaihingen2D(NonGeoDataset):
             image = os.path.join(root, self.image_root, name)
             mask = os.path.join(root, name)
             if os.path.exists(image) and os.path.exists(mask):
-                self.files.append(dict(image=image, mask=mask))
+                self.files.append({'image': image, 'mask': mask})
 
     def __getitem__(self, index: int) -> Sample:
         """Return an index within the dataset.

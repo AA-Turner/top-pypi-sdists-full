@@ -11,16 +11,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
+import shutil
 from abc import ABC, abstractmethod
 from typing import TypeVar
 
 from litdata.constants import _PYTHON_GREATER_EQUAL_3_14, _ZSTD_AVAILABLE
-from litdata.debugger import ChromeTraceColors, _get_log_msg
+from litdata.debugger import CAT_DECOMPRESS, trace_span
 
 TCompressor = TypeVar("TCompressor", bound="Compressor")
-
-logger = logging.getLogger("litdata.streaming.compression")
 
 
 class Compressor(ABC):
@@ -33,6 +31,13 @@ class Compressor(ABC):
     @abstractmethod
     def decompress(self, data: bytes) -> bytes:
         pass
+
+    def decompress_file(self, src: str, dst: str) -> None:
+        """Decompress ``src`` onto ``dst``. Default reads the whole file."""
+        with open(src, "rb") as inf:
+            data = self.decompress(inf.read())
+        with open(dst, "wb") as outf:
+            outf.write(data)
 
     @classmethod
     @abstractmethod
@@ -68,10 +73,25 @@ class ZSTDCompressor(Compressor):
         else:
             import zstd
 
-        logger.debug(_get_log_msg({"name": "decompress", "ph": "B", "cname": ChromeTraceColors.MUSTARD_YELLOW}))
-        decompressed_data = zstd.decompress(data)
-        logger.debug(_get_log_msg({"name": "decompress", "ph": "E", "cname": ChromeTraceColors.MUSTARD_YELLOW}))
-        return decompressed_data
+        with trace_span("decompress", CAT_DECOMPRESS):
+            return zstd.decompress(data)
+
+    def decompress_file(self, src: str, dst: str) -> None:
+        if _PYTHON_GREATER_EQUAL_3_14:
+            from compression.zstd import ZstdFile
+
+            with open(src, "rb") as inf, open(dst, "wb") as outf, ZstdFile(inf, "r") as zf:
+                shutil.copyfileobj(zf, outf, length=1024 * 1024)
+            return
+        try:
+            import zstandard
+
+            dctx = zstandard.ZstdDecompressor()
+            with open(src, "rb") as inf, open(dst, "wb") as outf:
+                dctx.copy_stream(inf, outf)
+            return
+        except ImportError:
+            super().decompress_file(src, dst)
 
     @classmethod
     def register(cls, compressors: dict[str, "Compressor"]) -> None:

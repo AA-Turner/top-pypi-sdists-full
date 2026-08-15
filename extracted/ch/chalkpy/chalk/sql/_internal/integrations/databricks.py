@@ -57,9 +57,17 @@ class DatabricksSourceImpl(BaseSQLSource):
     ):
         try:
             from databricks import sql
+            from sqlalchemy.dialects import registry  # pyright: ignore
         except ImportError:
             raise missing_dependency_exception("chalkpy[databricks]")
         del sql
+        # Route get_engine() through databricks+chalk:// (see local_engine_url), whose
+        # dialect detects stale sessions; registration is by module path, so nothing is
+        # imported until an engine is actually created.
+        if "databricks.chalk" not in registry.impls:
+            registry.register(
+                "databricks.chalk", "chalk.sql._internal.integrations.databricks_dialect", "ChalkDatabricksDialect"
+            )
         self.host = host or load_integration_variable(
             name=_DATABRICKS_HOST_NAME, integration_name=name, override=integration_variable_override
         )
@@ -125,6 +133,11 @@ class DatabricksSourceImpl(BaseSQLSource):
         engine_args.setdefault("pool_size", 20)
         engine_args.setdefault("max_overflow", 60)
         engine_args.setdefault("connect_args", connect_args)
+        # A Databricks SQL session can be closed server-side at any time (idle timeout,
+        # warehouse restart) without the client noticing. Pre-ping each pooled connection
+        # so ChalkDatabricksDialect.is_disconnect recycles dead sessions at checkout
+        # instead of failing the query.
+        engine_args.setdefault("pool_pre_ping", True)
 
         BaseSQLSource.__init__(
             self, name=name, engine_args=engine_args, async_engine_args={}, permission_tags=permission_tags
@@ -152,19 +165,22 @@ class DatabricksSourceImpl(BaseSQLSource):
         temp_value: pa.Table,
     ):
         """Create temporary table with data for temp table pushdown"""
+        from chalk.sql._internal.sql_source import insert_size_limit
 
         chalk_logger.info(f"Creating temporary table {temp_table.name} in Databricks.")
 
-        # Execute the CREATE TABLE statement
         connection.execute(create_temp_table)
 
         try:
-            # Convert PyArrow table to pandas for insertion
-            df = temp_value.to_pandas()
-
-            # Insert data using pandas to_sql
-            df.to_sql(name=str(temp_table.name), con=connection, if_exists="append", index=False, method="multi")
-
+            # Insert with multi-row INSERT ... VALUES statements (one round trip per batch)
+            # rather than the base class's executemany-style insert: databricks-sql-connector
+            # implements executemany() as one execute() round trip per row. pandas.to_sql is
+            # not an option because pandas >= 2.2 requires sqlalchemy >= 2 for it.
+            assert temp_value.num_columns <= insert_size_limit, "temp_value has too many columns to insert rowwise"
+            batch_size = insert_size_limit // temp_value.num_columns
+            for batch_start in range(0, len(temp_value), batch_size):
+                batch = temp_value.slice(batch_start, batch_size).to_pylist()
+                connection.execute(temp_table.insert().values(batch))
             yield
         finally:
             chalk_logger.info(f"Dropping temporary table {temp_table.name} in Databricks.")
@@ -374,7 +390,7 @@ class DatabricksSourceImpl(BaseSQLSource):
         from sqlalchemy.engine.url import URL
 
         return URL.create(
-            drivername="databricks",
+            drivername="databricks+chalk",
             username="token",
             password=self.access_token,
             host=self.host,

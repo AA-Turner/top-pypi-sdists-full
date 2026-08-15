@@ -53,6 +53,78 @@ as unrestricted (manager / orchestrator tokens), and non-agent credentials
 (SSO users, the legacy operator bearer, the cluster secret) never reach this
 check at all.
 
+Route permission enforcement
+----------------------------
+Every credential that authenticates is also gated on the permission the
+requested route declares (:func:`_get_required_permission`), before the
+request reaches a handler.  Each kind is checked against the authority it
+actually carries, and refused with HTTP 403 when the route names one it
+does not hold:
+
+=========================  ===========================================
+Credential                 Checked against
+=========================  ===========================================
+SSO user JWT               the RBAC role's permissions
+Agent identity token       the signed permission set the token pins,
+                           plus :data:`_AGENT_PERMISSION_EQUIVALENTS`
+Cluster worker secret      :data:`_CLUSTER_SECRET_PERMISSIONS`, a fixed
+                           set - one string serves the whole fleet, so
+                           there is no per-worker grant to read
+Legacy static bearer       nothing; it is the operator credential
+=========================  ===========================================
+
+Agent grants use a narrower vocabulary than the route map, so the one
+authority the two spell differently is resolved through
+:data:`_AGENT_PERMISSION_EQUIVALENTS`; nothing else is implied.
+
+The gate covers reads as well as writes, because a read route's declared
+permission is what keeps one agent's log and stream output out of another
+agent's reach.
+
+It is also the only gate on most paths.  The inner cluster route layer
+(``_verify_cluster_auth`` in ``routes/task_cluster.py``) covers the mutating
+``/cluster/*`` routes and nothing else, so for ``/agents/*``, ``/bulletin``
+and ``/tasks/*`` a credential that clears this check reaches the handler.
+
+Tenant scope binding
+--------------------
+Every credential the middleware accepts is bound to exactly one tenant
+before the request reaches a handler, via
+:func:`~bernstein.core.security.tenanting.bind_request_tenant`.  Handlers
+read that binding through ``request_tenant_id`` and can therefore treat it
+as authenticated state rather than as request input:
+
+===========================  ==========================  ==============
+Credential                   Bound tenant                 May select
+                                                          another tenant
+===========================  ==========================  ==============
+SSO user JWT                 ``tenant_id`` claim, else    only with
+                             ``default``                  ``admin:manage``
+Agent identity token         the credential's own
+                             ``tenant_id`` (verified
+                             against the signed claim)    never
+Legacy static bearer         ``default``                  never
+Cluster worker secret        ``default``                  never
+Dashboard session / token    ``default``                  never
+HMAC webhook secret          ``default``                  never
+===========================  ==========================  ==============
+
+The legacy operator bearer and the cluster worker secret carry no tenant of
+their own, so they are bound to ``default`` with no reach beyond it - a
+single shared secret must not be able to name a tenant.  Deployments that
+need one operator credential to administer several tenants use an SSO
+``admin`` user, whose ``admin:manage`` permission is the explicit operator
+scope that permits selecting another tenant.
+
+``BERNSTEIN_AUTH_DISABLED`` is the one mode in which the caller's own
+``X-Tenant-Id`` becomes the bound tenant, defaulting to
+``DEFAULT_TENANT_ID`` when absent: with authentication switched off there is
+no credential to derive a scope from and no boundary left to cross, and
+local multi-tenant development depends on being able to pick a tenant.  Paths
+that reach a handler without authenticating at all - truly public paths, the
+static shell, the dev-only docs routes - are left unbound, and every reader
+of an unbound request sees ``DEFAULT_TENANT_ID`` with no reach beyond it.
+
 RFC 8707 resource indicators
 ----------------------------
 When ``expected_resource`` is configured (single string or list passed to
@@ -79,6 +151,11 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from bernstein.core.security.sanitize import sanitize_log
+from bernstein.core.security.tenanting import (
+    DEFAULT_TENANT_ID,
+    bind_request_tenant,
+    requested_tenant_override,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -91,6 +168,67 @@ if TYPE_CHECKING:
 
 _PERM_TASKS_WRITE = "tasks:write"
 _PERM_ADMIN_MANAGE = "admin:manage"
+_PERM_TASKS_CLAIM = "tasks:claim"
+_PERM_TASKS_READ = "tasks:read"
+_PERM_CLUSTER_WRITE = "cluster:write"
+_PERM_CLUSTER_READ = "cluster:read"
+_PERM_STATUS_READ = "status:read"
+
+# Grants an agent identity may hold in place of a route-map permission.
+#
+# ``_ROUTE_PERMISSIONS`` names the authority a route needs in the RBAC
+# vocabulary the SSO principal is described in.  Agent identities are minted
+# from ``AGENT_ROLE_PERMISSIONS``, a deliberately narrower vocabulary scoped
+# to what a worker agent does, and it spells the per-task write authority
+# ``tasks:claim`` rather than ``tasks:write``: claiming, progressing,
+# completing, failing and blocking a task, plus decomposing it into subtasks,
+# are the writes the spawner issues that grant for.  The two names denote the
+# same authority, so the equivalence is recorded here instead of widening the
+# issued grant, which other subsystems read for their own decisions.
+#
+# Nothing else in either vocabulary overlaps: an agent that must reach the
+# ``/agents``, ``/cluster``, ``/bulletin``, ``/auth``, ``/webhooks`` or
+# operator surfaces has to hold that surface's permission outright.
+_AGENT_PERMISSION_EQUIVALENTS: Final[dict[str, frozenset[str]]] = {
+    _PERM_TASKS_WRITE: frozenset({_PERM_TASKS_CLAIM}),
+}
+
+# Authority the cluster shared secret carries.
+#
+# Unlike an SSO user or an agent identity, this credential has no record of
+# its own to hang a grant on: it is one string handed to every worker in the
+# fleet, so it cannot be revoked per worker and cannot be narrowed per task.
+# Its authority is therefore fixed here, at exactly what joining and working
+# a cluster needs:
+#
+#   ``cluster:write`` / ``cluster:read``
+#       register, heartbeat, cordon, drain, unregister, gossip claim
+#       receipts, rebalance, and read the node registry
+#   ``tasks:write`` / ``tasks:read``
+#       pull the next task for a role and report it complete, failed or
+#       released - the work a worker node exists to do
+#   ``status:read``
+#       the read floor every credential holds; it is what
+#       :func:`_get_required_permission` returns for every read route the
+#       map does not name, including the liveness surfaces a worker polls
+#
+# Nothing else is implied.  ``agents:read`` and ``agents:kill`` are outside
+# the set on purpose: a worker drives its own agents through the local
+# spawner, never through the HTTP agent surface, so granting them would make
+# one fleet-wide string a read-and-terminate handle on every other session's
+# agent.  ``bulletin:write``, ``auth:manage`` and ``webhooks:manage`` are out
+# for the same reason - a worker never writes to those surfaces, and the
+# credential that fans out to the whole fleet is the wrong one to widen.
+# ``admin:manage`` keeps its own earlier, more specific refusal below.
+_CLUSTER_SECRET_PERMISSIONS: Final[frozenset[str]] = frozenset(
+    {
+        _PERM_CLUSTER_WRITE,
+        _PERM_CLUSTER_READ,
+        _PERM_TASKS_WRITE,
+        _PERM_TASKS_READ,
+        _PERM_STATUS_READ,
+    }
+)
 
 type _ExpectedResourceConfig = str | Sequence[str] | None
 
@@ -350,7 +488,7 @@ _RESOURCE_MALFORMED_CHALLENGE = 'Bearer error="invalid_token", error_description
 _ROUTE_PERMISSIONS: dict[str, str] = {
     "/tasks": _PERM_TASKS_WRITE,
     "/agents": "agents:write",
-    "/cluster": "cluster:write",
+    "/cluster": _PERM_CLUSTER_WRITE,
     "/bulletin": "bulletin:write",
     "/auth": "auth:manage",
     "/config": _PERM_ADMIN_MANAGE,
@@ -459,6 +597,25 @@ def _resource_indicator_check(
     )
 
 
+def _claim_tenant_id(claims: dict[str, Any]) -> str:
+    """Return the tenant a validated token declares, or the default tenant.
+
+    Reads the ``tenant_id`` claim of an already-verified token.  A missing,
+    blank, or non-string claim resolves to :data:`DEFAULT_TENANT_ID` rather
+    than to "whatever the caller asked for".
+
+    Args:
+        claims: Decoded claims of a token whose signature has been verified.
+
+    Returns:
+        The declared tenant ID, or ``DEFAULT_TENANT_ID``.
+    """
+    raw = claims.get("tenant_id")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    return DEFAULT_TENANT_ID
+
+
 def auth_disabled_via_opt_out() -> bool:
     """Return True when auth has been explicitly opted out for the process.
 
@@ -508,6 +665,53 @@ def _get_required_permission(path: str, method: str) -> str | None:
     return _PERM_ADMIN_MANAGE
 
 
+def _agent_holds_permission(agent_identity: Any, permission: str) -> bool:
+    """Return True when an agent identity holds *permission* for a route.
+
+    Applies the identity's own signed permission set first.  The set is
+    pinned to the presented token - ``AgentIdentityStore.authenticate``
+    refuses a JWT whose ``scopes`` claim differs from the stored grant - so
+    it is authenticated state rather than request input.
+
+    When the route names a permission the agent vocabulary spells
+    differently, the grants listed for it in
+    :data:`_AGENT_PERMISSION_EQUIVALENTS` satisfy it too.  Anything else is
+    refused: an agent that does not hold the permission does not get the
+    route.
+
+    Args:
+        agent_identity: The authenticated ``AgentIdentity``.
+        permission: Permission the route requires, from
+            :func:`_get_required_permission`.
+
+    Returns:
+        True when the identity is authorised for the route.
+    """
+    if agent_identity.has_permission(permission):
+        return True
+    return any(agent_identity.has_permission(grant) for grant in _AGENT_PERMISSION_EQUIVALENTS.get(permission, ()))
+
+
+def _cluster_secret_holds_permission(permission: str) -> bool:
+    """Return True when the cluster shared secret covers *permission*.
+
+    The secret's authority is the fixed set in
+    :data:`_CLUSTER_SECRET_PERMISSIONS` rather than a per-credential grant,
+    because one string serves the whole worker fleet and there is no
+    per-worker record to attach a grant to.  A route naming any other
+    permission is refused: presenting the fleet credential is not evidence
+    of authority over a surface a worker does not use.
+
+    Args:
+        permission: Permission the route requires, from
+            :func:`_get_required_permission`.
+
+    Returns:
+        True when the cluster credential is authorised for the route.
+    """
+    return permission in _CLUSTER_SECRET_PERMISSIONS
+
+
 class SSOAuthMiddleware(BaseHTTPMiddleware):
     """Multi-strategy authentication middleware.
 
@@ -553,8 +757,10 @@ class SSOAuthMiddleware(BaseHTTPMiddleware):
         self._agent_identity_store = agent_identity_store
         # The cluster shared secret is accepted as a worker credential so a
         # single token clears both this outer layer and the inner cluster
-        # route layer (#2805). It is barred from operator-only endpoints
-        # below, mirroring the agent-identity restriction.
+        # route layer (#2805). Its authority here is the fixed set in
+        # ``_CLUSTER_SECRET_PERMISSIONS``, checked against the route's
+        # declared permission below, and it keeps the separate operator-only
+        # refusal that mirrors the agent-identity restriction.
         self._cluster_secret = cluster_secret or None
         # Resolve opt-out from explicit arg > env var. Config-based opt-out
         # should be passed in via ``auth_disabled=True`` from the factory.
@@ -608,6 +814,19 @@ class SSOAuthMiddleware(BaseHTTPMiddleware):
 
         # Opt-out: pass every request through unauthenticated.
         if self._auth_disabled:
+            # No credential is presented in this mode, so there is no
+            # principal to derive a scope from and the caller's own
+            # ``X-Tenant-Id`` is the only tenant signal that exists.  Honour
+            # it as the bound scope - a request that sends none gets
+            # ``DEFAULT_TENANT_ID`` - so that developers can exercise
+            # multi-tenant behaviour locally.  This is the ONLY place a
+            # header ever becomes a bound tenant, and it is reached only when
+            # the operator has switched authentication off entirely (which
+            # logs the warning above), so there is no principal here to scope
+            # against.  ``cross_tenant`` stays False so a mismatched
+            # ``?tenant=`` selector is still refused, matching how the same
+            # request behaves once auth is switched back on.
+            bind_request_tenant(request, requested_tenant_override(request))
             response: StarletteResponse = await call_next(request)
             return response
 
@@ -634,6 +853,15 @@ class SSOAuthMiddleware(BaseHTTPMiddleware):
         # HMAC-authenticated paths: the route handler verifies a shared
         # secret; the bearer middleware lets them through.
         if path in AUTH_HMAC_PATHS or path.startswith(AUTH_HMAC_PATH_PREFIXES):
+            # These handlers create tasks, so they need a scope like any
+            # other writer.  The secrets they verify against
+            # (``BERNSTEIN_WEBHOOK_SECRET``, ``GITHUB_WEBHOOK_SECRET``) are
+            # process-wide and carry no tenant, so the same rule as the
+            # legacy bearer applies: bind to the default tenant, with no
+            # reach beyond it.  Routing webhook-created work to a named
+            # tenant is a per-tenant-secret feature, not something a header
+            # on a globally-signed request can decide.
+            bind_request_tenant(request, DEFAULT_TENANT_ID)
             response = await call_next(request)
             return response
 
@@ -649,6 +877,9 @@ class SSOAuthMiddleware(BaseHTTPMiddleware):
         if path.startswith(("/dashboard", "/api/v1/dashboard")) and bool(
             getattr(request.state, "dashboard_principal", "")
         ):
+            # Dashboard credentials carry no tenant of their own, so they are
+            # bound to the default tenant with no reach beyond it.
+            bind_request_tenant(request, DEFAULT_TENANT_ID)
             response = await call_next(request)
             return response
 
@@ -686,23 +917,30 @@ class SSOAuthMiddleware(BaseHTTPMiddleware):
                 # Legacy tokens get operator-level access
                 request.state.user = None  # type: ignore[attr-defined]
                 request.state.auth_claims = {"legacy": True}  # type: ignore[attr-defined]
+                # The legacy bearer is one static string with no tenant of its
+                # own, so it is bound to the default tenant and cannot select
+                # another.  Administering several tenants with one credential
+                # is the SSO ``admin`` user's job, where the operator scope is
+                # an explicit, per-user, revocable grant.
+                bind_request_tenant(request, DEFAULT_TENANT_ID)
                 response = await call_next(request)
                 return response
 
         # Strategy 3b: Cluster shared secret. A cluster worker presents the
-        # cluster secret to register, heartbeat, and pull tasks; it must clear
-        # this outer layer as well as the inner cluster route layer (#2805).
-        # Accepted like the legacy operator token but - like agent tokens -
-        # barred from operator-only (admin:manage) endpoints so it cannot
-        # shut down or reconfigure the server.
+        # cluster secret to register, heartbeat, and pull tasks; on the
+        # mutating ``/cluster/*`` routes it clears this outer layer as well as
+        # the inner cluster route layer (#2805), each of which enforces its
+        # own scope.  Everywhere else - ``/tasks/*``, ``/agents/*``,
+        # ``/bulletin`` - there is no inner cluster layer at all and this gate
+        # is the only one, so it is gated on the route's declared permission
+        # like every other credential kind rather than only on the
+        # operator-only refusal.
         if self._cluster_secret:
             import hmac
 
             if hmac.compare_digest(token, self._cluster_secret):
-                if (
-                    request.method not in _READ_METHODS
-                    and _get_required_permission(path, request.method) == _PERM_ADMIN_MANAGE
-                ):
+                required_permission = _get_required_permission(path, request.method)
+                if request.method not in _READ_METHODS and required_permission == _PERM_ADMIN_MANAGE:
                     return JSONResponse(
                         status_code=403,
                         content={
@@ -710,8 +948,33 @@ class SSOAuthMiddleware(BaseHTTPMiddleware):
                             "required_permission": _PERM_ADMIN_MANAGE,
                         },
                     )
+                # The fleet secret carries a fixed authority
+                # (``_CLUSTER_SECRET_PERMISSIONS``), so a route naming any
+                # other permission is refused here.  Without this the only
+                # bound on a fleet-wide string was the operator-only check on
+                # writes: it reached the session-kill route, another session's
+                # agent log and stream, and the bulletin write, holding none
+                # of the permissions those routes declare.  Reads are gated
+                # too, for the same reason they are on the agent path.
+                if required_permission and not _cluster_secret_holds_permission(required_permission):
+                    logger.warning(
+                        "Cluster credential denied %s (%s required)",
+                        sanitize_log(path),
+                        sanitize_log(required_permission),
+                    )
+                    return JSONResponse(
+                        status_code=403,
+                        content={
+                            "detail": f"Insufficient permissions. Required: {required_permission}",
+                            "required_permission": required_permission,
+                        },
+                    )
                 request.state.user = None  # type: ignore[attr-defined]
                 request.state.auth_claims = {"cluster": True}  # type: ignore[attr-defined]
+                # Like the legacy bearer: one shared secret for the whole
+                # worker fleet, so it is bound to the default tenant and
+                # reaches nothing beyond it.
+                bind_request_tenant(request, DEFAULT_TENANT_ID)
                 response = await call_next(request)
                 return response
 
@@ -750,6 +1013,17 @@ class SSOAuthMiddleware(BaseHTTPMiddleware):
 
         request.state.user = user  # type: ignore[attr-defined]
         request.state.auth_claims = claims  # type: ignore[attr-defined]
+
+        # Bind the tenant from the validated token, not from the request.  An
+        # IdP that scopes users to a tenant puts it in the ``tenant_id``
+        # claim; tokens without one are bound to the default tenant.  Only an
+        # ``admin:manage`` holder carries the operator scope that lets a
+        # request select some other tenant.
+        bind_request_tenant(
+            request,
+            _claim_tenant_id(claims),
+            cross_tenant=user.has_permission(_PERM_ADMIN_MANAGE),
+        )
 
         permission = _get_required_permission(path, request.method)
         if permission and not user.has_permission(permission):
@@ -802,11 +1076,22 @@ class SSOAuthMiddleware(BaseHTTPMiddleware):
         }
         request.state.agent_identity = agent_identity  # type: ignore[attr-defined]
 
+        # Bind the tenant the credential was issued for.  For JWT credentials
+        # the stored ``tenant_id`` is checked against the signed ``tenant_id``
+        # claim on every authentication (``_validate_jwt_claims``), so the
+        # value is cryptographically pinned to the token the agent presented.
+        # An agent works one tenant's tasks - the tenant its token was issued
+        # for - whichever tenant it names in a header.
+        credential = getattr(agent_identity, "credential", None)
+        bind_request_tenant(request, getattr(credential, "tenant_id", None))
+
+        required_permission = _get_required_permission(path, request.method)
+
         # Agent identity JWTs - even manager-role / unrestricted ones - must
         # never reach operator-only endpoints (shutdown, broadcast, drain,
         # config writer).  These mutate process-wide state and require an
         # admin SSO user or the legacy operator bearer.
-        if request.method not in _READ_METHODS and _get_required_permission(path, request.method) == _PERM_ADMIN_MANAGE:
+        if request.method not in _READ_METHODS and required_permission == _PERM_ADMIN_MANAGE:
             logger.warning(
                 "Agent %s denied operator-only path %s (admin:manage required)",
                 sanitize_log(agent_identity.id),
@@ -817,6 +1102,31 @@ class SSOAuthMiddleware(BaseHTTPMiddleware):
                 content={
                     "detail": "Agent tokens cannot access operator-only endpoints",
                     "required_permission": _PERM_ADMIN_MANAGE,
+                    "agent_id": agent_identity.id,
+                },
+            )
+
+        # Every other route is gated on the permission it declares, the same
+        # way the SSO principal is gated in ``_try_sso_auth``.  Without this
+        # an agent credential authenticated and then went straight to the
+        # handler, so the only thing a route's declared permission bounded
+        # was an SSO user: a task-scoped worker token reached the agent
+        # log/stream reads and the session-kill route while holding neither
+        # ``agents:read`` nor ``agents:kill``.  Reads are gated too - the
+        # permission a read route declares is what keeps one agent's output
+        # out of another agent's reach.
+        if required_permission and not _agent_holds_permission(agent_identity, required_permission):
+            logger.warning(
+                "Agent %s denied %s (%s required)",
+                sanitize_log(agent_identity.id),
+                sanitize_log(path),
+                sanitize_log(required_permission),
+            )
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "detail": f"Insufficient permissions. Required: {required_permission}",
+                    "required_permission": required_permission,
                     "agent_id": agent_identity.id,
                 },
             )

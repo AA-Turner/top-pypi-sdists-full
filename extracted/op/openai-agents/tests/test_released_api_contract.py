@@ -1,3 +1,5 @@
+import builtins
+import importlib
 import json
 import subprocess
 import sys
@@ -12,6 +14,7 @@ from typing import Any
 
 import pytest
 from pydantic import BaseModel, Field
+from typing_extensions import Required, TypedDict
 
 import integration_tests._contract_support as contract_support
 from integration_tests._contract_support import (
@@ -23,6 +26,7 @@ from integration_tests._contract_support import (
     _public_class_member_contract,
     _validate_parameter_contract,
     _validate_public_property_contract,
+    _validate_public_typed_dict_contract,
     build_released_api_contract,
     load_api_contract,
     load_submodule_export_policy,
@@ -38,12 +42,14 @@ def _release_policy(
     dependency_installations: tuple[OptionalDependencyInstallation, ...] = (),
     canonical_imports: tuple[dict[str, str], ...] = (),
     public_properties: tuple[dict[str, Any], ...] = (),
+    public_typed_dicts: tuple[dict[str, Any], ...] = (),
 ) -> SubmoduleExportPolicy:
     return SubmoduleExportPolicy(
         modules=modules,
         dependency_installations=dependency_installations,
         canonical_imports=canonical_imports,
         public_properties=public_properties,
+        public_typed_dicts=public_typed_dicts,
     )
 
 
@@ -300,6 +306,116 @@ def test_curated_public_property_contract_detects_removed_or_changed_properties(
         "agents.Released.retained removed or changed a released public property",
         "agents.Released.concrete_only removed or changed a released public property",
     ]
+
+
+def test_curated_public_property_contract_supports_factory_return_surfaces(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class ScriptedSession:
+        @property
+        def calls(self) -> tuple[str, ...]:
+            return ()
+
+    def scripted_session() -> ScriptedSession:
+        return ScriptedSession()
+
+    contract: dict[str, Any] = {
+        "public_properties": [
+            {
+                "module": "agents.testing",
+                "factory_name": "scripted_session",
+                "names": ["calls", "remaining_steps"],
+            }
+        ]
+    }
+    testing_module = SimpleNamespace(scripted_session=scripted_session)
+    monkeypatch.setattr(
+        contract_support,
+        "_import_contract_module",
+        lambda _module_name, _agents_module: testing_module,
+    )
+
+    assert _validate_public_property_contract(contract, testing_module) == [
+        "agents.testing.scripted_session.remaining_steps removed or changed a released public "
+        "property"
+    ]
+
+
+def test_curated_public_typed_dict_contract_detects_field_shape_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class ReleasedState(TypedDict, total=False):
+        required_name: Required[str]
+        count: int
+
+    contract: dict[str, Any] = {
+        "public_typed_dicts": [
+            {
+                "module": "agents.testing",
+                "class_name": "ReleasedState",
+                "fields": [
+                    {
+                        "name": "required_name",
+                        "required": True,
+                        "annotation": "Required[str]",
+                    },
+                    {"name": "count", "required": False, "annotation": "int"},
+                ],
+            }
+        ]
+    }
+    testing_module = SimpleNamespace(ReleasedState=ReleasedState)
+    monkeypatch.setattr(
+        contract_support,
+        "_import_contract_module",
+        lambda _module_name, _agents_module: testing_module,
+    )
+
+    assert _validate_public_typed_dict_contract(contract, testing_module) == []
+
+    class ChangedState(TypedDict, total=False):
+        required_name: int
+
+    testing_module.ReleasedState = ChangedState
+
+    assert _validate_public_typed_dict_contract(contract, testing_module) == [
+        "agents.testing.ReleasedState.required_name changed its released TypedDict field "
+        "contract: expected {'name': 'required_name', 'required': True, 'annotation': "
+        "'Required[str]'}, got {'name': 'required_name', 'required': False, "
+        "'annotation': 'int'}",
+        "agents.testing.ReleasedState.count changed its released TypedDict field contract: "
+        "expected {'name': 'count', 'required': False, 'annotation': 'int'}, got None",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("formatted", "expected"),
+    [
+        ("typing.Required[str]", "Required[str]"),
+        ("typing_extensions.Required[str]", "Required[str]"),
+        ("typing.NotRequired[str]", "NotRequired[str]"),
+        ("typing_extensions.NotRequired[str]", "NotRequired[str]"),
+        ("mytyping.Required[str]", "mytyping.Required[str]"),
+        (
+            "vendor.typing_extensions.NotRequired[str]",
+            "vendor.typing_extensions.NotRequired[str]",
+        ),
+        ("list[typing.Required[str]]", "list[typing.Required[str]]"),
+    ],
+)
+def test_typed_dict_requiredness_annotation_contract_is_python_version_independent(
+    monkeypatch: pytest.MonkeyPatch,
+    formatted: str,
+    expected: str,
+) -> None:
+    annotation = object()
+    monkeypatch.setattr(
+        contract_support.inspect,
+        "formatannotation",
+        lambda value: formatted if value is annotation else repr(value),
+    )
+
+    assert contract_support._annotation_contract(annotation) == expected
 
 
 def test_curated_public_property_contract_honors_optional_dependency_availability(
@@ -1502,7 +1618,7 @@ def test_release_contract_policy_preserves_new_optional_export_in_core_install(
     assert validate_released_api_contract(updated, agents_module=agents_module) == []
 
 
-def test_release_contract_policy_promotes_canonical_imports_and_public_properties(
+def test_release_contract_policy_promotes_curated_public_state_surfaces(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class NewPublic:
@@ -1514,8 +1630,25 @@ def test_release_contract_policy_promotes_canonical_imports_and_public_propertie
         def status(self) -> str:
             return "ready"
 
+    class FactoryResult:
+        @property
+        def calls(self) -> tuple[str, ...]:
+            return ()
+
+    def create_result() -> FactoryResult:
+        return FactoryResult()
+
+    class PublicState(TypedDict, total=False):
+        label: Required[str]
+        count: int
+
     agents_module = SimpleNamespace(__all__=[])
-    submodule = SimpleNamespace(__all__=["NewPublic"], NewPublic=NewPublic)
+    submodule = SimpleNamespace(
+        __all__=["NewPublic", "PublicState", "create_result"],
+        NewPublic=NewPublic,
+        PublicState=PublicState,
+        create_result=create_result,
+    )
     modules = {
         "agents": agents_module,
         "agents.submodule": submodule,
@@ -1528,6 +1661,7 @@ def test_release_contract_policy_promotes_canonical_imports_and_public_propertie
         "public_modules": ["agents"],
         "canonical_imports": [],
         "public_properties": [],
+        "public_typed_dicts": [],
         "callables": {},
     }
     monkeypatch.setattr(
@@ -1557,6 +1691,18 @@ def test_release_contract_policy_promotes_canonical_imports_and_public_propertie
                     "module": "agents.submodule",
                     "names": ["status"],
                 },
+                {
+                    "factory_name": "create_result",
+                    "module": "agents.submodule",
+                    "names": ["calls"],
+                },
+            ),
+            public_typed_dicts=(
+                {
+                    "class_name": "PublicState",
+                    "module": "agents.submodule",
+                    "names": ["label", "count"],
+                },
             ),
         ),
     )
@@ -1574,9 +1720,77 @@ def test_release_contract_policy_promotes_canonical_imports_and_public_propertie
             "class_name": "NewPublic",
             "module": "agents.submodule",
             "names": ["status"],
+        },
+        {
+            "factory_name": "create_result",
+            "module": "agents.submodule",
+            "names": ["calls"],
+        },
+    ]
+    assert updated["public_typed_dicts"] == [
+        {
+            "class_name": "PublicState",
+            "fields": [
+                {
+                    "name": "label",
+                    "required": True,
+                    "annotation": "Required[str]",
+                },
+                {"name": "count", "required": False, "annotation": "int"},
+            ],
+            "module": "agents.submodule",
         }
     ]
     assert updated["callables"]["agents.submodule.NewPublic"] == _callable_contract(NewPublic)
+
+
+def test_typed_dict_only_promotion_updates_baseline_commit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class PublicState(TypedDict, total=False):
+        value: str
+
+    agents_module = SimpleNamespace(__all__=[])
+    submodule = SimpleNamespace(PublicState=PublicState)
+    contract: dict[str, Any] = {
+        "baseline": "v0.20.0",
+        "baseline_commit": "a" * 40,
+        "required_top_level_exports": [],
+        "public_modules": ["agents", "agents.submodule"],
+        "required_submodule_exports": {},
+        "canonical_imports": [],
+        "public_properties": [],
+        "optional_dependency_unsupported_platforms": {},
+        "submodule_export_exclusions": [],
+        "callables": {},
+    }
+    monkeypatch.setattr(
+        contract_support,
+        "_import_contract_module",
+        lambda module_name, _agents_module: {
+            "agents": agents_module,
+            "agents.submodule": submodule,
+        }[module_name],
+    )
+
+    updated = build_released_api_contract(
+        contract,
+        baseline="v0.20.0",
+        baseline_commit="b" * 40,
+        agents_module=agents_module,
+        release_policy=_release_policy(
+            {},
+            public_typed_dicts=(
+                {
+                    "class_name": "PublicState",
+                    "module": "agents.submodule",
+                    "names": ["value"],
+                },
+            ),
+        ),
+    )
+
+    assert updated["baseline_commit"] == "b" * 40
 
 
 def test_release_contract_policy_honors_unsupported_platform_during_promotion(
@@ -1724,7 +1938,7 @@ def test_release_contract_policy_rejects_new_callable_on_unsupported_platform(
         )
 
 
-def test_release_contract_policy_rejects_new_callable_with_uninspectable_signature(
+def test_release_contract_policy_promotes_new_uninspectable_canonical_surface(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class UninspectableMeta(type):
@@ -1756,35 +1970,31 @@ def test_release_contract_policy_rejects_new_callable_with_uninspectable_signatu
         lambda module_name, _agents_module: modules[module_name],
     )
 
-    with pytest.raises(
-        ValueError,
-        match=(
-            r"Cannot promote new canonical callable agents\.submodule\.Uninspectable because "
-            r"its signature cannot be inspected.*release preparation host"
+    canonical_entry = {
+        "canonical_module": "agents.submodule.impl",
+        "canonical_name": "Uninspectable",
+        "module": "agents.submodule",
+        "name": "Uninspectable",
+    }
+
+    updated = build_released_api_contract(
+        contract,
+        baseline="v0.20.0",
+        baseline_commit="b" * 40,
+        agents_module=agents_module,
+        release_policy=_release_policy(
+            {
+                "agents.submodule": {
+                    "optional_bindings": {},
+                    "optional_exports": {},
+                }
+            },
+            canonical_imports=(canonical_entry,),
         ),
-    ):
-        build_released_api_contract(
-            contract,
-            baseline="v0.20.0",
-            baseline_commit="b" * 40,
-            agents_module=agents_module,
-            release_policy=_release_policy(
-                {
-                    "agents.submodule": {
-                        "optional_bindings": {},
-                        "optional_exports": {},
-                    }
-                },
-                canonical_imports=(
-                    {
-                        "canonical_module": "agents.submodule.impl",
-                        "canonical_name": "Uninspectable",
-                        "module": "agents.submodule",
-                        "name": "Uninspectable",
-                    },
-                ),
-            ),
-        )
+    )
+
+    assert updated["canonical_imports"] == [canonical_entry]
+    assert "agents.submodule.Uninspectable" not in updated["callables"]
 
 
 def test_release_contract_policy_keeps_existing_uninspectable_canonical_surface(
@@ -2219,6 +2429,9 @@ def test_load_submodule_export_policy_collects_artifact_installations(tmp_path: 
         '{"binding_dependency": {"requirement": "binding-package>=1"}, '
         '"export_dependency": {"extra": "export-extra"}}, "public_properties": '
         '[{"class_name": "ConditionalExport", "module": "agents.submodule", '
+        '"names": ["status"]}, {"factory_name": "create_client", '
+        '"module": "agents.submodule", "names": ["calls"]}], "public_typed_dicts": '
+        '[{"class_name": "ClientState", "module": "agents.submodule", '
         '"names": ["status"]}]}',
         encoding="utf-8",
     )
@@ -2253,9 +2466,31 @@ def test_load_submodule_export_policy_collects_artifact_installations(tmp_path: 
             "name": "ConditionalExport",
         },
     )
-    assert policy.public_properties == (
+    assert tuple(
+        entry
+        for entry in policy.public_properties
+        if entry["module"]
+        not in {
+            "agents.testing.model",
+            "agents.testing.sandbox",
+            "agents.realtime.testing",
+            "agents.voice.testing",
+        }
+    ) == (
         {
             "class_name": "ConditionalExport",
+            "module": "agents.submodule",
+            "names": ["status"],
+        },
+        {
+            "factory_name": "create_client",
+            "module": "agents.submodule",
+            "names": ["calls"],
+        },
+    )
+    assert policy.public_typed_dicts == (
+        {
+            "class_name": "ClientState",
             "module": "agents.submodule",
             "names": ["status"],
         },
@@ -2285,7 +2520,7 @@ def test_repository_release_policy_declares_v020_contract_surfaces() -> None:
         for installation in policy.dependency_installations
         if installation.dependency_module == "vercel"
     ).unsupported_platforms == ("win32",)
-    assert {(entry["module"], entry["name"]) for entry in policy.canonical_imports} == {
+    assert {(entry["module"], entry["name"]) for entry in policy.canonical_imports} >= {
         ("agents.items", "InputItem"),
         ("agents.extensions.sandbox", "ModalCloudBucketMountStrategy"),
         ("agents.extensions.sandbox", "ModalSandboxClient"),
@@ -2301,7 +2536,17 @@ def test_repository_release_policy_declares_v020_contract_surfaces() -> None:
         ("agents.extensions.sandbox", "VercelSandboxClient"),
         ("agents.extensions.sandbox", "VercelSandboxClientOptions"),
     }
-    assert policy.public_properties == (
+    assert tuple(
+        entry
+        for entry in policy.public_properties
+        if entry["module"]
+        not in {
+            "agents.testing.model",
+            "agents.testing.sandbox",
+            "agents.realtime.testing",
+            "agents.voice.testing",
+        }
+    ) == (
         {
             "class_name": "RunState",
             "module": "agents.run_state",
@@ -2327,7 +2572,185 @@ def test_repository_release_policy_declares_v020_contract_surfaces() -> None:
             "module": "agents.sandbox.session.sandbox_session_state",
             "names": ["mount_authority_redacted", "mount_authority_rebound"],
         },
+        {
+            "class_name": "ScriptedSandboxSession",
+            "module": "agents.testing",
+            "names": ["calls", "remaining_steps"],
+        },
     )
+
+
+def test_repository_release_policy_declares_public_testing_modules() -> None:
+    policy = load_submodule_export_policy(CONTRACT.with_name("released_api_contract_policy.json"))
+    expected_modules = {
+        "agents.realtime.testing",
+        "agents.testing",
+        "agents.testing.model",
+        "agents.testing.sandbox",
+        "agents.voice.testing",
+    }
+
+    assert expected_modules <= policy.modules.keys()
+    assert policy.modules["agents.voice.testing"] == {
+        "optional_bindings": {
+            export: "numpy" for export in importlib.import_module("agents.voice.testing").__all__
+        },
+        "optional_exports": {},
+    }
+    assert (
+        next(
+            installation
+            for installation in policy.dependency_installations
+            if installation.dependency_module == "numpy"
+        ).extra
+        == "voice"
+    )
+
+
+def test_repository_release_policy_declares_public_testing_state_surfaces() -> None:
+    policy = load_submodule_export_policy(CONTRACT.with_name("released_api_contract_policy.json"))
+    expected_modules = {
+        "agents.realtime.testing",
+        "agents.testing",
+        "agents.testing.model",
+        "agents.testing.sandbox",
+        "agents.voice.testing",
+    }
+
+    assert tuple(
+        entry
+        for entry in policy.public_properties
+        if entry["module"]
+        in {
+            "agents.testing.model",
+            "agents.testing.sandbox",
+            "agents.realtime.testing",
+            "agents.voice.testing",
+        }
+    ) == (
+        {
+            "class_name": "ScriptedModel",
+            "module": "agents.testing.model",
+            "names": ["calls", "remaining_steps", "first_call", "last_call"],
+        },
+        {
+            "class_name": "ScriptedRealtimeModel",
+            "module": "agents.realtime.testing",
+            "names": ["listeners", "connect_calls", "sent_events", "remaining_steps"],
+        },
+        {
+            "factory_name": "scripted_sandbox_session",
+            "module": "agents.testing.sandbox",
+            "names": ["calls", "remaining_steps"],
+        },
+        {
+            "class_name": "ScriptedSTTModel",
+            "module": "agents.voice.testing",
+            "names": ["calls", "session_calls", "created_sessions"],
+        },
+        {
+            "class_name": "ScriptedTTSModel",
+            "module": "agents.voice.testing",
+            "names": ["calls"],
+        },
+        {
+            "class_name": "ScriptedVoiceWorkflow",
+            "module": "agents.voice.testing",
+            "names": ["transcriptions"],
+        },
+    )
+    assert policy.public_typed_dicts == (
+        {
+            "class_name": "ModelStepSpec",
+            "module": "agents.testing.model",
+            "names": [
+                "output",
+                "usage",
+                "response_id",
+                "request_id",
+                "raw_usage",
+                "error",
+                "responder",
+                "stream_events",
+                "retry_advice",
+            ],
+        },
+        {
+            "class_name": "SandboxStepSpec",
+            "module": "agents.testing.sandbox",
+            "names": ["method", "match", "result", "responder", "error"],
+        },
+        {
+            "class_name": "RealtimeConnectCall",
+            "module": "agents.realtime.testing",
+            "names": [
+                "api_key_provided",
+                "headers_provided",
+                "url",
+                "initial_model_settings",
+                "playback_tracker",
+                "call_id",
+            ],
+        },
+    )
+    for module_name in expected_modules:
+        module = importlib.import_module(module_name)
+        assert module.__all__
+        assert all(type(export) is str for export in module.__all__)
+
+    expected_canonical_imports = {
+        ("agents.testing", name, "agents.testing.model", name)
+        for name in importlib.import_module("agents.testing.model").__all__
+    } | {
+        ("agents.testing", name, "agents.testing.sandbox", name)
+        for name in importlib.import_module("agents.testing.sandbox").__all__
+    }
+    actual_canonical_imports = {
+        (
+            entry["module"],
+            entry["name"],
+            entry["canonical_module"],
+            entry["canonical_name"],
+        )
+        for entry in policy.canonical_imports
+        if entry["module"] == "agents.testing"
+    }
+
+    assert actual_canonical_imports == expected_canonical_imports
+    for module_name, name, canonical_module_name, canonical_name in actual_canonical_imports:
+        module = importlib.import_module(module_name)
+        canonical_module = importlib.import_module(canonical_module_name)
+        assert getattr(module, name) is getattr(canonical_module, canonical_name)
+
+
+def test_voice_testing_start_sentinel_has_stable_contract_identity() -> None:
+    from agents.voice.testing import _START_NOT_CONFIGURED
+
+    assert _default_contract(_START_NOT_CONFIGURED) == {
+        "kind": "sentinel",
+        "identity": "agents.voice.testing._START_NOT_CONFIGURED",
+    }
+    with pytest.raises(TypeError, match="Unsupported public API default value: builtins.object"):
+        _default_contract(object())
+
+
+def test_default_contract_does_not_import_voice_testing_for_unrelated_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_import = builtins.__import__
+
+    def guarded_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == "agents.voice.testing":
+            raise AssertionError("Unrelated defaults must not import the optional Voice package.")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+    assert _default_contract(()) == {
+        "kind": "sequence",
+        "type": "builtins.tuple",
+        "items": [],
+    }
 
 
 @pytest.mark.parametrize(
@@ -2418,6 +2841,37 @@ def test_public_api_contract_allows_declared_optional_submodule_binding(
             agents_module if module_name == "agents" else submodule
         ),
     )
+
+    assert validate_released_api_contract(contract, agents_module=agents_module) == []
+
+
+def test_public_api_contract_skips_fully_optional_unimportable_submodule(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    agents_module = SimpleNamespace(__all__=[])
+    contract: dict[str, Any] = {
+        "required_top_level_exports": [],
+        "public_modules": ["agents.optional_submodule"],
+        "required_submodule_exports": {
+            "agents.optional_submodule": {
+                "names": ["OptionalClient", "OptionalConfig"],
+                "optional_bindings": {
+                    "OptionalClient": "missing_optional_dependency",
+                    "OptionalConfig": "missing_optional_dependency",
+                },
+                "optional_exports": {},
+            }
+        },
+        "canonical_imports": [],
+        "callables": {},
+    }
+
+    def import_module(module_name: str, _agents_module: object) -> object:
+        if module_name == "agents":
+            return agents_module
+        raise ImportError("The optional dependency is unavailable.")
+
+    monkeypatch.setattr(contract_support, "_import_contract_module", import_module)
 
     assert validate_released_api_contract(contract, agents_module=agents_module) == []
 

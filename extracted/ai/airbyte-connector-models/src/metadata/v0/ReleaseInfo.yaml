@@ -1,0 +1,62 @@
+---
+"$schema": http://json-schema.org/draft-07/schema#
+"$id": https://github.com/airbytehq/airbyte-connector-models/src/metadata/v0/ReleaseInfo.yaml
+title: ReleaseInfo
+description: >-
+  Attribution for the pull request and author that released this connector
+  version. DO NOT DEFINE THIS FIELD MANUALLY. It will be overwritten by the CI.
+type: object
+additionalProperties: false
+required:
+  - source
+properties:
+  pr_number:
+    type: [integer, "null"]
+    description: The number of the pull request that released this version.
+  pr_url:
+    type: [string, "null"]
+    description: The URL of the pull request that released this version.
+  pr_author_id:
+    type: [integer, "null"]
+    description: The GitHub account ID of the pull request author.
+  pr_author_login:
+    type: [string, "null"]
+    description: The GitHub login of the pull request author.
+  pr_author_type:
+    oneOf:
+      - type: string
+        enum:
+          - User
+          - Bot
+          - Unknown
+      - type: "null"
+    description: >-
+      Whether the pull request author is a human user, a bot, or unknown. Bot and
+      unknown authors must never be contacted as a human owner of the release.
+      Unknown means that the author could not be determined.
+  attributed_to:
+    type: [string, "null"]
+    description: The party the release is attributed to, which may differ from the pull request author.
+  merge_commit_sha:
+    type: [string, "null"]
+    description: >-
+      The sha of the commit that merged the releasing pull request. Null for
+      prereleases, which are published from an unmerged branch.
+  merged_at:
+    type: [string, "null"]
+    format: date-time
+    description: >-
+      The timestamp at which the releasing pull request was merged. Null for
+      prereleases, which are published from an unmerged branch.
+  released_at:
+    type: [string, "null"]
+    format: date-time
+    description: The best available timestamp for when this version was released.
+  source:
+    type: string
+    description: How the attribution was determined.
+    enum:
+      - publish
+      - git-backfill
+      - prerelease
+      - changelog

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: python-squarelet
-Version: 0.3.1
+Version: 0.4.0
 Summary: Python library that handles token authentication for MuckRock and DocumentCloud
 Project-URL: Homepage, https://github.com/MuckRock/python-squarelet
 Project-URL: Bug Tracker, https://github.com/MuckRock/python-squarelet/issues
@@ -50,4 +50,10 @@ Generally, it is safer to access your username as local environment variables us
 ```python
 username = os.environ["SQ_USERNAME"]
 password = os.environ["SQ_PASSWORD"]
+```
+
+## Running tests
+You can run tests from the project root by running:
+```bash 
+$ pytest src/squarelet/tests.py
 ```

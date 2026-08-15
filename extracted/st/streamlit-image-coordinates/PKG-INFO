@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: streamlit-image-coordinates
-Version: 0.4.0
+Version: 0.4.1
 Summary: Streamlit component that displays an image and returns the coordinates when you click on it
 Keywords: python,streamlit,images,component,streamlit-component
 Author: Zachary Blackwood

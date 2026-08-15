@@ -111,8 +111,34 @@ def compute_confusion_groups(
 
 def compute_distinguishing_maps(
     threshold: float = 0.80,
+    overlap_threshold: float | None = None,
 ) -> DistinguishingMaps:
     """Compute distinguishing byte maps and Unicode categories for all confusion pairs.
+
+    Byte-similar siblings — similarity >= *threshold*, the classic
+    within-family pairs (DOS vs DOS, EBCDIC vs EBCDIC) — are always
+    generated.
+
+    Passing *overlap_threshold* adds a second tier of cross-family
+    colliders: similarity >= that value AND the two encodings serve at
+    least one common registry language.  Encodings for the same languages
+    produce near-tie statistical scores on that language's prose even
+    though their byte tables differ wholesale (cp850 vs windows-1252 on
+    Spanish), so in principle those near-ties want distinguishing-byte
+    arbitration too.  The language-overlap gate keeps cross-script pairs
+    out: a Latin and a Cyrillic page share exactly the ASCII half
+    (similarity 0.5) but never a language.
+
+    The tier is off by default because it was measured and does not pay.
+    At 0.45 it added 141 pairs on top of the 95 siblings and grew
+    confusion.bin from 8,214 to 60,623 bytes, and over the whole test
+    corpus it changed exactly one file's detection — one that is wrong
+    either way.  Lenient and strict accuracy are identical with it on and
+    off (3113 and 2571 of 3121), and the full suite passes both ways,
+    while it costs 11% of detection wall clock under mypyc because every
+    additional pair is one more that arbitrates instead of returning
+    early.  Enable it only alongside evidence that some pair earns its
+    keep; sweeping 0.45/0.55/0.65/0.75/0.85 moved no accuracy at all.
 
     Returns a dict mapping (enc_a, enc_b) -> (diff_bytes, categories) where:
     - diff_bytes: frozenset of byte values that decode differently
@@ -131,8 +157,10 @@ def compute_distinguishing_maps(
 
     # Compute byte tables
     tables: dict[str, list[str | None]] = {}
+    languages: dict[str, frozenset[str]] = {}
     for enc in single_byte:
         tables[enc.name] = _decode_byte_table(enc.name)
+        languages[enc.name] = frozenset(enc.languages)
 
     names = [enc.name for enc in single_byte]
     result: DistinguishingMaps = {}
@@ -142,7 +170,15 @@ def compute_distinguishing_maps(
             sim, diff_bytes = _compute_pairwise_similarity(
                 tables[name_a], tables[name_b]
             )
-            if sim < threshold:
+            cross_family = (
+                overlap_threshold is not None
+                and sim >= overlap_threshold
+                and bool(languages[name_a] & languages[name_b])
+            )
+            if sim < threshold and not cross_family:
+                continue
+            # Serialization stores the diff count as a u8.
+            if len(diff_bytes) > 255:
                 continue
             # Build category map for distinguishing bytes
             categories: dict[int, tuple[str, str]] = {}

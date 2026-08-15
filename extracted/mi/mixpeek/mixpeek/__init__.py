@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.345"
+__version__ = "1.3.354"
 
 # Define package exports
 __all__ = [
@@ -985,6 +985,9 @@ __all__ = [
     "SchemaSyncRequest",
     "SchemaSyncResponse",
     "SchemaSyncSkippedResponse",
+    "ScoreItem",
+    "ScorePredictionsRequest",
+    "ScorePredictionsResponse",
     "ScrollPaginationParams",
     "ScrollingTextExtractorParams",
     "SearchInteraction",
@@ -2318,6 +2321,9 @@ from mixpeek.models.schema_mapping_output import SchemaMappingOutput as SchemaMa
 from mixpeek.models.schema_sync_request import SchemaSyncRequest as SchemaSyncRequest
 from mixpeek.models.schema_sync_response import SchemaSyncResponse as SchemaSyncResponse
 from mixpeek.models.schema_sync_skipped_response import SchemaSyncSkippedResponse as SchemaSyncSkippedResponse
+from mixpeek.models.score_item import ScoreItem as ScoreItem
+from mixpeek.models.score_predictions_request import ScorePredictionsRequest as ScorePredictionsRequest
+from mixpeek.models.score_predictions_response import ScorePredictionsResponse as ScorePredictionsResponse
 from mixpeek.models.scroll_pagination_params import ScrollPaginationParams as ScrollPaginationParams
 from mixpeek.models.scrolling_text_extractor_params import ScrollingTextExtractorParams as ScrollingTextExtractorParams
 from mixpeek.models.search_interaction import SearchInteraction as SearchInteraction

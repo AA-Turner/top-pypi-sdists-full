@@ -32,10 +32,10 @@ class CreateFailoverTestJobRequest(DaraModel):
         # 
         # The description must be 0 to 256 characters in length and cannot start with `http://` or `https://`.
         self.description = description
-        # Specifies whether to perform only a dry run, without performing the actual request. Valid values:
+        # Specifies whether to perform a dry run. Valid values:
         # 
-        # - **true**: sends the request without creating the failover test node. The system checks the request for potential issues, including whether the AccessKey is valid, the authorization of the Resource Access Management (RAM) user, and whether required parameters are specified. If the check fails, the corresponding error is returned. If the check passes, the DryRunOperation error code is returned.
-        # - **false** (default): sends a Normal request, and the failover test job is created after the check passes. A 2xx HTTP status code is returned.
+        # - **true**: performs a dry run without creating the failover test node. The system checks the AccessKey pair, the authorization of the Resource Access Management (RAM) user, and whether the required parameters are specified. If the check fails, the corresponding error is returned. If the check passes, the DryRunOperation error code is returned.
+        # - **false** (default): sends a Normal request. If the check passes, a 2xx HTTP status code is returned and the failover test node is created.
         self.dry_run = dry_run
         # The duration of the failover test job. Unit: minutes. Valid values: **1 to 4320**.
         # 
@@ -43,9 +43,9 @@ class CreateFailoverTestJobRequest(DaraModel):
         self.job_duration = job_duration
         # The type of the failover test job. Valid values:
         # 
-        # - **StartNow**: The failover test starts immediately after the job is created.
+        # - **StartNow**: starts immediately. The failover test job starts immediately after it is created.
         # 
-        # - **StartLater**: Only the job is created. The failover test does not start.
+        # - **StartLater**: does not start. Only the failover test job is created without starting the test.
         # 
         # This parameter is required.
         self.job_type = job_type

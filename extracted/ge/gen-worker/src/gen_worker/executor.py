@@ -110,8 +110,13 @@ from .models.memory import (
 )
 from .models import rung as rungspec
 from .models.rung import touches_host_ram, transition_line
-from .models.records import record_in_use, record_refs, records_holding
-from .models.envelope import ArtifactEnvelopeExceeded
+from .models.records import (
+    RecordTeardown,
+    record_in_use,
+    record_refs,
+    records_holding,
+    vacate_record,
+)
 from .models.errors import MissingSnapshotError, UrlExpiredError
 from .models.execution_lanes import ExecutionLaneUnavailableError
 from .topology import (
@@ -157,8 +162,8 @@ from .models.loading import (
 from .compile_cache import CompiledExecutionLaneUnavailableError
 from .preload import Preloader
 from .api.binding import rebind_pick
-from .models.hub_policy import FIT_INCOMPATIBLE, TensorhubWorkerCapabilities
-from .models.serve_fit import (RUN_CPU, RUN_FP8_STORAGE,
+from .models.hub_policy import TensorhubWorkerCapabilities
+from .models.serve_fit import (RUN_FP8_STORAGE,
                                    RUN_OFFLOAD, plan_serve)
 from . import postmortem
 from .models.serve_fit import replan
@@ -181,7 +186,7 @@ from . import fleet_cells
 from . import aot_serve, numerics_ladder, shape_growth
 from . import fleet_cells as fleet_cells_mod
 from . import hot_swap
-from . import mint_delegate
+from . import mint_supervisor
 
 _CONTEXT_BY_KIND: Dict[str, type] = {
     "inference": RequestContext,
@@ -326,9 +331,10 @@ def _snapshot_digest(snapshots: Any, ref: str) -> str:
 
 def _reserved_repo_info(payload: Any, field_name: str) -> Dict[str, Any]:
     """``payload.source`` / ``payload.destination`` / ``payload.text_encoder``
-    / ``payload.candidate`` as a plain dict ({} when absent). Producer payloads
-    carry these reserved-name structs (#376, pgw#594, pgw#684). The set of
-    names is hardcoded here; pgw#690 tracks making it declarative."""
+    / ``payload.candidate`` / ``payload.resume_from`` as a plain dict ({} when
+    absent). Producer payloads carry these reserved-name structs (#376,
+    pgw#594, pgw#684, pgw#1242). The set of names is hardcoded here; pgw#690
+    tracks making it declarative."""
     obj = getattr(payload, field_name, None)
     if obj is None:
         return {}
@@ -714,30 +720,26 @@ def _shared_execution_lanes_need_fp8(
     return fp8_needed + margin_bytes <= free_vram_bytes
 
 
-def _estimate_setup_need(
-    per_ref: typing.Sequence[Tuple[int, int]],
-    vram_gb: float,
-) -> int:
+def _estimate_setup_need(per_ref: typing.Sequence[Tuple[int, int]]) -> int:
     """Pre-load VRAM headroom estimate for one setup's refs (pgw#636).
 
     ``per_ref`` carries ``(vram_hint, snapshot_bytes)`` per ref: a prior
-    MEASURED footprint wins; else the wire snapshot's byte total (an honest
-    first-load footprint for stored-precision lanes — make_room's margin
-    covers slack). Only when a ref has NEITHER fact does the declared
-    ``vram_gb`` floor the total: the declaration is a placement MINIMUM
-    ("a card with at least this much"), never a per-load reservation —
-    reserving it wholesale for every never-seen checkpoint pick evicted the
-    resident pipeline on 24 GB cards and pinned workers to one pipeline
-    (the 2026-07-24 9.8/24 GB incident)."""
+    MEASURED footprint wins, else the wire snapshot's byte total (an honest
+    first-load footprint for stored-precision lanes — make_room's margin covers
+    slack). Both terms are MEASUREMENTS of bytes at hand.
+
+    th#1867 deleted the third term. A ref with NEITHER fact used to raise the
+    total to the endpoint's declared ``vram_gb``, and that declaration is gone
+    (§2.4 ruling 4). The estimate is now strictly what is known: an unweighed
+    ref contributes nothing, ``make_room`` evicts what the known refs need, and
+    a genuine shortfall is found by the load and carried down the rung ladder —
+    the same trade §1.35 makes everywhere else. Guessing here was never safe
+    anyway: reserving a declared minimum wholesale for every never-seen
+    checkpoint pick evicted the resident pipeline on 24 GB cards and pinned
+    workers to one pipeline (the 2026-07-24 9.8/24 GB incident)."""
     needed = 0
-    unknown = False
     for hint, snapshot_bytes in per_ref:
-        size = hint if hint > 0 else max(0, int(snapshot_bytes))
-        if size <= 0:
-            unknown = True
-        needed += size
-    if unknown and vram_gb > 0:
-        needed = max(needed, int(vram_gb * _GiB))
+        needed += hint if hint > 0 else max(0, int(snapshot_bytes))
     return needed
 
 
@@ -2133,7 +2135,7 @@ class Executor:
             async with self._load_lock:
                 if record_in_use(rec, records=self._classes.values(), jobs=self.jobs.values(), residency=self.store.residency):
                     return
-                await self._vacate_record(rec)
+                await vacate_record(rec, self.teardown_seam)
         self._on_state_change()
 
     async def revalidate_snapshot_identity(
@@ -2170,19 +2172,19 @@ class Executor:
     def gate_functions(self, gpu_info: Dict[str, Any]) -> None:
         """Run hardware gates; populate self.unavailable + self.serve_plans.
 
-        th#683 P3 — the worker NEVER hard-refuses a function on the
-        recommended-VRAM hint. Genuine incompatibilities (compute capability /
-        missing quant library / a stored flavor outside its SM window) still
-        gate a function off; everything else is an ADAPTIVE FIT: the function
-        serves by the best available means (native -> runtime fp8 storage ->
-        emergency 4-bit -> CPU/disk offload -> CPU-only) and records an honest
-        advisory. Needing offload/CPU is NEVER a refusal (Paul's ruling
-        2026-07-10: gen workers offload out of necessity, not preference —
-        better to run degraded than not run). The only opt-out is the
-        author's own ``Resources(strict_vram=True)`` for bindings that
-        cannot tolerate CPU-resident weights. Every degraded serve is
-        reported structurally (FnDegraded) so the orchestrator can move the
-        release to a bigger card.
+        th#683 P3, as th#1867 left it — the worker NEVER refuses a function
+        because of a card's SIZE, and after §1.35 there is no size input left
+        for it to refuse on. Exactly TWO gates survive here, and both name OUR
+        code: a quant library this IMAGE does not carry
+        (``missing_cuda_library``), and no CUDA device at all
+        (``cuda_unavailable`` — the owned pgw#1212 exception, see
+        ``models/serve_fit``). Everything else serves by the best available
+        means, and WHICH means is measured at load time by
+        ``models/memory.select_auto_mode`` rather than predicted here. Needing
+        offload is NEVER a refusal (Paul's ruling 2026-07-10: gen workers
+        offload out of necessity, not preference — better to run degraded than
+        not run). Every degraded serve is reported structurally (FnDegraded)
+        as evidence for the OPERATOR; nothing on this path sizes a card.
         """
 
         # Idempotent re-gate (gw#494): drop only the marks THIS gate made
@@ -2199,7 +2201,7 @@ class Executor:
         # `gpu_free_mem` is genuinely 0 on a SATURATED card, which is exactly
         # the state where the native/fp8/4-bit/offload/CPU ladder must engage
         # and exactly the state that then read as "all of VRAM is free". This
-        # figure feeds `plan_serve`/`variant_fit` and what the pod advertises
+        # figure feeds what the pod advertises
         # to the hub, so an unmeasured card must present as no room, not as an
         # empty one. `lifecycle.probe_hardware` initialises the key to 0 and
         # wraps its whole CUDA probe in `except Exception: pass`, so "the
@@ -2286,9 +2288,10 @@ class Executor:
                 self._gate_owned.add(name)
                 continue
             # SDK v2 (pgw#647): NO compute-capability gate — precision per
-            # card class is the fit ladder's decision (sdxl runs fine in
-            # fp16 on sm75); only stored-flavor SM windows (svdq/nvfp4,
-            # via variant_fit) remain genuinely hard.
+            # card class is the fit ladder's decision (sdxl runs fine in fp16
+            # on sm75). pgw#1148 moved the stored-flavor SM windows onto the
+            # loaders' tensor-layout contracts, so nothing SM-shaped is left
+            # in this gate at all.
             missing = [lib for lib in (r.libraries or ()) if lib not in libs]
             if missing:
                 import importlib.util
@@ -2300,30 +2303,25 @@ class Executor:
                 self._gate_owned.add(name)
                 continue
 
-            # Adaptive serve-time fit for the VRAM / GPU-presence / stored-
-            # flavor dimensions. The primary binding carries the flavor token
-            # (#fp8 / #nvfp4 / #svdq-*) whose SM window variant_fit gates.
+            # Serve-time plan. th#1867: this no longer asks a size question —
+            # `plan_serve` returns non-serveable ONLY for the two gates that
+            # name our own code.
             primary = next(iter(spec.models.values()), None)
             plan = plan_serve(r, caps, free_vram_gb, binding=primary)
             self.serve_plans[name] = plan
             self._gate_serve_plans[name] = plan
             if not plan.serveable:
-                if plan.run_mode in (RUN_CPU, RUN_OFFLOAD):
-                    # The author's strict_vram opt-out of the CPU-touching
-                    # rungs: on a GPU-less host that reads as no-CUDA, on a
-                    # too-small card as a VRAM shortfall.
-                    code = "cuda_unavailable" if plan.run_mode == RUN_CPU else "insufficient_vram"
-                elif plan.fit == FIT_INCOMPATIBLE:
-                    # A stored flavor outside its hardware window (fp8 /
-                    # nvfp4 / svdq SM gates, quant stack pins).
-                    code = "compute_capability_unmet"
-                else:
-                    code = "insufficient_vram"
+                # After th#1867 the planner has ONE non-serveable verdict left
+                # and it is a library one — our IMAGE is short a dependency.
+                # The `missing_cuda_library` gate above normally catches it
+                # first (it re-checks with importlib), so reaching here means
+                # the two library views disagreed. Report it under the same
+                # honest token rather than inventing a card verdict for it:
+                # naming a GPU problem that does not exist is exactly what
+                # `compute_capability_unmet` was deleted for (§2.7).
                 self.unavailable[name] = (
-                    code, plan.reason,
-                    {"detected_vram_gb": f"{total_vram_gb:.0f}",
-                     "recommended_vram_gb": (
-                         f"{r.vram_gb_hint:.0f}" if r.vram_gb_hint else "")})
+                    "missing_cuda_library", plan.reason,
+                    {"detected_vram_gb": f"{total_vram_gb:.0f}"})
                 self._gate_owned.add(name)
                 continue
             if plan.degraded:
@@ -4386,7 +4384,7 @@ class Executor:
                     reason=pb.LIFECYCLE_WAIT_REASON_LOAD_LOCK,
                     resume_stage=pb.LIFECYCLE_INTENT_STAGE_LOADING_HOST,
                 ):
-                    await self._vacate_record(rec)
+                    await vacate_record(rec, self.teardown_seam)
             if rec.ready:
                 await self._promote_setup_refs(spec, promote_slots, rec=rec)
                 self._intent_transition(
@@ -4574,7 +4572,7 @@ class Executor:
         # pgw#805: a boot that DECLARED a compile target and ends with no
         # artifact and no mint in flight must say so. This is the terminal
         # backstop for the whole miss policy — the individual declines
-        # (fleet_cells._fail_closed, mint_recipe, mint_delegate) each name
+        # (fleet_cells._fail_closed, mint_recipe, mint_supervisor) each name
         # themselves, and this one catches whatever route a future decline
         # takes. Five real L4 pods reached exactly this state and emitted
         # nothing at all, which reads identically to a hung worker.
@@ -5120,16 +5118,6 @@ class Executor:
             # every attempt is this function's terminal truth (th#1159's
             # genuinely-unfittable VRAM lane is the case this exists for).
             reason, axes = "retry_exhausted", {}
-        elif isinstance(exc, ArtifactEnvelopeExceeded):
-            # pgw#1117 / th#1777: a RELEASE/BINDING verdict, reported under
-            # its own token so the hub can tell it apart from the OOM it
-            # replaces. Deliberately ahead of nothing and behind nothing
-            # meaningful — it is not a HardwareUnmetError (no machine was
-            # consulted, and routing it there would teach the buy-floor
-            # learner to shop for a card big enough to serve an archive
-            # clone) and not a bare setup_failed (which the hub reads as
-            # "the pod could not boot" and feeds to the breaker).
-            reason, axes = exc.reason, exc.axes()
         elif isinstance(exc, HardwareUnmetError):
             reason = getattr(exc, "reason", "hardware_unmet")
             axes = {str(k): str(v) for k, v in (exc.axes() or {}).items()}
@@ -5208,7 +5196,7 @@ class Executor:
         if not self._record_has_setup_ownership(rec):
             return
         async with self._load_lock:
-            released = await self._vacate_record(rec)
+            released = await vacate_record(rec, self.teardown_seam)
         await aflush_memory()
         released_pinned = await asyncio.to_thread(
             release_unused_pinned_host_cache)
@@ -5682,11 +5670,15 @@ class Executor:
                     # The pipe serves eager until `adopt_delegated_mint` reads
                     # the STAMPED key off the packed envelope.
                     mint_pipes[pid] = candidate.pipeline
-                    hot_swap.enable(candidate.pipeline)
                     # pgw#677: the mint's own background compiles are the
                     # first consumers of the turn gate — wire it before the
-                    # first seed can enqueue a warm job.
+                    # first seed can enqueue a warm job. pgw#1215 step 4: this
+                    # pair used to run in the opposite order, which the prose
+                    # already said was wrong; `Router.enable` now refuses an
+                    # ungated router typed, so the order is enforced instead
+                    # of merely intended.
                     self._wire_turn_gate(rec, candidate.pipeline)
+                    hot_swap.enable(candidate.pipeline)
                 rec.background_mint = _BackgroundMint(
                     spec=spec,
                     instance=instance,
@@ -6873,7 +6865,7 @@ class Executor:
         A warm pipeline is owned by both Residency and its endpoint
         ``_ClassRecord``. Clearing only the Residency reference reports
         ON_DISK while ``record.instance`` still owns every tensor. Evict
-        record-owned victims through ``_vacate_record``; only ownerless
+        record-owned victims through ``records.vacate_record``; only ownerless
         entries may use ``release_to_disk`` directly. Re-probe observed RAM
         after every teardown and fail RETRYABLE if the real headroom still
         cannot cover the incoming bytes plus the derived floor.
@@ -6965,7 +6957,7 @@ class Executor:
                     held for held in record_refs(rec)
                     if res.tier(held) in (residency_mod.Tier.RAM, residency_mod.Tier.VRAM)
                 ]
-                released = await self._vacate_record(rec)
+                released = await vacate_record(rec, self.teardown_seam)
                 evicted.extend(released)
                 logger.info(
                     "host-RAM admission vacated warm record refs=%s for %s",
@@ -7091,8 +7083,7 @@ class Executor:
             [
                 (res.vram_hint(r), sum(self.store.component_sizes(r).values()))
                 for r in refs
-            ],
-            float(spec.resources.vram_gb_hint or 0),
+            ]
         )
         if needed <= 0:
             return
@@ -7116,7 +7107,7 @@ class Executor:
             rec = owners[0]
             if record_in_use(rec, records=self._classes.values(), jobs=self.jobs.values(), residency=self.store.residency, reclaim_ref=ref):
                 continue
-            await self._vacate_record(rec)
+            await vacate_record(rec, self.teardown_seam)
             if await asyncio.to_thread(make_room):
                 self._on_state_change()
                 return
@@ -7432,12 +7423,8 @@ class Executor:
                             provision.load_slot, ann, path, binding=binding,
                             slot=slot, ref=ref, mode=mode, components=injected,
                             component_trees=override_trees or None,
-                            declared_vram_gb=float(
-                                spec.resources.vram_gb_hint or 0),
                             force_storage_dtype=(
                                 "fp8" if slot in force_fp8_slots else ""),
-                            strict_vram=bool(spec.resources.strict_vram),
-                            artifact_digest=_snapshot_digest(snapshots, ref),
                         )
                     except Exception as exc:
                         # Corruption-shaped load failure (gw#408): digest-verify
@@ -7461,12 +7448,8 @@ class Executor:
                             provision.load_slot, ann, path, binding=binding,
                             slot=slot, ref=ref, mode=mode, components=injected,
                             component_trees=override_trees or None,
-                            declared_vram_gb=float(
-                                spec.resources.vram_gb_hint or 0),
                             force_storage_dtype=(
                                 "fp8" if slot in force_fp8_slots else ""),
-                            strict_vram=bool(spec.resources.strict_vram),
-                            artifact_digest=_snapshot_digest(snapshots, ref),
                         )
                     pipe = sl.obj
                     # pgw#678: record the PIPELINE identity for this slot
@@ -7898,7 +7881,7 @@ class Executor:
             if fleet_cells_mod.terminus_of(pending):
                 continue
             if driver_owns_delegated and getattr(pending, "delegated", False):
-                # The child owns it; `_delegated_mint_run` resolves it and is
+                # The supervisor owns it; `_supervise_mint` resolves it and is
                 # the one that must confess if it does not.
                 continue
             family = str(getattr(pending, "family", "") or "")
@@ -8055,7 +8038,7 @@ class Executor:
         assert act is not None
         try:
             with activity_mod.watchdog(act):
-                await self._background_mint_run(rec, bg, act)
+                await self._supervise_mint(rec, bg, act)
                 await self._await_publish_durable(act)
         except (_MintAbandoned, asyncio.CancelledError):
             self._abandon_mint_state(rec, bg)
@@ -8155,22 +8138,7 @@ class Executor:
         except Exception:  # noqa: BLE001 — never fail a mint on its own telemetry
             logger.debug("publish-durability wait failed", exc_info=True)
 
-    async def _background_mint_run(
-        self, rec: _ClassRecord, bg: "_BackgroundMint", act: Any,
-    ) -> None:
-        """Drive the owed mint(s) for this record, off the serving path.
-
-        pgw#1010: one route. What used to stand here — seed a capture in THIS
-        interpreter, drive the warm plan, prove, pack, publish — built a dynamo
-        cell, and a dynamo cell has no consumer. It also violated the liveness
-        contract by construction (long-running GIL-holding inductor Python on
-        the one task that carries the beat and eager serving, th#1299), and it
-        was reachable only behind an env switch kept "to red-verify that".
-        Both are gone; every mint is a child process.
-        """
-        await self._delegated_mint_run(rec, bg, act)
-
-    def _advertise_minted_cells(
+    def _advertise_compiled_graphs(
         self, rec: _ClassRecord, bg: "_BackgroundMint", act: Any,
         finalized: Dict[int, Any],
     ) -> None:
@@ -8178,8 +8146,10 @@ class Executor:
 
         State stays READY throughout — the tier flips eager->compiled in the
         next capability projection — and pgw#622 stays alive for post-mint
-        novel shapes. Shared by the in-process and delegated routes (pgw#784):
-        the artifact SOURCE differs, what it means to advertise one does not.
+        novel shapes. RESIDENCY, deliberately kept out of ``mint_supervisor``:
+        which pipe holds what, and what the wire is told about it, is this
+        module's question — the supervisor answers only "which compiled graphs
+        exist and did they arm".
 
         pgw#1113: ``finalized`` holds exactly the pipes that ARMED the cell.
         The caller no longer expands it across every pid that happened to hold
@@ -8217,58 +8187,67 @@ class Executor:
                     continue
             hot_swap.enable(pipe)
 
-    async def _delegated_mint_run(
+    async def _supervise_mint(
         self, rec: _ClassRecord, bg: "_BackgroundMint", act: Any,
     ) -> None:
-        """pgw#784: build every owed cell in a CHILD PROCESS, then advertise.
+        """th#1834 Phase 3 (pgw#1215 step 4): supervise this record's compile
+        children directly, then advertise what armed.
 
-        The delegated twin of ``_background_mint_run``, and far shorter,
-        because the phases that used to live here — seed, drain the queued
-        compiles, prove, pack — are the child's now. What stays is what only a
-        serving worker can do: keep serving eager and beating while it happens,
-        adopt the result through the DELIVERED-cell path, decide publish on
-        gw#612's sibling-coverage rule, and advertise the identity.
+        This replaced ``_background_mint_run`` / ``_delegated_mint_run``, which
+        were a wrapper and a driver for a MIDDLE PROCESS TIER that no longer
+        exists. The parent used to hand one mint child the whole job; that
+        child loaded a second weight-free pipeline and drove the compile pool
+        itself. The pipeline it loaded is one this record already holds a real,
+        resident, SERVING copy of, and the process boundary it bought is now
+        bought by a lint fence (``scripts/lint_serving_process_compiles.py``).
 
-        Raises exactly what ``_background_mint_run`` raises, so
-        ``_background_mint``'s outcome handling is untouched: ``_MintAbandoned``
-        (adopt-on-arm / vacate / shutdown), or a plain ``Exception`` (a failed
-        mint). Serving continues in every branch: the worker never dies with
-        its mint.
+        What stays here is exactly what only a serving worker can do: keep
+        serving eager and beating while it happens, decide publish on gw#612's
+        sibling-coverage rule, and advertise the identity on the live compile
+        targets. Everything between is ``mint_supervisor``'s — deliberately,
+        because that is the compiled-graph interior and it is the surface the
+        ``torch-compiled-graphs`` extraction lifts whole. Residency (which pipe,
+        which target, what the wire is told) does not leak into it.
+
+        Raises what ``_background_mint`` handles and nothing else:
+        ``_MintAbandoned`` (adopt-on-arm / vacate / shutdown), or a plain
+        ``Exception`` (a failed mint). Serving continues in every branch: the
+        worker never dies with its mint.
         """
 
         spec = bg.spec
-        # One child per DISTINCT pending. Pipes whose obligation identity is
-        # the same token share one pending and therefore one child mint —
+        # One supervised mint per DISTINCT pending. Pipes whose obligation
+        # identity is the same token share one pending and therefore one mint —
         # since pgw#1113 that identity names the SUBJECT (which slot, resolved
-        # to which checkpoint), so a shared pending means one thing to
-        # compile rather than one family on one card.
+        # to which checkpoint), so a shared pending means one thing to compile
+        # rather than one family on one card.
         holders: Dict[int, List[int]] = {}
         for pid, pending in bg.pendings.items():
             holders.setdefault(id(pending), []).append(pid)
         if not holders:
-            raise RuntimeError("delegated mint has no pending cell to build")
+            raise RuntimeError("supervised mint has no pending cell to build")
 
-        #: id(pipeline) -> the cell its OWN pipeline armed. pgw#1113 deleted
-        #: the "sharers" fiction that used to fill this for every pid holding
-        #: the pending: exactly one pipe is handed to `build_cell` and exactly
-        #: one pipe is passed to `adopt_delegated_mint`, so exactly one pipe
-        #: ever had those bytes installed on it. Advertising the other pids'
-        #: targets as compiled was a wire lie that only
+        #: id(pipeline) -> the compiled graphs its OWN pipeline armed.
+        #: pgw#1113 deleted the "sharers" fiction that used to fill this for
+        #: every pid holding the pending: exactly one pipe is supervised and
+        #: exactly one pipe is passed to `adopt_delegated_mint`, so exactly one
+        #: pipe ever had those bytes installed on it. Advertising the other
+        #: pids' targets as compiled was a wire lie that only
         #: `_bind_compile_guard`'s incidental `False` ("advertising eager")
         #: stopped from reaching the hub.
         finalized: Dict[int, Any] = {}
-        #: id(pending) -> the cell that discharged it. The publish-coverage
-        #: rule (gw#612) is about the OBLIGATION, not about how many pipes
-        #: hold it, so it reads this rather than `finalized`.
+        #: id(pending) -> what discharged it. The publish-coverage rule
+        #: (gw#612) is about the OBLIGATION, not about how many pipes hold it,
+        #: so it reads this rather than `finalized`.
         discharged: Dict[int, Any] = {}
         # pgw#999: every classified refusal this run saw, so the terminal
-        # RuntimeError names them instead of restating "no advertisable cell".
+        # RuntimeError names them instead of restating "nothing to advertise".
         declined_reasons: List[str] = []
         for pids in holders.values():
             pending = bg.pendings[pids[0]]
             pipe = bg.pipes[pids[0]]
-            result = await mint_delegate.build_cell(
-                mint_delegate.MintTask(
+            result = await mint_supervisor.supervise(
+                mint_supervisor.MintTask(
                     pending=pending,
                     pipe=pipe,
                     function=spec.name,
@@ -8279,46 +8258,47 @@ class Executor:
                     configs={spec.name: self._effective_config(spec)},
                     device=mint_workers.device_of(pipe),
                     # pgw#1199: this boot ran the endpoint's own handler on the
-                    # resident pipeline before any mint was delegated (setup
-                    # completes, THEN `bg.task` is created), so the child gets
-                    # pgw#984's guarantee for free and allocates nothing for
-                    # it. Empty when a custom `warmup()` stood in for the
-                    # synthesized plan and no handler actually ran — the child
-                    # refuses on that, honestly, rather than proving it at the
-                    # cost of a checkpoint.
+                    # resident pipeline before any mint was supervised (setup
+                    # completes, THEN `bg.task` is created), so the compile
+                    # children get pgw#984's guarantee for free and allocate
+                    # nothing for it. Empty when a custom `warmup()` stood in
+                    # for the synthesized plan and no handler actually ran —
+                    # the mint refuses on that, honestly, rather than proving it
+                    # at the cost of a checkpoint.
                     handler_proof=handler_proof.provenance(spec.name),
                 ),
                 act=act, abandon=bg.abandon)
-            if result.status == mint_delegate.ABANDONED:
+            if result.status == mint_supervisor.ABANDONED:
                 raise _MintAbandoned()
             minted = result.minted
             if not result.ok or minted is None:
                 logger.warning(
-                    "delegated mint for %s produced no adoptable cell (%s); "
-                    "that object stays eager", spec.name, result.detail)
-                # pgw#815: resolve the obligation instead of dropping it —
-                # a `continue` here left the pending with no terminus and no
-                # wire trace whenever a SIBLING pending succeeded (the
+                    "supervised mint for %s produced no adoptable compiled "
+                    "graph (%s); that object stays eager",
+                    spec.name, result.detail)
+                # pgw#815: resolve the obligation instead of dropping it — a
+                # `continue` here left the pending with no terminus and no wire
+                # trace whenever a SIBLING pending succeeded (the
                 # `if not finalized: raise` below never fires then).
                 fleet_cells_mod.abandon_self_mint(pending)
                 # pgw#999: `phase` carries the CLASSIFIED reason when the
-                # child's cell was built and then refused arming; it falls
+                # compiled graphs were built and then refused arming; it falls
                 # back to the call-site token only when there is genuinely no
-                # classification (no cell was produced at all).
+                # classification (nothing was produced at all).
                 activity_mod.emit_event(
                     "self_mint_abort",
                     f"family={pending.family} key={pending.arm_token}: the "
-                    f"delegated child produced no adoptable cell "
+                    f"supervised mint produced no adoptable compiled graph "
                     f"({result.detail or result.status}); this object stays "
                     f"eager and nothing is published",
-                    phase=result.reason or "delegated_no_cell",
+                    phase=result.reason or "supervised_no_graph",
                 )
                 declined_reasons.append(result.reason or result.status)
                 continue
-            # pgw#1113: the ARMED pipe, and only it. `build_cell` handed the
-            # child this one pipeline and `adopt_delegated_mint` installed the
-            # cell on this one pipeline; the other pids holding this pending
-            # were never armed with these bytes and must not advertise them.
+            # pgw#1113: the ARMED pipe, and only it. `adopt_delegated_mint`
+            # installed the compiled graphs on this one pipeline; the other pids
+            # holding this pending were never armed with these bytes and must
+            # not advertise them.
             finalized[pids[0]] = minted
             discharged[id(pending)] = minted
             if len(pids) > 1:
@@ -8326,42 +8306,38 @@ class Executor:
                     "self_mint_unarmed_holder",
                     f"family={pending.family} key={pending.arm_token}: "
                     f"{len(pids) - 1} further compile object(s) hold this "
-                    f"obligation and were NOT armed with its cell — one pipe "
-                    f"is armed per delegated mint, so they serve eager until "
-                    f"their own arm. They are not advertised as compiled "
-                    f"(pgw#1113)",
+                    f"obligation and were NOT armed with its compiled graphs — "
+                    f"one pipe is armed per supervised mint, so they serve "
+                    f"eager until their own arm. They are not advertised as "
+                    f"compiled (pgw#1113)",
                     phase="unarmed_obligation_holder",
                 )
             compile_cache.record_cell_proven(str(minted.ref))
 
         if not finalized:
             raise RuntimeError(
-                "delegated mint produced no advertisable cell; serving stays "
-                "eager"
+                "the supervised mint produced no advertisable compiled graph; "
+                "serving stays eager"
                 + (f" (refused: {', '.join(sorted(set(declined_reasons)))})"
                    if declined_reasons else ""))
 
-        # Publish per OBLIGATION on gw#612's rule: a cell ships only when the
-        # obligation it was built for was actually discharged — a partial pack
-        # bricks every adopting boot at the gw#607 per-object proof. pgw#1113
-        # re-aims the rule from the sharers map (pid membership, which said
-        # nothing about what armed) to the pending itself, which is the thing
-        # the child was given and the thing it either produced a cell for or
-        # did not.
+        # Publish per OBLIGATION on gw#612's rule: an artifact ships only when
+        # the obligation it was built for was actually discharged — a partial
+        # set bricks every adopting boot at the gw#607 per-object proof.
         for pids in holders.values():
             pending = bg.pendings[pids[0]]
             if id(pending) not in discharged:
                 fleet_cells_mod.withhold_self_mint_publish(
                     pending,
-                    "the delegated mint produced no cell for this obligation")
+                    "the supervised mint produced nothing for this obligation")
             else:
                 fleet_cells_mod.publish_self_mint(pending)
 
-        self._advertise_minted_cells(rec, bg, act, finalized)
+        self._advertise_compiled_graphs(rec, bg, act, finalized)
         logger.info(
-            "delegated mint for %s armed: %d compile object(s) hot-swapped to "
+            "supervised mint for %s armed: %d compile object(s) hot-swapped to "
             "compiled — this worker served eager and beat at its normal "
-            "cadence for the whole mint (pgw#784)",
+            "cadence for the whole mint (th#1834 Phase 3)",
             spec.name, len(finalized))
 
     async def _report_cell_selection_bug(
@@ -8630,39 +8606,22 @@ class Executor:
             publisher=self._cell_publisher(),
         )
 
+    @property
+    def teardown_seam(self) -> RecordTeardown:
+        """What `models.records`' two mutators need from here.
 
-    def declares_compile(self) -> bool:
-        """Whether ANY discovered spec declares a compile family.
-
-        A release that declares none has nothing to mint, so a boot that ends
-        uncompiled there is not a miss.
-        """
-        return any(
-            s.compile is not None and getattr(s.compile, "family", "")
-            for s in self.specs.values()
+        Built per call, never cached: `_on_state_change` is reassigned after
+        `__init__` (worker.py wires it once Lifecycle exists).
+        `abandon_background_mint` is th#1834's ruled seam — abandonment stays
+        with the mint supervisor and residency calls it through this."""
+        return RecordTeardown(
+            records=self._classes.values(),
+            residency=self.store.residency,
+            abandon_background_mint=self.abandon_background_mint,
+            on_state_change=self._on_state_change,
+            close_sequence_group=self._close_sequence_group,
+            observe_host_ram_progress=self._observe_host_ram_progress,
         )
-
-    async def shutdown_instances(self) -> None:
-        for rec in self._classes.values():
-            await self.abandon_background_mint(
-                rec, reason="worker shutdown", code="shutdown")
-            inst, rec.instance, rec.ready = rec.instance, None, False
-            rec.compile_targets.clear()
-            rec.applied_lanes.clear()
-            rec.posture.clear()
-            shutdown = getattr(inst, "shutdown", None)
-            if inst is not None and callable(shutdown):
-                try:
-                    if asyncio.iscoroutinefunction(shutdown):
-                        await shutdown()
-                    else:
-                        await asyncio.to_thread(shutdown)
-                except Exception:
-                    logger.exception("shutdown() failed for %s", rec.cls.__name__)
-            server, rec.server = rec.server, None
-            if server is not None:
-                await asyncio.to_thread(server.stop)
-        self._on_state_change()
 
     # ---- Compile-cache adoption -------------------------------------------
 
@@ -8763,112 +8722,6 @@ class Executor:
                 "" if adoption.armed else f" reason={adoption.reason}")
             await self._send(pb.WorkerMessage(model_event=event))
         inj.adoptions.clear()
-
-
-
-
-    async def _vacate_record(self, rec: _ClassRecord) -> List[str]:
-        """Tear an instance down and return refs whose owner was released."""
-        # pgw#671: a departing instance takes its background mint with it —
-        # stop the driver before any module teardown races a warm forward.
-        await self.abandon_background_mint(
-            rec, reason="instance vacate", code="vacate")
-        held_refs = record_refs(rec)
-        held_objects = rec.held_objects
-        released_refs: List[str] = []
-        old_obj: Any = None
-        inst, rec.instance, rec.ready = rec.instance, None, False
-        rec.compile_targets.clear()
-        # pgw#1104: the applied lane belonged to THESE weights; the next setup
-        # re-reports it or the lane honestly reverts to the binding's.
-        rec.applied_lanes.clear()
-        # th#1871 P1: and so does the posture. A lever applied to weights that
-        # no longer exist would qualify the NEXT instance's measurements with
-        # the last one's degradation.
-        rec.posture.clear()
-        # The next full StateDelta must remove the old address before any
-        # replacement can become READY. Do this synchronously before teardown
-        # awaits; adoption's second validation then rejects the stale ID.
-        self._on_state_change()
-        shutdown = getattr(inst, "shutdown", None)
-        if inst is not None and callable(shutdown):
-            try:
-                if asyncio.iscoroutinefunction(shutdown):
-                    await shutdown()
-                else:
-                    await asyncio.to_thread(shutdown)
-            except Exception:
-                logger.exception("shutdown() during vacate failed")
-        # A bound method owns its instance. Drop it before measuring cgroup
-        # headroom, otherwise this teardown frame itself can retain the whole
-        # departing pipeline and suppress a genuine capacity transition.
-        shutdown = None
-        del inst
-        server, rec.server = rec.server, None
-        if server is not None:
-            await asyncio.to_thread(server.stop)
-        server = None
-        # No gc pass here: the caller holds the load lock and the departing
-        # objects' owners were just dropped above, so only the allocator cache
-        # needs returning (pgw#657 fold).
-        await aflush_memory(collect=False)
-        # gw#494: inspect exactly what the instance BOOKED (held_refs) —
-        # re-deriving from spec.models would inspect the wrong keys after a
-        # resolution rebind. A multiply-held ref stays resident until its last
-        # ready record owner leaves.
-        for ref in held_refs:
-            tier_before = self.store.residency.tier(ref)
-            old_obj = held_objects.get(ref)
-            owners = records_holding(self._classes.values(), ref)
-            if owners:
-                # Residency keeps one representative object per wire ref. If
-                # it points at the departing record, transfer it to a survivor
-                # so the old pipeline can actually be collected. This is an
-                # ownership handoff, not an ON_DISK transition.
-                if old_obj is not None and self.store.residency.obj(ref) is old_obj:
-                    replacement = next(
-                        (owner.held_objects.get(ref) for owner in reversed(owners)
-                         if owner.held_objects.get(ref) is not None),
-                        None,
-                    )
-                    self.store.residency.replace_object(ref, replacement)
-                if old_obj is not None:
-                    released_refs.append(ref)
-                continue
-            if (
-                tier_before in (residency_mod.Tier.RAM, residency_mod.Tier.VRAM)
-                and self.store.residency.release_to_disk(ref)
-            ):
-                released_refs.append(ref)
-        rec.held_refs = []
-        rec.held_snapshot_digests = {}
-        rec.held_bindings = []
-        rec.execution_lane_refs = set()
-        rec.held_objects = {}
-        rec.slot_pipelines = {}  # pgw#678: pipelines die with the instance
-        # pgw#748: the rank siblings are an implementation detail of THIS
-        # instance's pipeline; they must not outlive it holding D cards.
-        self._close_sequence_group(rec)
-        # Do not let this teardown frame itself retain a departing pipeline
-        # while the cgroup probe decides whether capacity really progressed.
-        old_obj = None
-        replacement = None
-        owners = []
-        held_objects.clear()
-        rec.stale = False
-        if rec.shared_keys:
-            # Drop this record's holds on content-keyed shared components
-            # (gw#479). pgw#636: entries no other record references are NOT
-            # drained eagerly — a hot GPU keeps them resident as ordinary LRU
-            # candidates so the next pick that matches their bytes aliases
-            # them for free; real pressure reclaims them through make_room.
-            for key in rec.shared_keys:
-                self.store.residency.release_shared(key)
-            rec.shared_keys.clear()
-        self._on_state_change()
-        released_refs = list(dict.fromkeys(released_refs))
-        await self._observe_host_ram_progress(released_refs, collect_host=True)
-        return released_refs
 
     # ---- job intake --------------------------------------------------------
 
@@ -9689,6 +9542,12 @@ class Executor:
         # under test from `candidate`. Absent on every existing payload
         # struct — stays {} and is a no-op.
         candidate_info = _reserved_repo_info(payload, "candidate") if producer else {}
+        # pgw#1242/te#185: a previously PUBLISHED checkpoint to CONTINUE from.
+        # `ctx.save_checkpoint` already publishes; this is the door back in, so
+        # a long training run can survive pod loss instead of restarting from
+        # zero. Absent on every existing payload struct — stays {} and is a
+        # no-op.
+        resume_from_info = _reserved_repo_info(payload, "resume_from") if producer else {}
 
         # gw#453: arm repo-CAS checkpoint routing for producer jobs. Without
         # kind/destination_repo/job_id the ctx's _repo_job_upload_scope() is
@@ -9713,6 +9572,7 @@ class Executor:
                 destination_info=destination_info,
                 text_encoder_info=text_encoder_info,
                 candidate_info=candidate_info,
+                resume_from_info=resume_from_info,
                 hf_token=getattr(self._settings, "hf_token", "") or "",
             )
 
@@ -9796,6 +9656,11 @@ class Executor:
                 await self._materialize_source(
                     ctx, candidate_info, snapshots,
                     set_path=ctx._set_candidate_path, field_name="candidate",
+                )
+            if resume_from_info:
+                await self._materialize_source(
+                    ctx, resume_from_info, snapshots,
+                    set_path=ctx._set_resume_from_path, field_name="resume_from",
                 )
             if producer:
                 await self._materialize_datasets(ctx, payload)

@@ -13,22 +13,37 @@ from ._document_primitives import (
     T,
     _FONT_FACE_LANG_TO_REF,
     _FONT_REF_ATTRIBUTES,
-    _HC,
     _HC_NS,
     _HH,
+    _allocate_font_id,
     _append_child,
+    _append_fill_brush,
+    _attach_new_child,
     _apply_optional_attrs,
     _bool_str,
     _border_fill_is_basic_solid_line,
     _border_fill_matches,
+    _build_font_element,
     _create_basic_border_fill_element,
     _create_border_fill_element,
     _element_local_name,
+    _ensure_memo_shape,
+    _ensure_tab_definition_element,
+    _find_matching_para_pr,
+    _find_font_id,
+    _find_shading_border_fill_id,
+    _fontface_insert_index,
     _get_bool_attr,
     _get_int_attr,
     _normalize_border_side_names,
+    _normalize_border_type,
     _normalize_color,
+    _normalize_font_langs,
+    _normalize_memo_shape_spec,
+    _resolve_font_substitute,
     _serialize_xml,
+    _update_item_count,
+    _validate_font_type,
 )
 from .common import GenericElement
 from .header import (
@@ -38,6 +53,7 @@ from .header import (
     MemoShape,
     ParagraphProperty,
     Style,
+    TabDefinition,
     TrackChange,
     TrackChangeAuthor,
     memo_shape_from_attributes,
@@ -46,6 +62,7 @@ from .header import (
     parse_header_element,
     parse_paragraph_properties,
     parse_styles,
+    parse_tab_definitions,
     parse_track_change_authors,
     parse_track_change_config,
     parse_track_changes,
@@ -104,39 +121,41 @@ class HwpxOxmlHeader:
             self.mark_dirty()
         return element
 
-    def _border_fills_element(self, create: bool = False) -> ET.Element | None:
+    def _ref_list_default_child(self, tag: str, *, create: bool = False) -> ET.Element | None:
+        """Find-or-create a direct ``refList`` child defaulting to an empty
+        ``itemCnt="0"`` collection. Shared body for the sibling accessors
+        below — ``fontfaces`` is the one exception needing first-child
+        positioning (schema requires it precede the others), so it keeps
+        its own method.
+        """
+
         ref_list = self._ref_list_element(create=create)
         if ref_list is None:
             return None
-        element = ref_list.find(f"{_HH}borderFills")
+        element = ref_list.find(f"{_HH}{tag}")
         if element is None and create:
-            element = ref_list.makeelement(f"{_HH}borderFills", {"itemCnt": "0"})
+            element = ref_list.makeelement(f"{_HH}{tag}", {"itemCnt": "0"})
             ref_list.append(element)
             self.mark_dirty()
         return element
+
+    def _border_fills_element(self, create: bool = False) -> ET.Element | None:
+        return self._ref_list_default_child("borderFills", create=create)
 
     def _char_properties_element(self, create: bool = False) -> ET.Element | None:
+        return self._ref_list_default_child("charProperties", create=create)
+
+    def _fontfaces_element(self, create: bool = False) -> ET.Element | None:
         ref_list = self._ref_list_element(create=create)
         if ref_list is None:
             return None
-        element = ref_list.find(f"{_HH}charProperties")
+        element = ref_list.find(f"{_HH}fontfaces")
         if element is None and create:
-            element = ref_list.makeelement(f"{_HH}charProperties", {"itemCnt": "0"})
-            ref_list.append(element)
+            element = ref_list.makeelement(f"{_HH}fontfaces", {"itemCnt": "0"})
+            # 스키마 순서: MappingTableType 시퀀스에서 fontfaces 가 첫 자식이다.
+            ref_list.insert(0, element)
             self.mark_dirty()
         return element
-
-    def _update_char_properties_item_count(self, element: ET.Element) -> None:
-        count = len(list(element.findall(f"{_HH}charPr")))
-        element.set("itemCnt", str(count))
-
-    def _update_border_fills_item_count(self, element: ET.Element) -> None:
-        count = len(list(element.findall(f"{_HH}borderFill")))
-        element.set("itemCnt", str(count))
-
-    def _update_styles_item_count(self, element: ET.Element) -> None:
-        count = len(list(element.findall(f"{_HH}style")))
-        element.set("itemCnt", str(count))
 
     def _allocate_style_id(self, element: ET.Element) -> str:
         existing: set[str] = {child.get("id") or "" for child in element.findall(f"{_HH}style")}
@@ -273,51 +292,27 @@ class HwpxOxmlHeader:
         char_id = self._allocate_char_property_id(char_props, preferred_id=preferred_id)
         new_char_pr.set("id", char_id)
         char_props.append(new_char_pr)
-        self._update_char_properties_item_count(char_props)
+        _update_item_count(char_props, "charPr")
         self.mark_dirty()
         document = self.document
         if document is not None:
             document.invalidate_char_property_cache()
         return new_char_pr
 
-    def _memo_properties_element(self) -> ET.Element | None:
-        ref_list = self._element.find(f"{_HH}refList")
-        if ref_list is None:
-            return None
-        return ref_list.find(f"{_HH}memoProperties")
+    def _memo_properties_element(self, create: bool = False) -> ET.Element | None:
+        return self._ref_list_default_child("memoProperties", create=create)
 
     def _bullets_element(self, create: bool = False) -> ET.Element | None:
-        ref_list = self._ref_list_element(create=create)
-        if ref_list is None:
-            return None
-        element = ref_list.find(f"{_HH}bullets")
-        if element is None and create:
-            element = ref_list.makeelement(f"{_HH}bullets", {"itemCnt": "0"})
-            ref_list.append(element)
-            self.mark_dirty()
-        return element
+        return self._ref_list_default_child("bullets", create=create)
 
     def _numberings_element(self, create: bool = False) -> ET.Element | None:
-        ref_list = self._ref_list_element(create=create)
-        if ref_list is None:
-            return None
-        element = ref_list.find(f"{_HH}numberings")
-        if element is None and create:
-            element = ref_list.makeelement(f"{_HH}numberings", {"itemCnt": "0"})
-            ref_list.append(element)
-            self.mark_dirty()
-        return element
+        return self._ref_list_default_child("numberings", create=create)
 
     def _para_properties_element(self, create: bool = False) -> ET.Element | None:
-        ref_list = self._ref_list_element(create=create)
-        if ref_list is None:
-            return None
-        element = ref_list.find(f"{_HH}paraProperties")
-        if element is None and create:
-            element = ref_list.makeelement(f"{_HH}paraProperties", {"itemCnt": "0"})
-            ref_list.append(element)
-            self.mark_dirty()
-        return element
+        return self._ref_list_default_child("paraProperties", create=create)
+
+    def _tab_properties_element(self, create: bool = False) -> ET.Element | None:
+        return self._ref_list_default_child("tabProperties", create=create)
 
     @staticmethod
     def _allocate_ref_id(parent: ET.Element, child_tag: str) -> str:
@@ -689,6 +684,7 @@ class HwpxOxmlHeader:
         heading: Mapping[str, str | int] | None = None,
         border: Mapping[str, str | int] | None = None,
         break_setting: Mapping[str, bool] | None = None,
+        tab_pr_id_ref: str | None = None,
     ) -> str:
         """Return a new paragraph property id with requested formatting changes."""
 
@@ -733,6 +729,22 @@ class HwpxOxmlHeader:
             self._apply_paragraph_break_setting(para_pr, break_setting)
         if border is not None:
             self._apply_paragraph_border(para_pr, border)
+        if tab_pr_id_ref is not None:
+            para_pr.set("tabPrIDRef", str(tab_pr_id_ref))
+
+        # Dedupe (ensure_tab_definition/ensure_style precedent): if the
+        # paraPr we just built is structurally identical to one that
+        # already exists, reuse its id instead of minting a duplicate.
+        # Without this, every add_heading()/set_paragraph_format() call
+        # mints a fresh paraPr even when an earlier call already produced
+        # the exact same one -- real Hancom merges these duplicates back
+        # down on its own next save (observed: a paraPrIDRef that
+        # round-tripped through real Hancom came back renumbered, not a
+        # bug -- see docs/owpml-deviations.md and the titleMark re-probe
+        # notes), so this closes the gap rather than fixing a rejection.
+        reusable_id = _find_matching_para_pr(para_properties, para_pr)
+        if reusable_id is not None:
+            return reusable_id
 
         para_pr_id = self._allocate_ref_id(para_properties, f"{_HH}paraPr")
         para_pr.set("id", para_pr_id)
@@ -741,41 +753,50 @@ class HwpxOxmlHeader:
         self.mark_dirty()
         return para_pr_id
 
+    def ensure_tab_definition(
+        self,
+        *,
+        tab_stops: "Iterable[Mapping[str, object]] | None" = None,
+        auto_tab_left: bool = False,
+        auto_tab_right: bool = False,
+    ) -> str:
+        """Return a ``hh:tabPr`` id matching *tab_stops* (dedupe — ``ensure_style``
+        선례). Order is part of the dedupe key — see :func:`_normalize_tab_stops`.
+        """
+
+        element = self._tab_properties_element(create=True)
+        if element is None:  # pragma: no cover - defensive branch
+            from ..errors import HwpxStateError
+
+            raise HwpxStateError(
+                "failed to create <tabProperties> element",
+                code="style-tab-container-create-failed",
+            )
+
+        tab_id, created = _ensure_tab_definition_element(
+            element,
+            tab_stops=tab_stops,
+            auto_tab_left=auto_tab_left,
+            auto_tab_right=auto_tab_right,
+        )
+        if created:
+            self.mark_dirty()
+        return tab_id
+
     def ensure_numbering(
         self,
         *,
         kind: str,
         levels: Sequence[dict[str, str]] | None = None,
     ) -> list[str]:
-        resolved_levels = list(levels or [{}])
-        if not resolved_levels:
-            resolved_levels = [{}]
-        normalized_kind = kind.lower()
-        if normalized_kind == "bullet":
-            refs: list[str] = []
-            default_chars = ["-", "○", "□", "•"]
-            for index, level in enumerate(resolved_levels):
-                bullet_char = str(level.get("char") or default_chars[index % len(default_chars)])
-                bullet_id = self._ensure_bullet_definition(bullet_char)
-                refs.append(
-                    self._ensure_para_property_heading(
-                        heading_type="BULLET",
-                        id_ref=bullet_id,
-                        level=index,
-                    )
-                )
-            return refs
-        if normalized_kind in {"number", "numbered", "numbering"}:
-            numbering_id = self._create_numbering_definition(resolved_levels)
-            return [
-                self._ensure_para_property_heading(
-                    heading_type="NUMBER",
-                    id_ref=numbering_id,
-                    level=index,
-                )
-                for index in range(len(resolved_levels))
-            ]
-        raise ValueError("kind must be 'bullet' or 'number'")
+        """글머리표/번호/개요 정의를 보장하고 각 레벨의 paraPr id를 돌려준다.
+
+        구현 본체는 `numbering_kinds.py`에 산다(owner-file 1600줄 캡에
+        헤드룸이 없어, 6.13 트레인㊻가 `outline` kind를 추가하며 이동).
+        """
+        from .numbering_kinds import ensure_numbering_refs
+
+        return ensure_numbering_refs(self, kind=kind, levels=levels)
 
     def _styles_element(self, create: bool = False) -> ET.Element | None:
         ref_list = self._ref_list_element(create=create)
@@ -920,10 +941,8 @@ class HwpxOxmlHeader:
 
         new_id = self._allocate_border_fill_id(element)
         new_border_fill = _create_basic_border_fill_element(new_id)
-        if isinstance(element, LET._Element):
-            new_border_fill = LET.fromstring(ET.tostring(new_border_fill, encoding="utf-8"))
-        element.append(new_border_fill)
-        self._update_border_fills_item_count(element)
+        _attach_new_child(element, new_border_fill)
+        _update_item_count(element, "borderFill")
         self.mark_dirty()
         return new_id
 
@@ -940,6 +959,8 @@ class HwpxOxmlHeader:
         border_color: str = "#BFBFBF",
         border_width: str = "0.12 mm",
         fill_color: str | None = None,
+        fill_image: Mapping[str, str] | None = None,
+        fill_gradient: Mapping[str, object] | None = None,
         active_borders: Iterable[str] | None = None,
         border_type: str = "SOLID",
     ) -> str:
@@ -947,12 +968,7 @@ class HwpxOxmlHeader:
         if element is None:  # pragma: no cover - defensive branch
             raise RuntimeError("failed to create <borderFills> element")
 
-        normalized_border_type = str(border_type or "SOLID").upper()
-        if normalized_border_type not in self._BORDER_LINE_TYPES:
-            raise ValueError(
-                f"unsupported border_type {border_type!r}; expected one of "
-                + ", ".join(sorted(self._BORDER_LINE_TYPES))
-            )
+        normalized_border_type = _normalize_border_type(border_type, self._BORDER_LINE_TYPES)
         normalized_border_color = _normalize_color(border_color) or "#BFBFBF"
         normalized_border_width = str(border_width or "0.12 mm")
         normalized_active_borders = _normalize_border_side_names(active_borders)
@@ -964,6 +980,7 @@ class HwpxOxmlHeader:
                 border_color=normalized_border_color,
                 border_width=normalized_border_width,
                 fill_color=normalized_fill_color,
+                fill_image=fill_image, fill_gradient=fill_gradient,
                 active_borders=normalized_active_borders,
                 border_type=normalized_border_type,
             ):
@@ -977,13 +994,12 @@ class HwpxOxmlHeader:
             border_color=normalized_border_color,
             border_width=normalized_border_width,
             fill_color=normalized_fill_color,
+            fill_image=fill_image, fill_gradient=fill_gradient,
             active_borders=normalized_active_borders,
             border_type=normalized_border_type,
         )
-        if isinstance(element, LET._Element):
-            new_border_fill = LET.fromstring(ET.tostring(new_border_fill, encoding="utf-8"))
-        element.append(new_border_fill)
-        self._update_border_fills_item_count(element)
+        _attach_new_child(element, new_border_fill)
+        _update_item_count(element, "borderFill")
         self.mark_dirty()
         return new_id
 
@@ -1063,38 +1079,129 @@ class HwpxOxmlHeader:
             changed = True
 
         if changed:
-            self._update_styles_item_count(styles)
+            _update_item_count(styles, "style")
             self.mark_dirty()
         style_id = element.get("id")
         assert style_id is not None  # allocated above or already present
         return style_id
 
+    def _fontface_element(
+        self, fontfaces: ET.Element, lang: str, *, create: bool = False
+    ) -> ET.Element | None:
+        for child in fontfaces.findall(f"{_HH}fontface"):
+            if child.get("lang") == lang:
+                return child
+        if not create:
+            return None
+
+        element = fontfaces.makeelement(f"{_HH}fontface", {"lang": lang, "fontCnt": "0"})
+        fontfaces.insert(_fontface_insert_index(fontfaces, lang), element)
+        fontfaces.set("itemCnt", str(len(fontfaces.findall(f"{_HH}fontface"))))
+        self.mark_dirty()
+        return element
+
+    def ensure_font(
+        self,
+        face: str,
+        *,
+        lang: "str | Iterable[str] | None" = None,
+        font_type: str = "TTF",
+        is_embedded: bool = False,
+        binary_item_id_ref: str | None = None,
+        subst_face: str | None = None,
+        subst_type: str | None = None,
+        subst_is_embedded: bool = False,
+        subst_binary_item_id_ref: str | None = None,
+    ) -> str:
+        """Ensure *face* is declared in ``hh:fontfaces`` and return its id.
+
+        Hancom 관행(실코퍼스 176파일 전수): 글꼴 하나는 보통 7개 lang 블록
+        전부에 선언된다 — *lang* 생략 시 그 관행대로 전부(``FONTFACE_LANGS``)
+        에 등록해, 등록 뒤 ``ensure_run(font=face)`` 의 ``fontRef`` 7개 속성이
+        전부 유효한 해당-블록 id 를 가리키게 한다(블록마다 id 채번이 독립이라
+        다른 블록 id 를 빌려 쓰면 잘못된 글꼴을 가리킬 수 있다).
+
+        *face* 가 이미 그 lang 블록에 있으면(``ensure_style`` 의 이름 dedupe와
+        같은 관용구) 기존 id 를 재사용한다. 여러 블록에 걸쳐 등록할 때
+        블록마다 id 가 갈릴 수 있으므로, 반환값은 *정규 순서상 첫* lang
+        블록의 id 다. ``subst_face``/``subst_type`` 을 주면 ``hh:substFont``
+        대체 글꼴도 함께 방출한다(dedupe 로 기존 ``hh:font`` 를 재사용하는
+        경우는 대체 글꼴을 새로 끼워 넣지 않는다 — 기존 선언을 조용히
+        바꾸지 않는다는 6.0 원칙).
+        """
+
+        from ..errors import HwpxStateError, HwpxValueError
+
+        normalized_face = (face or "").strip()
+        if not normalized_face:
+            raise HwpxValueError("face must not be empty", code="style-font-face-empty")
+
+        normalized_type = _validate_font_type(font_type, param_name="font_type")
+        normalized_subst_face, normalized_subst_type = _resolve_font_substitute(
+            subst_face, subst_type
+        )
+        langs = _normalize_font_langs(lang)
+
+        fontfaces = self._fontfaces_element(create=True)
+        if fontfaces is None:  # pragma: no cover - defensive branch
+            raise HwpxStateError(
+                "failed to create <fontfaces> element",
+                code="style-font-container-create-failed",
+            )
+
+        primary_id: str | None = None
+        for lang_name in langs:
+            fontface = self._fontface_element(fontfaces, lang_name, create=True)
+            if fontface is None:  # pragma: no cover - defensive branch
+                raise HwpxStateError(
+                    "failed to create <fontface> element",
+                    code="style-font-container-create-failed",
+                    context={"lang": lang_name},
+                )
+            font_id = _find_font_id(fontface, normalized_face)
+            if font_id is None:
+                font_id = _allocate_font_id(fontface)
+                font_element = _build_font_element(
+                    font_id=font_id,
+                    face=normalized_face,
+                    font_type=normalized_type,
+                    is_embedded=is_embedded,
+                    binary_item_id_ref=binary_item_id_ref,
+                    subst_face=normalized_subst_face,
+                    subst_type=normalized_subst_type,
+                    subst_is_embedded=subst_is_embedded,
+                    subst_binary_item_id_ref=subst_binary_item_id_ref,
+                )
+                if isinstance(fontface, LET._Element):
+                    font_element = LET.fromstring(ET.tostring(font_element, encoding="utf-8"))
+                fontface.append(font_element)
+                fontface.set("fontCnt", str(len(fontface.findall(f"{_HH}font"))))
+                self.mark_dirty()
+            if primary_id is None:
+                primary_id = font_id
+
+        assert primary_id is not None  # langs is non-empty (validated by _normalize_font_langs)
+        return primary_id
+
     def ensure_shading_border_fill(
         self,
-        color: str,
+        color: str | None = None,
         *,
+        fill_image: Mapping[str, str] | None = None,
+        fill_gradient: Mapping[str, object] | None = None,
         base_border_fill_id: str | int | None = None,
     ) -> str:
         element = self._border_fills_element(create=True)
         if element is None:  # pragma: no cover - defensive branch
             raise RuntimeError("failed to create <borderFills> element")
-        face_color = _normalize_color(color) or "none"
+        has_alt_fill = fill_image is not None or fill_gradient is not None
+        face_color = "none" if has_alt_fill else (_normalize_color(color) or "none")
 
-        for border_fill in element.findall(f"{_HH}borderFill"):
-            fill_brush = next(
-                (child for child in border_fill if _element_local_name(child) == "fillBrush"),
-                None,
-            )
-            if fill_brush is None:
-                continue
-            win_brush = next(
-                (child for child in fill_brush if _element_local_name(child) == "winBrush"),
-                None,
-            )
-            if win_brush is not None and win_brush.get("faceColor") == face_color:
-                border_id = border_fill.get("id")
-                if border_id:
-                    return border_id
+        matched = _find_shading_border_fill_id(
+            element, face_color=face_color, fill_image=fill_image, fill_gradient=fill_gradient,
+        )
+        if matched:
+            return matched
 
         base_element: ET.Element | None = None
         if base_border_fill_id is not None:
@@ -1113,17 +1220,11 @@ class HwpxOxmlHeader:
                 if _element_local_name(child) == "fillBrush":
                     new_border_fill.remove(child)
 
-        fill_brush = new_border_fill.makeelement(f"{_HC}fillBrush", {})
-        _append_child(
-            fill_brush,
-            f"{_HC}winBrush",
-            {"faceColor": face_color, "hatchColor": "#FF000000", "alpha": "0"},
+        _append_fill_brush(
+            new_border_fill, fill_color=face_color, fill_image=fill_image, fill_gradient=fill_gradient,
         )
-        new_border_fill.append(fill_brush)
-        if isinstance(element, LET._Element) and not isinstance(new_border_fill, LET._Element):
-            new_border_fill = LET.fromstring(ET.tostring(new_border_fill, encoding="utf-8"))
-        element.append(new_border_fill)
-        self._update_border_fills_item_count(element)
+        _attach_new_child(element, new_border_fill)
+        _update_item_count(element, "borderFill")
         self.mark_dirty()
         return new_id
 
@@ -1273,6 +1374,32 @@ class HwpxOxmlHeader:
             return None
         return shapes.get(normalized)
 
+    def ensure_memo_shape(
+        self,
+        *,
+        width: int = 15591,
+        line_width: int | str = 1,
+        line_type: str = "SOLID",
+        line_color: str = "#000000",
+        fill_color: str = "#CCFF99",
+        active_color: str = "#FFFF99",
+        memo_type: str = "NOMAL",
+    ) -> str:
+        element = self._memo_properties_element(create=True)
+        if element is None:  # pragma: no cover - defensive branch
+            raise RuntimeError("failed to create <memoProperties> element")
+        spec = _normalize_memo_shape_spec(
+            width=width, line_width=line_width, line_type=line_type, line_color=line_color,
+            fill_color=fill_color, active_color=active_color, memo_type=memo_type,
+        )
+        shape_id, new_memo_pr = _ensure_memo_shape(element, spec)
+        if new_memo_pr is None:
+            return shape_id
+        _attach_new_child(element, new_memo_pr)
+        _update_item_count(element, "memoPr")
+        self.mark_dirty()
+        return shape_id
+
     @property
     def bullets(self) -> dict[str, Bullet]:
         bullets_element = self._bullets_element()
@@ -1300,6 +1427,16 @@ class HwpxOxmlHeader:
         self, para_pr_id_ref: int | str | None
     ) -> ParagraphProperty | None:
         return self._lookup_by_id(self.paragraph_properties, para_pr_id_ref)
+
+    @property
+    def tab_properties(self) -> dict[str, TabDefinition]:
+        element = self._tab_properties_element()
+        if element is None:
+            return {}
+        return parse_tab_definitions(self._convert_to_lxml(element)).as_dict()
+
+    def tab_property(self, tab_pr_id_ref: int | str | None) -> TabDefinition | None:
+        return self._lookup_by_id(self.tab_properties, tab_pr_id_ref)
 
     @property
     def styles(self) -> dict[str, Style]:

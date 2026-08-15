@@ -233,6 +233,7 @@ MEDIA_EFFECTS_DIST = 'media_effects_dist'
 HILL_BEFORE_ADSTOCK = 'hill_before_adstock'
 ADSTOCK_MEMORY_OPTIMIZED = 'adstock_memory_optimized'
 MAX_LAG = 'max_lag'
+DEFAULT_MAX_LAG = 8
 UNIQUE_SIGMA_FOR_EACH_GEO = 'unique_sigma_for_each_geo'
 ROI_CALIBRATION_PERIOD = 'roi_calibration_period'
 RF_ROI_CALIBRATION_PERIOD = 'rf_roi_calibration_period'
@@ -775,6 +776,8 @@ DEFAULT_CONFIDENCE_LEVEL = 0.9
 
 # Default number of max draws per chain in Analyzer.expected_outcome()
 DEFAULT_BATCH_SIZE = 100
+# Draws per reconstruction chunk; mirrors the Analyzer batching convention.
+DEFAULT_RECONSTRUCTION_BATCH_SIZE = 100
 
 
 # Optimization constants.
@@ -833,4 +836,3 @@ POSTERIOR_THINNING_SEED = 'posterior_thinning_seed'
 # Calibration constants.
 IS_CALIBRATED = 'is_calibrated'
 CALIBRATION_OUTPUTS = 'calibration_outputs'
-

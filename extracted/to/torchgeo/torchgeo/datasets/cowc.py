@@ -7,7 +7,7 @@ import abc
 import csv
 import os
 from collections.abc import Callable
-from typing import cast
+from typing import Literal, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -66,10 +66,10 @@ class COWC(NonGeoDataset, abc.ABC):
     def __init__(
         self,
         root: Path = 'data',
-        split: str = 'train',
+        split: Literal['train', 'test'] = 'train',
         transforms: Callable[[Sample], Sample] | None = None,
         download: bool = False,
-        checksum: bool = False,
+        checksum: bool = True,
     ) -> None:
         """Initialize a new COWC dataset instance.
 

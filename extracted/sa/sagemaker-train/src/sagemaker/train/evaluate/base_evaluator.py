@@ -138,6 +138,8 @@ class BaseEvaluator(BaseModel):
             3. Model package group name string (will fetch the object and extract ARN)
             Required when model is a JumpStart model ID. Optional when model is a ModelPackage
             ARN/object (will be inferred automatically).
+        tags (Optional[List[TagsDict]]): Tags applied to the evaluation pipeline when it is
+            created, which cascade to the pipeline's step jobs.
     """
     
     region: Optional[str] = None
@@ -153,6 +155,7 @@ class BaseEvaluator(BaseModel):
     networking: Optional[VpcConfig] = None
     kms_key_id: Optional[str] = None
     model_package_group: Optional[Union[str, ModelPackageGroup]] = None
+    tags: Optional[List[TagsDict]] = None
     compute: Optional[Union[Compute, HyperPodCompute]] = None
     training_image: Optional[str] = None
     recipe: Optional[str] = None
@@ -735,14 +738,23 @@ class BaseEvaluator(BaseModel):
             return f"eval-{model_name}-{short_uuid}"
         return v
     
-    def _get_aws_execution_context(self) -> Dict[str, str]:
+    def _get_aws_execution_context(self, role_type: str = "training") -> Dict[str, str]:
         """Get AWS execution context (role ARN, region, account ID).
 
         Validates both the *execution* role (what the pipeline assumes to run
         training jobs) and the *caller* role (what your identity needs to
         create/start the pipeline). The execution role is validated via
-        :func:`resolve_and_validate_role` with ``role_type="training"``. The
-        caller role is validated via :func:`verify_evaluation_caller_permissions`.
+        :func:`resolve_and_validate_role`. The caller role is validated via
+        :func:`verify_evaluation_caller_permissions`.
+
+        Args:
+            role_type (str): Role type to validate the execution role against.
+                Defaults to ``"training"`` — every evaluator runs as a SageMaker
+                Pipeline / Training Job, so the standard training permissions are
+                the right smoke test. Only :class:`LLMAsJudgeEvaluator` passes
+                ``"model_eval"`` to additionally gate the Amazon Bedrock
+                Evaluations permissions it requires; the other evaluators do not
+                use Bedrock Evaluations and must not be gated on it.
 
         Returns:
             dict: Dictionary containing:
@@ -754,13 +766,13 @@ class BaseEvaluator(BaseModel):
         #   1. self.role, if explicitly provided.
         #   2. Otherwise the caller's own identity role.
         # The resolved role is validated (read-only) for the required permissions.
-        # This is the job execution role for the
-        # serverless / SMTJ evaluation backends. The HyperPod backend submits via
-        # the CLI under the caller's own credentials (see _submit_hyperpod_eval_job)
-        # and does not resolve a role here, so "training" is always correct here.
+        # This is the job execution role for the serverless / SMTJ evaluation
+        # backends. The HyperPod backend submits via the CLI under the caller's own
+        # credentials (see _submit_hyperpod_eval_job) and does not resolve a role
+        # here.
         role_arn = resolve_and_validate_role(
             provided_role=self.role,
-            role_type="training",
+            role_type=role_type,
             sagemaker_session=self.sagemaker_session,
         )
 
@@ -987,6 +999,9 @@ class BaseEvaluator(BaseModel):
         if self._is_jumpstart_model:
             from sagemaker.core.jumpstart.utils import add_jumpstart_model_info_tags
             tags = add_jumpstart_model_info_tags(tags, self.model, "*")
+
+        # Merge user-provided tags
+        tags.extend(self.tags or [])
         
         execution = EvaluationPipelineExecution.start(
             eval_type=eval_type,

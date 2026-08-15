@@ -2416,6 +2416,15 @@ def routes_for(template: str, methods: list[str]) -> str:
     verbs = [str(m).strip().upper() for m in methods if str(m).strip()]
     if not verbs:
         raise ScaffoldError(f"Не указан ни один HTTP-метод для шаблона {path}")
+    # A verb is checked against the list, not just upper-cased: a caller that passes the
+    # methods as a python-looking list ("['GET'", "'POST']") used to have the quotes and
+    # brackets travel all the way into the generated handler names and the yaml - the
+    # scaffolding produced code that cannot parse, and the mistake surfaced far from here.
+    unknown = [verb for verb in verbs if verb not in HTTP_METHODS]
+    if unknown:
+        raise ScaffoldError(
+            f"Не HTTP-метод: {', '.join(unknown)}. Допустимы: {', '.join(HTTP_METHODS)}"
+        )
     return ", ".join(f"{verb} {path}" for verb in verbs)
 
 
@@ -3092,6 +3101,85 @@ def localization_info(yaml_path: Path, *, reader=None) -> dict:
         "names": {code: _LANGUAGE_BY_FOLDER[code] for code in candidates},
         "notes": notes,
     }
+
+
+def localization_strings(root: Path, language: str | None = None) -> dict:
+    """Every localized string of the project as {"Dictionary.Key": text}, in one language.
+
+    The wireframe of a form shows a `$Dictionary.Key` value as the key's last segment, because
+    the text itself lives in the localization elements and is resolved by the platform - so the
+    preview reads as a row of identifiers rather than as the page. This collects the texts, and
+    the editor shows what the user will see.
+
+    `language` is a folder code (Ru/En). The default language is served by the element itself;
+    another one is layered on top from `Локализация/<Code>/<Name>.yaml`, and a key with no
+    translation keeps its default text - exactly what the platform falls back to.
+
+    Returns {"strings": {...}, "language": <code or None>, "default": <code or None>}; a project
+    that localizes nothing answers with an empty mapping rather than an error.
+    """
+    root = Path(root)
+    out: dict[str, str] = {}
+    default = None
+    for yaml_path in sorted(root.rglob("*.yaml")):
+        try:
+            text = _read(yaml_path)
+        except OSError:
+            continue
+        if not _is_localized_strings(text):
+            continue
+        name = element_name(text, yaml_path.stem)
+        if default is None:
+            _langs, default = _descriptor_languages(yaml_path)
+        for key, value in _section_entries(text).items():
+            out[f"{name}.{key}"] = value
+        if language and language != default:
+            for base in _localization_dirs(yaml_path.parent):
+                translated = base / language / f"{name}.yaml"
+                if not translated.is_file():
+                    continue
+                try:
+                    for key, value in _section_entries(_read(translated)).items():
+                        out[f"{name}.{key}"] = value
+                except OSError:
+                    continue
+    return {"strings": out, "language": language, "default": default}
+
+
+def _is_localized_strings(text: str) -> bool:
+    """Is this the yaml of a LocalizedStrings element? Either spelling of the key and the kind."""
+    for key in key_forms("ВидЭлемента"):
+        m = re.search(rf"^{re.escape(key)}:[ 	]*(\S+)", text, re.M)
+        if m and m.group(1).strip() in ("ЛокализованныеСтроки", "LocalizedStrings"):
+            return True
+    return False
+
+
+def _section_entries(text: str) -> dict[str, str]:
+    """`Rows`/`Templates` of a localization yaml as {key: text}, comments and blanks dropped.
+
+    A plain scan rather than a yaml parse: the file is flat by definition (one level of
+    `key: value`), and the scan keeps the surrounding quotes off the value the way the platform
+    reads them.
+    """
+    out: dict[str, str] = {}
+    for section in ("Строки", "Шаблоны", "Strings", "Templates"):
+        bounds = _section_bounds(text, section, top_level=True)
+        if bounds is None:
+            continue
+        _, body_start, body_end = bounds
+        for line in text[body_start:body_end].splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            key, sep, value = stripped.partition(":")
+            if not sep or not key or " " in key.strip():
+                continue
+            value = value.strip()
+            if len(value) > 1 and value[0] == value[-1] and value[0] in "\"'":
+                value = value[1:-1]
+            out[key.strip()] = value
+    return out
 
 
 def op_add_localization(yaml_path: Path, language: str, *, reader=None) -> ScaffoldResult:

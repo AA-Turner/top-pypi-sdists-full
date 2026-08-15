@@ -23,11 +23,12 @@ from agents import (
     handoff,
     tool_namespace,
 )
-from agents.items import ToolCallOutputItem
+from agents.items import ToolApprovalItem, ToolCallOutputItem
 from agents.lifecycle import RunHooks
+from agents.run_internal.run_steps import NextStepInterruption
+from agents.testing import ScriptedModel
 from agents.tool import Tool, function_tool
 
-from .fake_model import FakeModel
 from .mcp.helpers import FakeMCPServer
 from .test_responses import get_function_tool_call, get_handoff_tool_call, get_text_message
 
@@ -35,6 +36,15 @@ from .test_responses import get_function_tool_call, get_handoff_tool_call, get_t
 def _record(calls: list[str], value: str, result: str | None = None) -> str:
     calls.append(value)
     return value if result is None else result
+
+
+def _authoritative_interruption(
+    state: RunState[Any, Agent[Any]],
+    call_id: str,
+) -> ToolApprovalItem:
+    """Return the RunState-owned approval used by corruption-path tests."""
+    assert isinstance(state._current_step, NextStepInterruption)
+    return next(item for item in state._current_step.interruptions if item.call_id == call_id)
 
 
 @pytest.mark.asyncio
@@ -48,7 +58,7 @@ async def test_resume_warn_mode_rebinds_queued_mcp_call_to_local_winner() -> Non
         return "local"
 
     local_tool = function_tool(local_lookup, name_override="lookup")
-    model = FakeModel(initial_output=[get_function_tool_call("lookup", "{}")])
+    model = ScriptedModel(steps=[[get_function_tool_call("lookup", "{}")]])
     agent = Agent(name="agent", model=model, mcp_servers=[server])
 
     initial_result = await Runner.run(agent, "Look this up")
@@ -56,7 +66,7 @@ async def test_resume_warn_mode_rebinds_queued_mcp_call_to_local_winner() -> Non
     interruption = state.get_interruptions()[0]
     state.approve(interruption)
     agent.tools = [local_tool]
-    model.set_next_output([get_text_message("done")])
+    model.enqueue([get_text_message("done")])
 
     resumed_result = await Runner.run(agent, state)
 
@@ -77,9 +87,7 @@ async def test_resume_error_mode_rejects_current_collision_before_side_effects()
         lambda: _record(calls, "colliding"),
         name_override="lookup",
     )
-    model = FakeModel(
-        initial_output=[get_function_tool_call("lookup", "{}", call_id="lookup_call")]
-    )
+    model = ScriptedModel(steps=[[get_function_tool_call("lookup", "{}", call_id="lookup_call")]])
     agent = Agent(name="agent", model=model, tools=[queued_tool])
 
     initial_result = await Runner.run(agent, "Look this up")
@@ -124,7 +132,7 @@ async def test_resume_rejects_function_approval_reclassified_as_handoff(
     )
     target = Agent(
         name="target",
-        model=FakeModel(initial_output=[get_text_message("target done")]),
+        model=ScriptedModel(steps=[[get_text_message("target done")]]),
     )
     route_handoff = handoff(
         target,
@@ -132,7 +140,7 @@ async def test_resume_rejects_function_approval_reclassified_as_handoff(
         on_handoff=lambda _: calls.append("handoff"),
         input_filter=FalsyFilter(),
     )
-    model = FakeModel(initial_output=[get_function_tool_call("route", "{}", call_id="route_call")])
+    model = ScriptedModel(steps=[[get_function_tool_call("route", "{}", call_id="route_call")]])
     agent = Agent(name="agent", model=model, tools=[route_tool])
 
     initial_result = await Runner.run(agent, "Route this request")
@@ -163,14 +171,14 @@ async def test_reclassified_handoff_is_rejected_before_run_hook() -> None:
     )
     target = Agent(
         name="target",
-        model=FakeModel(initial_output=[get_text_message("target done")]),
+        model=ScriptedModel(steps=[[get_text_message("target done")]]),
     )
     route_handoff = handoff(
         target,
         tool_name_override="route",
         on_handoff=lambda _: calls.append("handoff"),
     )
-    model = FakeModel(initial_output=[get_function_tool_call("route", "{}", call_id="route")])
+    model = ScriptedModel(steps=[[get_function_tool_call("route", "{}", call_id="route")]])
     agent = Agent(name="agent", model=model, tools=[route_tool])
 
     first = await Runner.run(agent, "Route this request")
@@ -218,13 +226,15 @@ async def test_resume_rejects_queued_handoff_reclassified_as_function() -> None:
     route_tool = function_tool(route_function, name_override="route")
     target = Agent(name="target")
     route_handoff = handoff(target, tool_name_override="route")
-    model = FakeModel(
-        initial_output=[
-            get_function_tool_call("approval_tool", "{}", call_id="approval_call"),
-            get_handoff_tool_call(target, override_name="route", args="{}"),
+    model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call("approval_tool", "{}", call_id="approval_call"),
+                get_handoff_tool_call(target, override_name="route", args="{}"),
+            ]
         ]
     )
-    model.set_next_output([get_text_message("done")])
+    model.enqueue([get_text_message("done")])
     agent = Agent(
         name="agent",
         model=model,
@@ -256,11 +266,11 @@ async def test_resume_rebinds_queued_handoff_to_current_warn_winner() -> None:
     )
     first_target = Agent(
         name="first",
-        model=FakeModel(initial_output=[get_text_message("first done")]),
+        model=ScriptedModel(steps=[[get_text_message("first done")]]),
     )
     second_target = Agent(
         name="second",
-        model=FakeModel(initial_output=[get_text_message("second done")]),
+        model=ScriptedModel(steps=[[get_text_message("second done")]]),
     )
     first_handoff = handoff(
         first_target,
@@ -272,10 +282,12 @@ async def test_resume_rebinds_queued_handoff_to_current_warn_winner() -> None:
         tool_name_override="route",
         on_handoff=lambda _: calls.append("second"),
     )
-    model = FakeModel(
-        initial_output=[
-            get_function_tool_call("approval_tool", "{}", call_id="approval_call"),
-            get_handoff_tool_call(second_target, override_name="route", args="{}"),
+    model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call("approval_tool", "{}", call_id="approval_call"),
+                get_handoff_tool_call(second_target, override_name="route", args="{}"),
+            ]
         ]
     )
     agent = Agent(
@@ -310,10 +322,12 @@ async def test_resume_rejects_missing_queued_handoff_before_side_effects() -> No
         tool_name_override="route",
         on_handoff=lambda _: calls.append("handoff"),
     )
-    model = FakeModel(
-        initial_output=[
-            get_function_tool_call("approval_tool", "{}", call_id="approval_call"),
-            get_handoff_tool_call(target, override_name="route", args="{}"),
+    model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call("approval_tool", "{}", call_id="approval_call"),
+                get_handoff_tool_call(target, override_name="route", args="{}"),
+            ]
         ]
     )
     agent = Agent(
@@ -346,13 +360,15 @@ async def test_missing_interrupted_agent_tool_preserves_nested_state_for_retry()
         name_override="sensitive",
         needs_approval=True,
     )
-    inner_model = FakeModel(
-        initial_output=[
-            get_function_tool_call("before_pause", "{}", call_id="before_call"),
-            get_function_tool_call("sensitive", "{}", call_id="sensitive_call"),
+    inner_model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call("before_pause", "{}", call_id="before_call"),
+                get_function_tool_call("sensitive", "{}", call_id="sensitive_call"),
+            ]
         ]
     )
-    inner_model.set_next_output([get_text_message("inner done")])
+    inner_model.enqueue([get_text_message("inner done")])
     inner_agent = Agent(
         name="inner",
         model=inner_model,
@@ -362,16 +378,18 @@ async def test_missing_interrupted_agent_tool_preserves_nested_state_for_retry()
         tool_name="lookup",
         tool_description="Look up a value with the inner agent.",
     )
-    outer_model = FakeModel(
-        initial_output=[
-            get_function_tool_call(
-                "lookup",
-                '{"input":"hi"}',
-                call_id="outer_call",
-            )
+    outer_model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call(
+                    "lookup",
+                    '{"input":"hi"}',
+                    call_id="outer_call",
+                )
+            ]
         ]
     )
-    outer_model.set_next_output([get_text_message("outer done")])
+    outer_model.enqueue([get_text_message("outer done")])
     outer_agent = Agent(name="outer", model=outer_model, tools=[nested_tool])
 
     initial_result = await Runner.run(outer_agent, "Look this up")
@@ -408,21 +426,23 @@ async def test_missing_formatter_cancellation_keeps_nested_state_serializable() 
         name_override="serial_sensitive",
         needs_approval=True,
     )
-    inner_model = FakeModel(
-        initial_output=[
-            get_function_tool_call(
-                "serial_before_pause",
-                "{}",
-                call_id="serial_before_call",
-            ),
-            get_function_tool_call(
-                "serial_sensitive",
-                "{}",
-                call_id="serial_sensitive_call",
-            ),
+    inner_model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call(
+                    "serial_before_pause",
+                    "{}",
+                    call_id="serial_before_call",
+                ),
+                get_function_tool_call(
+                    "serial_sensitive",
+                    "{}",
+                    call_id="serial_sensitive_call",
+                ),
+            ]
         ]
     )
-    inner_model.set_next_output([get_text_message("inner done")])
+    inner_model.enqueue([get_text_message("inner done")])
     inner_agent = Agent(
         name="inner",
         model=inner_model,
@@ -432,16 +452,18 @@ async def test_missing_formatter_cancellation_keeps_nested_state_serializable() 
         tool_name="serial_lookup",
         tool_description="Look up a value with the inner agent.",
     )
-    outer_model = FakeModel(
-        initial_output=[
-            get_function_tool_call(
-                "serial_lookup",
-                '{"input":"hi"}',
-                call_id="serial_outer_call",
-            )
+    outer_model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call(
+                    "serial_lookup",
+                    '{"input":"hi"}',
+                    call_id="serial_outer_call",
+                )
+            ]
         ]
     )
-    outer_model.set_next_output([get_text_message("outer done")])
+    outer_model.enqueue([get_text_message("outer done")])
     outer_agent = Agent(name="outer", model=outer_model, tools=[nested_tool])
 
     initial_result = await Runner.run(outer_agent, "Look this up")
@@ -488,8 +510,8 @@ async def test_replacing_interrupted_agent_tool_fails_before_side_effects() -> N
     )
     inner_agent = Agent(
         name="inner",
-        model=FakeModel(
-            initial_output=[get_function_tool_call("sensitive", "{}", call_id="call_sensitive")]
+        model=ScriptedModel(
+            steps=[[get_function_tool_call("sensitive", "{}", call_id="call_sensitive")]]
         ),
         tools=[sensitive_tool],
     )
@@ -499,13 +521,15 @@ async def test_replacing_interrupted_agent_tool_fails_before_side_effects() -> N
     )
     outer_agent = Agent(
         name="outer",
-        model=FakeModel(
-            initial_output=[
-                get_function_tool_call(
-                    "lookup",
-                    '{"input":"hi"}',
-                    call_id="call_lookup",
-                )
+        model=ScriptedModel(
+            steps=[
+                [
+                    get_function_tool_call(
+                        "lookup",
+                        '{"input":"hi"}',
+                        call_id="call_lookup",
+                    )
+                ]
             ]
         ),
         tools=[nested_tool],
@@ -548,11 +572,13 @@ async def test_resume_preserves_model_order_for_function_outcomes() -> None:
         name_override="available_lookup",
         needs_approval=True,
     )
-    model = FakeModel(
-        initial_output=[
-            get_function_tool_call("missing_lookup", "{}", call_id="missing_call"),
-            get_function_tool_call("rejected_lookup", "{}", call_id="rejected_call"),
-            get_function_tool_call("available_lookup", "{}", call_id="available_call"),
+    model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call("missing_lookup", "{}", call_id="missing_call"),
+                get_function_tool_call("rejected_lookup", "{}", call_id="rejected_call"),
+                get_function_tool_call("available_lookup", "{}", call_id="available_call"),
+            ]
         ]
     )
     agent = Agent(
@@ -569,7 +595,7 @@ async def test_resume_preserves_model_order_for_function_outcomes() -> None:
         else:
             state.approve(interruption)
     agent.tools = [rejected_tool, available_tool]
-    model.set_next_output([get_text_message("done")])
+    model.enqueue([get_text_message("done")])
 
     resumed_result = await Runner.run(
         agent,
@@ -598,8 +624,8 @@ async def test_resume_preserves_multiple_agent_tool_calls() -> None:
         inner_calls.append("inner")
         return "ok"
 
-    inner_model = FakeModel()
-    inner_model.add_multiple_turn_outputs(
+    inner_model = ScriptedModel()
+    inner_model.extend(
         [
             [get_function_tool_call(inner_hitl_tool.name, "{}", call_id="inner-1")],
             [get_function_tool_call(inner_hitl_tool.name, "{}", call_id="inner-2")],
@@ -613,18 +639,20 @@ async def test_resume_preserves_multiple_agent_tool_calls() -> None:
         tool_description="Run the inner agent.",
         needs_approval=False,
     )
-    outer_model = FakeModel(
-        initial_output=[
-            get_function_tool_call(
-                agent_tool.name,
-                '{"input":"a"}',
-                call_id="outer-a",
-            ),
-            get_function_tool_call(
-                agent_tool.name,
-                '{"input":"b"}',
-                call_id="outer-b",
-            ),
+    outer_model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call(
+                    agent_tool.name,
+                    '{"input":"a"}',
+                    call_id="outer-a",
+                ),
+                get_function_tool_call(
+                    agent_tool.name,
+                    '{"input":"b"}',
+                    call_id="outer-b",
+                ),
+            ]
         ]
     )
     outer_agent = Agent(name="outer", model=outer_model, tools=[agent_tool])
@@ -632,7 +660,7 @@ async def test_resume_preserves_multiple_agent_tool_calls() -> None:
     state = initial_result.to_state()
     for interruption in state.get_interruptions():
         state.approve(interruption)
-    outer_model.set_next_output([get_text_message("done")])
+    outer_model.enqueue([get_text_message("done")])
 
     resumed_result = await Runner.run(outer_agent, state)
 
@@ -677,7 +705,7 @@ async def test_resume_reuses_handoff_snapshot_for_delegating_overrides(
     )
     target = Agent(
         name="target",
-        model=FakeModel(initial_output=[get_text_message("done")]),
+        model=ScriptedModel(steps=[[get_text_message("done")]]),
     )
     route_handoff = handoff(
         target,
@@ -700,10 +728,12 @@ async def test_resume_reuses_handoff_snapshot_for_delegating_overrides(
         ) -> list[Tool]:
             return await super().get_all_tools(run_context)
 
-    model = FakeModel(
-        initial_output=[
-            get_function_tool_call("approval_tool", "{}", call_id="approval_call"),
-            get_handoff_tool_call(target, override_name="route", args="{}"),
+    model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call("approval_tool", "{}", call_id="approval_call"),
+                get_handoff_tool_call(target, override_name="route", args="{}"),
+            ]
         ]
     )
     agent_class = DelegatingAllToolsAgent if override_all_tools else DelegatingMCPAgent
@@ -741,10 +771,12 @@ async def test_resume_rejects_conflicting_persisted_identity_before_sibling_effe
         name_override="sibling",
         needs_approval=True,
     )
-    model = FakeModel(
-        initial_output=[
-            get_function_tool_call("lookup", "{}", call_id="conflicting_call"),
-            get_function_tool_call("sibling", "{}", call_id="sibling_call"),
+    model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call("lookup", "{}", call_id="conflicting_call"),
+                get_function_tool_call("sibling", "{}", call_id="sibling_call"),
+            ]
         ]
     )
     agent = Agent(name="agent", model=model, tools=[conflicting_tool, sibling_tool])
@@ -754,7 +786,7 @@ async def test_resume_rejects_conflicting_persisted_identity_before_sibling_effe
     interruptions = state.get_interruptions()
     for interruption in interruptions:
         state.approve(interruption)
-    conflicting = next(item for item in interruptions if item.call_id == "conflicting_call")
+    conflicting = _authoritative_interruption(state, "conflicting_call")
     conflicting.raw_item = {
         "type": "function_call",
         "name": "lookup",
@@ -781,8 +813,8 @@ async def test_resume_rejects_legacy_approval_name_change_before_side_effects() 
         lambda: _record(calls, "new"),
         name_override="new_lookup",
     )
-    model = FakeModel(
-        initial_output=[get_function_tool_call("old_lookup", "{}", call_id="lookup_call")]
+    model = ScriptedModel(
+        steps=[[get_function_tool_call("old_lookup", "{}", call_id="lookup_call")]]
     )
     agent = Agent(name="agent", model=model, tools=[old_tool])
 
@@ -790,6 +822,7 @@ async def test_resume_rejects_legacy_approval_name_change_before_side_effects() 
     state = initial_result.to_state()
     interruption = state.get_interruptions()[0]
     state.approve(interruption)
+    interruption = _authoritative_interruption(state, "lookup_call")
     interruption.tool_lookup_key = None
     interruption.raw_item = {
         "type": "function_call",
@@ -823,17 +856,19 @@ async def test_resume_treats_apply_patch_prefixed_queued_function_as_function(
         tools.extend(tool_namespace(name=namespace, description="Lookup tools", tools=[base_tool]))
     else:
         tools.append(base_tool)
-    model = FakeModel(
-        initial_output=[
-            get_function_tool_call(
-                "apply_patch_lookup",
-                "{}",
-                call_id="lookup_call",
-                namespace=namespace,
-            )
+    model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call(
+                    "apply_patch_lookup",
+                    "{}",
+                    call_id="lookup_call",
+                    namespace=namespace,
+                )
+            ]
         ]
     )
-    model.set_next_output([get_text_message("done")])
+    model.enqueue([get_text_message("done")])
     agent = Agent(name="agent", model=model, tools=tools)
 
     initial_result = await Runner.run(agent, "Look this up")
@@ -885,9 +920,7 @@ async def test_approved_malformed_approval_only_stays_pending_without_side_effec
         name_override="lookup",
         needs_approval=True,
     )
-    model = FakeModel(
-        initial_output=[get_function_tool_call("lookup", "{}", call_id="lookup_call")]
-    )
+    model = ScriptedModel(steps=[[get_function_tool_call("lookup", "{}", call_id="lookup_call")]])
     agent = Agent(name="agent", model=model, tools=[tool])
 
     initial_result = await Runner.run(agent, "Look this up")
@@ -897,7 +930,7 @@ async def test_approved_malformed_approval_only_stays_pending_without_side_effec
     assert state._last_processed_response is not None
     state._last_processed_response.functions = []
     state._model_responses[-1] = replace(state._model_responses[-1], output=[])
-    interruption.raw_item = malformed_raw_item
+    _authoritative_interruption(state, "lookup_call").raw_item = malformed_raw_item
 
     resumed_result = await Runner.run(agent, state)
 
@@ -936,17 +969,15 @@ async def test_resume_snapshots_function_approval_before_tool_inventory_await() 
                 approval.raw_item.name = "other"
             return await super().get_all_tools(run_context)
 
-    model = FakeModel(
-        initial_output=[get_function_tool_call("lookup", "{}", call_id="lookup_call")]
-    )
-    model.set_next_output([get_text_message("done")])
+    model = ScriptedModel(steps=[[get_function_tool_call("lookup", "{}", call_id="lookup_call")]])
+    model.enqueue([get_text_message("done")])
     agent = MutatingAgent(name="agent", model=model, tools=[lookup_tool, other_tool])
 
     initial_result = await Runner.run(agent, "Look this up")
     state = initial_result.to_state()
     approval = state.get_interruptions()[0]
     state.approve(approval)
-    approval_holder["approval"] = approval
+    approval_holder["approval"] = _authoritative_interruption(state, "lookup_call")
 
     resumed_result = await Runner.run(agent, state)
 
@@ -967,23 +998,26 @@ async def test_resume_uses_queued_arguments_instead_of_mutated_approval_argument
         name_override="lookup",
         needs_approval=True,
     )
-    model = FakeModel(
-        initial_output=[
-            get_function_tool_call(
-                "lookup",
-                '{"amount":10}',
-                call_id="lookup_call",
-            )
+    model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call(
+                    "lookup",
+                    '{"amount":10}',
+                    call_id="lookup_call",
+                )
+            ]
         ]
     )
-    model.set_next_output([get_text_message("done")])
+    model.enqueue([get_text_message("done")])
     agent = Agent(name="agent", model=model, tools=[lookup_tool])
 
     initial_result = await Runner.run(agent, "Look this up")
     state = await RunState.from_json(agent, initial_result.to_state().to_json())
     approval = state.get_interruptions()[0]
     state.approve(approval)
-    cast(Any, approval.raw_item).arguments = '{"amount":999}'
+    authoritative = _authoritative_interruption(state, "lookup_call")
+    cast(Any, authoritative.raw_item).arguments = '{"amount":999}'
 
     resumed_result = await Runner.run(agent, state)
 
@@ -1025,8 +1059,8 @@ async def test_resume_deep_copies_approval_only_program_caller_before_inventory_
                 cast(Any, approval.raw_item).caller.caller_id = "mutated_program"
             return await super().get_all_tools(run_context)
 
-    model = FakeModel(initial_output=[program, function_call])
-    model.set_next_output([get_text_message("done")])
+    model = ScriptedModel(steps=[[program, function_call]])
+    model.enqueue([get_text_message("done")])
     agent = MutatingCallerAgent(
         name="agent",
         model=model,
@@ -1043,7 +1077,7 @@ async def test_resume_deep_copies_approval_only_program_caller_before_inventory_
         state._model_responses[-1],
         output=[program],
     )
-    approval_holder["approval"] = approval
+    approval_holder["approval"] = _authoritative_interruption(state, "lookup_call")
 
     resumed_result = await Runner.run(agent, state)
 
@@ -1083,7 +1117,7 @@ async def test_resume_snapshots_program_parent_context_before_inventory_await() 
                 program.call_id = "forged_program"
             return await super().get_all_tools(run_context)
 
-    model = FakeModel(initial_output=[program, function_call])
+    model = ScriptedModel(steps=[[program, function_call]])
     agent = MutatingParentAgent(
         name="agent",
         model=model,
@@ -1094,7 +1128,8 @@ async def test_resume_snapshots_program_parent_context_before_inventory_await() 
     state = initial_result.to_state()
     approval = state.get_interruptions()[0]
     state.approve(approval)
-    cast(Any, approval.raw_item).caller.caller_id = "forged_program"
+    authoritative = _authoritative_interruption(state, "lookup_call")
+    cast(Any, authoritative.raw_item).caller.caller_id = "forged_program"
     assert state._last_processed_response is not None
     state._last_processed_response.functions = []
     state._model_responses[-1] = replace(
@@ -1122,10 +1157,12 @@ async def test_resume_rejects_response_backed_approval_lookup_mismatch_before_ef
         name_override="sibling",
         needs_approval=True,
     )
-    model = FakeModel(
-        initial_output=[
-            get_function_tool_call("lookup", "{}", call_id="lookup_call"),
-            get_function_tool_call("sibling", "{}", call_id="sibling_call"),
+    model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call("lookup", "{}", call_id="lookup_call"),
+                get_function_tool_call("sibling", "{}", call_id="sibling_call"),
+            ]
         ]
     )
     agent = Agent(name="agent", model=model, tools=[lookup_tool, sibling_tool])
@@ -1141,7 +1178,7 @@ async def test_resume_rejects_response_backed_approval_lookup_mismatch_before_ef
         for run in state._last_processed_response.functions
         if run.tool_call.call_id != "lookup_call"
     ]
-    lookup_approval = next(item for item in interruptions if item.call_id == "lookup_call")
+    lookup_approval = _authoritative_interruption(state, "lookup_call")
     cast(Any, lookup_approval.raw_item).name = "other"
     lookup_approval.tool_name = "other"
     lookup_approval.tool_lookup_key = ("bare", "other")
@@ -1170,16 +1207,18 @@ async def test_resume_preserves_function_shaped_apply_patch_owner() -> None:
             return {"output": "deleted", "status": "completed"}
 
     patch_tool = ApplyPatchTool(editor=cast(Any, Editor()), needs_approval=True)
-    model = FakeModel(
-        initial_output=[
-            get_function_tool_call(
-                "apply_patch",
-                '{"type":"update_file","path":"test.md","diff":"-a\\n+b\\n"}',
-                call_id="patch_call",
-            )
+    model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call(
+                    "apply_patch",
+                    '{"type":"update_file","path":"test.md","diff":"-a\\n+b\\n"}',
+                    call_id="patch_call",
+                )
+            ]
         ]
     )
-    model.set_next_output([get_text_message("done")])
+    model.enqueue([get_text_message("done")])
     agent = Agent(name="agent", model=model, tools=[patch_tool])
 
     initial_result = await Runner.run(agent, "Update the file")
@@ -1204,13 +1243,15 @@ async def test_nested_rebind_is_not_committed_before_later_strict_missing_error(
         name_override="sensitive",
         needs_approval=True,
     )
-    inner_model = FakeModel(
-        initial_output=[
-            get_function_tool_call("before", "{}", call_id="before_call"),
-            get_function_tool_call("sensitive", "{}", call_id="sensitive_call"),
+    inner_model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call("before", "{}", call_id="before_call"),
+                get_function_tool_call("sensitive", "{}", call_id="sensitive_call"),
+            ]
         ]
     )
-    inner_model.set_next_output([get_text_message("inner done")])
+    inner_model.enqueue([get_text_message("inner done")])
     inner_agent = Agent(
         name="inner",
         model=inner_model,
@@ -1225,13 +1266,15 @@ async def test_nested_rebind_is_not_committed_before_later_strict_missing_error(
         name_override="missing",
         needs_approval=True,
     )
-    outer_model = FakeModel(
-        initial_output=[
-            get_function_tool_call("nested", '{"input":"go"}', call_id="nested_call"),
-            get_function_tool_call("missing", "{}", call_id="missing_call"),
+    outer_model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call("nested", '{"input":"go"}', call_id="nested_call"),
+                get_function_tool_call("missing", "{}", call_id="missing_call"),
+            ]
         ]
     )
-    outer_model.set_next_output([get_text_message("outer done")])
+    outer_model.enqueue([get_text_message("outer done")])
     outer_agent = Agent(
         name="outer",
         model=outer_model,
@@ -1287,11 +1330,13 @@ async def test_cross_kind_duplicate_call_id_fails_before_execution() -> None:
             },
         },
     )
-    model = FakeModel(
-        initial_output=[
-            get_function_tool_call("missing", "{}", call_id="missing_call"),
-            get_function_tool_call("lookup", "{}", call_id="shared_call"),
-            shell_call,
+    model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call("missing", "{}", call_id="missing_call"),
+                get_function_tool_call("lookup", "{}", call_id="shared_call"),
+                shell_call,
+            ]
         ]
     )
     agent = Agent(
@@ -1333,10 +1378,12 @@ async def test_approved_malformed_queued_approval_stays_pending_without_side_eff
         name_override="sibling",
         needs_approval=True,
     )
-    model = FakeModel(
-        initial_output=[
-            get_function_tool_call("lookup", "{}", call_id="lookup_call"),
-            get_function_tool_call("sibling", "{}", call_id="sibling_call"),
+    model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call("lookup", "{}", call_id="lookup_call"),
+                get_function_tool_call("sibling", "{}", call_id="sibling_call"),
+            ]
         ]
     )
     agent = Agent(name="agent", model=model, tools=[lookup_tool, sibling_tool])
@@ -1346,7 +1393,7 @@ async def test_approved_malformed_queued_approval_stays_pending_without_side_eff
     interruptions = state.get_interruptions()
     for interruption in interruptions:
         state.approve(interruption)
-    lookup_approval = next(item for item in interruptions if item.call_id == "lookup_call")
+    lookup_approval = _authoritative_interruption(state, "lookup_call")
     lookup_approval.raw_item = malformed_raw_item
 
     resumed_result = await Runner.run(agent, state)
@@ -1368,10 +1415,12 @@ async def test_resume_rejects_cross_kind_approval_identity_before_sibling_effect
         name_override="sibling",
         needs_approval=True,
     )
-    model = FakeModel(
-        initial_output=[
-            get_function_tool_call("lookup", "{}", call_id="lookup_call"),
-            get_function_tool_call("sibling", "{}", call_id="sibling_call"),
+    model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call("lookup", "{}", call_id="lookup_call"),
+                get_function_tool_call("sibling", "{}", call_id="sibling_call"),
+            ]
         ]
     )
     agent = Agent(name="agent", model=model, tools=[lookup_tool, sibling_tool])
@@ -1381,7 +1430,7 @@ async def test_resume_rejects_cross_kind_approval_identity_before_sibling_effect
     interruptions = state.get_interruptions()
     for interruption in interruptions:
         state.approve(interruption)
-    lookup_approval = next(item for item in interruptions if item.call_id == "lookup_call")
+    lookup_approval = _authoritative_interruption(state, "lookup_call")
     lookup_approval.raw_item = {
         "type": "custom_tool_call",
         "name": "evil",
@@ -1413,13 +1462,15 @@ async def test_missing_formatter_cancellation_precedes_sibling_side_effects(
         name_override="available",
         needs_approval=True,
     )
-    model = FakeModel(
-        initial_output=[
-            get_function_tool_call("missing", "{}", call_id="missing_call"),
-            get_function_tool_call("available", "{}", call_id="available_call"),
+    model = ScriptedModel(
+        steps=[
+            [
+                get_function_tool_call("missing", "{}", call_id="missing_call"),
+                get_function_tool_call("available", "{}", call_id="available_call"),
+            ]
         ]
     )
-    model.set_next_output([get_text_message("done")])
+    model.enqueue([get_text_message("done")])
     agent = Agent(name="agent", model=model, tools=[missing_tool, available_tool])
 
     initial_result = await Runner.run(agent, "Look these up")

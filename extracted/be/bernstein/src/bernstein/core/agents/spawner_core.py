@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import copy
 import inspect
 import json
 import logging
@@ -674,6 +675,12 @@ def _render_auth_section(token_path: Path) -> str:
         "form and the correct token path, and retry. Do not report a task as done, "
         "or give up, based solely on a non-2xx response without first confirming "
         "the command form was correct.\n"
+        "**A 404 naming a task id is permanent - do not re-send the same body.** "
+        "It means that id does not resolve for you: it does not exist, or it "
+        "exists outside the scope your token reaches. Either way the identical "
+        "request will keep returning 404, so re-issuing it wastes turns. Pick a "
+        "task id you can already read through `GET /tasks`, or drop the "
+        "association (omit `parent_task_id`) and create the task standalone.\n"
         "Example - creating a subtask (pass the whole line to `run_command` as ONE string):\n"
         "```bash\n"
         f"curl -sS -w '\\n%{{http_code}}' -X POST {base}/tasks \\\n"
@@ -4158,13 +4165,18 @@ class AgentSpawner:
             # Inject role-specific skills into the worktree before spawn so the
             # agent picks up orchestration protocol and role-specific instructions.
             # Skills survive context compaction and reduce prompt boilerplate.
-            inject_skills(
+            injected_skills_audit: list[dict[str, str]] = inject_skills(
                 workdir=spawn_cwd,
                 role=role,
                 tasks=tasks,
                 session_id=session_id,
                 templates_dir=self._templates_dir,
             )
+            audit_snapshot: list[dict[str, str]] = injected_skills_audit or []
+            session.injected_skills = copy.deepcopy(audit_snapshot)
+            for _t in tasks:
+                if isinstance(_t.metadata, dict):
+                    _t.metadata["injected_skills"] = copy.deepcopy(audit_snapshot)
             _inject_scheduled_tasks(
                 workdir=spawn_cwd,
                 session_id=session_id,
@@ -4410,9 +4422,10 @@ class AgentSpawner:
                             # tasks carry a value the largest wins, mirroring
                             # budget_multiplier above.
                             _extra_spawn_kwargs: dict[str, Any] = {}
+                            _spawn_params = inspect.signature(target_adapter.spawn).parameters
                             _explicit_turns = max((t.max_turns for t in tasks if t.max_turns is not None), default=None)
                             if _explicit_turns is not None:
-                                if "explicit_max_turns" in inspect.signature(target_adapter.spawn).parameters:
+                                if "explicit_max_turns" in _spawn_params:
                                     _extra_spawn_kwargs["explicit_max_turns"] = _explicit_turns
                                 else:
                                     logger.warning(
@@ -4421,6 +4434,15 @@ class AgentSpawner:
                                         adapter_name,
                                         _explicit_turns,
                                     )
+                            # Task identity for adapters that brand their
+                            # output per task (log attribution, per-task
+                            # behaviour). Grouped spawns are led by their
+                            # first task, the same order the prompt lists
+                            # them in.
+                            if "task_id" in _spawn_params:
+                                _extra_spawn_kwargs["task_id"] = tasks[0].id
+                            if "task_title" in _spawn_params:
+                                _extra_spawn_kwargs["task_title"] = tasks[0].title
                             # Cacheable prefix extraction is deferred to adapters
                             # that support provider-specific caching.
                             result = target_adapter.spawn(
@@ -4669,6 +4691,53 @@ class AgentSpawner:
                     )
         return declared
 
+    def _resolve_and_stamp_injected_skills(self, session: AgentSession, tasks: list[Task]) -> None:
+        """Carry the injected-skill audit set forward on resume (issue #3382).
+
+        inject_skills() is never called again on resume - the preserved
+        worktree already has .claude/skills/ written by the original spawn.
+        The audit trail is therefore carried from the crashed session's
+        task metadata (stamped there by _spawn_for_tasks_internal, see
+        :4173) rather than recomputed.
+
+        Known limitation: if the orchestrator process itself restarts
+        between the original spawn and this resume call (not just the
+        crashed agent), task.metadata is only as fresh as the last
+        persisted write - the same limitation context_attachments has.
+        We degrade to an explicit 'unknown_provenance' record rather than
+        silently claiming an empty set, since the skill files are still
+        physically present in the worktree even if we've lost the record
+        of exactly which digests they correspond to.
+        """
+        source_record = tasks[0].metadata.get("injected_skills") if tasks else None
+        if not source_record:
+            logger.warning(
+                "No injected_skills provenance found on resume for tasks %s; "
+                "worktree may still contain skill files from the original spawn",
+                [t.id for t in tasks],
+            )
+            session.injected_skills = [
+                {
+                    "template_name": "",
+                    "version": "",
+                    "pre_render_digest": "",
+                    "rendered_digest": "",
+                    "trigger_source": "unknown",
+                    "source": "resume-preserved",
+                    "status": "unknown_provenance",
+                }
+            ]
+            return
+
+        carried = copy.deepcopy(source_record)
+        for record in carried:
+            record["source"] = "resume-preserved"
+
+        session.injected_skills = carried
+        for t in tasks:
+            if isinstance(t.metadata, dict):
+                t.metadata["injected_skills"] = copy.deepcopy(carried)
+
     def spawn_for_resume(
         self,
         tasks: list[Task],
@@ -4787,15 +4856,25 @@ class AgentSpawner:
         # run journal pins the bytes this session actually sees, including
         # any edits the crashed agent made to the declared files.
         self._resolve_and_stamp_context_files(session, tasks, worktree_path)
+        self._resolve_and_stamp_injected_skills(session, tasks)
 
         _scope_order = {"small": 0, "medium": 1, "large": 2}
         resume_scope = max((t.scope.value for t in tasks), key=lambda s: _scope_order.get(s, 1))
+        # Same task-identity forwarding as the primary spawn path: a resumed
+        # agent must attribute its output to the task it continues.
+        _resume_extra: dict[str, Any] = {}
+        _resume_params = inspect.signature(self._adapter.spawn).parameters
+        if "task_id" in _resume_params:
+            _resume_extra["task_id"] = tasks[0].id
+        if "task_title" in _resume_params:
+            _resume_extra["task_title"] = tasks[0].title
         result = self._adapter.spawn(
             prompt=prompt,
             workdir=worktree_path,
             model_config=model_config,
             session_id=session_id,
             task_scope=resume_scope,
+            **_resume_extra,
         )
         session.pid = result.pid
         session.abort_reason = result.abort_reason

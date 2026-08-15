@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 
@@ -208,6 +208,44 @@ def _parse_int_field(
     return raw
 
 
+def _step_context(stage_name: str, step_idx: int) -> str:
+    """Error-message prefix naming a step by its stage and position."""
+    return f"Step {step_idx} in stage {stage_name!r}"
+
+
+def _parse_string_list_field(raw: object, field_name: str, context: str) -> list[str]:
+    """Parse an optional list-of-strings field.
+
+    Args:
+        raw: Raw field value from the YAML document.
+        field_name: Field name, for error context.
+        context: Where in the document the field was found, used verbatim as
+            the error-message prefix -- ``"Plan"``, ``"Stage 'build'"``, or
+            ``_step_context(...)``. The same list fields exist at three levels
+            of a plan file, so the message has to name the level the reader
+            must go and edit; a step-shaped prefix on a plan-level field would
+            send them to a step that does not exist.
+
+    Returns:
+        The string items, or an empty list when the field is absent or ``null``.
+
+    Raises:
+        PlanLoadError: If the field is present but not a list, or if any list
+            item is not a string.
+    """
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise PlanLoadError(f"{context}: {field_name!r} must be a list of strings, got {type(raw).__name__}")
+    items = cast(list[object], raw)
+    parsed: list[str] = []
+    for item_idx, item in enumerate(items):
+        if not isinstance(item, str):
+            raise PlanLoadError(f"{context}: {field_name}[{item_idx}] must be a string, got {type(item).__name__}")
+        parsed.append(item)
+    return parsed
+
+
 def load_plan(path: Path) -> tuple[PlanConfig, list[Task]]:
     """Load a YAML plan file and return plan-level config plus a list of Task objects.
 
@@ -281,8 +319,8 @@ def load_plan(path: Path) -> tuple[PlanConfig, list[Task]]:
     config = PlanConfig(
         name=str(data.get("name", "")),
         description=str(data.get("description", "")),
-        constraints=list(data.get("constraints") or []),
-        context_files=list(data.get("context_files") or []),
+        constraints=_parse_string_list_field(data.get("constraints"), "constraints", "Plan"),
+        context_files=_parse_string_list_field(data.get("context_files"), "context_files", "Plan"),
         cli=str(data["cli"]) if data.get("cli") else None,
         budget=str(budget_raw) if budget_raw is not None else None,
         max_agents=int(max_agents_raw) if max_agents_raw is not None else None,
@@ -328,7 +366,7 @@ def _parse_stage(
         return
 
     stage_tasks[str(stage_name)] = []
-    stage_deps: list[str] = [str(d) for d in (stage.get("depends_on") or [])]
+    stage_deps: list[str] = _parse_string_list_field(stage.get("depends_on"), "depends_on", f"Stage {stage_name!r}")
     stage_repo: str | None = str(stage["repo"]) if stage.get("repo") else None
 
     for j, step in enumerate(steps):
@@ -361,34 +399,21 @@ def _parse_step(
 
     raw_signals: list[object] = list(step.get("completion_signals") or [])
     signals = _parse_completion_signals(raw_signals)
-    # Reject scalar / non-list shapes so a YAML typo like ``files: ./mod.py``
-    # does not silently iterate the string character-by-character -- the same
-    # boundary the CLI pre-check (validate_plan) enforces (#3516).
-    raw_files = step.get("files")
-    if raw_files is None:
-        owned_files: list[str] = []
-    elif isinstance(raw_files, list):
-        owned_files = [str(f) for f in raw_files]
-    else:
-        raise PlanLoadError(
-            f"Step {step_index} in stage {stage_name!r}: 'files' must be a "
-            f"list of paths, got {type(raw_files).__name__}"
-        )
+    # Reject scalar / non-list shapes and non-string items so direct loads
+    # match the CLI pre-check (validate_plan) boundary for list[string] fields.
+    raw_files: object = step.get("files")
+    owned_files = _parse_string_list_field(raw_files, "files", _step_context(stage_name, step_index))
     # Issue #1797: operator-supplied image attachments. The orchestrator
     # builds a MultiModalContext at spawn time from these paths.
     # Reject scalar / non-list shapes so a YAML typo like
     # ``attachments: ./shot.png`` does not silently iterate the string
     # character-by-character. (bot-ack: 3284182784 -- CodeRabbit major.)
-    raw_attachments = step.get("attachments")
-    if raw_attachments is None:
-        attachments: list[str] = []
-    elif isinstance(raw_attachments, list):
-        attachments = [str(a) for a in raw_attachments]
-    else:
-        raise PlanLoadError(
-            f"Step {step_index} in stage {stage_name!r}: 'attachments' must be a "
-            f"list of paths, got {type(raw_attachments).__name__}"
-        )
+    # Items are checked too: this field becomes a filesystem path at spawn, so
+    # ``str()`` on a mapping produced "{'a': 'b'}" and handed the adapter a
+    # path that cannot exist and never named the plan line that wrote it.
+    attachments: list[str] = _parse_string_list_field(
+        step.get("attachments"), "attachments", _step_context(stage_name, step_index)
+    )
 
     model_raw = step.get("model")
     effort_raw = step.get("effort")

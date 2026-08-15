@@ -58,7 +58,7 @@ _RST_FIELD = _re.compile(r"^:\w+[^:\n]*:(?=\s|$)", _re.MULTILINE)
 #: every section name napoleon knows, longest first so multi-word names
 #: are preferred; derived from napoleon itself rather than hand-listed,
 #: because a hand-listed subset silently stops docstrings it does not
-#: recognise from ever reaching napoleon, hiding their params
+#: recognize from ever reaching napoleon, hiding their params
 # noinspection PyProtectedMember
 _SECTION_NAMES = "|".join(
     _re.escape(name)
@@ -97,7 +97,7 @@ _RETURN_FIELD = _re.compile(
 # the suggestion is broken
 # noinspection RegExpSingleCharAlternation
 _PARAM_FIELD = _re.compile(
-    r"^[ \t]*:((?:\\?\*){0,2}[\w]+"
+    r"^[ \t]*:((?:\\?\*){0,2}\w+"
     rf"(?:\s+{_FIELD_WORD}|"
     rf"\s\|\s{_FIELD_WORD})*)"
     r"([^\w\s\\*])"
@@ -317,7 +317,7 @@ class Signature(_Stub):
         # yield params in the order they are documented: positional,
         # *args, keyword-only, then **kwargs
         posonlyargs = list(args.posonlyargs)
-        positional = list(args.args)
+        positional = list(args.args)  # type: ignore
         if skip_bound_arg:
             # drop self or cls without mutating the AST node
             if posonlyargs:

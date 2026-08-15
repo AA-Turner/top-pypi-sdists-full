@@ -87,6 +87,7 @@ from .literals import (
     OperatingSystemType,
     OverrideTypeType,
     PassthroughProtocolTypeType,
+    PaymentConnectorProvisionModeType,
     PaymentConnectorStatusType,
     PaymentConnectorTypeType,
     PaymentCredentialProviderVendorTypeType,
@@ -1236,7 +1237,7 @@ class BrowserSummaryTypeDef(TypedDict):
 
 
 class CapacityProviderConfigurationTypeDef(TypedDict):
-    capacityProviderArn: NotRequired[str]
+    capacityProviderArn: str
 
 
 class CapacityProviderSummaryTypeDef(TypedDict):
@@ -2506,6 +2507,7 @@ class PaymentManagerSummaryTypeDef(TypedDict):
     lastUpdatedAt: datetime
     description: NotRequired[str]
     createdAt: NotRequired[datetime]
+    kmsKeyArn: NotRequired[str]
 
 
 class ListPoliciesRequestTypeDef(TypedDict):
@@ -3877,6 +3879,7 @@ class UpdatePaymentManagerResponseTypeDef(TypedDict):
     workloadIdentityDetails: WorkloadIdentityDetailsTypeDef
     lastUpdatedAt: datetime
     status: PaymentManagerStatusType
+    kmsKeyArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -5002,6 +5005,7 @@ CreatePaymentConnectorRequestTypeDef = TypedDict(
         "type": PaymentConnectorTypeType,
         "credentialProviderConfigurations": Sequence[CredentialsProviderConfigurationTypeDef],
         "description": NotRequired[str],
+        "provisionMode": NotRequired[PaymentConnectorProvisionModeType],
         "clientToken": NotRequired[str],
     },
 )
@@ -5015,6 +5019,7 @@ CreatePaymentConnectorResponseTypeDef = TypedDict(
         "credentialProviderConfigurations": list[CredentialsProviderConfigurationTypeDef],
         "createdAt": datetime,
         "status": PaymentConnectorStatusType,
+        "authorizationUrl": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -5029,6 +5034,7 @@ GetPaymentConnectorResponseTypeDef = TypedDict(
         "createdAt": datetime,
         "lastUpdatedAt": datetime,
         "status": PaymentConnectorStatusType,
+        "authorizationUrl": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -5055,6 +5061,7 @@ UpdatePaymentConnectorResponseTypeDef = TypedDict(
         "credentialProviderConfigurations": list[CredentialsProviderConfigurationTypeDef],
         "lastUpdatedAt": datetime,
         "status": PaymentConnectorStatusType,
+        "authorizationUrl": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -6295,6 +6302,7 @@ class CreatePaymentManagerResponseTypeDef(TypedDict):
     createdAt: datetime
     status: PaymentManagerStatusType
     tags: dict[str, str]
+    kmsKeyArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6362,6 +6370,7 @@ class GetPaymentManagerResponseTypeDef(TypedDict):
     lastUpdatedAt: datetime
     status: PaymentManagerStatusType
     tags: dict[str, str]
+    kmsKeyArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6977,6 +6986,7 @@ class CreatePaymentManagerRequestTypeDef(TypedDict):
     authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+    kmsKeyArn: NotRequired[str]
 
 
 class CreateRegistryRequestTypeDef(TypedDict):
@@ -7029,6 +7039,7 @@ class UpdatePaymentManagerRequestTypeDef(TypedDict):
     authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
     roleArn: NotRequired[str]
     clientToken: NotRequired[str]
+    kmsKeyArn: NotRequired[str]
 
 
 class UpdatedAuthorizerConfigurationTypeDef(TypedDict):

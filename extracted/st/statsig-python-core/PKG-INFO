@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: statsig_python_core
-Version: 0.21.0
+Version: 0.22.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -8,8 +8,7 @@ Requires-Dist: requests
 Requires-Dist: typing-extensions
 Summary: Statsig Python bindings for the Statsig Core SDK.
 Home-Page: https://statsig.com/
-Author: Statsig, Daniel Loomb <daniel@statsig.com>
-Author-email: Statsig, Daniel Loomb <daniel@statsig.com>
+Author: Statsig
 License: ISC
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM

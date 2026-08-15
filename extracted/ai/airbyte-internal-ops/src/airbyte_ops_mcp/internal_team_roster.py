@@ -328,6 +328,13 @@ def _load_github_to_airbyte_io_email(
     return {}
 
 
+def load_github_to_airbyte_io_email(
+    github_token: str | None = None,
+) -> dict[str, str]:
+    """Load the curated GitHub login to Airbyte email mapping."""
+    return _load_github_to_airbyte_io_email(github_token)
+
+
 def _parse_github_to_airbyte_io_csv(text: str) -> dict[str, str]:
     """Parse the `github_to_airbyte_io_email` CSV text into a dict.
 

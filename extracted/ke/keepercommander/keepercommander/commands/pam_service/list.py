@@ -1,12 +1,13 @@
 from __future__ import annotations
 import argparse
+from . import record_lookup
 from ..discover import PAMGatewayActionDiscoverCommandBase, GatewayContext, MultiConfigurationException, multi_conf_msg
 from ...display import bcolors
 from ... import vault
 from ...discovery_common.user_service import UserService
 from ...discovery_common.record_link import RecordLink
 from ...discovery_common.constants import PAM_MACHINE
-from ...discovery_common.types import UserData, MachineData
+from ...discovery_common.types import ServiceEnum, MachineData, UserData
 from ...keeper_dag import EdgeType
 from ... import __version__
 from typing import Optional, TYPE_CHECKING
@@ -39,10 +40,11 @@ class PAMActionServiceListCommand(PAMGatewayActionDiscoverCommandBase):
                 continue
 
             resource_active = True
-            user_data_edge = resource_vertex.get_data()
-            if user_data_edge is not None:
-                user_data = user_data_edge.content_as_object(MachineData)
-                resource_active = not user_data.no_update_services
+            resource_data_edge = resource_vertex.get_data()
+            if resource_data_edge is not None:
+                resource_data_edge = resource_data_edge.content_as_object(MachineData)
+                if resource_data_edge is not None:
+                    resource_active = not resource_data_edge.no_update_services
 
             user_vertices = user_service.get_user_vertices(resource_vertex.uid)
             if len(user_vertices) > 0:
@@ -58,7 +60,8 @@ class PAMActionServiceListCommand(PAMGatewayActionDiscoverCommandBase):
                     user_data_edge = user_vertex.get_data()
                     if user_data_edge is not None:
                         user_data = user_data_edge.content_as_object(UserData)
-                        user_active = not user_data.no_update_services
+                        if user_data is not None:
+                            user_active = not user_data.no_update_services
 
                     if user_record.record_uid not in service_map:
                         service_map[user_record.record_uid] = {
@@ -66,10 +69,32 @@ class PAMActionServiceListCommand(PAMGatewayActionDiscoverCommandBase):
                             "active": user_active,
                             "machines": []
                         }
-                    text = f"{resource_record.title} ({resource_record.record_uid})"
+                    machine_name = f"{resource_record.title} ({resource_record.record_uid})"
                     if not resource_active:
-                        text += f" : {bcolors.FAIL}Disabled{bcolors.ENDC}"
-                    service_map[user_record.record_uid]["machines"].append(text)
+                        machine_name += f" : {bcolors.FAIL}Disabled{bcolors.ENDC}"
+
+                    items = []
+                    if acl.service_names is not None or acl.service_names != "":
+                        for service_name in acl.get_service_names(user_record.record_key):
+                            text = ""
+                            if service_name.type == ServiceEnum.service:
+                                text = "Service"
+                            elif service_name.type == ServiceEnum.task:
+                                text = "Scheduled Task"
+                            elif service_name.type == ServiceEnum.iis_pool:
+                                text = "IIS Pool"
+                            for item in service_name.items:
+                                text += f": {item.name}"
+                                if "Unknown" in item.name:
+                                    text += " (from migration)"
+                                elif not item.via_discovery:
+                                    text += " (manually set)"
+                            items.append(text)
+
+                    service_map[user_record.record_uid]["machines"].append({
+                        "name": machine_name,
+                        "items": items
+                    })
 
         print("")
         printed_something = False
@@ -82,7 +107,9 @@ class PAMActionServiceListCommand(PAMGatewayActionDiscoverCommandBase):
                 active_text = f" {bcolors.FAIL}Disabled{bcolors.ENDC}"
             print(f"  {self._b(user['title'])} ({user_uid}){active_text}")
             for machine in user["machines"]:
-                print(f"    * {machine}")
+                print(f"    * {machine['name']}")
+                for item in machine["items"]:
+                    print(f"      - {self._gr(item)}")
             print("")
         if not printed_something:
             print(f"  {bcolors.FAIL}There are no service mappings.{bcolors.ENDC}")
@@ -90,15 +117,17 @@ class PAMActionServiceListCommand(PAMGatewayActionDiscoverCommandBase):
     def _by_machine(self, params: KeeperParams, record_link: RecordLink, user_service: UserService):
         service_map = {}
         for resource_vertex in record_link.dag.get_root.has_vertices(edge_type=EdgeType.LINK):
+
             resource_record = vault.KeeperRecord.load(params, resource_vertex.uid)  # type: Optional[TypedRecord]
             if resource_record is None or resource_record.record_type != PAM_MACHINE:
                 continue
 
             resource_active = True
-            user_data_edge = resource_vertex.get_data()
-            if user_data_edge is not None:
-                user_data = user_data_edge.content_as_object(MachineData)
-                resource_active = not user_data.no_update_services
+            resource_data_edge = resource_vertex.get_data()
+            if resource_data_edge is not None:
+                resource_data_edge = resource_data_edge.content_as_object(MachineData)
+                if resource_data_edge is not None:
+                    resource_active = not resource_data_edge.no_update_services
 
             user_vertices = user_service.get_user_vertices(resource_vertex.uid)
             if len(user_vertices) > 0:
@@ -114,7 +143,8 @@ class PAMActionServiceListCommand(PAMGatewayActionDiscoverCommandBase):
                     user_data_edge = user_vertex.get_data()
                     if user_data_edge is not None:
                         user_data = user_data_edge.content_as_object(UserData)
-                        user_active = not user_data.no_update_services
+                        if user_data is not None:
+                            user_active = not user_data.no_update_services
 
                     if resource_record.record_uid not in service_map:
                         service_map[resource_record.record_uid] = {
@@ -122,10 +152,32 @@ class PAMActionServiceListCommand(PAMGatewayActionDiscoverCommandBase):
                             "active": resource_active,
                             "users": []
                         }
-                    text = f"{user_record.title} ({user_record.record_uid})"
+                    user_name = f"{user_record.title} ({user_record.record_uid})"
                     if not user_active:
-                        text += f" : {bcolors.FAIL}Disabled{bcolors.ENDC}"
-                    service_map[resource_record.record_uid]["users"].append(text)
+                        user_name += f" : {bcolors.FAIL}Disabled{bcolors.ENDC}"
+
+                    items = []
+                    if acl.service_names is not None or acl.service_names != "":
+                        for service_name in acl.get_service_names(user_record.record_key):
+                            text = ""
+                            if service_name.type == ServiceEnum.service:
+                                text = "Service"
+                            elif service_name.type == ServiceEnum.task:
+                                text = "Scheduled Task"
+                            elif service_name.type == ServiceEnum.iis_pool:
+                                text = "IIS Pool"
+                            for item in service_name.items:
+                                text += f": {item.name}"
+                                if "Unknown" in item.name:
+                                    text += " (from migration)"
+                                elif not item.via_discovery:
+                                    text += " (manually set)"
+                            items.append(text)
+
+                    service_map[resource_record.record_uid]["users"].append({
+                        "name": user_name,
+                        "items": items
+                    })
 
         print("")
         printed_something = False
@@ -138,7 +190,9 @@ class PAMActionServiceListCommand(PAMGatewayActionDiscoverCommandBase):
                 active_text = f" {bcolors.FAIL}Disabled{bcolors.ENDC}"
             print(f"  {self._b(user['title'])} ({resource_uid}){active_text}")
             for user in user["users"]:
-                print(f"    * {user}")
+                print(f"    * {user['name']}")
+                for item in user["items"]:
+                    print(f"      - {self._gr(item)}")
             print("")
         if not printed_something:
             print(f"  {bcolors.FAIL}There are no service mappings.{bcolors.ENDC}")
@@ -166,6 +220,7 @@ class PAMActionServiceListCommand(PAMGatewayActionDiscoverCommandBase):
 
         # This will trigger the migration.
         user_service = UserService(record=gateway_context.configuration,
+                                   record_lookup_func=record_lookup,
                                    record_linking=record_link,
                                    params=params,
                                    fail_on_corrupt=False,

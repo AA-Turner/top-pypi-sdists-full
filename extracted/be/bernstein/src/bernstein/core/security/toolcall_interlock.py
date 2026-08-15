@@ -179,7 +179,11 @@ class ToolCallAttestationInterlock:
             ) from exc
 
 
-def derive_attestation_verdict(events: Sequence[Mapping[str, Any]]) -> AttestationVerdict:
+def derive_attestation_verdict(
+    events: Sequence[Mapping[str, Any]],
+    *,
+    witnessed: bool = False,
+) -> AttestationVerdict:
     """Derive completeness from ordered chain projections, never a claim field.
 
     A complete verdict requires at least one ``toolcall.enforced_dispatch``
@@ -188,6 +192,11 @@ def derive_attestation_verdict(events: Sequence[Mapping[str, Any]]) -> Attestati
     always downgrade to :attr:`AttestationVerdict.OBSERVED`.
 
     Receipt fields such as ``claimed_mode`` are intentionally ignored.
+
+    Set ``witnessed`` only when the events are a receipt projection whose
+    range was re-chained, so anchor identity must come from the retained
+    ``details._original_hmac`` witness rather than the projection-local
+    HMAC. On a native chain the field carries no authority and is ignored.
     """
     attestations: dict[str, str] = {}
     anchored_runs: dict[str, Mapping[str, Any]] = {}
@@ -205,7 +214,20 @@ def derive_attestation_verdict(events: Sequence[Mapping[str, Any]]) -> Attestati
         if not run_id or run_id in anchored_runs:
             return AttestationVerdict.OBSERVED
         anchored_runs[run_id] = payload
-        event_hmac = str(event.get("hmac", "")).strip()
+        # A receipt projection re-chains a contiguous source range, so the
+        # event HMAC is projection-local while the identity envelope was
+        # signed against the source anchor witnessed in
+        # ``details._original_hmac``. Only a caller that knows it is reading a
+        # projection may substitute that witness: provenance mode comes from
+        # the call, never from the presence of a field inside the payload the
+        # verdict is being derived about.
+        event_hmac = ""
+        if witnessed:
+            original_hmac = payload.get("_original_hmac")
+            if original_hmac is not None:
+                event_hmac = str(original_hmac).strip()
+        if not event_hmac:
+            event_hmac = str(event.get("hmac", "")).strip()
         if event_hmac:
             anchor_refs[run_id] = "hmac:" + event_hmac
     for event in events:
@@ -297,6 +319,149 @@ def derive_attestation_verdict(events: Sequence[Mapping[str, Any]]) -> Attestati
     return AttestationVerdict.COMPLETE
 
 
+def verified_tool_call_ids(
+    events: Sequence[Mapping[str, Any]],
+    *,
+    witnessed: bool = False,
+) -> frozenset[str]:
+    """Project request ids backed by identity-valid enforced dispatches.
+
+    ``events`` must already have been authenticated and retained in native
+    chain order by the caller.  This function intentionally does not accept a
+    claimed mode and does not inspect an audit path: provenance context comes
+    from the caller, while the payload supplies only evidence to verify.
+
+    A request id is returned only when all of the following hold:
+
+    * exactly one verified run identity anchor binds its tool-signing key;
+    * the attestation's identity envelope verifies against that frozen key;
+    * identity call indices for that run are contiguous in chain order;
+    * the attestation occupies the chain predecessor its signed record names;
+    * exactly one later, adjacent enforced-dispatch marker consumes the same
+      attestation reference and intent digest; and
+    * the request id is unique across the supplied evidence.
+
+    Legacy unsigned attestations remain readable by the ordinary verdict walk
+    but cannot authorize a lineage write.  Any malformed or ambiguous evidence
+    simply omits that request id, so the lineage gate reports the load-bearing
+    failure at the artefact that referenced it.
+    """
+
+    def _payload(event: Mapping[str, Any]) -> Mapping[str, Any]:
+        details = event.get("details")
+        return cast("Mapping[str, Any]", details) if isinstance(details, Mapping) else event
+
+    anchors: dict[str, list[tuple[Mapping[str, Any], str]]] = {}
+    for event in events:
+        if str(event.get("event_type", event.get("event", ""))) != "identity.spawn_attestation":
+            continue
+        payload = _payload(event)
+        run_id = str(payload.get("run_id", event.get("resource_id", ""))).strip()
+        if not run_id:
+            continue
+        anchor_hmac = ""
+        if witnessed:
+            original_hmac = payload.get("_original_hmac")
+            if original_hmac is not None:
+                anchor_hmac = str(original_hmac).strip()
+        if not anchor_hmac:
+            anchor_hmac = str(event.get("hmac", "")).strip()
+        anchors.setdefault(run_id, []).append((payload, "hmac:" + anchor_hmac if anchor_hmac else ""))
+
+    attestations_by_run: dict[str, list[tuple[int, Mapping[str, Any], Mapping[str, Any]]]] = {}
+    dispatches_by_ref: dict[str, list[tuple[int, Mapping[str, Any], Mapping[str, Any]]]] = {}
+    for position, event in enumerate(events):
+        event_type = str(event.get("event_type", event.get("event", "")))
+        payload = _payload(event)
+        if event_type == "toolcall.attestation" and isinstance(payload.get("identity_envelope"), Mapping):
+            run_id = str(payload.get("run_id", "")).strip()
+            if run_id:
+                attestations_by_run.setdefault(run_id, []).append((position, event, payload))
+        elif event_type == "toolcall.enforced_dispatch":
+            reference = str(payload.get("attestation_ref", "")).strip()
+            if reference:
+                dispatches_by_ref.setdefault(reference, []).append((position, event, payload))
+
+    candidates: list[tuple[str, int, Mapping[str, Any], Mapping[str, Any]]] = []
+    invalid_runs: set[str] = set()
+    for run_id, run_attestations in attestations_by_run.items():
+        anchor_rows = anchors.get(run_id, [])
+        if len(anchor_rows) != 1:
+            invalid_runs.add(run_id)
+            continue
+        anchor, anchor_ref = anchor_rows[0]
+        if not anchor_ref or anchor.get("tool_signing_kid") is None:
+            invalid_runs.add(run_id)
+            continue
+        expected_index = 1
+        for position, event, payload in run_attestations:
+            reference = str(payload.get("attestation_ref", "")).strip()
+            intent_digest = str(payload.get("intent_digest", "")).strip()
+            envelope = cast("Mapping[str, Any]", payload["identity_envelope"])
+            try:
+                record = verify_identity_envelope(
+                    envelope,
+                    anchor,
+                    expected_intent_digest=intent_digest,
+                    expected_attestation_ref=reference,
+                )
+            except ToolCallIdentityError:
+                invalid_runs.add(run_id)
+                break
+            bindings = {
+                "run_id": record.run_id,
+                "agent_id": record.agent_id,
+                "scope_id": record.scope_id,
+                "server_name": record.server_name,
+                "method": record.method,
+                "tool_name": record.tool_name,
+                "request_id": record.request_id,
+                "span_id": record.span_id,
+                "args_digest": record.args_digest,
+                "call_index": record.call_index,
+                "identity_anchor_ref": record.identity_anchor_ref,
+            }
+            event_prev = str(event.get("prev_hmac", "")).strip()
+            if (
+                record.call_index != expected_index
+                or record.identity_anchor_ref != anchor_ref
+                or record.prev_chain_digest != payload.get("prev_chain_digest")
+                or (event_prev and record.prev_chain_digest != event_prev)
+                or any(payload.get(key) != value for key, value in bindings.items())
+            ):
+                invalid_runs.add(run_id)
+                break
+            expected_index += 1
+            candidates.append((record.request_id, position, event, payload))
+
+    verified: set[str] = set()
+    duplicate_ids: set[str] = set()
+    for request_id, position, attestation_event, payload in candidates:
+        run_id = str(payload.get("run_id", "")).strip()
+        if run_id in invalid_runs or not request_id:
+            continue
+        reference = str(payload.get("attestation_ref", "")).strip()
+        intent_digest = str(payload.get("intent_digest", "")).strip()
+        dispatches = dispatches_by_ref.get(reference, [])
+        if len(dispatches) != 1:
+            continue
+        dispatch_position, dispatch_event, dispatch = dispatches[0]
+        attestation_hmac = str(attestation_event.get("hmac", "")).strip()
+        if (
+            dispatch_position != position + 1
+            or dispatch.get("intent_digest") != intent_digest
+            or dispatch.get("request_id") != request_id
+            or dispatch.get("run_id") != run_id
+            or (attestation_hmac and str(dispatch_event.get("prev_hmac", "")).strip() != attestation_hmac)
+        ):
+            continue
+        if request_id in verified:
+            duplicate_ids.add(request_id)
+        verified.add(request_id)
+
+    return frozenset(verified - duplicate_ids)
+
+
 def project_attestation_mode(
     events: Sequence[Mapping[str, Any]], *, claimed_mode: str = ""
 ) -> AttestationModeProjection:
@@ -324,4 +489,5 @@ __all__ = [
     "VerifiedDispatchEvidence",
     "derive_attestation_verdict",
     "project_attestation_mode",
+    "verified_tool_call_ids",
 ]

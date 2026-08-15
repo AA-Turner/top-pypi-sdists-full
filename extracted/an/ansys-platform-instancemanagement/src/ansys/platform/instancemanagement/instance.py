@@ -1,24 +1,43 @@
-"""Instance class module."""
+# Copyright (C) 2022 - 2026 ANSYS, Inc. and/or its affiliates.
+# SPDX-License-Identifier: MIT
+#
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
+"""Instance class module."""
 
 import contextlib
 import logging
 import time
 from typing import Mapping
 
+import grpc
+
 from ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2 import (
     CreateInstanceRequest,
     DeleteInstanceRequest,
     GetInstanceRequest,
-)
-from ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2 import (
     Instance as InstanceV1,
 )
 from ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2_grpc import (
     ProductInstanceManagerStub,
 )
-import grpc
-
 from ansys.platform.instancemanagement.configuration import Configuration
 from ansys.platform.instancemanagement.exceptions import (
     InstanceNotFoundError,
@@ -26,6 +45,7 @@ from ansys.platform.instancemanagement.exceptions import (
     RemoteError,
     UnsupportedServiceError,
 )
+from ansys.platform.instancemanagement.security import SecuritySettings
 from ansys.platform.instancemanagement.service import Service
 
 logger = logging.getLogger(__name__)
@@ -38,9 +58,9 @@ class Instance(contextlib.AbstractContextManager):
     automatically stop the remote instance when the tasks are finished.
     """
 
-    _stub: ProductInstanceManagerStub
+    _stub: ProductInstanceManagerStub | None
 
-    _configuration: Configuration
+    _configuration: Configuration | None
     _definition_name: str
     _name: str
     _ready: bool
@@ -91,6 +111,9 @@ class Instance(contextlib.AbstractContextManager):
 
         It may contain additional entries for custom scenarios such as sidecar services
         or other protocols.
+
+        Each :class:`Service` reports the transport security the server
+        resolved for it through :attr:`Service.transport`. See :ref:`security`.
         """
         return self._services
 
@@ -101,10 +124,29 @@ class Instance(contextlib.AbstractContextManager):
         ready: bool,
         status_message: str,
         services: Mapping[str, Service],
-        stub: ProductInstanceManagerStub = None,
+        stub: ProductInstanceManagerStub | None = None,
+        configuration: Configuration | None = None,
     ):
-        """Create an Instance."""
-        self._configuration = None
+        """Initialize an Instance.
+
+        Parameters
+        ----------
+        definition_name : str
+            Name of the definition that created this instance.
+        name : str
+            Server-assigned name, always starting with ``"instances/"``.
+        ready : bool
+            Whether the instance is ready to accept requests.
+        status_message : str
+            Human-readable message describing the current status.
+        services : Mapping[str, Service]
+            Entry points exposed by the instance, keyed by service name.
+        stub : ProductInstanceManagerStub, optional
+            PIM stub used for remote operations. The default is ``None``.
+        configuration : Configuration, optional
+            PIM configuration used to build gRPC channels. The default is ``None``.
+        """
+        self._configuration = configuration
         self._definition_name = definition_name
         self._name = name
         self._ready = ready
@@ -143,15 +185,26 @@ class Instance(contextlib.AbstractContextManager):
     def _create(
         definition_name: str,
         stub: ProductInstanceManagerStub,
-        timeout: float = None,
-        configuration: Configuration = None,
-    ):
+        timeout: float | None = None,
+        configuration: Configuration | None = None,
+        security_settings: SecuritySettings | None = None,
+    ) -> "Instance":
         """Create a product instance from the given definition.
 
         Parameters
         ----------
-        timeout : float
+        definition_name : str
+            Name of the definition to create the instance from.
+        stub : ProductInstanceManagerStub
+            PIM stub.
+        timeout : float, optional
             Time in seconds to create the instance. The default is ``None``.
+        configuration : Configuration, optional
+            Configuration to use when creating the instance. The default is ``None``.
+        security_settings : SecuritySettings, optional
+            Transport security settings for the instance. One of
+            ``InsecureSettings``, ``MtlsSettings``, ``WnuaSettings``, or
+            ``UdsSettings``. The default is ``None`` (server default).
 
         Returns
         -------
@@ -159,21 +212,35 @@ class Instance(contextlib.AbstractContextManager):
             Product instance.
         """
         request = CreateInstanceRequest(instance=InstanceV1(definition_name=definition_name))
+        if security_settings is not None:
+            request.security_settings.CopyFrom(security_settings._to_pim_v1())
         instance = stub.CreateInstance(request, timeout=timeout)
         return Instance._from_pim_v1(instance, stub, configuration)
 
-    def delete(self, timeout: float = None):
+    def delete(self, timeout: float | None = None) -> None:
         """Delete the remote product instance.
 
         Parameters
         ----------
         timeout : float, optional
             Time in seconds to delete the instance. The default is ``None``.
+
+        Raises
+        ------
+        InstanceNotFoundError
+            The instance was already deleted.
+        RemoteError
+            Unexpected server error.
+        RuntimeError
+            If the instance was not initialized with a ProductInstanceManagerStub.
         """
+        if self._stub is None:
+            raise RuntimeError("Cannot delete instance without a ProductInstanceManagerStub.")
+
         request = DeleteInstanceRequest(name=self.name)
         self._stub.DeleteInstance(request, timeout=timeout)
 
-    def update(self, timeout: float = None):
+    def update(self, timeout: float | None = None) -> None:
         """Update the instance information from the remote status.
 
         Parameters
@@ -188,7 +255,13 @@ class Instance(contextlib.AbstractContextManager):
 
         RemoteError
             Unexpected server error.
+
+        RuntimeError
+            If the instance was not initialized with a ProductInstanceManagerStub.
         """
+        if self._stub is None:
+            raise RuntimeError("Cannot update instance without a ProductInstanceManagerStub.")
+
         request = GetInstanceRequest(name=self.name)
 
         try:
@@ -212,7 +285,9 @@ class Instance(contextlib.AbstractContextManager):
         }
         self._ready = instance.ready
 
-    def wait_for_ready(self, polling_interval: float = 0.5, timeout_per_request: float = None):
+    def wait_for_ready(
+        self, polling_interval: float = 0.5, timeout_per_request: float | None = None
+    ) -> None:
         """Wait for the instance to be ready.
 
         After calling this method, the instance services are filled and ready to
@@ -238,10 +313,13 @@ class Instance(contextlib.AbstractContextManager):
             time.sleep(polling_interval)
             self.update(timeout=timeout_per_request)
 
-    def build_grpc_channel(self, service_name: str = "grpc", **kwargs):
+    def build_grpc_channel(self, service_name: str = "grpc", **kwargs) -> grpc.Channel:
         """Build a gRPC channel to communicate with this instance.
 
-        The instance must be ready before calling this method.
+        The instance must be ready before calling this method. The channel
+        is automatically secured using the transport the server reported for
+        this service (see :attr:`Service.transport`); you do not need to
+        build the credentials yourself. See :ref:`security`.
 
         Parameters
         ----------
@@ -267,7 +345,7 @@ class Instance(contextlib.AbstractContextManager):
         --------
             >>> import ansys.platform.instancemanagement as pypim
             >>> from ansys.mapdl.core import Mapdl
-            >>> pim=pypim.connect()
+            >>> pim = pypim.connect()
             >>> instance = pim.create_instance(product_name="mapdl", product_version="221")
             >>> instance.wait_for_ready()
             >>> channel = instance.build_grpc_channel(
@@ -283,7 +361,7 @@ class Instance(contextlib.AbstractContextManager):
             If the service exposes multiple ports, this method can be used to
             connect to another port by providing the service name:
 
-            >>> filemanagement_channel=instance.build_grpc_channel(service_name="filemanagement")
+            >>> filemanagement_channel = instance.build_grpc_channel(service_name="filemanagement")
         """
         if not self.ready:
             raise InstanceNotReadyError(self.name)
@@ -292,24 +370,34 @@ class Instance(contextlib.AbstractContextManager):
         if not service:
             raise UnsupportedServiceError(self.name, service_name)
 
-        return service._build_grpc_channel(configuration=self._configuration, **kwargs)
+        return service._build_grpc_channel(
+            configuration=self._configuration,
+            **kwargs,
+        )
 
     @staticmethod
     def _from_pim_v1(
         instance: InstanceV1,
-        stub: ProductInstanceManagerStub = None,
-        configuration: Configuration = None,
-    ):
-        """Create a PyPIM instance from the raw protobuf message.
+        stub: ProductInstanceManagerStub | None = None,
+        configuration: Configuration | None = None,
+    ) -> "Instance":
+        """Create a PyPIM instance from the PIM API v1 raw protobuf message.
 
         Parameters
         ----------
         instance : InstanceV1
-            Raw protobuf message from the PIM API.
+            Raw PIM API v1 protobuf message.
         stub : ProductInstanceManagerStub, optional
             PIM stub.
+        configuration : Configuration, optional
+            Configuration to use for the instance.
+
+        Returns
+        -------
+        Instance
+            PyPIM instance.
         """
-        instance = Instance(
+        py_instance = Instance(
             name=instance.name,
             definition_name=instance.definition_name,
             status_message=instance.status_message,
@@ -318,6 +406,6 @@ class Instance(contextlib.AbstractContextManager):
             },
             ready=instance.ready,
             stub=stub,
+            configuration=configuration,
         )
-        instance._configuration = configuration
-        return instance
+        return py_instance

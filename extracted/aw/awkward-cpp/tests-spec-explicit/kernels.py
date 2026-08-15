@@ -1176,24 +1176,6 @@ awkward_ListOffsetArray64_reduce_local_nextparents_64 = awkward_ListOffsetArray_
 awkward_ListOffsetArrayU32_reduce_local_nextparents_64 = awkward_ListOffsetArray_reduce_local_nextparents_64
 
 
-def awkward_ListOffsetArray_reduce_local_outoffsets_64(
-    outoffsets, parents, lenparents, outlength
-):
-    k = 0
-    last = -1
-    for i in range(lenparents):
-        while last < parents[i]:
-            outoffsets[k] = i
-            k = k + 1
-            last = last + 1
-
-    while k <= outlength:
-        outoffsets[k] = lenparents
-        k = k + 1
-
-awkward_ListOffsetArray_reduce_local_outoffsets_64 = awkward_ListOffsetArray_reduce_local_outoffsets_64
-
-
 def awkward_ListOffsetArray_reduce_nonlocal_maxcount_offsetscopy_64(
     maxcount, offsetscopy, offsets, length
 ):
@@ -1229,18 +1211,6 @@ def awkward_ListOffsetArray_reduce_nonlocal_nextshifts_64(
         nextshifts[j] = missing[nextcarry[j]]
 
 awkward_ListOffsetArray_reduce_nonlocal_nextshifts_64 = awkward_ListOffsetArray_reduce_nonlocal_nextshifts_64
-
-
-def awkward_ListOffsetArray_reduce_nonlocal_nextstarts_64(
-    nextstarts, nextparents, nextlen
-):
-    lastnextparent = -1
-    for i in range(nextlen):
-        if nextparents[i] != lastnextparent:
-            nextstarts[nextparents[i]] = i
-        lastnextparent = nextparents[i]
-
-awkward_ListOffsetArray_reduce_nonlocal_nextstarts_64 = awkward_ListOffsetArray_reduce_nonlocal_nextstarts_64
 
 
 def awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64(
@@ -2313,6 +2283,28 @@ awkward_reduce_sumofpowers_float64_uint64_64 = awkward_reduce_sumofpowers
 awkward_reduce_sumofpowers_float64_bool_64 = awkward_reduce_sumofpowers
 awkward_reduce_sumofpowers_float64_float32_64 = awkward_reduce_sumofpowers
 awkward_reduce_sumofpowers_float64_float64_64 = awkward_reduce_sumofpowers
+
+
+def awkward_reduce_centered_sumofsquares(toptr, fromptr, offsets, outlength, means):
+    for bin in range(outlength):
+        acc = 0
+        m = means[bin]
+        for i in range(offsets[bin], offsets[bin + 1]):
+            d = fromptr[i] - m
+            acc += d * d
+        toptr[bin] = acc
+
+awkward_reduce_centered_sumofsquares_float64_int8_64 = awkward_reduce_centered_sumofsquares
+awkward_reduce_centered_sumofsquares_float64_uint8_64 = awkward_reduce_centered_sumofsquares
+awkward_reduce_centered_sumofsquares_float64_int16_64 = awkward_reduce_centered_sumofsquares
+awkward_reduce_centered_sumofsquares_float64_uint16_64 = awkward_reduce_centered_sumofsquares
+awkward_reduce_centered_sumofsquares_float64_int32_64 = awkward_reduce_centered_sumofsquares
+awkward_reduce_centered_sumofsquares_float64_uint32_64 = awkward_reduce_centered_sumofsquares
+awkward_reduce_centered_sumofsquares_float64_int64_64 = awkward_reduce_centered_sumofsquares
+awkward_reduce_centered_sumofsquares_float64_uint64_64 = awkward_reduce_centered_sumofsquares
+awkward_reduce_centered_sumofsquares_float64_bool_64 = awkward_reduce_centered_sumofsquares
+awkward_reduce_centered_sumofsquares_float64_float32_64 = awkward_reduce_centered_sumofsquares
+awkward_reduce_centered_sumofsquares_float64_float64_64 = awkward_reduce_centered_sumofsquares
 
 
 def awkward_reduce_sum_complex(toptr, fromptr, offsets, outlength):

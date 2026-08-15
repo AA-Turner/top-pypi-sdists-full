@@ -45,6 +45,24 @@ class RunStyle:
             return None
         return underline.get("color")
 
+    def outline_type(self) -> str | None:
+        outline = self.child_attributes.get("outline")
+        if outline is None:
+            return None
+        return outline.get("type")
+
+    def is_superscript(self) -> bool:
+        return "supscript" in self.child_attributes
+
+    def is_subscript(self) -> bool:
+        return "subscript" in self.child_attributes
+
+    def is_emboss(self) -> bool:
+        return "emboss" in self.child_attributes
+
+    def is_engrave(self) -> bool:
+        return "engrave" in self.child_attributes
+
     def matches(
         self,
         *,
@@ -265,6 +283,11 @@ class HwpxOxmlRun:
         parent.remove(self.element)
         parent.insert(index, replacement)
         self.element = replacement
+        # Replacing the run rewrites its text/markup, so the cached line layout
+        # of the containing paragraph no longer holds. Tracked-change marks also
+        # make the paragraph unjudgeable for the save-time stale sweep, so this
+        # is the only point that can invalidate it.
+        _clear_paragraph_layout_cache(parent)
         self.paragraph.section.mark_dirty()
 
     def _current_format_flags(self) -> tuple[bool, bool, bool] | None:

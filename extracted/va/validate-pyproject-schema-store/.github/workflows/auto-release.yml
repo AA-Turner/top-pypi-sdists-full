@@ -2,32 +2,45 @@ name: Create release on pyproject-schema-store-bot merge
 on:
   pull_request:
     types: [closed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
 jobs:
   create-release:
+    name: Create release
     if:
       github.event.pull_request.merged == true &&
       github.event.pull_request.user.login == 'pyproject-schema-store-bot[bot]'
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # push the tag and create the release
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: true # the tag push below uses these credentials
       - name: Get version from pyproject.toml
         id: get_version
-        uses: mikefarah/yq@v4
+        uses: mikefarah/yq@1b9b4ac5187171d2e5e3129be0cfa827c7f9d53d # v4.53.3
         with:
           cmd: yq .project.version pyproject.toml
       - name: Create git tag
         run: |
           git config user.name github-actions[bot]
           git config user.email github-actions[bot]@users.noreply.github.com
-          git tag ${{ steps.get_version.outputs.result }}
-          git push origin ${{ steps.get_version.outputs.result }}
+          git tag "$VERSION"
+          git push origin "$VERSION"
+        env:
+          VERSION: ${{ steps.get_version.outputs.result }}
       - name: Release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ steps.get_version.outputs.result }}
-          token: ${{ secrets.token }}
+        run: gh release create "$VERSION" --verify-tag --generate-notes
+        env:
+          # A PAT, so that the release event starts the CD workflow.
+          GH_TOKEN: ${{ secrets.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.get_version.outputs.result }}

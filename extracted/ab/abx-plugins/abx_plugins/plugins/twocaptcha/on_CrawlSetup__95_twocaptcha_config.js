@@ -400,6 +400,7 @@ async function main() {
   let error = "";
 
   try {
+    console.log("2Captcha configuration started");
     const result = await configure2Captcha();
 
     if (result.skipped) {

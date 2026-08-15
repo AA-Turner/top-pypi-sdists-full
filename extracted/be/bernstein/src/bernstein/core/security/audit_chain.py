@@ -468,6 +468,18 @@ EVENT_ADAPTER_CAPABILITY_REFUSAL = "adapter.capability_refusal"
 #: reap path ran and on which platform semantics it relied.
 EVENT_PROCESS_REAP_RECEIPT = "process.reap_receipt"
 
+#: Issue #3277 -- emitted whenever a supervisor detector decides an agent must
+#: be force-killed. The event records WHY the decision was taken: the stall
+#: reason, which detector fired, and the measured inputs (heartbeat age,
+#: identical-snapshot count, the threshold crossed) that were in scope at the
+#: moment the verdict was reached. It attests a verdict, never an outcome: the
+#: worker may still be alive when this is written. The companion
+#: ``process.reap_receipt`` event (joined on ``session_id``) attests that the
+#: stop was actually delivered, so an operator reconstructing a failure window
+#: can put "this detector saw these inputs and decided" next to "this mechanism
+#: delivered the stop" without guessing.
+EVENT_STALL_VERDICT = "stall.verdict"
+
 #: Issue #2366 -- emitted whenever a scoped dashboard token is issued or
 #: revoked. The event mirrors the signed registry row: the short token id,
 #: the token digest, the principal, the scope, and the grant kind -- never
@@ -495,6 +507,14 @@ EVENT_REVIEW_BOARD_ACTION = "review_board.action"
 #: reattach/restart boundaries) the ``from_head``/``to_head``/``entries_added``
 #: continuity span are recorded -- never goal text or task payloads.
 EVENT_RUN_LIFECYCLE = "run.lifecycle"
+
+#: Issue #3469 -- the one authenticated terminal marker shared by every run
+#: execution path.  The marker binds the outcome and exactly one authoritative
+#: state anchor: the Merkle journal head for orchestrator runs, or the durable
+#: work-ledger head for detached RunService runs.  It is a statement at one
+#: HMAC-chain position, not a write barrier: a verifier must scan forward and
+#: invalidate closure when a later event for the same run appears.
+EVENT_RUN_CLOSURE = "run.closure"
 
 #: Issue #2364 -- emitted whenever an MCP Tasks-extension run handle is minted
 #: for a long-running run. The event carries the handle receipt: the task id,
@@ -2651,6 +2671,7 @@ def record_escalation_receipt(
     chain: AuditChainStore,
     run_id: str,
     worker_id: str,
+    session_id: str = "",
     stall_reason: str,
     recommended_action: str,
     journal_head_at_stall: str,
@@ -2673,6 +2694,10 @@ def record_escalation_receipt(
         chain: The audit chain store accepting the entry.
         run_id: The run whose journal the receipt anchored.
         worker_id: The stalled worker the receipt covers.
+        session_id: The stalled session id, when known (default: empty). When
+            truthy it is recorded in the details payload so the session link is
+            readable from the record itself rather than reconstructed from
+            matching ids.
         stall_reason: The structured stall reason recorded on the receipt.
         recommended_action: The deterministic recommended action.
         journal_head_at_stall: The run journal Merkle head at stall time.
@@ -2687,21 +2712,24 @@ def record_escalation_receipt(
         The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded in
         its details payload.
     """
+    details: dict[str, object] = {
+        "run_id": run_id,
+        "worker_id": worker_id,
+        "stall_reason": stall_reason,
+        "recommended_action": recommended_action,
+        "journal_head_at_stall": journal_head_at_stall,
+        "window_size": window_size,
+        "fork_snapshot_sha": fork_snapshot_sha,
+        "journal_entry_hash": journal_entry_hash,
+    }
+    if session_id:
+        details["session_id"] = session_id
     return chain.log_with_prev_digest(
         event_type=EVENT_ESCALATION_RECEIPT,
         actor=actor,
         resource_type="escalation_receipt",
         resource_id=journal_entry_hash,
-        details={
-            "run_id": run_id,
-            "worker_id": worker_id,
-            "stall_reason": stall_reason,
-            "recommended_action": recommended_action,
-            "journal_head_at_stall": journal_head_at_stall,
-            "window_size": window_size,
-            "fork_snapshot_sha": fork_snapshot_sha,
-            "journal_entry_hash": journal_entry_hash,
-        },
+        details=details,
     )
 
 
@@ -4955,6 +4983,73 @@ def record_process_reap_receipt(
     )
 
 
+def record_stall_verdict(
+    *,
+    chain: AuditChainStore,
+    session_id: str,
+    reason: str,
+    detector: str,
+    actor: str = "heartbeat",
+    heartbeat_age_s: float | None = None,
+    identical_snapshot_count: int | None = None,
+    threshold: float | None = None,
+) -> AuditEvent:
+    """Append a ``stall.verdict`` event into *chain* (#3277).
+
+    Mirrors a supervisor decision to force-kill a worker into the audit
+    chain. The record carries the ``StallReason``, which detector fired,
+    and the measured inputs that were in scope when the verdict was
+    reached (heartbeat age, identical-snapshot count, and the threshold
+    that was crossed). Each detector records only the inputs it actually
+    measured; the fields it does not use are left ``None``.
+
+    The event attests a verdict, never an outcome: it is written before
+    the kill is issued, so the worker may still be alive when it lands.
+    The companion :data:`EVENT_PROCESS_REAP_RECEIPT` record -- joined on
+    ``session_id`` -- is what attests that the stop was actually
+    delivered. An operator reconstructing a failure window reads the
+    verdict to learn why a kill was decided and the reap receipt to learn
+    how the stop was delivered.
+
+    Args:
+        chain: The audit chain store accepting the entry.
+        session_id: Agent session whose kill was decided. Matches the
+            ``session_id`` carried by the session's reap receipt, which is
+            the join key between the verdict and the delivered stop.
+        reason: The stall reason, a :class:`StallReason` value (e.g.
+            ``"heartbeat_stale"``, ``"no_progress"``).
+        detector: Identifier of the detector that fired (e.g.
+            ``"heartbeat"``, ``"stall_simple"``, ``"stall_profiled"``).
+        actor: Recorded actor; defaults to ``"heartbeat"``.
+        heartbeat_age_s: Measured heartbeat age in seconds when the
+            verdict was reached, or ``None`` when the detector did not
+            measure it.
+        identical_snapshot_count: Number of identical progress snapshots
+            observed when the verdict was reached, or ``None`` when not
+            measured.
+        threshold: The kill threshold that was crossed (seconds or
+            snapshot count), or ``None`` when not applicable.
+
+    Returns:
+        The recorded :class:`AuditEvent` with ``prev_chain_digest`` embedded
+        in its details payload.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_STALL_VERDICT,
+        actor=actor,
+        resource_type="stall_verdict",
+        resource_id=session_id,
+        details={
+            "session_id": session_id,
+            "reason": reason,
+            "detector": detector,
+            "heartbeat_age_s": heartbeat_age_s,
+            "identical_snapshot_count": identical_snapshot_count,
+            "threshold": threshold,
+        },
+    )
+
+
 def record_task_suspension(
     *,
     chain: AuditChainStore,
@@ -5522,6 +5617,40 @@ def record_run_lifecycle(
             "from_head": from_head,
             "to_head": to_head,
             "entries_added": entries_added,
+        },
+    )
+
+
+def record_run_closure(
+    *,
+    chain: AuditChainStore,
+    run_id: str,
+    outcome: str,
+    run_journal_head: str = "",
+    run_journal_event_count: int = 0,
+    work_ledger_head: str = "",
+    work_ledger_entry_count: int = 0,
+    actor: str,
+) -> AuditEvent:
+    """Append the authenticated terminal marker for *run_id* (#3469).
+
+    Validation and idempotency belong to
+    :func:`bernstein.core.security.run_closure.close_run`; this low-level
+    recorder mirrors the established audit-chain helper pattern and should not
+    be called directly by lifecycle owners.
+    """
+    return chain.log_with_prev_digest(
+        event_type=EVENT_RUN_CLOSURE,
+        actor=actor,
+        resource_type="run",
+        resource_id=run_id,
+        details={
+            "run_id": run_id,
+            "outcome": outcome,
+            "run_journal_head": run_journal_head,
+            "run_journal_event_count": run_journal_event_count,
+            "work_ledger_head": work_ledger_head,
+            "work_ledger_entry_count": work_ledger_entry_count,
         },
     )
 
@@ -8184,6 +8313,7 @@ __all__ = [
     "EVENT_RULE_FIRE_RECEIPT",
     "EVENT_RUN_ARTIFACT",
     "EVENT_RUN_ARTIFACT_REFUSED",
+    "EVENT_RUN_CLOSURE",
     "EVENT_RUN_LIFECYCLE",
     "EVENT_RUN_SSH_TASK",
     "EVENT_SCHEDULE_COLLISION",
@@ -8198,6 +8328,7 @@ __all__ = [
     "EVENT_SOVEREIGN_DRIFT",
     "EVENT_SPEC_REQUIREMENT_SET",
     "EVENT_SPIFFE_SVID_BINDING",
+    "EVENT_STALL_VERDICT",
     "EVENT_STEERING_RECEIPT",
     "EVENT_SUBAGENT_DELEGATION",
     "EVENT_TASK_CLAIM_RECEIPT",
@@ -8318,6 +8449,7 @@ __all__ = [
     "record_rule_fire_receipt",
     "record_run_artifact",
     "record_run_artifact_refused",
+    "record_run_closure",
     "record_run_lifecycle",
     "record_run_ssh_task",
     "record_schedule_collision",
@@ -8333,6 +8465,7 @@ __all__ = [
     "record_sovereign_drift",
     "record_spec_requirement_set",
     "record_spiffe_svid_binding",
+    "record_stall_verdict",
     "record_steering_receipt",
     "record_subagent_delegation",
     "record_taint_decision",

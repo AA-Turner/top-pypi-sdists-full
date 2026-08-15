@@ -79,7 +79,6 @@ jobs:
         run: pulumi package add terraform-provider jianyuan/sentry 0.14.13
 
       - name: Authenticate to GCP (WIF)
-        if: matrix.stack.name != 'sentry'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/351139268520/locations/global/workloadIdentityPools/github-actions/providers/github
@@ -90,36 +89,9 @@ jobs:
           uv venv venv 2>/dev/null || true
           VIRTUAL_ENV=venv uv pip install -r requirements.txt
 
-      # ---------- State backend: artifact-based (Sentry) ----------
+      # ---------- Shared GCS state backend ----------
 
-      - name: Download state artifact
-        if: matrix.stack.name == 'sentry'
-        id: download-state
-        continue-on-error: true
-        uses: dawidd6/action-download-artifact@v13
-        with:
-          name: pulumi-${{ matrix.stack.name }}-state
-          path: ${{ github.workspace }}/${{ matrix.stack.dir }}/.pulumi-state
-          workflow: pulumi-apply-command.yml
-          branch: main
-          workflow_conclusion: success
-          search_artifacts: true
-          if_no_artifact_found: warn
-
-      - name: Initialize artifact backend
-        if: matrix.stack.name == 'sentry'
-        env:
-          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
-          BACKEND_DIR: ${{ github.workspace }}/${{ matrix.stack.dir }}/.pulumi-state
-        run: |
-          mkdir -p "$BACKEND_DIR"
-          pulumi login "file://$BACKEND_DIR"
-          [ -d "$BACKEND_DIR/.pulumi/stacks" ] && echo "State restored from artifact" || echo "No existing state found, starting fresh"
-
-      # ---------- State backend: GCS (GCP stacks) ----------
-
-      - name: Initialize GCS backend
-        if: matrix.stack.name != 'sentry'
+      - name: Initialize shared GCS backend
         run: pulumi login gs://internal-airbyte-ai-infra-pulumi-state
 
       - name: Select stack

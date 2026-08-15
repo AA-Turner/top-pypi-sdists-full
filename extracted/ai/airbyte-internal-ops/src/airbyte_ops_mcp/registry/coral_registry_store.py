@@ -208,6 +208,7 @@ class CoralRegistry(Registry):
 
     def compile(
         self,
+        output_store: RegistryStore | None = None,
         connector_name: list[str] | None = None,
         dry_run: bool = False,
         with_secrets_mask: bool = False,
@@ -224,6 +225,7 @@ class CoralRegistry(Registry):
             )
         return compile_registry(
             store=self.store,
+            output_store=output_store,
             connector_name=connector_name,
             dry_run=dry_run,
             with_secrets_mask=with_secrets_mask,

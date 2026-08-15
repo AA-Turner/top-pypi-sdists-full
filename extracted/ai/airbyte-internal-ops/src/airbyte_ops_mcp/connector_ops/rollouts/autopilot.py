@@ -118,9 +118,11 @@ def _release_context(
     if attribution.attributed_to:
         contact = format_github_login_contact(attribution.attributed_to)
         lines.append(f"Release contact: {contact}")
-    elif attribution.pr_author_login:
+    elif attribution.pr_author_login and attribution.pr_author_type in {"User", "Bot"}:
         suffix = " (automated account)" if attribution.pr_author_type == "Bot" else ""
         lines.append(f"Release author: `{attribution.pr_author_login}`{suffix}")
+    if attribution.released_at:
+        lines.append(f"Released at: `{attribution.released_at.isoformat()}`")
 
     return "\n".join(lines)
 

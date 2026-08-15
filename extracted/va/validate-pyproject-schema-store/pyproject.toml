@@ -1,21 +1,22 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.26"]
 build-backend = "hatchling.build"
 
 
 [project]
 name = "validate-pyproject-schema-store"
-version = "2026.08.08"
+version = "2026.08.14"
 authors = [
   { name = "Henry Schreiner", email = "henryfs@princeton.edu" },
 ]
 description = "A plugin set for validate-pyproject and schema-store."
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.9"
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
@@ -26,6 +27,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Software Development :: Quality Assurance",
   "Typing :: Typed",
 ]
@@ -90,18 +92,17 @@ validate-pyproject-schema-store = "validate_pyproject_schema_store.schema:get_mu
 [project.entry-points."pipx.run"]
 validate-pyproject-schema-store = "validate_pyproject.cli:main"
 
+[tool.uv]
+exclude-newer = "7 days"
+
 [tool.hatch.envs.default]
 installer = "uv"
+dependency-groups = ["dev"]
 
 [tool.hatch.envs.hatch-test]
-# Duplicated waiting for dependency-group support
-dependencies = [
-  "pytest >=6",
-  "pytest-cov >=3",
-  "validate-pyproject >=0.24.1",
-  "tomli; python_version<'3.11'",
-  "packaging",
-]
+dependency-groups = ["test"]
+# Overrides hatch's defaults, whose coverage pin needs Python 3.10
+dependencies = ["coverage[toml]"]
 
 [tool.hatch.envs.lint]
 dependencies = ["pre-commit"]
@@ -113,7 +114,7 @@ dependencies = ["pylint"]
 scripts.lint = "pylint validate_pyproject_schema_store {args}"
 
 [[tool.hatch.envs.hatch-test.matrix]]
-python = ["3.14", "3.13", "3.12", "3.11", "3.10", "3.9"]
+python = ["3.15", "3.14", "3.13", "3.12", "3.11", "3.10", "3.9"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -130,7 +131,7 @@ testpaths = [
 
 [tool.coverage]
 run.source = ["validate_pyproject_schema_store"]
-port.exclude_lines = [
+report.exclude_also = [
   'pragma: no cover',
   '\.\.\.',
   'if typing.TYPE_CHECKING:',
@@ -152,41 +153,23 @@ disallow_untyped_defs = true
 disallow_incomplete_defs = true
 
 
-[tool.ruff.lint]
-extend-select = [
-  "B",           # flake8-bugbear
-  "I",           # isort
-  "ARG",         # flake8-unused-arguments
-  "C4",          # flake8-comprehensions
-  "EM",          # flake8-errmsg
-  "ISC",
-  "ICN",         # flake8-import-conventions
-  "G",           # flake8-logging-format
-  "PGH",         # pygrep-hooks
-  "PIE",         # flake8-pie
-  "PL",          # pylint
-  "PT",          # flake8-pytest-style
-  "PTH",         # flake8-use-pathlib
-  "RET",         # flake8-return
-  "RUF",         # Ruff-specific
-  "SIM",         # flake8-simplify
-  "T20",         # flake8-print
-  "UP",          # pyupgrade
-  "YTT",         # flake8-2020
-  "EXE",         # flake8-executable
-  "NPY",         # NumPy specific rules
-  "PD",          # pandas-vet
+[tool.ruff]
+show-fixes = true
+lint.select = ["ALL"]
+lint.ignore = [
+  "ANN401",  # Disallow Any
+  "COM812",  # Trailing commas teach the formatter
+  "CPY001",  # Missing copyright notice
+  "E501",    # Line too long, the formatter handles what it can
+  "PLR09",   # Too many ...
+  "S101",    # Assert is used by mypy and pytest
 ]
-ignore = [
-  "PLR",    # Design related pylint codes
-  "ISC001", # Conflicts with formatter
-  "EXE003", # Doesn't support uv
-]
-isort.required-imports = ["from __future__ import annotations"]
+lint.isort.required-imports = ["from __future__ import annotations"]
+lint.pydocstyle.convention = "pep257"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["T20"]
-"tools/**" = ["T20"]
+"tests/**" = ["D1", "INP001", "T20"]
+"tools/**" = ["C901", "T20"]
 
 
 [tool.pylint]
@@ -203,4 +186,5 @@ messages_control.disable = [
 ]
 
 [tool.repo-review]
-ignore = ["RTD", "PY004", "PC170"]
+# PC111: ruff-format handles docs code blocks; drop after the next cookie release
+ignore = ["RTD", "PY004", "PC170", "PC111"]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openccu-loom-types
-Version: 0.3.14
+Version: 0.3.16
 Summary: Generated Pydantic / enum types for the openccu-loom REST + WebSocket contract
 Author: OpenCCU-Loom authors
 License: MIT

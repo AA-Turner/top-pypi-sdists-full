@@ -50,6 +50,7 @@ ImGuiTestEngine = test_engine.TestEngine
 
 VoidFunction = Callable[[], None]
 AnyEventCallback = Callable[[Any], None]
+ConfirmExitCallback = Callable[[], bool]
 ScreenSize = Tuple[int, int]
 ScreenPosition = Tuple[int, int]
 ImGuiCond_FirstUseEver = Cond_.first_use_ever
@@ -145,18 +146,12 @@ class DpiAwareParams:
     #  However, if it fails you may set its value manually.
     #  If it is set to 0, Hello ImGui will compute it automatically,
     #  and the resulting value will be stored in `dpiWindowSizeFactor`.
+    #
+    #  This factor is also applied to fonts and widget sizes:
+    #  Hello ImGui sets `ImGui::GetStyle().FontScaleDpi = dpiWindowSizeFactor`,
+    #  so that fonts are scaled at display time (via the dynamic font atlas),
+    #  and it calls `ImGui::GetStyle().ScaleAllSizes()` to scale paddings/spacings.
     dpi_window_size_factor: float = 0.0
-
-    # float DpiFontLoadingFactor() const {    /* original C++ signature */
-    #         return dpiWindowSizeFactor;
-    #     }
-    def dpi_font_loading_factor(self) -> float:
-        """`DpiFontLoadingFactor`
-           factor by which font size should be multiplied at loading time to get a similar visible size on different OSes.
-           This is equal to dpiWindowSizeFactor
-        The size will be equivalent to a size given for a 96 PPI screen
-        """
-        pass
     # DpiAwareParams(float dpiWindowSizeFactor = 0.0f);    /* original C++ signature */
     def __init__(self, dpi_window_size_factor: float = 0.0) -> None:
         """Auto-generated default constructor with named params"""
@@ -232,13 +227,6 @@ def get_dpi_aware_params() -> DpiAwareParams:
 #
 # Legacy API, you should use RunnerParams.dpiAwareParams instead
 #
-# float DpiFontLoadingFactor();    /* original C++ signature */
-def dpi_font_loading_factor() -> float:
-    """Multiply font sizes by this factor when loading fonts manually with ImGui::GetIO().Fonts->AddFont...
-    (HelloImGui::LoadFontTTF does this by default)
-    """
-    pass
-
 # float DpiWindowSizeFactor();    /* original C++ signature */
 def dpi_window_size_factor() -> float:
     """DpiWindowSizeFactor() is the factor by which window size should be multiplied to get a similar visible size on different OSes.
@@ -549,7 +537,6 @@ def image_from_asset(
     """`HelloImGui::ImageFromAsset(const char *assetPath, size, ...)`:
      will display a static image from the assets.
 
-
     Python bindings defaults:
         If any of the params below is None, then its default value below will be used:
             * size: ImVec2(0, 0)
@@ -572,7 +559,6 @@ def image_from_asset_with_bg(
 ) -> None:
     """`HelloImGui::ImageFromAsset(const char *assetPath, size, ...)`:
      will display a static image from the assets, with a colored background and a border.
-
 
     Python bindings defaults:
         If any of the params below is None, then its default value below will be used:
@@ -600,7 +586,6 @@ def image_button_from_asset(
 ) -> bool:
     """`bool HelloImGui::ImageButtonFromAsset(const char *assetPath, size, ...)`:
      will display a button using an image from the assets.
-
 
     Python bindings defaults:
         If any of the params below is None, then its default value below will be used:
@@ -642,7 +627,6 @@ class ImageAndSize:
         size: Optional[ImVec2Like] = None,
     ) -> None:
         """Auto-generated default constructor with named params
-
 
         Python bindings defaults:
             If any of the params below is None, then its default value below will be used:
@@ -912,11 +896,6 @@ class FontLoadingParams:
     Font loading parameters: several options are available (color, merging, range, ...)
     """
 
-    # bool adjustSizeToDpi = true;    /* original C++ signature */
-    # if True, the font size will be adjusted automatically to account for HighDPI
-    #
-    adjust_size_to_dpi: bool = True
-
     # bool mergeToLastFont = false;    /* original C++ signature */
     # if True, the font will be merged to the last font
     merge_to_last_font: bool = False
@@ -934,17 +913,15 @@ class FontLoadingParams:
     # ImFontConfig fontConfig = ImFontConfig();    /* original C++ signature */
     # ImGui native font config to use
     font_config: ImFontConfig = ImFontConfig()
-    # FontLoadingParams(bool adjustSizeToDpi = true, bool mergeToLastFont = false, bool loadColor = false, bool insideAssets = true, ImFontConfig fontConfig = ImFontConfig());    /* original C++ signature */
+    # FontLoadingParams(bool mergeToLastFont = false, bool loadColor = false, bool insideAssets = true, ImFontConfig fontConfig = ImFontConfig());    /* original C++ signature */
     def __init__(
         self,
-        adjust_size_to_dpi: bool = True,
         merge_to_last_font: bool = False,
         load_color: bool = False,
         inside_assets: bool = True,
         font_config: Optional[ImFontConfig] = None,
     ) -> None:
         """Auto-generated default constructor with named params
-
 
         Python bindings defaults:
             If fontConfig is None, then its default value will be: ImFontConfig()
@@ -1047,7 +1024,6 @@ class ScreenBounds:
         size: Optional[ScreenSize] = None,
     ) -> None:
         """Auto-generated default constructor with named params
-
 
         Python bindings defaults:
             If any of the params below is None, then its default value below will be used:
@@ -1227,7 +1203,6 @@ class WindowGeometry:
     ) -> None:
         """Auto-generated default constructor with named params
 
-
         Python bindings defaults:
             If any of the params below is None, then its default value below will be used:
                 * size: DefaultWindowSize
@@ -1394,7 +1369,6 @@ class AppWindowParams:
         repaint_during_resize_gotcha_reentrant_repaint: bool = False,
     ) -> None:
         """Auto-generated default constructor with named params
-
 
         Python bindings defaults:
             If any of the params below is None, then its default value below will be used:
@@ -1590,7 +1564,6 @@ class ImGuiWindowParams:
     ) -> None:
         """Auto-generated default constructor with named params
 
-
         Python bindings defaults:
             If any of the params below is None, then its default value below will be used:
                 * fullScreenWindow_MarginTopLeft: ImVec2(0., 0.)
@@ -1629,6 +1602,10 @@ def sequence_functions(f1: VoidFunction, f2: VoidFunction) -> VoidFunction:
 
 # inline AnyEventCallback EmptyEventCallback() {return {}; }    /* original C++ signature */
 def empty_event_callback() -> AnyEventCallback:
+    pass
+
+# inline ConfirmExitCallback EmptyConfirmExitCallback() { return {}; }    /* original C++ signature */
+def empty_confirm_exit_callback() -> ConfirmExitCallback:
     pass
 
 # @@md
@@ -1676,7 +1653,6 @@ class MobileCallbacks:
         on_resume: Optional[VoidFunction] = None,
     ) -> None:
         """Auto-generated default constructor with named params
-
 
         Python bindings defaults:
             If any of the params below is None, then its default value below will be used:
@@ -1728,7 +1704,6 @@ class EdgeToolbarOptions:
     ) -> None:
         """Auto-generated default constructor with named params
 
-
         Python bindings defaults:
             If any of the params below is None, then its default value below will be used:
                 * WindowPaddingEm: ImVec2(0.3, 0.3)
@@ -1752,7 +1727,6 @@ class EdgeToolbar:
         options: Optional[EdgeToolbarOptions] = None,
     ) -> None:
         """Auto-generated default constructor with named params
-
 
         Python bindings defaults:
             If any of the params below is None, then its default value below will be used:
@@ -1846,7 +1820,6 @@ class RunnerCallbacks:
     ) -> None:
         """`AddEdgeToolbar`: Add a toolbar that can be placed on the edges of the App window
 
-
         Python bindings defaults:
             If options is None, then its default value will be: EdgeToolbarOptions()
         """
@@ -1910,6 +1883,24 @@ class RunnerCallbacks:
 
     # --------------- Exit sequence callbacks -------------------
 
+    # ConfirmExitCallback ConfirmExit = EmptyConfirmExitCallback();    /* original C++ signature */
+    # `ConfirmExit`: Called when the user requests to close the window
+    #  (window close button, Cmd-Q / Alt-F4, or the default App/Quit menu).
+    #  Return True to proceed with the exit, False to cancel it (the app keeps running).
+    #  Use it to confirm quitting (e.g. unsaved changes, or several open documents/tabs).
+    #
+    #  Two ways to use it:
+    #    - Synchronous: pop a native/OS dialog and return the user's answer directly.
+    #    - Deferred (to show a Dear ImGui modal): return False to cancel now, raise a
+    #      flag, open your popup inside ShowGui, and set RunnerParams.appShallExit = True
+    #      yourself once the user confirms there.
+    #
+    #  IMPORTANT: this is called during event polling, *before* ImGui::NewFrame().
+    #  Do NOT call any ImGui function inside it. It is NOT called for programmatic
+    #  exits (setting RunnerParams.appShallExit = True directly is always honored).
+    #  Default: empty -> the exit proceeds immediately (the historical behavior).
+    confirm_exit: ConfirmExitCallback = empty_confirm_exit_callback()
+
     # VoidFunction BeforeExit = EmptyVoidFunction();    /* original C++ signature */
     # `BeforeExit`: You can here add a function that will be called once before exiting
     #  (when OpenGL and ImGui are still inited)
@@ -1945,6 +1936,20 @@ class RunnerCallbacks:
     #  after the user Gui code, and just before the call to
     #  ImGui::Render() (which will also call ImGui::EndFrame()).
     before_imgui_render: VoidFunction = empty_void_function()
+
+    # VoidFunction BeforeSwap = EmptyVoidFunction();    /* original C++ signature */
+    # `BeforeSwap`: You can here add a function that will be called at each frame,
+    #  after the Gui was rendered, but before it is swapped to the screen.
+    #  This is a good place for a full-screen post-process pass over the whole frame
+    #  (for example a color management pass): unlike with AfterSwap, what you draw
+    #  here is still part of the presented frame.
+    #  Note: with OpenGL, Metal and DirectX11, the frame is still open at this point,
+    #   so that you can draw into it. With Vulkan and DirectX12, the command buffer
+    #   was already submitted by then: you would need to submit and synchronize
+    #   your own work.
+    #  Note: this concerns the main window only: the secondary viewport windows
+    #   are rendered after this callback.
+    before_swap: VoidFunction = empty_void_function()
 
     # VoidFunction AfterSwap = EmptyVoidFunction();    /* original C++ signature */
     # `AfterSwap`: You can here add a function that will be called at each frame,
@@ -1983,7 +1988,7 @@ class RunnerCallbacks:
     any_backend_event_callback: AnyEventCallback = empty_event_callback()
 
     # --------------- Mobile callbacks -------------------
-    # RunnerCallbacks(VoidFunction ShowGui = EmptyVoidFunction(), VoidFunction ShowMenus = EmptyVoidFunction(), VoidFunction ShowAppMenuItems = EmptyVoidFunction(), VoidFunction ShowStatus = EmptyVoidFunction(), VoidFunction PostInit_AddPlatformBackendCallbacks = EmptyVoidFunction(), VoidFunction PostInit = EmptyVoidFunction(), VoidFunction LoadAdditionalFonts = ImGuiDefaultSettings::LoadDefaultFont_WithFontAwesomeIcons, DefaultIconFont defaultIconFont = DefaultIconFont::FontAwesome4, VoidFunction SetupImGuiConfig = ImGuiDefaultSettings::SetupDefaultImGuiConfig, VoidFunction SetupImGuiStyle = ImGuiDefaultSettings::SetupDefaultImGuiStyle, VoidFunction RegisterTests = EmptyVoidFunction(), bool registerTestsCalled = false, VoidFunction BeforeExit = EmptyVoidFunction(), VoidFunction BeforeExit_PostCleanup = EmptyVoidFunction(), VoidFunction PreNewFrame = EmptyVoidFunction(), VoidFunction PostNewFrame = EmptyVoidFunction(), VoidFunction BeforeImGuiRender = EmptyVoidFunction(), VoidFunction AfterSwap = EmptyVoidFunction(), VoidFunction CustomBackground = EmptyVoidFunction(), VoidFunction PostRenderDockableWindows = EmptyVoidFunction(), VoidFunction ThemeChanged = EmptyVoidFunction(), AnyEventCallback AnyBackendEventCallback = EmptyEventCallback());    /* original C++ signature */
+    # RunnerCallbacks(VoidFunction ShowGui = EmptyVoidFunction(), VoidFunction ShowMenus = EmptyVoidFunction(), VoidFunction ShowAppMenuItems = EmptyVoidFunction(), VoidFunction ShowStatus = EmptyVoidFunction(), VoidFunction PostInit_AddPlatformBackendCallbacks = EmptyVoidFunction(), VoidFunction PostInit = EmptyVoidFunction(), VoidFunction LoadAdditionalFonts = ImGuiDefaultSettings::LoadDefaultFont_WithFontAwesomeIcons, DefaultIconFont defaultIconFont = DefaultIconFont::FontAwesome4, VoidFunction SetupImGuiConfig = ImGuiDefaultSettings::SetupDefaultImGuiConfig, VoidFunction SetupImGuiStyle = ImGuiDefaultSettings::SetupDefaultImGuiStyle, VoidFunction RegisterTests = EmptyVoidFunction(), bool registerTestsCalled = false, ConfirmExitCallback ConfirmExit = EmptyConfirmExitCallback(), VoidFunction BeforeExit = EmptyVoidFunction(), VoidFunction BeforeExit_PostCleanup = EmptyVoidFunction(), VoidFunction PreNewFrame = EmptyVoidFunction(), VoidFunction PostNewFrame = EmptyVoidFunction(), VoidFunction BeforeImGuiRender = EmptyVoidFunction(), VoidFunction BeforeSwap = EmptyVoidFunction(), VoidFunction AfterSwap = EmptyVoidFunction(), VoidFunction CustomBackground = EmptyVoidFunction(), VoidFunction PostRenderDockableWindows = EmptyVoidFunction(), VoidFunction ThemeChanged = EmptyVoidFunction(), AnyEventCallback AnyBackendEventCallback = EmptyEventCallback());    /* original C++ signature */
     def __init__(
         self,
         show_gui: Optional[VoidFunction] = None,
@@ -1998,11 +2003,13 @@ class RunnerCallbacks:
         setup_imgui_style: Optional[VoidFunction] = None,
         register_tests: Optional[VoidFunction] = None,
         register_tests_called: bool = False,
+        confirm_exit: Optional[ConfirmExitCallback] = None,
         before_exit: Optional[VoidFunction] = None,
         before_exit_post_cleanup: Optional[VoidFunction] = None,
         pre_new_frame: Optional[VoidFunction] = None,
         post_new_frame: Optional[VoidFunction] = None,
         before_imgui_render: Optional[VoidFunction] = None,
+        before_swap: Optional[VoidFunction] = None,
         after_swap: Optional[VoidFunction] = None,
         custom_background: Optional[VoidFunction] = None,
         post_render_dockable_windows: Optional[VoidFunction] = None,
@@ -2010,7 +2017,6 @@ class RunnerCallbacks:
         any_backend_event_callback: Optional[AnyEventCallback] = None,
     ) -> None:
         """Auto-generated default constructor with named params
-
 
         Python bindings defaults:
             If any of the params below is None, then its default value below will be used:
@@ -2024,11 +2030,13 @@ class RunnerCallbacks:
                 * SetupImGuiConfig: imgui_default_settings.SetupDefaultImGuiConfig
                 * SetupImGuiStyle: imgui_default_settings.SetupDefaultImGuiStyle
                 * RegisterTests: EmptyVoidFunction()
+                * ConfirmExit: EmptyConfirmExitCallback()
                 * BeforeExit: EmptyVoidFunction()
                 * BeforeExit_PostCleanup: EmptyVoidFunction()
                 * PreNewFrame: EmptyVoidFunction()
                 * PostNewFrame: EmptyVoidFunction()
                 * BeforeImGuiRender: EmptyVoidFunction()
+                * BeforeSwap: EmptyVoidFunction()
                 * AfterSwap: EmptyVoidFunction()
                 * CustomBackground: EmptyVoidFunction()
                 * PostRenderDockableWindows: EmptyVoidFunction()
@@ -2224,7 +2232,7 @@ class DockingSplit:
     direction: ImGuiDir
 
     # float ratio = 0.25f;    /* original C++ signature */
-    # `ratio`: _float, default=0.25_.
+    # `ratio`: _float, default=0.25f_.
     #  Ratio of the initialDock size that should be used by the new dock space.
     ratio: float = 0.25
 
@@ -2247,7 +2255,6 @@ class DockingSplit:
         node_flags_: Optional[ImGuiDockNodeFlags] = None,
     ) -> None:
         """Constructor
-
 
         Python bindings defaults:
             If any of the params below is None, then its default value below will be used:
@@ -2364,7 +2371,6 @@ class DockableWindow:
         """--------------- Constructor ------------------------------
          Constructor
 
-
         Python bindings defaults:
             If guiFunction_ is None, then its default value will be: EmptyVoidFunction()
         """
@@ -2468,7 +2474,6 @@ class DockingParams:
         layout_reset: bool = False,
     ) -> None:
         """Auto-generated default constructor with named params
-
 
         Python bindings defaults:
             If any of the params below is None, then its default value below will be used:
@@ -2672,11 +2677,12 @@ def has_edr_support() -> bool:
     Check whether extended dynamic range (EDR), i.e. the ability to reproduce
     intensities exceeding the standard dynamic range from 0.0-1.0, is supported.
 
-    To leverage EDR support, you need to set `floatBuffer=True` in `RendererBackendOptions`.
-    Only the macOS Metal backend currently supports this.
+    To leverage EDR support, you need to set `requestFloatBuffer=True` in `RendererBackendOptions`.
 
     This currently returns False on all backends except Metal, where it checks whether
     this is supported on the current displays.
+    On the other backends, a display's capabilities can only be queried once a window exists,
+    which is too late here: set `requestFloatBuffer=True` and read it back instead (see below).
     """
     pass
 
@@ -2687,9 +2693,17 @@ class RendererBackendOptions:
 
     # bool requestFloatBuffer = false;    /* original C++ signature */
     # `requestFloatBuffer`:
-    # Set to True to request a floating-point framebuffer.
-    # Only available on Metal, if your display supports it.
+    # Set to True to request a floating-point framebuffer (required for HDR/EDR output).
+    # Only available on Metal, and on OpenGL3 + Glfw if your version of Glfw defines
+    # GLFW_FLOATBUFFER (it is ignored otherwise). Ignored by the other rendering backends.
     # Before setting this to True, first check `hasEdrSupport()`
+    # Note: HelloImGui sets this back to False if the request could not be satisfied, so you
+    # can read it back once Run() has created the window, to know what you actually got.
+    # Note: on macOS, EDR output requires the Metal backend: even with a floating point
+    # framebuffer, OpenGL surfaces are composited clamped to standard range.
+    #
+    # This is an advanced and experimental option: HDR display support is still evolving in the
+    # operating systems, in Glfw and in Wayland, so its behavior may have to change in the future.
     request_float_buffer: bool = False
 
     # OpenGlOptions openGlOptions;    /* original C++ signature */
@@ -2703,7 +2717,6 @@ class RendererBackendOptions:
         open_gl_options: Optional[OpenGlOptions] = None,
     ) -> None:
         """Auto-generated default constructor with named params
-
 
         Python bindings defaults:
             If openGlOptions is None, then its default value will be: OpenGlOptions()
@@ -2933,7 +2946,7 @@ class FpsIdling:
     fps_idle: float = 9.0
 
     # float timeActiveAfterLastEvent = 3.f;    /* original C++ signature */
-    # `timeActiveAfterLastEvent`: _float, default = 3._.
+    # `timeActiveAfterLastEvent`: _float, default = 3.f_.
     #
     # The duration (in seconds) after the last user event before the
     # application switches to idling mode.
@@ -2986,7 +2999,7 @@ class FpsIdling:
     vsync_to_monitor: bool = True
 
     # float fpsMax = 0.f;    /* original C++ signature */
-    # `fpsMax`: _float, default = 0._ (unlimited).
+    # `fpsMax`: _float, default = 0.f_ (unlimited).
     #
     # Sets an explicit upper limit on the frame rate when not idling.
     #
@@ -3193,7 +3206,6 @@ class RunnerParams:
     ) -> None:
         """Auto-generated default constructor with named params
 
-
         Python bindings defaults:
             If any of the params below is None, then its default value below will be used:
                 * callbacks: RunnerCallbacks()
@@ -3318,7 +3330,6 @@ class SimpleRunnerParams:
         ini_disable: bool = False,
     ) -> None:
         """Auto-generated default constructor with named params
-
 
         Python bindings defaults:
             If any of the params below is None, then its default value below will be used:
@@ -3522,7 +3533,6 @@ def run(
     top_most: bool = False,
 ) -> None:
     """Runs an application, by providing the Gui function, the window title, etc.
-
 
     Python bindings defaults:
         If windowSize is None, then its default value will be: DefaultWindowSize
@@ -3817,7 +3827,6 @@ class manual_render:  # Proxy class that introduces typings for the *submodule* 
     ) -> None:
         """Initializes the renderer with a simple GUI function and additional parameters.
          This will initialize the platform backend (SDL, Glfw, etc.) and the rendering backend (OpenGL, Vulkan, etc.).
-
 
         Python bindings defaults:
             If windowSize is None, then its default value will be: DefaultWindowSize

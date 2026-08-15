@@ -49,11 +49,8 @@ from dstack._internal.core.models.gateways import (
     LetsEncryptGatewayCertificate,
 )
 from dstack._internal.core.services import validate_dstack_resource_name
-from dstack._internal.core.services.diff import (
-    ModelDiff,
-    diff_models,
-    format_diff_fields_for_event,
-)
+from dstack._internal.core.services.diff import ModelDiff, format_diff_fields_for_event
+from dstack._internal.core.services.gateways import diff_gateway_configurations
 from dstack._internal.proxy.gateway.const import SERVICE_SCALING_WINDOWS
 from dstack._internal.proxy.gateway.schemas.stats import PerWindowStats, Stat
 from dstack._internal.server import settings
@@ -82,7 +79,6 @@ from dstack._internal.server.services.locking import (
 from dstack._internal.server.services.pipelines import PipelineHinterProtocol
 from dstack._internal.server.services.plugins import apply_plugin_policies
 from dstack._internal.server.utils.common import gather_map_async
-from dstack._internal.settings import FeatureFlags
 from dstack._internal.utils import crypto
 from dstack._internal.utils.common import (
     get_current_datetime,
@@ -92,9 +88,7 @@ from dstack._internal.utils.common import (
 from dstack._internal.utils.logging import get_logger
 
 logger = get_logger(__name__)
-_CONF_UPDATABLE_FIELDS = frozenset({"domain"})
-if FeatureFlags.GATEWAY_SCALING:
-    _CONF_UPDATABLE_FIELDS |= {"replicas"}
+_CONF_UPDATABLE_FIELDS = frozenset({"domain", "default", "replicas"})
 
 
 def switch_gateway_status(
@@ -292,7 +286,7 @@ async def create_gateway(
         await session.commit()
 
         default_gateway = await get_project_default_gateway_model(session=session, project=project)
-        if default_gateway is None or configuration.default:
+        if default_gateway is None and configuration.default is None or configuration.default:
             await set_default_gateway(
                 session=session,
                 project=project,
@@ -309,7 +303,9 @@ async def create_gateway(
             load_backend_type=True,
         )
         assert gateway is not None
-        return gateway_model_to_gateway(gateway, default_gateway_id=default_gateway.id)
+        return gateway_model_to_gateway(
+            gateway, default_gateway_id=default_gateway.id if default_gateway is not None else None
+        )
 
 
 async def connect_to_gateway_with_retry(
@@ -430,7 +426,11 @@ async def set_gateway_wildcard_domain(
 
 
 async def set_default_gateway(
-    session: AsyncSession, project: ProjectModel, ref: EntityReference, user: Optional[UserModel]
+    session: AsyncSession,
+    project: ProjectModel,
+    ref: EntityReference,
+    user: Optional[UserModel],
+    commit: bool = True,
 ):
     gateway = await get_project_gateway_model_by_reference(
         session=session, project=project, ref=ref
@@ -470,7 +470,28 @@ async def set_default_gateway(
             events.Target.from_model(project),
         ],
     )
-    await session.commit()
+    if commit:
+        await session.commit()
+
+
+async def unset_default_gateway(
+    session: AsyncSession, project: ProjectModel, expect_gateway_id: uuid.UUID, user: UserModel
+) -> None:
+    gateway = await get_project_default_gateway_model(session, project)
+    if gateway is None or gateway.id != expect_gateway_id:
+        return
+    await session.execute(
+        update(ProjectModel).where(ProjectModel.id == project.id).values(default_gateway_id=None)
+    )
+    events.emit(
+        session,
+        "Gateway unset as project default",
+        actor=events.UserActor.from_user(user),
+        targets=[
+            events.Target.from_model(gateway),
+            events.Target.from_model(project),
+        ],
+    )
 
 
 async def list_project_gateway_models(
@@ -637,48 +658,40 @@ async def generate_gateway_name(session: AsyncSession, project: ProjectModel) ->
 
 # TODO: Connect to gateway outside session
 async def get_or_add_gateway_connections(
-    session: AsyncSession, gateway_id: uuid.UUID
-) -> tuple[GatewayModel, List[GatewayConnection]]:
-    res = await session.execute(
-        select(GatewayModel)
-        .where(GatewayModel.id == gateway_id)
-        .options(joinedload(GatewayModel.gateway_compute))
-        .options(selectinload(GatewayModel.gateway_computes))
-    )
-    gateway = res.scalar_one_or_none()
-    if gateway is None:
-        raise GatewayError("Gateway not found")
-    computes = get_gateway_compute_models(gateway)
-    if not computes:
+    gateway_replicas: Sequence[GatewayComputeModel],
+) -> List[GatewayConnection]:
+    running_replicas = [r for r in gateway_replicas if r.status == GatewayReplicaStatus.RUNNING]
+    if not running_replicas:
         raise GatewayError("Gateway compute not found")
     connections: List[GatewayConnection] = []
-    for compute in computes:
-        if compute.ip_address is None:
-            logger.warning("Gateway replica %s has no ip_address", compute.id)
+    for replica in running_replicas:
+        if replica.ip_address is None:
+            logger.warning("Gateway replica %s has no ip_address", replica.id)
             raise GatewayError("Failed to connect to gateway")
         try:
             conn = await gateway_connections_pool.get_or_add(
-                hostname=compute.ip_address,
-                id_rsa=compute.ssh_private_key,
+                hostname=replica.ip_address,
+                id_rsa=replica.ssh_private_key,
             )
             connections.append(conn)
         except Exception as e:
-            logger.warning("Failed to connect to gateway %s: %s", compute.ip_address, e)
+            logger.warning("Failed to connect to gateway %s: %s", replica.ip_address, e)
             raise GatewayError("Failed to connect to gateway")
-    return gateway, connections
+    return connections
 
 
 async def get_combined_gateway_stats(
-    session: AsyncSession,
-    gateway_id: uuid.UUID,
+    gateway_replicas: Sequence[GatewayComputeModel],
     project_name: str,
     run_name: str,
 ) -> Optional[PerWindowStats]:
     """
-    Return stats for *run_name* aggregated across all replicas of *gateway_id*.
+    Return stats for *run_name* aggregated across all gateway replicas.
     """
     try:
-        _, connections = await get_or_add_gateway_connections(session, gateway_id)
+        # FIXME: once a gateway replica is scaled in, its connection is no longer available and its
+        # stats are lost, potentially resulting in incorrect service scaling decisions.
+        connections = await get_or_add_gateway_connections(gateway_replicas)
     except GatewayError:
         return None
     per_replica: list[PerWindowStats] = []
@@ -849,7 +862,6 @@ def get_gateway_configuration(gateway_model: GatewayModel) -> GatewayConfigurati
     # Handle gateways created before GatewayConfiguration was introduced
     return GatewayConfiguration(
         name=gateway_model.name,
-        default=False,
         backend=gateway_model.backend.type,
         region=gateway_model.region,
         domain=gateway_model.wildcard_domain,
@@ -979,7 +991,10 @@ async def get_plan(
                 current_gateway_model, default_gateway_id=project.default_gateway_id
             )
             if _can_update_gateway_in_place(
-                diff_models(current_gateway.configuration, effective_spec.configuration)
+                diff_gateway_configurations(
+                    current_gateway.configuration,
+                    effective_spec.configuration,
+                )
             ):
                 action = ApplyAction.UPDATE
 
@@ -1055,7 +1070,10 @@ async def apply_plan(
                     "Failed to apply plan. Resource has been changed. Try again or use force apply."
                 )
 
-        diff = diff_models(current_configuration, new_configuration)
+        diff = diff_gateway_configurations(
+            current_configuration,
+            new_configuration,
+        )
         if not _can_update_gateway_in_place(diff):
             raise ServerClientError(
                 f"Gateway {new_configuration.name!r} cannot be updated in-place."
@@ -1068,6 +1086,21 @@ async def apply_plan(
                 new_configuration.replicas
                 if new_configuration.replicas is not None
                 else GATEWAY_REPLICAS_DEFAULT
+            )
+        if new_configuration.default is True:
+            await set_default_gateway(
+                session=session,
+                project=project,
+                ref=EntityReference(name=gateway_model.name, project=None),
+                user=user,
+                commit=False,
+            )
+        elif new_configuration.default is False:
+            await unset_default_gateway(
+                session=session,
+                project=project,
+                expect_gateway_id=gateway_model.id,
+                user=user,
             )
         gateway_model.configuration = new_configuration.model_dump_json()
         gateway_model.last_update_at = get_current_datetime()

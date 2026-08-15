@@ -9,8 +9,8 @@
 # Usage:
 #     ./on_Snapshot__93_hashes.py [...] > events.jsonl
 
-import os
 import sys
+import os
 import json
 import hashlib
 from pathlib import Path
@@ -157,6 +157,7 @@ def main(url: str):
             emit_archive_result_record(status, "HASHES_ENABLED=False")
             sys.exit(0)
 
+        print("Hash generation started", flush=True)
         # Working directory is the extractor output dir (e.g., <snapshot>/hashes/)
         # Parent is the snapshot directory
         output_dir = Path.cwd()

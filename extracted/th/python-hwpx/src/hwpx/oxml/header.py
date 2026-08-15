@@ -11,6 +11,7 @@ from typing import Dict, List, Mapping, Optional
 from lxml import etree
 
 from .common import GenericElement, parse_generic_element
+from .namespaces import HP
 from .utils import local_name, parse_bool, parse_int, text_or_none
 
 
@@ -42,6 +43,33 @@ class LicenseMark:
 class DocOption:
     link_info: LinkInfo
     license_mark: Optional[LicenseMark] = None
+
+
+@dataclass(slots=True)
+class LayoutCompatibility:
+    """``hh:layoutCompatibility`` — 존재 자체가 값인 마커 자식 요소 집합.
+
+    스키마(Header XML schema.xml)는 48개 플래그 이름을 전부 나열하지만
+    (``applyFontWeightToBold``·``useInnerUnderline``…), 실코퍼스 176파일
+    전수는 **전부 비어 있었다**(플래그 0개, 감사 §4-R1이 "코드가 단어조차
+    모르는" 요소로 지목한 자리). 실물에 등장한 적 없는 어휘를 하드코딩
+    열거하지 않고, 실제로 있는 자식 요소 이름 집합만 보존한다 — 문서마다
+    다른 조합이 등장해도 무손실이다.
+    """
+
+    flags: frozenset[str] = field(default_factory=frozenset)
+
+    def has(self, flag: str) -> bool:
+        return flag in self.flags
+
+
+@dataclass(slots=True)
+class CompatibleDocument:
+    """``hh:compatibleDocument`` — 문서 호환성 대상 프로그램 + 레이아웃
+    호환 플래그. 실코퍼스 176파일 전수 ``targetProgram="HWP201X"``."""
+
+    target_program: Optional[str] = None
+    layout_compatibility: Optional[LayoutCompatibility] = None
 
 
 @dataclass(slots=True)
@@ -113,6 +141,84 @@ class BorderFillList:
 class TabProperties:
     item_cnt: Optional[int]
     tabs: List[GenericElement]
+
+
+@dataclass(slots=True)
+class TabStop:
+    """A single ``hh:tabItem`` — one custom tab-stop position within a
+    ``hh:tabPr`` definition. ``pos`` is HWPUNIT (실측 6.1: 실코퍼스가
+    이 자리에 ``unit`` 속성을 쓰는 문서를 드물게 관측했으나 원인 미확인이라
+    ``attributes`` 캐치올로만 보존한다 — 저작 쪽에서 재현하지 않는다)."""
+
+    pos: int
+    type: str
+    leader: str
+    attributes: Dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class TabDefinitionVersionBranch:
+    """``hp:case``/``hp:default`` 한쪽 분기의 ``hh:tabItem`` 목록(DEV-022).
+
+    ``ParagraphPropertyVersionBranch``와 달리 두 분기 값이 **다르다** —
+    ``hp:case``는 실측 449/449 전부 ``unit="HWPUNIT"`` 속성을 명시하고
+    ``pos``가 ``hp:default``의 **정확히 절반**이다(34/34 쌍, 실코퍼스
+    전수 검증). ``TabDefinition.tab_stops``는 실측으로 확인된 표준
+    스케일(``hp:default`` — 스위치가 없는 실 문서의 직속 ``hh:tabItem``과
+    ``pos`` 값이 정확히 일치)을 대표값으로 쓴다; ``hp:case``의 값은 여기
+    보존만 한다(용도 미상, `unit="HWPUNIT"`가 명시적으로 붙어 있음에도
+    실측 스케일이 다르다는 사실 자체가 이례적)."""
+
+    tab_stops: List[TabStop] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class TabDefinitionVersionSwitch:
+    """``hh:tabPr``를 감싸는 ``hp:switch``(DEV-022, ``hh:paraPr``의
+    DEV-018과 같은 wrapper이지만 다른 계약). ``required_namespace``는
+    ``hp:case``의 유일한 속성."""
+
+    required_namespace: Optional[str]
+    case: Optional[TabDefinitionVersionBranch] = None
+    default: Optional[TabDefinitionVersionBranch] = None
+
+
+@dataclass(slots=True)
+class TabDefinition:
+    """A single ``hh:tabPr`` — a document-level tab-stop set a paragraph
+    property references via ``paraPr/@tabPrIDRef``."""
+
+    id: Optional[int]
+    raw_id: Optional[str]
+    auto_tab_left: bool
+    auto_tab_right: bool
+    tab_stops: List[TabStop] = field(default_factory=list)
+    version_switch: Optional[TabDefinitionVersionSwitch] = None
+
+
+@dataclass(slots=True)
+class TabDefinitionList:
+    item_cnt: Optional[int]
+    definitions: List[TabDefinition]
+
+    def as_dict(self) -> Dict[str, TabDefinition]:
+        mapping: Dict[str, TabDefinition] = {}
+        for definition in self.definitions:
+            keys: List[str] = []
+            if definition.raw_id:
+                keys.append(definition.raw_id)
+                try:
+                    normalized = str(int(definition.raw_id))
+                except ValueError:
+                    normalized = None
+                if normalized and normalized not in keys:
+                    keys.append(normalized)
+            elif definition.id is not None:
+                keys.append(str(definition.id))
+            for key in keys:
+                if key not in mapping:
+                    mapping[key] = definition
+        return mapping
 
 
 @dataclass(slots=True)
@@ -359,6 +465,43 @@ class ParagraphAutoSpacing:
 
 
 @dataclass(slots=True)
+class ParagraphPropertyVersionBranch:
+    """``hp:switch``의 한 분기(``hp:case`` 또는 ``hp:default``) 내용 — 실코퍼스
+    관측(DEV-018)은 margin/lineSpacing뿐이지만, 스키마는 ``hh:paraPr``의 다른
+    자식도 이 안에 둘 수 있게 허용하므로 나머지는 ``other_children``으로
+    보존한다(``ParagraphProperty.other_children``과 같은 관용구)."""
+
+    margin: Optional[ParagraphMargin] = None
+    line_spacing: Optional[ParagraphLineSpacing] = None
+    other_children: Dict[str, List[GenericElement]] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class ParagraphPropertyVersionSwitch:
+    """``hp:switch`` — OWPML의 버전호환 분기 wrapper(DEV-018,
+    ``docs/owpml-deviations.md``). 어떤 벤더 스키마 파일에도 선언돼 있지
+    않지만 실코퍼스 ``hh:paraPr`` 236/237(99.6%)이 margin/lineSpacing을
+    직접 자식이 아니라 이 안(``hp:case`` 또는 ``hp:default``)에 둔다 — 최신
+    클라이언트는 자신이 인식하는 네임스페이스면 ``hp:case``를, 아니면
+    ``hp:default``(2011/레거시 값)를 읽는 것으로 보인다.
+    ``required_namespace``는 ``hp:case``의 유일한 속성이자 이 스키마
+    계열에서 속성 자체가 ``hp:`` 접두를 갖는 드문 경우다(``hp:required-
+    namespace``, 다른 속성은 거의 전부 접두 없음).
+
+    읽기 전용 모델이다 — 저작 경로는 이미 안전하다고 확인됐다(DEV-018 프로브:
+    ``_apply_paragraph_margins``/``_apply_paragraph_line_spacing``이 이미
+    ``hh:paraPr``의 모든 ``hh:margin``/``hh:lineSpacing`` 자손을 순회해
+    양쪽 분기를 함께 갱신한다). 그래서 이 타입에 대응하는 ``*_to_xml``
+    직렬화기가 없다 — ``ParagraphProperty``를 XML로 되쓰는 일반 경로 자체가
+    없다(순수 스냅샷 읽기 모델), 실제 편집은 살아있는 oxml 트리를 직접
+    건드리는 ``header_part.py`` 쪽이 담당한다."""
+
+    required_namespace: Optional[str]
+    case: Optional[ParagraphPropertyVersionBranch] = None
+    default: Optional[ParagraphPropertyVersionBranch] = None
+
+
+@dataclass(slots=True)
 class ParagraphProperty:
     id: Optional[int]
     raw_id: Optional[str]
@@ -375,6 +518,7 @@ class ParagraphProperty:
     line_spacing: Optional[ParagraphLineSpacing] = None
     border: Optional[ParagraphBorder] = None
     auto_spacing: Optional[ParagraphAutoSpacing] = None
+    version_switch: Optional[ParagraphPropertyVersionSwitch] = None
     attributes: Dict[str, str] = field(default_factory=dict)
     other_children: Dict[str, List[GenericElement]] = field(default_factory=dict)
 
@@ -662,7 +806,7 @@ class Header:
     begin_num: Optional[BeginNum] = None
     ref_list: Optional[RefList] = None
     forbidden_word_list: Optional[ForbiddenWordList] = None
-    compatible_document: Optional[GenericElement] = None
+    compatible_document: Optional[CompatibleDocument] = None
     doc_option: Optional[DocOption] = None
     meta_tag: Optional[str] = None
     track_change_config: Optional[TrackChangeConfig] = None
@@ -852,6 +996,22 @@ def parse_license_mark(node: etree._Element) -> LicenseMark:
     )
 
 
+def parse_layout_compatibility(node: etree._Element) -> LayoutCompatibility:
+    return LayoutCompatibility(flags=frozenset(local_name(child) for child in node))
+
+
+def parse_compatible_document(node: etree._Element) -> CompatibleDocument:
+    layout_compatibility: Optional[LayoutCompatibility] = None
+    for child in node:
+        if local_name(child) == "layoutCompatibility":
+            layout_compatibility = parse_layout_compatibility(child)
+            break
+    return CompatibleDocument(
+        target_program=node.get("targetProgram"),
+        layout_compatibility=layout_compatibility,
+    )
+
+
 def parse_doc_option(node: etree._Element) -> DocOption:
     link_info: Optional[LinkInfo] = None
     license_mark: Optional[LicenseMark] = None
@@ -1015,6 +1175,87 @@ def parse_char_properties(node: etree._Element) -> CharPropertyList:
 def parse_tab_properties(node: etree._Element) -> TabProperties:
     tabs = [parse_generic_element(child) for child in node if local_name(child) == "tabPr"]
     return TabProperties(item_cnt=parse_int(node.get("itemCnt")), tabs=tabs)
+
+
+_TAB_STOP_KNOWN_ATTRS = {"pos", "type", "leader"}
+
+
+def parse_tab_stop(node: etree._Element) -> TabStop:
+    return TabStop(
+        pos=parse_int(node.get("pos")) or 0,
+        type=node.get("type", "LEFT"),
+        leader=node.get("leader", "NONE"),
+        attributes={
+            key: value
+            for key, value in node.attrib.items()
+            if key not in _TAB_STOP_KNOWN_ATTRS
+        },
+    )
+
+
+def parse_tab_definition_version_branch(node: etree._Element) -> TabDefinitionVersionBranch:
+    return TabDefinitionVersionBranch(
+        tab_stops=[parse_tab_stop(child) for child in node if local_name(child) == "tabItem"],
+    )
+
+
+def parse_tab_definition_version_switch(node: etree._Element) -> TabDefinitionVersionSwitch:
+    """``hp:switch`` 전체(DEV-022) — ``hp:case``의 ``hp:required-namespace``
+    속성은 DEV-018과 같은 Clark 표기 조회가 필요(bare가 아니다)."""
+
+    case_branch: Optional[TabDefinitionVersionBranch] = None
+    default_branch: Optional[TabDefinitionVersionBranch] = None
+    required_namespace: Optional[str] = None
+
+    for child in node:
+        name = local_name(child)
+        if name == "case":
+            case_branch = parse_tab_definition_version_branch(child)
+            required_namespace = child.get(f"{HP}required-namespace")
+        elif name == "default":
+            default_branch = parse_tab_definition_version_branch(child)
+
+    return TabDefinitionVersionSwitch(
+        required_namespace=required_namespace, case=case_branch, default=default_branch
+    )
+
+
+def parse_tab_definition(node: etree._Element) -> TabDefinition:
+    raw_id = node.get("id")
+    tab_stops = [parse_tab_stop(child) for child in node if local_name(child) == "tabItem"]
+    version_switch: Optional[TabDefinitionVersionSwitch] = None
+    switch_element = next((child for child in node if local_name(child) == "switch"), None)
+    if switch_element is not None:
+        version_switch = parse_tab_definition_version_switch(switch_element)
+
+    # 실코퍼스 449/449 hp:switch 감싼 hh:tabPr은 직속 hh:tabItem이 없다
+    # (DEV-022) -- 그럴 때만 스위치 분기에서 채운다. hp:default를 쓴다
+    # (hp:case가 아니다): hp:case는 34/34 쌍에서 pos가 hp:default의 정확히
+    # 절반이고 unit="HWPUNIT"을 명시하지만, switch 없는 실 문서의 직속
+    # hh:tabItem 값과 정확히 일치하는 쪽은 hp:default다(실측 확인,
+    # error__20240626__no_manifest.hwpx) -- ParagraphPropertyVersionSwitch
+    # (DEV-018, case 우선)과 반대 선택이다. 같은 값 두 벌이 아니라 다른
+    # 스케일 두 벌이므로 "먼저 오는 쪽"이 아니라 실측으로 검증된 쪽을 쓴다.
+    if not tab_stops and version_switch is not None:
+        preferred = version_switch.default or version_switch.case
+        if preferred is not None:
+            tab_stops = preferred.tab_stops
+
+    return TabDefinition(
+        id=parse_int(raw_id),
+        raw_id=raw_id,
+        auto_tab_left=parse_bool(node.get("autoTabLeft"), default=False) or False,
+        auto_tab_right=parse_bool(node.get("autoTabRight"), default=False) or False,
+        tab_stops=tab_stops,
+        version_switch=version_switch,
+    )
+
+
+def parse_tab_definitions(node: etree._Element) -> TabDefinitionList:
+    definitions = [
+        parse_tab_definition(child) for child in node if local_name(child) == "tabPr"
+    ]
+    return TabDefinitionList(item_cnt=parse_int(node.get("itemCnt")), definitions=definitions)
 
 
 def parse_numberings(node: etree._Element) -> NumberingList:
@@ -1201,6 +1442,54 @@ def parse_paragraph_auto_spacing(node: etree._Element) -> ParagraphAutoSpacing:
     )
 
 
+def parse_paragraph_property_version_branch(
+    node: etree._Element,
+) -> ParagraphPropertyVersionBranch:
+    """``hp:case``/``hp:default`` 한쪽 분기 — ``ParagraphProperty`` 최상위
+    루프와 같은 관용구지만 이 두 종류(margin/lineSpacing)만 실측된다."""
+
+    margin: Optional[ParagraphMargin] = None
+    line_spacing: Optional[ParagraphLineSpacing] = None
+    other_children: Dict[str, List[GenericElement]] = {}
+
+    for child in node:
+        name = local_name(child)
+        if name == "margin":
+            margin = parse_paragraph_margin(child)
+        elif name == "lineSpacing":
+            line_spacing = parse_paragraph_line_spacing(child)
+        else:
+            other_children.setdefault(name, []).append(parse_generic_element(child))
+
+    return ParagraphPropertyVersionBranch(
+        margin=margin, line_spacing=line_spacing, other_children=other_children
+    )
+
+
+def parse_paragraph_property_version_switch(
+    node: etree._Element,
+) -> ParagraphPropertyVersionSwitch:
+    """``hp:switch`` 전체(DEV-018) — ``hp:case``의 ``hp:required-namespace``
+    속성은 이 스키마 계열에서 드물게 접두를 갖는다(``f"{HP}required-
+    namespace"``로 Clark 표기 조회가 필요, 다른 속성처럼 bare가 아니다)."""
+
+    case_branch: Optional[ParagraphPropertyVersionBranch] = None
+    default_branch: Optional[ParagraphPropertyVersionBranch] = None
+    required_namespace: Optional[str] = None
+
+    for child in node:
+        name = local_name(child)
+        if name == "case":
+            case_branch = parse_paragraph_property_version_branch(child)
+            required_namespace = child.get(f"{HP}required-namespace")
+        elif name == "default":
+            default_branch = parse_paragraph_property_version_branch(child)
+
+    return ParagraphPropertyVersionSwitch(
+        required_namespace=required_namespace, case=case_branch, default=default_branch
+    )
+
+
 def parse_paragraph_property(node: etree._Element) -> ParagraphProperty:
     align: Optional[ParagraphAlignment] = None
     heading: Optional[ParagraphHeading] = None
@@ -1209,6 +1498,7 @@ def parse_paragraph_property(node: etree._Element) -> ParagraphProperty:
     line_spacing: Optional[ParagraphLineSpacing] = None
     border: Optional[ParagraphBorder] = None
     auto_spacing: Optional[ParagraphAutoSpacing] = None
+    version_switch: Optional[ParagraphPropertyVersionSwitch] = None
     other_children: Dict[str, List[GenericElement]] = {}
 
     for child in node:
@@ -1227,8 +1517,27 @@ def parse_paragraph_property(node: etree._Element) -> ParagraphProperty:
             border = parse_paragraph_border(child)
         elif name == "autoSpacing":
             auto_spacing = parse_paragraph_auto_spacing(child)
+        elif name == "switch":
+            version_switch = parse_paragraph_property_version_switch(child)
         else:
             other_children.setdefault(name, []).append(parse_generic_element(child))
+
+    # 실코퍼스 236/237(99.6%)은 margin/lineSpacing을 직접 자식이 아니라
+    # hp:switch 안(hp:case 또는 hp:default)에 둔다(DEV-018) -- 직접 자식이
+    # 없었을 때만 스위치 분기에서 채운다(직접 자식이 있으면 그게 우선,
+    # 관측상 둘이 동시에 있는 경우는 없지만 방어적으로). hp:case가
+    # required_namespace로 최신 클라이언트를 가리는 설계이므로 case를
+    # 먼저, 없으면 default로 폴백 -- 헤더 편집 경로
+    # (_apply_paragraph_margins/_apply_paragraph_line_spacing, DEV-018
+    # 프로브가 확인)가 이미 양쪽을 함께 갱신하므로 두 분기 값이 갈라져
+    # 있는 실제 사례는 없다.
+    if version_switch is not None:
+        preferred = version_switch.case or version_switch.default
+        if preferred is not None:
+            if margin is None:
+                margin = preferred.margin
+            if line_spacing is None:
+                line_spacing = preferred.line_spacing
 
     known_attrs = {
         "id",
@@ -1260,6 +1569,7 @@ def parse_paragraph_property(node: etree._Element) -> ParagraphProperty:
         line_spacing=line_spacing,
         border=border,
         auto_spacing=auto_spacing,
+        version_switch=version_switch,
         attributes=attributes,
         other_children=other_children,
     )
@@ -1420,7 +1730,7 @@ def parse_header_element(node: etree._Element) -> Header:
         elif name == "forbiddenWordList":
             header.forbidden_word_list = parse_forbidden_word_list(child)
         elif name == "compatibleDocument":
-            header.compatible_document = parse_generic_element(child)
+            header.compatible_document = parse_compatible_document(child)
         elif name == "docOption":
             header.doc_option = parse_doc_option(child)
         elif name == "metaTag":
@@ -1509,6 +1819,7 @@ __all__ = [
     "BulletParaHead",
     "CharProperty",
     "CharPropertyList",
+    "CompatibleDocument",
     "DocOption",
     "Font",
     "FontFace",
@@ -1519,6 +1830,7 @@ __all__ = [
     "Header",
     "KeyDerivation",
     "KeyEncryption",
+    "LayoutCompatibility",
     "LinkInfo",
     "LicenseMark",
     "MemoProperties",
@@ -1533,10 +1845,17 @@ __all__ = [
     "ParagraphMargin",
     "ParagraphProperty",
     "ParagraphPropertyList",
+    "ParagraphPropertyVersionBranch",
+    "ParagraphPropertyVersionSwitch",
     "RefList",
     "Style",
     "StyleList",
+    "TabDefinition",
+    "TabDefinitionList",
+    "TabDefinitionVersionBranch",
+    "TabDefinitionVersionSwitch",
     "TabProperties",
+    "TabStop",
     "TrackChange",
     "TrackChangeAuthor",
     "TrackChangeAuthorList",
@@ -1551,9 +1870,11 @@ __all__ = [
     "parse_bullets",
     "parse_char_property",
     "parse_char_properties",
+    "parse_compatible_document",
     "parse_doc_option",
     "parse_forbidden_word_list",
     "parse_header_element",
+    "parse_layout_compatibility",
     "parse_memo_properties",
     "parse_memo_shape",
     "parse_numberings",
@@ -1565,10 +1886,17 @@ __all__ = [
     "parse_paragraph_margin",
     "parse_paragraph_property",
     "parse_paragraph_properties",
+    "parse_paragraph_property_version_branch",
+    "parse_paragraph_property_version_switch",
     "parse_ref_list",
     "parse_style",
     "parse_styles",
+    "parse_tab_definition",
+    "parse_tab_definitions",
+    "parse_tab_definition_version_branch",
+    "parse_tab_definition_version_switch",
     "parse_tab_properties",
+    "parse_tab_stop",
     "parse_track_change",
     "parse_track_change_author",
     "parse_track_change_authors",

@@ -32,11 +32,7 @@ const {
 ensureNodeModuleResolution(module);
 
 // Import chrome-specific utilities from chrome_utils.js
-const {
-  connectToPage,
-  resolvePuppeteerModule,
-} = require("../chrome/chrome_utils.js");
-const puppeteer = resolvePuppeteerModule();
+const { connectToPage } = require("../chrome/chrome_utils.js");
 
 // Extractor metadata
 const PLUGIN_NAME = "seo";
@@ -66,10 +62,10 @@ async function extractSeo(url) {
       timeoutMs: timeout,
       waitForNavigationComplete: true,
       postLoadDelayMs: 200,
-      puppeteer,
     });
     browser = connection.browser;
     const page = connection.page;
+    console.log("extracting seo metadata...");
 
     // Extract all meta tags
     const seoData = await page.evaluate(() => {
@@ -142,7 +138,6 @@ async function main() {
       process.exit(0);
     }
 
-    console.log("extracting seo metadata...");
     const result = await extractSeo(url);
 
     if (result.success) {

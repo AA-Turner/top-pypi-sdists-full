@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pyphen
-Version: 0.18.0
+Version: 0.18.1
 Summary: Pure Python module to hyphenate text
 Keywords: hyphenation
 Author-email: Guillaume Ayoub <contact@courtbouillon.org>

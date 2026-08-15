@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: langchain-openrouter
-Version: 0.2.7
+Version: 0.2.8
 Summary: An integration package connecting OpenRouter and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/openrouter
 Project-URL: Documentation, https://reference.langchain.com/python/integrations/langchain_openrouter/
@@ -23,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <4.0.0,>=3.10.0
-Requires-Dist: langchain-core<2.0.0,>=1.4.7
+Requires-Dist: langchain-core<2.0.0,>=1.5.5
 Requires-Dist: openrouter<1.0.0,>=0.9.2
 Description-Content-Type: text/markdown
 

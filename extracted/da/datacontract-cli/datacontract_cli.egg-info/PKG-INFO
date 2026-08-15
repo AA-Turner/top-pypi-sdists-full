@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacontract-cli
-Version: 1.1.0
+Version: 1.1.1
 Summary: The datacontract CLI is an open source command-line tool for working with Data Contracts. It uses data contract YAML files to lint the data contract, connect to data sources and execute schema and quality tests, detect breaking changes, and export to different formats. The tool is written in Python. It can be used as a standalone CLI tool, in a CI/CD pipeline, or directly as a Python library.
 Author-email: Jochen Christ <jochen.christ@entropy-data.com>, Stefan Negele <stefan.negele@innoq.com>, Simon Harrer <simon.harrer@entropy-data.com>
 License-Expression: MIT
@@ -67,7 +67,7 @@ Requires-Dist: rich>=12.4.4; extra == "dataframe"
 Provides-Extra: databricks
 Requires-Dist: ibis-framework[databricks]<13.0.0,>=10.0.0; extra == "databricks"
 Requires-Dist: databricks-sql-connector<4.5.0,>=3.7.0; extra == "databricks"
-Requires-Dist: databricks-sdk<0.123.0; extra == "databricks"
+Requires-Dist: databricks-sdk<0.126.0; extra == "databricks"
 Requires-Dist: packaging<27.0,>=21.3; extra == "databricks"
 Provides-Extra: databricks-runtime
 Requires-Dist: datacontract-cli[databricks]; extra == "databricks-runtime"
@@ -139,6 +139,7 @@ Requires-Dist: httpx==0.28.1; extra == "dev"
 Requires-Dist: kafka-python; extra == "dev"
 Requires-Dist: minio==7.2.20; extra == "dev"
 Requires-Dist: moto==5.2.2; extra == "dev"
+Requires-Dist: openapi-spec-validator<0.10,>=0.7; extra == "dev"
 Requires-Dist: pandas>=2.1.0; extra == "dev"
 Requires-Dist: pre-commit<4.7.0,>=3.7.1; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
@@ -146,7 +147,7 @@ Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: pymssql==2.3.13; extra == "dev"
 Requires-Dist: psycopg2-binary<3.0,>=2.9; extra == "dev"
 Requires-Dist: mysql-connector-python<26.8.0,>=8.0.30; extra == "dev"
-Requires-Dist: ruff==0.16.1; extra == "dev"
+Requires-Dist: ruff==0.16.2; extra == "dev"
 Requires-Dist: testcontainers[kafka,minio,mssql,mysql,postgres]==4.15.0; extra == "dev"
 Requires-Dist: trino==0.338.0; extra == "dev"
 Dynamic: license-file
@@ -398,6 +399,8 @@ alias datacontract='docker run --rm -v "${PWD}:/home/datacontract" datacontract/
 ```
 
 _Note:_ The output of Docker command line messages is limited to 80 columns and may include line breaks. Don't pipe docker output to files if you want to export code. Use the `--output` option instead.
+
+Released images are signed with [cosign](https://docs.sigstore.dev/cosign/signing/overview/) keyless signing. See [Verifying the image](https://docs.datacontract.com/installation#verifying-the-image) to check a signature before you run it.
 
 
 

@@ -150,21 +150,23 @@ x-documentation:
     - `account.connected` - Social account connected
     - `account.disconnected` - Social account disconnected (token expired)
     - `account.ads.initial_sync_completed` - Initial ads sync (discovery + 90-day backfill) completed for an ads-enabled account
-    - `message.received` - New DM received
-    - `conversation.started` - A new conversation opened between one of your accounts and a contact, in either direction (any DM platform); fires only the first time the thread appears
+    - `message.received` - New inbound DM or SMS received (SMS arrives with `platform: "sms"`)
+    - `conversation.started` - A new conversation opened between one of your accounts and a contact, in either direction (any DM platform, and SMS); fires only the first time the thread appears
     - `message.sent` - DM sent via the API
     - `message.edited` - A sender edited a message (Instagram, Messenger, Telegram)
     - `message.deleted` - A sender deleted ("unsent") a message (Instagram; WhatsApp when the business deletes a sent message)
-    - `message.delivered` - An outgoing message was delivered (WhatsApp, Messenger)
+    - `message.delivered` - An outgoing message was delivered (WhatsApp, Messenger, SMS)
     - `message.read` - An outgoing message was read by the recipient (WhatsApp, Messenger, Instagram)
-    - `message.failed` - An outgoing message failed delivery (WhatsApp)
+    - `message.failed` - An outgoing message failed delivery (WhatsApp, SMS; on SMS the carrier's error code rides in `error`)
     - `reaction.received` - A participant added or removed an emoji reaction on a message (WhatsApp, Telegram, Slack, Instagram, Facebook Messenger)
+    - `referral.received` - Someone opened an existing Instagram/Messenger thread through an ig.me/m.me `ref` link or a returning Messenger ad click; carries Meta's referral object (a referral that rides an inbound message arrives on `message.received` under `metadata.referral` instead)
     - `comment.received` - New comment received on a post
     - `review.new` - New review posted on a connected account (Google Business Profile)
     - `review.updated` - Review updated or reply added (Google Business Profile, or via reply API)
     - `lead.received` - New lead submitted against a Meta Lead Gen (Instant) Form. `lead.fields` is the question-key → answer map; `lead.formId`/`lead.adId` give provenance.
     - `ad.status_changed` - Ad, ad set, or campaign changed status on the ad platform (Meta: `in_process_ad_objects` entry/exit and `with_issues_ad_objects` violations)
     - `whatsapp.template.status_updated` - WhatsApp Business template completed (re)review by Meta. `template.status` carries the new state (APPROVED, REJECTED, PENDING, PAUSED, DISABLED, IN_APPEAL, PENDING_DELETION); `template.reason` is Meta's free-form reason or "NONE".
+    - `whatsapp.template.category_updated` - Meta reclassified a WhatsApp Business template's category (drives tariff and marketing opt-out applicability). `template.changeType` is `scheduled` (24h advance notice) or `applied`; `template.category` is always the category right now.
     - `call.received` - An inbound call (phone/PSTN or WhatsApp) reached one of your numbers and was routed to its destination
     - `call.ended` - A call ended; carries duration, end reason, cost breakdown, and the recording when enabled
     - `call.failed` - A call failed with a hard error before or during bridging
@@ -418,7 +420,7 @@ tags:
   - name: Webhooks
     description: |
       Configure webhooks for real-time notifications. Webhooks can be created from the dashboard (Settings → Webhooks) or via this API.
-      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed, webhook.test.
+      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed, webhook.test.
       Security: optional HMAC-SHA256 signature in X-Zernio-Signature header. Configure a secret key to enable verification. Custom headers supported.
 
       Resource groups. Every event belongs to one group: post.* to publishing, message.*, reaction.*, conversation.*, call.* and whatsapp.automatic_event to messages, comment.* and review.* to engagement, lead.* to contacts, ad.* to ads, account.* and whatsapp.template.* to accounts, whatsapp.number.* and verification.* to telephony, webhook.test to webhooks. Two independent controls use that mapping. (1) A restricted (zrk_) API key can only subscribe to, test-fire, redeliver, or read delivery logs for events in the groups it holds, so it can never create a subscription broader than itself. (2) Each subscription carries its own `disabledResourceGroups` denylist: events in a disabled group are dropped before delivery to that endpoint, on live delivery and on every replay path, no matter which key or session created the subscription. Changing that denylist applies to every event emitted after the change; events already queued when it landed can still be delivered for up to five minutes after they were enqueued, because the delivery worker trusts a five-minute enqueue-time snapshot before re-checking. Absent or empty on a subscription means it receives everything it subscribes to, which is the behavior of every subscription created before the field existed.
@@ -898,8 +900,11 @@ components:
           maxLength: 3
           description: |
             ISO 4217 currency code matching the ad account's currency
-            (e.g. `USD`). Optional; Meta infers from the ad account
-            when omitted.
+            (e.g. `USD`). Optional: Zernio resolves it from the ad account
+            when omitted. The value selects the minor-unit exponent Zernio
+            converts budget/bid amounts by before calling Meta (most
+            currencies are cents; zero-decimal currencies like JPY/KRW are
+            sent as-is).
         endDate:
           type: string
           format: date-time
@@ -2333,7 +2338,7 @@ components:
           type: array
           items:
             type: string
-            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
+            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
           description: Events subscribed to
         isActive:
           type: boolean
@@ -3151,7 +3156,7 @@ components:
           description: Internal conversation ID
         platform:
           type: string
-          enum: [instagram, facebook, telegram, whatsapp]
+          enum: [instagram, facebook, telegram, whatsapp, sms]
         platformMessageId:
           type: string
           description: Platform's message ID
@@ -3349,6 +3354,76 @@ components:
           format: date-time
           description: 'UTC time at which Zernio generated this event (set once when the event payload is built, before delivery is queued). Retries and redeliveries keep the original value, so it reflects the event, not the delivery attempt.'
     # ────────────────────────────────────────────────────────────────────────
+    WebhookPayloadReferral:
+      type: object
+      description: 'Webhook payload for referral received events (Instagram, Facebook Messenger)'
+      required: [id, event, referral, sender, conversation, account, timestamp]
+      properties:
+        id:
+          type: string
+          description: Stable webhook event ID
+        event:
+          type: string
+          enum: [referral.received]
+        referral:
+          type: object
+          description: |
+            Meta's referral object, forwarded verbatim. Same shape as
+            `metadata.referral` on `message.received`: `ref` + `source` for
+            ig.me / m.me links, `ad_id` + `ads_context_data` for returning
+            Messenger ad clicks.
+          properties:
+            ref:
+              type: string
+              description: The `ref` parameter of the clicked ig.me / m.me link or ad.
+            source:
+              type: string
+              description: 'Meta-supplied source (`SHORTLINK`, `SHORTLINKS`, `IGME-SOURCE-LINK`, `ADS` - treat as opaque).'
+            type:
+              type: string
+              description: Meta-supplied referral type (e.g. `OPEN_THREAD`).
+            referer_uri:
+              type: string
+              description: URI of the originating site, when Meta supplies one. Facebook Messenger only.
+            ad_id:
+              type: string
+              description: The Meta ad ID, on returning ad clicks. Facebook Messenger only.
+            ads_context_data:
+              type: object
+              description: Snapshot of the ad's public context at click time.
+              properties:
+                ad_title:
+                  type: string
+                photo_url:
+                  type: string
+                video_url:
+                  type: string
+                post_id:
+                  type: string
+                product_id:
+                  type: string
+                flow_id:
+                  type: string
+        sender:
+          type: object
+          required: [id]
+          description: Who clicked - the conversation participant.
+          properties:
+            id:
+              type: string
+              description: Platform-scoped user ID (IGSID / PSID).
+            contactId:
+              type: string
+              description: Zernio CRM Contact id for this sender, when one exists.
+        conversation:
+          $ref: '#/components/schemas/InboxWebhookConversation'
+        account:
+          $ref: '#/components/schemas/InboxWebhookAccount'
+        timestamp:
+          type: string
+          format: date-time
+          description: 'UTC time at which Zernio generated this event (set once when the event payload is built, before delivery is queued). Retries and redeliveries keep the original value, so it reflects the event, not the delivery attempt.'
+    # ────────────────────────────────────────────────────────────────────────
     WebhookPayloadMessage:
       type: object
       description: Webhook payload for message received events
@@ -3372,7 +3447,7 @@ components:
               description: Internal conversation ID
             platform:
               type: string
-              enum: [instagram, facebook, telegram, whatsapp]
+              enum: [instagram, facebook, telegram, whatsapp, sms]
             platformMessageId:
               type: string
               description: Platform's message ID
@@ -3625,17 +3700,27 @@ components:
             referral:
               type: [object, "null"]
               description: |
-                Ad-click attribution forwarded verbatim from Meta. Populated only on
+                Click attribution forwarded verbatim from Meta. Populated only on
                 the FIRST inbound message after the click; absent on subsequent
-                messages of the same conversation.
+                messages of the same conversation. On Instagram and Messenger a
+                RETURNING click also attaches it to the first message that
+                follows, so read it on every `message.received` for per-click
+                attribution; a click that opens an existing thread WITHOUT a
+                message arrives as the separate `referral.received` event.
 
-                The populated subset identifies the source platform:
+                The populated subset identifies the source:
                   - `ctwa_clid` and `source_*` fields: WhatsApp CTWA
                     (Click-to-WhatsApp). Attribution window is 7 days from click.
                     Forward to Meta Conversions API for Business Messaging replay.
                   - `ad_id` and `ads_context_data`: Facebook Messenger CTM
                     (Click-to-Message) or Instagram CTD (Click-to-Direct). Use
                     `ad_id` to attribute the conversation to a specific ad.
+                  - `ref` without `ad_id`: an ig.me / m.me link carrying a
+                    `?ref=` parameter (`source` is `SHORTLINK`, `SHORTLINKS` or
+                    `IGME-SOURCE-LINK` depending on surface - treat it as
+                    opaque). Instagram delivers ig.me refs on new threads only
+                    when the account has at least one Ice Breaker configured
+                    (`PUT /v1/accounts/{accountId}/instagram-ice-breakers`).
               properties:
                 ctwa_clid:
                   type: string
@@ -3666,18 +3751,25 @@ components:
                 ref:
                   type: string
                   description: |
-                    Optional `ref` parameter passed through from the Meta ad
-                    creative. Facebook Messenger CTM / Instagram CTD only.
+                    The `ref` parameter passed through from the Meta ad creative
+                    or from an ig.me / m.me link. Instagram / Facebook Messenger
+                    only.
                 source:
                   type: string
                   description: |
-                    Meta-supplied source identifier (e.g. `ADS`). Facebook Messenger
-                    CTM / Instagram CTD only.
+                    Meta-supplied source identifier (`ADS` for ad clicks;
+                    `SHORTLINK`, `SHORTLINKS` or `IGME-SOURCE-LINK` for ref
+                    links). Instagram / Facebook Messenger only.
                 type:
                   type: string
                   description: |
-                    Meta-supplied referral type (e.g. `OPEN_THREAD`). Facebook
-                    Messenger CTM / Instagram CTD only.
+                    Meta-supplied referral type (e.g. `OPEN_THREAD`). Instagram /
+                    Facebook Messenger only.
+                referer_uri:
+                  type: string
+                  description: |
+                    URI of the originating site, when Meta supplies one (m.me
+                    links opened from the web). Facebook Messenger only.
                 ads_context_data:
                   type: object
                   description: |
@@ -3898,10 +3990,12 @@ components:
         delivery state for an outgoing message.
 
         Platform support:
-          * message.delivered — WhatsApp, Facebook Messenger.
-          * message.read      — WhatsApp, Facebook Messenger, Instagram.
-          * message.failed    — WhatsApp only (other platforms don't expose
-            per-message failure via webhook).
+          * message.delivered: WhatsApp, Facebook Messenger, SMS.
+          * message.read: WhatsApp, Facebook Messenger, Instagram. Not SMS
+            (carriers report delivery, never read).
+          * message.failed: WhatsApp and SMS (other platforms don't expose
+            per-message failure via webhook). On SMS, `error.code` is the
+            carrier's numeric code and `error.message` its reason.
       required: [id, event, message, statusAt, conversation, account, timestamp]
       properties:
         id: { type: string }
@@ -4342,6 +4436,69 @@ components:
           type: string
           format: date-time
           description: 'UTC time at which Zernio generated this event (set once when the event payload is built, before delivery is queued). Retries and redeliveries keep the original value, so it reflects the event, not the delivery attempt.'
+    WebhookPayloadWhatsAppTemplateCategoryUpdated:
+      type: object
+      description: |
+        Webhook payload for the `whatsapp.template.category_updated` event.
+        Fired when Meta reclassifies a template's category attached to a
+        connected WABA. Maps Meta's `template_category_update` field onto
+        our event envelope.
+      required: [id, event, account, template, timestamp]
+      properties:
+        id:
+          type: string
+          description: Stable webhook event ID
+        event:
+          type: string
+          enum: [whatsapp.template.category_updated]
+        account:
+          type: object
+          required: [accountId, profileId, platform, username]
+          properties:
+            accountId: { type: string }
+            profileId: { type: string }
+            platform: { type: string, enum: [whatsapp] }
+            username: { type: string }
+            displayName: { type: string }
+        template:
+          type: object
+          required: [templateId, name, language, changeType, category]
+          properties:
+            templateId:
+              type: string
+              description: Meta's `message_template_id`, returned as a string.
+            name:
+              type: string
+              description: Meta's `message_template_name`.
+            language:
+              type: string
+              description: Meta's `message_template_language` (e.g. `en_US`).
+            changeType:
+              type: string
+              enum: [scheduled, applied]
+              description: |
+                `scheduled` is Meta's 24h advance notice of an upcoming
+                reclassification; `applied` is the change taking effect.
+            category:
+              type: string
+              enum: [UTILITY, MARKETING, AUTHENTICATION]
+              description: The category right now, regardless of changeType.
+            previousCategory:
+              type: string
+              enum: [UTILITY, MARKETING, AUTHENTICATION]
+              description: Present only when changeType is `applied`. The category before this change.
+            scheduledCategory:
+              type: string
+              enum: [UTILITY, MARKETING, AUTHENTICATION]
+              description: Present only when changeType is `scheduled`. The category that will take effect at `effectiveAt`.
+            effectiveAt:
+              type: string
+              format: date-time
+              description: Present only when changeType is `scheduled`. ISO-8601 timestamp when the scheduled category takes effect.
+        timestamp:
+          type: string
+          format: date-time
+          description: 'UTC time at which Zernio generated this event (set once when the event payload is built, before delivery is queued). Retries and redeliveries keep the original value, so it reflects the event, not the delivery attempt.'
     WebhookPayloadTest:
       type: object
       description: Webhook payload for test deliveries
@@ -4452,18 +4609,32 @@ components:
       description: >
         A media item on a native (external/synced) post, as carried by post.external.*
         webhook payloads. Distinct from the richer MediaItem used for Zernio-authored
-        posts: external items are always already-published (url required) and limited to
-        image or video. Kept as a separate schema so the generated SDK model does not
-        collide with MediaItem.
+        posts: external items are always already-published and limited to image or
+        video. Kept as a separate schema so the generated SDK model does not collide
+        with MediaItem.
       required: [type, url]
       properties:
         type:
           type: string
           enum: [image, video]
         url:
-          type: string
+          type: [string, "null"]
+          description: >-
+            'Direct URL to the media file. Null when the platform withholds it: check
+            mediaStatus before downloading. Instagram omits the video file for Reels it
+            flags as containing copyrighted material (its docs name audio as the usual
+            cause), so type stays "video" while the file is permanently unreachable.'
         thumbnail:
           type: string
+          description: 'Cover image. Still present when url is null.'
+        mediaStatus:
+          type: string
+          enum: [unavailable]
+          description: 'Present only when the media file could not be retrieved. Absent means the file is available at url.'
+        unavailableReason:
+          type: string
+          enum: [platform_withheld]
+          description: 'Why the file is missing. platform_withheld means the platform declined to return it and retrying will not help.'
     PlatformTarget:
       type: object
       properties:
@@ -6576,11 +6747,26 @@ components:
             type: object
             properties:
               type: { type: string, enum: [image, video] }
-              url: { type: string, format: uri, description: Direct URL to the media }
-              thumbnail: { type: string, format: uri, description: Thumbnail URL (same as url for images) }
+              url:
+                type: [string, "null"]
+                format: uri
+                description: >-
+                  'Direct URL to the media file. Null when the platform withholds it: check
+                  mediaStatus before downloading. Instagram omits the video file for Reels it
+                  flags as containing copyrighted material (its docs name audio as the usual
+                  cause), so type stays "video" while the file is permanently unreachable.'
+              thumbnail: { type: [string, "null"], format: uri, description: 'Thumbnail URL (same as url for images). Still present when url is null.' }
               altText:
                 type: string
                 description: Accessibility alt text set on the media, when present.
+              mediaStatus:
+                type: string
+                enum: [unavailable]
+                description: 'Present only when the media file could not be retrieved. Absent means the file is available at url.'
+              unavailableReason:
+                type: string
+                enum: [platform_withheld]
+                description: 'Why the file is missing. platform_withheld means the platform declined to return it and retrying will not help.'
     AnalyticsListResponse:
       type: object
       properties:
@@ -8722,6 +8908,31 @@ webhooks:
       responses:
         '200':
           description: Webhook received successfully
+  referral.received:
+    post:
+      operationId: onReferralReceived
+      summary: Referral received event
+      description: |
+        Fired when someone opens an EXISTING Instagram or Messenger thread
+        through an attributable entry point - an ig.me / m.me link with a
+        `ref` parameter, or (Messenger) a returning Click-to-Message ad click -
+        which Meta delivers as a standalone referral with no message attached.
+        A referral that rides an inbound message (first message of a thread,
+        icebreaker taps, returning ad clicks on Instagram) arrives on
+        `message.received` under `metadata.referral` instead; the two never
+        fire for the same click. The first referral captured on a conversation
+        is also persisted on it (see `metadata` on `GET
+        /v1/inbox/conversations`). Requires the Inbox add-on.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadReferral'
+      responses:
+        '200':
+          description: Webhook received successfully
   comment.received:
     post:
       operationId: onCommentReceived
@@ -8964,6 +9175,28 @@ webhooks:
           application/json:
             schema:
               $ref: '#/components/schemas/WebhookPayloadWhatsAppTemplateStatusUpdated'
+      responses:
+        '200':
+          description: Webhook received successfully
+  whatsapp.template.category_updated:
+    post:
+      operationId: onWhatsAppTemplateCategoryUpdated
+      summary: WhatsApp template category updated event
+      description: |
+        Fired when Meta reclassifies a WhatsApp Business template's category
+        after approval. Forwarded from Meta's `template_category_update`
+        webhook field on the WhatsApp Business Account. Category drives
+        Meta's per-conversation tariff and whether the template is subject
+        to the recipient's marketing opt-out. `template.changeType` is
+        `scheduled` (24h advance notice) or `applied`; `template.category`
+        is always the category right now.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadWhatsAppTemplateCategoryUpdated'
       responses:
         '200':
           description: Webhook received successfully
@@ -23568,7 +23801,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
                   description: Events to subscribe to (at least one required)
                 isActive:
                   type: boolean
@@ -23687,7 +23920,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
                   description: Events to subscribe to. Must contain at least one event if provided.
                 isActive:
                   type: boolean
@@ -24217,13 +24450,15 @@ paths:
                         metadata:
                           type: [object, "null"]
                           description: |
-                            Ad-click attribution for a conversation that started from a Meta ad.
-                            Absent when the conversation did not originate from an ad click.
+                            Click attribution for a conversation that started from a Meta ad or
+                            a ref-tagged ig.me / m.me link. Absent when the conversation did not
+                            originate from an attributable click.
 
-                            Captured from the referral Meta attaches to the first inbound message
-                            after the click, which is the only message that carries it. If the same
-                            person later clicks a different ad, the original values are kept, so the
-                            first ad wins. One exception on WhatsApp: when Meta omits `ctwa_clid`
+                            Captured from the referral Meta delivers for the click. If the same
+                            person later arrives through a different ad or link, the original
+                            values are kept, so the first referral wins; read the fresh referral
+                            per click on the `message.received` / `referral.received` webhooks
+                            instead. One exception on WhatsApp: when Meta omits `ctwa_clid`
                             from that referral, a later Meta automatic event can supply it and
                             refresh `ctwa_captured_at`, so treat `ctwa_captured_at` as the time
                             Zernio stored the value, not the time of the click.
@@ -24232,9 +24467,11 @@ paths:
 
                               - `ctwa_*` is WhatsApp Click-to-WhatsApp. The ad ID is
                                 `ctwa_source_id`. There is no `meta_ad_id` on WhatsApp.
-                              - `meta_ad_*` is Instagram Click-to-Direct and Facebook Messenger
-                                Click-to-Message. The ad ID is `meta_ad_id`. `ctwa_clid` never
-                                appears on these platforms.
+                              - `meta_ad_*` is Instagram Click-to-Direct, Facebook Messenger
+                                Click-to-Message, and ig.me / m.me ref links. The ad ID is
+                                `meta_ad_id` (ad clicks only; a link capture carries
+                                `meta_ad_ref` without it). `ctwa_clid` never appears on these
+                                platforms.
 
                             Every key is optional and only the keys Meta supplied are returned, so
                             read defensively. Meta does not send a campaign or ad set ID, so none
@@ -24268,16 +24505,16 @@ paths:
                               description: "WhatsApp only. When Zernio stored this referral. Always present when a WhatsApp referral was captured."
                             meta_ad_id:
                               type: string
-                              description: "Instagram and Facebook only. The Meta ad ID the user clicked. Always present when an Instagram or Facebook referral was captured."
+                              description: "Instagram and Facebook only. The Meta ad ID the user clicked. Present for ad clicks; absent when the capture came from an ig.me / m.me ref link."
                             meta_ad_source:
                               type: string
-                              description: "Instagram and Facebook only. Meta-supplied source identifier, for example ADS."
+                              description: "Instagram and Facebook only. Meta-supplied source identifier: ADS for ad clicks; SHORTLINK, SHORTLINKS or IGME-SOURCE-LINK for ref links (treat as opaque)."
                             meta_ad_type:
                               type: string
                               description: "Instagram and Facebook only. Meta-supplied referral type, for example OPEN_THREAD."
                             meta_ad_ref:
                               type: string
-                              description: "Instagram and Facebook only. The ref parameter passed through from the ad creative."
+                              description: "Instagram and Facebook only. The ref parameter passed through from the ad creative or the ig.me / m.me link."
                             meta_ad_title:
                               type: string
                               description: "Instagram and Facebook only. Title of the ad creative at click time."
@@ -29285,6 +29522,15 @@ paths:
         US numbers must have an approved carrier registration
         (`/v1/sms/registrations`) before messages deliver.
 
+        **Replies and delivery status arrive as webhooks**, not by polling:
+        an inbound reply fires `message.received` with `platform: "sms"`, the
+        first message of a new thread also fires `conversation.started`, and
+        this message's own outcome fires `message.delivered` or
+        `message.failed` (the latter carrying the carrier's error code).
+
+        **Opted-out recipients:** a send to a number that replied STOP is
+        refused with `409`, never silently dropped.
+
         **Idempotency:** send an `Idempotency-Key` header to make retries safe:
         same key + same body replays the original response instead of sending a
         second message; same key + different body returns 422; a key still in
@@ -29326,7 +29572,7 @@ paths:
                   status: { type: string, enum: [sent] }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: "No SMS-enabled number matches `from`" }
-        '409': { $ref: '#/components/responses/IdempotencyKeyInFlight' }
+        '409': { description: "Recipient has opted out (replied STOP), or the same Idempotency-Key is still in flight" }
         '422': { $ref: '#/components/responses/IdempotencyKeyReused' }
         '502': { description: Carrier-side send failed }
 
@@ -31995,6 +32241,7 @@ paths:
                     first_name: { type: string }
                     last_name: { type: string }
                     street_address: { type: string }
+                    extended_address: { type: string, description: 'Address complement: apartment, suite, unit, or the quadra/lote used in some countries. Optional. Does not substitute for a building number on street_address.' }
                     locality: { type: string }
                     administrative_area: { type: string }
                     postal_code: { type: string }
@@ -32119,6 +32366,7 @@ paths:
               properties:
                 country: { type: string, minLength: 2, maxLength: 2, description: ISO 3166-1 alpha-2 country code. }
                 street_address: { type: string }
+                extended_address: { type: string, description: 'Address complement: apartment, suite, unit, or the quadra/lote used in some countries. Optional. Does not substitute for a building number on street_address.' }
                 locality: { type: string, description: City / town. }
                 administrative_area: { type: string, description: "State / province / region. When omitted, the pre-check is skipped (the final submit still validates)." }
                 postal_code: { type: string }
@@ -32985,6 +33233,7 @@ paths:
                     first_name: { type: string }
                     last_name: { type: string }
                     street_address: { type: string }
+                    extended_address: { type: string, description: 'Address complement: apartment, suite, unit, or the quadra/lote used in some countries. Optional. Does not substitute for a building number on street_address.' }
                     locality: { type: string }
                     administrative_area: { type: string }
                     postal_code: { type: string }
@@ -33088,6 +33337,7 @@ paths:
               properties:
                 country: { type: string, minLength: 2, maxLength: 2, description: ISO 3166-1 alpha-2 country code. }
                 street_address: { type: string }
+                extended_address: { type: string, description: 'Address complement: apartment, suite, unit, or the quadra/lote used in some countries. Optional. Does not substitute for a building number on street_address.' }
                 locality: { type: string, description: City / town. }
                 administrative_area: { type: string, description: "State / province / region. When omitted, the pre-check is skipped (the final submit still validates)." }
                 postal_code: { type: string }
@@ -40635,7 +40885,7 @@ paths:
                     type: { type: string, enum: [daily, lifetime] }
                 instagramAccountId: { type: string, description: "Meta only. Instagram identity the ad runs AS (creative.instagram_user_id), overriding the account linked to the Page. Live-verified against a Page-post creative." }
                 destinationType: { type: string, enum: [INSTAGRAM_PROFILE, WEBSITE, ON_AD, MESSENGER, WHATSAPP], description: "Meta only. Ad-set destination_type — where the click LANDS, as opposed to instagramAccountId which is who the ad runs as. Lead ads force ON_AD and ignore this." }
-                currency: { type: string, example: USD }
+                currency: { type: string, minLength: 3, maxLength: 3, example: USD, description: "ISO 4217 currency code matching the ad account's currency. Meta only. Optional: Zernio resolves it from the ad account when omitted. The value selects the minor-unit exponent Zernio converts budget/bid amounts by before calling Meta (most currencies are cents; zero-decimal currencies like JPY/KRW are sent as-is)." }
                 schedule:
                   type: object
                   properties:
@@ -41018,7 +41268,7 @@ paths:
                         across ad sets automatically.
                     Meta requires the budget at exactly one level, never both. Non-Meta platforms ignore
                     this field. Ignored on the attach shape (`adSetId`), which inherits the existing budget.
-                currency: { type: string }
+                currency: { type: string, minLength: 3, maxLength: 3, description: "ISO 4217 currency code matching the ad account's currency (e.g. `USD`). Meta only. Optional: Zernio resolves it from the ad account when omitted. The value selects the minor-unit exponent Zernio converts budget/bid amounts by before calling Meta (most currencies are cents; zero-decimal currencies like JPY/KRW are sent as-is)." }
                 headline: { type: string, description: "Required for Meta, Google, Pinterest, LinkedIn, and OpenAI Ads on legacy + attach shapes (skip for multi-creative — use `creatives[].headline`). Ignored for TikTok and X/Twitter. Max: Meta=255, Google=30, Pinterest=100, LinkedIn=400, OpenAI=50 (min 3). On LinkedIn this is the ad's headline (the bold text on the creative); for traffic ads it's the link card title. On OpenAI Ads this is the chat card's title." }
                 longHeadline: { type: string, maxLength: 90, description: "Google Display only — defaults to `headline` if omitted. On LinkedIn, reused as the optional secondary description text on traffic (link) ads; omitted if not provided." }
                 body: { type: string, description: "Required on legacy + attach shapes. For X/Twitter this is the tweet text (max 280 chars including a ~24-char URL when `linkUrl` is set). On LinkedIn this is the post commentary (the intro text shown above the ad). On OpenAI Ads this is the chat card's body text. Max: Google=90, Pinterest=500, OpenAI=100." }
@@ -41081,8 +41331,9 @@ paths:
                     The attached ad takes the full single-creative surface:
                     `headline`/`body`/`description`/`callToAction` plus either
                     `imageUrl`/`video` OR `placementAssets` (its own per-placement
-                    Feed/Story assets), and `leadGenFormId` when the target is a
-                    lead ad set (the parent must be ON_AD — true for ad sets
+                    Feed/Story assets) OR `translations`/`defaultLocale` (its own
+                    per-locale asset feed, Meta only), and `leadGenFormId` when
+                    the target is a lead ad set (the parent must be ON_AD, true for ad sets
                     created via goal `lead_generation`; Meta rejects a formless ad
                     there, so pass the form on EVERY attached ad). This is the way
                     to build N full ads sharing one ad set: create the first ad
@@ -41311,8 +41562,9 @@ paths:
                   description: |
                     Meta only. Override the Instagram account the ad is delivered as — pass an Instagram
                     Business Account ID (e.g. 17841...), mapped to the creative's `instagram_user_id`.
-                    When omitted we auto-resolve the IG account linked to the connected Facebook Page
-                    (the existing default). Useful when a Page has more than one eligible IG account.
+                    When omitted we use the Instagram actor Meta already runs the Page's other ads as,
+                    falling back to the Page's page-backed Instagram account. Useful when a Page has more
+                    than one eligible IG account.
                 dynamicCreative:
                   type: object
                   description: |
@@ -41422,8 +41674,8 @@ paths:
                     works on a normal ad may be rejected with "The following images have invalid
                     dimensions for Dynamic Creative" (subcode 1885558). Video is not affected.
 
-                    Mutually exclusive with `dynamicCreative`, `placementAssets`, `carouselCards` and
-                    `existingCreativeId` — Meta allows one `asset_feed_spec` shape per creative.
+                    Mutually exclusive with `dynamicCreative`, `placementAssets`, `carouselCards`,
+                    `existingCreativeId` and `creatives[]`. Meta allows one `asset_feed_spec` shape per creative.
                   items:
                     type: object
                     required: [locale, headline, body, description]
@@ -41732,6 +41984,9 @@ paths:
                       type: string
                       description: |
                         Pixel ID. **Meta:** Facebook Pixel ID, required for `goal: conversions`.
+                        Requires `customEventType` alongside it; Meta rejects any promoted_object
+                        carrying `pixel_id` without `custom_event_type` (error_subcode 1885014),
+                        even when `customConversionId` is also present.
                         **TikTok:** TikTok Pixel ID, required for `goal: conversions`.
                         To discover the pixels an ad account can use, call
                         `GET /v1/accounts/{accountId}/tracking-tags?adAccountId=act_...` (each entry
@@ -41781,7 +42036,12 @@ paths:
                       description: "App Store / Play Store listing URL. Required for `goal: app_promotion`."
                     customConversionId:
                       type: string
-                      description: Custom Conversion ID, when optimising against one instead of a standard event.
+                      description: |
+                        Custom Conversion ID, when optimising against one instead of a standard
+                        event. Accepted alone by this API, without `pixelId` or `customEventType`.
+                        If `pixelId` is also sent, `customEventType` is still required on the
+                        promoted_object (Meta rejects `pixel_id` without `custom_event_type`,
+                        error_subcode 1885014).
                     productCatalogId:
                       type: string
                       description: Catalog ID for catalog/Advantage+ Shopping campaigns.

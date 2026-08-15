@@ -36,6 +36,8 @@ __all__ = (
     "ConversationRoleType",
     "CreationModeType",
     "CustomControlMethodType",
+    "DocumentAclMemberRelationType",
+    "DocumentAclMembershipTypeType",
     "DocumentOutputFormatType",
     "ExecutionTypeType",
     "ExternalSourceTypeType",
@@ -134,6 +136,8 @@ ConfirmationStateType = Literal["CONFIRM", "DENY"]
 ConversationRoleType = Literal["assistant", "user"]
 CreationModeType = Literal["DEFAULT", "OVERRIDDEN"]
 CustomControlMethodType = Literal["RETURN_CONTROL"]
+DocumentAclMemberRelationType = Literal["AND", "OR"]
+DocumentAclMembershipTypeType = Literal["DATA_SOURCE", "KNOWLEDGE_BASE"]
 DocumentOutputFormatType = Literal["EXTRACTED", "RAW"]
 ExecutionTypeType = Literal["LAMBDA", "RETURN_CONTROL"]
 ExternalSourceTypeType = Literal["BYTE_CONTENT", "S3"]
@@ -279,8 +283,11 @@ AgentsforBedrockRuntimeServiceName = Literal["bedrock-agent-runtime"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -469,8 +476,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -497,6 +502,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -564,10 +571,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -585,6 +592,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -650,7 +658,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -671,6 +678,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

@@ -5,11 +5,12 @@ Generates Python models using msgspec.Struct for high-performance serialization.
 
 from __future__ import annotations
 
+import keyword
 from functools import wraps
 from math import isfinite
 from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, Optional, TypeVar
 
-from datamodel_code_generator.imports import IMPORT_OPTIONAL, Import
+from datamodel_code_generator.imports import IMPORT_OPTIONAL, IMPORT_UNION, Import
 from datamodel_code_generator.model import DataModel, DataModelFieldBase, _rebuild_model_with_datamodel_namespace
 from datamodel_code_generator.model._constraints import PatternConstraints as _Constraints
 from datamodel_code_generator.model.base import UNDEFINED, BaseClassDataType, _nested_model_default_factory
@@ -23,10 +24,16 @@ from datamodel_code_generator.model.imports import (
 )
 from datamodel_code_generator.model.type_alias import TypeAliasBase
 from datamodel_code_generator.model.types import DataTypeManager as _DataTypeManager
-from datamodel_code_generator.python_literal import represent_python_value
+from datamodel_code_generator.python_literal import (
+    _normalize_string,
+    represent_python_value,
+    represent_untrusted_python_value,
+)
 from datamodel_code_generator.reference import ModelType
 from datamodel_code_generator.types import (
     NONE,
+    DataType,
+    _create_context_data_type,
     chain_as_tuple,
     merge_normalized_constraint,
     normalize_integer_constraint,
@@ -58,7 +65,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from datamodel_code_generator.reference import Reference
-    from datamodel_code_generator.types import DataType
 
 
 def has_field_assignment(field: DataModelFieldBase) -> bool:
@@ -168,12 +174,42 @@ class Struct(DataModel):
             treat_dot_as_module=treat_dot_as_module,
         )
         self.extra_template_data.setdefault("base_class_kwargs", {})
+        self._set_internal_template_data("base_class_kwargs", {})
         if self.keyword_only:
             self.add_base_class_kwarg("kw_only", "True")
 
     def add_base_class_kwarg(self, name: str, value: str) -> None:
         """Add keyword argument to base class constructor."""
         self.extra_template_data["base_class_kwargs"][name] = value
+        self._internal_template_data["base_class_kwargs"][name] = value
+
+    def _builtin_template_data(self) -> dict[str, Any]:
+        """Serialize user msgspec options while retaining generator-owned syntax."""
+        template_data = super()._builtin_template_data()
+        raw_base_class_kwargs = self.extra_template_data.get("base_class_kwargs")
+        base_class_kwargs: dict[str, str] = {}
+        if isinstance(raw_base_class_kwargs, dict):
+            for key, value in raw_base_class_kwargs.items():
+                if not isinstance(key, str):
+                    continue
+                normalized_key = _normalize_string(key)
+                if not normalized_key.isidentifier() or keyword.iskeyword(normalized_key):
+                    continue
+                base_class_kwargs[normalized_key] = represent_untrusted_python_value(value)
+        base_class_kwargs.update(self._internal_template_data["base_class_kwargs"])
+        return {**template_data, "base_class_kwargs": base_class_kwargs}
+
+    def _custom_template_data(self) -> dict[str, Any]:
+        """Preserve legacy raw msgspec options for trusted custom templates."""
+        template_data = super()._custom_template_data()
+        raw_base_class_kwargs = self.extra_template_data.get("base_class_kwargs")
+        internal_base_class_kwargs = self._internal_template_data["base_class_kwargs"]
+        if not isinstance(raw_base_class_kwargs, dict):
+            return {**template_data, "base_class_kwargs": raw_base_class_kwargs}
+        return {
+            **template_data,
+            "base_class_kwargs": {**raw_base_class_kwargs, **internal_base_class_kwargs},
+        }
 
     def apply_discriminator_tag(self, field: DataModelFieldBase, field_name: str, value: Any) -> None:
         """Configure msgspec's tag and exclude the discriminator from instance fields."""
@@ -390,6 +426,63 @@ class DataModelField(DataModelFieldBase):
             return self._unset_union_data_type()
         return self.data_type
 
+    def _get_simple_unset_base_type(self) -> str | None:  # noqa: PLR0911
+        """Return the existing leaf hint when direct unset rendering is equivalent."""
+        parent = self.parent
+        data_type = self.data_type
+        if type(self) is not DataModelField or type(parent) is not Struct:
+            return None
+        if self.required or self.nullable or self.use_annotated:
+            return None
+        if data_type.data_types or data_type.dict_key or data_type.reference or data_type.python_type:
+            return None
+        if (type_hint := data_type.type) is None or not type_hint.isidentifier():
+            return None
+        if data_type.literals or data_type.enum_member_literals or data_type.kwargs or data_type.alias:
+            return None
+        if data_type.is_dict or data_type.is_list or data_type.is_set or data_type.is_frozen_set:
+            return None
+        if data_type.is_mapping or data_type.is_sequence or data_type.is_tuple:
+            return None
+        data_type_class = type(data_type)
+        if data_type_class is not DataType and data_type_class is not _create_context_data_type(
+            "ContextDataType",
+            DataType,
+            data_type.python_version,
+            data_type.use_standard_collections,
+            data_type.use_generic_container,
+            data_type.use_union_operator,
+            data_type.treat_dot_as_module,
+            data_type.use_serialize_as_any,
+        ):
+            return None
+        if (
+            data_type.is_custom_type
+            or data_type.discriminator is not None
+            or data_type.is_optional
+            or data_type.is_func
+        ):
+            return None
+        if self._has_explicit_typing_import_requirements(data_type) or self.type_has_null is True:
+            return None
+        if type_hint == NONE:
+            return None
+        if type_hint == "UnsetType":
+            return None
+        return type_hint
+
+    def _get_simple_unset_type_hint(self) -> str | None:
+        """Render a standard unset union without copying its data type graph."""
+        if (type_hint := self._get_simple_unset_base_type()) is None:
+            return None
+
+        match self._use_union_operator:
+            case True:
+                return f"{type_hint} | UnsetType"
+            case _:
+                pass
+        return f"Union[{type_hint}, UnsetType]"
+
     def _imports_data_type(self, meta: str | None = None) -> DataType:
         if meta is None:
             return self._type_hint_data_type()
@@ -529,6 +622,8 @@ class DataModelField(DataModelFieldBase):
     @property
     def type_hint(self) -> str:
         """Return the type hint, using UnsetType for non-required non-nullable fields."""
+        if (simple_unset_type_hint := self._get_simple_unset_type_hint()) is not None:
+            return simple_unset_type_hint
         if self._not_required and not self.nullable:
             return self._unset_union_data_type().type_hint
         return super().type_hint
@@ -536,6 +631,13 @@ class DataModelField(DataModelFieldBase):
     @property
     def imports(self) -> tuple[Import, ...]:
         """Get imports from the structurally rendered msgspec annotation."""
+        if self._get_simple_unset_base_type() is not None:
+            imports = self._collect_field_imports(needs_annotated=False, data_type=self.data_type)
+            if IMPORT_MSGSPEC_UNSETTYPE not in imports:
+                imports = (*imports, IMPORT_MSGSPEC_UNSETTYPE)
+            if not self._use_union_operator and IMPORT_UNION not in imports:
+                imports = (*imports, IMPORT_UNION)
+            return imports
         meta = self._get_meta_string() if self.use_annotated else None
         return self._collect_field_imports(
             needs_annotated=meta is not None,

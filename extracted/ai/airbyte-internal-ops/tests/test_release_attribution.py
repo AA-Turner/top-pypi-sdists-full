@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from airbyte_ops_mcp.registry import release_attribution
 from airbyte_ops_mcp.registry.release_attribution import (
     ReleaseAttribution,
     ReleaseAttributionIndex,
@@ -52,8 +53,8 @@ def test_extract_pr_number(subject: str, expected: int | None) -> None:
             "987+octavia-bot-hoard[bot]@users.noreply.github.com",
             (987, "octavia-bot-hoard[bot]", "Bot"),
         ),
-        ("Human Bot", "human@example.com", (None, None, None)),
-        ("Airbyte", "airbyte@airbyte.io", (None, None, None)),
+        ("Human Bot", "human@example.com", (None, None, "Unknown")),
+        ("Airbyte", "airbyte@airbyte.io", (None, None, "User")),
     ],
 )
 def test_derive_git_author(
@@ -63,6 +64,63 @@ def test_derive_git_author(
 ) -> None:
     """Derive stable noreply identity and detect bot authors."""
     assert derive_git_author(name, email) == expected
+
+
+@pytest.mark.unit
+def test_derive_git_author_uses_curated_airbyte_email_mapping(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Resolve a GitHub login from the curated Airbyte email mapping."""
+    monkeypatch.setattr(
+        release_attribution,
+        "load_github_to_airbyte_io_email",
+        lambda _token=None: {"mapped-user": "mapped@airbyte.io"},
+    )
+    release_attribution._clear_airbyte_email_to_github_cache()
+    assert derive_git_author("Mapped User", "mapped@airbyte.io") == (
+        None,
+        "mapped-user",
+        "User",
+    )
+    assert derive_git_author("Unmapped User", "unmapped@airbyte.io") == (
+        None,
+        None,
+        "User",
+    )
+
+
+@pytest.mark.unit
+def test_empty_email_mapping_is_not_cached(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An empty roster load does not block a later successful load."""
+    release_attribution._clear_airbyte_email_to_github_cache()
+    mappings = iter([{}, {"cached-user": "cached@airbyte.io"}])
+    monkeypatch.setattr(
+        release_attribution,
+        "resolve_default_github_token",
+        lambda *, allow_none: None,
+    )
+    monkeypatch.setattr(
+        release_attribution,
+        "load_github_to_airbyte_io_email",
+        lambda _token=None: next(mappings),
+    )
+
+    assert release_attribution._airbyte_email_to_github() == {}
+    assert release_attribution._airbyte_email_to_github() == {
+        "cached@airbyte.io": "cached-user"
+    }
+
+
+@pytest.mark.unit
+def test_legacy_null_author_type_reads_as_unknown() -> None:
+    """Legacy records with null author types remain readable."""
+    record = ReleaseAttribution.model_validate(
+        {"pr_number": 1, "pr_author_type": None, "source": "publish"}
+    )
+    assert record.pr_author_type == "Unknown"
+    assert record.model_dump(mode="json")["pr_author_type"] == "Unknown"
 
 
 @pytest.mark.unit
@@ -158,6 +216,7 @@ def test_scan_release_attribution_collapses_duplicate_versions(
     ],
 )
 def test_build_release_attribution_scenarios(
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     is_prerelease: bool,
     subject: str,
@@ -207,20 +266,48 @@ def test_build_release_attribution_scenarios(
         check=True,
     )
 
+    if is_prerelease and pr_number is not None:
+        monkeypatch.setattr(
+            release_attribution,
+            "resolve_default_github_token",
+            lambda allow_none=True: "token",
+        )
+        monkeypatch.setattr(
+            release_attribution,
+            "_fetch_pr_data",
+            lambda *_args, **_kwargs: {
+                pr_number: {
+                    "mergedAt": "2025-01-02T03:04:05Z",
+                    "mergeCommit": {"oid": "merged-sha"},
+                    "author": {
+                        "databaseId": 42,
+                        "login": "release-author",
+                        "__typename": "User",
+                    },
+                }
+            },
+        )
+    before_release = datetime.now(timezone.utc)
     record = build_release_attribution(
         repo_path,
         metadata_path,
         pr_number=pr_number,
         is_prerelease=is_prerelease,
     )
+    after_release = datetime.now(timezone.utc)
 
     assert record.source == expected_source
     assert record.pr_number == (pr_number if is_prerelease else 123)
-    assert record.pr_author_id == 1
-    assert record.pr_author_login == "test"
+    if is_prerelease and pr_number is not None:
+        assert record.pr_author_id == 42
+        assert record.pr_author_login == "release-author"
+    else:
+        assert record.pr_author_id == 1
+        assert record.pr_author_login == "test"
     if is_prerelease:
         assert record.merge_commit_sha is None
         assert record.merged_at is None
+        assert before_release <= record.released_at <= after_release
         assert record.pr_url == (
             f"https://github.com/airbytehq/airbyte/pull/{pr_number}"
             if pr_number
@@ -229,6 +316,82 @@ def test_build_release_attribution_scenarios(
     else:
         assert record.merge_commit_sha
         assert record.merged_at is not None
+        assert record.released_at == record.merged_at
+
+
+@pytest.mark.unit
+def test_publish_attribution_overlays_graphql_author_and_soft_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Publish attribution overlays GitHub data without making publishing fragile."""
+    repo_path = tmp_path
+    metadata_path = (
+        repo_path
+        / "airbyte-integrations"
+        / "connectors"
+        / "source-test"
+        / "metadata.yaml"
+    )
+    metadata_path.parent.mkdir(parents=True)
+    metadata_path.write_text("data:\n  dockerImageTag: 1.0.0\n")
+    subprocess.run(["git", "init", "-q", str(repo_path)], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo_path), "config", "user.name", "Test User"],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(repo_path), "config", "user.email", "author@airbyte.io"],
+        check=True,
+    )
+    subprocess.run(["git", "-C", str(repo_path), "add", "."], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo_path), "commit", "-q", "-m", "release (#123)"],
+        check=True,
+    )
+    monkeypatch.setattr(
+        release_attribution,
+        "resolve_default_github_token",
+        lambda allow_none=True: "token",
+    )
+    monkeypatch.setattr(
+        release_attribution,
+        "_fetch_pr_data",
+        lambda *_args, **_kwargs: {
+            123: {
+                "url": "https://github.com/airbytehq/airbyte/pull/123",
+                "author": {
+                    "databaseId": 42,
+                    "login": "author-login",
+                    "__typename": "User",
+                },
+            }
+        },
+    )
+    record = build_release_attribution(repo_path, metadata_path, pr_number=123)
+    assert record.pr_author_id == 42
+    assert record.pr_author_login == "author-login"
+    assert record.pr_author_type == "User"
+    assert record.attributed_to == "author-login"
+    assert record.released_at is not None
+
+    monkeypatch.setattr(
+        release_attribution,
+        "_fetch_pr_data",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("network unavailable")
+        ),
+    )
+    fallback = build_release_attribution(repo_path, metadata_path, pr_number=123)
+    assert fallback.pr_author_type == "User"
+    assert fallback.attributed_to is None
+
+
+@pytest.mark.unit
+def test_unknown_author_serializes_as_explicit_string() -> None:
+    """Unknown author types are serialized instead of omitted or null."""
+    record = ReleaseAttribution(source="publish")
+    assert record.model_dump(mode="json")["pr_author_type"] == "Unknown"
 
 
 @pytest.mark.unit
@@ -271,7 +434,9 @@ def test_release_attribution_index_round_trip(tmp_path: Path) -> None:
                 }
             },
             None,
-            {"pr_url": "https://github.com/airbytehq/airbyte/pull/123"},
+            {
+                "pr_url": "https://github.com/airbytehq/airbyte/pull/123",
+            },
             id="null_author",
         ),
         pytest.param(
@@ -296,6 +461,7 @@ def test_release_attribution_index_round_trip(tmp_path: Path) -> None:
                 "attributed_to": "alice",
                 "merge_commit_sha": "github-sha",
                 "merged_at": datetime(2025, 1, 2, tzinfo=timezone.utc),
+                "released_at": datetime(2025, 1, 2, tzinfo=timezone.utc),
             },
             id="partial_errors_preserve_enrichment",
         ),
@@ -321,8 +487,30 @@ def test_release_attribution_index_round_trip(tmp_path: Path) -> None:
                 "attributed_to": "alice",
                 "merge_commit_sha": "github-sha",
                 "merged_at": datetime(2025, 1, 2, tzinfo=timezone.utc),
+                "released_at": datetime(2025, 1, 2, tzinfo=timezone.utc),
             },
             id="successful_enrichment",
+        ),
+        pytest.param(
+            {
+                "pr_123": {
+                    "url": "https://github.com/airbytehq/airbyte/pull/123",
+                    "author": {
+                        "databaseId": 2,
+                        "login": "alice",
+                        "__typename": "Organization",
+                    },
+                    "mergedAt": None,
+                    "mergeCommit": None,
+                }
+            },
+            None,
+            {
+                "pr_url": "https://github.com/airbytehq/airbyte/pull/123",
+                "pr_author_id": 2,
+                "pr_author_login": "alice",
+            },
+            id="unclassified_author_preserves_human_contact",
         ),
     ],
 )

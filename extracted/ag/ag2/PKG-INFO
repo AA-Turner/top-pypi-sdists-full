@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 1.0.1
+Version: 1.0.2
 Summary: A programming framework for agentic AI
 Keywords: ai,agent,autogen,ag2,ag2.ai,ag2ai,agentic
 Author: Chi Wang & Qingyun Wu
@@ -38,7 +38,7 @@ Requires-Dist: fast-depends[pydantic]>=3.0.8,<4.0.0
 Requires-Dist: a2a-sdk>=1.1.0,<2 ; extra == 'a2a'
 Requires-Dist: jsonschema>=4.18.0,<5 ; extra == 'a2ui'
 Requires-Dist: starlette>=0.40,<2 ; extra == 'a2ui'
-Requires-Dist: agent-client-protocol>=0.11.0,<0.12 ; extra == 'acp'
+Requires-Dist: agent-client-protocol>=0.12.0,<0.13 ; extra == 'acp'
 Requires-Dist: ag2[mcp] ; extra == 'acp'
 Requires-Dist: starlette>=0.40,<2 ; extra == 'acp'
 Requires-Dist: uvicorn>=0.51.0,<1 ; extra == 'acp'
@@ -47,8 +47,9 @@ Requires-Dist: anthropic[vertex]>=0.116.0,<1 ; extra == 'anthropic'
 Requires-Dist: boto3>=1.34.149 ; extra == 'bedrock'
 Requires-Dist: dashscope>=1.25.13 ; extra == 'dashscope'
 Requires-Dist: ddgs>=9.0.0,<10 ; extra == 'ddgs'
+Requires-Dist: elevenlabs>=1.50.0,<3 ; extra == 'elevenlabs'
 Requires-Dist: google-api-core ; extra == 'gemini'
-Requires-Dist: google-genai>=1.20.0,<3.0 ; extra == 'gemini'
+Requires-Dist: google-genai>=1.68.0,<3.0 ; extra == 'gemini'
 Requires-Dist: google-cloud-aiplatform ; extra == 'gemini'
 Requires-Dist: google-auth ; extra == 'gemini'
 Requires-Dist: pillow ; extra == 'gemini'
@@ -82,6 +83,7 @@ Provides-Extra: anthropic
 Provides-Extra: bedrock
 Provides-Extra: dashscope
 Provides-Extra: ddgs
+Provides-Extra: elevenlabs
 Provides-Extra: gemini
 Provides-Extra: mcp
 Provides-Extra: mcp-ui

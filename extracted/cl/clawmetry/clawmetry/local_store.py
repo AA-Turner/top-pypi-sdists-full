@@ -398,6 +398,8 @@ _DDL = [
         sha256        VARCHAR,
         size_bytes    INTEGER,
         updated_at    BIGINT NOT NULL,
+        category      VARCHAR DEFAULT 'memory',
+        root          VARCHAR,
         PRIMARY KEY (agent_type, agent_id, path)
     )
     """,
@@ -1181,6 +1183,33 @@ _DDL = [
     "ALTER TABLE external_api_calls ADD COLUMN IF NOT EXISTS input_tokens INTEGER",
     "ALTER TABLE external_api_calls ADD COLUMN IF NOT EXISTS output_tokens INTEGER",
     "ALTER TABLE external_api_calls ADD COLUMN IF NOT EXISTS model VARCHAR",
+    # Issue #4813 — canonical replay-event stream. Feeds the runtime-aware
+    # replay UI (Task/Agent/Workflow fanouts, subagent DAGs, cascades,
+    # per-turn mode changes, approval decisions). Written by adapter
+    # ``iter_replay_events`` implementations via the sync daemon; read by
+    # ``/api/replay-tree/<session_id>``. See ``clawmetry/replay_schema.py``
+    # for the canonical event shape.
+    #
+    # parent_span_id is the DELEGATION edge (parent Task spawned this
+    # child). NOT the transcript-chain parent — do not conflate.
+    """
+    CREATE TABLE IF NOT EXISTS replay_events (
+        span_id        VARCHAR PRIMARY KEY,
+        parent_span_id VARCHAR,
+        session_id     VARCHAR NOT NULL,
+        runtime        VARCHAR NOT NULL,
+        kind           VARCHAR NOT NULL,
+        ts             DOUBLE  NOT NULL,
+        payload        BLOB,
+        mode           BLOB,
+        approval       BLOB,
+        created_at     BIGINT  NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_replay_events_session_ts   ON replay_events(session_id, ts)",
+    "CREATE INDEX IF NOT EXISTS idx_replay_events_parent       ON replay_events(parent_span_id)",
+    "CREATE INDEX IF NOT EXISTS idx_replay_events_runtime_kind ON replay_events(runtime, kind)",
+    "CREATE INDEX IF NOT EXISTS idx_replay_events_created_at   ON replay_events(created_at)",
 ]
 
 
@@ -1232,6 +1261,15 @@ _MIGRATIONS_V2 = [
     # Issue #3719 — per-cron-job model attribution (openclaw Quick Create
     # lets users pick an agent-turn model; harness exposes it per job).
     ("crons",    "model",             "VARCHAR"),
+    # memory_blobs used to hold only OpenClaw workspace memory, so the bucket
+    # was implicit. It now carries every runtime's memory AND skills files
+    # (clawmetry/runtime_memory.py), which the Memory and Skills tabs must be
+    # able to tell apart — hence an explicit category. Existing rows are all
+    # OpenClaw memory, which the default covers.
+    ("memory_blobs", "category",      "VARCHAR DEFAULT 'memory'"),
+    # Absolute root the relative `path` hangs off, so a cloud viewer can show
+    # where on disk the file lives without re-deriving it from the runtime.
+    ("memory_blobs", "root",          "VARCHAR"),
 ]
 
 # ── Integrity / hash-chain (Issue #2200) ────────────────────────────────────
@@ -2367,11 +2405,14 @@ class LocalStore:
                 continue
         return out
 
-    def ingest_memory_blob(self, blob_row: dict[str, Any]) -> None:
+    def ingest_memory_blob(self, blob_row: dict[str, Any]) -> bool:
         """Upsert one memory blob (e.g. CLAUDE.md, ~/.openclaw/memory/notes.md).
 
-        Required: agent_type, path. Optional: agent_id, blob, sha256, ts.
-        Re-ingesting with the same sha256 is a no-op (cheap dedup)."""
+        Required: agent_type, path. Optional: agent_id, blob, sha256, ts,
+        category, root. Re-ingesting with the same sha256 is a no-op (cheap
+        dedup). Returns True when a row was actually written, False when the
+        content was unchanged — callers that report "N files ingested" need
+        to be able to tell a steady-state tick from a real one."""
         atype = blob_row.get("agent_type")
         path = blob_row.get("path")
         if not atype or not path:
@@ -2397,18 +2438,23 @@ class LocalStore:
                 )
                 row = cur.fetchone()
                 if row and row[0] == sha:
-                    return
+                    return False
             self._conn.execute("""
                 INSERT INTO memory_blobs (
-                    agent_type, agent_id, path, ts, blob, sha256, size_bytes, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    agent_type, agent_id, path, ts, blob, sha256, size_bytes,
+                    updated_at, category, root
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (agent_type, agent_id, path) DO UPDATE SET
                     ts         = excluded.ts,
                     blob       = excluded.blob,
                     sha256     = excluded.sha256,
                     size_bytes = excluded.size_bytes,
-                    updated_at = excluded.updated_at
-            """, [atype, agent_id, path, blob_row.get("ts"), blob, sha, size, now_ms])
+                    updated_at = excluded.updated_at,
+                    category   = excluded.category,
+                    root       = excluded.root
+            """, [atype, agent_id, path, blob_row.get("ts"), blob, sha, size, now_ms,
+                  blob_row.get("category") or "memory", blob_row.get("root")])
+        return True
 
     def ingest_channel(self, ch: dict[str, Any]) -> None:
         """Upsert one OpenClaw channel-context row. Required: session_id.
@@ -7984,6 +8030,58 @@ class LocalStore:
             out.append(d)
         return out
 
+    def query_replay_events(
+        self,
+        *,
+        session_id: str,
+        limit: int = 2000,
+    ) -> list[dict[str, Any]]:
+        """Read canonical replay-event rows for one session (#4813).
+
+        Returned rows are in ``ts`` ascending, then ``span_id`` ascending
+        order — replay is played forward, and the tie-break by span_id
+        gives a deterministic order when many events share the same
+        millisecond (adapter emissions in a tight loop).
+
+        BLOB columns (``payload``, ``mode``, ``approval``) are decoded
+        back to JSON dicts where valid so ``/api/replay-tree`` can hand
+        rows to the tree-builder without a second decode. The endpoint
+        layer (routes/sessions.py) then groups the flat list into
+        turns/delegations/workflows/approvals.
+
+        Empty list is the expected shape until adapter ``iter_replay_events``
+        implementations start writing (per-runtime issues #4815, #4816, +
+        13 Pro adapters). Not an error.
+        """
+        sql = """
+            SELECT span_id, parent_span_id, session_id, runtime, kind, ts,
+                   payload, mode, approval, created_at
+            FROM replay_events
+            WHERE session_id = ?
+            ORDER BY ts ASC, span_id ASC
+            LIMIT ?
+        """
+        cols = ["span_id", "parent_span_id", "session_id", "runtime", "kind",
+                "ts", "payload", "mode", "approval", "created_at"]
+        out: list[dict[str, Any]] = []
+        for r in self._fetch(sql, [session_id, int(limit)]):
+            d = dict(zip(cols, r))
+            for blob_col in ("payload", "mode", "approval"):
+                raw = d.get(blob_col)
+                if raw is None:
+                    continue
+                try:
+                    text = (raw.decode("utf-8")
+                            if isinstance(raw, (bytes, bytearray)) else raw)
+                    try:
+                        d[blob_col] = json.loads(text)
+                    except (ValueError, TypeError):
+                        d[blob_col] = text
+                except UnicodeDecodeError:
+                    d[blob_col] = None
+            out.append(d)
+        return out
+
     def query_approvals(
         self,
         *,
@@ -8492,6 +8590,7 @@ class LocalStore:
         agent_type: str | None = None,
         agent_id: str | None = None,
         path_prefix: str | None = None,
+        category: str | None = None,
         limit: int = 200,
     ) -> list[dict[str, Any]]:
         """Read memory-blob rows. Defaults to most recent first.
@@ -8522,10 +8621,12 @@ class LocalStore:
             clauses.append("agent_id = ?"); params.append(agent_id)
         if path_prefix:
             clauses.append("path LIKE ?"); params.append(f"{path_prefix}%")
+        if category:
+            clauses.append("category = ?"); params.append(category)
         where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
         sql = f"""
             SELECT agent_type, agent_id, path, ts, blob, sha256,
-                   size_bytes, updated_at
+                   size_bytes, updated_at, category, root
             FROM memory_blobs
             {where}
             ORDER BY updated_at DESC
@@ -8533,7 +8634,7 @@ class LocalStore:
         """
         params.append(int(limit))
         cols = ["agent_type", "agent_id", "path", "ts", "blob", "sha256",
-                "size_bytes", "updated_at"]
+                "size_bytes", "updated_at", "category", "root"]
         out: list[dict[str, Any]] = []
         for r in self._fetch(sql, params):
             d = dict(zip(cols, r))
@@ -8858,6 +8959,52 @@ class LocalStore:
             "failed_count":      failed_count,
             "failure_rate":      failure_rate,
         }
+
+    def query_session_eval_detail(
+        self,
+        *,
+        session_id: str,
+    ) -> dict[str, Any] | None:
+        """Everything the Evals drill-down panel needs for one session, in a
+        single row. Composes the judge fields the "Recently Scored" table
+        already shows with the outcome + reliability signals the tile grid
+        used to bury, plus cost/tokens so users can weigh a bad score against
+        what it cost. Metric verdicts are fetched separately by the endpoint
+        so this stays a scalar SELECT.
+
+        Returns ``None`` when the session is unknown, so the endpoint can 404
+        cleanly instead of returning a shell with every field null.
+        """
+        if not session_id:
+            return None
+        sql = """
+            SELECT s.session_id, s.agent_type, s.agent_id, s.title,
+                   s.started_at, s.last_active_at, s.ended_at, s.status,
+                   s.total_tokens, s.cost_usd,
+                   s.eval_score, s.eval_reason, s.eval_judge_model,
+                   s.eval_scored_at, s.eval_rubric,
+                   s.outcome, s.outcome_confidence, s.outcome_classified_at,
+                   s.reliability_score, s.faithfulness_score
+              FROM sessions s
+             WHERE s.session_id = ?
+             LIMIT 1
+        """
+        try:
+            rows = self._fetch(sql, [str(session_id)])
+        except Exception as e:
+            log.warning("local store: query_session_eval_detail failed: %s", e)
+            return None
+        if not rows:
+            return None
+        r = rows[0]
+        cols = ["session_id", "agent_type", "agent_id", "title",
+                "started_at", "last_active_at", "ended_at", "status",
+                "total_tokens", "cost_usd",
+                "eval_score", "eval_reason", "eval_judge_model",
+                "eval_scored_at", "eval_rubric",
+                "outcome", "outcome_confidence", "outcome_classified_at",
+                "reliability_score", "faithfulness_score"]
+        return dict(zip(cols, r))
 
     def query_session_quality(
         self,
@@ -12062,7 +12209,7 @@ _NON_OPENCLAW_RUNTIME_PREFIXES = (
     "picoclaw", "nanoclaw", "hermes",
     "claude_code", "codex", "cursor", "aider", "goose", "opencode", "qwen_code",
     "pi", "deepagents", "n8n", "antigravity", "copilot", "grok",
-    "qm",
+    "qm", "deepseek_harness",
 )
 
 def _runtime_session_id_clause(runtime: str | None) -> tuple[str | None, list[str]]:

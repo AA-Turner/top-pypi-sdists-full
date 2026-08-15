@@ -16,9 +16,9 @@ class CreateCustomerGatewayResponseBody(DaraModel):
     ):
         # The timestamp when the customer gateway was created. Unit: milliseconds.
         # 
-        # The timestamp is in the UNIX format and represents the number of milliseconds that have elapsed since January 1, 1970, 00:00:00 UTC.
+        # The timestamp is in the UNIX format and represents the total number of milliseconds that have elapsed since January 1, 1970, 00:00:00 UTC.
         self.create_time = create_time
-        # The instance ID of the customer gateway instance.
+        # The instance ID of the customer gateway.
         self.customer_gateway_id = customer_gateway_id
         # The description of the customer gateway.
         self.description = description

@@ -2496,7 +2496,7 @@ class MsWordDocumentBackend(DeclarativeDocumentBackend):
             ):
                 list_gr1 = doc.add_list_group(
                     name="list",
-                    parent=self.parents[i - 1],
+                    parent=self.parents.get(i - 1),
                     content_layer=self.content_layer,
                 )
                 self.parents[i] = list_gr1
@@ -2543,7 +2543,7 @@ class MsWordDocumentBackend(DeclarativeDocumentBackend):
             list_gr = self._get_or_create_list_group(
                 doc=doc,
                 numid=numid,
-                parent=self.parents[use_level - 1],
+                parent=self.parents.get(use_level - 1),
                 elem_ref=elem_ref,
             )
 

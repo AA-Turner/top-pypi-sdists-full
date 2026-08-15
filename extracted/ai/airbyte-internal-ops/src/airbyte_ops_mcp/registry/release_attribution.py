@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import subprocess
 import time
@@ -17,10 +18,11 @@ import gcsfs
 import requests
 import yaml
 from packaging.version import InvalidVersion, Version
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from airbyte_ops_mcp.airbyte_repo.changelog_parser import parse_changelog_entries
 from airbyte_ops_mcp.github_api import resolve_default_github_token
+from airbyte_ops_mcp.internal_team_roster import load_github_to_airbyte_io_email
 from airbyte_ops_mcp.registry._constants import DOC_FILE_NAME, METADATA_FOLDER
 from airbyte_ops_mcp.registry._gcs_helpers import get_gcs_credentials_token
 from airbyte_ops_mcp.registry.store import RegistryStore
@@ -33,7 +35,9 @@ _NOREPLY_RE = re.compile(
     r"^(?P<id>\d+)\+(?P<login>[^@]+)@users\.noreply\.github\.com$",
     re.IGNORECASE,
 )
+_AIRBYTE_EMAIL_RE = re.compile(r"^[^@]+@airbyte\.io$", re.IGNORECASE)
 _BOT_RE = re.compile(r"\[bot\]$", re.IGNORECASE)
+_DISABLE_GITHUB_LOOKUP_ENV = "AIRBYTE_DISABLE_RELEASE_ATTRIBUTION_GITHUB_LOOKUP"
 _METADATA_PATH_RE = re.compile(
     r"^airbyte-integrations/connectors/(?P<connector>[^/]+)/metadata\.yaml$"
 )
@@ -51,11 +55,17 @@ class ReleaseAttribution(BaseModel):
     pr_url: str | None = None
     pr_author_id: int | None = None
     pr_author_login: str | None = None
-    pr_author_type: Literal["User", "Bot"] | None = None
+    pr_author_type: Literal["User", "Bot", "Unknown"] = "Unknown"
     attributed_to: str | None = None
     merge_commit_sha: str | None = None
     merged_at: datetime | None = None
+    released_at: datetime | None = None
     source: Literal["publish", "git-backfill", "prerelease", "changelog"]
+
+    @field_validator("pr_author_type", mode="before")
+    @classmethod
+    def _coerce_legacy_null_author_type(cls, value: str | None) -> str:
+        return "Unknown" if value is None else value
 
 
 class ReleaseAttributionSummary(BaseModel):
@@ -263,6 +273,7 @@ def _changelog_attribution(
             pr_number=pr_number,
             pr_url=f"https://github.com/{_GITHUB_REPO}/pull/{pr_number}",
             merged_at=merged_at,
+            released_at=merged_at,
             source="changelog",
         )
         return ReleaseAttributionLookupResult(
@@ -383,33 +394,36 @@ def _fetch_pr_data(
 def _apply_pr_data(
     record: ReleaseAttribution,
     pull_request: dict[str, Any] | None,
+    *,
+    include_merge_data: bool = True,
 ) -> ReleaseAttribution:
     if not pull_request:
         return record
-    author = pull_request.get("author")
-    author_id = author.get("databaseId") if isinstance(author, dict) else None
-    author_login = author.get("login") if isinstance(author, dict) else None
-    raw_author_type = author.get("__typename") if isinstance(author, dict) else None
-    author_type: Literal["User", "Bot"] | None = (
-        raw_author_type if raw_author_type in {"User", "Bot"} else None
-    )
     updates: dict[str, Any] = {}
     if pull_request.get("url"):
         updates["pr_url"] = pull_request["url"]
-    if isinstance(author_id, int):
-        updates["pr_author_id"] = author_id
-    if isinstance(author_login, str):
-        updates["pr_author_login"] = author_login
-    if author_type is not None:
-        updates["pr_author_type"] = author_type
-        updates["attributed_to"] = _attributed_to(author_type, author_login)
-    merge_commit = pull_request.get("mergeCommit")
-    if isinstance(merge_commit, dict) and merge_commit.get("oid"):
-        updates["merge_commit_sha"] = merge_commit["oid"]
-    if isinstance(pull_request.get("mergedAt"), str):
-        updates["merged_at"] = datetime.fromisoformat(
-            pull_request["mergedAt"]
-        ).astimezone(timezone.utc)
+    author = pull_request.get("author")
+    if isinstance(author, dict):
+        author_id = author.get("databaseId")
+        author_login = author.get("login")
+        raw_author_type = author.get("__typename")
+        if isinstance(author_id, int):
+            updates["pr_author_id"] = author_id
+        if isinstance(author_login, str):
+            updates["pr_author_login"] = author_login
+        if raw_author_type in {"User", "Bot"}:
+            updates["pr_author_type"] = raw_author_type
+            updates["attributed_to"] = _attributed_to(raw_author_type, author_login)
+    if include_merge_data:
+        merge_commit = pull_request.get("mergeCommit")
+        if isinstance(merge_commit, dict) and merge_commit.get("oid"):
+            updates["merge_commit_sha"] = merge_commit["oid"]
+        if isinstance(pull_request.get("mergedAt"), str):
+            merged_at = datetime.fromisoformat(pull_request["mergedAt"]).astimezone(
+                timezone.utc
+            )
+            updates["merged_at"] = merged_at
+            updates["released_at"] = merged_at
     return record.model_copy(update=updates)
 
 
@@ -626,23 +640,92 @@ def extract_pr_number(subject: str) -> int | None:
 def derive_git_author(
     name: str,
     email: str,
-) -> tuple[int | None, str | None, Literal["User", "Bot"] | None]:
+) -> tuple[int | None, str | None, Literal["User", "Bot", "Unknown"]]:
     """Derive GitHub author identity fields without making a network request."""
+    normalized_email = email.strip()
     noreply_match = _NOREPLY_RE.match(email.strip())
     login = noreply_match.group("login") if noreply_match else None
     author_id = int(noreply_match.group("id")) if noreply_match else None
     bot = bool(_BOT_RE.search(login or "") or _BOT_RE.search(name.strip()))
-    author_type: Literal["User", "Bot"] | None = "Bot" if bot else None
-    if login and not bot:
-        author_type = "User"
-    return author_id, login, author_type
+    if bot:
+        return author_id, login, "Bot"
+    if login:
+        return author_id, login, "User"
+    if _AIRBYTE_EMAIL_RE.match(normalized_email):
+        email_to_login = _airbyte_email_to_github()
+        return None, email_to_login.get(normalized_email.lower()), "User"
+    return None, None, "Unknown"
+
+
+_AIRBYTE_EMAIL_TO_GITHUB_CACHE: dict[str, str] = {}
+
+
+def _airbyte_email_to_github() -> dict[str, str]:
+    """Return the curated reverse mapping from email to GitHub login."""
+    if _AIRBYTE_EMAIL_TO_GITHUB_CACHE:
+        return _AIRBYTE_EMAIL_TO_GITHUB_CACHE
+    token = resolve_default_github_token(allow_none=True)
+    mapping = {
+        email.lower(): login
+        for login, email in load_github_to_airbyte_io_email(token).items()
+    }
+    if mapping:
+        _AIRBYTE_EMAIL_TO_GITHUB_CACHE.update(mapping)
+        return _AIRBYTE_EMAIL_TO_GITHUB_CACHE
+    return {}
+
+
+def _clear_airbyte_email_to_github_cache() -> None:
+    _AIRBYTE_EMAIL_TO_GITHUB_CACHE.clear()
 
 
 def _attributed_to(
-    author_type: Literal["User", "Bot"] | None,
+    author_type: Literal["User", "Bot", "Unknown"],
     author_login: str | None,
 ) -> str | None:
     return author_login if author_type == "User" else None
+
+
+def _lookup_publish_pr(
+    record: ReleaseAttribution,
+    *,
+    enabled: bool,
+) -> ReleaseAttribution:
+    if not enabled or record.pr_number is None:
+        return record
+    token = resolve_default_github_token(allow_none=True)
+    if not token:
+        logger.warning(
+            "No GitHub token available to enrich release PR %s; "
+            "using Git-derived attribution.",
+            record.pr_number,
+        )
+        return record
+    try:
+        pull_request = _fetch_pr_data([record.pr_number], token=token).get(
+            record.pr_number
+        )
+        return (
+            _apply_pr_data(
+                record,
+                pull_request,
+                include_merge_data=record.source != "prerelease",
+            )
+            if pull_request
+            else record
+        )
+    except Exception as exc:
+        logger.warning(
+            "Failed to enrich release PR %s; using Git-derived attribution: %s",
+            record.pr_number,
+            exc,
+        )
+        return record
+
+
+def _github_lookup_enabled() -> bool:
+    """Return whether publish-time GitHub attribution lookup is enabled."""
+    return not os.getenv(_DISABLE_GITHUB_LOOKUP_ENV)
 
 
 def _build_record(
@@ -662,16 +745,13 @@ def _build_record(
     squash commit, whereas `%aI` records when the contributor originally wrote it.
     """
     author_id, author_login, author_type = derive_git_author(author_name, author_email)
-    merged_at = (
-        None
-        if is_prerelease
-        else datetime.fromisoformat(committed_at).astimezone(timezone.utc)
-    )
     pr_number = (
         pr_number_override
         if pr_number_override is not None
         else extract_pr_number(subject)
     )
+    commit_datetime = datetime.fromisoformat(committed_at).astimezone(timezone.utc)
+    merged_at = None if is_prerelease else commit_datetime
     return ReleaseAttribution(
         pr_number=pr_number,
         pr_url=(
@@ -685,6 +765,9 @@ def _build_record(
         attributed_to=_attributed_to(author_type, author_login),
         merge_commit_sha=None if is_prerelease else sha,
         merged_at=merged_at,
+        released_at=(
+            merged_at if merged_at is not None else datetime.now(timezone.utc)
+        ),
         source=source,
     )
 
@@ -727,6 +810,7 @@ def build_release_attribution(
     *,
     pr_number: int | None = None,
     is_prerelease: bool = False,
+    with_github_lookup: bool = True,
 ) -> ReleaseAttribution:
     """Build attribution for the last commit touching one metadata file."""
     relative_path = metadata_path.resolve().relative_to(repo_path.resolve())
@@ -757,7 +841,7 @@ def build_release_attribution(
     if not header:
         raise ValueError(f"No Git history found for {metadata_path}")
     sha, name, email, committed_at, subject = header.split("\x1f", 4)
-    return _build_record(
+    record = _build_record(
         sha=sha,
         author_name=name,
         author_email=email,
@@ -766,6 +850,10 @@ def build_release_attribution(
         source="prerelease" if is_prerelease else "publish",
         pr_number_override=pr_number,
         is_prerelease=is_prerelease,
+    )
+    return _lookup_publish_pr(
+        record,
+        enabled=with_github_lookup and _github_lookup_enabled(),
     )
 
 

@@ -39,7 +39,7 @@ _ssl4eo_l_transforms = nn.Sequential(
 KEYS = {'norm.weight', 'norm.bias', 'head.weight', 'head.bias'}
 
 
-class ViTSmall16_Weights(WeightsEnum):  # type: ignore[misc]
+class ViTSmall16_Weights(WeightsEnum):
     """Vision Transformer Small Patch Size 16 weights.
 
     For `timm <https://github.com/huggingface/pytorch-image-models>`_
@@ -301,7 +301,7 @@ class ViTSmall16_Weights(WeightsEnum):  # type: ignore[misc]
     )
 
 
-class ViTBase16_Weights(WeightsEnum):  # type: ignore[misc]
+class ViTBase16_Weights(WeightsEnum):
     """Vision Transformer Base Patch Size 16 weights.
 
     For `timm <https://github.com/huggingface/pytorch-image-models>`_
@@ -367,7 +367,7 @@ class ViTBase16_Weights(WeightsEnum):  # type: ignore[misc]
     )
 
 
-class ViTLarge16_Weights(WeightsEnum):  # type: ignore[misc]
+class ViTLarge16_Weights(WeightsEnum):
     """Vision Transformer Large Patch Size 16 weights.
 
     For `timm <https://github.com/huggingface/pytorch-image-models>`_
@@ -461,7 +461,7 @@ class ViTLarge16_Weights(WeightsEnum):  # type: ignore[misc]
     )
 
 
-class ViTHuge14_Weights(WeightsEnum):  # type: ignore[misc]
+class ViTHuge14_Weights(WeightsEnum):
     """Vision Transformer Huge Patch Size 14 weights.
 
     For `timm <https://github.com/huggingface/pytorch-image-models>`_
@@ -527,7 +527,7 @@ class ViTHuge14_Weights(WeightsEnum):  # type: ignore[misc]
     )
 
 
-class ViTSmall14_DINOv2_Weights(WeightsEnum):  # type: ignore[misc]
+class ViTSmall14_DINOv2_Weights(WeightsEnum):
     """Vision Transformer Small Patch Size 14 (DINOv2) weights.
 
     For `timm <https://github.com/huggingface/pytorch-image-models>`_
@@ -567,7 +567,7 @@ class ViTSmall14_DINOv2_Weights(WeightsEnum):  # type: ignore[misc]
     )
 
 
-class ViTBase14_DINOv2_Weights(WeightsEnum):  # type: ignore[misc]
+class ViTBase14_DINOv2_Weights(WeightsEnum):
     """Vision Transformer Base Patch Size 14 (DINOv2) weights.
 
     For `timm <https://github.com/huggingface/pytorch-image-models>`_
@@ -638,7 +638,8 @@ def vit_small_patch16_224(
 
     if weights:
         missing_keys, unexpected_keys = target_model.load_state_dict(
-            weights.get_state_dict(progress=True), strict=False
+            weights.get_state_dict(progress=True, check_hash=True, weights_only=True),
+            strict=False,
         )
         assert set(missing_keys) <= KEYS
         # used when features_only = True
@@ -678,7 +679,8 @@ def vit_base_patch16_224(
 
     if weights:
         missing_keys, unexpected_keys = target_model.load_state_dict(
-            weights.get_state_dict(progress=True), strict=False
+            weights.get_state_dict(progress=True, check_hash=True, weights_only=True),
+            strict=False,
         )
         assert set(missing_keys) <= KEYS
         assert set(unexpected_keys) <= KEYS
@@ -717,7 +719,8 @@ def vit_large_patch16_224(
 
     if weights:
         missing_keys, unexpected_keys = target_model.load_state_dict(
-            weights.get_state_dict(progress=True), strict=False
+            weights.get_state_dict(progress=True, check_hash=True, weights_only=True),
+            strict=False,
         )
         assert set(missing_keys) <= KEYS
         assert set(unexpected_keys) <= KEYS
@@ -756,7 +759,8 @@ def vit_huge_patch14_224(
 
     if weights:
         missing_keys, unexpected_keys = target_model.load_state_dict(
-            weights.get_state_dict(progress=True), strict=False
+            weights.get_state_dict(progress=True, check_hash=True, weights_only=True),
+            strict=False,
         )
         assert set(missing_keys) <= KEYS
         assert set(unexpected_keys) <= KEYS
@@ -796,7 +800,8 @@ def vit_small_patch14_dinov2(
 
     if weights:
         missing_keys, unexpected_keys = target_model.load_state_dict(
-            weights.get_state_dict(progress=True), strict=False
+            weights.get_state_dict(progress=True, check_hash=True, weights_only=True),
+            strict=False,
         )
         assert set(missing_keys) <= KEYS
         assert set(unexpected_keys) <= KEYS
@@ -836,7 +841,8 @@ def vit_base_patch14_dinov2(
 
     if weights:
         missing_keys, unexpected_keys = target_model.load_state_dict(
-            weights.get_state_dict(progress=True), strict=False
+            weights.get_state_dict(progress=True, check_hash=True, weights_only=True),
+            strict=False,
         )
         assert set(missing_keys) <= KEYS
         assert set(unexpected_keys) <= KEYS

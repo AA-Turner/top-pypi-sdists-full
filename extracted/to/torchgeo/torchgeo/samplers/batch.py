@@ -13,6 +13,7 @@ import torch
 from shapely import Polygon
 from torch import Generator
 from torch.utils.data import Sampler
+from typing_extensions import deprecated
 
 from ..datasets import GeoDataset
 from ..datasets.utils import GeoSlice
@@ -20,6 +21,10 @@ from .constants import Units
 from .utils import _to_tuple, get_random_bounding_box, tile_to_chips
 
 
+# This class is deprecated, but we don't issue a deprecation warning because:
+#
+# 1. importing torchgeo.samplers would result in a warning due to subclass creation
+# 2. each subclass has its own more specific deprecation warning anyway
 class BatchGeoSampler(Sampler[list[GeoSlice]], abc.ABC):
     """Abstract base class for sampling from :class:`~torchgeo.datasets.GeoDataset`.
 
@@ -33,7 +38,7 @@ class BatchGeoSampler(Sampler[list[GeoSlice]], abc.ABC):
         self,
         dataset: GeoDataset,
         roi: Polygon | None = None,
-        toi: pd.Interval | None = None,  # type: ignore[type-arg]
+        toi: pd.Interval | None = None,
     ) -> None:
         """Initialize a new Sampler instance.
 
@@ -78,6 +83,7 @@ class BatchGeoSampler(Sampler[list[GeoSlice]], abc.ABC):
         """
 
 
+@deprecated('Use torchgeo.samplers.RandomPatchSampler instead')
 class RandomBatchGeoSampler(BatchGeoSampler):
     """Samples batches of elements from a region of interest randomly.
 
@@ -93,7 +99,7 @@ class RandomBatchGeoSampler(BatchGeoSampler):
         batch_size: int,
         length: int | None = None,
         roi: Polygon | None = None,
-        toi: pd.Interval | None = None,  # type: ignore[type-arg]
+        toi: pd.Interval | None = None,
         units: Units = Units.PIXELS,
         generator: Generator | None = None,
     ) -> None:
@@ -166,7 +172,7 @@ class RandomBatchGeoSampler(BatchGeoSampler):
         if torch.sum(self.areas) == 0:
             self.areas += 1
 
-    def __iter__(self) -> Iterator[list[tuple[slice, slice, slice]]]:  # type: ignore[override]
+    def __iter__(self) -> Iterator[list[tuple[slice, slice, slice]]]:  # ty: ignore[invalid-method-override]
         """Return the indices of a dataset.
 
         Yields:

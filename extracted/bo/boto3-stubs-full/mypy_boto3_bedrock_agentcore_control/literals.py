@@ -133,6 +133,7 @@ __all__ = (
     "OverrideTypeType",
     "PaginatorName",
     "PassthroughProtocolTypeType",
+    "PaymentConnectorProvisionModeType",
     "PaymentConnectorStatusType",
     "PaymentConnectorTypeType",
     "PaymentCredentialProviderVendorTypeType",
@@ -370,8 +371,20 @@ OverrideTypeType = Literal[
     "USER_PREFERENCE_OVERRIDE",
 ]
 PassthroughProtocolTypeType = Literal["A2A", "CUSTOM", "INFERENCE", "MCP"]
+PaymentConnectorProvisionModeType = Literal["MANUAL", "QUICK_CREATE"]
 PaymentConnectorStatusType = Literal[
-    "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
+    "AUTHENTICATION_EXPIRED",
+    "AUTHENTICATION_FAILED",
+    "AWS_MARKETPLACE_SUBSCRIPTION_REQUIRED",
+    "CREATE_FAILED",
+    "CREATING",
+    "DELETE_FAILED",
+    "DELETING",
+    "PENDING_AUTHENTICATION",
+    "PROVISIONING",
+    "READY",
+    "UPDATE_FAILED",
+    "UPDATING",
 ]
 PaymentConnectorTypeType = Literal["CoinbaseCDP", "StripePrivy"]
 PaymentCredentialProviderVendorTypeType = Literal["CoinbaseCDP", "StripePrivy"]

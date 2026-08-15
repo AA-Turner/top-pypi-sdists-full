@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-13T18:38:42.540041                                                            #
+# Generated on 2026-08-14T20:17:07.895781                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,11 +10,11 @@ import enum
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
+    import metaflow.unbounded_foreach
     import typing
     import metaflow.exception
-    import metaflow.flowspec
-    import metaflow.unbounded_foreach
     import enum
+    import metaflow.flowspec
     import metaflow.datastore.inputs
 
 from . import parameters as parameters

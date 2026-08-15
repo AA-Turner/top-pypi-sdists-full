@@ -765,6 +765,7 @@ async function main() {
     browser = connection.browser;
     const page = connection.page;
     const cdpClient = connection.cdpSession;
+    console.log("Claude for Chrome extraction started");
 
     // Get viewport dimensions
     const viewport = await page.evaluate(() => ({

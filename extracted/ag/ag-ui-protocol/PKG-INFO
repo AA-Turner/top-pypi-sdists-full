@@ -1,10 +1,11 @@
 Metadata-Version: 2.4
 Name: ag-ui-protocol
-Version: 0.1.19
+Version: 0.1.20
 Summary: 
 Author: Markus Ecker
 Author-email: Markus Ecker <markus.ecker@gmail.com>
 License-Expression: MIT
+License-File: LICENSE
 Requires-Dist: pydantic>=2.11.2
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown

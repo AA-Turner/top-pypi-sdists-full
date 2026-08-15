@@ -22,6 +22,7 @@ from ..helpers.yaml.scan import (
     block_end_index,
     child_block_end,
     find_block_header,
+    is_list_item_line,
     leading_ws,
     top_list_item_starts,
 )
@@ -157,15 +158,36 @@ def _apply_generated_renames(lines: list[str]) -> list[str]:
 
 
 def _apply_component_block_field(lines: list[str], rule: MigrationRule) -> list[str]:
-    """Rename a child key of the top-level ``<component>:`` block."""
+    """Rename a child key of the top-level ``<component>:`` block, mapping or list form."""
     header = find_block_header(lines, rule.component)
     if header is None:
         return lines
-    hit = _respell_body_field(lines, header, 0, rule.old, rule.new, _block_scalar_mask(lines))
-    if hit is None:
-        return lines
+    in_scalar = _block_scalar_mask(lines)
+    end = block_end_index(lines, header)
+    # The block's first content line decides its form; a deeper dash
+    # inside a mapping body is a nested list, not a multi_conf item.
+    list_form = False
+    for idx in range(header + 1, min(end, len(lines))):
+        # A scalar open before the column-0 header ends at it, so a masked
+        # line can't precede the block's first content line.
+        if in_scalar[idx]:  # pragma: no cover
+            continue
+        stripped = lines[idx].strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        list_form = is_list_item_line(stripped)
+        break
+    if not list_form:
+        hit = _respell_body_field(lines, header, 0, rule.old, rule.new, in_scalar)
+        if hit is None:
+            return lines
+        out = list(lines)
+        out[hit[0]] = hit[1]
+        return out
     out = list(lines)
-    out[hit[0]] = hit[1]
+    for item_start in top_list_item_starts(lines, header, end):
+        keys = _item_child_keys(lines, item_start, end, in_scalar)
+        _respell_item_key(lines, out, keys, rule.old, rule.new)
     return out
 
 
@@ -185,16 +207,27 @@ def _apply_platform_item_field(lines: list[str], rule: MigrationRule) -> list[st
         )
         if platform != rule.platform:
             continue
-        if any(key == rule.new for _idx, _col, key in keys):
-            continue
-        target = next(((idx, col) for idx, col, key in keys if key == rule.old), None)
-        if target is None:
-            continue
-        idx, col = target
-        content = lines[idx].rstrip("\n\r")
-        eol = lines[idx][len(content) :]
-        out[idx] = content[:col] + rule.new + content[col + len(rule.old) :] + eol
+        _respell_item_key(lines, out, keys, rule.old, rule.new)
     return out
+
+
+def _respell_item_key(
+    lines: list[str],
+    out: list[str],
+    keys: list[tuple[int, int, str]],
+    old: str,
+    new: str,
+) -> None:
+    """Respell a list item's *old* depth-1 key into *out*; no-op on collision or absence."""
+    if any(key == new for _idx, _col, key in keys):
+        return
+    target = next(((idx, col) for idx, col, key in keys if key == old), None)
+    if target is None:
+        return
+    idx, col = target
+    content = lines[idx].rstrip("\n\r")
+    eol = lines[idx][len(content) :]
+    out[idx] = content[:col] + new + content[col + len(old) :] + eol
 
 
 #: Upstream's closed ``CLK_MODES_DEPRECATED`` table — anything else is an

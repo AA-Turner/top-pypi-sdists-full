@@ -258,8 +258,8 @@ ieisystem.inmanage:
   version: 4.0.0
 infinidat.infinibox:
   repository: https://github.com/infinidat/ansible-infinidat-collection
-  tag: v1.8.4
-  version: 1.8.4
+  tag: v1.8.5
+  version: 1.8.5
 infoblox.nios_modules:
   repository: https://github.com/infobloxopen/infoblox-ansible
   tag: v1.9.0

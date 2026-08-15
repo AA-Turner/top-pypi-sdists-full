@@ -68,7 +68,12 @@ from airbyte_ops_mcp.registry._enums import (
     ConnectorType,
     SupportLevel,
 )
-from airbyte_ops_mcp.registry.compare import compare_stores
+from airbyte_ops_mcp.registry.compare import (
+    DEFAULT_TOLERATED_PATHS,
+    compare_stores,
+    write_html_report,
+    write_text_report,
+)
 from airbyte_ops_mcp.registry.connector_stubs import (
     CONNECTOR_STUBS_FILE,
 )
@@ -90,6 +95,7 @@ from airbyte_ops_mcp.registry.release_attribution import (
     scan_release_attribution,
     write_release_attribution_index,
 )
+from airbyte_ops_mcp.registry.store import RegistryStore
 
 error_console = Console(stderr=True)
 
@@ -277,13 +283,14 @@ def _print_release_attribution_list(
         print_json(result.model_dump(mode="json"))
         return
 
-    print("VERSION\tSTATUS\tAUTHOR TYPE\tCONTACT\tPULL REQUEST")
+    print("VERSION\tSTATUS\tAUTHOR TYPE\tCONTACT\tPULL REQUEST\tRELEASED AT")
     for item in result.items:
         attribution = item.attribution
         if attribution is None:
             author_type = "UNKNOWN"
             contact = "no attribution"
             pull_request = "-"
+            released_at = "-"
         else:
             author_type = {
                 "User": "HUMAN",
@@ -296,14 +303,20 @@ def _print_release_attribution_list(
             elif attribution.pr_author_type == "User":
                 contact = "none (human login unavailable)"
             else:
-                contact = "none (author type unavailable)"
+                contact = "none (author unknown)"
             pull_request = (
                 f"#{attribution.pr_number}"
                 if attribution.pr_number is not None
                 else "-"
             )
+            released_at = (
+                attribution.released_at.isoformat()
+                if attribution.released_at is not None
+                else "-"
+            )
         print(
-            f"{item.version}\t{item.status}\t{author_type}\t{contact}\t{pull_request}"
+            f"{item.version}\t{item.status}\t{author_type}\t{contact}\t"
+            f"{pull_request}\t{released_at}"
         )
     if result.error:
         print(f"ERROR\t{result.error}")
@@ -1323,6 +1336,16 @@ def generate_version_artifacts_cmd(
             ),
         ),
     ] = None,
+    with_github_lookup: Annotated[
+        bool,
+        Parameter(
+            help=(
+                "Resolve publish PR author metadata through GitHub GraphQL "
+                "(default: enabled). Use --no-github-lookup for offline runs."
+            ),
+            negative="--no-github-lookup",
+        ),
+    ] = True,
 ) -> None:
     """Generate version artifacts for a connector locally.
 
@@ -1358,6 +1381,7 @@ def generate_version_artifacts_cmd(
         with_dependency_dump=with_dependency_dump,
         with_sbom=with_sbom,
         pr_number=pr_number,
+        with_github_lookup=with_github_lookup,
     )
 
     print_json(result.to_dict())
@@ -1494,6 +1518,12 @@ def compile_cmd(
         ),
     ],
     *,
+    output_store: Annotated[
+        str | None,
+        Parameter(
+            help="Write compiled artifacts to `<registry>:local:<path>`; omit the path to allocate a temporary directory.",
+        ),
+    ] = None,
     connector_name: Annotated[
         tuple[str, ...] | None,
         Parameter(
@@ -1615,8 +1645,16 @@ def compile_cmd(
             --with-legacy-migration v1
     """
     registry = _resolve_store(store)
+    parsed_output_store = (
+        RegistryStore.parse(output_store) if output_store is not None else None
+    )
+    if parsed_output_store is not None and parsed_output_store.env != "local":
+        exit_with_error(
+            "--output-store must use `<registry>:local:<path>`; an empty path allocates a temporary directory."
+        )
 
     result = registry.compile(
+        output_store=parsed_output_store,
         connector_name=list(connector_name) if connector_name else None,
         dry_run=dry_run,
         with_secrets_mask=with_secrets_mask,
@@ -1779,10 +1817,26 @@ def compare_cmd(
         bool,
         Parameter(
             help="Compare global registry index files "
-            "(cloud_registry.json, oss_registry.json).",
+            "(cloud_registry.json, oss_registry.json, composite_registry.json).",
             negative="--no-indexes",
         ),
     ] = True,
+    assert_stable: Annotated[
+        bool,
+        Parameter(help="Make the exit code reflect registry safety assertions only."),
+    ] = False,
+    with_volatile_fields: Annotated[
+        bool,
+        Parameter(help="Include default volatile-field differences."),
+    ] = False,
+    html_report: Annotated[
+        Path | None,
+        Parameter(help="Write a self-contained HTML report to this path."),
+    ] = None,
+    text_report: Annotated[
+        Path | None,
+        Parameter(help="Write a plain-text diff report to this path."),
+    ] = None,
 ) -> None:
     """Compare a store against a reference store and report differences.
 
@@ -1801,23 +1855,32 @@ def compare_cmd(
         airbyte-ops registry store compare --store coral:dev/my-test \\
             --no-artifacts
     """
-    store_target = _resolve_store(store)
-    ref_target = _resolve_store(reference_store)
-
-    store_prefix = f"{store_target.prefix}/" if store_target.prefix else ""
-    ref_prefix = f"{ref_target.prefix}/" if ref_target.prefix else ""
+    store_target = resolve_registry_store(store=store)
+    ref_target = resolve_registry_store(store=reference_store)
+    either_side_local = store_target.env == "local" or ref_target.env == "local"
 
     result = compare_stores(
-        store_bucket=store_target.bucket_name,
-        store_prefix=store_prefix,
-        reference_bucket=ref_target.bucket_name,
-        reference_prefix=ref_prefix,
+        store=store_target,
+        reference=ref_target,
         connector_name=list(connector_name) if connector_name else None,
-        with_artifacts=with_artifacts,
+        with_artifacts=(with_artifacts and not either_side_local),
         with_indexes=with_indexes,
+        tolerated_paths=(() if with_volatile_fields else DEFAULT_TOLERATED_PATHS),
     )
 
     print_json(result.to_dict())
+    if text_report is not None:
+        write_text_report(result, str(text_report))
+    if html_report is not None:
+        write_html_report(result, str(html_report))
+
+    if assert_stable and (
+        result.connectors_only_in_store
+        or result.connectors_only_in_reference
+        or result.connectors_latest_forward
+        or result.connectors_latest_backward
+    ):
+        exit_with_error("Registry safety assertions failed.", code=1)
 
     if result.status == "match":
         print_success(result.summary())
@@ -1847,7 +1910,8 @@ def compare_cmd(
                     )
                 )
 
-        sys.exit(1)
+        if not assert_stable:
+            sys.exit(1)
     else:
         exit_with_error(
             f"Compare completed with {len(result.errors)} error(s): "

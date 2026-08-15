@@ -35,6 +35,8 @@ from .literals import (
     ConfirmationStateType,
     ConversationRoleType,
     CreationModeType,
+    DocumentAclMemberRelationType,
+    DocumentAclMembershipTypeType,
     DocumentOutputFormatType,
     ExecutionTypeType,
     ExternalSourceTypeType,
@@ -151,6 +153,8 @@ __all__ = (
     "ByteContentDocTypeDef",
     "ByteContentFileTypeDef",
     "CallerTypeDef",
+    "CheckIngestedDocumentAclRequestTypeDef",
+    "CheckIngestedDocumentAclResponseTypeDef",
     "CitationEventTypeDef",
     "CitationTypeDef",
     "CodeInterpreterInvocationInputTypeDef",
@@ -174,6 +178,11 @@ __all__ = (
     "DeleteAgentMemoryRequestTypeDef",
     "DeleteSessionRequestTypeDef",
     "DependencyFailedExceptionTypeDef",
+    "DocumentAclConditionTypeDef",
+    "DocumentAclGroupTypeDef",
+    "DocumentAclMembershipTypeDef",
+    "DocumentAclTypeDef",
+    "DocumentAclUserTypeDef",
     "EndSessionRequestTypeDef",
     "EndSessionResponseTypeDef",
     "ExternalSourceTypeDef",
@@ -239,6 +248,8 @@ __all__ = (
     "GetExecutionFlowSnapshotResponseTypeDef",
     "GetFlowExecutionRequestTypeDef",
     "GetFlowExecutionResponseTypeDef",
+    "GetIngestedDocumentAclRequestTypeDef",
+    "GetIngestedDocumentAclResponseTypeDef",
     "GetInvocationStepRequestTypeDef",
     "GetInvocationStepResponseTypeDef",
     "GetSessionRequestTypeDef",
@@ -710,6 +721,22 @@ class DeleteSessionRequestTypeDef(TypedDict):
     sessionIdentifier: str
 
 
+DocumentAclGroupTypeDef = TypedDict(
+    "DocumentAclGroupTypeDef",
+    {
+        "id": str,
+        "type": DocumentAclMembershipTypeType,
+    },
+)
+DocumentAclUserTypeDef = TypedDict(
+    "DocumentAclUserTypeDef",
+    {
+        "id": str,
+        "type": DocumentAclMembershipTypeType,
+    },
+)
+
+
 class EndSessionRequestTypeDef(TypedDict):
     sessionIdentifier: str
 
@@ -909,6 +936,12 @@ class GetFlowExecutionRequestTypeDef(TypedDict):
     executionIdentifier: str
     flowAliasIdentifier: str
     flowIdentifier: str
+
+
+class GetIngestedDocumentAclRequestTypeDef(TypedDict):
+    dataSourceId: str
+    documentId: str
+    knowledgeBaseId: str
 
 
 class GetInvocationStepRequestTypeDef(TypedDict):
@@ -1350,12 +1383,24 @@ class AgenticRetrieveTraceResultItemTypeDef(TypedDict):
     sourceRetriever: NotRequired[AgenticRetrieveSourceRetrieverTypeDef]
 
 
+class CheckIngestedDocumentAclRequestTypeDef(TypedDict):
+    dataSourceId: str
+    documentId: str
+    knowledgeBaseId: str
+    userContext: UserContextTypeDef
+
+
 class GetDocumentContentRequestTypeDef(TypedDict):
     dataSourceId: str
     documentId: str
     knowledgeBaseId: str
     outputFormat: NotRequired[DocumentOutputFormatType]
     userContext: NotRequired[UserContextTypeDef]
+
+
+class CheckIngestedDocumentAclResponseTypeDef(TypedDict):
+    hasAccess: bool
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateInvocationResponseTypeDef(TypedDict):
@@ -1508,6 +1553,12 @@ class CustomOrchestrationTraceTypeDef(TypedDict):
 
 class CustomOrchestrationTypeDef(TypedDict):
     executor: NotRequired[OrchestrationExecutorTypeDef]
+
+
+class DocumentAclConditionTypeDef(TypedDict):
+    conditionOperator: NotRequired[DocumentAclMemberRelationType]
+    groups: NotRequired[list[DocumentAclGroupTypeDef]]
+    users: NotRequired[list[DocumentAclUserTypeDef]]
 
 
 class RerankingMetadataSelectiveModeConfigurationTypeDef(TypedDict):
@@ -1975,6 +2026,11 @@ class ConversationHistoryTypeDef(TypedDict):
     messages: NotRequired[Sequence[MessageTypeDef]]
 
 
+class DocumentAclMembershipTypeDef(TypedDict):
+    conditions: NotRequired[list[DocumentAclConditionTypeDef]]
+    memberRelation: NotRequired[DocumentAclMemberRelationType]
+
+
 class MetadataConfigurationForRerankingTypeDef(TypedDict):
     selectionMode: RerankingMetadataSelectionModeType
     selectiveModeConfiguration: NotRequired[RerankingMetadataSelectiveModeConfigurationTypeDef]
@@ -2265,6 +2321,11 @@ ImageInputTypeDef = TypedDict(
 )
 
 
+class DocumentAclTypeDef(TypedDict):
+    allowList: NotRequired[DocumentAclMembershipTypeDef]
+    denyList: NotRequired[DocumentAclMembershipTypeDef]
+
+
 class ManagedSearchBedrockRerankingConfigurationTypeDef(TypedDict):
     modelConfiguration: ManagedSearchBedrockRerankingModelConfigurationTypeDef
     metadataConfiguration: NotRequired[MetadataConfigurationForRerankingTypeDef]
@@ -2413,6 +2474,13 @@ AgenticRetrieveTraceEventTypeDef = TypedDict(
     },
 )
 ImageInputUnionTypeDef = Union[ImageInputTypeDef, ImageInputOutputTypeDef]
+
+
+class GetIngestedDocumentAclResponseTypeDef(TypedDict):
+    documentAcl: DocumentAclTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 ManagedSearchRerankingConfigurationTypeDef = TypedDict(
     "ManagedSearchRerankingConfigurationTypeDef",
     {

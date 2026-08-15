@@ -19,7 +19,7 @@ class DescribePhysicalConnectionLOARequest(DaraModel):
         # 
         # The client generates the value. The value must be unique among different requests and cannot exceed 64 ASCII characters in length.
         # 
-        # > If you do not specify this parameter, the system uses the **RequestId** as the **ClientToken**. The **RequestId** may differ for each API request.
+        # > If you do not specify this parameter, the system uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** may differ for each API request.
         self.client_token = client_token
         # The instance ID of the Express Connect circuit.
         # 

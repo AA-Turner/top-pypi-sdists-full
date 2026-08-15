@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: wn
-Version: 1.1.0
+Version: 1.1.1
 Summary: Wordnet interface library
 Project-URL: homepage, https://github.com/goodmami/wn
 Project-URL: documentation, https://wn.readthedocs.io

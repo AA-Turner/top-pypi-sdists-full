@@ -6,6 +6,7 @@
 import glob
 import os
 from collections.abc import Callable
+from typing import Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -89,10 +90,10 @@ class GID15(NonGeoDataset):
     def __init__(
         self,
         root: Path = 'data',
-        split: str = 'train',
+        split: Literal['train', 'val', 'test'] = 'train',
         transforms: Callable[[Sample], Sample] | None = None,
         download: bool = False,
-        checksum: bool = False,
+        checksum: bool = True,
     ) -> None:
         """Initialize a new GID-15 dataset instance.
 
@@ -154,7 +155,9 @@ class GID15(NonGeoDataset):
         """
         return len(self.files)
 
-    def _load_files(self, root: Path, split: str) -> list[dict[str, str]]:
+    def _load_files(
+        self, root: Path, split: Literal['train', 'val', 'test']
+    ) -> list[dict[str, str]]:
         """Return the paths of the files in the dataset.
 
         Args:
@@ -172,9 +175,11 @@ class GID15(NonGeoDataset):
                 image.replace('img_dir', 'ann_dir').replace('.tif', '_15label.png')
                 for image in images
             ]
-            files = [dict(image=image, mask=mask) for image, mask in zip(images, masks)]
+            files = [
+                {'image': image, 'mask': mask} for image, mask in zip(images, masks)
+            ]
         else:
-            files = [dict(image=image) for image in images]
+            files = [{'image': image} for image in images]
 
         return files
 
@@ -218,9 +223,7 @@ class GID15(NonGeoDataset):
             True if the dataset directories and split files are found, else False
         """
         filepath = os.path.join(self.root, self.directory)
-        if not os.path.exists(filepath):
-            return False
-        return True
+        return os.path.exists(filepath)
 
     def _download(self) -> None:
         """Download the dataset and extract it."""

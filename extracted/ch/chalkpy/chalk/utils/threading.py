@@ -4,6 +4,7 @@ import asyncio
 import contextvars
 import functools
 import os
+import queue
 import threading
 import weakref
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -56,7 +57,55 @@ class MultiSemaphore:
             if self._value + val > self.initial_value:
                 raise ValueError(f"Value ({val}) would put the semaphore above the initial value.")
             self._value += val
-            self._cond.notify()
+            # notify_all, not notify: "there is capacity now" does not mean "the first waiter
+            # can use it". A single notification handed to a waiter that still wants more than
+            # is available is consumed and lost, and the waiter that could have proceeded is
+            # never woken -- which, since callers acquire without a timeout, strands it for good.
+            self._cond.notify_all()
+
+
+def shutdown_prefetch_workers(
+    pending_work: queue.Queue[Any],
+    prefetched: queue.Queue[Any],
+    sem: MultiSemaphore | None,
+    workers: dict[Any, Future[Any]],
+) -> None:
+    """Stop a pool of prefetch workers and give back every semaphore weight they still hold.
+
+    The warehouse integrations prefetch query results with a fan-out of download workers
+    bounded by a `MultiSemaphore`: a worker acquires a chunk's weight *before* downloading it,
+    and that weight is only returned once the consumer pulls the chunk off `prefetched`. So a
+    consumer that stops draining -- because it raised, or because its generator was closed --
+    strands both the weight and the workers, which then block in `sem.acquire()` forever and
+    never return their threads to `DEFAULT_IO_EXECUTOR`. That pool is process-wide, so the
+    damage outlives the query: once it is empty, later queries' workers never start at all.
+
+    Call this on *every* exit from a prefetch loop. A loop that finished normally has already
+    emptied `workers`, which makes this a no-op.
+    """
+    # Stop handing out new work, so each worker exits once it finishes its current chunk.
+    while True:
+        try:
+            pending_work.get_nowait()
+        except queue.Empty:
+            break
+    # Drain what the workers have produced, or are still about to produce, releasing as we go.
+    # The releases are what let a worker parked in `acquire` wake up and reach its exit, so
+    # draining and releasing have to be interleaved rather than done one after the other.
+    #
+    # This terminates: every worker puts its id in a `finally`, and a worker can only be
+    # blocked on weight that some other chunk is holding -- which this loop is handing back.
+    while len(workers) > 0:
+        item = prefetched.get()
+        if isinstance(item, int):
+            # A worker id, meaning that worker has exited. Deliberately not calling .result():
+            # we may already be unwinding the consumer's exception, and the normal path checks
+            # worker results itself.
+            workers.pop(item, None)
+            continue
+        _, weight = item
+        if sem is not None and weight > 0:
+            sem.release(weight)
 
 
 __all__ = ["ChalkThreadPoolExecutor"]

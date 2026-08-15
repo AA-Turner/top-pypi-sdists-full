@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: antsibull-docs
-Version: 2.25.0
+Version: 2.26.0
 Summary: Tools for building Ansible documentation
 Project-URL: Documentation, https://docs.ansible.com/projects/antsibull-docs/
 Project-URL: Source code, https://github.com/ansible-community/antsibull-docs
@@ -34,7 +34,7 @@ Requires-Dist: asyncio-pool
 Requires-Dist: docutils
 Requires-Dist: jinja2>=3.0
 Requires-Dist: packaging>=20.0
-Requires-Dist: pydantic<3.0.0,>=2.0.0
+Requires-Dist: pydantic<3.0.0,>=2.12.0
 Requires-Dist: pyyaml
 Requires-Dist: rstcheck<7.0.0,>=3.0.0
 Requires-Dist: semantic-version

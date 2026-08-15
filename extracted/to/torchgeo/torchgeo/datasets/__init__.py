@@ -6,6 +6,7 @@
 from .advance import ADVANCE
 from .agb_live_woody_density import AbovegroundLiveWoodyBiomassDensity
 from .agrifieldnet import AgriFieldNet
+from .air_quality import AirQuality
 from .airphen import Airphen
 from .astergdem import AsterGDEM
 from .benin_cashews import BeninSmallHolderCashews
@@ -61,6 +62,7 @@ from .dfc2022 import DFC2022
 from .digital_typhoon import DigitalTyphoon
 from .dior import DIOR
 from .dl4gam import DL4GAMAlps
+from .dlrsd import DLRSD, DLRSDBase, DLRSDMultilabel
 from .dota import DOTA
 from .earth_embeddings import EarthEmbeddings
 from .earth_index import EarthIndexEmbeddings
@@ -77,6 +79,7 @@ from .eurosat import EuroSAT, EuroSAT100, EuroSATSpatial
 from .everwatch import EverWatch
 from .fair1m import FAIR1M
 from .fire_risk import FireRisk
+from .flair import FLAIRHUB, FLAIRHUBBase, FLAIRHUBToy
 from .forestdamage import ForestDamage
 from .ftw import FieldsOfTheWorld
 from .gbif import GBIF
@@ -93,6 +96,7 @@ from .geo import (
 )
 from .geonrw import GeoNRW
 from .gid15 import GID15
+from .globalmangrovewatch import GlobalMangroveWatch
 from .globbiomass import GlobBiomass
 from .gse import GoogleSatelliteEmbedding
 from .hyspecnet import HySpecNet11k
@@ -121,13 +125,16 @@ from .loveda import LoveDA
 from .major_tom import MajorTOMEmbeddings
 from .mapinwild import MapInWild
 from .mdas import MDAS
+from .meta_chm import MetaCHM
 from .millionaid import MillionAID
+from .mixins import PlottingMixin
 from .mmearth import MMEarth
 from .mmflood import MMFlood
 from .naip import NAIP
 from .nasa_marine_debris import NASAMarineDebris
 from .nccm import NCCM
 from .nlcd import NLCD
+from .openaerialmap import OpenAerialMap
 from .openbuildings import OpenBuildings
 from .openstreetmap import OpenStreetMap
 from .oscd import OSCD, OSCD100
@@ -140,6 +147,7 @@ from .quakeset import QuakeSet
 from .reforestree import ReforesTree
 from .resisc45 import RESISC45
 from .rwanda_field_boundary import RwandaFieldBoundary
+from .s2_100k import S2100k
 from .satlas import SatlasPretrain
 from .seasonet import SeasoNet
 from .seco import SeasonalContrastS2
@@ -188,7 +196,8 @@ from .utils import (
 from .vaihingen import Vaihingen2D
 from .vhr10 import VHR10
 from .western_usa_live_fuel_moisture import WesternUSALiveFuelMoisture
-from .xbd import XView2, xBD
+from .worldstrat import WorldStrat
+from .xbd import XView2, xBD, xBDDistShift
 from .zuericrop import ZueriCrop
 
 __all__ = (
@@ -198,10 +207,12 @@ __all__ = (
     'COWC',
     'DFC2022',
     'DIOR',
+    'DLRSD',
     'DOTA',
     'ETCI2021',
     'EUDEM',
     'FAIR1M',
+    'FLAIRHUB',
     'GBIF',
     'GID15',
     'LEVIRCD',
@@ -224,6 +235,7 @@ __all__ = (
     'VHR10',
     'AbovegroundLiveWoodyBiomassDensity',
     'AgriFieldNet',
+    'AirQuality',
     'Airphen',
     'AsterGDEM',
     'BeninSmallHolderCashews',
@@ -271,6 +283,8 @@ __all__ = (
     'CopernicusPretrain',
     'CropHarvest',
     'DL4GAMAlps',
+    'DLRSDBase',
+    'DLRSDMultilabel',
     'DatasetNotFoundError',
     'DeepGlobeLandCover',
     'DependencyNotFoundError',
@@ -287,6 +301,8 @@ __all__ = (
     'EuroSAT100',
     'EuroSATSpatial',
     'EverWatch',
+    'FLAIRHUBBase',
+    'FLAIRHUBToy',
     'FieldsOfTheWorld',
     'FireRisk',
     'ForestDamage',
@@ -294,6 +310,7 @@ __all__ = (
     'GeoNRW',
     'GlobBiomass',
     'GlobalBuildingMap',
+    'GlobalMangroveWatch',
     'GoogleSatelliteEmbedding',
     'HySpecNet11k',
     'IDTReeS',
@@ -325,13 +342,16 @@ __all__ = (
     'MMFlood',
     'MajorTOMEmbeddings',
     'MapInWild',
+    'MetaCHM',
     'MillionAID',
     'NASAMarineDebris',
     'NonGeoClassificationDataset',
     'NonGeoDataset',
+    'OpenAerialMap',
     'OpenBuildings',
     'OpenStreetMap',
     'PatternNet',
+    'PlottingMixin',
     'Potsdam2D',
     'PrestoEmbeddings',
     'QuakeSet',
@@ -339,6 +359,7 @@ __all__ = (
     'RasterDataset',
     'ReforesTree',
     'RwandaFieldBoundary',
+    'S2100k',
     'SSL4EOLBenchmark',
     'SatlasPretrain',
     'SeasoNet',
@@ -371,6 +392,7 @@ __all__ = (
     'Vaihingen2D',
     'VectorDataset',
     'WesternUSALiveFuelMoisture',
+    'WorldStrat',
     'XView2',
     'XarrayDataset',
     'ZueriCrop',
@@ -384,4 +406,5 @@ __all__ = (
     'time_series_split',
     'unbind_samples',
     'xBD',
+    'xBDDistShift',
 )

@@ -12,38 +12,7 @@ from chalk.utils.missing_dependency import missing_dependency_exception
 
 if TYPE_CHECKING:
     import pyarrow as pa
-    import sqlalchemy as sa
     from sqlalchemy.engine import URL, Connection, Engine
-
-try:
-    import sqlalchemy as sa
-except ImportError:
-    sa = None
-
-if sa is None:
-    _supported_sqlalchemy_types_for_pa_csv_querying = ()
-else:
-    _supported_sqlalchemy_types_for_pa_csv_querying = (
-        sa.BigInteger,
-        sa.Boolean,
-        sa.Float,
-        sa.Integer,
-        sa.String,
-        sa.Text,
-        sa.DateTime,
-        sa.Date,
-        sa.SmallInteger,
-        sa.BIGINT,
-        sa.BOOLEAN,
-        sa.CHAR,
-        sa.DATETIME,
-        sa.FLOAT,
-        sa.INTEGER,
-        sa.SMALLINT,
-        sa.TEXT,
-        sa.TIMESTAMP,
-        sa.VARCHAR,
-    )
 
 _logger = get_logger(__name__)
 

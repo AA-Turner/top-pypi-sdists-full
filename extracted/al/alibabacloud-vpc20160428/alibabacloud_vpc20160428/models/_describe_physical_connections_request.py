@@ -24,6 +24,8 @@ class DescribePhysicalConnectionsRequest(DaraModel):
         tags: List[main_models.DescribePhysicalConnectionsRequestTags] = None,
     ):
         # The client token that is used to ensure the idempotence of the request.
+        # 
+        # Generate a unique value from your client to ensure that different requests have unique values. ClientToken supports only ASCII characters.
         self.client_token = client_token
         # The list of filter conditions.
         self.filter = filter
@@ -36,6 +38,8 @@ class DescribePhysicalConnectionsRequest(DaraModel):
         # The number of entries per page in a paged query. Default value: **10**. Valid values: **1** to **50**.
         self.page_size = page_size
         # The region ID of the Express Connect circuit.
+        # 
+        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query region IDs.
         # 
         # This parameter is required.
         self.region_id = region_id

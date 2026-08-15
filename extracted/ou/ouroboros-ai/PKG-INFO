@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: ouroboros-ai
-Version: 0.51.4
+Version: 0.51.5
 Summary: Pins an acceptance spec and omits any verify command or expected output from the worker's contract. Works with Claude Code, Codex CLI, OpenCode and 10 more runtimes.
 Project-URL: Homepage, https://ouroboros.page/
 Project-URL: Repository, https://github.com/Q00/ouroboros
@@ -57,6 +57,7 @@ Requires-Dist: textual-serve==1.1.3; extra == 'tui'
 Requires-Dist: textual==8.2.8; extra == 'tui'
 Description-Content-Type: text/markdown
 
+<!-- mcp-name: io.github.Q00/ouroboros -->
 <p align="right">
   <strong>English</strong> | <a href="./README.ko.md">한국어</a> | <a href="./README.zh-CN.md">简体中文</a>
 </p>

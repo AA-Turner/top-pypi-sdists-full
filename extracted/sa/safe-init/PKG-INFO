@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: safe-init
-Version: 1.4.1
+Version: 2.0.0
 Summary: Safe Init is a Python library that enhances AWS Lambda functions with advanced error handling, logging, monitoring, and resilience features, providing comprehensive observability and reliability for serverless applications.
 Project-URL: Repository, https://github.com/kalepa/safe-init
 Project-URL: Documentation, https://safe-init.readthedocs.io/en/latest/
@@ -26,7 +26,7 @@ Requires-Dist: datadog-lambda
 Requires-Dist: ddtrace
 Requires-Dist: redis<6,>=4.0.0
 Requires-Dist: requests<3,>=2.31.0
-Requires-Dist: sentry-sdk<2.0.0
+Requires-Dist: sentry-sdk<3,>=2
 Requires-Dist: structlog<25,>=24.1.0
 Description-Content-Type: text/markdown
 

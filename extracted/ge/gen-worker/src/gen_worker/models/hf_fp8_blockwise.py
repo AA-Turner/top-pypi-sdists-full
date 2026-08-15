@@ -46,7 +46,16 @@ from typing import Any, Dict, Optional, Tuple
 import msgspec
 
 from .safetensors_header import header_len_ok
-from .tensor_layout_contract import CONTRACT_HF_FP8_BLOCKWISE, implements_contract
+from .file_layout import MULTI_FILE, SINGLE_FILE
+from .tensor_layout_contract import (
+    CONTRACT_HF_FP8_BLOCKWISE,
+    ELEMENT_BF16,
+    ELEMENT_FP8_E4M3,
+    KEYS_TRANSFORMERS_SPLIT_QKV,
+    SCALE_BLOCK_128X128,
+    DecodeDimensions,
+    implements_contract,
+)
 
 # The registry's declared reference dequant for this contract. Named here so
 # the SDK's transform and tensorhub's descriptor point at ONE spec rather than
@@ -268,6 +277,37 @@ def inspect_hf_fp8_blockwise(
         modules_to_not_convert=skip, units=tuple(units), files=files)
 
 
+def detect_hf_fp8_blockwise(path: Path) -> Optional[HfFp8BlockwiseTree]:
+    """The verified ``hf.fp8-blockwise@1`` tree at ``path``, or ``None``.
+
+    DETECTION is the config's own claim and nothing else: a
+    ``quantization_config`` whose ``quant_method`` is fp8 and whose
+    ``weight_block_size`` is a ``[block_m, block_n]`` pair. A tree that makes
+    no such claim is not this contract and is left to the caller's own lane —
+    a per-tensor or per-row fp8 tree is ``cozy.fp8-rowwise@1``, detected by its
+    own arm.
+
+    A tree that DOES make the claim is verified against its headers before it
+    is returned, so a mis-blocked, transposed or rowwise-scaled grid raises
+    :class:`HfFp8BlockwiseLayoutError` here rather than reaching a generic
+    loader that reads it as something else.
+    """
+    p = Path(path)
+    try:
+        cfg = json.loads((p / "config.json").read_text("utf-8"))
+    except (OSError, ValueError):
+        return None
+    qc = cfg.get("quantization_config") if isinstance(cfg, dict) else None
+    if not isinstance(qc, dict):
+        return None
+    if str(qc.get("quant_method", "")).lower() != QUANT_METHOD:
+        return None
+    raw = qc.get("weight_block_size")
+    if not (isinstance(raw, (list, tuple)) and len(raw) == 2):
+        return None
+    return inspect_hf_fp8_blockwise(p)
+
+
 def dequantize_block_scaled(weight: Any, scale: Any, *, out_dtype: Any = None) -> Any:
     """``hf.fp8_blockwise.dequant@1`` — the contract's reference dequant.
 
@@ -309,6 +349,22 @@ def _hf_model_class(path: Path, cls: Any) -> Any:
     contract=CONTRACT_HF_FP8_BLOCKWISE,
     serves=("fp8-w8a8-dynamic", "fp8-w8a16"),
     composes_lora=False,
+    decodes=DecodeDimensions(
+        elements=(ELEMENT_FP8_E4M3, ELEMENT_BF16),
+        # 128x128 block scales ONLY. `inspect_hf_fp8_blockwise` verifies the
+        # grid and refuses anything else, so declaring rowwise here would be
+        # the exact conflation `cozy.fp8-rowwise@1` exists to prevent.
+        scales=(SCALE_BLOCK_128X128,),
+        # transformers' own loader, so transformers' own key convention.
+        key_topologies=(KEYS_TRANSFORMERS_SPLIT_QKV,),
+        # BOTH, because this axis is about the ARTIFACT and `classifier.py`
+        # stamps a transformers tree either way: a component subfolder of a
+        # pipeline is `multi-file`, a root transformers repo is `single-file`.
+        # `AutoModel.from_pretrained` reads both, and `inspect_hf_fp8_blockwise`
+        # refuses by name in either shape if the bytes disagree.
+        file_layouts=(MULTI_FILE, SINGLE_FILE),
+        bakes=(),
+    ),
     why="th#1803: transformers' FineGrainedFP8 reads this layout natively — "
         "resident fp8 weights with a 128x128 block scale grid, dynamic "
         "per-token activation scales through the triton/DeepGEMM blockwise "
@@ -340,6 +396,9 @@ def load_hf_fp8_blockwise(
     import torch
     from transformers import FineGrainedFP8Config
 
+    from ..discovery.decode_set import require_decodable
+
+    require_decodable(CONTRACT_HF_FP8_BLOCKWISE, where=str(root))
     verified = tree or inspect_hf_fp8_blockwise(root, component=component)
     path = verified.path
     compute = dtype or torch.bfloat16
@@ -366,6 +425,7 @@ __all__ = [
     "HfFp8BlockwiseTree",
     "REFERENCE_DEQUANT",
     "dequantize_block_scaled",
+    "detect_hf_fp8_blockwise",
     "inspect_hf_fp8_blockwise",
     "load_hf_fp8_blockwise",
 ]

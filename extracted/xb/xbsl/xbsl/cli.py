@@ -13,16 +13,23 @@ from xbsl.templates import DEFAULT_FILE as DEFAULT_TEMPLATES_FILE
 
 
 def discover(paths: list[str]) -> list[Path]:
-    """Collect source files (.xbsl and .yaml) under the given paths."""
+    """Collect source files (.xbsl, .yaml and .xbql) under the given paths.
+
+    The query file of a virtual table is collected too: it is the only place where the
+    query language lives outside a `Запрос{ ... }` block, and until it was collected the
+    query rules had nothing to look at there - an unknown table in such a file was found by
+    nobody but the server compiler.
+    """
     out: list[Path] = []
     for raw in paths:
         p = Path(raw)
         if p.is_file():
-            if p.suffix in (".xbsl", ".yaml"):
+            if p.suffix in (".xbsl", ".yaml") or engine.is_query_file(p):
                 out.append(p)
         elif p.is_dir():
             out.extend(engine.find_sources(p, "*.xbsl"))
             out.extend(engine.find_sources(p, "*.yaml"))
+            out.extend(engine.find_sources(p, f"*{engine.QUERY_SUFFIX}"))
     # Uniquify, preserving order
     seen: set[Path] = set()
     uniq: list[Path] = []
@@ -1031,7 +1038,24 @@ def main(argv: list[str] | None = None) -> int:
         )
         files = [Path(args.filename)]
     else:
+        # A path that does not exist is a mistake, not an empty check: `xbsl e1c/sit` used to
+        # answer "0 files checked, 0 findings" with the exit code of a clean run, so a typo in
+        # a CI step passed for a green check of the whole project. The same shape covers a
+        # mistyped subcommand - an unknown name is parsed as a path (`list-rules` against
+        # `--list-rules`).
+        missing = [p for p in (args.paths or []) if not Path(p).exists()]
+        if missing:
+            print(i18n.t("cli.missing-paths", paths=", ".join(f"'{p}'" for p in missing)),
+                  file=sys.stderr)
+            return 2
         files, requested = discover_with_context(args.paths or ["."])
+        if not files:
+            # The paths exist but hold no sources at all: not an error (an empty directory is
+            # a legitimate state of a fresh project), yet worth saying out loud - silence here
+            # reads as "everything is clean".
+            asked = args.paths or ["."]
+            print(i18n.t("cli.nothing-collected", paths=", ".join(f"'{p}'" for p in asked)),
+                  file=sys.stderr)
         if args.fix:
             # --fix rewrites the buffers in place - it needs the sources in this process.
             sources = [load(p) for p in files]

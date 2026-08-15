@@ -13,6 +13,7 @@ from functools import partial
 from mcore_bridge import LoraParallelLinear
 from megatron.core import mpu
 from megatron.core.distributed import DistributedDataParallel as DDP
+from megatron.core.distributed import FullyShardedDataParallel as megatron_FSDP
 from megatron.core.distributed import finalize_model_grads
 from megatron.core.optimizer import OptimizerConfig, get_megatron_optimizer
 from megatron.core.pipeline_parallel import get_forward_backward_func
@@ -268,6 +269,8 @@ class BaseMegatronTrainer(ABC):
         while True:
             if not is_finished:
                 logger.info(f'The training of Epoch {epoch} starts...')
+            if hasattr(iterable, 'set_epoch'):
+                iterable.set_epoch(epoch)
             for x in iterable:
                 yield x
             # streaming
@@ -594,7 +597,7 @@ class BaseMegatronTrainer(ABC):
                 self._prepare_vit_gradient_checkpointing(m)
 
         config.grad_scale_func = self.optimizer.scale_loss
-        if isinstance(self.wrapped_models[0], DDP) and args.overlap_grad_reduce:
+        if isinstance(self.wrapped_models[0], (DDP, megatron_FSDP)) and args.overlap_grad_reduce:
             assert config.no_sync_func is None, ('When overlap_grad_reduce is True, config.no_sync_func must be None; '
                                                  'a custom no_sync_func is not supported when overlapping grad-reduce')
             config.no_sync_func = [model_chunk.no_sync for model_chunk in self.wrapped_models]
@@ -799,6 +802,7 @@ class BaseMegatronTrainer(ABC):
         if args.save_safetensors:
             skip_saving_adapter = args.tuner_type == 'lora_llm' or (
                 args.tuner_type == 'lora' and args.merge_lora and not hasattr(self.bridge, '_support_hf_grouped_lora'))
+            save_missing_weights = args.save_missing_weights and args.model_dir
 
             if not skip_saving_adapter:
                 self.bridge.save_weights(
@@ -807,6 +811,7 @@ class BaseMegatronTrainer(ABC):
                     peft_format=args.tuner_type == 'lora',
                     args=args,
                     processor=self.template.processor,
+                    save_missing_weights=save_missing_weights,
                 )
             # merge-lora does not store lora, lora saving may report an error (Qwen3-VL-Moe)
             if args.tuner_type != 'full' and args.merge_lora:
@@ -819,15 +824,17 @@ class BaseMegatronTrainer(ABC):
                     self.copy_path(src_path, os.path.join(output_dir, fname))
                 # common.pt
                 common_path = os.path.join(origin_output_dir, f'iter_{iteration:07d}', 'common.pt')
-                tgt_common_path = os.path.join(output_dir, f'iter_{iteration:07d}', 'common.pt')
-                os.makedirs(os.path.dirname(tgt_common_path), exist_ok=True)
-                self.copy_path(common_path, tgt_common_path)
+                if os.path.exists(common_path):
+                    tgt_common_path = os.path.join(output_dir, f'iter_{iteration:07d}', 'common.pt')
+                    os.makedirs(os.path.dirname(tgt_common_path), exist_ok=True)
+                    self.copy_path(common_path, tgt_common_path)
                 self.bridge.save_weights(
                     self.unwrapped_models,
                     output_dir,
                     peft_format=False,
                     args=args,
                     processor=self.template.processor,
+                    save_missing_weights=save_missing_weights,
                 )
                 self.unmerge_lora_adapters()
 

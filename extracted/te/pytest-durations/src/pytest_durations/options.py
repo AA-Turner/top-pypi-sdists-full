@@ -83,15 +83,23 @@ def pytest_addoption(parser: "Parser", pluginmanager: "PytestPluginManager") -> 
         type=parse_columns,
         default=DEFAULT_COLUMNS,
         help='Comma-separated list of stat columns to show: "total", "num", "min",'
-             ' "med", "max". The test/fixture name is always shown second, and the'
+             ' "med", "max", "p90", "p95", "p99". The test/fixture name is always shown second, and the'
              ' first listed column is used to sort the report.'
              f' Default: {",".join(DEFAULT_COLUMNS)}.',
+    )
+    group.addoption(
+        "--pytest-durations-json",
+        metavar="FILE",
+        type=str,
+        default=None,
+        help='Export timing data as JSON to FILE (use "-" for stdout).'
+             ' Written in addition to the terminal report unless --pytest-durations=0.',
     )
 
 
 def pytest_configure(config: "Config") -> None:
     """Configure plugin options using command line arguments."""
-    if not config.getoption("--pytest-durations"):
+    if not config.getoption("--pytest-durations") and not config.getoption("--pytest-durations-json"):
         return
 
     from pytest_durations.plugin import PytestDurationPlugin  # noqa: PLC0415

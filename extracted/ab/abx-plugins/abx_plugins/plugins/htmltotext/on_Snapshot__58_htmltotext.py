@@ -9,9 +9,9 @@
 # Usage:
 #     ./on_Snapshot__58_htmltotext.py --url=<url> > events.jsonl
 
+import sys
 import os
 import re
-import sys
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -150,6 +150,7 @@ def main(url: str):
 
     try:
         # Run extraction
+        print("HTML-to-text extraction started", flush=True)
         status, output = extract_htmltotext(url)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)

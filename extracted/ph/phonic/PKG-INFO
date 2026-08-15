@@ -1,9 +1,8 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: phonic
-Version: 0.32.21
+Version: 0.32.22
 Summary: 
 License: MIT
-License-File: LICENSE
 Requires-Python: >=3.8,<4.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License

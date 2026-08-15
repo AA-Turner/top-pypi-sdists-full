@@ -10,7 +10,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "imgui-bundle"
-version = "1.92.801"  # Based on ImGui 1.92.8 - Remember to mirror changes on line 3 of main CMakeLists! Version = ImGui patch × 100 + bundle release. (also remember to update pyodide_projects/pyodide_test_bundle/test_local_pyodide.html and test_cdn_pyodide_local_wheel.html with the new version.)
+version = "1.92.900"  # Based on ImGui 1.92.9b - Remember to mirror changes on line 3 of main CMakeLists! Version = ImGui patch × 100 + bundle release. (hardcoded pyodide wheel filenames must be updated too: find them with the rg command in docs/book/devel_docs/cloudflare_deploy.md.)
 
 description="Dear ImGui Bundle: From expressive code to powerful GUIs in no time. A fast, feature-rich, cross-platform toolkit for C++ and Python."
 readme = "bindings/imgui_bundle/Readme_pypi.md"
@@ -33,6 +33,8 @@ matplotlib = ["matplotlib", "numpy"]
 # To use image processing features
 imgproc = ["pillow", "opencv-python"]
 pydantic = ["pydantic>=2.0.0"]
+# For the terminal emulator widget (imgui_bundle.imgui_terminal)
+terminal = ["pyte"]
 # For pure python backends
 opengl = ["PyOpenGL"]
 glfw = ["glfw"]
@@ -82,7 +84,8 @@ full = [
     "PyGLM",
 ]
 # For development and testing
-test = ["pytest", "pytest-asyncio", "mypy"]
+# pyte/websockets: let CI run the imgui_terminal tests and type-check the widget
+test = ["pytest", "pytest-asyncio", "mypy", "pyte", "websockets"]
 
 
 
@@ -205,6 +208,11 @@ disable_error_code = ["attr-defined", "no-untyped-def"]
 module = ["OpenGL.*", "glfw.*", "glm"]
 ignore_missing_imports = true
 
+# paramiko (imgui_terminal SSH demo) is untyped
+[[tool.mypy.overrides]]
+module = ["paramiko"]
+ignore_missing_imports = true
+
 #####################################
 # Wheels options
 #####################################
@@ -244,7 +252,6 @@ archs = ["arm64"]
 #------------------------------------
 [tool.cibuildwheel.linux]
 skip = ["*i686"]
-test-skip = ["*-musllinux_*"] #  issue with OpenGL on musllinux
 
 
 # Install glfw dev packages on manylinux:
@@ -270,12 +277,24 @@ before-all = "yum install -y libXcursor-devel libXi-devel libXinerama-devel libX
 [[tool.cibuildwheel.overrides]]
 select = "*-musllinux*"
 before-all = "apk add xorg-server-dev libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev mesa-dev mesa-gl cmake curl bash"
+# musl's loader has no lazy binding: it resolves all symbols at import time. The legacy
+# OpenGL2 python backend is the only code with direct link-time GL symbol references
+# (everything else loads GL at runtime via glad). Disable it so that the musllinux wheel
+# can be imported without requiring system OpenGL libraries.
+environment = { CMAKE_ARGS="-DIMGUI_BUNDLE_PYTHON_DISABLE_OPENGL2=ON" }
 
 #------------------------------------
 # windows wheels options
 #------------------------------------
 [tool.cibuildwheel.windows]
 skip = ["*win32"]
+# Disable the wheel repair step (cibuildwheel >= 4.0.0 runs delvewheel by default).
+# imgui_bundle already vendors glfw3.dll into the package itself (see
+# imgui_bundle_cmake/internal/add_glfw_submodule.cmake) and loads it via
+# _glfw_set_search_path.py. delvewheel does not search inside the wheel by default,
+# so it fails trying to locate glfw3.dll on PATH. We ship a self-contained wheel,
+# so no repair is needed.
+repair-wheel-command = ""
 
 #------------------------------------
 # android wheels

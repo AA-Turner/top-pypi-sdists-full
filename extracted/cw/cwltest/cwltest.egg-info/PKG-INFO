@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: cwltest
-Version: 2.6.20251216093331
+Version: 2.7.20260814150058
 Summary: Common Workflow Language testing framework
 Author-email: Common workflow language working group <common-workflow-language@googlegroups.com>
 License: Apache 2.0
 Project-URL: Homepage, https://github.com/common-workflow-language/cwltest
-Project-URL: Download, https://github.com/common-workflow-language/cwltest
 Classifier: Environment :: Console
 Classifier: Framework :: Pytest
 Classifier: License :: OSI Approved :: Apache Software License
@@ -17,14 +16,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.16,>=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: schema-salad<9,>=5.0.20200220195218
 Requires-Dist: junit-xml>=1.8
-Requires-Dist: pytest<10,>=8.3
-Requires-Dist: defusedxml
 Provides-Extra: pytest-plugin
 Requires-Dist: pytest; extra == "pytest-plugin"
 Dynamic: license-file

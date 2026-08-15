@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: cwl-utils
-Version: 0.42
+Version: 0.43
 Project-URL: Documentation, https://cwl-utils.readthedocs.io/
 Project-URL: Homepage, https://www.commonwl.org
 Project-URL: Repository, https://github.com/common-workflow-language/cwl-utils
@@ -24,19 +24,20 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: File Formats
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: System :: Distributed Computing
 Classifier: Typing :: Typed
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.16,>=3.10
 Requires-Dist: cwl-upgrader>=1.2.3
 Requires-Dist: packaging
 Requires-Dist: rdflib
 Requires-Dist: requests
 Requires-Dist: ruamel-yaml<0.20,>=0.17.6
-Requires-Dist: schema-salad<9,>=8.8.20250205075315
+Requires-Dist: schema-salad<9,>=8.10.20260810193251
 Requires-Dist: typing-extensions>=4.10.0
 Provides-Extra: pretty
 Requires-Dist: cwlformat; extra == 'pretty'
@@ -237,7 +238,7 @@ To regenerate install the ``schema_salad`` package and run:
 Release
 ~~~~~~~
 
-To release CWLUtils, bump the version in ``cwl_utils/__meta__.py``, and
+To release CWLUtils, bump the version in ``src/cwl_utils/__meta__.py``, and
 tag that commit with the new version. The
 `gh-action-pypi-publish <https://github.com/pypa/gh-action-pypi-publish>`__
 should release that tag.

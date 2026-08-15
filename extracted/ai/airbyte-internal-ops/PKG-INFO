@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: airbyte-internal-ops
-Version: 0.98.2
+Version: 0.101.0
 Summary: MCP and API interfaces that let the agents do the admin work
 Author-email: Aaron Steers <aj@airbyte.io>
 Keywords: admin,airbyte,api,mcp
@@ -23,7 +23,7 @@ Requires-Dist: cyclopts<5.0,>=4.0.0
 Requires-Dist: deepdiff<7.0,>=6.3.0
 Requires-Dist: docker<7.0,>=6.0
 Requires-Dist: dpath<3.0,>=2.1.5
-Requires-Dist: fastmcp-extensions[cli]<1.0,>=0.17.0
+Requires-Dist: fastmcp-extensions[cli]<1.0,>=0.19.1
 Requires-Dist: fastmcp<4.0,>=3.0
 Requires-Dist: fsspec>=2024.0.0
 Requires-Dist: gcsfs>=2024.0.0

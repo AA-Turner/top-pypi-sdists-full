@@ -1,13 +1,13 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: dagster-dbt
-Version: 0.29.17
+Version: 0.29.18
 Summary: A Dagster integration for dbt
 Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-dbt
 Author-email: Dagster Labs <hello@dagsterlabs.com>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Python: <3.14,>=3.10
-Requires-Dist: dagster==1.13.17
+Requires-Dist: dagster==1.13.18
 Requires-Dist: dbt-core<1.12,>=1.7
 Requires-Dist: gitpython
 Requires-Dist: jinja2

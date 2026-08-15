@@ -9,11 +9,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any
+from typing import Any, Literal, TypeAlias
 from uuid import uuid4
 
 from slackblocks._core import RenderableMixin, resolve
 from slackblocks.elements import (
+    Button,
     ChannelMultiSelectMenu,
     ChannelSelectMenu,
     CheckboxGroup,
@@ -26,13 +27,19 @@ from slackblocks.elements import (
     EmailInput,
     ExternalMultiSelectMenu,
     ExternalSelectMenu,
+    FeedbackButtons,
+    FileInput,
+    IconButton,
+    Image,
     NumberInput,
     PlainTextInput,
     RadioButtonGroup,
     RichTextInput,
     StaticMultiSelectMenu,
     StaticSelectMenu,
+    TimePicker,
     URLInput,
+    URLSource,
     UserMultiSelectMenu,
     UserSelectMenu,
 )
@@ -40,13 +47,17 @@ from slackblocks.errors import (
     InvalidUsageError,
     LengthError,
     MissingRequiredError,
+    MutualExclusivityError,
     TypeMismatchError,
 )
 from slackblocks.objects import (
+    Chart,
     ColumnSettings,
     CompositionObject,
     CompositionObjectType,
+    RawNumber,
     RawText,
+    SlackIcon,
     Text,
     TextLike,
     TextType,
@@ -61,8 +72,10 @@ from slackblocks.rich_text import (
 from slackblocks.utils import (
     coerce_to_list,
     coerce_to_list_nonnull,
+    validate_int,
     validate_string,
     validate_string_nonnull,
+    validate_type,
 )
 
 ALLOWED_INPUT_ELEMENTS = (
@@ -84,7 +97,9 @@ ALLOWED_INPUT_ELEMENTS = (
     UserMultiSelectMenu,
     RichTextInput,
     EmailInput,
+    TimePicker,
     URLInput,
+    FileInput,
 )
 
 
@@ -104,16 +119,25 @@ class BlockType(Enum):
     """
 
     ACTIONS = "actions"
+    ALERT = "alert"
+    CARD = "card"
+    CAROUSEL = "carousel"
+    CONTAINER = "container"
     CONTEXT = "context"
+    CONTEXT_ACTIONS = "context_actions"
+    DATA_TABLE = "data_table"
+    DATA_VISUALIZATION = "data_visualization"
     DIVIDER = "divider"
     FILE = "file"
     HEADER = "header"
     IMAGE = "image"
     INPUT = "input"
     MARKDOWN = "markdown"
+    PLAN = "plan"
     RICH_TEXT = "rich_text"
     SECTION = "section"
     TABLE = "table"
+    TASK_CARD = "task_card"
     VIDEO = "video"
 
 
@@ -125,7 +149,9 @@ class Block(RenderableMixin, ABC):
 
     def __init__(self, type_: BlockType, block_id: str | None = None) -> None:
         self.type = type_
-        self.block_id = block_id if block_id else str(uuid4())
+        self.block_id = validate_string(
+            block_id, "block_id", max_length=255, allow_none=True
+        ) or str(uuid4())
 
     def __add__(self, other: Block):
         return [self, other]
@@ -144,6 +170,11 @@ class Block(RenderableMixin, ABC):
         Reads ``data["type"]`` and dispatches to the matching subclass's
         ``from_dict``.
 
+        Block types that currently round-trip: ``AlertBlock``,
+        ``ContextBlock`` (text elements only), ``DividerBlock``,
+        ``FileBlock``, ``HeaderBlock``, ``ImageBlock``, ``MarkdownBlock``,
+        ``SectionBlock`` (without an accessory), and ``VideoBlock``.
+
         Throws:
             MissingRequiredError: if ``data["type"]`` is absent.
             TypeMismatchError: if ``data["type"]`` is not a recognised
@@ -151,7 +182,13 @@ class Block(RenderableMixin, ABC):
             NotImplementedError: when the block type is recognised but its
                 round-trip parser depends on a part of the API that is not
                 yet implemented (currently: ``RichTextBlock`` and any block
-                containing elements -- see Phase 7.4b and 7.4c).
+                containing nested elements, cards, tasks, charts, or
+                rich text -- ``ActionsBlock``, ``InputBlock``,
+                ``TableBlock``, ``CardBlock``, ``CarouselBlock``,
+                ``ContainerBlock``, ``ContextActionsBlock``,
+                ``DataTableBlock``, ``DataVisualizationBlock``,
+                ``TaskCardBlock``, and ``PlanBlock`` -- see Phase 7.4b
+                and 7.4c).
         """
         if "type" not in data:
             raise MissingRequiredError("Block payload is missing required `type` field.")
@@ -169,16 +206,25 @@ def _block_from_dict_registry() -> dict[str, Any]:
     callables. Built on first call to avoid forward-reference issues."""
     return {
         BlockType.ACTIONS.value: ActionsBlock.from_dict,
+        BlockType.ALERT.value: AlertBlock.from_dict,
+        BlockType.CARD.value: CardBlock.from_dict,
+        BlockType.CAROUSEL.value: CarouselBlock.from_dict,
+        BlockType.CONTAINER.value: ContainerBlock.from_dict,
         BlockType.CONTEXT.value: ContextBlock.from_dict,
+        BlockType.CONTEXT_ACTIONS.value: ContextActionsBlock.from_dict,
+        BlockType.DATA_TABLE.value: DataTableBlock.from_dict,
+        BlockType.DATA_VISUALIZATION.value: DataVisualizationBlock.from_dict,
         BlockType.DIVIDER.value: DividerBlock.from_dict,
         BlockType.FILE.value: FileBlock.from_dict,
         BlockType.HEADER.value: HeaderBlock.from_dict,
         BlockType.IMAGE.value: ImageBlock.from_dict,
         BlockType.INPUT.value: InputBlock.from_dict,
         BlockType.MARKDOWN.value: MarkdownBlock.from_dict,
+        BlockType.PLAN.value: PlanBlock.from_dict,
         BlockType.RICH_TEXT.value: RichTextBlock.from_dict,
         BlockType.SECTION.value: SectionBlock.from_dict,
         BlockType.TABLE.value: TableBlock.from_dict,
+        BlockType.TASK_CARD.value: TaskCardBlock.from_dict,
         BlockType.VIDEO.value: VideoBlock.from_dict,
     }
 
@@ -351,10 +397,7 @@ class HeaderBlock(Block):
 
     def __init__(self, text: str | Text, block_id: str | None = None) -> None:
         super().__init__(type_=BlockType.HEADER, block_id=block_id)
-        if type(text) is Text:
-            self.text = text
-        else:
-            self.text = Text.to_text_nonnull(text=text, force_plaintext=True)
+        self.text = Text.to_text_nonnull(text=text, force_plaintext=True, max_length=150)
 
     def _resolve(self) -> dict[str, Any]:
         return resolve({**self._attributes(), "text": self.text})
@@ -886,4 +929,550 @@ class VideoBlock(Block):
             provider_icon_url=data.get("provider_icon_url"),
             provider_name=data.get("provider_name"),
             title_url=data.get("title_url"),
+        )
+
+
+AlertLevel: TypeAlias = Literal["default", "info", "warning", "error", "success"]
+
+
+class AlertBlock(Block):
+    """
+    A severity-labelled alert displayed in a modal.
+
+    See: <https://docs.slack.dev/reference/block-kit/blocks/alert-block>.
+
+    Args:
+        text: the text to display in the alert (max 200 chars). Can be a
+            string or `Text` object.
+        level: the severity of the alert, one of `default`, `info`,
+            `warning`, `error`, or `success`.
+        block_id: you can use this field to provide a deterministic identifier for the block.
+
+    Throws:
+        InvalidUsageError: if any of the provided arguments fail validation.
+    """
+
+    def __init__(
+        self,
+        text: TextLike,
+        level: AlertLevel = "default",
+        block_id: str | None = None,
+    ) -> None:
+        super().__init__(BlockType.ALERT, block_id)
+        if level not in {"default", "info", "warning", "error", "success"}:
+            raise TypeMismatchError("Unknown alert `level`.")
+        self.text = Text.to_text(text, max_length=200)
+        self.level = level
+
+    def _resolve(self) -> dict[str, Any]:
+        return resolve({**self._attributes(), "text": self.text, "level": self.level})
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> AlertBlock:
+        if "text" not in data:
+            raise MissingRequiredError("AlertBlock payload is missing required `text` field.")
+        return cls(
+            text=Text.from_dict(data["text"]),
+            level=data.get("level", "default"),
+            block_id=data.get("block_id"),
+        )
+
+
+class CardBlock(Block):
+    """
+    A compact card with text, images, and up to three actions. Cards can
+    stand alone or be grouped in a
+    [`CarouselBlock`](/slackblocks/latest/reference/blocks/#blocks.CarouselBlock).
+
+    At least one of `hero_image`, `title`, `actions`, or `body` must be
+    provided.
+
+    See: <https://docs.slack.dev/reference/block-kit/blocks/card-block>.
+
+    Args:
+        hero_image: an `Image` element displayed prominently at the top
+            of the card.
+        icon: an `Image` element displayed as the card's icon. Cannot be
+            combined with `slack_icon`.
+        title: the card's title (max 150 chars). Can be a string or `Text` object.
+        subtitle: the card's subtitle (max 150 chars). Can be a string or `Text` object.
+        body: the card's body text (max 200 chars). Can be a string or `Text` object.
+        actions: up to three `Button` elements presented as card actions.
+        slack_icon: a `SlackIcon` naming a Slack-provided icon. Cannot be
+            combined with `icon`.
+        subtext: additional text displayed at the bottom of the card
+            (max 200 chars). Can be a string or `Text` object.
+        block_id: you can use this field to provide a deterministic identifier for the block.
+
+    Throws:
+        InvalidUsageError: if any of the provided arguments fail validation,
+            or both `icon` and `slack_icon` are provided.
+    """
+
+    def __init__(
+        self,
+        hero_image: Image | None = None,
+        icon: Image | None = None,
+        title: TextLike | None = None,
+        subtitle: TextLike | None = None,
+        body: TextLike | None = None,
+        actions: Button | list[Button] | None = None,
+        slack_icon: SlackIcon | None = None,
+        subtext: TextLike | None = None,
+        block_id: str | None = None,
+    ) -> None:
+        super().__init__(BlockType.CARD, block_id)
+        if icon is not None and slack_icon is not None:
+            raise MutualExclusivityError("`icon` and `slack_icon` cannot both be provided.")
+        self.actions = coerce_to_list(actions, Button, allow_none=True, max_size=3)
+        if hero_image is None and title is None and body is None and not self.actions:
+            raise MissingRequiredError(
+                "CardBlock requires at least one of `hero_image`, `title`, `actions`, or `body`."
+            )
+        self.hero_image = validate_type(hero_image, Image, "hero_image", allow_none=True)
+        self.icon = validate_type(icon, Image, "icon", allow_none=True)
+        self.title = Text.to_text(title, max_length=150, allow_none=True)
+        self.subtitle = Text.to_text(subtitle, max_length=150, allow_none=True)
+        self.body = Text.to_text(body, max_length=200, allow_none=True)
+        self.slack_icon = validate_type(slack_icon, SlackIcon, "slack_icon", allow_none=True)
+        self.subtext = Text.to_text(subtext, max_length=200, allow_none=True)
+
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "hero_image": self.hero_image,
+                "icon": self.icon,
+                "title": self.title,
+                "subtitle": self.subtitle,
+                "body": self.body,
+                "actions": self.actions,
+                "slack_icon": self.slack_icon,
+                "subtext": self.subtext,
+            }
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> CardBlock:
+        raise NotImplementedError(
+            "CardBlock.from_dict requires nested element parsing, which is not implemented."
+        )
+
+
+class CarouselBlock(Block):
+    """
+    A horizontally scrolling group of between 1 and 10
+    [`CardBlocks`](/slackblocks/latest/reference/blocks/#blocks.CardBlock).
+
+    See: <https://docs.slack.dev/reference/block-kit/blocks/carousel-block>.
+
+    Args:
+        elements: a list of between 1 and 10 `CardBlock` objects.
+        block_id: you can use this field to provide a deterministic identifier for the block.
+
+    Throws:
+        InvalidUsageError: if any of the items in `elements` are not
+            `CardBlock` objects, or the number of cards is invalid.
+    """
+
+    def __init__(self, elements: list[CardBlock], block_id: str | None = None) -> None:
+        super().__init__(BlockType.CAROUSEL, block_id)
+        self.elements: list[CardBlock] = coerce_to_list_nonnull(
+            elements, CardBlock, min_size=1, max_size=10
+        )
+
+    def _resolve(self) -> dict[str, Any]:
+        return resolve({**self._attributes(), "elements": self.elements})
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> CarouselBlock:
+        raise NotImplementedError(
+            "CarouselBlock.from_dict requires nested card parsing, which is not implemented."
+        )
+
+
+ContainerWidth: TypeAlias = Literal["narrow", "standard", "wide", "full"]
+
+
+class ContainerBlock(Block):
+    """
+    A titled container grouping up to ten supported child blocks.
+
+    One of `title` or `rich_text_title` must be provided.
+
+    See: <https://docs.slack.dev/reference/block-kit/blocks/container-block>.
+
+    Args:
+        child_blocks: a list of between 1 and 10 blocks to display inside
+            the container. Supported child block types are actions, context,
+            divider, file, header, image, input, rich text, section, table,
+            and video blocks.
+        title: the container's title (plaintext only; max 150 chars).
+        rich_text_title: a `RichTextBlock` used as the container's title in
+            place of `title`.
+        subtitle: the container's subtitle (max 150 chars). Can be a string
+            or `Text` object.
+        width: the width of the container, one of `narrow`, `standard`,
+            `wide`, or `full`.
+        icon: an `Image` element displayed alongside the title.
+        is_collapsible: whether the container can be collapsed by the user.
+        default_collapsed: whether the container is initially collapsed
+            (requires `is_collapsible=True`).
+        has_header_divider: whether a divider is shown under the header
+            (only valid on non-collapsible containers).
+        block_id: you can use this field to provide a deterministic identifier for the block.
+
+    Throws:
+        InvalidUsageError: if any of the provided arguments fail validation,
+            or an unsupported child block type is provided.
+    """
+
+    _CHILD_TYPES = {
+        BlockType.ACTIONS,
+        BlockType.CONTEXT,
+        BlockType.DIVIDER,
+        BlockType.FILE,
+        BlockType.HEADER,
+        BlockType.IMAGE,
+        BlockType.INPUT,
+        BlockType.RICH_TEXT,
+        BlockType.SECTION,
+        BlockType.TABLE,
+        BlockType.VIDEO,
+    }
+
+    def __init__(
+        self,
+        child_blocks: list[Block],
+        title: TextLike | None = None,
+        rich_text_title: RichTextBlock | None = None,
+        subtitle: TextLike | None = None,
+        width: ContainerWidth = "standard",
+        icon: Image | None = None,
+        is_collapsible: bool = False,
+        default_collapsed: bool = False,
+        has_header_divider: bool = False,
+        block_id: str | None = None,
+    ) -> None:
+        super().__init__(BlockType.CONTAINER, block_id)
+        if title is None and rich_text_title is None:
+            raise MissingRequiredError("ContainerBlock requires `title` or `rich_text_title`.")
+        if width not in {"narrow", "standard", "wide", "full"}:
+            raise TypeMismatchError("Unknown container `width`.")
+        if default_collapsed and not is_collapsible:
+            raise InvalidUsageError("`default_collapsed` requires `is_collapsible=True`.")
+        if has_header_divider and is_collapsible:
+            raise InvalidUsageError(
+                "`has_header_divider` is only valid on non-collapsible containers."
+            )
+        self.child_blocks: list[Block] = coerce_to_list_nonnull(
+            child_blocks, Block, min_size=1, max_size=10
+        )
+        if any(block.type not in self._CHILD_TYPES for block in self.child_blocks):
+            raise TypeMismatchError("ContainerBlock contains an unsupported child block type.")
+        self.title = Text.to_text(title, force_plaintext=True, max_length=150, allow_none=True)
+        self.rich_text_title = validate_type(
+            rich_text_title, RichTextBlock, "rich_text_title", allow_none=True
+        )
+        self.subtitle = Text.to_text(subtitle, max_length=150, allow_none=True)
+        self.width = width
+        self.icon = validate_type(icon, Image, "icon", allow_none=True)
+        self.is_collapsible = is_collapsible
+        self.default_collapsed = default_collapsed
+        self.has_header_divider = has_header_divider
+
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "title": self.title,
+                "rich_text_title": self.rich_text_title,
+                "subtitle": self.subtitle,
+                "child_blocks": self.child_blocks,
+                "width": self.width,
+                "icon": self.icon,
+                "is_collapsible": self.is_collapsible,
+                "default_collapsed": self.default_collapsed,
+                "has_header_divider": self.has_header_divider,
+            }
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ContainerBlock:
+        raise NotImplementedError(
+            "ContainerBlock.from_dict requires nested block parsing, which is not implemented."
+        )
+
+
+class ContextActionsBlock(Block):
+    """
+    Up to five feedback or icon actions displayed as contextual controls.
+
+    See: <https://docs.slack.dev/reference/block-kit/blocks/context-actions-block>.
+
+    Args:
+        elements: a list of between 1 and 5 `FeedbackButtons` or
+            `IconButton` elements.
+        block_id: you can use this field to provide a deterministic identifier for the block.
+
+    Throws:
+        InvalidUsageError: if any of the items in `elements` are invalid.
+    """
+
+    def __init__(
+        self,
+        elements: list[FeedbackButtons | IconButton],
+        block_id: str | None = None,
+    ) -> None:
+        super().__init__(BlockType.CONTEXT_ACTIONS, block_id)
+        self.elements: list[FeedbackButtons | IconButton] = coerce_to_list_nonnull(
+            elements, (FeedbackButtons, IconButton), min_size=1, max_size=5
+        )
+
+    def _resolve(self) -> dict[str, Any]:
+        return resolve({**self._attributes(), "elements": self.elements})
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ContextActionsBlock:
+        raise NotImplementedError(
+            "ContextActionsBlock.from_dict requires nested element parsing, which is not implemented."
+        )
+
+
+class DataTableBlock(Block):
+    """
+    A sortable data table containing raw text, raw numbers, or rich text.
+
+    The first row is the header row; header cells cannot contain rich text.
+
+    See: <https://docs.slack.dev/reference/block-kit/blocks/data-table-block>.
+
+    Args:
+        rows: a list of between 2 and 201 rows (one header row plus up to
+            200 data rows), each a list of between 1 and 20 `RawText`,
+            `RawNumber`, or `RichTextBlock` cells. All rows must have the
+            same number of columns, and the combined cell text cannot
+            exceed 20,000 characters.
+        caption: a description of the table for accessibility purposes.
+        page_size: the number of rows displayed per page (between 1 and 100).
+        row_header_column_index: the (zero-based) index of the column to
+            treat as the row header.
+        block_id: you can use this field to provide a deterministic identifier for the block.
+
+    Throws:
+        InvalidUsageError: if any of the provided arguments fail validation.
+    """
+
+    def __init__(
+        self,
+        rows: list[list[RawText | RawNumber | RichTextBlock]],
+        caption: str,
+        page_size: int = 5,
+        row_header_column_index: int = 0,
+        block_id: str | None = None,
+    ) -> None:
+        super().__init__(BlockType.DATA_TABLE, block_id)
+        if len(rows) < 2 or len(rows) > 201:
+            raise LengthError("`rows` must contain between 2 and 201 rows.")
+        column_count = len(rows[0])
+        if column_count < 1 or column_count > 20:
+            raise LengthError("Data table rows must contain between 1 and 20 columns.")
+        for row in rows:
+            if len(row) != column_count:
+                raise InvalidUsageError("All data table rows must have the same number of columns.")
+            for cell in row:
+                if not isinstance(cell, RawText | RawNumber | RichTextBlock):
+                    raise TypeMismatchError("Unsupported data table cell type.")
+                if isinstance(cell, RawText) and len(cell.text) < 1:
+                    raise LengthError("Data table raw text cells cannot be empty.")
+        if any(isinstance(cell, RichTextBlock) for cell in rows[0]):
+            raise TypeMismatchError("Data table header cells cannot contain rich text.")
+        self.page_size = validate_int(page_size, min_value=1, max_value=100)
+        self.row_header_column_index = validate_int(
+            row_header_column_index, min_value=0, max_value=column_count - 1
+        )
+        self.caption = validate_string_nonnull(caption, "caption", min_length=1)
+        self.rows = rows
+        if _text_character_count(resolve(rows)) > 20_000:
+            raise LengthError("Data table cell text cannot exceed 20,000 total characters.")
+
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "rows": self.rows,
+                "page_size": self.page_size,
+                "caption": self.caption,
+                "row_header_column_index": self.row_header_column_index,
+            }
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> DataTableBlock:
+        raise NotImplementedError(
+            "DataTableBlock.from_dict requires nested cell parsing, which is not implemented."
+        )
+
+
+def _text_character_count(value: Any) -> int:
+    if isinstance(value, dict):
+        return sum(
+            len(nested)
+            if key == "text" and isinstance(nested, str)
+            else _text_character_count(nested)
+            for key, nested in value.items()
+        )
+    if isinstance(value, list):
+        return sum(_text_character_count(item) for item in value)
+    return 0
+
+
+class DataVisualizationBlock(Block):
+    """
+    A pie, bar, area, or line chart rendered by Slack.
+
+    See: <https://docs.slack.dev/reference/block-kit/blocks/data-visualization-block>.
+
+    Args:
+        title: the title displayed above the chart (max 50 chars).
+        chart: the chart to render, one of `PieChart`, `BarChart`,
+            `AreaChart`, or `LineChart`.
+        block_id: you can use this field to provide a deterministic identifier for the block.
+
+    Throws:
+        InvalidUsageError: if any of the provided arguments fail validation.
+    """
+
+    def __init__(self, title: str, chart: Chart, block_id: str | None = None) -> None:
+        super().__init__(BlockType.DATA_VISUALIZATION, block_id)
+        self.title = validate_string_nonnull(title, "title", min_length=1, max_length=50)
+        if not isinstance(chart, Chart):
+            raise TypeMismatchError("`chart` must be a pie, bar, area, or line chart.")
+        self.chart = chart
+
+    def _resolve(self) -> dict[str, Any]:
+        return resolve({**self._attributes(), "title": self.title, "chart": self.chart})
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> DataVisualizationBlock:
+        raise NotImplementedError(
+            "DataVisualizationBlock.from_dict requires nested chart parsing, which is not implemented."
+        )
+
+
+TaskStatus: TypeAlias = Literal["pending", "in_progress", "complete", "error"]
+
+
+class TaskCardBlock(Block):
+    """
+    One task, its state, rich-text details or output, and source links.
+    Task cards can stand alone or be grouped in a
+    [`PlanBlock`](/slackblocks/latest/reference/blocks/#blocks.PlanBlock).
+
+    See: <https://docs.slack.dev/reference/block-kit/blocks/task-card-block>.
+
+    Args:
+        task_id: a unique identifier for the task.
+        title: the title of the task.
+        details: a `RichTextBlock` describing the task in detail.
+        output: a `RichTextBlock` containing the output of the task.
+        sources: a list of `URLSource` elements linking to the sources
+            used by the task.
+        status: the state of the task, one of `pending`, `in_progress`,
+            `complete`, or `error`.
+        block_id: you can use this field to provide a deterministic identifier for the block.
+
+    Throws:
+        InvalidUsageError: if any of the provided arguments fail validation.
+    """
+
+    def __init__(
+        self,
+        task_id: str,
+        title: str,
+        details: RichTextBlock | None = None,
+        output: RichTextBlock | None = None,
+        sources: list[URLSource] | None = None,
+        status: TaskStatus | None = None,
+        block_id: str | None = None,
+    ) -> None:
+        super().__init__(BlockType.TASK_CARD, block_id)
+        if status is not None and status not in {"pending", "in_progress", "complete", "error"}:
+            raise TypeMismatchError("Unknown task-card `status`.")
+        self.task_id = validate_string_nonnull(task_id, "task_id", min_length=1)
+        self.title = validate_string_nonnull(title, "title", min_length=1)
+        self.details = validate_type(details, RichTextBlock, "details", allow_none=True)
+        self.output = validate_type(output, RichTextBlock, "output", allow_none=True)
+        self.sources: list[URLSource] | None = coerce_to_list(sources, URLSource, allow_none=True)
+        self.status = status
+
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "task_id": self.task_id,
+                "title": self.title,
+                "details": self.details,
+                "output": self.output,
+                "sources": self.sources,
+                "status": self.status,
+            }
+        )
+
+    def _resolve_for_plan(self) -> dict[str, Any]:
+        payload = self._resolve()
+        payload.pop("type", None)
+        payload.pop("block_id", None)
+        return payload
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> TaskCardBlock:
+        raise NotImplementedError(
+            "TaskCardBlock.from_dict requires nested rich-text parsing, which is not implemented."
+        )
+
+
+class PlanBlock(Block):
+    """
+    A titled sequence of
+    [`TaskCardBlocks`](/slackblocks/latest/reference/blocks/#blocks.TaskCardBlock).
+
+    See: <https://docs.slack.dev/reference/block-kit/blocks/plan-block>.
+
+    Args:
+        title: the title of the plan.
+        tasks: a list of `TaskCardBlock` objects making up the plan.
+        block_id: you can use this field to provide a deterministic identifier for the block.
+
+    Throws:
+        InvalidUsageError: if any of the provided arguments fail validation.
+    """
+
+    def __init__(
+        self,
+        title: str,
+        tasks: list[TaskCardBlock] | None = None,
+        block_id: str | None = None,
+    ) -> None:
+        super().__init__(BlockType.PLAN, block_id)
+        self.title = validate_string_nonnull(title, "title", min_length=1)
+        self.tasks: list[TaskCardBlock] | None = coerce_to_list(
+            tasks, TaskCardBlock, allow_none=True
+        )
+
+    def _resolve(self) -> dict[str, Any]:
+        return resolve(
+            {
+                **self._attributes(),
+                "title": self.title,
+                "tasks": [task._resolve_for_plan() for task in self.tasks]
+                if self.tasks is not None
+                else None,
+            }
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> PlanBlock:
+        raise NotImplementedError(
+            "PlanBlock.from_dict requires nested task parsing, which is not implemented."
         )

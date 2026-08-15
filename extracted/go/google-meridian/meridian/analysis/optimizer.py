@@ -1964,21 +1964,32 @@ class BudgetOptimizer:
           ' new grid will be created.'
       )
       return False
+    if new_data is None:
+      new_data = tensors.DataTensors()
+    required_tensors = c.PERFORMANCE_DATA + (c.TIME,)
+    filled_data = new_data.validate_and_fill_missing_data(
+        required_tensors_names=required_tensors,
+        model_context=self._analyzer.model_context,
+    )
+    time_array = np.asarray(filled_data.time).astype(str)
+    first_date = tc.normalize_date(time_array[0])
+    last_date = tc.normalize_date(time_array[-1])
+
     normalized_start_date = (
-        tc.normalize_date(start_date) if start_date is not None else None
+        tc.normalize_date(start_date) if start_date is not None else first_date
     )
     normalized_start_date_grid = (
         tc.normalize_date(optimization_grid.start_date)
         if optimization_grid.start_date is not None
-        else None
+        else first_date
     )
     normalized_end_date = (
-        tc.normalize_date(end_date) if end_date is not None else None
+        tc.normalize_date(end_date) if end_date is not None else last_date
     )
     normalized_end_date_grid = (
         tc.normalize_date(optimization_grid.end_date)
         if optimization_grid.end_date is not None
-        else None
+        else last_date
     )
     if (
         normalized_start_date != normalized_start_date_grid
@@ -1992,14 +2003,6 @@ class BudgetOptimizer:
           f' {normalized_end_date}. A new grid will be created.'
       )
       return False
-
-    if new_data is None:
-      new_data = tensors.DataTensors()
-    required_tensors = c.PERFORMANCE_DATA + (c.TIME,)
-    filled_data = new_data.validate_and_fill_missing_data(
-        required_tensors_names=required_tensors,
-        model_context=self._analyzer.model_context,
-    )
     paid_channels = (
         self._analyzer.model_context.input_data.get_all_paid_channels()
     )
@@ -2986,7 +2989,7 @@ def get_round_factor(budget: float, gtol: float) -> int:
   Args:
     budget: Float number for total advertising budget.
     gtol: Float indicating the acceptable relative error for the budget used in
-      the grid setup. The budget will be rounded by `10*n`, where `n` is the
+      the grid setup. The budget will be rounded by `10^n`, where `n` is the
       smallest int such that `(budget - rounded_budget) <= (budget * gtol)`.
       `gtol` must be less than 1.
 

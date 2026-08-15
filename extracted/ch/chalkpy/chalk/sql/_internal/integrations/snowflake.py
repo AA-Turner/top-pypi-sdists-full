@@ -33,7 +33,7 @@ from chalk.utils.df_utils import is_list_like, pa_array_to_pl_series
 from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.missing_dependency import missing_dependency_exception
 from chalk.utils.pl_helpers import str_json_decode_compat
-from chalk.utils.threading import DEFAULT_IO_EXECUTOR, MultiSemaphore
+from chalk.utils.threading import DEFAULT_IO_EXECUTOR, MultiSemaphore, shutdown_prefetch_workers
 from chalk.utils.tracing import safe_incr, safe_set_gauge
 
 if TYPE_CHECKING:
@@ -44,15 +44,16 @@ if TYPE_CHECKING:
     from sqlalchemy.sql.ddl import CreateTable, DropTable
     from sqlalchemy.sql.schema import Table
 
-try:
-    import sqlalchemy as sa
-except ImportError:
-    sa = None
 
-if sa is None:
-    _supported_sqlalchemy_types_for_pa_querying = ()
-else:
-    _supported_sqlalchemy_types_for_pa_querying = (
+@functools.cache
+def _get_supported_sqlalchemy_types_for_pa_querying() -> tuple[type, ...]:
+    """Return SQLAlchemy types supported by Snowflake Arrow execution."""
+    try:
+        import sqlalchemy as sa
+    except ImportError:
+        return ()
+
+    return (
         sa.BigInteger,
         sa.Boolean,
         sa.BINARY,
@@ -567,6 +568,7 @@ class SnowflakeSourceImpl(BaseSQLSource):
                     x = result_handles.get_nowait()
                 except queue.Empty:
                     break
+                acquired = 0
                 weight = x.estimated_uncompressed_size
                 as_arrow = None
                 if weight is None:
@@ -581,16 +583,26 @@ class SnowflakeSourceImpl(BaseSQLSource):
                         # No need to acquire the semaphore for empty tables
                         if not sem.acquire(weight):
                             raise RuntimeError("Failed to acquire semaphore for snowflake download")
+                        acquired = weight
                         safe_set_gauge("chalk.snowflake.remaining_prefetch_bytes", sem.get_value())
-                if as_arrow is None:
-                    with self.get_engine().connect() as connection:
-                        # Reusing an existing connection from the pool to avoid re-establishing sessions, tls handshakes, etc...
-                        snowflake_cnx = cast(
-                            "SnowflakeConnection",
-                            connection.connection.dbapi_connection,
-                        )
-                        as_arrow = x.to_arrow(snowflake_cnx)
-                pa_table_queue.put((as_arrow, weight))
+                try:
+                    if as_arrow is None:
+                        with self.get_engine().connect() as connection:
+                            # Reusing an existing connection from the pool to avoid re-establishing sessions, tls handshakes, etc...
+                            snowflake_cnx = cast(
+                                "SnowflakeConnection",
+                                connection.connection.dbapi_connection,
+                            )
+                            as_arrow = x.to_arrow(snowflake_cnx)
+                    pa_table_queue.put((as_arrow, weight))
+                    # The consumer owns the weight now, and releases it once it has yielded the chunk.
+                    acquired = 0
+                finally:
+                    # A failed download never reaches the queue, so nobody downstream would ever
+                    # release its weight. Hand it back here instead of shrinking the budget for
+                    # the rest of this query.
+                    if sem is not None and acquired > 0:
+                        sem.release(acquired)
         finally:
             # At the end, putting the worker id to signal that this worker is done
             pa_table_queue.put(worker_idx)
@@ -611,7 +623,9 @@ class SnowflakeSourceImpl(BaseSQLSource):
         from sqlalchemy.sql import Select
 
         if isinstance(finalized_query.query, Select):
-            validate_dtypes_for_efficient_execution(finalized_query.query, _supported_sqlalchemy_types_for_pa_querying)
+            validate_dtypes_for_efficient_execution(
+                finalized_query.query, _get_supported_sqlalchemy_types_for_pa_querying()
+            )
 
         result_handles: queue.Queue[ResultHandle] = queue.Queue()  # Using a queue since we'll be concurrently reading
         with (
@@ -748,42 +762,45 @@ class SnowflakeSourceImpl(BaseSQLSource):
             for i in range(query_execution_parameters.num_client_prefetch_threads)
         }
         schema: pa.Schema | None = None
-        while len(futures) > 0:
-            x = pa_table_queue.get()
-            if isinstance(x, int):
-                # It's a _WorkerId, meaning that this download worker is done
-                # We'll pop this worker from the futures list, and then await the result
-                # This will raise if the download worker crashed, which is what we want, or be a no-op if the download worker succeeded
-                futures.pop(x).result()
-                continue
-            tbl, weight = x
-            if schema is None:
-                schema = tbl.schema
-            try:
-                if len(tbl) == 0:
+        try:
+            while len(futures) > 0:
+                x = pa_table_queue.get()
+                if isinstance(x, int):
+                    # It's a _WorkerId, meaning that this download worker is done
+                    # We'll pop this worker from the futures list, and then await the result
+                    # This will raise if the download worker crashed, which is what we want, or be a no-op if the download worker succeeded
+                    futures.pop(x).result()
                     continue
-                assert isinstance(tbl, pa.Table)
-                features = columns_to_features(tbl.schema.names)
-                yield self._postprocess_table(features, tbl)
-                safe_incr("chalk.snowflake.downloaded_bytes", tbl.nbytes or 0)
-                safe_incr("chalk.snowflake.downloaded_rows", tbl.num_rows or 0)
-                yielded = True
-            finally:
-                # Releasing the semaphore post-yield to better respect the limit
-                if sem is not None and weight > 0:
-                    sem.release(weight)
-                    safe_set_gauge("chalk.snowflake.remaining_prefetch_bytes", sem.get_value())
-        if not yielded and query_execution_parameters.yield_empty_batches:
-            if schema is not None:
-                features = columns_to_features(schema.names)
-                yield pa.RecordBatch.from_arrays(
-                    arrays=[[] for _ in features],
-                    names=[x.root_fqn for x in features.values()],
-                )
-                return
-            elif empty_batch_with_schema is not None:
-                features = columns_to_features(empty_batch_with_schema.schema.names)
-                yield self._postprocess_table(features, empty_batch_with_schema)
+                tbl, weight = x
+                if schema is None:
+                    schema = tbl.schema
+                try:
+                    if len(tbl) == 0:
+                        continue
+                    assert isinstance(tbl, pa.Table)
+                    features = columns_to_features(tbl.schema.names)
+                    yield self._postprocess_table(features, tbl)
+                    safe_incr("chalk.snowflake.downloaded_bytes", tbl.nbytes or 0)
+                    safe_incr("chalk.snowflake.downloaded_rows", tbl.num_rows or 0)
+                    yielded = True
+                finally:
+                    # Releasing the semaphore post-yield to better respect the limit
+                    if sem is not None and weight > 0:
+                        sem.release(weight)
+                        safe_set_gauge("chalk.snowflake.remaining_prefetch_bytes", sem.get_value())
+            if not yielded and query_execution_parameters.yield_empty_batches:
+                if schema is not None:
+                    features = columns_to_features(schema.names)
+                    yield pa.RecordBatch.from_arrays(
+                        arrays=[[] for _ in features],
+                        names=[x.root_fqn for x in features.values()],
+                    )
+                    return
+                elif empty_batch_with_schema is not None:
+                    features = columns_to_features(empty_batch_with_schema.schema.names)
+                    yield self._postprocess_table(features, empty_batch_with_schema)
+        finally:
+            shutdown_prefetch_workers(result_handles, pa_table_queue, sem, futures)
 
     def execute_query_efficient_raw(
         self,
@@ -797,7 +814,9 @@ class SnowflakeSourceImpl(BaseSQLSource):
         from sqlalchemy.sql import Select
 
         if isinstance(finalized_query.query, Select):
-            validate_dtypes_for_efficient_execution(finalized_query.query, _supported_sqlalchemy_types_for_pa_querying)
+            validate_dtypes_for_efficient_execution(
+                finalized_query.query, _get_supported_sqlalchemy_types_for_pa_querying()
+            )
 
         result_handles: queue.Queue[ResultHandle] = queue.Queue()
         with (

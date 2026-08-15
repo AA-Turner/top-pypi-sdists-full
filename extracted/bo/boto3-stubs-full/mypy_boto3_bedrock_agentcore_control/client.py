@@ -421,6 +421,7 @@ class Exceptions(BaseClientExceptions):
     RetryableConflictException: type[BotocoreClientError]
     ServiceException: type[BotocoreClientError]
     ServiceQuotaExceededException: type[BotocoreClientError]
+    SubscriptionRequiredException: type[BotocoreClientError]
     ThrottledException: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
     UnauthorizedException: type[BotocoreClientError]

@@ -596,6 +596,7 @@ def _enrich_metadata_release(
     metadata_file: Path,
     *,
     pr_number: int | None = None,
+    with_github_lookup: bool = True,
 ) -> dict[str, Any]:
     """Inject `data.generated.release` into the metadata dict."""
     try:
@@ -616,6 +617,7 @@ def _enrich_metadata_release(
             metadata_file,
             pr_number=pr_number,
             is_prerelease=is_prerelease,
+            with_github_lookup=with_github_lookup,
         )
     except (
         OSError,
@@ -702,6 +704,7 @@ def generate_version_artifacts(
     with_dependency_dump: bool = True,
     with_sbom: bool = True,
     pr_number: int | None = None,
+    with_github_lookup: bool = True,
 ) -> GenerateResult:
     """Generate all version artifacts for a connector release.
 
@@ -721,6 +724,8 @@ def generate_version_artifacts(
             for Python connectors.  Pass `False` (`--no-dependency-dump`) to skip.
         with_sbom: If `True` (default), generate `spdx.json` (SBOM) for
             connectors.  Pass `False` (`--no-sbom`) to skip.
+        with_github_lookup: If `True` (default), resolve publish PR authors
+            through GitHub GraphQL when a PR number is available.
 
     Returns:
         A `GenerateResult` describing what was produced.
@@ -782,6 +787,7 @@ def generate_version_artifacts(
         raw_metadata,
         metadata_file,
         pr_number=pr_number,
+        with_github_lookup=with_github_lookup,
     )
 
     # --- Generate SBOM from the connector Docker image ---

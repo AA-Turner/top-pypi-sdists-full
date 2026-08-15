@@ -52,7 +52,7 @@ dev = [
 'pytest==9.1.1',
 'pytest-cov==7.1.0',
 'pytest-benchmark==5.2.3',
-'hypothesis==6.165.1',
+'hypothesis==6.165.2',
 'ruff==0.16.1',
 'setuptools==83.0.0',
 'tox==4.58.0',
@@ -69,7 +69,13 @@ rust = [
     # the same git tag.  Lower bound matches the current minor; upper
     # bound clamps to the next major so a future `abnf-rust` release
     # with a breaking change can't silently come in via the extra.
-    'abnf-rust>=2.5,<3',
+    #
+    # The floor can only name a version that is already on PyPI: the
+    # release workflow resolves this dependency (via `uv export`, for
+    # the SBOM) *before* publishing, so naming the version being
+    # released makes the release unbuildable.  Raise it in the cycle
+    # after the one that introduces the requirement, never in it.
+    'abnf-rust>=2.7,<3',
 ]
 # Documentation toolchain (Sphinx + MyST for Markdown prose + autodoc for the
 # API reference from docstrings).  Kept separate from `dev` so running the test

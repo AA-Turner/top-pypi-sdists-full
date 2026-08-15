@@ -686,21 +686,25 @@ def get_rattler_keyring_auth(netloc: str) -> tuple[str, str] | None:
 
         return None
 
-    # Try exact match first
-    auth_parts = try_keyring_auth(netloc)
-    if auth_parts:
-        logger.debug(f"Found rattler keyring auth for {netloc}")
-        return auth_parts
+    # Keyring lookups are by exact key, so unlike the file-based store we can't scan for
+    # wildcards, we have to construct them. rattler tries the exact host, then walks up the
+    # domain trying `*.<domain>` at each level: `pixi auth login prefix.dev` is stored as
+    # `*.prefix.dev` and authenticates any subdomain, e.g. repo.prefix.dev. We also keep
+    # trying bare parent domains, which rattler doesn't do, but which we've always done.
+    candidates = [netloc]
+    domain = netloc
+    while True:
+        candidates.append(f"*.{domain}")
+        if "." not in domain:
+            break
+        domain = domain.split(".", 1)[1]
+        if "." in domain:  # bare parent domain, but never a bare TLD
+            candidates.append(domain)
 
-    # Try parent domain matches if exact match failed
-    # If looking for foo.example.com, try example.com (but not com)
-    parts = netloc.split(".")
-    for i in range(1, len(parts) - 1):  # Stop before single TLD
-        parent_domain = ".".join(parts[i:])
-
-        auth_parts = try_keyring_auth(parent_domain)
+    for candidate in candidates:
+        auth_parts = try_keyring_auth(candidate)
         if auth_parts:
-            logger.debug(f"Found rattler keyring auth for {parent_domain} (matching {netloc})")
+            logger.debug(f"Found rattler keyring auth for {candidate} (matching {netloc})")
             return auth_parts
 
     logger.debug(f"No rattler keyring auth found for {netloc}")

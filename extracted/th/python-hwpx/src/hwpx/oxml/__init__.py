@@ -21,13 +21,22 @@ from .body import (
 from .common import GenericElement, parse_generic_element
 
 from .header_part import HwpxOxmlHeader
+from .history_part import DiffNode, History, HistoryEntry
+from .master_page import MasterPage
 from .memo import HwpxOxmlMemo, HwpxOxmlMemoGroup, HwpxOxmlNote
 from .numbering import DocumentNumbering, SectionStartNumbering
-from .objects import HwpxOxmlInlineObject, HwpxOxmlShape
+from .objects import Caption, ContainerMember, DrawText, HwpxOxmlInlineObject, HwpxOxmlShape
 from .paragraph import HwpxOxmlParagraph
 from .run import HwpxOxmlRun, RunStyle
 from .section import HwpxOxmlSection, HwpxOxmlSectionHeaderFooter, HwpxOxmlSectionProperties
-from .simple_parts import HwpxOxmlHistory, HwpxOxmlMasterPage, HwpxOxmlVersion
+from .settings import ApplicationSettings, CaretPosition, ConfigItem, ConfigItemSet
+from .simple_parts import (
+    HwpxOxmlHistory,
+    HwpxOxmlMasterPage,
+    HwpxOxmlSettings,
+    HwpxOxmlVersion,
+)
+from .version_part import HcfVersion
 from .table import HwpxOxmlTable, HwpxOxmlTableCell, HwpxOxmlTableRow, HwpxTableGridPosition
 
 from .document import (
@@ -44,6 +53,7 @@ from .header import (
     BulletParaHead,
     CharProperty,
     CharPropertyList,
+    CompatibleDocument,
     DocOption,
     Font,
     FontFace,
@@ -54,6 +64,7 @@ from .header import (
     Header,
     KeyDerivation,
     KeyEncryption,
+    LayoutCompatibility,
     LinkInfo,
     LicenseMark,
     MemoProperties,
@@ -68,10 +79,17 @@ from .header import (
     ParagraphMargin,
     ParagraphProperty,
     ParagraphPropertyList,
+    ParagraphPropertyVersionBranch,
+    ParagraphPropertyVersionSwitch,
     RefList,
     Style,
     StyleList,
+    TabDefinition,
+    TabDefinitionList,
+    TabDefinitionVersionBranch,
+    TabDefinitionVersionSwitch,
     TabProperties,
+    TabStop,
     TrackChange,
     TrackChangeAuthor,
     TrackChangeAuthorList,
@@ -96,6 +114,8 @@ from .header import (
     parse_paragraph_margin,
     parse_paragraph_property,
     parse_paragraph_properties,
+    parse_paragraph_property_version_branch,
+    parse_paragraph_property_version_switch,
     parse_ref_list,
     parse_style,
     parse_styles,
@@ -116,9 +136,18 @@ __all__ = [
     "Bullet",
     "BulletList",
     "BulletParaHead",
+    "ApplicationSettings",
+    "CaretPosition",
+    "Caption",
+    "ContainerMember",
     "CharProperty",
     "CharPropertyList",
+    "CompatibleDocument",
+    "ConfigItem",
+    "ConfigItemSet",
+    "DiffNode",
     "DocOption",
+    "DrawText",
     "Font",
     "FontFace",
     "FontFaceList",
@@ -126,7 +155,10 @@ __all__ = [
     "FontTypeInfo",
     "ForbiddenWordList",
     "GenericElement",
+    "HcfVersion",
     "Header",
+    "History",
+    "HistoryEntry",
     "DocumentNumbering",
     "HwpxOxmlDocument",
     "HwpxOxmlHeader",
@@ -141,6 +173,7 @@ __all__ = [
     "HwpxOxmlSection",
     "HwpxOxmlSectionHeaderFooter",
     "HwpxOxmlSectionProperties",
+    "HwpxOxmlSettings",
     "HwpxOxmlShape",
     "HwpxOxmlTable",
     "HwpxOxmlTableCell",
@@ -149,8 +182,10 @@ __all__ = [
     "HwpxOxmlVersion",
     "KeyDerivation",
     "KeyEncryption",
+    "LayoutCompatibility",
     "LinkInfo",
     "LicenseMark",
+    "MasterPage",
     "MemoProperties",
     "MemoShape",
     "NumberingList",
@@ -163,6 +198,8 @@ __all__ = [
     "ParagraphMargin",
     "ParagraphProperty",
     "ParagraphPropertyList",
+    "ParagraphPropertyVersionBranch",
+    "ParagraphPropertyVersionSwitch",
     "Paragraph",
     "PageMargins",
     "PageSize",
@@ -174,7 +211,12 @@ __all__ = [
     "SectionStartNumbering",
     "Style",
     "StyleList",
+    "TabDefinition",
+    "TabDefinitionList",
+    "TabDefinitionVersionBranch",
+    "TabDefinitionVersionSwitch",
     "TabProperties",
+    "TabStop",
     "TrackChange",
     "TrackChangeAuthor",
     "TrackChangeAuthorList",
@@ -204,6 +246,8 @@ __all__ = [
     "parse_paragraph_margin",
     "parse_paragraph_property",
     "parse_paragraph_properties",
+    "parse_paragraph_property_version_branch",
+    "parse_paragraph_property_version_switch",
     "parse_header_xml",
     "parse_paragraph_element",
     "parse_ref_list",

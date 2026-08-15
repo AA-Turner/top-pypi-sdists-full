@@ -130,7 +130,27 @@ _CAPABILITY_AREAS: tuple[dict[str, Any], ...] = (
         "area": "curve-objects",
         "namespace": "doc.shapes",
         "matrix_row": "arc·polygon·curve·connectLine",
-        "entry_points": (),
+        # 6.4: add_polygon() ships as doc.shapes-only by design (no root
+        # _legacy shim — that surface only grandfathers pre-6.0 names, see
+        # docs/support-matrix.md). It therefore never appears in
+        # dir(HwpxDocument), so it cannot go in authoring_methods (the guard
+        # in test_capabilities_surface.py compares this list against that
+        # dir() and would flag it as phantom). entry_points still updates
+        # because the field it drives (the public JSON's entryPoints) is
+        # about where the capability starts, and doc.shapes hangs off
+        # HwpxDocument regardless of the legacy-shim question.
+        "entry_points": ("hwpx.document:HwpxDocument",),
+        "authoring_methods": (),
+    },
+    {
+        "area": "container-authoring",
+        "namespace": "doc.shapes",
+        "matrix_row": "그룹 개체(컨테이너)",
+        # 6.5: add_container() ships as doc.shapes-only, same reasoning as
+        # add_polygon()/add_arc() above — no root _legacy shim for a
+        # post-6.0 capability, so it never appears in dir(HwpxDocument) and
+        # cannot go in authoring_methods (see curve-objects' comment).
+        "entry_points": ("hwpx.document:HwpxDocument",),
         "authoring_methods": (),
     },
     {
@@ -155,11 +175,36 @@ _CAPABILITY_AREAS: tuple[dict[str, Any], ...] = (
         "authoring_methods": ("add_equation",),
     },
     {
+        "area": "drop-cap",
+        "namespace": "doc.shapes",
+        "matrix_row": "문단 첫 글자 장식(드롭캡)",
+        "entry_points": ("hwpx.document:HwpxDocument",),
+        # 6.0 이후 신규 메서드(add_chart/add_equation과 달리 5.x 표면에
+        # 없었다)는 루트 레거시 shim을 받지 않고 doc.shapes에만 산다 --
+        # dir(HwpxDocument)에 add_drop_cap이 없으므로(document-metadata의
+        # doc.parts-only 선례와 같은 이유로) authoring_methods=().
+        "authoring_methods": (),
+    },
+    {
         "area": "redline",
         "namespace": "doc.tracking",
         "matrix_row": "변경추적(redline)",
         "entry_points": ("hwpx.tools.redline:verify_redline",),
         "authoring_methods": ("add_track_change", "add_tracked_insert", "add_tracked_delete", "add_tracked_replace"),
+    },
+    {
+        "area": "highlight",
+        "namespace": "doc.text",
+        "matrix_row": "형광펜(하이라이트)",
+        "entry_points": ("hwpx.document:HwpxDocument",),
+        "authoring_methods": (),
+    },
+    {
+        "area": "border-fill-image-gradient",
+        "namespace": "doc.styles",
+        "matrix_row": "테두리 채우기(이미지·그라데이션)",
+        "entry_points": ("hwpx.document:HwpxDocument",),
+        "authoring_methods": (),
     },
     {
         "area": "memo",
@@ -180,7 +225,32 @@ _CAPABILITY_AREAS: tuple[dict[str, Any], ...] = (
         "namespace": "doc.refs",
         "matrix_row": "네이티브 목차(TOC)/상호참조",
         "entry_points": ("hwpx.tools.toc_author:add_native_toc",),
-        "authoring_methods": ("add_bookmark", "add_hyperlink"),
+        # 6.8 트레인㉚: add_bookmark/add_hyperlink는 여기 있었으나(오귀속),
+        # 이 영역의 지원 매트릭스 근거는 TOC 얘기뿐(구조 15/15·페이지 정합
+        # 5/5) -- 하이퍼링크·책갈피는 독립 실한컴 검증 이력이 없다. 편집기
+        # 표면 인벤토리(트레인㉙)가 찾아낸, 요소 축이 아니라 캐파빌리티
+        # 영역 축에서 일어난 "혼합 지원 영역 오염"과 동형인 문제라 별도
+        # 영역("hyperlink-bookmark")으로 분리했다.
+        "authoring_methods": (),
+    },
+    {
+        "area": "title-mark",
+        "namespace": "doc.refs",
+        "matrix_row": "차례 숨기기·제목 차례 표시",
+        # 6.15 트레인 — DEV-044(hp:titleMark, 스키마는 구조 선언·의미는
+        # 미문서화). 6.13/6.14는 캐럿 문단 타겟팅을 실측할 수단이 없어
+        # 저작 보류였으나(자동화가 캔버스 클릭·키 입력 둘 다 못 닿음),
+        # 6.15 박스 COM `SetPos`+`MarkTitle`/`HideTitle` 3변형이 타겟팅을
+        # 확정했다 — 마크는 항상 캐럿 문단에 들어간다. add_title_mark는
+        # HwpxOxmlParagraph에만 있다(HwpxDocument 루트에는 없음, dir()로
+        # 직접 확인) — master-page/field_marks와 같은 이유로
+        # authoring_methods=()(루트 add_* 대조 가드가 phantom으로 잡음).
+        # toc-crossref와 네임스페이스는 같으나(둘 다 차례 관련) entry_points가
+        # 다른 진입 경로(hwpx.tools.toc_author 모듈 함수 vs 문단 메서드)라
+        # 별도 영역으로 분리 — toc-crossref의 "혼합 지원 영역 오염" 방지
+        # 원칙과 같은 이유.
+        "entry_points": ("hwpx.document:HwpxDocument",),
+        "authoring_methods": (),
     },
     {
         "area": "encrypted-hwpx",
@@ -209,6 +279,158 @@ _CAPABILITY_AREAS: tuple[dict[str, Any], ...] = (
         "matrix_row": "체크박스 양식개체",
         "entry_points": ("hwpx.document:HwpxDocument",),
         "authoring_methods": ("add_check_box",),
+    },
+    {
+        "area": "document-options-compatibility",
+        "namespace": "doc.parts",
+        "matrix_row": "문서 옵션·호환성",
+        # 6.6: set_compatible_document_target_program()/set_layout_
+        # compatibility_flags()/set_doc_option_link_info()/
+        # set_paragraph_auto_spacing() ship as doc.parts-only, same
+        # no-root-shim reasoning as container-authoring/curve-objects above
+        # — post-6.0 capability, so it never appears in dir(HwpxDocument).
+        "entry_points": ("hwpx.document:HwpxDocument",),
+        "authoring_methods": (),
+    },
+    # 6.8 트레인㉚ 이하 7개 -- 편집기 표면 인벤토리(트레인㉙)가 찾은, 실제로
+    # 동작하는데 캐파빌리티 추적이 전혀 없던 기능들을 등재한다. authoring_
+    # methods를 전부 ()로 비운 것은 의도적이다: test_capabilities_surface.py
+    # ::test_registry_covers_every_authoring_method_on_the_facade가 add_*
+    # 이름만 대조하는데(코드 확인됨), 이 7개 영역의 실제 진입점(set_*/
+    # ensure_*/bullet/replace/fill_by_path 등)은 전부 add_*가 아니라서
+    # 여기 넣으면 "존재하지 않는 메서드를 주장"하는 phantom으로 잡힌다 —
+    # add_hyperlink/add_bookmark를 옮겨받은 hyperlink-bookmark만 예외.
+    {
+        "area": "page-layout",
+        "namespace": "doc.page",
+        "matrix_row": "페이지 레이아웃(용지·여백·머리말/꼬리말·쪽번호·단·줄번호·격자·요소 숨김)",
+        "entry_points": ("hwpx.document:HwpxDocument",),
+        "authoring_methods": (),
+    },
+    {
+        "area": "character-formatting",
+        "namespace": "doc.styles",
+        "matrix_row": "문자 서식(굵게·기울임·밑줄·글꼴·크기·색 등)",
+        "entry_points": ("hwpx.document:HwpxDocument",),
+        "authoring_methods": (),
+    },
+    {
+        "area": "list-formatting",
+        "namespace": "doc.styles",
+        "matrix_row": "목록 서식(글머리표·번호매기기)",
+        "entry_points": ("hwpx.document:HwpxDocument",),
+        "authoring_methods": (),
+    },
+    {
+        "area": "font-registration",
+        "namespace": "doc.styles",
+        "matrix_row": "글꼴 등록",
+        "entry_points": ("hwpx.document:HwpxDocument",),
+        "authoring_methods": (),
+    },
+    {
+        "area": "table-navigation-fill",
+        "namespace": "doc.tables",
+        "matrix_row": "표 탐색 기반 채움(라벨 매칭 네비게이션)",
+        "entry_points": ("hwpx.document:HwpxDocument",),
+        "authoring_methods": (),
+    },
+    {
+        "area": "find-replace",
+        "namespace": "doc.text",
+        "matrix_row": "찾아바꾸기",
+        "entry_points": ("hwpx.document:HwpxDocument",),
+        "authoring_methods": (),
+    },
+    {
+        "area": "hyperlink-bookmark",
+        "namespace": "doc.refs",
+        "matrix_row": "하이퍼링크·책갈피",
+        "entry_points": ("hwpx.document:HwpxDocument",),
+        "authoring_methods": ("add_bookmark", "add_hyperlink"),
+    },
+    {
+        "area": "mail-merge",
+        "namespace": None,
+        "matrix_row": "메일머지(placeholder 템플릿 배치 생성)",
+        # 6.8 트레인㉚가 찾은 신규 측정 갭, 트레인㉛에서 등재. HwpxDocument
+        # 어느 네임스페이스에도 없다(순수 hwpx.tools 모듈 함수 — 이미 연
+        # 문서가 아니라 템플릿 파일 경로를 받아 여러 문서를 배치 생성) —
+        # edit-plan과 같은 이유로 namespace=None, 모듈 진입점만 갖는다.
+        "entry_points": ("hwpx.tools.mail_merge:merge_template_rows",),
+        "authoring_methods": (),
+    },
+    {
+        "area": "document-merge",
+        "namespace": None,
+        "matrix_row": "문서 끼워 넣기(문서 병합)",
+        # 6.9 트레인㉝ — 편집기 표면 인벤토리(트레인㉙)의 macOS 메뉴 전수
+        # 스캔이 찾은 신규 갭("입력→문서 끼워 넣기…"). mail-merge와 같은
+        # 이유로 namespace=None, 순수 hwpx.tools 모듈 함수(연 문서에 다른
+        # 문서의 본문을 헤더 참조 재매핑과 함께 끼워 넣는다 — 새 요소를
+        # 만드는 게 아니라 기존 요소를 헤더 공유 자원 재매핑과 함께
+        # 복사하는 구조라 coverage_ledger 요소 등록은 없다, mail-merge·
+        # table-navigation-fill·find-replace와 같은 원칙).
+        "entry_points": (
+            "hwpx.tools.document_merge:append_document",
+            "hwpx.tools.document_merge:insert_document",
+        ),
+        "authoring_methods": (),
+    },
+    {
+        "area": "dutmal-compose",
+        "namespace": "doc.shapes",
+        "matrix_row": "덧말·글자 겹치기",
+        # 6.9 트레인㉞ — add_dutmal()/add_composed_character() ship as
+        # doc.shapes-only, same reasoning as add_polygon()/add_arc()/
+        # add_container() above — no root _legacy shim for a post-6.0
+        # capability, so neither appears in dir(HwpxDocument) and cannot go
+        # in authoring_methods (see curve-objects' comment).
+        "entry_points": ("hwpx.document:HwpxDocument",),
+        "authoring_methods": (),
+    },
+    {
+        "area": "document-metadata",
+        "namespace": "doc.parts",
+        "matrix_row": "문서 정보(메타데이터)",
+        # 6.12 트레인㊸ — 편집기 메뉴 표면 역매핑(트레인㊷)이 찾은 신규 갭
+        # ("파일→문서 정보…"). doc.parts.metadata(읽기)/.set_document_
+        # metadata(쓰기)는 doc.parts-only, document-options-compatibility와
+        # 같은 이유로 authoring_methods=()(set_* 이름이라 add_* 대조
+        # 가드가 phantom으로 잡음).
+        "entry_points": ("hwpx.document:HwpxDocument",),
+        "authoring_methods": (),
+    },
+    {
+        "area": "master-page",
+        "namespace": "doc.parts",
+        "matrix_row": "바탕쪽",
+        # 6.13 트레인㊻ — 편집기 메뉴 표면 역매핑(트레인㊷)이 [부분 대응]
+        # (읽기만, 쓰기 없음)으로 지목한 갭. doc.parts.add_master_page는
+        # add_*로 이름 붙었지만 doc.parts-only(HwpxDocument 루트에는 없음,
+        # dir()로 직접 확인) — drop-cap과 같은 이유로
+        # authoring_methods=()(루트 add_* 대조 가드가 phantom으로 잡음).
+        "entry_points": ("hwpx.document:HwpxDocument",),
+        "authoring_methods": (),
+    },
+    {
+        "area": "date-time-proofreading-mark-fields",
+        "namespace": "doc.fields",
+        "matrix_row": "날짜/시간·교정 부호·파일 이름 필드",
+        # 6.13 트레인㊻ — 팀장 실한컴 macOS GUI 프로브①③(2026-08-11)의
+        # gold를 직접 역설계. add_date_field/add_proofreading_mark는
+        # HwpxOxmlParagraph에만 있다(HwpxDocument 루트에는 없음, dir()로
+        # 직접 확인) — master-page/dutmal-compose와 같은 이유로
+        # authoring_methods=()(루트 add_* 대조 가드가 phantom으로 잡음).
+        # hp:fieldBegin 계열이라 form-field-create/check-box와 같은
+        # doc.fields 네임스페이스를 공유(같은 XML 메커니즘, 다른
+        # FieldType 값). 6.14 트레인㊽b — add_path_field(type=PATH)도
+        # 같은 field_marks.py·같은 hp:fieldBegin 계열이라 별도 영역을
+        # 안 만들고 이 영역에 합류(행 제목도 갱신) — 실 코퍼스(트레인㊺가
+        # 이미 확보, markdown_export/99_all_in_one_stress.hwpx)만으로
+        # 계약이 나와 GUI 프로브 불필요했다.
+        "entry_points": ("hwpx.document:HwpxDocument",),
+        "authoring_methods": (),
     },
 )
 

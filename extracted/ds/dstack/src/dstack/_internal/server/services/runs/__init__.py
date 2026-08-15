@@ -19,6 +19,7 @@ from dstack._internal.core.errors import (
     ServerClientError,
 )
 from dstack._internal.core.models.common import ApplyAction, validate_json_extra_ignore
+from dstack._internal.core.models.gateways import GatewayReplicaStatus
 from dstack._internal.core.models.profiles import (
     RetryEvent,
 )
@@ -55,6 +56,7 @@ from dstack._internal.server.models import (
 from dstack._internal.server.services import events, services
 from dstack._internal.server.services import projects as projects_services
 from dstack._internal.server.services import repos as repos_services
+from dstack._internal.server.services.gateways import get_gateway_compute_models
 from dstack._internal.server.services.jobs import (
     check_can_attach_job_volumes,
     get_job_configured_volumes,
@@ -68,10 +70,6 @@ from dstack._internal.server.services.locking import get_locker, string_to_lock_
 from dstack._internal.server.services.pipelines import PipelineHinterProtocol
 from dstack._internal.server.services.plugins import apply_plugin_policies
 from dstack._internal.server.services.probes import is_probe_ready
-from dstack._internal.server.services.resources import (
-    set_gpu_vendor_default,
-    set_resources_defaults,
-)
 from dstack._internal.server.services.runs.plan import get_job_plans
 from dstack._internal.server.services.runs.service_router_worker_sync import (
     ensure_service_router_worker_sync_row,
@@ -79,6 +77,7 @@ from dstack._internal.server.services.runs.service_router_worker_sync import (
 from dstack._internal.server.services.runs.spec import (
     can_update_run_spec,
     check_can_update_run_spec,
+    set_run_spec_resources_defaults,
     validate_run_spec_and_set_defaults,
 )
 from dstack._internal.server.services.secrets import get_project_secrets_mapping
@@ -154,6 +153,28 @@ def get_run_status_change_message(
 
 def get_run_spec(run_model: RunModel) -> RunSpec:
     return validate_json_extra_ignore(RunSpec, run_model.run_spec)
+
+
+def gateway_registration_failed(run_model: RunModel) -> bool:
+    if run_model.gateway is None:
+        return False
+    running_gateway_replica_ids = {
+        replica.id
+        for replica in get_gateway_compute_models(run_model.gateway)
+        if replica.status == GatewayReplicaStatus.RUNNING
+    }
+    if not running_gateway_replica_ids:
+        return False
+    registration_by_replica_id = {r.gateway_replica_id: r for r in run_model.service_registrations}
+    for replica_id in running_gateway_replica_ids:
+        registration = registration_by_replica_id.get(replica_id)
+        if (
+            registration is None
+            or registration.is_registered
+            or registration.register_attempt == 0
+        ):
+            return False
+    return True
 
 
 async def list_user_runs(
@@ -562,7 +583,7 @@ async def get_plan(
         if current_resource is not None:
             # For backward compatibility (current_resource may has been submitted before
             # some fields, e.g., CPUSpec.arch, gpu.vendor were added)
-            _set_run_resources_defaults(current_resource.run_spec)
+            set_run_spec_resources_defaults(current_resource.run_spec)
             if not current_resource.status.is_finished() and can_update_run_spec(
                 current_resource.run_spec, effective_run_spec
             ):
@@ -634,7 +655,7 @@ async def apply_plan(
 
     # For backward compatibility (current_resource may has been submitted before
     # some fields, e.g., CPUSpec.arch, gpu.vendor were added)
-    _set_run_resources_defaults(current_resource.run_spec)
+    set_run_spec_resources_defaults(current_resource.run_spec)
     try:
         spec_diff = check_can_update_run_spec(current_resource.run_spec, run_spec)
     except ServerClientError:
@@ -644,7 +665,7 @@ async def apply_plan(
         raise
     if not force:
         if plan.current_resource is not None:
-            _set_run_resources_defaults(plan.current_resource.run_spec)
+            set_run_spec_resources_defaults(plan.current_resource.run_spec)
         if (
             plan.current_resource is None
             or plan.current_resource.id != current_resource.id
@@ -1015,16 +1036,6 @@ def run_model_to_run(
     )
     run.cost = _get_run_cost(run)
     return run
-
-
-def _set_run_resources_defaults(run_spec: RunSpec) -> None:
-    """Apply resource defaults to a run spec, including GPU vendor inference."""
-    set_resources_defaults(run_spec.configuration.resources)
-    set_gpu_vendor_default(
-        run_spec.configuration.resources,
-        image=run_spec.configuration.image,
-        docker=getattr(run_spec.configuration, "docker", None),
-    )
 
 
 def _get_run_jobs_with_submissions(

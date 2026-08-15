@@ -5,11 +5,10 @@ import enum
 import typing
 
 from .constants import Sizing, WHSettings
+from .widget import AbstractWidget
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, MutableSequence, Sequence
-
-    from .widget import AbstractWidget
 
     _KT_contra = typing.TypeVar("_KT_contra", contravariant=True)
 
@@ -17,7 +16,7 @@ if typing.TYPE_CHECKING:
         def __getitem__(
             self,
             index: _KT_contra,
-        ) -> tuple[AbstractWidget, typing.Unpack[tuple[typing.Any, ...]] | None]: ...
+        ) -> tuple[AbstractWidget, typing.Any]: ...
 
     class WidgetContainerMixinProto(AbstractWidget, typing.Protocol[_KT_contra]):
         @property
@@ -36,7 +35,7 @@ else:
         """Generic protocol support."""
 
 
-_WidgetParams = typing.TypeVar("_WidgetParams", bound=tuple[typing.Any, ...])
+_ContentsItem = typing.TypeVar("_ContentsItem", bound=tuple[AbstractWidget, typing.Any])
 
 
 # Ideally, we would like to use an IntFlag coupled with enum.auto().
@@ -161,7 +160,7 @@ class WidgetContainerMixin(WidgetContainerMixinProto[_KT_contra]):
         """
 
 
-class WidgetContainerListContentsMixin(typing.Generic[_WidgetParams]):
+class WidgetContainerListContentsMixin(typing.Generic[_ContentsItem]):
     """
     Mixin class for widget containers whose positions are indexes into
     a list available as self.contents.
@@ -186,11 +185,11 @@ class WidgetContainerListContentsMixin(typing.Generic[_WidgetParams]):
 
     @property
     @abc.abstractmethod
-    def contents(self) -> MutableSequence[tuple[AbstractWidget, _WidgetParams]]:
+    def contents(self) -> MutableSequence[_ContentsItem]:
         """The contents of container as a list of (widget, options)"""
 
     @contents.setter
-    def contents(self, new_contents: Sequence[tuple[AbstractWidget, _WidgetParams]]) -> None:
+    def contents(self, new_contents: Sequence[_ContentsItem]) -> None:
         """The contents of container as a list of (widget, options)"""
 
     @property

@@ -5,7 +5,7 @@
 
 import os
 from collections.abc import Callable
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -125,9 +125,9 @@ class Potsdam2D(NonGeoDataset):
     def __init__(
         self,
         root: Path = 'data',
-        split: str = 'train',
+        split: Literal['train', 'test'] = 'train',
         transforms: Callable[[Sample], Sample] | None = None,
-        checksum: bool = False,
+        checksum: bool = True,
     ) -> None:
         """Initialize a new Potsdam dataset instance.
 
@@ -155,7 +155,7 @@ class Potsdam2D(NonGeoDataset):
             image = os.path.join(root, self.image_root, name) + '_RGBIR.tif'
             mask = os.path.join(root, name) + '_label.tif'
             if os.path.exists(image) and os.path.exists(mask):
-                self.files.append(dict(image=image, mask=mask))
+                self.files.append({'image': image, 'mask': mask})
 
     def __getitem__(self, index: int) -> Sample:
         """Return an index within the dataset.

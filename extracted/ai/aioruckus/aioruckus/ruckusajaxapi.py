@@ -1,44 +1,80 @@
 """Adds AJAX Statistics and Command methods to RuckusApi"""
 from __future__ import annotations
-from collections.abc import AsyncIterator
+
 import datetime
-from typing import Any
 import xml.etree.ElementTree as ET
+from typing import Any
 from xml.sax import saxutils
-import xmltodict
 
-from .ajaxtyping import Alarm, Ap, ApGroup, ApStats, Client, Dpsk, Event, L2Policy, Rogue, Wlan, WlanGroup, Vap
-
+from .abcsession import ConfigItem
+from .ajaxsession import AjaxSession
+from .ajaxtyping import (
+    Alarm,
+    Ap,
+    ApGroup,
+    ApStats,
+    Client,
+    Dpsk,
+    Event,
+    L2Policy,
+    Rogue,
+    Vap,
+    Wlan,
+    WlanGroup,
+)
 from .const import (
     ERROR_ACL_NOT_FOUND,
     ERROR_ACL_SYSTEM,
     ERROR_ACL_TOO_BIG,
-    ERROR_PASSPHRASE_MISSING,
-    ERROR_SAEPASSPHRASE_MISSING,
     ERROR_INVALID_WLAN,
+    ERROR_PASSPHRASE_MISSING,
     ERROR_PASSPHRASE_NAME,
+    ERROR_SAEPASSPHRASE_MISSING,
     PatchNewAttributeMode,
     SystemStat,
-    WlanEncryption
+    WlanEncryption,
 )
-from .abcsession import ConfigItem
-from .ajaxsession import AjaxSession
 from .ruckusconfigurationapi import RuckusConfigurationApi
+from .unleashedsession import UnleashedSession
+from .unleashedtojson import parse_ajax_response
 from .utility import *
 
 
 class RuckusAjaxApi(RuckusConfigurationApi):
     """Ruckus ZoneDirector or Unleashed Configuration, Statistics and Commands API"""
     session: AjaxSession
+    __session: UnleashedSession | None = None
 
     def __init__(self, session: AjaxSession):
+        """Initialize the API with the given AjaxSession."""
         super().__init__(session)
 
+    async def login(self) -> RuckusAjaxApi:
+        """Create an Unleashed/ZoneDirector HTTPS session and log in."""
+        self.__session = await UnleashedSession(
+            self.session.host,
+            self.session.username,
+            self.session.password,
+            self.session.websession,
+        ).login()
+        return self
+
     async def close(self) -> None:
-        # handled by parent session for Unleashed/ZoneDirector
-        pass
+        """Close the underlying HTTPS session."""
+        if self.__session:
+            await self.__session.close()
+
+    async def _get_conf_str(self, item: ConfigItem, timeout: int | None = None) -> str:
+        """Return the relevant config xml, given a configuration key"""
+        assert self.__session is not None
+        return await self.__session.get_conf_str(item, timeout)
 
     async def get_system_info(self, *sections: SystemStat) -> dict:
+        """Return system information, optionally limited to the given sections.
+
+        Args:
+            sections: SystemStat sections to fetch; defaults to all sections.
+        """
         section_keys: list[str]
         if sections:
             section_keys = [s for section_list in sections for s in section_list.value]
@@ -59,69 +95,69 @@ class RuckusAjaxApi(RuckusConfigurationApi):
             clientrequest = f"<client INTERVAL-STATS='yes' INTERVAL-START='{starttime}' INTERVAL-STOP='{endtime}' />"
         else:
             clientrequest = "<client LEVEL='1' />"
-        return await self.cmdstat(f"<ajax-request action='getstat' comp='stamgr' enable-gzip='0'>{clientrequest}</ajax-request>", ["client"])
+        return await self.cmdstat(f"<ajax-request action='getstat' comp='stamgr' enable-gzip='0'>{clientrequest}</ajax-request>", target_type=list[Client])
 
     async def get_inactive_clients(self) -> list[Client]:
         """Return a list of inactive clients"""
-        return await self.cmdstat("<ajax-request action='getstat' comp='stamgr' enable-gzip='0'><clientlist period='0' /></ajax-request>", ["client"])
+        return await self.cmdstat("<ajax-request action='getstat' comp='stamgr' enable-gzip='0'><clientlist period='0' /></ajax-request>", target_type=list[Client])
 
     async def get_ap_stats(self) -> list[ApStats]:
         """Return a list of AP statistics"""
         return await self.cmdstat(
             "<ajax-request action='getstat' comp='stamgr' enable-gzip='0'>"
-            "<ap LEVEL='1' /></ajax-request>", ["ap"]
+            "<ap LEVEL='1' /></ajax-request>", target_type=list[ApStats]
         )
 
     async def get_ap_group_stats(self) -> list[ApGroup]:
         """Return a list of AP group statistics"""
         return await self.cmdstat(
             "<ajax-request action='getstat' comp='stamgr' enable-gzip='0'>"
-            "<apgroup /></ajax-request>", ["group", "radio", "ap"]
+            "<apgroup /></ajax-request>", target_type=list[ApGroup]
         )
 
     async def get_vap_stats(self) -> list[Vap]:
         """Return a list of Virtual AP (per-radio WLAN) statistics"""
         return await self.cmdstat(
             "<ajax-request action='getstat' comp='stamgr' enable-gzip='0' caller='SCI'>"
-            "<vap INTERVAL-STATS='no' LEVEL='1' /></ajax-request>", ["vap"]
+            "<vap INTERVAL-STATS='no' LEVEL='1' /></ajax-request>", target_type=list[Vap]
         )
 
     async def get_wlan_group_stats(self) -> list[WlanGroup]:
         """Return a list of WLAN group statistics"""
         return await self.cmdstat(
             "<ajax-request action='getstat' comp='stamgr' enable-gzip='0' caller='SCI'>"
-            "<wlangroup /></ajax-request>", ["wlangroup", "wlan"]
+            "<wlangroup /></ajax-request>", target_type=list[WlanGroup]
         )
 
     async def get_dpsk_stats(self) -> list[Dpsk]:
-        """Return a list of AP group statistics"""
+        """Return a list of DPSK statistics"""
         return await self.cmdstat(
             "<ajax-request action='getstat' comp='stamgr' enable-gzip='0'>"
-            "<dpsklist /></ajax-request>", ["dpsk"]
+            "<dpsklist /></ajax-request>", target_type=list[Dpsk]
         )
 
     async def get_active_rogues(self) -> list[Rogue]:
         """Return a list of currently active rogue devices"""
         return await self.cmdstat(
             "<ajax-request action='getstat' comp='stamgr' enable-gzip='0'>"
-            "<rogue LEVEL='1' recognized='!true'/></ajax-request>", ["rogue"]
+            "<rogue LEVEL='1' recognized='!true'/></ajax-request>", target_type=list[Rogue]
         )
 
     async def get_known_rogues(self, limit: int = 300) -> list[Rogue]:
         """Return a list of known/recognized rogues devices"""
-        return [rogue async for rogue in self.cmdstat_piecewise("stamgr", "rogue", "apstamgr-stat", filters={"LEVEL": "1", "recognized": "true"}, updater="krogue", limit=limit)]
+        return await self.cmdstat_piecewise("stamgr", "rogue", "apstamgr-stat", filters={"LEVEL": "1", "recognized": "true"}, updater="krogue", limit=limit, target_type=list[Rogue])
 
     async def get_blocked_rogues(self, limit: int = 300) -> list[Rogue]:
         """Return a list of user blocked rogues devices"""
-        return [rogue async for rogue in self.cmdstat_piecewise("stamgr", "rogue", "apstamgr-stat", filters={"LEVEL": "1", "blocked": "true"}, updater="brogue", limit=limit)]
+        return await self.cmdstat_piecewise("stamgr", "rogue", "apstamgr-stat", filters={"LEVEL": "1", "blocked": "true"}, updater="brogue", limit=limit, target_type=list[Rogue])
 
     async def get_alarms(self, limit: int = 300, filters: dict | None = None) -> list[Alarm]:
-        """Return a list of alerts"""
-        return [alarm async for alarm in self.cmdstat_piecewise("eventd", "alarm", updater="page", filters=filters, limit=limit)]
+        """Return a list of alarms"""
+        return await self.cmdstat_piecewise("eventd", "alarm", updater="page", filters=filters, limit=limit, target_type=list[Alarm])
 
     async def get_events(self, limit: int = 300, filters: dict | None = None)-> list[Event]:
         """Return a list of events"""
-        return [xevent async for xevent in self.cmdstat_piecewise("eventd", "xevent", filters=filters, limit=limit)]
+        return await self.cmdstat_piecewise("eventd", "xevent", filters=filters, limit=limit, target_type=list[Event])
 
     async def get_wlan_events(self, *wlan_ids, limit: int = 300) -> list[Event]:
         """Return a list of WLAN events"""
@@ -140,7 +176,7 @@ class RuckusAjaxApi(RuckusConfigurationApi):
         return await self.get_events(limit, {"c": "wire"})
 
     async def get_syslog(self) -> str:
-        """Return a list of syslog entries"""
+        """Return the syslog as a single string"""
         ts = ruckus_timestamp()
         syslog = await self.cmdstat(
             f"<ajax-request action='docmd' xcmd='get-syslog' updater='system.{ts}' comp='system'>"
@@ -149,11 +185,11 @@ class RuckusAjaxApi(RuckusConfigurationApi):
         return syslog["xmsg"]["res"]
 
     async def get_backup(self) -> bytes:
-        """Return a backup"""
-        assert self.session.base_url is not None
+        """Return the controller backup as raw bytes"""
+        assert self.__session is not None and self.__session.base_url is not None
         backup_timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%m%d%y_%H_%M")
-        request = (self.session.base_url / "_savebackup.jsp").with_query({"time": backup_timestamp})
-        return await self.session.request_file(request, 60)
+        request = (self.__session.base_url / "_savebackup.jsp").with_query({"time": backup_timestamp})
+        return await self.__session._request_file(request, timeout=60)
 
     async def do_block_client(self, mac: str) -> None:
         """Block a client"""
@@ -380,7 +416,8 @@ class RuckusAjaxApi(RuckusConfigurationApi):
 
     async def _get_default_apgroup_template(self) -> ET.Element:
         """Get default AP group template"""
-        xml = await self.session.get_conf_str(ConfigItem.APGROUP_TEMPLATE)
+        assert self.__session is not None
+        xml = await self.__session.get_conf_str(ConfigItem.APGROUP_TEMPLATE)
         root = ET.fromstring(xml)
         apgroup = root.find(".//apgroup")
         if apgroup is None:
@@ -389,7 +426,8 @@ class RuckusAjaxApi(RuckusConfigurationApi):
 
     async def _get_default_wlan_template(self) -> ET.Element:
         """Get default WLAN template"""
-        xml = await self.session.get_conf_str(ConfigItem.WLANSVC_STANDARD_TEMPLATE)
+        assert self.__session is not None
+        xml = await self.__session.get_conf_str(ConfigItem.WLANSVC_STANDARD_TEMPLATE)
         root = ET.fromstring(xml)
         wlansvc = root.find(".//wlansvc")
         if wlansvc is not None:
@@ -420,12 +458,19 @@ class RuckusAjaxApi(RuckusConfigurationApi):
         return wlansvc
 
     async def _get_wlan_template(self, name: str) -> ET.Element | None:
-        xml = await self.session.get_conf_str(ConfigItem.WLANSVC_LIST)
+        """Return the WLAN template element with the given name, or None."""
+        assert self.__session is not None
+        xml = await self.__session.get_conf_str(ConfigItem.WLANSVC_LIST)
         root = ET.fromstring(xml)
         wlansvc = root.find(f".//wlansvc[@name='{saxutils.escape(name)}']")
         return wlansvc
 
     def _normalize_encryption(self, wlansvc: ET.Element, patch: dict):
+        """Apply encryption and passphrase changes from the patch to the template.
+
+        Validates passphrases, updates the `encryption` attribute and rebuilds
+        the `wpa` child element to match the requested encryption mode.
+        """
         patch_wpa = patch.get("wpa")
         if patch_wpa is not None:
             if "passphrase" in patch_wpa:
@@ -464,6 +509,16 @@ class RuckusAjaxApi(RuckusConfigurationApi):
         patch_new_attributes: PatchNewAttributeMode = PatchNewAttributeMode.ERROR,
         current_path: str = ""
     ) -> None:
+        """Apply a patch dict to an XML element, recursing into child elements.
+
+        Args:
+            element: the XML element to patch in place.
+            patch: mapping of attribute name to new value; dict values patch
+                child elements recursively.
+            patch_new_attributes: how to handle attributes not present on the
+                element (ERROR, IGNORE or ADD).
+            current_path: path prefix used in error messages.
+        """
         visited_children = set()
         for child in element:
             if child.tag in patch and isinstance(patch[child.tag], dict):
@@ -549,90 +604,51 @@ class RuckusAjaxApi(RuckusConfigurationApi):
 
     async def _cmdstat_noparse(self, data: str, timeout: int | None = None) -> str:
         """Call cmdstat without parsing response"""
-        assert self.session.base_url is not None
-        return await self.session.request(self.session.base_url / "_cmdstat.jsp", data, timeout)
+        assert self.__session is not None
+        return await self.__session._ajax_request("_cmdstat.jsp", data, timeout=timeout)
 
     async def cmdstat(
         self, data: str, collection_elements: list[str] | None = None, aggressive_unwrap: bool = True,
-        timeout: int | None = None
+        timeout: int | None = None, target_type: type | None = None
     ) -> Any:
         """Call cmdstat and parse xml result"""
         result_text = await self._cmdstat_noparse(data, timeout)
+        if target_type is not None:
+            # TypedDict-driven conversion: the target type describes the
+            # desired structure, no per-request collection elements needed
+            return parse_ajax_response(result_text, target_type)
         return unwrap_xml(result_text, collection_elements, aggressive_unwrap)
 
     async def cmdstat_piecewise(
-        self, comp: str, element_type: str, element_collection: str | None = None, filters: dict[str, Any] | None = None, limit: int = 300, page_size: int | None = None,  updater: str | None = None, timeout: int | None = None
-    ) -> AsyncIterator[Any]:
-        """Call cmdstat and parse piecewise xml results"""
-
-        ts_time = ruckus_timestamp(random_part=False)
-        ts_random = ruckus_timestamp(time_part=False)
-        updater = updater or comp
-        page_size = page_size or limit
-
-        piece_stat = {
-            "@pid": 0,
-            "@start": 0,
-            "@number": page_size,
-            "@requestId": f"{updater}.{ts_time}",
-            "@cleanupId": f"{updater}.{ts_time}.{ts_random}"
-        }
-
-        request = {"ajax-request": {
-            "@action": "getstat",
-            "@comp": comp,
-            "@updater": f"{updater}.{ts_time}.{ts_random}",
-            element_type: self._get_filter_object(filters),
-            "pieceStat": piece_stat
-        }}
-
-        pid = 0
-        item_number = 0
-        element_collection = element_collection or "response"
-
-        while True:
-            pid += 1
-            if page_size > limit > 0:
-                page_size = limit
-
-            piece_stat["@pid"] = pid
-            piece_stat["@start"] = item_number
-            piece_stat["@number"] = page_size
-
-            request_xml = xmltodict.unparse(request, full_document=False, short_empty_elements=True)
-            response = (await self.cmdstat(request_xml, [element_type], aggressive_unwrap=False))[element_collection]
-
-            if element_type not in response:
-                return
-            for element in response[element_type]:
-                yield element
-                item_number += 1
-                if limit == 1:
-                    return
-                limit -= 1
-            if response["done"] == "true":
-                return
-
-    @staticmethod
-    def _get_filter_object(filters: dict[str, Any] | None = None, sort_by: str = "time", sort_descending: bool = True) -> dict:
-
-        result = {
-            "@sortBy": sort_by,
-            "@sortDirection": -1 if sort_descending else 1
-        }
-        if filters is not None:
-            for key, values in filters.items():
-                if isinstance(values, str):
-                    result[f"@{key}"] = values
-                else:
-                    joined_values = f"|{'|'.join(values)}|"
-                    result[f"@{key}"] = joined_values
-        return result
+        self,
+        comp: str,
+        element_type: str,
+        element_collection: str | None = None,
+        filters: dict[str, Any] | None = None,
+        limit: int = 300,
+        page_size: int | None = None,
+        updater: str | None = None,
+        target_type: type | None = None,
+        timeout: int | None = None,
+    ) -> list[Any]:
+        """Call cmdstat and collect piecewise xml results via the session"""
+        assert self.__session is not None
+        return await self.__session.cmdstat_piecewise(
+            comp,
+            element_type,
+            element_collection=element_collection,
+            filters=filters,
+            limit=limit,
+            page_size=page_size,
+            updater=updater,
+            target_type=target_type,
+            timeout=timeout,
+        )
 
     async def _conf_noparse(self, data: str, timeout: int | None = None) -> str:
         """Call conf without parsing response"""
-        assert self.session.base_url is not None
-        return await self.session.request(self.session.base_url / "_conf.jsp", data, timeout)
+        assert self.__session is not None
+        return await self.__session._ajax_request("_conf.jsp", data, timeout=timeout)
 
     async def conf(
         self, data: str, collection_elements: list[str] | None = None, timeout: int | None = None

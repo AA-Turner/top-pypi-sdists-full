@@ -27,7 +27,27 @@ import struct
 
 from ..capability import HostRamCapacityError, InsufficientHostRamError
 from . import disk_gc, load_progress
-from .tensor_layout_contract import CONTRACT_PLAIN_BF16, implements_contract
+from .file_layout import (
+    MULTI_FILE,
+    SINGLE_FILE,
+    is_single_file_snapshot,
+    observed_file_layout,
+)
+from .tensor_layout_contract import (
+    CONTRACT_COZY_FP8_ROWWISE,
+    CONTRACT_HF_FP8_BLOCKWISE,
+    CONTRACT_NUNCHAKU_V1,
+    CONTRACT_PLAIN_BF16,
+    ELEMENT_BF16,
+    ELEMENT_FP16,
+    ELEMENT_FP32,
+    KEYS_DIFFUSERS_SPLIT_QKV,
+    KEYS_TRANSFORMERS_SPLIT_QKV,
+    SCALE_NONE,
+    DecodeDimensions,
+    implements_contract,
+    unregistered_decode_path,
+)
 from .fp8_storage import restructure_fp8_storage
 from .rung import touches_host_ram
 from .memory import (
@@ -36,6 +56,7 @@ from .memory import (
     meta_tensors,
     probe_host_ram,
 )
+from .hf_fp8_blockwise import detect_hf_fp8_blockwise, load_hf_fp8_blockwise
 from .safetensors_header import header_len_ok
 from .svdq import detect_svdq_artifact, load_svdq_pipeline
 from .w4a4 import (
@@ -612,6 +633,42 @@ def block_offload_active(obj: Any) -> bool:
     )
 
 
+def require_decodable(contract: str, path: Any, *, component: str = "") -> None:
+    """Refuse, typed, before handing bytes to a decoder this IMAGE does not
+    declare (pgw#1245).
+
+    Three questions, all answered from HEADERS and directory shape, all before
+    any tensor is read: is this contract in the image's decode-set, is the
+    artifact's on-disk SHAPE one a decoder of that contract opens, and is its
+    tensor-KEY convention one that decoder ingests. The third is not the
+    first: `plain.bf16@1` minimax-native weights (fused `blocks.N.attn.qkv_proj`)
+    and `plain.bf16@1` diffusers weights (split `to_q/to_k/to_v`) are the same
+    contract, the same file topology and one key in common, and the diffusers
+    class cannot read the native tree at all. A DENOISER whose convention
+    matches nothing registered refuses too — unknown is never a hopeful pass
+    where a model class is chosen from the architecture.
+
+    The declared decode-set is th#1938's third intersection and the hub answers
+    it ahead of time — but the worker is where the bytes actually arrive, so it
+    is where an image that lost a decoder, or was offered the other
+    repackaging, must say so by name instead of dying five libraries away as
+    `Cannot detect the model type`.
+
+    Imported lazily: `discovery` walks `models` to derive the set, and a
+    module-level import here would make that walk import its own caller.
+    """
+    from ..discovery.decode_set import require_decodable as _require
+    from .key_topology import classify_snapshot
+
+    tree = Path(path) / component if component else Path(path)
+    _require(
+        contract,
+        where=str(path),
+        keys=classify_snapshot(Path(path), component),
+        layout=observed_file_layout(tree),
+    )
+
+
 def detect_gguf_snapshot(path: Path) -> Optional[tuple[Path, str]]:
     """Return the GGUF denoiser and qtype in a composed diffusers snapshot."""
     p = Path(path)
@@ -634,6 +691,13 @@ def detect_gguf_snapshot(path: Path) -> Optional[tuple[Path, str]]:
     return (ggufs[0], qtype) if qtype else None
 
 
+@unregistered_decode_path(
+    reason="gguf.native@1 is a TOPOLOGY contract; no QUANT contract names the "
+           "k-quant block encodings this reads, and diffusers' "
+           "GGUFQuantizationConfig decodes them inside its own loader. So the "
+           "bytes are decodable here and unnameable in the decode-set until "
+           "the platform registers a descriptor for them.",
+)
 def load_gguf_pipeline(
     cls: Any,
     path: Path,
@@ -689,13 +753,15 @@ def _single_file_checkpoint(path: Path) -> Optional[Path]:
     ``*.safetensors.index.json`` (the HF shard convention), so a big
     single-file checkpoint arrives as N shards. Those are reassembled once
     into the original file (mmap-backed, ~disk-copy cost) and cached in the
-    snapshot dir — ``from_single_file`` only takes one file."""
+    snapshot dir — ``from_single_file`` only takes one file.
+
+    The SHAPE test is :func:`file_layout.is_single_file_snapshot`, shared with
+    the load-side layout observation so the routing decision and the declared
+    axis cannot disagree about what "single-file" means."""
+    if not is_single_file_snapshot(path):
+        return None
     if path.is_file():
-        return path if path.suffix == ".safetensors" else None
-    if not path.is_dir():
-        return None
-    if (path / "model_index.json").exists() or (path / "config.json").exists():
-        return None
+        return path
     singles = sorted(p for p in path.glob("*.safetensors") if p.is_file())
     if len(singles) == 1:
         return singles[0]
@@ -840,14 +906,17 @@ def pipeline_weight_lane(pipeline: Any) -> str:
 # Fit ladder: bf16 -> fp8 flavor -> nvfp4 (Blackwell) -> runtime fp8-E4M3
 # storage -> CPU offload. When even the downloaded flavor cannot fit free
 # VRAM, the load path tries fp8-E4M3 weight storage (apply_fp8_storage: fp8
-# bytes resident, bf16 compute) and then hands the slot to the offload ladder.
-# Nothing QUANTIZES here — Paul: "We shouldn't be doing runtime quants; if
-# we're really memory-constrained then we should be fetching the quant we
-# need". Armed on CUDA hosts; fitting is the runtime's job, not a flag.
-# Resident factor after fp8-E4M3 storage of the denoiser, expressed against
-# the declared CARD SIZE (resources.vram_gb — includes activation/framework
-# headroom over raw weights). The ONE fp8 fit factor.
-FP8_STORAGE_FIT_FACTOR = 0.55
+# bytes resident, bf16 compute — quality ~= a stored #fp8 flavor) and then
+# hands the slot to the offload ladder. Nothing QUANTIZES here: the bnb-nf4
+# emergency rung was deleted in pgw#1206 D (Paul: "We shouldn't be doing
+# runtime quants; if we're really memory-constrained then we should be
+# fetching the quant we need"). Armed on CUDA hosts (gw#420: fitting is the
+# runtime's job, not a flag).
+# th#1867 deleted FP8_STORAGE_FIT_FACTOR. It was a resident factor expressed
+# against the DECLARED card size (`resources.vram_gb`), consumed only by
+# `variant_fit`'s size arm to predict whether fp8 storage would fit. Both the
+# declaration and the prediction are gone; the fp8-storage rung is now entered
+# from a measured load, not from a factor times a guess.
 _EMERGENCY_MARGIN_GB = 2.0
 
 
@@ -1386,6 +1455,8 @@ def contract_loaded_component(
 
     w8a8_art = detect_w8a8_artifact(weights)
     if w8a8_art is not None and _covers(w8a8_art.component):
+        require_decodable(
+            CONTRACT_COZY_FP8_ROWWISE, weights, component=w8a8_art.component)
         return load_w8a8_denoiser(
             weights, w8a8_art, compute_dtype=compute_dtype, cls=cls)
     w4a4_art = detect_w4a4_artifact(weights)
@@ -1406,6 +1477,23 @@ def contract_loaded_component(
             f"dequantized by the pipeline's own gguf loader, so there is no "
             f"component-level production loader to borrow"
         )
+    # hf.fp8-blockwise@1: a transformers component tree (the conditioner /
+    # text encoder position), so it is detected on the component dir and
+    # after the denoiser lanes above. Without this arm the tree loads
+    # GENERICALLY — transformers reads `quantization_config` out of
+    # config.json by itself, so nothing fails and the image's declared
+    # decoder for this contract never runs. Measured (pgw#1253): the arm the
+    # decode-set declares was reached by nothing, so a transposed or rowwise
+    # scale grid was accepted here instead of refused by name, and the
+    # resident-vs-upcast lane was transformers' default rather than this
+    # image's declaration.
+    blockwise = detect_hf_fp8_blockwise(where)
+    if blockwise is not None:
+        require_decodable(
+            CONTRACT_HF_FP8_BLOCKWISE, weights,
+            component=component if where != weights else "")
+        return load_hf_fp8_blockwise(
+            where, cls=cls, dtype=compute_dtype, tree=blockwise)
     return None
 
 
@@ -2181,30 +2269,10 @@ def snapshot_component_weight_bytes(model_path: Path) -> Dict[str, int]:
     return {k: v for k, v in out.items() if v > 0}
 
 
-def specialized_weight_layout(model_path: str | Path) -> str:
-    """The non-plain lane :func:`load_from_pretrained` would take for this
-    snapshot (``"quantized"``/``"svdq"``/``"w8a8"``/``"w4a4"``/``"gguf"``), or
-    ``""`` for the plain dense-safetensors path.
-
-    Answers one question: is this tree's resident size computable from
-    safetensors headers? On every lane named here it is not — packed 4-bit
-    weights, fp8 GEMM scale tables and GGUF blocks all have a header story
-    that differs from their in-memory story — so the envelope precondition
-    abstains instead of guessing. Same detectors, same ORDER as the loader,
-    so the answer cannot drift from the lane actually taken."""
-    p = Path(model_path)
-    if read_on_disk_quant_config(p):
-        return "quantized"
-    if detect_svdq_artifact(p) is not None:
-        return "svdq"
-    if detect_w8a8_artifact(p) is not None:
-        return "w8a8"
-    if detect_w4a4_artifact(p) is not None:
-        return "w4a4"
-    if detect_gguf_snapshot(p) is not None:
-        return "gguf"
-    return ""
-
+# th#1867 deleted `specialized_weight_layout`. Its own docstring named its only
+# consumer — "pgw#1117 asks exactly one question of it" — and pgw#1117's envelope
+# precondition is deleted with the two declarations it compared. The lane
+# detectors it wrapped are unchanged and still live in the loader itself.
 
 def _adaptive_fit_rung(
     cls: Any, path: Path, *, fp8_planned: bool, compute_dtype: Any = None
@@ -2339,6 +2407,23 @@ def _load_modular_pipeline(
     contract=CONTRACT_PLAIN_BF16,
     serves=("bf16-w16a16", "fp8-w8a16"),
     composes_lora=True,
+    decodes=DecodeDimensions(
+        elements=(ELEMENT_BF16, ELEMENT_FP16, ELEMENT_FP32),
+        # `none` is the DECLARATION, not an omission: dense weights carry no
+        # scale tensors, and a tree that does carry them belongs to a
+        # quantized contract whose own decoder reads them.
+        scales=(SCALE_NONE,),
+        # `from_pretrained` addresses tensors by the class's own parameter
+        # names. `native.fused-qkv@1` is registered and DECLARED BY NOTHING
+        # here: a minimax-native tree offered to this loader is refused by
+        # name rather than dying as an md5 miss inside a detection helper.
+        key_topologies=(KEYS_DIFFUSERS_SPLIT_QKV, KEYS_TRANSFORMERS_SPLIT_QKV),
+        # BOTH, and each by its own entry point: a component-directory tree
+        # goes to `from_pretrained`, and `_single_file_checkpoint` routes a
+        # loose checkpoint to `from_single_file` (:2583).
+        file_layouts=(MULTI_FILE, SINGLE_FILE),
+        bakes=(),
+    ),
     why="the dense-weights path: plain bf16 bytes are read as stored "
         "(bf16-w16a16), and `storage_dtype=fp8` restructures the SAME bytes "
         "into fp8 storage with per-layer upcast (fp8-w8a16). Both are "
@@ -2353,7 +2438,6 @@ def load_from_pretrained(
     storage_dtype: str = "",
     components: Optional[Dict[str, Any]] = None,
     component_trees: Optional[Dict[str, str]] = None,
-    declared_vram_gb: float = 0.0,
     ref: str = "",
     placement_mode: str = "",
 ) -> Any:
@@ -2404,6 +2488,7 @@ def load_from_pretrained(
 
     svdq_art = detect_svdq_artifact(Path(path))
     if svdq_art is not None and callable(getattr(cls, "from_pretrained", None)):
+        require_decodable(CONTRACT_NUNCHAKU_V1, path)
         if components:
             logger.warning("preloaded components ignored on the svdq lane")
         return load_svdq_pipeline(cls, Path(path), svdq_art)
@@ -2414,6 +2499,7 @@ def load_from_pretrained(
 
     w8a8_art = detect_w8a8_artifact(Path(path))
     if w8a8_art is not None and callable(getattr(cls, "from_pretrained", None)):
+        require_decodable(CONTRACT_COZY_FP8_ROWWISE, path)
         compute = None
         if dtype:
             try:
@@ -2475,6 +2561,10 @@ def load_from_pretrained(
         except Exception:
             pass
         return pipe
+    # The generic arm IS the plain.bf16@1 decoder. An image whose decoder
+    # modules failed to import declares nothing, and "nothing" must refuse by
+    # name here rather than produce a pipeline nobody declared.
+    require_decodable(CONTRACT_PLAIN_BF16, path)
     kwargs: Dict[str, Any] = {}
     if components:
         kwargs.update(components)
@@ -2616,7 +2706,6 @@ __all__ = [
     "model_index_components",
     "model_index_component_classes",
     "snapshot_component_weight_bytes",
-    "specialized_weight_layout",
     "load_from_pretrained",
     "is_modular_pipeline_class",
     "hydrate_modular_pipeline",

@@ -1,12 +1,12 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: dagstermill
-Version: 0.29.17
+Version: 0.29.18
 Summary: run notebooks using the Dagster tools
 Author-email: Dagster Labs <hello@dagsterlabs.com>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Python: <3.15,>=3.10
-Requires-Dist: dagster==1.13.17
+Requires-Dist: dagster==1.13.18
 Requires-Dist: ipykernel!=5.4.0,!=5.4.1,>=4.9.0
 Requires-Dist: ipython-genutils>=0.2.0
 Requires-Dist: jupyter-client<8

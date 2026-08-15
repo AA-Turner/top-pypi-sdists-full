@@ -17,10 +17,12 @@ from airbyte_connector_models.metadata.v0.connector_metadata_definition_v0 impor
     ConnectorMetadataDefinitionV0RegistryOverrides,
 )
 
+from airbyte_ops_mcp.cli import registry as registry_cli
 from airbyte_ops_mcp.cli.registry import _print_release_attribution_list
 from airbyte_ops_mcp.registry import ConnectorMetadata
 from airbyte_ops_mcp.registry._gcs_helpers import get_gcs_credentials_token
 from airbyte_ops_mcp.registry.compile import (
+    CompileResult,
     _apply_overrides_to_latest_entry,
     _apply_release_candidates_to_entries,
     _build_composite_registry_json,
@@ -53,6 +55,39 @@ from airbyte_ops_mcp.registry.release_attribution import (
     ReleaseAttributionLookupResult,
 )
 from airbyte_ops_mcp.registry.store import RegistryStore
+
+
+@pytest.mark.unit
+def test_compile_cli_accepts_local_output_store(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """The compile CLI accepts a local output target."""
+
+    class _Registry:
+        def compile(self, **kwargs: object) -> CompileResult:
+            assert kwargs["output_store"] == RegistryStore.parse(
+                f"coral:local:{tmp_path}"
+            )
+            return CompileResult(target=str(tmp_path))
+
+    monkeypatch.setattr(registry_cli, "_resolve_store", lambda store: _Registry())
+    monkeypatch.setattr(registry_cli, "print_json", lambda value: None)
+
+    registry_cli.compile_cmd(
+        "coral:dev",
+        output_store=f"coral:local:{tmp_path}",
+    )
+
+
+@pytest.mark.unit
+def test_compile_cli_rejects_non_local_output_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The compile CLI rejects a non-local output target."""
+    monkeypatch.setattr(registry_cli, "_resolve_store", lambda store: object())
+    with pytest.raises(SystemExit):
+        registry_cli.compile_cmd("coral:dev", output_store="coral:dev")
 
 
 @pytest.mark.unit
@@ -360,7 +395,7 @@ def test_registry_connector_version_releases_help() -> None:
                 "attributed_to": "alice",
                 "pr_number": 123,
             },
-            ("HUMAN", "@alice", "#123"),
+            ("HUMAN", "@alice", "#123", "-"),
             None,
             id="human-with-contact",
         ),
@@ -370,37 +405,37 @@ def test_registry_connector_version_releases_help() -> None:
                 "pr_author_login": "release-bot",
                 "pr_number": 122,
             },
-            ("BOT", "none (bot-authored)", "#122"),
+            ("BOT", "none (bot-authored)", "#122", "-"),
             None,
             id="bot-without-human-contact",
         ),
         pytest.param(
             {"pr_author_type": "User", "pr_number": 121},
-            ("HUMAN", "none (human login unavailable)", "#121"),
+            ("HUMAN", "none (human login unavailable)", "#121", "-"),
             None,
             id="human-without-contact",
         ),
         pytest.param(
             {"pr_number": 120},
-            ("UNKNOWN", "none (author type unavailable)", "#120"),
+            ("UNKNOWN", "none (author unknown)", "#120", "-"),
             None,
             id="missing-author-type",
         ),
         pytest.param(
             None,
-            ("UNKNOWN", "no attribution", "-"),
+            ("UNKNOWN", "no attribution", "-", "-"),
             None,
             id="missing-attribution",
         ),
         pytest.param(
             {"pr_author_type": "User", "attributed_to": "bob"},
-            ("HUMAN", "@bob", "-"),
+            ("HUMAN", "@bob", "-", "-"),
             None,
             id="missing-pr-number",
         ),
         pytest.param(
             {"pr_author_type": "User", "attributed_to": "carol"},
-            ("HUMAN", "@carol", "-"),
+            ("HUMAN", "@carol", "-", "-"),
             "index unavailable",
             id="trailing-error",
         ),
@@ -409,7 +444,7 @@ def test_registry_connector_version_releases_help() -> None:
 @pytest.mark.unit
 def test_print_release_attribution_list(
     attribution_kwargs: dict[str, object] | None,
-    expected_fields: tuple[str, str, str],
+    expected_fields: tuple[str, str, str, str],
     error: str | None,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -443,11 +478,12 @@ def test_print_release_attribution_list(
         "AUTHOR TYPE",
         "CONTACT",
         "PULL REQUEST",
+        "RELEASED AT",
     ]
     row = lines[1].split("\t")
     assert len(row) == len(header)
     assert row[0:2] == ["1.2.3", "found"]
-    assert row[2:5] == list(expected_fields)
+    assert row[2:6] == list(expected_fields)
     if (
         attribution_kwargs is not None
         and attribution_kwargs.get("pr_author_type") == "Bot"
@@ -1198,6 +1234,50 @@ def test_apply_overrides_to_latest_entry_synthesizes_missing_pinned_entries() ->
         registry_json = _build_global_registry_json(registry_entries)
         assert registry_json["sources"][0]["sourceDefinitionId"] == definition_id
         assert registry_json["sources"][0]["dockerImageTag"] == "4.0.4"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "source_from_version_dirs",
+    [
+        pytest.param(True, id="computed_version_directory"),
+        pytest.param(False, id="latest_directory"),
+    ],
+)
+def test_compile_global_registry_reads_selected_registry_directory(
+    source_from_version_dirs: bool,
+) -> None:
+    """Dry runs use computed versions while production uses latest."""
+    store = RegistryStore.parse("coral:dev")
+    base = f"{store.bucket_root}/metadata/airbyte/source-test"
+    versioned_entry = {
+        "sourceDefinitionId": "versioned-definition",
+        "dockerRepository": "airbyte/source-test",
+        "dockerImageTag": "2.0.0",
+    }
+    latest_entry = {
+        "sourceDefinitionId": "latest-definition",
+        "dockerRepository": "airbyte/source-test",
+        "dockerImageTag": "1.0.0",
+    }
+    fs = InMemoryRegistryFileSystem(
+        {
+            f"{base}/2.0.0/cloud.json": json.dumps(versioned_entry),
+            f"{base}/latest/cloud.json": json.dumps(latest_entry),
+            f"{base}/latest/version=1.0.0": "",
+        }
+    )
+
+    entries = _compile_global_registry(
+        fs,
+        store=store,
+        latest_versions={"source-test": "2.0.0"},
+        registry_type="cloud",
+        source_from_version_dirs=source_from_version_dirs,
+    )
+
+    expected = versioned_entry if source_from_version_dirs else latest_entry
+    assert entries == [expected]
 
 
 @pytest.mark.unit

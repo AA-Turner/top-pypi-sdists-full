@@ -6,7 +6,7 @@
 import glob
 import os
 from collections.abc import Callable
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -83,10 +83,10 @@ class ETCI2021(NonGeoDataset):
     def __init__(
         self,
         root: Path = 'data',
-        split: str = 'train',
+        split: Literal['train', 'val', 'test'] = 'train',
         transforms: Callable[[Sample], Sample] | None = None,
         download: bool = False,
-        checksum: bool = False,
+        checksum: bool = True,
     ) -> None:
         """Initialize a new ETCI 2021 dataset instance.
 
@@ -102,7 +102,7 @@ class ETCI2021(NonGeoDataset):
             AssertionError: if ``split`` argument is invalid
             DatasetNotFoundError: If dataset is not found and *download* is False.
         """
-        assert split in self.metadata.keys()
+        assert split in self.metadata
 
         self.root = root
         self.split = split
@@ -153,7 +153,9 @@ class ETCI2021(NonGeoDataset):
         """
         return len(self.files)
 
-    def _load_files(self, root: Path, split: str) -> list[dict[str, str]]:
+    def _load_files(
+        self, root: Path, split: Literal['train', 'val', 'test']
+    ) -> list[dict[str, str]]:
         """Return the paths of the files in the dataset.
 
         Args:
@@ -184,11 +186,16 @@ class ETCI2021(NonGeoDataset):
                     vvs, vhs, flood_masks, water_masks
                 ):
                     files.append(
-                        dict(vv=vv, vh=vh, flood_mask=flood_mask, water_mask=water_mask)
+                        {
+                            'vv': vv,
+                            'vh': vh,
+                            'flood_mask': flood_mask,
+                            'water_mask': water_mask,
+                        }
                     )
             else:
                 for vv, vh, water_mask in zip(vvs, vhs, water_masks):
-                    files.append(dict(vv=vv, vh=vh, water_mask=water_mask))
+                    files.append({'vv': vv, 'vh': vh, 'water_mask': water_mask})
 
         return files
 
@@ -234,9 +241,7 @@ class ETCI2021(NonGeoDataset):
         """
         directory = self.metadata[self.split]['directory']
         dirpath = os.path.join(self.root, directory)
-        if not os.path.exists(dirpath):
-            return False
-        return True
+        return os.path.exists(dirpath)
 
     def _download(self) -> None:
         """Download the dataset and extract it."""

@@ -30,7 +30,7 @@
     packages=[{include="transformer_lens"}, {include="transformer_lens/py.typed"}]
     readme="README.md"
     requires-python=">=3.10,<4.0"
-    version="3.7.1"
+    version="3.7.2"
 
     [project.optional-dependencies]
         # chardet<6 works around a `requests<=2.32` compatibility-check warning that fires

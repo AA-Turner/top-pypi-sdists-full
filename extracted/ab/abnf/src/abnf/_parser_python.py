@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import abc
+import contextvars
 import operator
 import pathlib
 import typing
@@ -13,42 +15,73 @@ from .typing import Protocol, runtime_checkable
 Source = str
 Nodes = list["Node"]
 
+#: Folds the 26 ASCII uppercase letters and nothing else.
+_ASCII_FOLD_TABLE = str.maketrans(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"
+)
+
+
+def _ascii_fold(value: str) -> str:
+    """Case-fold over US-ASCII only.
+
+    RFC 5234 §2.3 makes literals case-insensitive and says the character set
+    for them is US-ASCII, so case-insensitivity is defined over ASCII and
+    nothing else.  `str.casefold()`, used here previously, is full Unicode:
+    it matched a source of `'\u017f'` (long s) against `"s"`, `'\u212a'`
+    (Kelvin sign) against `"k"`, and `'ß'` against `"ss"` -- input a grammar
+    written in ASCII should reject.
+
+    Folding only ASCII also makes the operation length-preserving, which
+    Unicode folding is not.  The old behaviour therefore depended on
+    position: `"ss"` matched a lone `'ß'`, but `"ss" "x"` rejected `'ßx'`,
+    because the comparison folds a fixed-width window of the source.
+
+    Fast path via `str.lower`, which for an ASCII string *is* the ASCII
+    fold; CPython flags ASCII-ness on the object, so the test is free.
+    """
+
+    return value.lower() if value.isascii() else value.translate(_ASCII_FOLD_TABLE)
+
 
 class Match:
-    __slots__ = ("_hash", "nodes", "start")
+    """A span of consumed source, identified by its text and end offset.
+
+    Two matches are equal when they consumed the same text and ended at
+    the same offset, whatever node structure produced it -- an ambiguous
+    grammar can reach the same span more than one way, and the parser
+    treats those as one result.
+    """
+
+    __slots__ = ("nodes", "start")
 
     def __init__(self, nodes: Nodes, start: int):
         self.nodes = nodes
         self.start = start
 
+    def _value(self) -> str:
+        return "".join(node.value for node in self.nodes)
+
     def __hash__(self) -> int:
-        # Cache the hash on first access.  Match objects participate
-        # in `set` operations inside Repetition / Rule.lparse where
-        # they're hashed repeatedly; without caching, every hash
-        # call rebuilds the concatenated value string by walking
-        # every descendant node.
-        try:
-            return self._hash
-        except AttributeError:
-            value = "".join(n.value for n in self.nodes)
-            h = hash((value, self.start))
-            self._hash = h
-            return h
+        # Not memoised.  Nothing in the parser hashes a `Match` -- both
+        # `Repetition` and `Rule.lparse` deduplicate by end offset -- so a
+        # cached slot would cost eight bytes on every match built (a few
+        # thousand per parse) to speed up an operation the library never
+        # performs.  It also could not be invalidated: `nodes` is a plain
+        # mutable list, so a memo went stale the moment a caller touched it.
+        return hash((self._value(), self.start))
 
     def __str__(self):
-        return (
-            f"Match(value={''.join(n.value for n in self.nodes)}, start={self.start})"
-        )
+        return f"Match(value={self._value()}, start={self.start})"
 
     def __eq__(self, __o: object) -> bool:
         if not isinstance(__o, self.__class__):
             return False
-        # Fast inequality short-circuit before the value-building
-        # hash comparison — different end positions can never be
-        # equal under our value-and-start semantics anyway.
-        if self.start != __o.start:
-            return False
-        return hash(self) == hash(__o)
+        # Compare the values, not their hashes.  Hash equality is only
+        # evidence of equality; two matches that collided would have
+        # compared equal, and `__eq__` is the one place that has to be
+        # exact.  `start` differs far more often than the text does, so
+        # checking it first usually avoids building either string.
+        return self.start == __o.start and self._value() == __o._value()
 
 
 MatchSet = set[Match]
@@ -102,8 +135,63 @@ class _CachedParseError:
 # for backward compatibility with any external code that stored sets.
 ParseCacheValue = list[Match] | MatchSet | _CachedParseError
 
+# Per-parse memo.  `Rule.parse` binds `(source, {})` for the duration of one
+# parse and `Repetition` memoises into that dict, so nothing survives the call
+# that created it.  `ContextVar.set` returns a token and `reset(token)` restores
+# the previous binding, which gives nesting for free: `Rule.lparse`'s `exclude`
+# check runs `parse_all` on a *different* source mid-parse, and that inner parse
+# simply binds its own memo and gives this one back on the way out.
+#
+# A ContextVar rather than a threading.local: it is cheaper to read (measured
+# 29.9ns vs 34.6ns), and it isolates asyncio tasks as well as threads.  Only
+# `Rule.parse` ever writes it -- never a generator, whose `set` would leak into
+# the caller's context between yields.
+_ParseMemo = tuple[Source, dict[tuple[int, int], ParseCacheValue]]
+_parse_memo: contextvars.ContextVar[_ParseMemo | None] = contextvars.ContextVar(
+    "abnf_parse_memo", default=None
+)
 
-class ParseCache(typing.MutableMapping[ParseCacheKey, ParseCacheValue]):
+
+_CACHE_DEPRECATION = (
+    "The parse cache is now scoped to a single parse and discarded when that "
+    "parse returns, so {what} no longer has any effect and can be removed. "
+    "For reuse across calls, memoise at the call site -- e.g. "
+    "functools.lru_cache on your own wrapper -- which is both bounded and "
+    "far faster, since it skips the parse entirely rather than replaying "
+    "sub-results."
+)
+
+
+class _ParseCacheMeta(abc.ABCMeta):
+    """Metaclass so that assigning the vestigial knob can be flagged.
+
+    `max_cache_size` is a plain class attribute, so there is no other hook for
+    telling a caller their configuration stopped mattering.  Derives from
+    `ABCMeta` because `ParseCache` is a `MutableMapping`.
+    """
+
+    def __setattr__(cls, name: str, value: typing.Any) -> None:
+        if name == "max_cache_size":
+            warnings.warn(
+                _CACHE_DEPRECATION.format(what="ParseCache.max_cache_size"),
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        super().__setattr__(name, value)
+
+
+class ParseCache(
+    typing.MutableMapping[ParseCacheKey, ParseCacheValue],
+    metaclass=_ParseCacheMeta,
+):
+    """A mapping that used to memoise `Repetition` results across parses.
+
+    .. deprecated::
+        The parser no longer uses this class; memoisation moved into a
+        per-parse context (`_parse_memo`).  The class remains importable, and
+        works as an ordinary mapping, so existing imports keep functioning.
+    """
+
     max_cache_size: int | None = None
     objects: WeakSet[ParseCache] = WeakSet()
 
@@ -160,6 +248,18 @@ class ParseCache(typing.MutableMapping[ParseCacheKey, ParseCacheValue]):
 
     @classmethod
     def clear_caches(cls):
+        """Clear every live `ParseCache`.
+
+        .. deprecated::
+            Nothing in the parser holds a `ParseCache` any more, so there is
+            no parser state left for this to clear.  It still empties any
+            instances the caller made themselves.
+        """
+        warnings.warn(
+            _CACHE_DEPRECATION.format(what="ParseCache.clear_caches()"),
+            DeprecationWarning,
+            stacklevel=2,
+        )
         for obj in cls.objects:
             obj.dict = OrderedDict()
             obj.hits = 0
@@ -285,22 +385,48 @@ class Repetition:
     def __init__(self, repeat: Repeat, element: Parser):
         self.repeat = repeat
         self.element = element
-        self.lparse_cache = ParseCache()
+        # The `min` prefix parser depends only on `element` and `repeat.min`,
+        # both fixed here, so build it once rather than on every cache miss --
+        # `1*X` is the most common repetition there is.  Building it per miss
+        # also meant each failure blamed a different (equal-behaving) parser
+        # instance, which only went unnoticed because the old cross-call cache
+        # replayed the first one.  Nothing in the library mutates `Repeat`
+        # after construction; a caller who does would need to rebuild this.
+        self._min_parser = (
+            Concatenation(*([element] * repeat.min)) if repeat.min else None
+        )
 
     def lparse(self, source: Source, start: int) -> Matches:
-        cache_key = (source, start)
-        try:
-            cached_matchset = self.lparse_cache[cache_key]
-        except KeyError:
-            pass
-        else:
+        # Memoise into the current parse's context rather than into
+        # per-instance state.  Because the memo dies with the parse, the
+        # grammar cannot change underneath it, so there is nothing to
+        # invalidate -- which is what made the old `(source, start)` cache
+        # return stale results after `=/`, `exclude_rule`, or a
+        # `first_match_alternation` flip.
+        #
+        # `ctx[0] is source` enforces the invariant the key relies on: one
+        # memo, one source, so `start` alone identifies a position.  A direct
+        # `lparse` call outside any parse, or one that somehow reaches a
+        # different source under an active memo, falls back to a memo scoped
+        # to this call -- correct either way, since the memo is only ever an
+        # optimisation.
+        ctx = _parse_memo.get()
+        memo = ctx[1] if ctx is not None and ctx[0] is source else {}
+
+        cache_key = (id(self), start)
+        cached_matchset = memo.get(cache_key)
+        if cached_matchset is not None:
             if isinstance(cached_matchset, _CachedParseError):
                 raise ParseError(
                     cached_matchset.parser,
                     cached_matchset.start,
                     *cached_matchset.args,
                 )
-            yield from next_longest(cached_matchset)
+            # Already longest-first: the list is sorted once, before it
+            # goes into the memo, rather than on every hit.  A cold
+            # rfc5322 parse takes ~1,700 hits, each of which used to
+            # pay a list copy and a sort of a list that never changes.
+            yield from cached_matchset
             return
 
         # De-duplicate by `Match.start` (i.e. by end position) rather
@@ -316,14 +442,14 @@ class Repetition:
             match_list = [Match([], start)]
             seen_starts = {start}
         else:
-            concat_parser = Concatenation(*([self.element] * self.repeat.min))
+            # `_min_parser` is non-None exactly when `repeat.min` is non-zero,
+            # which is this branch.
+            min_parser = typing.cast("Parser", self._min_parser)
             try:
                 # If this raises a ParseError the minimum match was not reached.
-                match_list = list(concat_parser.lparse(source, start))
+                match_list = list(min_parser.lparse(source, start))
             except ParseError as exc:
-                self.lparse_cache[cache_key] = _CachedParseError(
-                    exc.parser, exc.start, exc.args
-                )
+                memo[cache_key] = _CachedParseError(exc.parser, exc.start, exc.args)
                 raise
             seen_starts = set()
             deduped: list[Match] = []
@@ -362,8 +488,14 @@ class Repetition:
             else:
                 break
 
-        self.lparse_cache[cache_key] = match_list
-        yield from next_longest(match_list)
+        # Sort in place, once, so both this yield and every later hit
+        # can iterate the stored list directly.  Same comparison and
+        # same stable sort `next_longest` applied, so the order is
+        # unchanged -- it just happens once instead of per hit.
+        if len(match_list) > 1:
+            match_list.sort(key=lambda match: match.start, reverse=True)
+        memo[cache_key] = match_list
+        yield from match_list
 
     def __str__(self):
         return f"Repetition({self.repeat}, {self.element})"
@@ -421,7 +553,7 @@ class Literal:
         self.value = value
         self.case_sensitive = case_sensitive
         self.pattern = (
-            value if isinstance(value, tuple) or case_sensitive else value.casefold()
+            value if isinstance(value, tuple) or case_sensitive else _ascii_fold(value)
         )
 
         self.lparse = (
@@ -446,7 +578,7 @@ class Literal:
         # is handled correctly.
         if start < len(source):
             src = source[start : start + len(self.value)]
-            match = src if self.case_sensitive else src.casefold()
+            match = src if self.case_sensitive else _ascii_fold(src)
             if match == self.pattern:
                 yield Match(
                     [typing.cast(Node, LiteralNode(src, start, len(src)))],
@@ -480,6 +612,25 @@ class Prose:
 T = typing.TypeVar("T", bound="Rule")
 
 
+class _FirstMatchAlternation:
+    """Backs :attr:`Rule.first_match_alternation` for both class-level and
+    per-rule access.
+
+    Read on the class it reports the grammar-wide default; read on a rule it
+    reports that rule's alternations.  Written on a rule it flips them.
+    (Written in a *class body* it is replaced outright, which is what
+    ``Rule.__init_subclass__`` exists to undo.)
+    """
+
+    def __get__(self, instance: Rule | None, owner: type[Rule] | None = None) -> bool:
+        if instance is None:
+            return owner._first_match_default if owner is not None else False
+        return instance._get_first_match_alternation()
+
+    def __set__(self, instance: Rule, value: bool) -> None:
+        instance._set_first_match_alternation(value)
+
+
 class Rule:
     """A parser generated from an ABNF rule.
 
@@ -509,9 +660,12 @@ class Rule:
         except AttributeError:
             self.name = name
         try:
-            _ = self.exclude
+            _ = self._exclude
         except AttributeError:
-            self.exclude: Rule | None = None
+            # Assign the private slot, not the property: an unset
+            # exclusion is the default state and there is nothing for
+            # the backend to be told about.
+            self._exclude: Rule | None = None
 
         if definition is not None:
             # when defined-as = '=/', we'll need to overwrite existing definition.
@@ -544,27 +698,120 @@ class Rule:
     ] = None
 
     @property
-    def first_match_alternation(self) -> bool:
-        try:
-            definition = self.definition
-        except AttributeError:
-            return False
-        else:
-            return isinstance(definition, Alternation) and definition.first_match
+    def exclude(self) -> Rule | None:
+        """Rule whose complete matches disqualify this rule's matches.
 
-    @first_match_alternation.setter
-    def first_match_alternation(self, value: bool):
+        ``None`` unless set.  Backed by ``self._exclude``; like
+        ``definition``, the property setter forwards writes through
+        ``Rule._set_exclude_hook`` (when set) so the Rust engine
+        applies the exclusion to nested rule references too.
+
+        Assigning here and calling :meth:`exclude_rule` are the same
+        operation -- that is the point of the property.  Before it
+        existed only the method notified the backend, so
+        ``rule.exclude = None`` cleared the exclusion for the
+        pure-Python parser while the Rust engine went on applying it.
+        """
+
+        return self._exclude
+
+    @exclude.setter
+    def exclude(self, value: Rule | None) -> None:
+        self._exclude = value
+        hook = getattr(type(self), "_set_exclude_hook", None)
+        if hook is not None:
+            hook(self, value)
+
+    #: Optional hook invoked on every write to ``exclude`` (including
+    #: via :meth:`exclude_rule`), so the Rust engine can apply
+    #: exclusions to nested rule references.  Unset for the
+    #: pure-Python backend, which applies them directly in
+    #: ``Rule.lparse``.
+    _set_exclude_hook: typing.ClassVar[
+        typing.Callable[[Rule, Rule | None], None] | None
+    ] = None
+
+    #: Grammar-wide default for alternation semantics, applied to every
+    #: ``Alternation`` built for this class's rules -- including ones
+    #: nested inside a group or repetition, which is the whole point:
+    #: those are unreachable afterwards, since a rule exposes only its
+    #: top-level definition.  Written as ``first_match_alternation`` in
+    #: a subclass body; ``__init_subclass__`` moves it here so it does
+    #: not shadow the property of the same name.
+    _first_match_default: typing.ClassVar[bool] = False
+
+    #: Alternations this rule's definition is built from, recorded at
+    #: grammar-build time.  ``None`` for a rule built directly from a
+    #: parser object, where there is nothing to record.
+    _alternations: tuple[Alternation, ...] | None = None
+
+    def __init_subclass__(cls, **kwargs: typing.Any) -> None:
+        super().__init_subclass__(**kwargs)
+        raw = cls.__dict__.get("first_match_alternation")
+        if isinstance(raw, bool):
+            cls._first_match_default = raw
+            # Restore the inherited property: a plain bool left in the
+            # class body would shadow it, so instances of this grammar
+            # could neither read nor set the flag per rule.  Deleting via
+            # the metaclass removes the class attribute; `del
+            # cls.first_match_alternation` would read as an attempt to
+            # delete the property itself, which has no deleter.
+            type.__delattr__(cls, "first_match_alternation")
+
+    def _alternation_parsers(self) -> tuple[Alternation, ...]:
+        """Every ``Alternation`` this rule's own definition is built
+        from, outermost first.
+
+        Recorded when the rule is built from ABNF text, because that is
+        the only moment the nested ones are in hand: the Rust backend's
+        combinators expose no children, so the tree cannot be walked
+        afterwards.  Rules constructed directly from a parser fall back
+        to the definition itself, which preserves the old behaviour for
+        hand-built rules.
+
+        Rules referenced by this one are deliberately not included --
+        they are separate rules, with their own setting.
+        """
+
+        recorded = getattr(self, "_alternations", None)
+        if recorded is not None:
+            return recorded
+        definition = getattr(self, "_definition", None)
+        return (definition,) if isinstance(definition, Alternation) else ()
+
+    def _get_first_match_alternation(self) -> bool:
+        """Whether alternation in this rule resolves to the first match.
+
+        ``False`` when the rule contains no alternation at all: there is
+        nothing to resolve, so there is nothing to report.
+        """
+
+        alternations = self._alternation_parsers()
+        return bool(alternations) and all(a.first_match for a in alternations)
+
+    def _set_first_match_alternation(self, value: bool) -> None:
         try:
-            definition = self.definition
+            _ = self.definition
         except AttributeError as exc:
             msg = f'Undefined rule "{self.name}"'
             raise GrammarError(msg) from exc
-        else:
-            if isinstance(definition, Alternation):
-                definition.first_match = value
-            else:
-                # skip.  Or should some exception be raised?
-                pass
+        for alternation in self._alternation_parsers():
+            alternation.first_match = value
+        # A rule with no alternation is not an error -- the same flag set
+        # grammar-wide covers plenty of such rules -- so setting it is
+        # simply vacuous, and the getter says so.
+
+    if typing.TYPE_CHECKING:
+        # Declared as a plain ``bool`` for type checkers.  At runtime it is
+        # the descriptor below, which serves both spellings of the same
+        # setting -- ``MyGrammar.first_match_alternation = True`` in a class
+        # body and ``rule.first_match_alternation = True`` on one rule.  A
+        # ``property`` cannot: assigning a bool in a subclass body is an
+        # incompatible override, so the documented spelling would not
+        # type-check for users.
+        first_match_alternation: bool
+    else:
+        first_match_alternation = _FirstMatchAlternation()
 
     def exclude_rule(self, rule: Rule) -> None:
         """
@@ -580,6 +827,9 @@ class Rule:
             Rule('identifier').exclude_rule(Rule('keyword'))
 
         Then attempting to use "foo" as an identifier would result in a ParseError.
+
+        Equivalent to assigning :attr:`exclude`; assign ``None`` there to
+        remove an exclusion.
         """
         self.exclude = rule
 
@@ -657,6 +907,20 @@ class Rule:
             )
             raise ValueError(msg)
 
+        # Bind a memo for the duration of this parse.  `reset(token)` restores
+        # whatever was bound before, so a nested parse -- `Rule.lparse` runs
+        # `exclude.parse_all` on a different source mid-parse -- nests
+        # correctly rather than sharing or clobbering this one.  The memo is
+        # unreachable once `parse` returns, which is what keeps grammar
+        # mutation between parses from ever being observable and keeps
+        # retention at zero.
+        memo_token = _parse_memo.set((source, {}))
+        try:
+            return self._parse(source, start)
+        finally:
+            _parse_memo.reset(memo_token)
+
+    def _parse(self, source: str, start: int) -> tuple[Node, int]:
         g = self.lparse(source, start)
         # `lparse` yields matches longest-first (the upstream
         # combinators sort by `start` descending), so the first
@@ -667,24 +931,6 @@ class Rule:
         # `StopIteration` in practice.
         try:
             longest_match = next(g)
-        except UnicodeEncodeError as exc:
-            # Only reachable on the Rust backend, which carries the source
-            # across the FFI as a UTF-8 `&str`.  A Python str may contain lone
-            # surrogates -- from `surrogateescape` on an undecodable filename,
-            # or an unpaired \uD800 out of `json.loads` -- and those have no
-            # UTF-8 representation, so the conversion fails before any parsing
-            # happens.  The pure-Python backend parses such input fine.
-            # Replace the codec traceback, which says nothing about abnf, with
-            # the limitation and its workaround.  See GitHub issue #173.
-            # UnicodeEncodeError is itself a ValueError, so `except ValueError`
-            # callers are unaffected by the re-raise.
-            msg = (
-                "the Rust backend cannot parse input containing lone surrogate "
-                "code points; set ABNF_NO_RUST=1 to use the pure-Python "
-                "backend, which accepts them.  "
-                "See https://github.com/declaresub/abnf/issues/173"
-            )
-            raise ValueError(msg) from exc
         except RecursionError as exc:
             # Deeply-nested input exhausts the Python call stack (the parser is
             # recursive-descent).  Convert to ParseError so the documented
@@ -915,18 +1161,60 @@ class LiteralNode:
         )
 
 
+_VISIT_PREFIX = "visit_"
+_VISIT_NAME_START = len(_VISIT_PREFIX)
+
+
 class NodeVisitor:
     """An external visitor class."""
 
-    def __init__(self):
-        self._node_method_cache = {}
-        method_prefix = "visit_"
-        name_start = len(method_prefix)
-        self._node_method_cache = {
-            attr[name_start:]: getattr(self, attr)
-            for attr in dir(self)
-            if attr.startswith(method_prefix)
+    @classmethod
+    def _visit_attr_names(cls) -> dict[str, str]:
+        """Node name -> attribute name, for every ``visit_*`` on the class.
+
+        `dir()` walks the whole MRO and sorts its result, which is far too
+        much work to repeat for every instance: importing the bundled
+        grammars alone constructs several hundred visitors.  The answer
+        depends only on the class, so compute it once and keep it there.
+
+        Cached in ``cls.__dict__`` rather than read through inheritance, so
+        a subclass builds its own table instead of borrowing its parent's.
+        """
+
+        # Adding a `visit_*` method to a class after it has been
+        # instantiated used to take effect, because the old code rebuilt
+        # from `dir(self)` every time.  Keep that working: the summed
+        # sizes of the MRO's dicts change whenever a method is added or
+        # removed anywhere in the hierarchy, and checking it costs ~240ns
+        # against ~3.1us for the scan it guards.  Replacing a method needs
+        # no signal at all -- the table maps to attribute *names*, which
+        # `getattr` resolves afresh on every instance.
+        signature = sum(len(klass.__dict__) for klass in cls.__mro__)
+        cached = cls.__dict__.get("_visit_attr_names_cache")
+        if cached is not None and cached[0] == signature:
+            return cached[1]
+        table = {
+            attr[_VISIT_NAME_START:]: attr
+            for attr in dir(cls)
+            if attr.startswith(_VISIT_PREFIX)
         }
+        cls._visit_attr_names_cache = (signature, table)
+        return table
+
+    def __init__(self):
+        cache = {
+            name: getattr(self, attr) for name, attr in self._visit_attr_names().items()
+        }
+        # Instance attributes count too, and not hypothetically:
+        # `ABNFGrammarNodeVisitor` assigns `self.visit_char_val` and
+        # `self.visit_num_val` before calling up to here, precisely so this
+        # picks them up.  `dir(self)` used to cover that; scanning the
+        # instance dict covers it for a fraction of the cost, since the
+        # dict holds a handful of entries rather than the full MRO.
+        for attr in vars(self):
+            if attr.startswith(_VISIT_PREFIX):
+                cache[attr[_VISIT_NAME_START:]] = getattr(self, attr)
+        self._node_method_cache = cache
 
     def __call__(self, node: Node):
         return self.visit(node)
@@ -1383,6 +1671,10 @@ class ABNFGrammarNodeVisitor(NodeVisitor):
 
     def __init__(self, rule_cls: type[Rule], *args: typing.Any, **kwargs: typing.Any):
         self.rule_cls = rule_cls
+        #: Alternations built for the rule currently being visited.
+        #: Kept because a nested one is otherwise unreachable once the
+        #: tree is assembled -- see ``Rule._alternation_parsers``.
+        self._alternations: list[Alternation] = []
         self.visit_char_val = CharValNodeVisitor()
         self.visit_num_val = NumValVisitor()
         # superclass init needs to happen here so that it will
@@ -1393,7 +1685,18 @@ class ABNFGrammarNodeVisitor(NodeVisitor):
         """Creates an Alternation object from alternation node."""
         assert node.name == "alternation"
         args: list[Parser] = list(filter(NotNull, map(self.visit, node.children)))
-        return Alternation(*args) if len(args) > 1 else args[0]
+        if len(args) <= 1:
+            # A single alternative is not an alternation; ABNF allows
+            # writing one, and it collapses to the element itself.
+            return args[0]
+        return self._new_alternation(*args)
+
+    def _new_alternation(self, *args: Parser) -> Alternation:
+        """Build an `Alternation` with the grammar's semantics, and keep
+        hold of it so the rule can reach it later."""
+        alternation = Alternation(*args, first_match=self.rule_cls._first_match_default)
+        self._alternations.append(alternation)
+        return alternation
 
     def visit_concatenation(self, node: Node):
         """Creates a Concatention object from concatenation node."""
@@ -1479,6 +1782,10 @@ class ABNFGrammarNodeVisitor(NodeVisitor):
         rule: Rule
         defined_as: str
         elements: Parser
+        # Collect the alternations built while visiting *this* rule; the
+        # unpacking below is what drives the lazy map, so the list is
+        # empty until then.
+        self._alternations = []
         rule, defined_as, elements = filter(NotNull, map(self.visit, node.children))
         # this assertion tells mypy that rule should actually be an object. Without, mypy
         # returns 'error: <nothing> has no attribute "definition"'
@@ -1508,9 +1815,15 @@ class ABNFGrammarNodeVisitor(NodeVisitor):
                 GrammarWarning,
                 stacklevel=2,
             )
-        rule.definition = (
-            elements if defined_as == "=" else Alternation(rule.definition, elements)
-        )
+        if defined_as == "=":
+            rule.definition = elements
+            rule._alternations = tuple(self._alternations)
+        else:
+            # '=/' keeps the earlier definition as one arm, so its
+            # alternations stay live and stay configurable.
+            previous = rule._alternation_parsers()
+            rule.definition = self._new_alternation(rule.definition, elements)
+            rule._alternations = tuple(previous) + tuple(self._alternations)
         return rule
 
     def visit_rulelist(self, node: Node):

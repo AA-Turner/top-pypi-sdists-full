@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abx-plugins
-Version: 1.12.108
+Version: 1.12.131
 Summary: ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)
 Project-URL: Homepage, https://github.com/ArchiveBox/abx-plugins
 Project-URL: Source, https://github.com/ArchiveBox/abx-plugins
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.12
 Requires-Dist: abxbus==2.5.45
-Requires-Dist: abxpkg==1.12.66
+Requires-Dist: abxpkg==1.12.79
 Requires-Dist: imagesize>=2.0.0
 Requires-Dist: rich-click>=1.9.7
 Requires-Dist: uv>=0.8.22
@@ -109,7 +109,7 @@ Notes:
 
 - Install resolution is optional runtime preflight work driven directly from `config.json > required_binaries`.
 - Binary provider plugins are no longer part of this package; binary provider behavior lives in `abxpkg`.
-- Standalone `abx-dl` stores derived binary cache entries in `derived.env`; ArchiveBox stores the equivalent cache in DB `machine_binary` rows. Plugins should stay unaware of both storage layers.
+- `abxpkg` owns the provider cache under `ABXPKG_LIB_DIR`; ArchiveBox may additionally project resolved binary events into DB `machine_binary` rows. Plugins and `abx-dl` stay unaware of both persistence layers.
 
 State/OS:
 

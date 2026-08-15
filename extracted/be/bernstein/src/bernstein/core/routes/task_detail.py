@@ -180,6 +180,12 @@ async def task_log_stream(request: Request, task_id: str) -> StreamingResponse:
     if task is None:
         raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found")
 
+    # Same gate the task-detail route applies: the stream carries agent log
+    # content, so the task must sit in the caller's scope before it opens.
+    from bernstein.core.routes.task_crud import _require_task_access
+
+    _require_task_access(task, request)
+
     runtime_dir = _get_runtime_dir(request)
 
     def _read_new_log_content(log_path: Path, last_size: int) -> tuple[str, int] | None:
@@ -504,6 +510,14 @@ async def task_diff(request: Request, task_id: str) -> TaskDiffResponse:
     task = _get_store(request).get_task(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found")
+
+    # The same gate the task-detail and log-stream routes apply.  The task is
+    # what resolves the working branch below, and the response carries that
+    # branch's contents, so an ungated read hands over the source changes as
+    # well as the row.
+    from bernstein.core.routes.task_crud import _require_task_access
+
+    _require_task_access(task, request)
 
     workdir = _get_workdir(request)
     base_ref = await asyncio.to_thread(_resolve_base_ref, workdir)

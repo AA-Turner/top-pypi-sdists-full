@@ -67,11 +67,11 @@ class ProjectEvent:
         self.branch = branch
         self.event = event_name(name, project, branch)
 
-    def publish(self, payload=None):
-        return ArgoEvent(self.event).publish(payload=payload)
+    def publish(self, payload=None, ignore_errors=True):
+        return ArgoEvent(self.event).publish(payload=payload, ignore_errors=ignore_errors)
 
-    def safe_publish(self, payload=None):
-        return ArgoEvent(self.event).safe_publish(payload=payload)
+    def safe_publish(self, payload=None, ignore_errors=True):
+        return ArgoEvent(self.event).safe_publish(payload=payload, ignore_errors=ignore_errors)
 
 
 class project_trigger(FlowMutator):

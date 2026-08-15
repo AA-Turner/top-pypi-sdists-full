@@ -12,10 +12,10 @@
 #     ./on_Snapshot__73_parse_netscape_urls.py --url=<url>
 # Output: Appends discovered URLs to SNAP_DIR/parse_netscape_urls/urls.jsonl
 #
+import sys
 import json
 import os
 import re
-import sys
 from pathlib import Path
 from datetime import datetime, timezone
 from html import unescape

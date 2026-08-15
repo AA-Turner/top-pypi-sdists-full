@@ -33,11 +33,11 @@ from litdata.constants import (
     _INDEX_FILENAME,
     _OBSTORE_AVAILABLE,
 )
-from litdata.debugger import _get_log_msg
+from litdata.debugger import CAT_DOWNLOAD, CAT_LOCK, emit_trace
 from litdata.streaming.client import R2Client, S3Client
 
 if TYPE_CHECKING:
-    from obstore.store import ClientConfig
+    from obstore.store import ClientConfig, S3Config
 
 logger = logging.getLogger("litdata.streaming.downloader")
 
@@ -51,9 +51,177 @@ def _obstore_stream_min_chunk_size() -> int:
     return 8 * 1024 * 1024
 
 
+def _write_obstore_chunk(fileobj: Any, chunk: Any) -> None:
+    """Write a stream yield without an extra ``bytes()`` copy when possible."""
+    if isinstance(chunk, (bytes, bytearray, memoryview)):
+        fileobj.write(chunk)
+        return
+    try:
+        fileobj.write(memoryview(chunk))
+    except TypeError:
+        fileobj.write(bytes(chunk))
+
+
+def _obstore_stream_resp_to_tmp(tmp_path: str, resp: Any) -> None:
+    with open(tmp_path, "wb") as f:
+        for chunk in resp.stream(min_chunk_size=_obstore_stream_min_chunk_size()):
+            _write_obstore_chunk(f, chunk)
+
+
+async def _obstore_astream_resp_to_tmp(tmp_path: str, resp: Any) -> None:
+    with open(tmp_path, "wb") as f:
+        async for chunk in resp.stream(min_chunk_size=_obstore_stream_min_chunk_size()):
+            _write_obstore_chunk(f, chunk)
+
+
+async def _obstore_adownload_file(downloader: "Downloader", store: Any, key: str, local_filepath: str) -> None:
+    """Stream an object to ``local_filepath`` (prefer this over :meth:`Downloader.adownload_fileobj`)."""
+    import obstore as obs
+
+    if os.path.exists(local_filepath):
+        return
+    tmp_path = downloader._temp_download_path(local_filepath)
+    try:
+        os.makedirs(os.path.dirname(local_filepath) or ".", exist_ok=True)
+        resp = await obs.get_async(store, key)
+        await _obstore_astream_resp_to_tmp(tmp_path, resp)
+        downloader._atomic_replace(tmp_path, local_filepath)
+    except Exception:
+        with suppress(FileNotFoundError, PermissionError):
+            os.remove(tmp_path)
+        raise
+
+
+async def _obstore_adownload_bytes(store: Any, key: str) -> bytes:
+    """In-memory GET. Callers that write to disk should use :func:`_obstore_adownload_file`."""
+    import obstore as obs
+
+    resp = await obs.get_async(store, key)
+    return bytes(await resp.bytes_async())
+
+
 # Obstore default request timeout is 30s; large chunk GETs under worker
 # contention can exceed that. Speed-neutral, avoids spurious retries.
 _OBSTORE_CLIENT_OPTIONS = cast("ClientConfig", {"timeout": "200s"})
+
+# PID that first built an obstore store in this process lineage. Obstore's
+# Rust/tokio runtime is process-global and not fork-safe: a new S3Store in a
+# forked child still hangs if the parent already started tokio. So we:
+#   * never start obstore for ``index.json`` (parent DataLoader setup)
+#   * lazy-create a store in the process that first downloads a chunk
+#   * fall back to boto3 only if this process forked *after* that init
+_OBSTORE_INIT_PID: int | None = None
+
+
+def obstore_usable() -> bool:
+    """Return whether obstore may be used in *this* process.
+
+    True when obstore is installed and this process did not inherit a tokio
+    runtime started by its parent (fork). Spawn children start clean.
+    Re-instantiating ``S3Store`` after fork is not enough — the runtime is
+    process-global, not the Python object.
+    """
+    if not _OBSTORE_AVAILABLE:
+        return False
+    return _OBSTORE_INIT_PID is None or os.getpid() == _OBSTORE_INIT_PID
+
+
+def _use_obstore_for_s3_key(object_path: str) -> bool:
+    """Whether this S3 GET should go through obstore.
+
+    ``index.json`` is fetched in the DataLoader parent before fork. Using
+    obstore there starts tokio in the parent and poisons every worker.
+    Chunk downloads then lazy-init obstore in the worker (or in the parent
+    when ``num_workers=0``).
+    """
+    return obstore_usable() and not object_path.endswith(_INDEX_FILENAME)
+
+
+def _note_obstore_init() -> None:
+    global _OBSTORE_INIT_PID
+    if _OBSTORE_INIT_PID is None:
+        _OBSTORE_INIT_PID = os.getpid()
+
+
+def _discard_forked_obstore_store(downloader: Any) -> None:
+    """Drop an S3Store inherited across fork so it cannot be reused."""
+    if getattr(downloader, "_store_pid", None) == os.getpid():
+        return
+    if hasattr(downloader, "_store"):
+        del downloader._store
+    downloader._store_pid = os.getpid()
+
+
+def _obstore_credential_provider(s3_client: S3Client) -> Any:
+    """Return an obstore credential callback that follows ``S3Client``/``R2Client`` refresh.
+
+    LitData's boto3 wrappers resolve Studio temp credentials, ``data_connection_id``,
+    custom endpoints, and IMDS. The async/obstore path must reuse that client instead
+    of dumping ``storage_options`` into ``boto3.Session`` (which rejects LitData
+    metadata keys such as ``data_connection_id`` and client-only keys such as
+    ``endpoint_url``).
+    """
+
+    def _provider() -> dict[str, Any]:
+        from datetime import datetime, timedelta, timezone
+
+        boto_client = s3_client.client
+        frozen = boto_client._get_credentials().get_frozen_credentials()
+        if frozen.access_key is None or frozen.secret_key is None:
+            raise ValueError("boto3 client returned incomplete credentials")
+        return {
+            "access_key_id": frozen.access_key,
+            "secret_access_key": frozen.secret_key,
+            "token": frozen.token,
+            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=30),
+        }
+
+    return _provider
+
+
+def _build_obstore_s3_store(bucket: str, s3_client: S3Client) -> Any:
+    """Build an obstore ``S3Store`` that matches an already-configured boto3 S3 client.
+
+    Sync downloads go through ``S3Client``/``R2Client``. This helper is the async
+    equivalent: same credentials, endpoint, and region, so R2, S3-compatible
+    endpoints, and Lightning data connections work on the prefetch path.
+    """
+    from obstore.store import S3Store
+
+    boto_client = s3_client.client
+    endpoint_url = boto_client.meta.endpoint_url
+    region = boto_client.meta.region_name
+    config: dict[str, Any] = {}
+    if region:
+        config["region"] = region
+    if endpoint_url:
+        config["endpoint"] = endpoint_url
+        # Path-style addressing is required for R2 and most S3-compatible endpoints.
+        if "amazonaws.com" not in endpoint_url:
+            config["virtual_hosted_style_request"] = False
+
+    return S3Store(
+        bucket,
+        config=cast("S3Config", config) if config else None,
+        credential_provider=_obstore_credential_provider(s3_client),
+        client_options=_OBSTORE_CLIENT_OPTIONS,
+    )
+
+
+def _cached_obstore_store(downloader: Any, factory: Any) -> Any:
+    """Return a process-local obstore store, or raise if this process forked after init."""
+    _discard_forked_obstore_store(downloader)
+    if not obstore_usable():
+        raise RuntimeError(
+            "obstore is not fork-safe after the parent process initialized it; fall back to the SDK client"
+        )
+    if not hasattr(downloader, "_store"):
+        if not _OBSTORE_AVAILABLE:
+            raise ModuleNotFoundError(str(_OBSTORE_AVAILABLE))
+        downloader._store = factory()
+        downloader._store_pid = os.getpid()
+        _note_obstore_init()
+    return downloader._store
 
 
 class Downloader(ABC):
@@ -79,6 +247,13 @@ class Downloader(ABC):
         self._chunks = chunks
         self._storage_options = storage_options or {}
 
+    def __getstate__(self) -> dict[str, Any]:
+        # Spawn workers must not inherit a live obstore S3Store / tokio runtime.
+        state = self.__dict__.copy()
+        state.pop("_store", None)
+        state.pop("_store_pid", None)
+        return state
+
     def _increment_local_lock(self, chunkpath: str, chunk_index: int) -> None:
         countpath = chunkpath + ".cnt"
         with suppress(Timeout, FileNotFoundError), FileLock(countpath + ".lock", timeout=1):
@@ -89,12 +264,12 @@ class Downloader(ABC):
                 curr_count = 0
             curr_count += 1
             with open(countpath, "w+") as count_f:
-                logger.debug(_get_log_msg({"name": f"increment_lock_chunk_{chunk_index}_to_{curr_count}", "ph": "B"}))
+                emit_trace("lock", "B", CAT_LOCK, op="increment", chunk=chunk_index, count=curr_count)
                 count_f.write(str(curr_count))
-                logger.debug(_get_log_msg({"name": f"increment_lock_chunk_{chunk_index}_to_{curr_count}", "ph": "E"}))
+                emit_trace("lock", "E", CAT_LOCK, op="increment", chunk=chunk_index, count=curr_count)
 
     def download_chunk_from_index(self, chunk_index: int) -> None:
-        logger.debug(_get_log_msg({"name": f"download_chunk_{chunk_index}", "ph": "B"}))
+        emit_trace("download", "B", CAT_DOWNLOAD, chunk=chunk_index)
 
         chunk_filename = self._chunks[chunk_index]["filename"]
         local_chunkpath = os.path.join(self._cache_dir, chunk_filename)
@@ -102,7 +277,7 @@ class Downloader(ABC):
 
         self.download_file(remote_chunkpath, local_chunkpath)
 
-        logger.debug(_get_log_msg({"name": f"download_chunk_{chunk_index}", "ph": "E"}))
+        emit_trace("download", "E", CAT_DOWNLOAD, chunk=chunk_index)
 
     def download_chunk_bytes_from_index(self, chunk_index: int, offset: int, length: int) -> bytes:
         chunk_filename = self._chunks[chunk_index]["filename"]
@@ -201,19 +376,18 @@ class S3Downloader(Downloader):
         ):
             if os.path.exists(local_filepath):
                 return
-            # Prefer obstore for sync downloads too (Studio: often faster than
-            # boto3 serial on ~64MB chunks). Fall back to boto3 if unavailable.
+            # Prefer obstore for chunk GETs (Studio: often faster than boto3
+            # serial on ~64MB objects). Index fetches stay on boto3 so the
+            # DataLoader parent does not start tokio before fork.
             tmp_path = self._temp_download_path(local_filepath)
             try:
                 os.makedirs(os.path.dirname(local_filepath) or ".", exist_ok=True)
-                if _OBSTORE_AVAILABLE:
+                if _use_obstore_for_s3_key(obj.path):
                     import obstore as obs
 
                     store = self._get_store(obj.netloc)
                     resp = obs.get(store, obj.path.lstrip("/"))
-                    with open(tmp_path, "wb", buffering=1024 * 1024) as f:
-                        for chunk in resp.stream(min_chunk_size=_obstore_stream_min_chunk_size()):
-                            f.write(chunk)
+                    _obstore_stream_resp_to_tmp(tmp_path, resp)
                 else:
                     from boto3.s3.transfer import TransferConfig
 
@@ -263,65 +437,24 @@ class S3Downloader(Downloader):
 
     def _get_store(self, bucket: str) -> Any:
         """Return an obstore S3Store instance for the given bucket, initializing if needed."""
-        if not hasattr(self, "_store"):
-            if not _OBSTORE_AVAILABLE:
-                raise ModuleNotFoundError(str(_OBSTORE_AVAILABLE))
-            import boto3
-            from obstore.auth.boto3 import Boto3CredentialProvider
-            from obstore.store import S3Store
-
-            session = boto3.Session(**self._storage_options, **self.session_options)
-            credential_provider = Boto3CredentialProvider(session)
-            self._store = S3Store(
-                bucket,
-                credential_provider=credential_provider,
-                client_options=_OBSTORE_CLIENT_OPTIONS,
-            )
-        return self._store
+        return _cached_obstore_store(self, lambda: _build_obstore_s3_store(bucket, self._client))
 
     async def adownload_fileobj(self, remote_filepath: str) -> bytes:
         """Download a file from S3 into memory asynchronously (prefer :meth:`adownload_file`)."""
-        import obstore as obs
-
         obj = parse.urlparse(remote_filepath)
 
         if obj.scheme != "s3":
             raise ValueError(f"Expected obj.scheme to be `s3`, instead, got {obj.scheme} for remote={remote_filepath}")
 
-        bucket = obj.netloc
-        key = obj.path.lstrip("/")
-
-        store = self._get_store(bucket)
-        resp = await obs.get_async(store, key)
-        bytes_object = await resp.bytes_async()
-        return bytes(bytes_object)  # Convert obstore.Bytes to bytes
+        return await _obstore_adownload_bytes(self._get_store(obj.netloc), obj.path.lstrip("/"))
 
     async def adownload_file(self, remote_filepath: str, local_filepath: str) -> None:
         """Stream an S3 object to ``local_filepath`` without buffering the full body."""
-        import obstore as obs
-
-        if os.path.exists(local_filepath):
-            return
-
         obj = parse.urlparse(remote_filepath)
         if obj.scheme != "s3":
             raise ValueError(f"Expected obj.scheme to be `s3`, instead, got {obj.scheme} for remote={remote_filepath}")
 
-        bucket = obj.netloc
-        key = obj.path.lstrip("/")
-        store = self._get_store(bucket)
-        tmp_path = self._temp_download_path(local_filepath)
-        try:
-            os.makedirs(os.path.dirname(local_filepath) or ".", exist_ok=True)
-            resp = await obs.get_async(store, key)
-            with open(tmp_path, "wb", buffering=1024 * 1024) as f:
-                async for chunk in resp.stream(min_chunk_size=_obstore_stream_min_chunk_size()):
-                    f.write(chunk)
-            self._atomic_replace(tmp_path, local_filepath)
-        except Exception:
-            with suppress(FileNotFoundError, PermissionError):
-                os.remove(tmp_path)
-            raise
+        await _obstore_adownload_file(self, self._get_store(obj.netloc), obj.path.lstrip("/"), local_filepath)
 
 
 class R2Downloader(Downloader):
@@ -409,34 +542,24 @@ class R2Downloader(Downloader):
 
     def _get_store(self, bucket: str) -> Any:
         """Return an obstore S3Store instance for the given bucket, initializing if needed."""
-        if not hasattr(self, "_store"):
-            if not _OBSTORE_AVAILABLE:
-                raise ModuleNotFoundError(str(_OBSTORE_AVAILABLE))
-            import boto3
-            from obstore.auth.boto3 import Boto3CredentialProvider
-            from obstore.store import S3Store
-
-            session = boto3.Session(**self._storage_options, **self.session_options)
-            credential_provider = Boto3CredentialProvider(session)
-            self._store = S3Store(bucket, credential_provider=credential_provider)
-        return self._store
+        return _cached_obstore_store(self, lambda: _build_obstore_s3_store(bucket, self._client))
 
     async def adownload_fileobj(self, remote_filepath: str) -> bytes:
-        """Download a file from R2 directly to a file-like object asynchronously."""
-        import obstore as obs
-
+        """Download a file from R2 into memory asynchronously (prefer :meth:`adownload_file`)."""
         obj = parse.urlparse(remote_filepath)
 
         if obj.scheme != "r2":
             raise ValueError(f"Expected obj.scheme to be `r2`, instead, got {obj.scheme} for remote={remote_filepath}")
 
-        bucket = obj.netloc
-        key = obj.path.lstrip("/")
+        return await _obstore_adownload_bytes(self._get_store(obj.netloc), obj.path.lstrip("/"))
 
-        store = self._get_store(bucket)
-        resp = await obs.get_async(store, key)
-        bytes_object = await resp.bytes_async()
-        return bytes(bytes_object)  # Convert obstore.Bytes to bytes
+    async def adownload_file(self, remote_filepath: str, local_filepath: str) -> None:
+        """Stream an R2 object to ``local_filepath`` without buffering the full body."""
+        obj = parse.urlparse(remote_filepath)
+        if obj.scheme != "r2":
+            raise ValueError(f"Expected obj.scheme to be `r2`, instead, got {obj.scheme} for remote={remote_filepath}")
+
+        await _obstore_adownload_file(self, self._get_store(obj.netloc), obj.path.lstrip("/"), local_filepath)
 
 
 class GCPDownloader(Downloader):
@@ -536,33 +659,33 @@ class GCPDownloader(Downloader):
 
     def _get_store(self, bucket: str) -> Any:
         """Return an obstore GCSStore instance for the given bucket, initializing if needed."""
-        if not hasattr(self, "_store"):
-            if not _OBSTORE_AVAILABLE:
-                raise ModuleNotFoundError(str(_OBSTORE_AVAILABLE))
+
+        def _factory() -> Any:
             from obstore.auth.google import GoogleCredentialProvider
             from obstore.store import GCSStore
 
             client = self._get_client()
             credential_provider = GoogleCredentialProvider(credentials=client._credentials)
-            self._store = GCSStore(bucket, credential_provider=credential_provider)
-        return self._store
+            return GCSStore(bucket, credential_provider=credential_provider)
+
+        return _cached_obstore_store(self, _factory)
 
     async def adownload_fileobj(self, remote_filepath: str) -> bytes:
-        """Download a file from GCS directly to a file-like object asynchronously."""
-        import obstore as obs
-
+        """Download a file from GCS into memory asynchronously (prefer :meth:`adownload_file`)."""
         obj = parse.urlparse(remote_filepath)
 
         if obj.scheme != "gs":
             raise ValueError(f"Expected scheme 'gs', got '{obj.scheme}' for remote={remote_filepath}")
 
-        bucket_name = obj.netloc
-        key = obj.path.lstrip("/")
+        return await _obstore_adownload_bytes(self._get_store(obj.netloc), obj.path.lstrip("/"))
 
-        store = self._get_store(bucket_name)
-        resp = await obs.get_async(store, key)
-        bytes_object = await resp.bytes_async()
-        return bytes(bytes_object)  # Convert obstore.Bytes to bytes
+    async def adownload_file(self, remote_filepath: str, local_filepath: str) -> None:
+        """Stream a GCS object to ``local_filepath`` without buffering the full body."""
+        obj = parse.urlparse(remote_filepath)
+        if obj.scheme != "gs":
+            raise ValueError(f"Expected scheme 'gs', got '{obj.scheme}' for remote={remote_filepath}")
+
+        await _obstore_adownload_file(self, self._get_store(obj.netloc), obj.path.lstrip("/"), local_filepath)
 
 
 class AzureDownloader(Downloader):
@@ -630,22 +753,20 @@ class AzureDownloader(Downloader):
         blob_data.readinto(fileobj)
 
     def _get_store(self, bucket: str) -> Any:
-        """Return an obstore GCSStore instance for the given bucket, initializing if needed."""
-        if not hasattr(self, "_store"):
-            if not _OBSTORE_AVAILABLE:
-                raise ModuleNotFoundError(str(_OBSTORE_AVAILABLE))
+        """Return an obstore AzureStore instance for the given bucket, initializing if needed."""
+
+        def _factory() -> Any:
             from obstore.auth.azure import AzureCredentialProvider
             from obstore.store import AzureStore
 
             # TODO: Check how to pass storage options to AzureCredentialProvider
             credential_provider = AzureCredentialProvider()
-            self._store = AzureStore(bucket, credential_provider=credential_provider)
-        return self._store
+            return AzureStore(bucket, credential_provider=credential_provider)
+
+        return _cached_obstore_store(self, _factory)
 
     async def adownload_fileobj(self, remote_filepath: str) -> bytes:
-        """Download a file from Azure Blob Storage directly to a file-like object asynchronously."""
-        import obstore as obs
-
+        """Download a file from Azure into memory asynchronously (prefer :meth:`adownload_file`)."""
         obj = parse.urlparse(remote_filepath)
 
         if obj.scheme != "azure":
@@ -653,13 +774,17 @@ class AzureDownloader(Downloader):
                 f"Expected obj.scheme to be `azure`, instead, got {obj.scheme} for remote={remote_filepath}"
             )
 
-        bucket_name = obj.netloc
-        key = obj.path.lstrip("/")
+        return await _obstore_adownload_bytes(self._get_store(obj.netloc), obj.path.lstrip("/"))
 
-        store = self._get_store(bucket_name)
-        resp = await obs.get_async(store, key)
-        bytes_object = await resp.bytes_async()
-        return bytes(bytes_object)  # Convert obstore.Bytes to bytes
+    async def adownload_file(self, remote_filepath: str, local_filepath: str) -> None:
+        """Stream an Azure object to ``local_filepath`` without buffering the full body."""
+        obj = parse.urlparse(remote_filepath)
+        if obj.scheme != "azure":
+            raise ValueError(
+                f"Expected obj.scheme to be `azure`, instead, got {obj.scheme} for remote={remote_filepath}"
+            )
+
+        await _obstore_adownload_file(self, self._get_store(obj.netloc), obj.path.lstrip("/"), local_filepath)
 
 
 class LocalDownloader(Downloader):

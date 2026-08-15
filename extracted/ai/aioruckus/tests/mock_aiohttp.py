@@ -1,8 +1,11 @@
-import re
+from __future__ import annotations
+
 import json
+import re
 from unittest.mock import patch
-from yarl import URL
+
 from multidict import CIMultiDict, CIMultiDictProxy
+from yarl import URL
 
 
 class CallbackResult:

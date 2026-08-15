@@ -1,6 +1,6 @@
-Metadata-Version: 2.5
+Metadata-Version: 2.4
 Name: unstructured_ingest
-Version: 1.9.0
+Version: 1.9.3
 Summary: Local ETL data pipeline to get data RAG ready
 Author-email: Unstructured Technologies <devops@unstructuredai.io>
 License-Expression: Apache-2.0
@@ -185,7 +185,7 @@ Provides-Extra: salesforce
 Requires-Dist: simple-salesforce; extra == 'salesforce'
 Provides-Extra: sftp
 Requires-Dist: fsspec; extra == 'sftp'
-Requires-Dist: paramiko; extra == 'sftp'
+Requires-Dist: paramiko<5; extra == 'sftp'
 Provides-Extra: sharepoint
 Requires-Dist: msal; extra == 'sharepoint'
 Requires-Dist: office365-rest-python-client; extra == 'sharepoint'

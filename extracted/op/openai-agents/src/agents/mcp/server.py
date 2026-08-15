@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NoReturn, TypeVar, Union, cast
 
 import anyio
-import httpx
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup  # pyright: ignore[reportMissingImports]
@@ -46,13 +45,8 @@ from ..logger import (
 from ..run_context import RunContextWrapper
 from ..tool import ToolErrorFunction
 from ..util._types import MaybeAwaitable
+from . import _compat as mcp_compat
 from ._compat import (
-    HTTP_CONNECT_ERROR_TYPES,
-    HTTP_ERROR_TYPES,
-    HTTP_INVALID_URL_TYPES,
-    HTTP_REQUEST_ERROR_TYPES,
-    HTTP_STATUS_ERROR_TYPES,
-    HTTP_TIMEOUT_ERROR_TYPES,
     MCP_HTTPX,
     MCP_V2,
     MCPError,
@@ -161,6 +155,24 @@ def _client_session_read_timeout(timeout_seconds: float | None) -> timedelta | f
     return timeout_seconds if MCP_V2 else timeout
 
 
+def _validate_retry_backoff_seconds_max(value: float | None) -> None:
+    """Validate the optional maximum retry delay."""
+    if value is None:
+        return
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise TypeError("retry_backoff_seconds_max must be a number of seconds or None.")
+    try:
+        is_finite = math.isfinite(value)
+    except OverflowError as error:
+        raise ValueError(
+            "retry_backoff_seconds_max must be a non-negative finite number of seconds or None."
+        ) from error
+    if not is_finite or value < 0:
+        raise ValueError(
+            "retry_backoff_seconds_max must be a non-negative finite number of seconds or None."
+        )
+
+
 def _transport_error_urls_are_safe(
     http_error: Exception,
 ) -> bool:
@@ -184,7 +196,7 @@ def _transport_error_urls_are_safe(
             if redirect_location is not None:
                 try:
                     request_urls.append(str(response_url.join(redirect_location)))
-                except HTTP_INVALID_URL_TYPES + (ValueError,):
+                except mcp_compat.HTTP_INVALID_URL_TYPES + (ValueError,):
                     return False
 
     return all(get_mcp_server_log_name(url) == url for url in request_urls)
@@ -307,7 +319,7 @@ def _create_default_streamable_http_client(
         kwargs["headers"] = headers
     if auth is not None:
         kwargs["auth"] = auth
-    return httpx.AsyncClient(**kwargs)
+    return MCP_HTTPX.AsyncClient(**kwargs)
 
 
 def _validate_v2_http_auth(auth: Any) -> None:
@@ -417,7 +429,7 @@ class _InitializedNotificationTolerantStreamableHTTPTransport(
 
         try:
             await super()._handle_post_request(ctx)
-        except HTTP_ERROR_TYPES as exc:
+        except mcp_compat.HTTP_ERROR_TYPES as exc:
             _log_transport_warning(
                 "Ignoring initialized notification HTTP failure",
                 exc,
@@ -435,7 +447,7 @@ async def _streamablehttp_client_with_transport(
     sse_read_timeout: float | timedelta = 60 * 5,
     terminate_on_close: bool = True,
     httpx_client_factory: HttpClientFactory = _create_default_streamable_http_client,
-    auth: httpx.Auth | None = None,
+    auth: Any = None,
     transport_factory: Callable[[str], Any] = StreamableHTTPTransport,
 ) -> AsyncGenerator[MCPStreamTransport, None]:
     timeout_seconds = timeout.total_seconds() if isinstance(timeout, timedelta) else timeout
@@ -447,7 +459,7 @@ async def _streamablehttp_client_with_transport(
 
     client = httpx_client_factory(
         headers=headers,
-        timeout=httpx.Timeout(timeout_seconds, read=sse_read_timeout_seconds),
+        timeout=MCP_HTTPX.Timeout(timeout_seconds, read=sse_read_timeout_seconds),
         auth=auth,
     )
     transport = transport_factory(url)
@@ -842,7 +854,11 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
 
     @property
     def cached_tools(self) -> list[MCPTool] | None:
-        return self._tools_list
+        """A snapshot of the cached tools list, or `None` when nothing is cached.
+
+        This returns a new list so callers cannot mutate the server's cache in place.
+        """
+        return None if self._tools_list is None else list(self._tools_list)
 
     def __init__(
         self,
@@ -857,6 +873,7 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
         failure_error_function: ToolErrorFunction | None | _UnsetType = _UNSET,
         tool_meta_resolver: MCPToolMetaResolver | None = None,
         custom_data_extractor: MCPToolCustomDataExtractor | None = None,
+        retry_backoff_seconds_max: float | None = None,
     ):
         """
         Args:
@@ -894,7 +911,10 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
                 tool calls. It is invoked by the Agents SDK before calling `call_tool`.
             custom_data_extractor: Optional callable that produces SDK-only custom data for
                 emitted MCP tool output items.
+            retry_backoff_seconds_max: The non-negative finite maximum delay, in seconds, between
+                retries. Defaults to `None`, which leaves exponential backoff uncapped.
         """
+        mcp_compat.enable_legacy_httpx_compat()
         super().__init__(
             use_structured_content=use_structured_content,
             require_approval=require_approval,
@@ -912,9 +932,11 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
         # Validate during construction, then convert again when connecting in case callers mutate
         # the public timeout attribute before a later connection attempt.
         _client_session_read_timeout(client_session_timeout_seconds)
+        _validate_retry_backoff_seconds_max(retry_backoff_seconds_max)
         self.client_session_timeout_seconds = client_session_timeout_seconds
         self.max_retry_attempts = max_retry_attempts
         self.retry_backoff_seconds_base = retry_backoff_seconds_base
+        self.retry_backoff_seconds_max = retry_backoff_seconds_max
         self.message_handler = message_handler
 
         # The cache is always dirty at startup, so that we fetch tools at least once
@@ -1081,9 +1103,9 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
 
         candidates = error.exceptions if isinstance(error, BaseExceptionGroup) else (error,)
         for error_types in (
-            HTTP_STATUS_ERROR_TYPES,
-            HTTP_CONNECT_ERROR_TYPES,
-            HTTP_TIMEOUT_ERROR_TYPES,
+            mcp_compat.HTTP_STATUS_ERROR_TYPES,
+            mcp_compat.HTTP_CONNECT_ERROR_TYPES,
+            mcp_compat.HTTP_TIMEOUT_ERROR_TYPES,
         ):
             selected_http_error = next(
                 (
@@ -1156,7 +1178,9 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
         base_error_group: BaseExceptionGroup | None = None
         try:
             return await func()
-        except HTTP_STATUS_ERROR_TYPES + HTTP_REQUEST_ERROR_TYPES as http_error:
+        except (
+            mcp_compat.HTTP_STATUS_ERROR_TYPES + mcp_compat.HTTP_REQUEST_ERROR_TYPES
+        ) as http_error:
             transport_error = self._user_error_for_request_operation(operation, http_error)
         except BaseExceptionGroup as error_group:
             http_errors = self._extract_http_errors_from_exception(error_group)
@@ -1187,6 +1211,17 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
         assert transport_error is not None
         self._raise_mapped_transport_error(transport_error, None)
 
+    def _retry_backoff_seconds(self, backoffs_taken: int) -> float:
+        """Return the configured exponential delay after the given number of backoffs."""
+        if self.retry_backoff_seconds_max is None:
+            return cast(float, self.retry_backoff_seconds_base * (2**backoffs_taken))
+
+        try:
+            backoff = math.ldexp(self.retry_backoff_seconds_base, backoffs_taken)
+        except OverflowError:
+            backoff = math.copysign(math.inf, self.retry_backoff_seconds_base)
+        return min(backoff, self.retry_backoff_seconds_max)
+
     async def _run_with_retries(self, func: Callable[[], Awaitable[T]]) -> T:
         attempts = 0
         while True:
@@ -1196,8 +1231,7 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
                 attempts += 1
                 if self.max_retry_attempts != -1 and attempts > self.max_retry_attempts:
                     raise
-                backoff = self.retry_backoff_seconds_base * (2 ** (attempts - 1))
-                await asyncio.sleep(backoff)
+                await asyncio.sleep(self._retry_backoff_seconds(attempts - 1))
 
     @asynccontextmanager
     async def _client_session_context(self, read_timeout: timedelta | float | None):
@@ -1444,15 +1478,20 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
             filtered_tools = tools
             if self.tool_filter is not None:
                 filtered_tools = await self._apply_tool_filter(filtered_tools, run_context, agent)
+            if filtered_tools is self._tools_list:
+                # The filters build a new list, but an absent filter — or a static filter with
+                # neither key set — passes the cached list straight through. Returning it would
+                # let a caller mutate the cache and corrupt every later `list_tools()` result.
+                return list(filtered_tools)
             return filtered_tools
-        except HTTP_STATUS_ERROR_TYPES as e:
+        except mcp_compat.HTTP_STATUS_ERROR_TYPES as e:
             status_code = http_status_code(e)
             transport_error = UserError(
                 f"Failed to list tools from MCP server '{self._error_name}': "
                 f"HTTP error {status_code}"
             )
             transport_cause = _safe_transport_cause(e)
-        except HTTP_REQUEST_ERROR_TYPES as e:
+        except mcp_compat.HTTP_REQUEST_ERROR_TYPES as e:
             transport_cause = _safe_transport_cause(e)
             if transport_cause is not None and not is_http_connect_error(e):
                 raise
@@ -1501,14 +1540,14 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
                     lambda: cast(Any, session).call_tool(tool_name, arguments, meta=meta)
                 )
             )
-        except HTTP_STATUS_ERROR_TYPES as e:
+        except mcp_compat.HTTP_STATUS_ERROR_TYPES as e:
             status_code = http_status_code(e)
             transport_error = UserError(
                 f"Failed to call tool '{tool_name}' on MCP server '{self._error_name}': "
                 f"HTTP error {status_code}"
             )
             transport_cause = _safe_transport_cause(e)
-        except HTTP_REQUEST_ERROR_TYPES as e:
+        except mcp_compat.HTTP_REQUEST_ERROR_TYPES as e:
             transport_cause = _safe_transport_cause(e)
             if transport_cause is not None and not is_http_connect_error(e):
                 raise
@@ -1713,8 +1752,8 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
                 raise
             except (  # type: ignore[misc]
                 BaseExceptionGroup,
-                *HTTP_STATUS_ERROR_TYPES,
-                *HTTP_REQUEST_ERROR_TYPES,
+                *mcp_compat.HTTP_STATUS_ERROR_TYPES,
+                *mcp_compat.HTTP_REQUEST_ERROR_TYPES,
             ) as e:
                 selected_http_error = self._select_cleanup_transport_error(e)
                 if selected_http_error is not None:
@@ -1845,6 +1884,7 @@ class MCPServerStdio(_MCPServerWithClientSession):
         failure_error_function: ToolErrorFunction | None | _UnsetType = _UNSET,
         tool_meta_resolver: MCPToolMetaResolver | None = None,
         custom_data_extractor: MCPToolCustomDataExtractor | None = None,
+        retry_backoff_seconds_max: float | None = None,
     ):
         """Create a new MCP server based on the stdio transport.
 
@@ -1887,6 +1927,8 @@ class MCPServerStdio(_MCPServerWithClientSession):
                 tool calls. It is invoked by the Agents SDK before calling `call_tool`.
             custom_data_extractor: Optional callable that produces SDK-only custom data for
                 emitted MCP tool output items.
+            retry_backoff_seconds_max: The non-negative finite maximum delay, in seconds, between
+                retries. Defaults to `None`, which leaves exponential backoff uncapped.
         """
         super().__init__(
             cache_tools_list=cache_tools_list,
@@ -1900,6 +1942,7 @@ class MCPServerStdio(_MCPServerWithClientSession):
             failure_error_function=failure_error_function,
             tool_meta_resolver=tool_meta_resolver,
             custom_data_extractor=custom_data_extractor,
+            retry_backoff_seconds_max=retry_backoff_seconds_max,
         )
 
         self.params = StdioServerParameters(
@@ -1974,6 +2017,7 @@ class MCPServerSse(_MCPServerWithClientSession):
         failure_error_function: ToolErrorFunction | None | _UnsetType = _UNSET,
         tool_meta_resolver: MCPToolMetaResolver | None = None,
         custom_data_extractor: MCPToolCustomDataExtractor | None = None,
+        retry_backoff_seconds_max: float | None = None,
     ):
         """Create a new MCP server based on the HTTP with SSE transport.
 
@@ -2018,6 +2062,8 @@ class MCPServerSse(_MCPServerWithClientSession):
                 tool calls. It is invoked by the Agents SDK before calling `call_tool`.
             custom_data_extractor: Optional callable that produces SDK-only custom data for
                 emitted MCP tool output items.
+            retry_backoff_seconds_max: The non-negative finite maximum delay, in seconds, between
+                retries. Defaults to `None`, which leaves exponential backoff uncapped.
         """
         super().__init__(
             cache_tools_list=cache_tools_list,
@@ -2031,6 +2077,7 @@ class MCPServerSse(_MCPServerWithClientSession):
             failure_error_function=failure_error_function,
             tool_meta_resolver=tool_meta_resolver,
             custom_data_extractor=custom_data_extractor,
+            retry_backoff_seconds_max=retry_backoff_seconds_max,
         )
 
         self.params = params
@@ -2131,6 +2178,7 @@ class MCPServerStreamableHttp(_MCPServerWithClientSession):
         failure_error_function: ToolErrorFunction | None | _UnsetType = _UNSET,
         tool_meta_resolver: MCPToolMetaResolver | None = None,
         custom_data_extractor: MCPToolCustomDataExtractor | None = None,
+        retry_backoff_seconds_max: float | None = None,
     ):
         """Create a new MCP server based on the Streamable HTTP transport.
 
@@ -2176,6 +2224,8 @@ class MCPServerStreamableHttp(_MCPServerWithClientSession):
                 tool calls. It is invoked by the Agents SDK before calling `call_tool`.
             custom_data_extractor: Optional callable that produces SDK-only custom data for
                 emitted MCP tool output items.
+            retry_backoff_seconds_max: The non-negative finite maximum delay, in seconds, between
+                retries. Defaults to `None`, which leaves exponential backoff uncapped.
         """
         super().__init__(
             cache_tools_list=cache_tools_list,
@@ -2189,6 +2239,7 @@ class MCPServerStreamableHttp(_MCPServerWithClientSession):
             failure_error_function=failure_error_function,
             tool_meta_resolver=tool_meta_resolver,
             custom_data_extractor=custom_data_extractor,
+            retry_backoff_seconds_max=retry_backoff_seconds_max,
         )
 
         self.params = params
@@ -2391,24 +2442,24 @@ class MCPServerStreamableHttp(_MCPServerWithClientSession):
                         if exc.__cause__ is not None:
                             raise exc.__cause__ from exc
                         raise
-                    backoff = self.retry_backoff_seconds_base * (2**backoffs_taken)
+                    backoff = self._retry_backoff_seconds(backoffs_taken)
                     backoffs_taken += 1
                     await asyncio.sleep(backoff)
                 except Exception:
                     if self.max_retry_attempts != -1 and retries_used >= self.max_retry_attempts:
                         raise
-                    backoff = self.retry_backoff_seconds_base * (2**backoffs_taken)
+                    backoff = self._retry_backoff_seconds(backoffs_taken)
                     backoffs_taken += 1
                     await asyncio.sleep(backoff)
                 first_attempt = False
-        except HTTP_STATUS_ERROR_TYPES as e:
+        except mcp_compat.HTTP_STATUS_ERROR_TYPES as e:
             status_code = http_status_code(e)
             transport_error = UserError(
                 f"Failed to call tool '{tool_name}' on MCP server '{self._error_name}': "
                 f"HTTP error {status_code}"
             )
             transport_cause = _safe_transport_cause(e)
-        except HTTP_REQUEST_ERROR_TYPES as e:
+        except mcp_compat.HTTP_REQUEST_ERROR_TYPES as e:
             transport_cause = _safe_transport_cause(e)
             if transport_cause is not None and not is_http_connect_error(e):
                 raise

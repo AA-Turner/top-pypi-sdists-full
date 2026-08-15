@@ -19,6 +19,7 @@ from __future__ import annotations
 import collections
 import concurrent.futures
 import contextlib
+import hashlib
 import itertools
 import json
 import logging
@@ -46,6 +47,7 @@ from bernstein.core.agent_recycling import (
 )
 from bernstein.core.agent_signals import AgentSignalManager
 from bernstein.core.agents.context_attachments import CONTEXT_FILES_ATTACHED_EVENT
+from bernstein.core.agents.injected_skills_event import SKILLS_INJECTED_EVENT
 from bernstein.core.approval import ApprovalGate, ApprovalMode
 from bernstein.core.bandit_router import BanditRouter
 from bernstein.core.batch_api import ProviderBatchManager
@@ -74,6 +76,7 @@ from bernstein.core.file_locks import FileLockManager
 from bernstein.core.hook_events import HookEvent
 from bernstein.core.incident import IncidentManager
 from bernstein.core.knowledge.task_graph import TaskGraph
+from bernstein.core.lineage import LineageSpine
 from bernstein.core.manifest import build_manifest, save_manifest
 from bernstein.core.memory_guard import MemoryGuard
 from bernstein.core.merge_queue import MergeQueue
@@ -100,6 +103,11 @@ from bernstein.core.orchestration.run_stall import (
     evaluate_run_stall,
     resolve_grace_s,
     resolve_min_ticks,
+)
+from bernstein.core.orchestration.schedule_projection import (
+    SCHEDULE_PROJECTION_REV,
+    TaskNode,
+    canonical_graph_digest,
 )
 from bernstein.core.orchestration.tick_pipeline import (
     CompletionData,
@@ -135,10 +143,13 @@ from bernstein.core.runtime_state import (
     rotate_log_file,
     write_session_replay_metadata,
 )
+from bernstein.core.security.audit import load_or_create_audit_key
+from bernstein.core.security.run_closure import RunClosureOutcome
 from bernstein.core.security.sanitize import sanitize_log
 from bernstein.core.seed import resolve_seed_path
 from bernstein.core.semantic_cache import ResponseCacheManager
 from bernstein.core.signals import read_unresolved_pivots
+from bernstein.core.skills.provenance import record_usage
 from bernstein.core.slo import SLOTracker, apply_error_budget_adjustments
 from bernstein.core.task_grouping import compact_small_tasks
 from bernstein.core.task_lifecycle import (
@@ -412,6 +423,10 @@ class Orchestrator:
         # Populated when a task completes; used by group_by_role to batch related work.
         self._agent_affinity: dict[str, str] = {}
         self._running = False
+        # Outcome recorded by the universal authenticated closure marker.
+        # Normal quiescence remains completed; explicit operator signals and
+        # internal fatal paths replace it before shutdown is journaled.
+        self._closure_outcome = RunClosureOutcome.COMPLETED
         self._tick_count = 0
         self._consecutive_server_failures: int = 0
         # No-progress window for a quiescent run that produced zero terminal
@@ -681,6 +696,11 @@ class Orchestrator:
         # BERNSTEIN_REPLAY_RETENTION over past runs rather than an on/off
         # gate.
         self._recorder = EventJournal(run_id=run_id, sdd_dir=workdir / ".sdd")
+
+        # Last ``plan.graph`` digest appended this run (issue #3613). Empty
+        # until the first normal tick records one. Held on the instance so a
+        # 60-tick run whose graph never moves writes one row, not sixty.
+        self._last_graph_digest: str = ""
 
         # Live OTLP export of the journal projection : each
         # appended journal entry streams its journal-anchored span to the
@@ -1321,6 +1341,65 @@ class Orchestrator:
             logger.warning("Tick took %.1fs (threshold 30s)", tick_duration)
         return result
 
+    def _record_plan_graph_digest(self, all_tasks: list[Task]) -> None:
+        """Append a ``plan.graph`` event when the executed graph changes.
+
+        The graph snapshot on disk is overwritten every normal tick and
+        carries no chain identity; this binds the graph to the run by
+        putting its digest in the Merkle-chained journal (issue #3613).
+
+        The digest comes from
+        :func:`~bernstein.core.orchestration.schedule_projection.canonical_graph_digest`,
+        the same canonical encoder the schedule projection hashes its own
+        node set with, so a later fold from journal events back to a graph
+        compares two byte-identical definitions rather than two encoders
+        that happen to disagree.
+
+        Only the structural triple ``(task_id, role, sorted(depends_on))``
+        carries identity here: ``title`` and ``description`` are pinned
+        empty so a reworded task description does not read as a graph
+        change. Ordering is irrelevant - the encoder sorts by ``task_id``.
+
+        Appends only on change, so a 60-tick run whose graph never moves
+        writes one row rather than sixty. A failed append leaves
+        ``_last_graph_digest`` untouched so the next normal tick retries,
+        and never propagates out of the tick.
+
+        Args:
+            all_tasks: Every task in the graph built for this tick.
+        """
+        try:
+            nodes = [
+                TaskNode(
+                    task_id=task.id,
+                    role=task.role,
+                    title="",
+                    description="",
+                    depends_on=tuple(task.depends_on),
+                )
+                for task in all_tasks
+            ]
+            digest = canonical_graph_digest(nodes)
+        except Exception as exc:
+            logger.debug("Failed to compute plan.graph digest: %s", exc)
+            return
+
+        if digest == self._last_graph_digest:
+            return
+
+        try:
+            self._recorder.record(
+                "plan.graph",
+                digest=digest,
+                rev=SCHEDULE_PROJECTION_REV,
+                task_count=len(all_tasks),
+            )
+        except Exception as exc:
+            logger.debug("Failed to record plan.graph digest: %s", exc)
+            return
+
+        self._last_graph_digest = digest
+
     def _tick_internal(self) -> TickResult:
         """Actual tick implementation (previously tick())."""
         result = TickResult()
@@ -1397,6 +1476,7 @@ class Orchestrator:
                     "Server unreachable for %d consecutive ticks - orchestrator stopping to prevent waste",
                     self._consecutive_server_failures,
                 )
+                self._closure_outcome = RunClosureOutcome.FAILED
                 self._running = False
             elif self._consecutive_server_failures >= ORCHESTRATOR.server_failure_warn:
                 logger.warning(
@@ -1562,6 +1642,11 @@ class Orchestrator:
                 task_graph.save(self._workdir / ".sdd" / "runtime")
             except OSError as exc:
                 logger.debug("Failed to save task graph: %s", exc)
+
+            # The snapshot above is an overwritten file with no chain
+            # identity. Bind the graph that produced it to this run by
+            # appending its digest to the journal.
+            self._record_plan_graph_digest(all_tasks)
         else:
             # Fast tick: skip the expensive graph analysis, validation and
             # snapshot persistence, but still recompute the critical path -
@@ -2568,6 +2653,7 @@ class Orchestrator:
             )
 
         self._run_stall_stopped = True
+        self._closure_outcome = RunClosureOutcome.FAILED
         self._regenerate_final_retrospective(trigger_path="tick-stalled-run-self-stop")
         self._running = False
 
@@ -2635,6 +2721,42 @@ class Orchestrator:
                 trigger_path,
             )
 
+    def _finalization_marker(self, name: str) -> Path:
+        """Return the path of a finalization sentinel, creating its directory.
+
+        Under ``.sdd/runtime/`` with the rest of the signal files rather than
+        at the project root: these are runtime state, and the root is the
+        operator's tracked working copy.
+        """
+        signals_dir = self._workdir / ".sdd" / "runtime"
+        signals_dir.mkdir(parents=True, exist_ok=True)
+        return signals_dir / name
+
+    def _mark_finalization_started(self) -> None:
+        """Write the entry sentinel for demo teardown.
+
+        Written *before* the seal/receipt so teardown can detect that
+        finalization is in progress. Without this, teardown cannot
+        distinguish "finalization hasn't started yet" from "already done"
+        from "crashed" — all three present as "no completion marker exists."
+        """
+        try:
+            self._finalization_marker(".finalizing").touch()
+        except OSError as exc:
+            logger.warning("failed to write .finalizing marker: %s", exc)
+
+    def _mark_finalization_done(self) -> None:
+        """Write the completion sentinel for demo teardown.
+
+        Written in a finally so it appears on both success and failure.
+        A missing .finalized always means "still running", never "failed
+        silently" — that is what makes it safe to wait on.
+        """
+        try:
+            self._finalization_marker(".finalized").write_text(json.dumps({"ts": time.time()}))
+        except OSError as exc:
+            logger.warning("failed to write .finalized marker: %s", exc)
+
     def run(self) -> None:
         """Run the orchestrator loop until stopped.
 
@@ -2673,6 +2795,17 @@ class Orchestrator:
             config_hash=self._replay_metadata.config_hash,
             **_run_started_extra,
         )
+        try:
+            from bernstein.core.orchestration.run_closure_owner import write_spawner_run_owner
+
+            write_spawner_run_owner(
+                sdd_dir=self._workdir / ".sdd",
+                run_id=self._run_id,
+                journal_head=self._recorder.fingerprint(),
+                journal_event_count=self._recorder.event_count(),
+            )
+        except OSError as exc:
+            logger.warning("Run owner record not written for %s: %s", self._run_id, sanitize_log(str(exc)))
         # WAL recovery: detect uncommitted entries from crashed previous runs.
         # Must run after WAL writer is initialized (in __init__) so that
         # acknowledgement entries are written to the current run's WAL.
@@ -2732,6 +2865,7 @@ class Orchestrator:
                         "Stopping after %d consecutive tick failures",
                         consecutive_failures,
                     )
+                    self._closure_outcome = RunClosureOutcome.FAILED
                     break
             if self._config.dry_run:
                 break
@@ -2809,10 +2943,16 @@ class Orchestrator:
             run_id=self._run_id,
             ticks=self._tick_count,
             fingerprint=self._recorder.fingerprint(),
+            outcome=self._closure_outcome.value,
         )
-        self._seal_journal_into_lineage_spine()
-        if self._otel_stream is not None:
-            self._otel_stream.finalize()
+        self._mark_finalization_started()
+        try:
+            self._seal_journal_into_lineage_spine()
+            if self._otel_stream is not None:
+                self._otel_stream.finalize()
+            self._write_run_closure()
+        finally:
+            self._mark_finalization_done()
         logger.info(
             "Orchestrator stopped (replay: %s, fingerprint: %s)",
             self._recorder.path,
@@ -2868,6 +3008,30 @@ class Orchestrator:
         else:
             if receipt_path is not None:
                 logger.info("Run receipt written: %s", receipt_path)
+
+    def _write_run_closure(self) -> None:
+        """Commit the final journal head to the universal closure event.
+
+        This runs after the lineage/capsule seal because those operations can
+        append run-attributed audit events.  Closure must be the final event
+        for this run or a verifier will (correctly) invalidate it.
+        """
+        try:
+            from bernstein.core.security.audit_chain import AuditChainStore
+            from bernstein.core.security.run_closure import close_run
+
+            close_run(
+                chain=AuditChainStore(self._workdir / ".sdd" / "audit"),
+                run_id=self._run_id,
+                outcome=self._closure_outcome,
+                actor="orchestrator",
+                run_journal_head=self._recorder.fingerprint(),
+                run_journal_event_count=self._recorder.event_count(),
+            )
+        except Exception as exc:
+            # Honest degradation: absence projects as open.  A closure aid
+            # must not rewrite a run's already-durable execution outcome.
+            logger.warning("Run closure marker not written for run %s: %s", self._run_id, sanitize_log(str(exc)))
 
     def _seal_intent_capsules(self, hmac_key: bytes) -> None:
         """Commit the finished journal's end for every capsule bound to this run (#2649).
@@ -3508,8 +3672,13 @@ class Orchestrator:
 
         return preserved
 
-    def stop(self) -> None:
+    def stop(
+        self,
+        *,
+        outcome: RunClosureOutcome | str = RunClosureOutcome.CANCELLED,
+    ) -> None:
         """Delegate to orchestrator_cleanup.stop."""
+        self._closure_outcome = RunClosureOutcome(outcome)
         from bernstein.core.orchestration import orchestrator_cleanup
 
         orchestrator_cleanup.stop(self)
@@ -5209,6 +5378,48 @@ class Orchestrator:
                     task_ids=session.task_ids,
                     entries=list(session.context_attachments),
                 )
+            # Issue #3382: pin the skill templates injected into this
+            # session's worktree at spawn/resume time, with both the
+            # pre-render and rendered-bytes digests. Unlike
+            # context.files_attached, this is emitted unconditionally -
+            # skills have an always-inject default (_ALWAYS_INJECT), so
+            # an empty set on a fresh spawn is itself meaningful and must
+            # not be silently indistinguishable from "never recorded".
+            self._recorder.record(
+                SKILLS_INJECTED_EVENT,
+                agent_id=session.id,
+                task_ids=session.task_ids,
+                entries=list(session.injected_skills),
+            )
+            # Issue #3382: anchor each injected skill's content hash to this
+            # run's lineage spine, so provenance queries can answer "which
+            # runs used skill X" independently of the human-readable
+            # activation log or the journal event above.
+            workdir = getattr(self, "_workdir", None)
+            if session.injected_skills and workdir is not None:
+                from bernstein import get_templates_dir
+
+                run_id = getattr(self, "_run_id", "")
+                hmac_key = load_or_create_audit_key()
+                lineage_root = workdir / ".sdd" / "lineage"
+                spine = LineageSpine(lineage_root, run_id=run_id, hmac_key=hmac_key)
+                journal_head = spine.head_hash()
+                skills_dir = get_templates_dir(workdir) / "skills"
+                for record in session.injected_skills:
+                    if record.get("status") != "injected":
+                        continue
+                    template_name = record.get("template_name", "")
+                    skill_source = skills_dir / template_name
+                    if not skill_source.is_file():
+                        continue
+                    skill_hash = "sha256:" + hashlib.sha256(skill_source.read_bytes()).hexdigest()
+                    record_usage(
+                        workdir=workdir,
+                        skill_hash=skill_hash,
+                        run_id=run_id,
+                        journal_head=journal_head,
+                        timestamp=int(time.time()),
+                    )
             for tid in session.task_ids:
                 self._recorder.record(
                     "task_claimed",
@@ -6480,7 +6691,7 @@ if __name__ == "__main__":
 
             def _signal_handler(signum: int, _frame: object) -> None:
                 logger.info("Signal %d received, stopping orchestrator", signum)
-                orchestrator.stop()
+                orchestrator.stop(outcome="cancelled")
 
             signal.signal(signal.SIGINT, _signal_handler)
             signal.signal(signal.SIGTERM, _signal_handler)
@@ -6521,6 +6732,10 @@ if __name__ == "__main__":
             flush=True,
         )
         logger.exception("Orchestrator crashed")
+        _failed_orchestrator = locals().get("orchestrator")
+        if isinstance(_failed_orchestrator, Orchestrator):
+            _failed_orchestrator._closure_outcome = RunClosureOutcome.FAILED
+            _failed_orchestrator._write_run_closure()
         try:
             _crash_log_dir = workdir / ".sdd" / "runtime"
             _crash_log_dir.mkdir(parents=True, exist_ok=True)

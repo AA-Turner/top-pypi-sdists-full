@@ -1,19 +1,14 @@
 import ast
-import sys
 import itertools
-from typing import Mapping, Any, List
-
-from astpretty import pprint
+import sys
+from typing import Any, Mapping
 
 from flake8_expression_complexity.utils.iterables import max_with_default
 
 TYPES_MAP = [
     (ast.UnaryOp, 'unary_op'),
     (
-        (
-            ast.Expr, ast.Return, ast.Starred, ast.Index,
-            ast.Yield, ast.YieldFrom, ast.FormattedValue,
-        ),
+        (ast.Expr, ast.Return, ast.Starred, ast.Yield, ast.YieldFrom, ast.FormattedValue),
         'item_with_value',
     ),
     (ast.Assert, 'assert'),
@@ -30,7 +25,6 @@ TYPES_MAP = [
     (ast.Compare, 'compare'),
     (ast.Subscript, 'subscript'),
     (ast.Slice, 'slice'),
-    (ast.ExtSlice, 'ext_slice'),
     (ast.BinOp, 'binary_op'),
     (ast.Lambda, 'lambda'),
     (ast.IfExp, 'if_expr'),
@@ -38,28 +32,21 @@ TYPES_MAP = [
     (ast.Attribute, 'attribute'),
     (ast.JoinedStr, 'fstring'),
     (ast.ClassDef, 'classdef'),
+    (ast.NamedExpr, 'walrus'),
     (
         (
-            ast.Name, ast.Import, ast.Str, ast.Num, ast.NameConstant, ast.Bytes, ast.Nonlocal,
+            ast.Name, ast.Import, ast.Constant, ast.Nonlocal,
             ast.ImportFrom, ast.Pass, ast.Raise, ast.Break, ast.Continue, type(None),
-            ast.Ellipsis, ast.Global,
+            ast.Global,
         ),
         'simple_type',
     ),
 ]
 
-if sys.version_info >= (3, 8):
-    TYPES_MAP.append(
-        (ast.NamedExpr, 'walrus'),
-    )
-
-if sys.version_info >= (3, 10):
-    TYPES_MAP.extend(
-        [
-            (ast.Match, 'match'),
-            (ast.match_case, 'case'),
-        ]
-    )
+if sys.version_info >= (3, 12):
+    # ast.TypeAlias (the `type X = ...` statement, PEP 695) doesn't exist before Python 3.12,
+    # which is above this project's minimum supported version.
+    TYPES_MAP.append((ast.TypeAlias, 'type_alias'))
 
 
 def get_expression_complexity(node: ast.AST) -> float:
@@ -88,7 +75,6 @@ def get_complexity_increase_for_node_type(node_type_sid: str) -> float:
         'compare': 1,
         'subscript': 1,
         'slice': 1,
-        'ext_slice': 1,
         'binary_op': 1,
         'lambda': 1,
         'if_expr': 1,
@@ -97,8 +83,7 @@ def get_complexity_increase_for_node_type(node_type_sid: str) -> float:
         'simple_type': 0,
         'fstring': 2,
         'walrus': 2,
-        'match': 1,
-        'case': 1,
+        'type_alias': 1,
     }
     return nodes_scores_map[node_type_sid]
 
@@ -110,8 +95,7 @@ def get_expression_part_info(node: ast.AST) -> Mapping[str, Any]:
             node_type_sid = node_type_name
             break
     else:
-        pprint(node)  # noqa
-        raise AssertionError('should always get node type')
+        raise AssertionError(f'should always get node type, got {ast.dump(node)}')
 
     return {
         'type': node_type_sid,
@@ -119,7 +103,7 @@ def get_expression_part_info(node: ast.AST) -> Mapping[str, Any]:
     }
 
 
-def _get_sub_nodes(node: Any, node_type_sid: str) -> List[ast.AST]:
+def _get_sub_nodes(node: Any, node_type_sid: str) -> list[ast.AST]:
     subnodes_map = {
         'unary_op': lambda n: [n.operand],
         'item_with_value': lambda n: [n.value],
@@ -137,7 +121,6 @@ def _get_sub_nodes(node: Any, node_type_sid: str) -> List[ast.AST]:
         'compare': lambda n: node.comparators + [n.left],
         'subscript': lambda n: [n.value, n.slice],
         'slice': lambda n: [n.lower, n.upper, n.step],
-        'ext_slice': lambda n: n.dims,
         'binary_op': lambda n: [n.left, n.right],
         'lambda': lambda n: [n.body],
         'if_expr': lambda n: [n.test, n.body, n.orelse],
@@ -146,7 +129,8 @@ def _get_sub_nodes(node: Any, node_type_sid: str) -> List[ast.AST]:
         'attribute': lambda n: [n.value],
         'simple_type': lambda n: [],
         'walrus': lambda n: [n.target, n.value],
-        'match': lambda n: n.cases,
-        'case': lambda n: [],
+        'type_alias': lambda n: [n.value] + [
+            tp.bound for tp in n.type_params if getattr(tp, 'bound', None) is not None
+        ],
     }
     return subnodes_map[node_type_sid](node)

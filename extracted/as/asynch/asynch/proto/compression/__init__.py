@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import importlib
 from typing import TYPE_CHECKING
 
@@ -8,16 +10,23 @@ if TYPE_CHECKING:
     from asynch.proto.streams.buffered import BufferedReader, BufferedWriter
 
 
-def get_compressor_cls(alg) -> type["BaseCompressor"]:
+_CODEC_PACKAGES = {"lz4": "lz4", "lz4hc": "lz4", "zstd": "zstd"}
+
+
+def get_compressor_cls(alg) -> type[BaseCompressor]:
     try:
         module = importlib.import_module("." + alg, __name__)
-        return module.Compressor
+    except ImportError as e:
+        # Distinguish "no such algorithm" from "the codec package is not
+        # installed". Both used to surface as UnknownCompressionMethod, which
+        # sent people looking for a typo in a perfectly valid method name.
+        if getattr(e, "name", None) == _CODEC_PACKAGES.get(alg):
+            raise ImportError(f"Please install asynch[compression] to use {alg} compression") from e
+        raise UnknownCompressionMethod(f"Unknown compression method: '{alg}'") from e
+    return module.Compressor
 
-    except ImportError:
-        raise UnknownCompressionMethod(f"Unknown compression method: '{alg}'")
 
-
-def get_decompressor_cls(method_type) -> type["BaseDecompressor"]:
+def get_decompressor_cls(method_type) -> type[BaseDecompressor]:
     if method_type == CompressionMethodByte.LZ4:
         module = importlib.import_module(".lz4", __name__)
 
@@ -35,10 +44,10 @@ class BaseCompressor:
     Partial file-like object with write method.
     """
 
-    method = None
-    method_byte = None
+    method: int | None = None
+    method_byte: int | None = None
 
-    def __init__(self, writer: "BufferedWriter"):
+    def __init__(self, writer: BufferedWriter):
         self.writer = writer
 
     def compress_data(self, data):
@@ -61,10 +70,10 @@ class BaseCompressor:
 
 
 class BaseDecompressor:
-    method = None
-    method_byte = None
+    method: int | None = None
+    method_byte: int | None = None
 
-    def __init__(self, reader: "BufferedReader", writer: "BufferedWriter"):
+    def __init__(self, reader: BufferedReader, writer: BufferedWriter):
         self.reader = reader
         self.writer = writer
 

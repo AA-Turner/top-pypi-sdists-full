@@ -25,10 +25,7 @@ const {
   writeFileAtomic,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
-const {
-  connectToPage,
-  resolvePuppeteerModule,
-} = require("../chrome/chrome_utils.js");
+const { connectToPage } = require("../chrome/chrome_utils.js");
 const hookConfig = loadConfig();
 
 if (!getEnvBool("CHROME_MHTML_ENABLED", true)) {
@@ -36,8 +33,6 @@ if (!getEnvBool("CHROME_MHTML_ENABLED", true)) {
   emitArchiveResultRecord("skipped", "CHROME_MHTML_ENABLED=False");
   process.exit(0);
 }
-
-const puppeteer = resolvePuppeteerModule();
 
 const PLUGIN_NAME = "chrome_mhtml";
 const PLUGIN_DIR = path.basename(__dirname);
@@ -80,11 +75,11 @@ async function captureMhtml(timeoutMs) {
       timeoutMs,
       waitForNavigationComplete: true,
       postLoadDelayMs: 200,
-      puppeteer,
     });
     browser = connection.browser;
     const page = connection.page;
     const cdpSession = connection.cdpSession;
+    console.log("Chrome MHTML capture started");
 
     await waitForFrameTreeSettled(page, timeoutMs);
     await cdpSession.send("Page.enable").catch(() => null);

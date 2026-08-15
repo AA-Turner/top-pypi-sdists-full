@@ -23,9 +23,9 @@ Environment variables:
     ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN: Claude Code auth
 """
 
-import os
-import json
 import sys
+import json
+import os
 from pathlib import Path
 
 import rich_click as click
@@ -128,6 +128,7 @@ def main(url: str, snapshot_id: str):
             emit_archive_result_record("failed", "Claude Code auth not set")
             sys.exit(1)
 
+        print("Claude Code cleanup started", flush=True)
         _snap_dir, allowed_directories = validate_snapshot_ledger(
             SNAP_DIR,
             snapshot_id,

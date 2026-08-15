@@ -254,6 +254,7 @@ class Supermemory(SyncAPIClient):
         container_tag: str | Omit = omit,
         container_tags: SequenceNotStr[str] | Omit = omit,
         custom_id: str | Omit = omit,
+        document_date: str | Omit = omit,
         dreaming: Literal["instant", "dynamic"] | Omit = omit,
         entity_context: str | Omit = omit,
         filepath: str | Omit = omit,
@@ -279,6 +280,12 @@ class Supermemory(SyncAPIClient):
 
           custom_id: Optional custom ID of the document. Max 100 characters, alphanumeric with
               hyphens, underscores, and dots only.
+
+          document_date: When this document's content is from, as opposed to when it was uploaded.
+              Accepts YYYY-MM-DD or a full ISO 8601 timestamp. Memory extraction resolves
+              relative dates against this instead of the ingestion time, and documents in a
+              batch are processed oldest-first so newer facts correctly supersede older ones.
+              Set this whenever you backfill historical content.
 
           dreaming: Processing mode. "dynamic" (default) groups related documents together so
               memories form from coherent, logical units rather than one isolated entry at a
@@ -315,6 +322,7 @@ class Supermemory(SyncAPIClient):
                     "container_tag": container_tag,
                     "container_tags": container_tags,
                     "custom_id": custom_id,
+                    "document_date": document_date,
                     "dreaming": dreaming,
                     "entity_context": entity_context,
                     "filepath": filepath,
@@ -611,6 +619,7 @@ class AsyncSupermemory(AsyncAPIClient):
         container_tag: str | Omit = omit,
         container_tags: SequenceNotStr[str] | Omit = omit,
         custom_id: str | Omit = omit,
+        document_date: str | Omit = omit,
         dreaming: Literal["instant", "dynamic"] | Omit = omit,
         entity_context: str | Omit = omit,
         filepath: str | Omit = omit,
@@ -636,6 +645,12 @@ class AsyncSupermemory(AsyncAPIClient):
 
           custom_id: Optional custom ID of the document. Max 100 characters, alphanumeric with
               hyphens, underscores, and dots only.
+
+          document_date: When this document's content is from, as opposed to when it was uploaded.
+              Accepts YYYY-MM-DD or a full ISO 8601 timestamp. Memory extraction resolves
+              relative dates against this instead of the ingestion time, and documents in a
+              batch are processed oldest-first so newer facts correctly supersede older ones.
+              Set this whenever you backfill historical content.
 
           dreaming: Processing mode. "dynamic" (default) groups related documents together so
               memories form from coherent, logical units rather than one isolated entry at a
@@ -672,6 +687,7 @@ class AsyncSupermemory(AsyncAPIClient):
                     "container_tag": container_tag,
                     "container_tags": container_tags,
                     "custom_id": custom_id,
+                    "document_date": document_date,
                     "dreaming": dreaming,
                     "entity_context": entity_context,
                     "filepath": filepath,

@@ -1,3 +1,5 @@
+"""Entry points that supply schema-store schemas to validate-pyproject."""
+
 from __future__ import annotations
 
 import functools
@@ -19,6 +21,7 @@ def __dir__() -> list[str]:
 
 @functools.lru_cache
 def get_tools() -> dict[str, str]:
+    """Return a mapping from tool name to schema URL."""
     tool_file = RESOURCES / "tool.json"
     with tool_file.open(encoding="utf-8") as f:
         return json.load(f)  # type: ignore[no-any-return]
@@ -26,6 +29,7 @@ def get_tools() -> dict[str, str]:
 
 @functools.lru_cache
 def get_extra() -> dict[str, str]:
+    """Return a mapping from extra (non-tool) table name to schema URL."""
     extra_file = RESOURCES / "extra.json"
     with extra_file.open(encoding="utf-8") as f:
         return json.load(f)  # type: ignore[no-any-return]
@@ -47,9 +51,7 @@ def _url_to_canonical_tool() -> dict[str, str]:
         url_to_tools[canonical_url].append(tool)
 
     # Pick the first tool name in alphabetical order
-    return {
-        url: sorted(tools_for_url)[0] for url, tools_for_url in url_to_tools.items()
-    }
+    return {url: min(tools_for_url) for url, tools_for_url in url_to_tools.items()}
 
 
 def _load_schema(filename: str) -> dict[str, Any]:
@@ -88,6 +90,7 @@ def _tool_schema_filename(tool: str, url: str) -> str:
 
 
 def get_schema(tool: str) -> dict[str, Any]:
+    """Return the schema for a single tool table."""
     tools = get_tools()
     if tool not in tools:
         msg = f"Must be valid tool, got {tool}"
@@ -119,6 +122,7 @@ get_schema.priority = -2  # type: ignore[attr-defined]
 
 
 def get_multi_schema() -> dict[str, Any]:
+    """Return a combined schema with all tool and extra tables."""
     tools = get_tools()
     extras = get_extra()
     canonical_map = _url_to_canonical_tool()

@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_mwaa_serverless.type_defs import DefinitionS3LocationTypeDef
+    from types_boto3_mwaa_serverless.type_defs import S3LocationTypeDef
 
-    data: DefinitionS3LocationTypeDef = ...
+    data: S3LocationTypeDef = ...
     ```
 """
 
@@ -36,6 +36,7 @@ else:
 
 
 __all__ = (
+    "CodeTypeDef",
     "CreateWorkflowRequestTypeDef",
     "CreateWorkflowResponseTypeDef",
     "DefinitionS3LocationTypeDef",
@@ -69,6 +70,7 @@ __all__ = (
     "PaginatorConfigTypeDef",
     "ResponseMetadataTypeDef",
     "RunDetailSummaryTypeDef",
+    "S3LocationTypeDef",
     "ScheduleConfigurationTypeDef",
     "StartWorkflowRunRequestTypeDef",
     "StartWorkflowRunResponseTypeDef",
@@ -84,6 +86,12 @@ __all__ = (
     "WorkflowSummaryTypeDef",
     "WorkflowVersionSummaryTypeDef",
 )
+
+
+class S3LocationTypeDef(TypedDict):
+    Bucket: str
+    ObjectKey: str
+    VersionId: NotRequired[str]
 
 
 class DefinitionS3LocationTypeDef(TypedDict):
@@ -248,6 +256,10 @@ class UntagResourceRequestTypeDef(TypedDict):
     TagKeys: Sequence[str]
 
 
+class CodeTypeDef(TypedDict):
+    S3Location: NotRequired[S3LocationTypeDef]
+
+
 class CreateWorkflowResponseTypeDef(TypedDict):
     WorkflowArn: str
     CreatedAt: datetime
@@ -309,26 +321,6 @@ class UpdateWorkflowResponseTypeDef(TypedDict):
     ModifiedAt: datetime
     WorkflowVersion: str
     Warnings: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetWorkflowResponseTypeDef(TypedDict):
-    WorkflowArn: str
-    WorkflowVersion: str
-    Name: str
-    Description: str
-    CreatedAt: datetime
-    ModifiedAt: datetime
-    EncryptionConfiguration: EncryptionConfigurationTypeDef
-    LoggingConfiguration: LoggingConfigurationTypeDef
-    EngineVersion: int
-    WorkflowStatus: WorkflowStatusType
-    DefinitionS3Location: DefinitionS3LocationTypeDef
-    ScheduleConfiguration: ScheduleConfigurationTypeDef
-    RoleArn: str
-    NetworkConfiguration: NetworkConfigurationOutputTypeDef
-    TriggerMode: str
-    WorkflowDefinition: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -399,6 +391,28 @@ class WorkflowRunSummaryTypeDef(TypedDict):
     RunDetailSummary: NotRequired[RunDetailSummaryTypeDef]
 
 
+class GetWorkflowResponseTypeDef(TypedDict):
+    WorkflowArn: str
+    WorkflowVersion: str
+    Name: str
+    Description: str
+    CreatedAt: datetime
+    ModifiedAt: datetime
+    EncryptionConfiguration: EncryptionConfigurationTypeDef
+    LoggingConfiguration: LoggingConfigurationTypeDef
+    EngineVersion: int
+    WorkflowStatus: WorkflowStatusType
+    DefinitionS3Location: DefinitionS3LocationTypeDef
+    Code: CodeTypeDef
+    CodeSnapshottedAt: datetime
+    ScheduleConfiguration: ScheduleConfigurationTypeDef
+    RoleArn: str
+    NetworkConfiguration: NetworkConfigurationOutputTypeDef
+    TriggerMode: str
+    WorkflowDefinition: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListWorkflowVersionsResponseTypeDef(TypedDict):
     WorkflowVersions: list[WorkflowVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -410,6 +424,7 @@ class CreateWorkflowRequestTypeDef(TypedDict):
     DefinitionS3Location: DefinitionS3LocationTypeDef
     RoleArn: str
     ClientToken: NotRequired[str]
+    Code: NotRequired[CodeTypeDef]
     Description: NotRequired[str]
     EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
     LoggingConfiguration: NotRequired[LoggingConfigurationTypeDef]
@@ -423,6 +438,7 @@ class UpdateWorkflowRequestTypeDef(TypedDict):
     WorkflowArn: str
     DefinitionS3Location: DefinitionS3LocationTypeDef
     RoleArn: str
+    Code: NotRequired[CodeTypeDef]
     Description: NotRequired[str]
     LoggingConfiguration: NotRequired[LoggingConfigurationTypeDef]
     EngineVersion: NotRequired[int]

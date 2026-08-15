@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-PyYAML
-Version: 6.0.12.20260724
+Version: 6.0.12.20260815
 Summary: Typing stubs for PyYAML
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -32,7 +32,9 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 2.3.0
+* [pyrefly](https://pyrefly.org/) 1.3.0.dev1
 * [pyright](https://github.com/microsoft/pyright) 1.1.411
+* [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`97e83f65cee88c0c978fa34668d9f59b8c362fce`](https://github.com/python/typeshed/commit/97e83f65cee88c0c978fa34668d9f59b8c362fce).
+[`6fba3ae73db5a9807780514b463126f1ee8ff216`](https://github.com/python/typeshed/commit/6fba3ae73db5a9807780514b463126f1ee8ff216).

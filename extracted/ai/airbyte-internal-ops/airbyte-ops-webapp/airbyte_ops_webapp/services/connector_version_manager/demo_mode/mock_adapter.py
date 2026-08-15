@@ -1061,8 +1061,7 @@ class MockPinningAdapter(OpsMcpAdapter):
                 rollout
                 for connector_rollouts in self.rollouts.values()
                 for rollout in connector_rollouts
-                if rollout.state
-                in {"initialized", "workflow_started", "in_progress", "paused"}
+                if rollout.state in _ROLLOUT_ACTIVE_STATES
             ),
             key=lambda rollout: rollout.updated_at,
             reverse=True,

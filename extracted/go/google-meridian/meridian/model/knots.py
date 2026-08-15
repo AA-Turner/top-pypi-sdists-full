@@ -204,9 +204,7 @@ def get_knot_info(
     else:
       aks = AKS(data)
       knots = aks.automatic_knot_selection().knots
-      n_knots = len(knots)
-      knot_locations = knots
-  elif isinstance(knots, int):
+  if isinstance(knots, int):
     if knots < 1:
       raise ValueError('If knots is an integer, it must be at least 1.')
     elif knots > n_times:
@@ -221,7 +219,7 @@ def get_knot_info(
       )
     n_knots = knots
     knot_locations = _get_equally_spaced_knot_locations(n_times, n_knots)
-  elif isinstance(knots, Collection) and knots:
+  elif isinstance(knots, Collection) and len(knots) > 0:
     if any(k < 0 for k in knots):
       raise ValueError('Knots must be all non-negative.')
     if any(k >= n_times for k in knots):
@@ -231,10 +229,8 @@ def get_knot_info(
     n_knots = len(knots)
     # np.unique also sorts
     knot_locations = np.unique(knots)  # pyrefly: ignore[no-matching-overload]
-  elif isinstance(knots, Collection):
-    raise ValueError('Knots cannot be empty.')
   else:
-    # knots is None
+    # knots is None or an empty collection
     n_knots = 1 if is_national else n_times
     knot_locations = _get_equally_spaced_knot_locations(n_times, n_knots)
 
@@ -291,7 +287,9 @@ class AKS:
         pool, leaving only the required knots and those to the right of them.
 
     Returns:
-      Selected knots and the corresponding B-spline model.
+      Selected knots and the corresponding B-spline model. If at least one knot
+      is selected, boundary knots (min and max time) are added to ensure full
+      time coverage.
 
     Raises:
       ValueError: If the same knot is both required and excluded.
@@ -305,6 +303,7 @@ class AKS:
       ValueError: If the allowed range of internal knots does not contain any of
         the available knot lengths.
     """
+
     if base_penalty is None:
       base_penalty = self._BASE_PENALTY
     n_times = len(self._data.time)
@@ -317,12 +316,12 @@ class AKS:
     )
 
     excluded_knots_arr = (
-        np.unique(excluded_knots)
+        np.unique(excluded_knots)  # pyrefly: ignore[no-matching-overload]
         if excluded_knots is not None and len(excluded_knots) > 0
         else None
     )
     required_knots_arr = (
-        np.unique(required_knots)
+        np.unique(required_knots)  # pyrefly: ignore[no-matching-overload]
         if required_knots is not None and len(required_knots) > 0
         else None
     )
@@ -397,7 +396,15 @@ class AKS:
         np.where(information_criterion == min(information_criterion))[0]
     )
 
-    return AKSResult(knots_sel[opt_idx], model[opt_idx])
+    selected_knots = knots_sel[opt_idx]
+    if selected_knots.size > 0:
+      start_knot = int(x.min())
+      end_knot = int(x.max())
+      selected_knots = np.unique(
+          np.concatenate((selected_knots, [start_knot, end_knot]))
+      )
+
+    return AKSResult(selected_knots, model[opt_idx])
 
   def _get_bspline_matrix(self, x, knots):
     """Replaces patsy.highlevel.dmatrix('bs(...)', ...)"""
@@ -551,7 +558,7 @@ class AKS:
         ],
         axis=1,
     )
-    sigma0sq = linear_model.OLS(y, xmat).fit().mse_resid ** 2
+    sigma0sq = linear_model.OLS(y, xmat).fit().mse_resid
     model, x_sel, knots_sel, sel_ls, par_ls, aic, bic, ebic, dim, loglik = (
         [None] * len(penalty) for _ in range(10)
     )

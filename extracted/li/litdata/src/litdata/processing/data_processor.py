@@ -25,6 +25,7 @@ import tempfile
 import traceback
 import warnings
 from abc import abstractmethod
+from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from multiprocessing import Process, Queue
@@ -59,7 +60,7 @@ from litdata.utilities.dataset_utilities import load_index_file
 from litdata.utilities.encryption import Encryption
 from litdata.utilities.packing import _pack_greedily
 
-logger = logging.Logger(__name__)
+logger = logging.getLogger(__name__)
 
 ALL_DONE = "ALL_DONE"  # sentinel value for shared queue
 
@@ -270,12 +271,16 @@ def _upload_fn(
 
                 output_filepath = remove_uuid_from_filename(output_filepath)  # remove unique id from checkpoints
 
+                if not os.path.exists(local_filepath) and ".checkpoints" in local_filepath:
+                    continue
+
                 fs_provider.upload_file(
                     local_filepath,
                     output_filepath,
                 )
-            except Exception as e:
-                print(e)
+            except Exception:
+                logger.exception("Failed to upload %s to %s", local_filepath, output_filepath)
+                raise
 
         elif output_dir.path:
             output_filepath = output_dir.path
@@ -291,12 +296,17 @@ def _upload_fn(
             output_filepath = remove_uuid_from_filename(output_filepath)  # remove unique id from checkpoints
 
             os.makedirs(os.path.dirname(output_filepath), exist_ok=True)
+            if not os.path.exists(local_filepath):
+                # Checkpoint files reuse a stable name; a later save can replace a queued path.
+                if ".checkpoints" in local_filepath:
+                    continue
+                raise FileNotFoundError(local_filepath)
             shutil.copy(local_filepath, output_filepath)
         else:
             raise ValueError(f"The provided {output_dir.path} isn't supported.")
 
-        # Inform the remover to delete the file
-        if remove_queue and os.path.exists(local_filepath):
+        # Inform the remover to delete the file. Keep checkpoints so a later overwrite/upload can still read them.
+        if remove_queue and os.path.exists(local_filepath) and ".checkpoints" not in local_filepath:
             remove_queue.put([local_filepath])
 
 
@@ -521,6 +531,7 @@ class BaseWorker:
         keep_data_ordered: bool = True,
         shared_queue: "Queue | FakeQueue | None" = None,
         using_queue_optimize: bool = False,  # using queues as inputs for optimize fn
+        checkpoint_next_chunk_index: int | None = None,
     ) -> None:
         """The BaseWorker is responsible to process the user data."""
         self.worker_index = worker_index
@@ -564,8 +575,11 @@ class BaseWorker:
         self.use_checkpoint: bool = use_checkpoint
         self.checkpoint_chunks_info: list[dict[str, Any]] | None = checkpoint_chunks_info
         self.checkpoint_next_index: int | None = checkpoint_next_index
+        self.checkpoint_next_chunk_index: int | None = checkpoint_next_chunk_index
         self.storage_options = storage_options
         self.using_queue_optimize = using_queue_optimize
+        # Explicit (writer_sample_index, key) pairs — index is the same value passed to Cache._add_item.
+        self._key_pairs: list[tuple[int, Any]] = []
 
     def run(self) -> None:
         try:
@@ -727,7 +741,11 @@ class BaseWorker:
             assert isinstance(self.checkpoint_chunks_info, list)
 
             self.cache._writer._chunks_info = self.checkpoint_chunks_info
-            self.cache._writer._chunk_index += self.checkpoint_next_index
+            self.cache._writer._chunk_index = _writer_chunk_index_from_checkpoint(
+                self.writer_starting_chunk_index,
+                self.checkpoint_chunks_info,
+                self.checkpoint_next_chunk_index,
+            )
 
     def _try_upload(self, data: str | tuple[str, str] | None) -> None:
         if not data or (self.output_dir.url if self.output_dir.url else self.output_dir.path) is None:
@@ -868,18 +886,29 @@ class BaseWorker:
                 return
 
             item_data_or_generator = self.data_recipe.prepare_item(current_item)
+            key_fn = getattr(self.data_recipe, "key_fn", None)
             if self.data_recipe.is_generator:
                 for item_data in item_data_or_generator:
                     if item_data is not None:
-                        chunk_filepath = self.cache._add_item(self._index_counter, item_data)
+                        sample_index = self._index_counter
+                        if key_fn is not None:
+                            from litdata.utilities.keys_index import normalize_key
+
+                            self._key_pairs.append((sample_index, normalize_key(key_fn(item_data))))
+                        chunk_filepath = self.cache._add_item(sample_index, item_data)
                         self._try_upload(chunk_filepath)
                         self._index_counter += 1
             elif item_data_or_generator is not None:
-                chunk_filepath = self.cache._add_item(self._index_counter, item_data_or_generator)
+                sample_index = self._index_counter
+                if key_fn is not None:
+                    from litdata.utilities.keys_index import normalize_key
+
+                    self._key_pairs.append((sample_index, normalize_key(key_fn(item_data_or_generator))))
+                chunk_filepath = self.cache._add_item(sample_index, item_data_or_generator)
                 self._try_upload(chunk_filepath)
                 self._index_counter += 1
                 if self.use_checkpoint:
-                    checkpoint_filepath = self.cache.save_checkpoint()
+                    checkpoint_filepath = self.cache.save_checkpoint(inputs_done=self._index_counter)
                     self._try_upload(checkpoint_filepath)
         except Exception as e:
             raise RuntimeError(f"Failed processing {item=}; {index=}") from e
@@ -896,8 +925,17 @@ class BaseWorker:
                 if isinstance(chunk_filepath, str) and os.path.exists(chunk_filepath):
                     self.to_upload_queues[i % self.num_uploaders].put(chunk_filepath)
 
+        if getattr(self.data_recipe, "key_fn", None) is not None:
+            from litdata.utilities.keys_index import save_rank_keys
+
+            # Keep rank key files in the cache until `_merge_and_upload_keys` runs.
+            # Do not `_try_upload` them — upload removes the local file and merge would miss them.
+            rank = _get_node_rank() * self.num_workers + self.worker_index
+            keys_filepath = os.path.join(self.cache_chunks_dir, f"{rank}.keys.parquet")
+            save_rank_keys(keys_filepath, self._key_pairs)
+
         if self.use_checkpoint and not self.data_recipe.is_generator:
-            checkpoint_filepath = self.cache.save_checkpoint()
+            checkpoint_filepath = self.cache.save_checkpoint(inputs_done=self._index_counter)
             self._try_upload(checkpoint_filepath)
 
     def _handle_data_transform_recipe(self, index: int, item: Any) -> None:
@@ -986,6 +1024,7 @@ class DataChunkRecipe(DataRecipe):
         compression: str | None = None,
         encryption: Encryption | None = None,
         storage_options: dict[str, Any] = {},
+        key_fn: Callable[[Any], Any] | None = None,
     ):
         super().__init__(storage_options)
         if chunk_size is not None and chunk_bytes is not None:
@@ -995,6 +1034,7 @@ class DataChunkRecipe(DataRecipe):
         self.chunk_bytes = 1 << 26 if chunk_size is None and chunk_bytes is None else chunk_bytes  # 1<<26 = 64 MB
         self.compression = compression
         self.encryption = encryption
+        self.key_fn = key_fn
 
     @abstractmethod
     def prepare_structure(self, input_dir: str | None) -> list[T]:
@@ -1020,6 +1060,7 @@ class DataChunkRecipe(DataRecipe):
         node_rank = _get_node_rank()
         merge_cache._merge_no_wait(node_rank if num_nodes > 1 else None, getattr(self, "existing_index", None))
 
+        self._merge_and_upload_keys(output_dir, cache_dir, num_nodes, node_rank)
         self._upload_index(output_dir, cache_dir, num_nodes, node_rank)
 
         if num_nodes == node_rank + 1:
@@ -1049,6 +1090,124 @@ class DataChunkRecipe(DataRecipe):
         return _Result(
             size=size,
         )
+
+    def _merge_and_upload_keys(self, output_dir: Dir, cache_dir: str, num_nodes: int, node_rank: int | None) -> None:
+        """Merge per-rank key sidecars and publish ``keys/shard-*.parquet`` next to ``index.json``."""
+        if getattr(self, "key_fn", None) is None:
+            return
+
+        from litdata.constants import _INDEX_FILENAME
+        from litdata.utilities.keys_index import (
+            concatenate_key_files,
+            enrich_keys_with_chunks,
+            has_keys_index,
+            list_key_parquet_files,
+            merge_rank_key_files,
+        )
+
+        def _enrich_if_index(dataset_dir: str) -> None:
+            index_path = os.path.join(cache_dir, _INDEX_FILENAME)
+            if os.path.isfile(index_path):
+                # Close before enrich: enrich rewrites index.json, and Windows cannot
+                # replace a path that still has an open handle.
+                with open(index_path, encoding="utf-8") as f:
+                    index_json = json.load(f)
+                enrich_keys_with_chunks(dataset_dir, index_json)
+
+        # Single-node (or per-node partial): merge rank files present in this cache.
+        if num_nodes <= 1:
+            merged = merge_rank_key_files(cache_dir)
+            if merged is None:
+                return
+            existing = getattr(self, "existing_index", None)
+            # Append mode: prepend keys from the previous dataset if present on output_dir.
+            if existing is not None and output_dir.path and has_keys_index(output_dir.path):
+                concatenate_key_files(
+                    list_key_parquet_files(output_dir.path) + list_key_parquet_files(cache_dir),
+                    cache_dir,
+                )
+            _enrich_if_index(cache_dir)
+            self._upload_keys_store(output_dir, cache_dir)
+            return
+
+        # Multi-node: each node merges local rank keys into ``{node_rank}-keys.parquet``,
+        # then the last node concatenates into the final ``keys/`` store.
+        assert node_rank is not None
+        node_keys_name = f"{node_rank}-keys.parquet"
+        merged = merge_rank_key_files(cache_dir, output_filename=node_keys_name)
+        if merged is None:
+            return
+        self._upload_file(output_dir, cache_dir, node_keys_name)
+
+        if num_nodes != node_rank + 1:
+            return
+
+        obj = parse.urlparse(output_dir.url if output_dir.url else output_dir.path)
+        local_paths: list[str] = []
+        for nr in range(num_nodes):
+            name = f"{nr}-keys.parquet"
+            local_path = os.path.join(cache_dir, name)
+            if nr != node_rank:
+                remote_base = output_dir.url if output_dir.url else output_dir.path
+                assert remote_base
+                remote_filepath = os.path.join(remote_base, name)
+                if obj.scheme in _SUPPORTED_PROVIDERS:
+                    merged_storage_options = construct_storage_options(self.storage_options, output_dir)
+                    _wait_for_file_to_exist(remote_filepath, storage_options=merged_storage_options)
+                    fs_provider = _get_fs_provider(remote_filepath, merged_storage_options)
+                    fs_provider.download_file(remote_filepath, local_path)
+                elif output_dir.path and os.path.isdir(output_dir.path):
+                    shutil.copyfile(remote_filepath, local_path)
+            local_paths.append(local_path)
+
+        concatenate_key_files(local_paths, cache_dir)
+        _enrich_if_index(cache_dir)
+        self._upload_keys_store(output_dir, cache_dir)
+
+    def _upload_keys_store(self, output_dir: Dir, cache_dir: str) -> None:
+        """Upload ``keys/shard-*.parquet`` next to the dataset (layout lives in ``index.json``)."""
+        from litdata.constants import _KEYS_DIRNAME
+        from litdata.utilities.keys_index import keys_dir, list_shard_files
+
+        if output_dir.path is None and output_dir.url is None:
+            return
+        local_keys = keys_dir(cache_dir)
+        if not os.path.isdir(local_keys):
+            return
+
+        rel_files = [os.path.basename(p) for p in list_shard_files(local_keys)]
+        obj = parse.urlparse(output_dir.url if output_dir.url else output_dir.path)
+        for name in rel_files:
+            local_filepath = os.path.join(local_keys, name)
+            if not os.path.isfile(local_filepath):
+                continue
+            remote_rel = os.path.join(_KEYS_DIRNAME, name)
+            if obj.scheme in _SUPPORTED_PROVIDERS:
+                assert output_dir.url
+                merged_storage_options = construct_storage_options(self.storage_options, output_dir)
+                fs_provider = _get_fs_provider(output_dir.url, merged_storage_options)
+                fs_provider.upload_file(local_filepath, os.path.join(output_dir.url, remote_rel))
+            elif output_dir.path and os.path.isdir(output_dir.path):
+                dest_dir = os.path.join(output_dir.path, _KEYS_DIRNAME)
+                os.makedirs(dest_dir, exist_ok=True)
+                dest = os.path.join(dest_dir, name)
+                if os.path.abspath(local_filepath) != os.path.abspath(dest):
+                    shutil.copyfile(local_filepath, dest)
+
+    def _upload_file(self, output_dir: Dir, cache_dir: str, filename: str) -> None:
+        if output_dir.path is None and output_dir.url is None:
+            return
+        local_filepath = os.path.join(cache_dir, filename)
+        if not os.path.isfile(local_filepath):
+            return
+        obj = parse.urlparse(output_dir.url if output_dir.url else output_dir.path)
+        if obj.scheme in _SUPPORTED_PROVIDERS:
+            assert output_dir.url
+            merged_storage_options = construct_storage_options(self.storage_options, output_dir)
+            fs_provider = _get_fs_provider(output_dir.url, merged_storage_options)
+            fs_provider.upload_file(local_filepath, os.path.join(output_dir.url, filename))
+        elif output_dir.path and os.path.isdir(output_dir.path):
+            shutil.copyfile(local_filepath, os.path.join(output_dir.path, filename))
 
     def _upload_index(self, output_dir: Dir, cache_dir: str, num_nodes: int, node_rank: int | None) -> None:
         """Upload the index file to the remote cloud directory."""
@@ -1207,6 +1366,7 @@ class DataProcessor:
         self.use_checkpoint = use_checkpoint
         self.checkpoint_chunks_info: list[list[dict[str, Any]]] | None = None
         self.checkpoint_next_index: list[int] | None = None
+        self.checkpoint_next_chunk_index: list[int | None] | None = None
         self.item_loader = item_loader
         self.storage_options = storage_options
         self.keep_data_ordered = keep_data_ordered
@@ -1489,6 +1649,9 @@ class DataProcessor:
                 self.keep_data_ordered,
                 self.shared_queue,
                 using_queue_optimize=workers_user_items is None,
+                checkpoint_next_chunk_index=(
+                    self.checkpoint_next_chunk_index[worker_idx] if self.checkpoint_next_chunk_index else None
+                ),
             )
             worker.start()
             workers.append(worker)
@@ -1588,8 +1751,9 @@ class DataProcessor:
                     temp_file_name,
                     os.path.join(prefix, "config.json"),
                 )
-        except Exception as e:
-            print(e)
+        except Exception:
+            logger.exception("Failed to persist optimize checkpoint config.json")
+            raise
 
     def _load_checkpoint_config(self, workers_user_items: list[list[Any]]) -> None:
         if not self.use_checkpoint:
@@ -1599,6 +1763,7 @@ class DataProcessor:
 
         self.checkpoint_chunks_info = [default_chunk_info for _ in range(self.num_workers)]
         self.checkpoint_next_index = [0 for _ in range(self.num_workers)]
+        self.checkpoint_next_chunk_index = [None for _ in range(self.num_workers)]
 
         if self.output_dir.url is None:
             assert self.output_dir.path
@@ -1631,8 +1796,9 @@ class DataProcessor:
                 with open(os.path.join(self.output_dir.path, ".checkpoints", checkpoint_file_name)) as f:
                     checkpoint = json.load(f)
 
-                self.checkpoint_chunks_info[i] = checkpoint["chunks"]
-                self.checkpoint_next_index[i] = checkpoint["done_till_index"]
+                self.checkpoint_chunks_info[i], self.checkpoint_next_index[i], self.checkpoint_next_chunk_index[i] = (
+                    _resume_fields_from_checkpoint(checkpoint)
+                )
             return
 
         obj = parse.urlparse(self.output_dir.url)
@@ -1676,9 +1842,34 @@ class DataProcessor:
                 with open(os.path.join(saved_file_dir, checkpoint_file_name)) as f:
                     checkpoint = json.load(f)
 
-                self.checkpoint_chunks_info[i] = checkpoint["chunks"]
-                self.checkpoint_next_index[i] = checkpoint["done_till_index"]
+                self.checkpoint_chunks_info[i], self.checkpoint_next_index[i], self.checkpoint_next_chunk_index[i] = (
+                    _resume_fields_from_checkpoint(checkpoint)
+                )
         return
+
+
+def _resume_fields_from_checkpoint(checkpoint: dict[str, Any]) -> tuple[list[dict[str, Any]], int, int | None]:
+    chunks = checkpoint["chunks"]
+    inputs_done = int(checkpoint.get("inputs_done", checkpoint["done_till_index"]))
+    next_chunk_index = int(checkpoint["next_chunk_index"]) if "next_chunk_index" in checkpoint else None
+    return chunks, inputs_done, next_chunk_index
+
+
+def _writer_chunk_index_from_checkpoint(
+    writer_starting_chunk_index: int,
+    checkpoint_chunks: list[dict[str, Any]] | None,
+    checkpoint_next_chunk_index: int | None,
+) -> int:
+    """Absolute next chunk file index for the writer after loading a checkpoint.
+
+    ``next_chunk_index`` is already absolute (includes append offset). Older checkpoints
+    only stored this-run ``chunks``; continue from ``writer_starting_chunk_index + len(chunks)``.
+    Workers with no checkpoint file keep the append starting index.
+    """
+    if checkpoint_next_chunk_index is not None:
+        return checkpoint_next_chunk_index
+    n_chunks = len(checkpoint_chunks or [])
+    return writer_starting_chunk_index + n_chunks
 
 
 def in_notebook() -> bool:

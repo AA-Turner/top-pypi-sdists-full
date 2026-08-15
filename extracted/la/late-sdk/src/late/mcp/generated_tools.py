@@ -2947,7 +2947,7 @@ def register_generated_tools(mcp, _get_client):
                 budget: Required unless adSetId is set.
                 instagram_account_id: Meta only. Instagram identity the ad runs AS (creative.instagram_user_id), overriding the account linked to the Page. Live-verified against a Page-post creative.
                 destination_type: Meta only. Ad-set destination_type — where the click LANDS, as opposed to instagramAccountId which is who the ad runs as. Lead ads force ON_AD and ignore this.
-                currency
+                currency: ISO 4217 currency code matching the ad account's currency. Meta only. Optional: Zernio resolves it from the ad account when omitted. The value selects the minor-unit exponent Zernio converts budget/bid amounts by before calling Meta (most currencies are cents; zero-decimal currencies like JPY/KRW are sent as-is).
                 schedule
                 targeting: Same geo/demographic fields as the `TargetingSpec` used by /v1/ads/create.
         Geo keys (`regions`/`cities`/`zips`/`metros`) resolve via
@@ -3219,7 +3219,7 @@ def register_generated_tools(mcp, _get_client):
             across ad sets automatically.
         Meta requires the budget at exactly one level, never both. Non-Meta platforms ignore
         this field. Ignored on the attach shape (`adSetId`), which inherits the existing budget.
-                currency
+                currency: ISO 4217 currency code matching the ad account's currency (e.g. `USD`). Meta only. Optional: Zernio resolves it from the ad account when omitted. The value selects the minor-unit exponent Zernio converts budget/bid amounts by before calling Meta (most currencies are cents; zero-decimal currencies like JPY/KRW are sent as-is).
                 headline: Required for Meta, Google, Pinterest, LinkedIn, and OpenAI Ads on legacy + attach shapes (skip for multi-creative — use `creatives[].headline`). Ignored for TikTok and X/Twitter. Max: Meta=255, Google=30, Pinterest=100, LinkedIn=400, OpenAI=50 (min 3). On LinkedIn this is the ad's headline (the bold text on the creative); for traffic ads it's the link card title. On OpenAI Ads this is the chat card's title.
                 long_headline: Google Display only — defaults to `headline` if omitted. On LinkedIn, reused as the optional secondary description text on traffic (link) ads; omitted if not provided.
                 body: Required on legacy + attach shapes. For X/Twitter this is the tweet text (max 280 chars including a ~24-char URL when `linkUrl` is set). On LinkedIn this is the post commentary (the intro text shown above the ad). On OpenAI Ads this is the chat card's body text. Max: Google=90, Pinterest=500, OpenAI=100.
@@ -3245,8 +3245,9 @@ def register_generated_tools(mcp, _get_client):
         The attached ad takes the full single-creative surface:
         `headline`/`body`/`description`/`callToAction` plus either
         `imageUrl`/`video` OR `placementAssets` (its own per-placement
-        Feed/Story assets), and `leadGenFormId` when the target is a
-        lead ad set (the parent must be ON_AD — true for ad sets
+        Feed/Story assets) OR `translations`/`defaultLocale` (its own
+        per-locale asset feed, Meta only), and `leadGenFormId` when
+        the target is a lead ad set (the parent must be ON_AD, true for ad sets
         created via goal `lead_generation`; Meta rejects a formless ad
         there, so pass the form on EVERY attached ad). This is the way
         to build N full ads sharing one ad set: create the first ad
@@ -3347,8 +3348,9 @@ def register_generated_tools(mcp, _get_client):
         available on `POST /v1/ads/boost`.)
                 instagram_account_id: Meta only. Override the Instagram account the ad is delivered as — pass an Instagram
         Business Account ID (e.g. 17841...), mapped to the creative's `instagram_user_id`.
-        When omitted we auto-resolve the IG account linked to the connected Facebook Page
-        (the existing default). Useful when a Page has more than one eligible IG account.
+        When omitted we use the Instagram actor Meta already runs the Page's other ads as,
+        falling back to the Page's page-backed Instagram account. Useful when a Page has more
+        than one eligible IG account.
                 dynamic_creative: Meta only. Dynamic Creative: supply a POOL of assets and Meta auto-combines and
         optimises them into the best-performing variations within a single ad (mapped to the
         creative's `asset_feed_spec`). When set, the top-level single-creative fields
@@ -3394,8 +3396,8 @@ def register_generated_tools(mcp, _get_client):
         works on a normal ad may be rejected with "The following images have invalid
         dimensions for Dynamic Creative" (subcode 1885558). Video is not affected.
 
-        Mutually exclusive with `dynamicCreative`, `placementAssets`, `carouselCards` and
-        `existingCreativeId` — Meta allows one `asset_feed_spec` shape per creative.
+        Mutually exclusive with `dynamicCreative`, `placementAssets`, `carouselCards`,
+        `existingCreativeId` and `creatives[]`. Meta allows one `asset_feed_spec` shape per creative.
                 placement_assets: Meta only. Placement asset customization: pin a SPECIFIC asset (image OR video) to
         each placement group on a SINGLE ad (e.g. a 9:16 on Stories/Reels and a 4:5 on Feed).
         The same thing Meta Ads Manager produces with "different creative per placement",
@@ -12081,6 +12083,7 @@ def register_generated_tools(mcp, _get_client):
         street_address: str,
         locality: str,
         postal_code: str,
+        extended_address: str | None = None,
         administrative_area: str | None = None,
     ) -> str:
         """Pre-validate KYC address
@@ -12088,6 +12091,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             country: ISO 3166-1 alpha-2 country code. (required)
             street_address: (required)
+            extended_address: Address complement: apartment, suite, unit, or the quadra/lote used in some countries. Optional. Does not substitute for a building number on street_address.
             locality: City / town. (required)
             administrative_area: State / province / region. When omitted, the pre-check is skipped (the final submit still validates).
             postal_code: (required)"""
@@ -12096,6 +12100,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.phone_numbers.validate_phone_number_kyc_address(
                 country=country,
                 street_address=street_address,
+                extended_address=extended_address,
                 locality=locality,
                 administrative_area=administrative_area,
                 postal_code=postal_code,
@@ -17869,6 +17874,7 @@ def register_generated_tools(mcp, _get_client):
         street_address: str,
         locality: str,
         postal_code: str,
+        extended_address: str | None = None,
         administrative_area: str | None = None,
     ) -> str:
         """Pre-validate KYC address
@@ -17876,6 +17882,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             country: ISO 3166-1 alpha-2 country code. (required)
             street_address: (required)
+            extended_address: Address complement: apartment, suite, unit, or the quadra/lote used in some countries. Optional. Does not substitute for a building number on street_address.
             locality: City / town. (required)
             administrative_area: State / province / region. When omitted, the pre-check is skipped (the final submit still validates).
             postal_code: (required)"""
@@ -17885,6 +17892,7 @@ def register_generated_tools(mcp, _get_client):
                 client.whatsapp_phone_numbers.validate_whats_app_number_kyc_address(
                     country=country,
                     street_address=street_address,
+                    extended_address=extended_address,
                     locality=locality,
                     administrative_area=administrative_area,
                     postal_code=postal_code,

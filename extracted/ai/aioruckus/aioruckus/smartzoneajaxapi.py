@@ -1,10 +1,16 @@
 """Add enough AJAX methods to support Home Assistant"""
 
 from __future__ import annotations
+
 import asyncio
-from operator import itemgetter
-from typing import Any, cast, override
+import sys
 from itertools import groupby
+from operator import itemgetter
+
+if sys.version_info >= (3, 12):
+    from typing import Any, cast, override
+else:
+    from typing_extensions import Any, cast, override
 
 from .abcsession import ConfigItem
 from .ajaxsession import AjaxSession
@@ -16,14 +22,17 @@ from .smartzonesession import SmartZoneSession
 from .smartzonetyping import BlockClientDict
 from .utility import *
 
+
 class SmartZoneAjaxApi(RuckusAjaxApi):
     """Ruckus SmartZone compatibility shim"""
     __session: SmartZoneSession
 
     def __init__(self, session: AjaxSession):
+        """Initialize the API with the given AjaxSession."""
         super().__init__(session)
 
     async def login(self) -> SmartZoneAjaxApi:
+        """Create a SmartZone HTTPS session and log in."""
         self.__session = await SmartZoneSession(
             self.session.host,
             self.session.username,
@@ -33,6 +42,7 @@ class SmartZoneAjaxApi(RuckusAjaxApi):
         return self
 
     async def close(self) -> None:
+        """Close the underlying HTTPS session."""
         await self.__session.close()
 
     async def get_aps(self) -> list[Ap]:
@@ -105,7 +115,7 @@ class SmartZoneAjaxApi(RuckusAjaxApi):
                 return
             try:
                 for block_client in block_client_list:
-                    await self.__session.post(f"blockClient/byZoneId/{block_client["zoneId"]}", {"mac": mac})
+                    await self.__session.post(f"blockClient/byZoneId/{block_client['zoneId']}", {"mac": mac})
             except AuthorizationError:
                 raise AuthorizationError("Blocking clients requires AP [Full Access] and Device [Read], or AP [Read] and Device [Full Access] permissions")
 
@@ -166,7 +176,7 @@ class SmartZoneAjaxApi(RuckusAjaxApi):
         if not specific:
             # PUT aps/{mac}/specific requires valid collection properties, even if
             # we just want defaults. So grab Group defaults
-            specific = await self.__session.get(f"rkszones/{ap["zoneId"]}/apgroups/{ap["apGroupId"]}/apmodel/{ap["model"]}")
+            specific = await self.__session.get(f"rkszones/{ap['zoneId']}/apgroups/{ap['apGroupId']}/apmodel/{ap['model']}")
         specific = remove_nones(specific)
         if specific.get("ledStatusEnabled") == leds_on:
             return
@@ -198,8 +208,10 @@ class SmartZoneAjaxApi(RuckusAjaxApi):
     #
     @override
     async def _cmdstat_noparse(self, data: str, timeout: int | None = None) -> str:
+        """Unsupported on SmartZone; always raises NotImplementedError."""
         raise NotImplementedError
     #
     @override
     async def _get_conf(self, item: ConfigItem, collection_elements: list[str] | None = None) -> Any:
+        """Unsupported on SmartZone; always raises NotImplementedError."""
         raise NotImplementedError

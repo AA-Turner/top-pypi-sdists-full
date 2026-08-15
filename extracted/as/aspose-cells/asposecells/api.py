@@ -2196,6 +2196,7 @@ class PivotFieldGroupType(IntEnum):
     DISCRETE = 3,
     NONE = 0,
     NUMBERIC_RANGE = 2,
+    NUMERIC_RANGE = 2,
 class PivotFieldSubtotalType(IntEnum):
     AUTOMATIC = 1,
     AVERAGE = 8,
@@ -3426,6 +3427,7 @@ from com.aspose.cells import DifLoadOptions
 from com.aspose.cells import DifSaveOptions
 from com.aspose.cells import DigitalSignature
 from com.aspose.cells import DigitalSignatureCollection
+from com.aspose.cells import DiscreteGroupItem
 from com.aspose.cells import DocxSaveOptions
 from com.aspose.cells import EbookLoadOptions
 from com.aspose.cells import EbookSaveOptions

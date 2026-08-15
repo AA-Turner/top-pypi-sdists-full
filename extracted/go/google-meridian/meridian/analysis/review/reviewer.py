@@ -26,15 +26,15 @@ from meridian.analysis import analyzer as analyzer_module
 from meridian.analysis.review import checks
 from meridian.analysis.review import configs
 from meridian.analysis.review import constants as review_constants
+
 from meridian.analysis.review import results
 from meridian.model import context
-from meridian.model import prior_distribution
 
 import numpy as np
 
 CheckType = typing.Type[checks.BaseCheck]
 ConfigInstance = configs.BaseConfig
-ChecksBattery = immutabledict.immutabledict[CheckType, ConfigInstance]
+ChecksBattery = typing.Mapping[CheckType, ConfigInstance]
 
 
 _POST_CONVERGENCE_CHECKS: ChecksBattery = immutabledict.immutabledict({
@@ -93,7 +93,17 @@ def _get_gof_score(
 def _get_pps_score(
     prior_posterior_shift_check_result: results.PriorPosteriorShiftCheckResult,
 ) -> float:
-  """Returns the score of the Prior-Posterior Shift check."""
+  """Returns the score of the Prior-Posterior Shift check.
+
+  Returns a perfect score (100.0) if `channel_results` is empty (e.g. when no
+  media or RF channels are present) to prevent a `ZeroDivisionError`.
+
+  Args:
+    prior_posterior_shift_check_result: Result of the Prior-Posterior Shift
+      check.
+  """
+  if not prior_posterior_shift_check_result.channel_results:
+    return 100.0
   prior_posterior_shift_ratio = len(
       prior_posterior_shift_check_result.no_shift_channels
   ) / len(prior_posterior_shift_check_result.channel_results)
@@ -107,7 +117,16 @@ def _get_pps_score(
 def _get_roi_consistency_score(
     roi_consistency_check_result: results.ROIConsistencyCheckResult,
 ) -> float:
-  """Returns the score of the ROI Consistency check."""
+  """Returns the score of the ROI Consistency check.
+
+  Returns a perfect score (100.0) if `channel_results` is empty (e.g. when no
+  media or RF channels are present) to prevent a `ZeroDivisionError`.
+
+  Args:
+    roi_consistency_check_result: Result of the ROI Consistency check.
+  """
+  if not roi_consistency_check_result.channel_results:
+    return 100.0
   roi_consistency_failure_ratio = sum(
       1
       for r in roi_consistency_check_result.channel_results
@@ -201,6 +220,7 @@ class ModelReviewer:
       meridian: Any | None = None,
       model_context: context.ModelContext | None = None,
       inference_data: az.InferenceData | None = None,
+      convergence_check_config: configs.ConvergenceConfig | None = None,
       post_convergence_checks: ChecksBattery | None = None,
   ):
     if meridian is not None:
@@ -220,6 +240,11 @@ class ModelReviewer:
 
     self._model_context = model_context
     self._inference_data = inference_data
+    self._convergence_check_config = (
+        convergence_check_config
+        if convergence_check_config is not None
+        else configs.ConvergenceConfig()
+    )
     self._post_convergence_checks = (
         post_convergence_checks
         if post_convergence_checks is not None
@@ -256,41 +281,11 @@ class ModelReviewer:
     )  # pytype: disable=not-instantiable
     self._results[check_class] = instance.run()
 
-  def _uses_roi_priors(self):
-    """Checks if the model uses ROI priors."""
-    return (
-        self._model_context.n_media_channels > 0
-        and self._model_context.model_spec.effective_media_prior_type
-        == constants.TREATMENT_PRIOR_TYPE_ROI
-    ) or (
-        self._model_context.n_rf_channels > 0
-        and self._model_context.model_spec.effective_rf_prior_type
-        == constants.TREATMENT_PRIOR_TYPE_ROI
-    )
-
-  def _has_custom_roi_priors(self):
-    """Checks if the model uses custom ROI priors."""
-    default_distribution = prior_distribution.PriorDistribution()
-    if (
-        self._model_context.n_media_channels > 0
-        and self._model_context.model_spec.effective_media_prior_type
-        == constants.TREATMENT_PRIOR_TYPE_ROI
-    ):
-      if not prior_distribution.distributions_are_equal(
-          self._model_context.model_spec.prior.roi_m, default_distribution.roi_m
-      ):
-        return True
-    if (
-        self._model_context.n_rf_channels > 0
-        and self._model_context.model_spec.effective_rf_prior_type
-        == constants.TREATMENT_PRIOR_TYPE_ROI
-    ):
-      if not prior_distribution.distributions_are_equal(
-          self._model_context.model_spec.prior.roi_rf,
-          default_distribution.roi_rf,
-      ):
-        return True
-    return False
+  def _is_relevant(self, check_class: CheckType) -> bool:
+    """Checks if a check class is relevant for this model."""
+    if not check_class.is_relevant(self._model_context, self._inference_data):
+      return False
+    return True
 
   def _should_skip_calibration_checks(self, check_class: CheckType) -> bool:
     """Checks if calibration checks should be skipped."""
@@ -361,7 +356,9 @@ class ModelReviewer:
   ) -> results.ReviewSummary:
     """Executes all checks and generates the final summary."""
     self._results = {}
-    self._run_and_handle(checks.ConvergenceCheck, configs.ConvergenceConfig())
+    self._run_and_handle(
+        checks.ConvergenceCheck, self._convergence_check_config
+    )
 
     # Stop if the model did not converge.
     if (
@@ -380,17 +377,7 @@ class ModelReviewer:
 
     # Run all other checks in sequence.
     for check_class, config in self._post_convergence_checks.items():
-      if (
-          check_class == checks.PriorPosteriorShiftCheck
-          and not self._uses_roi_priors()
-      ):
-        # Skip the Prior-Posterior Shift check if no ROI priors are used.
-        continue
-      if (
-          check_class == checks.ROIConsistencyCheck
-          and not self._has_custom_roi_priors()
-      ):
-        # Skip the ROI Consistency check if no custom ROI priors are provided.
+      if not self._is_relevant(check_class):
         continue
       self._run_and_handle(
           check_class,

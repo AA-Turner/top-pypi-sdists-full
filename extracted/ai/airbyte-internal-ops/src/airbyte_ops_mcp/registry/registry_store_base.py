@@ -179,6 +179,7 @@ class Registry(ABC):
 
     def compile(
         self,
+        output_store: RegistryStore | None = None,
         connector_name: list[str] | None = None,
         dry_run: bool = False,
         with_secrets_mask: bool = False,

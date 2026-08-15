@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: awkward
-Version: 2.12.0
+Version: 2.13.0
 Summary: Manipulate JSON-like data with NumPy-like idioms.
 Project-URL: Bug Tracker, https://github.com/scikit-hep/awkward-1.0/issues
 Project-URL: Discussions, https://github.com/scikit-hep/awkward-1.0/discussions
@@ -36,7 +36,7 @@ Classifier: Topic :: Scientific/Engineering :: Physics
 Classifier: Topic :: Software Development
 Classifier: Topic :: Utilities
 Requires-Python: >=3.10
-Requires-Dist: awkward-cpp==55
+Requires-Dist: awkward-cpp==56
 Requires-Dist: fsspec>=2022.11.0
 Requires-Dist: importlib-metadata>=4.13.0; python_version < '3.12'
 Requires-Dist: numpy>=1.21.3

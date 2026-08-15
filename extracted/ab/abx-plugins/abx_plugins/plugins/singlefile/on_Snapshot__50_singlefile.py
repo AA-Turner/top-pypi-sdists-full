@@ -4,9 +4,9 @@
 # ///
 """Save the exact navigated Chrome snapshot tab with SingleFile."""
 
+import sys
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 import rich_click as click
@@ -81,6 +81,7 @@ def main(url: str) -> None:
         raise SystemExit(0)
 
     try:
+        print("SingleFile extraction started", flush=True)
         print("generating singlefile.html...")
         success, output, error = save_singlefile_with_extension(
             url,

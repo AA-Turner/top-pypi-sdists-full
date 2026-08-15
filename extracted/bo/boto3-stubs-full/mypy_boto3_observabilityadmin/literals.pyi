@@ -52,6 +52,9 @@ __all__ = (
     "ServiceName",
     "SignalTypeType",
     "StatusType",
+    "TagConflictResolutionStrategyType",
+    "TagPropagationFailureReasonType",
+    "TagPropagationStatusType",
     "TelemetryEnrichmentStatusType",
     "TelemetryPipelineStatusType",
     "TelemetrySourceTypeType",
@@ -128,6 +131,9 @@ SignalTypeType = Literal["LOG", "METRIC"]
 StatusType = Literal[
     "FAILED_START", "FAILED_STOP", "NOT_STARTED", "RUNNING", "STARTING", "STOPPED", "STOPPING"
 ]
+TagConflictResolutionStrategyType = Literal["ADD_ONLY", "IN_SYNC", "UPDATE_SYNC"]
+TagPropagationFailureReasonType = Literal["RoleLacksPermissions", "RoleNotAssumable"]
+TagPropagationStatusType = Literal["Healthy", "Unhealthy"]
 TelemetryEnrichmentStatusType = Literal["Impaired", "Running", "Stopped"]
 TelemetryPipelineStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "UPDATE_FAILED", "UPDATING"

@@ -22,7 +22,7 @@ macro_rules! impl_simple {
                 other: &Self,
                 op: CompareOp,
                 py: Python<'_>,
-            ) -> PyResult<PyObject> {
+            ) -> PyResult<Py<PyAny>> {
                 let res = match op {
                     CompareOp::Eq => {
                         let result = (self == other)
@@ -57,103 +57,107 @@ macro_rules! impl_simple {
     };
 }
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Bool;
 impl_simple!(Bool, pgpq::pg_schema::PostgresType::Bool);
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Bytea;
 impl_simple!(Bytea, pgpq::pg_schema::PostgresType::Bytea);
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Int8;
 impl_simple!(Int8, pgpq::pg_schema::PostgresType::Int8);
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Int2;
 impl_simple!(Int2, pgpq::pg_schema::PostgresType::Int2);
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Int4;
 impl_simple!(Int4, pgpq::pg_schema::PostgresType::Int4);
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Char;
 impl_simple!(Char, pgpq::pg_schema::PostgresType::Char);
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Text;
 impl_simple!(Text, pgpq::pg_schema::PostgresType::Text);
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Json;
 impl_simple!(Json, pgpq::pg_schema::PostgresType::Json);
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Jsonb;
 impl_simple!(Jsonb, pgpq::pg_schema::PostgresType::Jsonb);
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Float4;
 impl_simple!(Float4, pgpq::pg_schema::PostgresType::Float4);
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Float8;
 impl_simple!(Float8, pgpq::pg_schema::PostgresType::Float8);
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Numeric;
 impl_simple!(Numeric, pgpq::pg_schema::PostgresType::Numeric);
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Date;
 impl_simple!(Date, pgpq::pg_schema::PostgresType::Date);
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Time;
 impl_simple!(Time, pgpq::pg_schema::PostgresType::Time);
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Timestamp;
 impl_simple!(Timestamp, pgpq::pg_schema::PostgresType::Timestamp);
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Interval;
 impl_simple!(Interval, pgpq::pg_schema::PostgresType::Interval);
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct List {
     inner: Box<Column>,
 }
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct UserDefined {
     pub fields: Vec<Column>,
+    /// The type's OID in the target database, when the caller knows it. See
+    /// `ArrowToPostgresBinaryEncoder.with_composite_oids`.
+    pub oid: Option<u32>,
 }
 
 #[pymethods]
 impl UserDefined {
     #[new]
-    fn new(fields: Vec<Column>) -> Self {
-        Self { fields }
+    #[pyo3(signature = (fields, oid=None))]
+    fn new(fields: Vec<Column>, oid: Option<u32>) -> Self {
+        Self { fields, oid }
     }
     fn __repr__(&self, py: Python) -> String {
         self.py_repr(py)
@@ -161,7 +165,7 @@ impl UserDefined {
     fn __str__(&self, py: Python) -> String {
         self.__repr__(py)
     }
-    fn __richcmp__(&self, other: &Self, op: CompareOp, py: Python<'_>) -> PyResult<PyObject> {
+    fn __richcmp__(&self, other: &Self, op: CompareOp, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let res = match op {
             CompareOp::Eq => {
                 let result = (self == other)
@@ -188,6 +192,7 @@ impl From<UserDefined> for pgpq::pg_schema::PostgresType {
     fn from(val: UserDefined) -> Self {
         pgpq::pg_schema::PostgresType::UserDefined {
             fields: val.fields.into_iter().map(|c| Box::new(c.into())).collect(),
+            oid: val.oid,
         }
     }
 }
@@ -213,7 +218,7 @@ impl List {
     fn __str__(&self, py: Python) -> String {
         self.__repr__(py)
     }
-    fn __richcmp__(&self, other: &Self, op: CompareOp, py: Python<'_>) -> PyResult<PyObject> {
+    fn __richcmp__(&self, other: &Self, op: CompareOp, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let res = match op {
             CompareOp::Eq => {
                 let result = (self == other)
@@ -318,9 +323,10 @@ impl From<pgpq::pg_schema::PostgresType> for PostgresType {
             pgpq::pg_schema::PostgresType::List(inner) => {
                 PostgresType::List(List::new((*inner).into()))
             }
-            pgpq::pg_schema::PostgresType::UserDefined { fields } => {
+            pgpq::pg_schema::PostgresType::UserDefined { fields, oid } => {
                 PostgresType::UserDefined(UserDefined {
                     fields: fields.into_iter().map(|b| (*b).clone().into()).collect(),
+                    oid,
                 })
             }
         }
@@ -352,7 +358,7 @@ impl PythonRepr for PostgresType {
     }
 }
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Column {
     #[pyo3(get)]
@@ -473,7 +479,7 @@ impl Column {
     fn __str__(&self, py: Python) -> String {
         self.__repr__(py)
     }
-    fn __richcmp__(&self, other: &Self, op: CompareOp, py: Python<'_>) -> PyResult<PyObject> {
+    fn __richcmp__(&self, other: &Self, op: CompareOp, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let res = match op {
             CompareOp::Eq => {
                 let result = (self == other)
@@ -519,7 +525,7 @@ impl PythonRepr for Column {
     }
 }
 
-#[pyclass(module = "pgpq._pgpq")]
+#[pyclass(module = "pgpq._pgpq", from_py_object)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct PostgresSchema {
     #[pyo3(get)]
@@ -538,7 +544,7 @@ impl PostgresSchema {
     fn __str__(&self, py: Python) -> String {
         self.__repr__(py)
     }
-    fn __richcmp__(&self, other: &Self, op: CompareOp, py: Python<'_>) -> PyResult<PyObject> {
+    fn __richcmp__(&self, other: &Self, op: CompareOp, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let res = match op {
             CompareOp::Eq => {
                 let result = (self == other)

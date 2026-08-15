@@ -163,10 +163,20 @@ def set_runner_overrides() -> None:
             else:
                 original_handler(signum, frame)
 
-    # Signal handlers must be registered on the main thread
-    # so we cannot register them within the RunCache constructor
-    signal.signal(signal.SIGINT, on_user_cancel)
-    signal.signal(signal.SIGTERM, on_user_cancel)
+    # Signal handlers must be registered on the main thread of the main interpreter.
+    # When dbt is invoked off the main thread (e.g. embedded in Snowflake's Python stored
+    # procedure sandbox, where the handler runs on an adopted thread), signal.signal raises
+    # ValueError. In that case cancellation-driven telemetry flushing does not apply, so we
+    # skip registration.
+    try:
+        signal.signal(signal.SIGINT, on_user_cancel)
+        signal.signal(signal.SIGTERM, on_user_cancel)
+    except ValueError:
+        from dbt_state import events
+
+        events.fire_debug_event(
+            "Skipping SIGINT/SIGTERM handler registration: dbt is not running on the main thread"
+        )
 
 
 def remove_runner_overrides() -> None:

@@ -1,11 +1,11 @@
 Metadata-Version: 2.5
 Name: ag_ui_strands
-Version: 0.2.5
+Version: 0.3.0
 Author: AG-UI Contributors
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: <3.15,>=3.10
 Requires-Dist: ag-ui-a2ui-toolkit>=0.0.4
-Requires-Dist: ag-ui-protocol>=0.1.18
+Requires-Dist: ag-ui-protocol>=0.1.19
 Requires-Dist: fastapi>=0.115.12
 Requires-Dist: strands-agents>=1.15.0

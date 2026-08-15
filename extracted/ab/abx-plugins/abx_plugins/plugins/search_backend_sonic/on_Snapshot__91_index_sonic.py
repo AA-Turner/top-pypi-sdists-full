@@ -18,10 +18,10 @@ Environment variables:
     SONIC_BUCKET: Bucket name (default: snapshots)
 """
 
+import sys
 import argparse
 import os
 import re
-import sys
 from importlib import import_module
 from pathlib import Path
 from typing import Any
@@ -255,6 +255,7 @@ def main() -> None:
             status = "skipped"
             output_str = "SEARCH_BACKEND_SONIC_ENABLED=False"
         else:
+            print("Sonic indexing started", flush=True)
             snapshot_id = get_snapshot_id_from_context()
             if not snapshot_id:
                 raise RuntimeError("missing snapshot_id in extra context")

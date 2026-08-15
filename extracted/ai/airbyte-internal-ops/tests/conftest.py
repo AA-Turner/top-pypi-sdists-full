@@ -11,7 +11,10 @@ from airbyte_ops_mcp.mcp import human_in_the_loop
 
 
 @pytest.fixture(autouse=True)
-def prevent_outbound_notifications(monkeypatch: pytest.MonkeyPatch) -> None:
+def prevent_outbound_notifications(
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
+) -> None:
     """Fail loudly if a test attempts an outbound Slack or HITL notification."""
 
     def fail(message: str) -> None:
@@ -32,8 +35,9 @@ def prevent_outbound_notifications(monkeypatch: pytest.MonkeyPatch) -> None:
         "dispatch_escalation",
         lambda *_args, **_kwargs: fail("HITL escalation dispatch"),
     )
-    monkeypatch.setattr(
-        requests.sessions.Session,
-        "request",
-        lambda *_args, **_kwargs: fail("HTTP request"),
-    )
+    if request.node.get_closest_marker("gcs_integration") is None:
+        monkeypatch.setattr(
+            requests.sessions.Session,
+            "request",
+            lambda *_args, **_kwargs: fail("HTTP request"),
+        )

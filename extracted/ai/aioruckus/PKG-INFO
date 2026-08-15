@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: aioruckus
-Version: 0.46.3
+Version: 0.47.0
 Summary: Python API to interact with Ruckus Unleashed and ZoneDirector devices
 Project-URL: Homepage, https://github.com/ms264556/aioruckus
 Project-URL: Issues, https://github.com/ms264556/aioruckus/issues
@@ -9,9 +9,16 @@ License-Expression: 0BSD
 License-File: LICENSE
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.12
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9
 Requires-Dist: aiohttp>=3.9.5
 Requires-Dist: cryptography>=41.0.7
+Requires-Dist: typing-extensions>=4.5.0; python_version < '3.12'
 Requires-Dist: xmltodict>=0.13.0
 Description-Content-Type: text/markdown
 

@@ -862,6 +862,36 @@ async def test_manager_reconnect_failed_only() -> None:
 
 
 @pytest.mark.asyncio
+async def test_failed_servers_snapshot_mutation_does_not_suppress_reconnect() -> None:
+    server = FlakyServer(failures=1)
+
+    async with MCPServerManager([server]) as manager:
+        failed_servers = manager.failed_servers
+        failed_servers.clear()
+
+        assert manager.failed_servers == [server]
+
+        await manager.reconnect(failed_only=True)
+
+        assert server.connect_calls == 2
+        assert manager.active_servers == [server]
+        assert manager.failed_servers == []
+
+
+@pytest.mark.asyncio
+async def test_errors_snapshot_mutation_does_not_erase_diagnostics() -> None:
+    server = FlakyServer(failures=1)
+
+    async with MCPServerManager([server]) as manager:
+        original_error = manager.errors[server]
+        errors = manager.errors
+        errors.clear()
+        errors[server] = RuntimeError("replacement error")
+
+        assert manager.errors == {server: original_error}
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("connect_in_parallel", [False, True])
 async def test_manager_reconnect_cleans_partial_failure_before_retry(
     connect_in_parallel: bool,
@@ -1210,6 +1240,21 @@ def test_manager_accepts_one_shot_iterables() -> None:
 
     assert manager.all_servers == [server_a, server_b]
     assert manager.active_servers == [server_a, server_b]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["connect_all", "reconnect"])
+async def test_manager_lifecycle_results_do_not_mutate_active_servers(operation: str) -> None:
+    server = FlakyServer(failures=0)
+    manager = MCPServerManager([server])
+
+    if operation == "reconnect":
+        await manager.connect_all()
+
+    active_servers = await getattr(manager, operation)()
+    active_servers.clear()
+
+    assert manager.active_servers == [server]
 
 
 @pytest.mark.asyncio

@@ -1,38 +1,43 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ansys-platform-instancemanagement
-Version: 1.1.2
+Version: 1.2.0
 Summary: A Python wrapper for Ansys platform instancemanagement
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>
-Requires-Python: >=3.8
+Requires-Python: >=3.10,<4
 Description-Content-Type: text/x-rst
+License-Expression: MIT
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+License-File: LICENSE
 Requires-Dist: importlib-metadata >=4.0
-Requires-Dist: ansys-api-platform-instancemanagement~=1.0
-Requires-Dist: ansys-api-platform-instancemanagement==1.0.0 ; extra == "doc"
-Requires-Dist: ansys-sphinx-theme==0.10.2 ; extra == "doc"
-Requires-Dist: numpydoc==1.5.0 ; extra == "doc"
-Requires-Dist: Sphinx==7.1.2 ; extra == "doc"
+Requires-Dist: ansys-api-platform-instancemanagement~=1.2
+Requires-Dist: ansys-tools-common ~= 0.5
+Requires-Dist: ansys-api-platform-instancemanagement==1.2.0 ; extra == "doc"
+Requires-Dist: ansys-sphinx-theme==1.9.0 ; extra == "doc"
+Requires-Dist: ansys-tools-common==0.5.1 ; extra == "doc"
+Requires-Dist: numpydoc==1.10.0 ; extra == "doc"
+Requires-Dist: Sphinx==9.1.0 ; extra == "doc"
 Requires-Dist: sphinx-copybutton==0.5.2 ; extra == "doc"
-Requires-Dist: ansys-api-platform-instancemanagement==1.0.0 ; extra == "tests"
-Requires-Dist: grpcio-health-checking==1.56.2 ; extra == "tests"
+Requires-Dist: ansys-api-platform-instancemanagement==1.2.0 ; extra == "tests"
+Requires-Dist: ansys-tools-common==0.5.1 ; extra == "tests"
+Requires-Dist: grpcio-health-checking==1.78.0 ; extra == "tests"
 Requires-Dist: grpcio-testing ; extra == "tests"
 Requires-Dist: six~=1.16 ; extra == "tests"
-Requires-Dist: pytest==7.4.0 ; extra == "tests"
-Requires-Dist: pytest-cov==4.1.0 ; extra == "tests"
+Requires-Dist: pytest==9.1.1 ; extra == "tests"
+Requires-Dist: pytest-cov==7.1.0 ; extra == "tests"
 Project-URL: Discussions, https://github.com/ansys/pypim/discussions
 Project-URL: Documentation, https://pypim.docs.pyansys.com/
 Project-URL: Issues, https://github.com/ansys/pypim/issues
 Project-URL: Releases, https://github.com/ansys/pypim/releases
-Project-URL: Source, https://github.com/pyansys/pypim
+Project-URL: Source, https://github.com/ansys/pypim
 Provides-Extra: doc
 Provides-Extra: tests
 
@@ -49,12 +54,12 @@ PyPIM
     :target: https://pypi.org/project/ansys-platform-instancemanagement/
     :alt: PyPI
 
-.. |codecov| image:: https://codecov.io/gh/pyansys/pypim/branch/main/graph/badge.svg
-   :target: https://codecov.io/gh/pyansys/pypim
+.. |codecov| image:: https://codecov.io/gh/ansys/pypim/branch/main/graph/badge.svg
+   :target: https://codecov.io/gh/ansys/pypim
    :alt: Code Coverage
 
-.. |CI| image:: https://github.com/pyansys/pypim/actions/workflows/ci_cd.yml/badge.svg
-    :target: https://github.com/pyansys/pypim/actions/workflows/ci_cd.yml
+.. |CI| image:: https://github.com/ansys/pypim/actions/workflows/ci_cd.yml/badge.svg
+    :target: https://github.com/ansys/pypim/actions/workflows/ci_cd.yml
     :alt: GitHub Workflow Status (branch)
 
 .. |MIT| image:: https://img.shields.io/badge/License-MIT-yellow.svg
@@ -98,8 +103,15 @@ PyPIM itself is pure Python and relies on `gRPC`_.
 
 Installation
 ------------
-The ``ansys-platform-instancemanagement`` package is tested for Python 3.7 through
-Python 3.10 on Windows and Linux.
+
+.. note::
+   These instructions assume you are familiar
+   with ``pip`` and the command line. If they are new to you, you should read
+   the `Python Packaging User Guide Tutorial on pip <https://packaging.python.org/en/latest/tutorials/installing-packages/>`
+   before proceeding.
+
+The ``ansys-platform-instancemanagement`` package is tested for Python 3.10 through
+Python 3.14 on Windows and Linux.
 
 .. code-block::
 
@@ -126,6 +138,37 @@ local storage, create a configuration file with this format:
 
 Then, define the environment variable
 ``ANSYS_PLATFORM_INSTANCEMANAGEMENT_CONFIG`` to point to this configuration file.
+
+Security
+--------
+
+By default, the connection to the PIM server is insecure. To use TLS, mutual
+TLS (mTLS), a Unix Domain Socket (UDS), or Windows Named User Authentication
+(WNUA) instead, either use a version 2 configuration file with a
+``security`` block or pass the settings directly to ``connect()``:
+
+.. code-block:: python
+
+    import ansys.platform.instancemanagement as pypim
+    from ansys.platform.instancemanagement import ConnectionSecurity
+    from ansys.tools.common.cyberchannel import CertificateFiles
+
+    client = pypim.connect(
+        uri="dns:pim.svc.com:80",
+        security=ConnectionSecurity(
+            transport="mtls",
+            cert_files=CertificateFiles(
+                cert_file="client.crt", key_file="client.key", ca_file="ca.crt"
+            ),
+        ),
+    )
+
+Product instances started with ``create_instance()`` can also request a
+transport with the ``security_settings`` parameter, and the transport a
+running instance actually uses is reported back on each of its services.
+See `Security <https://pypim.docs.pyansys.com/version/dev/security.html>`_
+in the PyPIM documentation for the full configuration file schema and all
+supported transports.
 
 Usage
 -----
@@ -186,4 +229,15 @@ For example, starting MAPDL with PyPIM is as simple as using this code:
 
     mapdl = launch_mapdl()
 
+
+Ansys developer ecosystem resources
+-----------------------------------
+
+Ansys has an extensive developer ecosystem where you can find assistance for a variety of issues.
+
+- `Developer Portal <https://developer.ansys.com/>`: Blog posts, documentation, and guide
+- `Developer Forum <https://discuss.ansys.com/>`: Scripting and usage support for PyAnsys and other Ansys developer tools
+- `Ansys Innovation Space <https://innovationspace.ansys.com/>`: Product support forum and training materials
+- `GitHub <https://github.com/ansys/pypim>`: Development support, bug reporting, feature requests, and more.
+- `Ansys Learning Hub <https://learninghub.ansys.com/>`: Training, courses and learning plans
 

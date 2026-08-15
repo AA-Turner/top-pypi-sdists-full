@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: GitHubKit-schemas-2026-03-10
-Version: 26.7.29
+Version: 26.8.14
 Summary: GitHub Schemas for GitHubKit
 Keywords: github,octokit
 Author: yanyongyu
 Author-email: yanyongyu <yyy@yyydl.top>
 License-Expression: MIT
-Requires-Dist: githubkit-schemas==26.7.29
+Requires-Dist: githubkit-schemas==26.8.14
 Requires-Python: >=3.10, <4.0
 Project-URL: Homepage, https://github.com/yanyongyu/githubkit
 Project-URL: Repository, https://github.com/yanyongyu/githubkit

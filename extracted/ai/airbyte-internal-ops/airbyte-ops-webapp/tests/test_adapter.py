@@ -1411,7 +1411,7 @@ def test_progressive_rollout_rows_include_terminal_sibling_tier(
     ("rollout_specs", "expected"),
     [
         pytest.param(
-            (("ALL", "initialized", ""),),
+            (("TIER_0", "initialized", ""),),
             ("\u2796", "\u2796", "\u2796"),
             id="amazon-seller-partner-untargeted-initialized",
         ),
@@ -1439,7 +1439,7 @@ def test_progressive_rollout_rows_include_terminal_sibling_tier(
         pytest.param(
             (
                 ("TIER_2", "canceled", "Failure threshold exceeded: 2 failures"),
-                ("ALL", "initialized", ""),
+                ("TIER_0", "initialized", ""),
             ),
             ("⚠️", "\u2796", "\u2796"),
             id="salesforce-failed-tier-two-untargeted-initialized",
@@ -1447,13 +1447,13 @@ def test_progressive_rollout_rows_include_terminal_sibling_tier(
         pytest.param(
             (
                 ("TIER_2", "canceled", "Failure threshold exceeded: 2 failures"),
-                ("ALL", "initialized", ""),
+                ("TIER_0", "initialized", ""),
             ),
             ("⚠️", "\u2796", "\u2796"),
             id="snowflake-failed-tier-two-untargeted-initialized",
         ),
         pytest.param(
-            (("ALL", "in_progress", ""),),
+            (("TIER_0", "in_progress", ""),),
             ("☑️", "☑️", "🔵"),
             id="zendesk-untargeted-in-progress",
         ),
@@ -2186,18 +2186,22 @@ def test_build_rollout_summary_uses_active_only_total_and_tier_eligible() -> Non
 
 
 def test_build_rollout_summary_uses_terminal_sibling_for_card_only() -> None:
-    active_rollouts = [
-        {
-            "rollout_id": "r-t0",
-            "connector_id": "destination-snowflake-id",
-            "connector_name": "destination-snowflake",
-            "docker_repository": "airbyte/destination-snowflake",
-            "rc_docker_image_tag": "4.0.49",
-            "tier": "TIER_0",
-            "state": "initialized",
-            "current_target_rollout_pct": "0",
-        }
-    ]
+    active_rollouts = helpers_module.rows_from_dataclasses(
+        (
+            OpsMcpAdapter._rollout_from_row(
+                {
+                    "rollout_id": "r-t0",
+                    "actor_definition_id": "destination-snowflake-id",
+                    "rc_docker_repository": "airbyte/destination-snowflake",
+                    "rc_docker_image_tag": "4.0.49",
+                    "filters": None,
+                    "tag": None,
+                    "state": "initialized",
+                    "current_target_rollout_pct": "0",
+                }
+            ),
+        )
+    )
     terminal_sibling = {
         "rollout_id": "r-t2",
         "connector_id": "destination-snowflake-id",
@@ -2721,7 +2725,7 @@ def test_tier_rollout_status_maps_state_and_reason(
     assert helpers_module.tier_rollout_status(**kwargs) == expected
 
 
-def test_null_filter_rollout_is_tier_zero_with_progressive_siblings() -> None:
+def test_null_filter_rollout_is_tier_zero() -> None:
     row = {
         "rollout_id": "rollout-tier-0",
         "actor_definition_id": "connector-id",
@@ -2729,33 +2733,71 @@ def test_null_filter_rollout_is_tier_zero_with_progressive_siblings() -> None:
         "filters": None,
         "tag": None,
     }
-    rollout = OpsMcpAdapter._rollout_from_row(
-        row,
-        sibling_rows=[
-            row,
-            {
-                "actor_definition_id": "connector-id",
-                "release_candidate_version_id": "version-id",
-                "filters": {
-                    "customerTierFilters": [{"name": "TIER", "value": ["TIER_2"]}]
-                },
-                "tag": "TIER_2",
-            },
-        ],
-    )
+    rollout = OpsMcpAdapter._rollout_from_row(row)
     assert rollout.tier == "TIER_0"
 
 
-def test_null_filter_rollout_without_progressive_siblings_is_all_tiers() -> None:
-    row = {
-        "rollout_id": "rollout-all",
+def test_null_filter_rollout_is_tier_zero_with_sibling_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    active_row = {
+        "rollout_id": "rollout-tier-0",
         "actor_definition_id": "connector-id",
         "release_candidate_version_id": "version-id",
+        "rc_docker_repository": "airbyte/source-connector",
+        "rc_docker_image_tag": "1.0.0-rc.1",
         "filters": None,
         "tag": None,
+        "state": "initialized",
     }
-    rollout = OpsMcpAdapter._rollout_from_row(row, sibling_rows=[row])
-    assert rollout.tier == "ALL"
+    sibling_row = {
+        "rollout_id": "rollout-tier-2",
+        "actor_definition_id": "connector-id",
+        "release_candidate_version_id": "version-id",
+        "rc_docker_repository": "airbyte/source-connector",
+        "rc_docker_image_tag": "1.0.0-rc.1",
+        "filters": None,
+        "tag": "TIER_2",
+        "state": "in_progress",
+    }
+    monkeypatch.setattr(
+        adapter_module,
+        "query_connector_rollouts_for_connector",
+        lambda **_kwargs: [active_row],
+    )
+    monkeypatch.setattr(
+        adapter_module,
+        "query_connector_rollout_siblings",
+        lambda _pairs: [sibling_row],
+    )
+
+    rollouts = OpsMcpAdapter().list_active_rollouts_with_siblings("connector-id")
+
+    assert {rollout.tier for rollout in rollouts} == {"TIER_0", "TIER_2"}
+
+
+def test_untargeted_rollout_does_not_offer_next_stage() -> None:
+    active_rollout = helpers_module.rows_from_dataclasses(
+        (
+            OpsMcpAdapter._rollout_from_row(
+                {
+                    "rollout_id": "rollout-all",
+                    "actor_definition_id": "connector-id",
+                    "rc_docker_repository": "airbyte/source-connector",
+                    "rc_docker_image_tag": "1.0.0-rc.1",
+                    "filters": None,
+                    "tag": None,
+                    "state": "in_progress",
+                }
+            ),
+        )
+    )
+
+    summary = helpers_module.build_rollout_summary(active_rollout)
+
+    assert summary["highest_tier"] == "TIER_0"
+    assert summary["next_tier"] == ""
+    assert summary["has_next_stage"] is False
 
 
 def test_build_breakdown_columns_two_columns_reconcile() -> None:

@@ -56,6 +56,11 @@ PreservedElement = Union[
     "TransformMatrix",
     "FormEditControl",
     "FormComboBoxControl",
+    "ListItem",
+    "ComposedCharacter",
+    "Dutmal",
+    "ParameterList",
+    "Label",
 ]
 InlineMark = Union[PreservedElement, "TrackChangeMark"]
 RunChild = Union[PreservedElement, "Control", "Table", "InlineObject", "TextSpan", "Tab"]
@@ -83,6 +88,21 @@ class TextMarkup:
     def name(self) -> str:
         if isinstance(self.element, TrackChangeMark):
             return self.element.name
+        if isinstance(self.element, ParameterList):
+            # Every sibling PreservedElement type's ``.name`` is its tag's
+            # local name (always a plain ``str``). ``ParameterList.name`` is
+            # a different thing entirely -- the OWPML ``name=`` attribute
+            # value (nullable, e.g. the empty-string field-parameter case
+            # seen 304/306 times in the real corpus) -- so it cannot be
+            # proxied through like the others without breaking that
+            # contract. Derive the local tag name directly instead.
+            return self.element.tag.rsplit("}", 1)[-1]
+        if isinstance(self.element, Label):
+            # Label has no .name field at all (DEV-023's attributes are all
+            # typed individually, unlike GenericElement's catch-all shape) --
+            # same derivation as ParameterList above, for the same reason
+            # (nothing to proxy through).
+            return self.element.tag.rsplit("}", 1)[-1]
         return self.element.name
 
 
@@ -131,6 +151,34 @@ class Table:
     tag: str
     attributes: Dict[str, str] = field(default_factory=dict)
     children: List[PreservedElement] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class Label:
+    """``hp:label`` -- Avery-style label-sheet/nameplate print layout,
+    always the *last* child of ``hp:tbl`` (real corpus: always after every
+    ``hp:tr`` row, matching ``ParaList XML schema.xml``'s own sequence
+    order -- DEV-023, ``docs/owpml-deviations.md``). Unlike most elements
+    this registry has reverse-engineered, the schema and 75 real private
+    documents agree completely: all 11 attributes here, no more, no fewer,
+    ``landscape`` the only non-integer one (schema enum ``WIDELY``/
+    ``NARROWLY``, only ``WIDELY`` observed in the reverse-engineering
+    sample -- ``NARROWLY`` is schema-legal but unconfirmed against real
+    output)."""
+
+    tag: str
+    topmargin: Optional[int] = None
+    leftmargin: Optional[int] = None
+    boxwidth: Optional[int] = None
+    boxlength: Optional[int] = None
+    boxmarginhor: Optional[int] = None
+    boxmarginver: Optional[int] = None
+    labelcols: Optional[int] = None
+    labelrows: Optional[int] = None
+    landscape: Optional[str] = None
+    pagewidth: Optional[int] = None
+    pageheight: Optional[int] = None
+    attributes: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -195,6 +243,21 @@ class FormEditControl:
 
 
 @dataclass(slots=True)
+class ListItem:
+    """``hp:listItem`` — comboBox/listBox 옵션 한 개(ParaList XML
+    schema.xml:2760, ``ListItemType``: ``displayText``/``value`` 속성뿐).
+
+    ``tag``/``name``은 형제 preserved-element 타입(:class:`TransformMatrix`
+    등)과 같은 관용구 — ``name``은 로컬 태그명("listItem")이라
+    ``GenericElement``였을 때와 같은 자리에서 같은 값을 읽을 수 있다."""
+
+    tag: Optional[str]
+    name: str
+    display_text: Optional[str]
+    value: Optional[str]
+
+
+@dataclass(slots=True)
 class FormComboBoxControl:
     tag: str
     name: str
@@ -205,6 +268,94 @@ class FormComboBoxControl:
     attributes: Dict[str, str] = field(default_factory=dict)
     children: List[PreservedElement] = field(default_factory=list)
     text: Optional[str] = None
+
+    @property
+    def list_items(self) -> List["ListItem"]:
+        """``hp:listItem`` 자식들(스키마 순서 그대로) — 읽기 전용 뷰.
+
+        옵션을 바꾸려면 ``children``에서 :class:`ListItem` 인스턴스를 직접
+        추가/삭제/재배치한다 — 실코퍼스(SimpleComboBox.hwpx) 순서는
+        ``formCharPr``, ``listItem*``, ``sz``, ``pos``, ``outMargin`` 순으로
+        섞여 있어, 별도 리스트로 뽑아내면 그 순서를 복원할 수 없다."""
+
+        return [child for child in self.children if isinstance(child, ListItem)]
+
+
+@dataclass(slots=True)
+class Parameter:
+    """OWPML ``ParameterList``(ParaList XML schema.xml:2764)의 잎 하나.
+
+    ``kind``: "boolean"/"integer"/"unsignedinteger"/"float"/"string" 중 하나면
+    ``value``에 타입에 맞는 파이썬 값을 담은 잎이고, "list"면 ``hp:listParam``
+    ―같은 ``ParameterList`` 타입이 재귀한 것―이라 ``items``에 중첩
+    ``Parameter``를 담는다. ``unsignedintegerParam``은 실코퍼스에서 관측됐지만
+    이 리포의 스키마 사본(ParaList XML schema.xml)엔 없다 — 편차로 등재."""
+
+    name: Optional[str]
+    kind: str
+    value: Optional[Union[bool, int, float, str]] = None
+    items: List["Parameter"] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class ParameterList:
+    """``hp:parameters``(필드 클릭 액션) / ``hp:parameterset``(도형 등 개체
+    속성) 최상위 컨테이너 — 실코퍼스 실측: 이름만 다를 뿐 둘 다 같은
+    ``ParameterList`` 복합타입이다. ``tag``가 어느 쪽이었는지 왕복 보존한다."""
+
+    tag: str
+    name: Optional[str]
+    params: List[Parameter] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class ComposedCharacterSlot:
+    """``hp:compose`` 안의 ``hp:charPr`` 하나 — 겹쳐 쓸 글자 한 슬롯의 서식
+    참조(ParaList XML schema.xml:538-543, ``prIDRef`` 뿐)."""
+
+    pr_id_ref: Optional[int]
+
+
+@dataclass(slots=True)
+class ComposedCharacter:
+    """``hp:compose`` — 글자 겹치기(원문자·합자, ParaList XML
+    schema.xml:535-588). ``hp:t``의 자식이 아니라 ``hp:run`` 직속(실코퍼스
+    SimpleCompose.hwpx 확인 — ``hp:ctrl`` 다음, ``hp:t`` 형제)."""
+
+    tag: str
+    circle_type: Optional[str]
+    char_sz: Optional[int]
+    compose_type: Optional[str]
+    char_pr_cnt: Optional[int]
+    compose_text: Optional[str]
+    slots: List[ComposedCharacterSlot] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class Dutmal:
+    """``hp:dutmal`` — 덧말(본말 위/아래에 붙는 작은 주석 텍스트, 루비와
+    같은 부류, ParaList XML schema.xml:585-621). ``hp:compose``와 같은 위치
+    관례(``hp:t``의 자식이 아니라 ``hp:run`` 직속 -- 실코퍼스
+    ``reader_writer__SimpleDutmal.hwpx`` 확인: 그 문서의 유일한 표본에서
+    ``hp:secPr``·``hp:ctrl`` 다음, ``hp:t`` 형제였다).
+
+    두 스키마 편차를 실측 그대로 왕복 보존한다(강제하지 않는다): 스키마는
+    ``option``을 ``fixed="4"``로 선언하지만 실측 값은 ``"0"``이었고,
+    ``szRatio``는 ``xs:positiveInteger``(1 이상)로 선언되지만 실측 값도
+    ``"0"``이었다. 표본이 1건뿐이라(빈도 낮음, macOS 편집기 메뉴 스캔이
+    1급 메뉴 항목으로 확인했을 뿐) 이 두 값이 그 문서만의 우연인지 실제
+    관행인지는 모른다 -- 정직하게 실측값을 기본값으로 채택하고, 스키마의
+    주장(4 고정·1 이상)을 검증 규칙으로 강제하지 않는다.
+    """
+
+    tag: str
+    pos_type: Optional[str]
+    sz_ratio: Optional[int]
+    option: Optional[int]
+    style_id_ref: Optional[int]
+    align: Optional[str]
+    main_text: Optional[str]
+    sub_text: Optional[str]
 
 
 @dataclass(slots=True)
@@ -467,6 +618,71 @@ def wrap_tracked_delete_in_span(
     return False
 
 
+def create_highlight_mark(*, is_begin: bool, color: str | None = None) -> GenericElement:
+    """Create a ``markpenBegin``/``markpenEnd`` boundary element.
+
+    Unlike :func:`create_track_change_mark`, there is no ``tc_id``/``mark_id``
+    to allocate — the schema (``ParaList XML schema.xml``) gives
+    ``markpenEnd`` no attributes at all, so begin/end pair positionally
+    (first unmatched end closes the innermost open begin), the same rule
+    :func:`hwpx.tools.text_extractor` already applies when it renders a
+    ``hp:t`` for reading.
+    """
+
+    name = "markpenBegin" if is_begin else "markpenEnd"
+    attributes: Dict[str, str] = {}
+    if is_begin and color:
+        attributes["color"] = color
+    return GenericElement(name=name, tag=_qualified_tag(None, name), attributes=attributes)
+
+
+def wrap_highlight_in_span(
+    span: TextSpan,
+    *,
+    color: str,
+    match: str,
+) -> bool:
+    """Wrap the first occurrence of *match* in *span* in markpen marks.
+
+    Mirrors :func:`wrap_tracked_delete_in_span`'s substring branch exactly —
+    a match must live entirely inside *span*'s ``leading_text`` or one
+    existing mark's ``trailing_text``; a match that only appears once the
+    span's pieces are concatenated straddles existing inline markup and is
+    rejected by returning ``False`` (the caller distinguishes "not found" from
+    "found but unsafe" the same way tracked-delete does).
+    """
+
+    if not match:
+        raise ValueError("match must be a non-empty string")
+
+    begin = TextMarkup(create_highlight_mark(is_begin=True, color=color))
+    end = TextMarkup(create_highlight_mark(is_begin=False))
+
+    index = span.leading_text.find(match)
+    if index >= 0:
+        before = span.leading_text[:index]
+        after = span.leading_text[index + len(match) :]
+        span.leading_text = before
+        begin.trailing_text = match
+        end.trailing_text = after
+        span.marks[0:0] = [begin, end]
+        return True
+
+    for mark_index, markup in enumerate(span.marks):
+        index = markup.trailing_text.find(match)
+        if index < 0:
+            continue
+        before = markup.trailing_text[:index]
+        after = markup.trailing_text[index + len(match) :]
+        markup.trailing_text = before
+        begin.trailing_text = match
+        end.trailing_text = after
+        span.marks[mark_index + 1 : mark_index + 1] = [begin, end]
+        return True
+
+    return False
+
+
 def parse_track_change_mark(node: etree._Element) -> TrackChangeMark:
     attrs = {key: value for key, value in node.attrib.items()}
     para_end = parse_bool(attrs.pop("paraend", None))
@@ -566,6 +782,57 @@ def parse_form_edit_element(node: etree._Element) -> FormEditControl:
     )
 
 
+def parse_list_item_element(node: etree._Element) -> ListItem:
+    return ListItem(
+        tag=node.tag,
+        name=local_name(node),
+        display_text=node.get("displayText"),
+        value=node.get("value"),
+    )
+
+
+def parse_composed_character_element(node: etree._Element) -> ComposedCharacter:
+    attrs = {key: value for key, value in node.attrib.items()}
+    slots = [
+        ComposedCharacterSlot(pr_id_ref=parse_int(child.get("prIDRef")))
+        for child in node
+        if isinstance(child.tag, str) and local_name(child) == "charPr"
+    ]
+    return ComposedCharacter(
+        tag=node.tag,
+        circle_type=attrs.pop("circleType", None),
+        char_sz=_parse_int_attribute(attrs, "charSz"),
+        compose_type=attrs.pop("composeType", None),
+        char_pr_cnt=_parse_int_attribute(attrs, "charPrCnt"),
+        compose_text=attrs.pop("composeText", None),
+        slots=slots,
+    )
+
+
+def parse_dutmal_element(node: etree._Element) -> Dutmal:
+    attrs = {key: value for key, value in node.attrib.items()}
+    main_text: Optional[str] = None
+    sub_text: Optional[str] = None
+    for child in node:
+        if not isinstance(child.tag, str):
+            continue
+        name = local_name(child)
+        if name == "mainText":
+            main_text = child.text
+        elif name == "subText":
+            sub_text = child.text
+    return Dutmal(
+        tag=node.tag,
+        pos_type=attrs.pop("posType", None),
+        sz_ratio=_parse_int_attribute(attrs, "szRatio"),
+        option=_parse_int_attribute(attrs, "option"),
+        style_id_ref=_parse_int_attribute(attrs, "styleIDRef"),
+        align=attrs.pop("align", None),
+        main_text=main_text,
+        sub_text=sub_text,
+    )
+
+
 def parse_form_combo_box_element(node: etree._Element) -> FormComboBoxControl:
     attrs = {key: value for key, value in node.attrib.items()}
     return FormComboBoxControl(
@@ -578,6 +845,56 @@ def parse_form_combo_box_element(node: etree._Element) -> FormComboBoxControl:
         attributes=attrs,
         children=[parse_preserved_element(child) for child in node],
         text=node.text if node.text is not None else None,
+    )
+
+
+#: OWPML 잎 파라미터 태그 ↔ :class:`Parameter` kind. ``unsignedintegerParam``
+#: 은 실코퍼스(hwpxlib error__20230809 문서)에서 관측됐지만 이 리포 스키마
+#: 사본엔 없다 — 관측을 정본으로 삼아 등재한다.
+_PARAM_LEAF_KINDS = {
+    "booleanParam": "boolean",
+    "integerParam": "integer",
+    "unsignedintegerParam": "unsignedinteger",
+    "floatParam": "float",
+    "stringParam": "string",
+}
+_PARAM_KIND_TAGS = {kind: tag for tag, kind in _PARAM_LEAF_KINDS.items()}
+
+
+def _parsed_parameter_value(kind: str, text: Optional[str]) -> Optional[Union[bool, int, float, str]]:
+    if text is None:
+        return None
+    if kind == "boolean":
+        return parse_bool(text)
+    if kind in ("integer", "unsignedinteger"):
+        return parse_int(text)
+    if kind == "float":
+        try:
+            return float(text)
+        except ValueError:
+            return None
+    return text
+
+
+def parse_parameter_element(node: etree._Element) -> Parameter:
+    tag = local_name(node)
+    name = node.get("name")
+    if tag == "listParam":
+        return Parameter(
+            name=name, kind="list", items=[parse_parameter_element(child) for child in node]
+        )
+    kind = _PARAM_LEAF_KINDS.get(tag, tag)
+    return Parameter(name=name, kind=kind, value=_parsed_parameter_value(kind, node.text))
+
+
+def parse_parameter_list_element(node: etree._Element) -> ParameterList:
+    """``hp:parameters``/``hp:parameterset`` 최상위(둘 다 재사용 가능 — 이
+    함수는 태그 이름을 강제하지 않고 ``node.tag`` 그대로 왕복한다)."""
+
+    return ParameterList(
+        tag=node.tag,
+        name=node.get("name"),
+        params=[parse_parameter_element(child) for child in node],
     )
 
 
@@ -610,6 +927,23 @@ def parse_preserved_element(node: etree._Element) -> PreservedElement:
         return parse_form_edit_element(node)
     if name == "comboBox":
         return parse_form_combo_box_element(node)
+    if name == "listItem":
+        return parse_list_item_element(node)
+    if name == "compose":
+        return parse_composed_character_element(node)
+    if name == "dutmal":
+        return parse_dutmal_element(node)
+    if name in {"parameters", "parameterset"}:
+        return parse_parameter_list_element(node)
+    if name == "label":
+        return parse_label_element(node)
+    if name in INLINE_OBJECT_NAMES:
+        # 실코퍼스 실측(cycle-6.3 트레인⑫): hp:container(등)가 최상위
+        # run 자식일 땐 InlineObject로 뜨지만, 그 컨테이너 *안에* 중첩된
+        # 개체(pic/line/rect 등, reader_writer__SimpleContainer.hwpx)는
+        # 이 함수로 재귀해 GenericElement로 강등돼 있었다 — 중첩 깊이와
+        # 무관하게 같은 타입으로 뜨도록 통일한다.
+        return parse_inline_object_element(node)
     return GenericElement(
         name=name,
         tag=node.tag,
@@ -667,6 +1001,19 @@ def parse_table_element(node: etree._Element) -> Table:
     )
 
 
+_LABEL_INT_ATTRS = (
+    "topmargin", "leftmargin", "boxwidth", "boxlength", "boxmarginhor",
+    "boxmarginver", "labelcols", "labelrows", "pagewidth", "pageheight",
+)
+
+
+def parse_label_element(node: etree._Element) -> Label:
+    attrs = {key: value for key, value in node.attrib.items()}
+    values = {name: parse_int(attrs.pop(name, None)) for name in _LABEL_INT_ATTRS}
+    landscape = attrs.pop("landscape", None)
+    return Label(tag=node.tag, landscape=landscape, attributes=attrs, **values)
+
+
 def parse_tab_element(node: etree._Element) -> Tab:
     return Tab(tag=node.tag, attributes={key: value for key, value in node.attrib.items()})
 
@@ -703,6 +1050,14 @@ def parse_run_element(node: etree._Element) -> Run:
             obj = parse_inline_object_element(child)
             run.inline_objects.append(obj)
             run.content.append(obj)
+        elif name == "compose":
+            composed = parse_composed_character_element(child)
+            run.other_children.append(composed)
+            run.content.append(composed)
+        elif name == "dutmal":
+            dutmal = parse_dutmal_element(child)
+            run.other_children.append(dutmal)
+            run.content.append(dutmal)
         else:
             element = parse_preserved_element(child)
             run.other_children.append(element)
@@ -847,6 +1202,92 @@ def _form_combo_box_to_xml(combo: FormComboBoxControl) -> etree._Element:
     return node
 
 
+def _list_item_to_xml(item: ListItem) -> etree._Element:
+    attrs: Dict[str, str] = {}
+    _set_str_attr(attrs, "displayText", item.display_text)
+    _set_str_attr(attrs, "value", item.value)
+    return etree.Element(_qualified_tag(item.tag, item.name), attrs)
+
+
+def _composed_character_slot_to_xml(slot: ComposedCharacterSlot) -> etree._Element:
+    attrs: Dict[str, str] = {}
+    _set_int_attr(attrs, "prIDRef", slot.pr_id_ref)
+    return etree.Element(f"{HP}charPr", attrs)
+
+
+def _composed_character_to_xml(composed: ComposedCharacter) -> etree._Element:
+    attrs: Dict[str, str] = {}
+    _set_str_attr(attrs, "circleType", composed.circle_type)
+    _set_int_attr(attrs, "charSz", composed.char_sz)
+    _set_str_attr(attrs, "composeType", composed.compose_type)
+    _set_int_attr(attrs, "charPrCnt", composed.char_pr_cnt)
+    _set_str_attr(attrs, "composeText", composed.compose_text)
+    node = etree.Element(_qualified_tag(composed.tag, "compose"), attrs)
+    for slot in composed.slots:
+        node.append(_composed_character_slot_to_xml(slot))
+    return node
+
+
+def _dutmal_to_xml(dutmal: Dutmal) -> etree._Element:
+    attrs: Dict[str, str] = {}
+    _set_str_attr(attrs, "posType", dutmal.pos_type)
+    _set_int_attr(attrs, "szRatio", dutmal.sz_ratio)
+    _set_int_attr(attrs, "option", dutmal.option)
+    _set_int_attr(attrs, "styleIDRef", dutmal.style_id_ref)
+    _set_str_attr(attrs, "align", dutmal.align)
+    node = etree.Element(_qualified_tag(dutmal.tag, "dutmal"), attrs)
+    main = etree.SubElement(node, f"{_DEFAULT_HP}mainText")
+    main.text = dutmal.main_text
+    sub = etree.SubElement(node, f"{_DEFAULT_HP}subText")
+    sub.text = dutmal.sub_text
+    return node
+
+
+def _parameter_value_text(kind: str, value: Union[bool, int, float, str]) -> str:
+    if kind == "boolean":
+        return "1" if value else "0"
+    return str(value)
+
+
+def parameter_to_xml(param: Parameter) -> etree._Element:
+    if param.kind == "list":
+        attrs: Dict[str, str] = {"cnt": str(len(param.items))}
+        _set_str_attr(attrs, "name", param.name)
+        node = etree.Element(f"{HP}listParam", attrs)
+        for child in param.items:
+            node.append(parameter_to_xml(child))
+        return node
+    leaf_attrs: Dict[str, str] = {}
+    _set_str_attr(leaf_attrs, "name", param.name)
+    # 원장 write 분류기가 태그 리터럴을 etree.Element( 인접으로만 인식한다
+    # (2026-08-04 감사 §3-C2) — kind→태그 dict 조회로 조립하지 않고 알려진
+    # 5종은 리터럴로 나열한다. 스키마 밖 kind만 방어적으로 조립 조회한다.
+    if param.kind == "boolean":
+        node = etree.Element(f"{HP}booleanParam", leaf_attrs)
+    elif param.kind == "integer":
+        node = etree.Element(f"{HP}integerParam", leaf_attrs)
+    elif param.kind == "unsignedinteger":
+        node = etree.Element(f"{HP}unsignedintegerParam", leaf_attrs)
+    elif param.kind == "float":
+        node = etree.Element(f"{HP}floatParam", leaf_attrs)
+    elif param.kind == "string":
+        node = etree.Element(f"{HP}stringParam", leaf_attrs)
+    else:
+        node = etree.Element(f"{HP}{param.kind}", leaf_attrs)
+    if param.value is not None:
+        node.text = _parameter_value_text(param.kind, param.value)
+    return node
+
+
+def parameter_list_to_xml(model: ParameterList) -> etree._Element:
+    attrs: Dict[str, str] = {"cnt": str(len(model.params))}
+    _set_str_attr(attrs, "name", model.name)
+    node = etree.Element(model.tag, attrs)
+    for param in model.params:
+        node.append(parameter_to_xml(param))
+    return node
+
+
 def _comment_element_to_xml(element: CommentElement) -> etree._Element:
     if element.kind == "pi":
         return etree.ProcessingInstruction(element.target or "", element.text or "")
@@ -866,6 +1307,18 @@ def _preserved_element_to_xml(element: PreservedElement) -> etree._Element:
         return _form_edit_to_xml(element)
     if isinstance(element, FormComboBoxControl):
         return _form_combo_box_to_xml(element)
+    if isinstance(element, ListItem):
+        return _list_item_to_xml(element)
+    if isinstance(element, ComposedCharacter):
+        return _composed_character_to_xml(element)
+    if isinstance(element, Dutmal):
+        return _dutmal_to_xml(element)
+    if isinstance(element, ParameterList):
+        return parameter_list_to_xml(element)
+    if isinstance(element, Label):
+        return _label_to_xml(element)
+    if isinstance(element, InlineObject):
+        return _inline_object_to_xml(element)
     return _generic_element_to_xml(element)
 
 
@@ -918,6 +1371,27 @@ def _table_to_xml(table: Table) -> etree._Element:
     for child in table.children:
         node.append(_preserved_element_to_xml(child))
     return node
+
+
+def _label_to_xml(label: Label) -> etree._Element:
+    # Attribute order matches ParaList XML schema.xml's declared sequence,
+    # which every real occurrence (436/436, private reverse-engineering
+    # sample) also follows -- see DEV-023.
+    attrs: Dict[str, str] = {}
+    _set_int_attr(attrs, "topmargin", label.topmargin)
+    _set_int_attr(attrs, "leftmargin", label.leftmargin)
+    _set_int_attr(attrs, "boxwidth", label.boxwidth)
+    _set_int_attr(attrs, "boxlength", label.boxlength)
+    _set_int_attr(attrs, "boxmarginhor", label.boxmarginhor)
+    _set_int_attr(attrs, "boxmarginver", label.boxmarginver)
+    _set_int_attr(attrs, "labelcols", label.labelcols)
+    _set_int_attr(attrs, "labelrows", label.labelrows)
+    if label.landscape is not None:
+        attrs["landscape"] = label.landscape
+    _set_int_attr(attrs, "pagewidth", label.pagewidth)
+    _set_int_attr(attrs, "pageheight", label.pageheight)
+    attrs.update(label.attributes)
+    return etree.Element(_qualified_tag(label.tag, "label"), attrs)
 
 
 def _inline_object_to_xml(obj: InlineObject) -> etree._Element:
@@ -974,14 +1448,21 @@ def serialize_paragraph(paragraph: Paragraph) -> etree._Element:
 
 __all__ = [
     "CommentElement",
+    "ComposedCharacter",
+    "ComposedCharacterSlot",
     "Control",
+    "Dutmal",
     "FormComboBoxControl",
     "FormEditControl",
     "InlineObject",
     "INLINE_OBJECT_NAMES",
     "LineSeg",
+    "Label",
     "LineSegArray",
+    "ListItem",
     "Paragraph",
+    "Parameter",
+    "ParameterList",
     "PreservedElement",
     "Run",
     "Section",
@@ -993,14 +1474,21 @@ __all__ = [
     "append_tracked_insert_to_run",
     "create_track_change_mark",
     "insert_tracked_text_after_delete",
+    "parameter_list_to_xml",
+    "parameter_to_xml",
     "parse_comment_element",
+    "parse_composed_character_element",
     "parse_control_element",
     "parse_form_combo_box_element",
     "parse_form_edit_element",
     "parse_inline_object_element",
+    "parse_label_element",
     "parse_line_seg_array_element",
     "parse_line_seg_element",
+    "parse_list_item_element",
     "parse_paragraph_element",
+    "parse_parameter_element",
+    "parse_parameter_list_element",
     "parse_preserved_element",
     "parse_run_element",
     "parse_section_element",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anomalo
-Version: 0.50.0
+Version: 0.50.1
 Summary: Python bindings for the Anomalo API
 Project-URL: Homepage, https://anomalo.com
 Author-email: Anomalo <support@anomalo.com>
@@ -15,6 +15,7 @@ Requires-Dist: fire>=0.7.0
 Requires-Dist: pyyaml>=6.0.1
 Requires-Dist: requests>=2.20.0
 Requires-Dist: tenacity>=8.1.0
+Requires-Dist: typing-extensions>=4.0.0
 Provides-Extra: shacl
 Requires-Dist: pyshacl>=0.29.0; extra == 'shacl'
 Requires-Dist: rdflib>=7.6.0; extra == 'shacl'

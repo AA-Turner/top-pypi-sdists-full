@@ -6,7 +6,7 @@
 import glob
 import os
 from collections.abc import Callable, Sequence
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,7 +24,7 @@ from .utils import (
     Sample,
     check_integrity,
     extract_archive,
-    percentile_normalization,
+    quantile_normalization,
 )
 
 
@@ -45,9 +45,9 @@ class DFC2022(NonGeoDataset):
     * Masks at 0.5 m per pixel spatial resolution (~2,000x2,0000 px)
     * 16 land use/land cover categories
     * Images collected from the
-      `IGN BD ORTHO database <https://geoservices.ign.fr/documentation/donnees/ortho/bdortho/>`_
+      `IGN BD ORTHO database <https://cartes.gouv.fr/rechercher-une-donnee/dataset/IGNF_BD-ORTHO>`_
     * DEMs collected from the
-      `IGN RGE ALTI database <https://geoservices.ign.fr/documentation/donnees/alti/rgealti/>`_
+      `IGN RGE ALTI database <https://cartes.gouv.fr/rechercher-une-donnee/dataset/IGNF_RGE-ALTI>`_
     * Labels collected from the
       `UrbanAtlas 2012 database <https://land.copernicus.eu/en/products/urban-atlas/urban-atlas-2012>`_
     * Data collected from 19 regions in France
@@ -145,9 +145,9 @@ class DFC2022(NonGeoDataset):
     def __init__(
         self,
         root: Path = 'data',
-        split: str = 'train',
+        split: Literal['train', 'test'] = 'train',
         transforms: Callable[[Sample], Sample] | None = None,
-        checksum: bool = False,
+        checksum: bool = True,
     ) -> None:
         """Initialize a new DFC2022 dataset instance.
 
@@ -225,9 +225,9 @@ class DFC2022(NonGeoDataset):
             if self.split == 'train':
                 target = image.replace(self.image_root, self.target_root)
                 target = f'{os.path.splitext(target)[0]}_UA2012.tif'
-                files.append(dict(image=image, dem=dem, target=target))
+                files.append({'image': image, 'dem': dem, 'target': target})
             else:
-                files.append(dict(image=image, dem=dem))
+                files.append({'image': image, 'dem': dem})
 
         return files
 
@@ -310,10 +310,10 @@ class DFC2022(NonGeoDataset):
         ncols = 2
         image = sample['image'][:3]
         image = image.to(torch.uint8)
-        image_arr = image.permute(1, 2, 0).numpy()
+        image_arr = image.permute(1, 2, 0)
 
-        dem = sample['image'][-1].numpy()
-        dem = percentile_normalization(dem, lower=0, upper=100, axis=(0, 1))
+        dem = sample['image'][-1]
+        dem = quantile_normalization(dem)
 
         showing_mask = 'mask' in sample
         showing_prediction = 'prediction' in sample
@@ -321,10 +321,10 @@ class DFC2022(NonGeoDataset):
         cmap = colors.ListedColormap(self.colormap)
 
         if showing_mask:
-            mask = sample['mask'].numpy()
+            mask = sample['mask']
             ncols += 1
         if showing_prediction:
-            pred = sample['prediction'].numpy()
+            pred = sample['prediction']
             ncols += 1
 
         fig, axs = plt.subplots(nrows=1, ncols=ncols, figsize=(ncols * 10, 10))

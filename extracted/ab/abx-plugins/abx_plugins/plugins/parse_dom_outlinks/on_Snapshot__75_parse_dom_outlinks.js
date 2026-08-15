@@ -33,11 +33,7 @@ const {
   writeFileAtomic,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
-const {
-  connectToPage,
-  resolvePuppeteerModule,
-} = require("../chrome/chrome_utils.js");
-const puppeteer = resolvePuppeteerModule();
+const { connectToPage } = require("../chrome/chrome_utils.js");
 
 // Extractor metadata
 const PLUGIN_NAME = "parse_dom_outlinks";
@@ -70,10 +66,10 @@ async function extractOutlinks(url, depth, timeoutMs) {
       timeoutMs,
       waitForNavigationComplete: true,
       postLoadDelayMs: 200,
-      puppeteer,
     });
     browser = connection.browser;
     const page = connection.page;
+    console.log("parsing 1 files for urls...");
 
     // Extract outlinks by category
     const outlinksData = await page.evaluate(() => {
@@ -256,8 +252,6 @@ async function main() {
 
     const timeoutMs =
       getEnvInt("PARSE_DOM_OUTLINKS_TIMEOUT", getEnvInt("TIMEOUT", 30)) * 1000;
-    console.log("parsing 1 files for urls...");
-
     const result = await extractOutlinks(url, depth, timeoutMs);
 
     if (result.success) {

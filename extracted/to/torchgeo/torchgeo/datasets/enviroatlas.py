@@ -36,13 +36,13 @@ class EnviroAtlas(GeoDataset):
     EPA EnviroAtlas dataset, and high-resolution land cover prior layers.
 
     This dataset was organized to accompany the 2022 paper, `"Resolving label
-    uncertainty with implicit generative models"
-    <https://openreview.net/forum?id=AEa_UepnMDX>`_. More details can be found at
+    uncertainty with implicit posterior models"
+    <https://arxiv.org/abs/2202.14000>`_. More details can be found at
     https://github.com/estherrolf/implicit-posterior.
 
     If you use this dataset in your research, please cite the following paper:
 
-    * https://openreview.net/forum?id=AEa_UepnMDX
+    * https://arxiv.org/abs/2202.14000
 
     .. versionadded:: 0.3
     """
@@ -260,7 +260,7 @@ class EnviroAtlas(GeoDataset):
         prior_as_input: bool = False,
         cache: bool = True,
         download: bool = False,
-        checksum: bool = False,
+        checksum: bool = True,
     ) -> None:
         """Initialize a new Dataset instance.
 
@@ -284,7 +284,7 @@ class EnviroAtlas(GeoDataset):
         """
         for split in splits:
             assert split in self.splits
-        assert all([layer in self.valid_layers for layer in layers])
+        assert all(layer in self.valid_layers for layer in layers)
         self.root = root
         self.layers = layers
         self.transforms = transforms
@@ -332,12 +332,12 @@ class EnviroAtlas(GeoDataset):
 
         transform = rasterio.transform.from_origin(x.start, y.stop, x.step, y.step)
         sample: Sample = {
-            'image': [],
-            'mask': [],
             'bounds': self._slice_to_tensor(index),
             'transform': torch.tensor(transform),
         }
 
+        images = []
+        masks = []
         if df.empty:
             raise IndexError(
                 f'index: {index} not found in dataset with bounds: {self.bounds}'
@@ -376,23 +376,20 @@ class EnviroAtlas(GeoDataset):
                     'waterbodies',
                     'water',
                 ]:
-                    sample['image'].append(data)
+                    images.append(data)
                 elif layer in ['prior', 'prior_no_osm_no_buildings']:
                     if self.prior_as_input:
-                        sample['image'].append(data)
+                        images.append(data)
                     else:
-                        sample['mask'].append(data)
+                        masks.append(data)
                 elif layer in ['lc']:
                     data = self.raw_enviroatlas_to_idx_map[data]
-                    sample['mask'].append(data)
+                    masks.append(data)
         else:
             raise IndexError(f'index: {index} spans multiple tiles which is not valid')
 
-        sample['image'] = np.concatenate(sample['image'], axis=0)
-        sample['mask'] = np.concatenate(sample['mask'], axis=0)
-
-        sample['image'] = torch.from_numpy(sample['image'])
-        sample['mask'] = torch.from_numpy(sample['mask'])
+        sample['image'] = torch.from_numpy(np.concatenate(images))
+        sample['mask'] = torch.from_numpy(np.concatenate(masks))
 
         if self.transforms is not None:
             sample = self.transforms(sample)

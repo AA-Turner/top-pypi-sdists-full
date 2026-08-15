@@ -36,6 +36,8 @@ __all__ = (
     "ConversationRoleType",
     "CreationModeType",
     "CustomControlMethodType",
+    "DocumentAclMemberRelationType",
+    "DocumentAclMembershipTypeType",
     "DocumentOutputFormatType",
     "ExecutionTypeType",
     "ExternalSourceTypeType",
@@ -134,6 +136,8 @@ ConfirmationStateType = Literal["CONFIRM", "DENY"]
 ConversationRoleType = Literal["assistant", "user"]
 CreationModeType = Literal["DEFAULT", "OVERRIDDEN"]
 CustomControlMethodType = Literal["RETURN_CONTROL"]
+DocumentAclMemberRelationType = Literal["AND", "OR"]
+DocumentAclMembershipTypeType = Literal["DATA_SOURCE", "KNOWLEDGE_BASE"]
 DocumentOutputFormatType = Literal["EXTRACTED", "RAW"]
 ExecutionTypeType = Literal["LAMBDA", "RETURN_CONTROL"]
 ExternalSourceTypeType = Literal["BYTE_CONTENT", "S3"]

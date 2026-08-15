@@ -12,29 +12,45 @@ from lxml import etree as LET  # type: ignore[reportAttributeAccessIssue]  # lxm
 
 from . import body
 from ._document_primitives import (
-    _DEFAULT_PARAGRAPH_ATTRS,
     _HP,
     _HP_NS,
     _append_child,
+    _append_text_with_run_choice_atoms,
     _append_text_with_tabs,
     _child_tag_like,
     _children_by_local,
     _clear_paragraph_layout_cache,
-    _default_sublist_attributes,
     _is_tab_control_element,
+    _normalize_enum_attr,
     _object_id,
     _sanitize_text,
+    NEW_NUM_KINDS,
 )
-from .memo import HwpxOxmlNote
 from .namespaces import XML_NS, tag_local_name
+from .dutmal_compose import _paragraph_add_composed_character, _paragraph_add_dutmal
+from .field_marks import (
+    _paragraph_add_date_field,
+    _paragraph_add_path_field,
+    _paragraph_add_proofreading_mark,
+)
+from .note_authoring import (
+    _paragraph_add_endnote,
+    _paragraph_add_footnote,
+    _paragraph_endnotes,
+    _paragraph_footnotes,
+)
 from .objects import (
     HwpxOxmlInlineObject,
-    HwpxOxmlShape,
-    _create_ellipse_element,
-    _create_line_element,
     _create_picture_element,
-    _create_rectangle_element,
     _missing_shape_children,
+    _paragraph_add_arc,
+    _paragraph_add_container,
+    _paragraph_add_ellipse,
+    _paragraph_add_line,
+    _paragraph_add_polygon,
+    _paragraph_add_rectangle,
+    _paragraph_insert_shape_element,
+    _paragraph_shapes,
 )
 from .run import HwpxOxmlRun
 from .table import HwpxOxmlTable
@@ -246,6 +262,34 @@ class HwpxOxmlParagraph:
 
         raise ValueError("match text was not found in the paragraph")
 
+    def add_highlight(
+        self,
+        *,
+        color: str,
+        match: str,
+    ) -> None:
+        """Wrap the first occurrence of *match* in ``hp:markpenBegin``/``markpenEnd``.
+
+        Mirrors :meth:`add_tracked_delete`'s substring branch: the first run
+        whose spans concatenate to contain *match* is targeted, then the
+        specific span holding it (contiguously) is wrapped.
+        """
+
+        if not match:
+            raise ValueError("match must be a non-empty string")
+
+        for run in self.runs:
+            model = run.to_model()
+            if match not in "".join(span.text for span in model.text_spans):
+                continue
+            for span in model.text_spans:
+                if body.wrap_highlight_in_span(span, color=color, match=match):
+                    run.apply_model(model)
+                    return
+            raise ValueError("match crosses inline markup and cannot be wrapped safely")
+
+        raise ValueError("match text was not found in the paragraph")
+
     @property
     def text(self) -> str:
         """Return the concatenated textual content of this paragraph."""
@@ -360,8 +404,25 @@ class HwpxOxmlParagraph:
         highlight: str | None = None,
         strike: bool | None = None,
         attributes: dict[str, str] | None = None,
+        expand_special_characters: bool = False,
     ) -> HwpxOxmlRun:
-        """Append a new run to the paragraph and return its wrapper."""
+        """Append a new run to the paragraph and return its wrapper.
+
+        *expand_special_characters* (default ``False`` — opt-in, no change
+        to any existing caller's output) converts three characters embedded
+        in *text* to their real-corpus OWPML element form instead of
+        leaving them as literal bytes inside ``hp:t``: ``"\\n"`` ->
+        ``hp:lineBreak``, ``"\\u00a0"`` (no-break space) -> ``hp:nbSpace``,
+        ``"\\u3000"`` (CJK full-width space) -> ``hp:fwSpace``. Real corpus
+        (``error__20230818__test.hwpx``, ``error__20251107__test.hwpx``,
+        ``error__20250808__...hwpx``) confirms Hancom always emits these as
+        elements nested inside a single ``hp:t`` — never as literal
+        characters, and never (for these three specifically) as a sibling
+        of ``hp:t`` the way ``hp:tab`` is. Off by default because the plain
+        ``text=`` path here never processed these characters before, and
+        other call sites in this codebase (table cell multiline splitting,
+        for one) already give ``"\\n"`` a different meaning of their own.
+        """
 
         run_attrs = dict(attributes or {})
 
@@ -388,8 +449,11 @@ class HwpxOxmlParagraph:
                         run_attrs["charPrIDRef"] = str(default_char)
 
         run_element = _append_child(self.element, f"{_HP}run", run_attrs)
-        text_element = _append_child(run_element, f"{_HP}t", {})
-        text_element.text = text
+        if expand_special_characters:
+            _append_text_with_run_choice_atoms(run_element, text)
+        else:
+            text_element = _append_child(run_element, f"{_HP}t", {})
+            text_element.text = text
         self.section.mark_dirty()
         return HwpxOxmlRun(run_element, self)
 
@@ -589,122 +653,27 @@ class HwpxOxmlParagraph:
     # ------------------------------------------------------------------
     # Spec-compliant drawing shape helpers
     # ------------------------------------------------------------------
+    #
+    # Implementations live in ``oxml/objects.py`` (this owner module sits at
+    # the modularization line cap) and are attached here as plain class
+    # attributes — a function assigned this way is a method like any other,
+    # so ``paragraph.add_rectangle(...)`` etc. keep working unchanged.
 
-    def _insert_shape_element(
-        self,
-        element: ET.Element,
-        *,
-        run_attributes: dict[str, str] | None = None,
-        char_pr_id_ref: str | int | None = None,
-    ) -> HwpxOxmlShape:
-        """Attach a pre-built shape element into a new run and return a wrapper."""
-        run = self._create_run_for_object(
-            run_attributes,
-            char_pr_id_ref=char_pr_id_ref,
-        )
-        # Ensure element type matches the run type (lxml vs stdlib ET)
-        if type(element) is not type(run):
-            element = LET.fromstring(ET.tostring(element, encoding="utf-8"))
-        run.append(element)
-        self.section.mark_dirty()
-        return HwpxOxmlShape(element, self)
+    _insert_shape_element = _paragraph_insert_shape_element
+    add_line = _paragraph_add_line
+    add_rectangle = _paragraph_add_rectangle
+    add_ellipse = _paragraph_add_ellipse
+    add_polygon = _paragraph_add_polygon
+    add_arc = _paragraph_add_arc
+    add_container = _paragraph_add_container
+    shapes = property(_paragraph_shapes)
 
-    def add_line(
-        self,
-        start_x: int = 0,
-        start_y: int = 0,
-        end_x: int = 14400,
-        end_y: int = 0,
-        *,
-        line_color: str = "#000000",
-        line_width: str = "283",
-        treat_as_char: bool = True,
-        run_attributes: dict[str, str] | None = None,
-        char_pr_id_ref: str | int | None = None,
-    ) -> HwpxOxmlShape:
-        """Insert a spec-compliant ``<hp:line>`` drawing shape.
-
-        Coordinates are in HWPUNIT (7200 per inch).
-        """
-        el = _create_line_element(
-            start_x, start_y, end_x, end_y,
-            line_color=line_color,
-            line_width=line_width,
-            treat_as_char=treat_as_char,
-        )
-        return self._insert_shape_element(
-            el, run_attributes=run_attributes, char_pr_id_ref=char_pr_id_ref,
-        )
-
-    def add_rectangle(
-        self,
-        width: int = 14400,
-        height: int = 7200,
-        *,
-        ratio: int = 0,
-        line_color: str = "#000000",
-        line_width: str = "283",
-        fill_color: str | None = None,
-        treat_as_char: bool = True,
-        run_attributes: dict[str, str] | None = None,
-        char_pr_id_ref: str | int | None = None,
-    ) -> HwpxOxmlShape:
-        """Insert a spec-compliant ``<hp:rect>`` drawing shape.
-
-        Dimensions are in HWPUNIT.  *ratio* controls corner roundness
-        (0 = sharp, 50 = semicircle).
-        """
-        el = _create_rectangle_element(
-            width, height,
-            ratio=ratio,
-            line_color=line_color,
-            line_width=line_width,
-            fill_color=fill_color,
-            treat_as_char=treat_as_char,
-        )
-        return self._insert_shape_element(
-            el, run_attributes=run_attributes, char_pr_id_ref=char_pr_id_ref,
-        )
-
-    def add_ellipse(
-        self,
-        width: int = 14400,
-        height: int = 7200,
-        *,
-        line_color: str = "#000000",
-        line_width: str = "283",
-        fill_color: str | None = None,
-        treat_as_char: bool = True,
-        run_attributes: dict[str, str] | None = None,
-        char_pr_id_ref: str | int | None = None,
-    ) -> HwpxOxmlShape:
-        """Insert a spec-compliant ``<hp:ellipse>`` drawing shape.
-
-        Dimensions are in HWPUNIT.
-        """
-        el = _create_ellipse_element(
-            width, height,
-            line_color=line_color,
-            line_width=line_width,
-            fill_color=fill_color,
-            treat_as_char=treat_as_char,
-        )
-        return self._insert_shape_element(
-            el, run_attributes=run_attributes, char_pr_id_ref=char_pr_id_ref,
-        )
-
-    @property
-    def shapes(self) -> list[HwpxOxmlShape]:
-        """Return all drawing shapes embedded in this paragraph."""
-        shape_tags = {f"{_HP}line", f"{_HP}rect", f"{_HP}ellipse",
-                      f"{_HP}arc", f"{_HP}polygon", f"{_HP}curve",
-                      f"{_HP}connectLine"}
-        result: list[HwpxOxmlShape] = []
-        for run in self._run_elements():
-            for child in run:
-                if child.tag in shape_tags:
-                    result.append(HwpxOxmlShape(child, self))
-        return result
+    # Implementations live in ``oxml/dutmal_compose.py`` -- ``objects.py``
+    # (the shape-helpers' own overflow destination above) itself has no
+    # headroom left either (1526/1600 measured before this module existed),
+    # so this is a second overflow module, same reasoning.
+    add_composed_character = _paragraph_add_composed_character
+    add_dutmal = _paragraph_add_dutmal
 
     def add_control(
         self,
@@ -890,6 +859,114 @@ class HwpxOxmlParagraph:
         self.section.mark_dirty()
         return HwpxOxmlInlineObject(ctrl1, self)
 
+    add_date_field = _paragraph_add_date_field
+    add_proofreading_mark = _paragraph_add_proofreading_mark
+    add_path_field = _paragraph_add_path_field
+
+    def add_title_mark(self, *, in_toc: bool) -> HwpxOxmlInlineObject:
+        """이 문단의 첫 run 첫 ``hp:t`` 맨 앞에 ``<hp:titleMark
+        ignore="0|1"/>``를 끼워 넣는다 -- "차례 숨기기"/"제목 차례 표시"의
+        실측 계약(DEV-044, 6.15 박스 COM `SetPos`+`MarkTitle`/`HideTitle`
+        3변형이 캐럿 문단 타겟팅을 확정: 마크는 항상 캐럿이 있는 문단에
+        들어간다, 이전 Mac 프로브의 p0 착지는 캐럿 이동 불가에 따른
+        퇴화 현상이었다).
+
+        *in_toc*: ``True``(제목 차례 표시)면 ``ignore="1"``,
+        ``False``(차례 숨기기)면 ``ignore="0"`` -- 이름의 직관과 반대인
+        폴라리티가 실측 그대로다(Mac GUI A/B·Windows COM 독립 재확인
+        일치). 호출자가 대상 문단을 직접 지정하는 이 API 형태가 실
+        편집기의 "캐럿이 있는 문단" 타겟팅과 정확히 대응한다.
+        """
+        target_run: ET.Element | None = None
+        text_element: ET.Element | None = None
+        for run in self._run_elements():
+            candidates = _children_by_local(run, "t")
+            if candidates:
+                target_run, text_element = run, candidates[0]
+                break
+        if text_element is None or target_run is None:
+            from ..errors import HwpxStateError
+
+            raise HwpxStateError(
+                "문단에 hp:t를 가진 run이 없어 titleMark를 넣을 자리가 없습니다.",
+                code="paragraph-title-mark-no-text-run",
+            )
+        mark = text_element.makeelement(
+            _child_tag_like(text_element, "titleMark", _HP_NS),
+            {"ignore": "1" if in_toc else "0"},
+        )
+        mark.tail = text_element.text
+        text_element.text = None
+        text_element.insert(0, mark)
+        self.section.mark_dirty()
+        return HwpxOxmlInlineObject(mark, self)
+
+    def add_new_num(
+        self,
+        *,
+        number: int = 1,
+        kind: str = "PAGE",
+        run_attributes: dict[str, str] | None = None,
+        char_pr_id_ref: str | int | None = None,
+    ) -> HwpxOxmlInlineObject:
+        """Insert ``<hp:ctrl><hp:newNum num="..." numType="..."/></hp:ctrl>``.
+
+        Restarts the running count *kind* (``PAGE`` by default) at *number*
+        from this paragraph onward — real corpus (hwpxlib_corpus, 7+ files)
+        always self-closes ``hp:newNum`` with only ``num``/``numType``, even
+        though the schema (``ParaList XML schema.xml:2741-2759``) declares a
+        required ``autoNumFormat`` child; matching real Hancom output takes
+        priority over the schema here.
+        """
+
+        normalized_kind = _normalize_enum_attr(kind or "PAGE", NEW_NUM_KINDS, label="kind")
+        run = self._create_run_for_object(run_attributes, char_pr_id_ref=char_pr_id_ref)
+        ctrl = _append_child(run, f"{_HP}ctrl", {})
+        _append_child(
+            ctrl, f"{_HP}newNum", {"num": str(int(number)), "numType": normalized_kind},
+        )
+        self.section.mark_dirty()
+        return HwpxOxmlInlineObject(ctrl, self)
+
+    def add_page_hiding(
+        self,
+        *,
+        header: bool = False,
+        footer: bool = False,
+        master_page: bool = False,
+        border: bool = False,
+        fill: bool = False,
+        page_num: bool = False,
+        run_attributes: dict[str, str] | None = None,
+        char_pr_id_ref: str | int | None = None,
+    ) -> HwpxOxmlInlineObject:
+        """Insert ``<hp:ctrl><hp:pageHiding .../></hp:ctrl>``.
+
+        Hides the named page elements from this paragraph's page onward
+        (``ParaList XML schema.xml:148-163`` — six independent booleans, all
+        default ``false``/unhidden). Matches real corpus (hwpxlib_corpus, 4
+        files) sibling placement: its own dedicated ``hp:ctrl``, typically
+        alongside a ``newNum``/``pageNum`` control in the section-opening
+        paragraph's first run.
+        """
+
+        run = self._create_run_for_object(run_attributes, char_pr_id_ref=char_pr_id_ref)
+        ctrl = _append_child(run, f"{_HP}ctrl", {})
+        _append_child(
+            ctrl,
+            f"{_HP}pageHiding",
+            {
+                "hideHeader": "1" if header else "0",
+                "hideFooter": "1" if footer else "0",
+                "hideMasterPage": "1" if master_page else "0",
+                "hideBorder": "1" if border else "0",
+                "hideFill": "1" if fill else "0",
+                "hidePageNum": "1" if page_num else "0",
+            },
+        )
+        self.section.mark_dirty()
+        return HwpxOxmlInlineObject(ctrl, self)
+
     def add_chart(
         self,
         chart_id_ref: str,
@@ -961,6 +1038,40 @@ class HwpxOxmlParagraph:
         })
         self.section.mark_dirty()
         return HwpxOxmlInlineObject(chart, self)
+
+    def add_drop_cap(
+        self,
+        character: str,
+        *,
+        width: int,
+        height: int,
+        style: str = "TripleLine",
+        char_pr_id_ref: str | int | None = None,
+        para_pr_id_ref: str | int | None = None,
+        run_attributes: dict[str, str] | None = None,
+    ) -> HwpxOxmlInlineObject:
+        """Insert a real-Hancom-shaped drop cap (문단 첫 글자 장식).
+
+        Element construction lives in :mod:`.drop_cap` (real-corpus reverse
+        engineering, ``TripleLine``-only v1 scope -- see that module's own
+        docstring). This method only wires the built element into this
+        paragraph's run, matching :meth:`add_chart`'s own thin-wiring shape.
+        """
+
+        from .drop_cap import create_drop_cap_element
+
+        run = self._create_run_for_object(run_attributes, char_pr_id_ref=char_pr_id_ref)
+        drop_cap = create_drop_cap_element(
+            width, height, character,
+            style=style, char_pr_id_ref=char_pr_id_ref, para_pr_id_ref=para_pr_id_ref,
+        )
+        # Ensure element type matches the run type (lxml vs stdlib ET) --
+        # same bridge _paragraph_insert_shape_element uses.
+        if type(drop_cap) is not type(run):
+            drop_cap = LET.fromstring(ET.tostring(drop_cap, encoding="utf-8"))
+        run.append(drop_cap)
+        self.section.mark_dirty()
+        return HwpxOxmlInlineObject(drop_cap, self)
 
     def add_equation(
         self,
@@ -1263,161 +1374,12 @@ class HwpxOxmlParagraph:
                         })
         return result
 
-    # ------------------------------------------------------------------
-    # Footnote / Endnote helpers
-    # ------------------------------------------------------------------
-
-    _NOTE_STYLE_NAMES = {"footNote": ("각주", "Footnote"), "endNote": ("미주", "Endnote")}
-    _NOTE_STYLE_FALLBACK = {"footNote": ("15", "10", "3"), "endNote": ("16", "10", "3")}
-
-    def _note_style_refs(self, tag: str) -> tuple[str, str, str]:
-        """(styleIDRef, paraPrIDRef, charPrIDRef) for the note body paragraph.
-
-        Real Hancom puts note bodies on the 각주/미주 paragraph styles. Resolve
-        by style name from the header so documents with re-numbered styles stay
-        correct; fall back to the fixed template coordinates.
-        """
-
-        korean, english = self._NOTE_STYLE_NAMES[tag]
-        document = self.section.document
-        headers = cast(
-            "Sequence[object]",
-            getattr(document, "_headers", []) if document is not None else [],
-        )
-        for header in headers:
-            styles = getattr(header, "_styles_element", None)
-            container = cast(
-                "ET.Element | None", styles() if callable(styles) else None
-            )
-            if container is None:
-                continue
-            for style in container:
-                if style.get("name") == korean or style.get("engName") == english:
-                    return (
-                        style.get("id") or self._NOTE_STYLE_FALLBACK[tag][0],
-                        style.get("paraPrIDRef") or self._NOTE_STYLE_FALLBACK[tag][1],
-                        style.get("charPrIDRef") or self._NOTE_STYLE_FALLBACK[tag][2],
-                    )
-        return self._NOTE_STYLE_FALLBACK[tag]
-
-    def _note_suffix_char(self, tag: str) -> str:
-        """The note suffix character from secPr, defaulting to ")"."""
-
-        properties = self.section._section_properties_element()
-        if properties is not None:
-            pr = properties.find(f"{_HP}{tag}Pr")
-            if pr is not None:
-                fmt = pr.find(f"{_HP}autoNumFormat")
-                if fmt is not None and fmt.get("suffixChar"):
-                    return fmt.get("suffixChar", ")")
-        return ")"
-
-    def _next_note_number(self, tag: str) -> int:
-        """Document-continuous note number, counted per note type."""
-
-        document = self.section.document
-        sections = document.sections if document is not None else [self.section]
-        count = 0
-        for section in sections:
-            count += sum(1 for _ in section.element.iter(f"{_HP}{tag}"))
-        return count + 1
-
-    def _add_note(
-        self,
-        tag: str,
-        text: str,
-        *,
-        run_attributes: dict[str, str] | None = None,
-        char_pr_id_ref: str | int | None = None,
-    ) -> HwpxOxmlNote:
-        """Insert a ``<hp:footNote>`` or ``<hp:endNote>`` element.
-
-        Emits the real-Hancom shape (gold-reversed): the note element is
-        wrapped in ``<hp:ctrl>`` inside a body run, carries ``number`` and
-        ``suffixChar``, and its body paragraph uses the 각주/미주 style with a
-        leading ``<hp:autoNum>`` control — without these real Hancom does not
-        render the note at all.
-        """
-
-        number = self._next_note_number(tag)
-        suffix = self._note_suffix_char(tag)
-        style_ref, para_pr_ref, note_char_ref = self._note_style_refs(tag)
-        if char_pr_id_ref is not None:
-            note_char_ref = str(char_pr_id_ref)
-
-        runs = self._run_elements()
-        if run_attributes is None and runs:
-            run = runs[-1]
-        else:
-            run = self._create_run_for_object(run_attributes, char_pr_id_ref=char_pr_id_ref)
-        ctrl = _append_child(run, f"{_HP}ctrl", {})
-        note_element = _append_child(
-            ctrl,
-            f"{_HP}{tag}",
-            {
-                "number": str(number),
-                "suffixChar": str(ord(suffix[0])) if suffix else "41",
-                "instId": _object_id(),
-            },
-        )
-        sublist_attrs = _default_sublist_attributes()
-        sublist_attrs["vertAlign"] = "TOP"
-        sublist = _append_child(note_element, f"{_HP}subList", sublist_attrs)
-        p_attrs = dict(_DEFAULT_PARAGRAPH_ATTRS)
-        p_attrs.update({"id": "0", "paraPrIDRef": para_pr_ref, "styleIDRef": style_ref})
-        paragraph = _append_child(sublist, f"{_HP}p", p_attrs)
-        note_run = _append_child(paragraph, f"{_HP}run", {"charPrIDRef": note_char_ref})
-        num_ctrl = _append_child(note_run, f"{_HP}ctrl", {})
-        auto_num = _append_child(
-            num_ctrl,
-            f"{_HP}autoNum",
-            {"num": str(number), "numType": "FOOTNOTE" if tag == "footNote" else "ENDNOTE"},
-        )
-        _append_child(
-            auto_num,
-            f"{_HP}autoNumFormat",
-            {"type": "DIGIT", "userChar": "", "prefixChar": "", "suffixChar": suffix, "supscript": "0"},
-        )
-        t = _append_child(note_run, f"{_HP}t", {})
-        t.text = _sanitize_text(text)
-        self.section.mark_dirty()
-        return HwpxOxmlNote(note_element, self)
-
-    def add_footnote(
-        self,
-        text: str,
-        *,
-        run_attributes: dict[str, str] | None = None,
-        char_pr_id_ref: str | int | None = None,
-    ) -> HwpxOxmlNote:
-        """Insert a footnote at the end of this paragraph."""
-        return self._add_note("footNote", text, run_attributes=run_attributes, char_pr_id_ref=char_pr_id_ref)
-
-    def add_endnote(
-        self,
-        text: str,
-        *,
-        run_attributes: dict[str, str] | None = None,
-        char_pr_id_ref: str | int | None = None,
-    ) -> HwpxOxmlNote:
-        """Insert an endnote at the end of this paragraph."""
-        return self._add_note("endNote", text, run_attributes=run_attributes, char_pr_id_ref=char_pr_id_ref)
-
-    @property
-    def footnotes(self) -> list[HwpxOxmlNote]:
-        """Return all footnotes in this paragraph."""
-        return [
-            HwpxOxmlNote(el, self)
-            for el in self.element.findall(f".//{_HP}footNote")
-        ]
-
-    @property
-    def endnotes(self) -> list[HwpxOxmlNote]:
-        """Return all endnotes in this paragraph."""
-        return [
-            HwpxOxmlNote(el, self)
-            for el in self.element.findall(f".//{_HP}endNote")
-        ]
+    # Footnote/endnote authoring lives in note_authoring.py (owner-file
+    # headroom, see class-attribute assignments near the top of this class).
+    add_footnote = _paragraph_add_footnote
+    add_endnote = _paragraph_add_endnote
+    footnotes = property(_paragraph_footnotes)
+    endnotes = property(_paragraph_endnotes)
 
     @property
     def para_pr_id_ref(self) -> str | None:
@@ -1453,6 +1415,28 @@ class HwpxOxmlParagraph:
         new_value = str(value)
         if self.element.get("styleIDRef") != new_value:
             self.element.set("styleIDRef", new_value)
+            self.section.mark_dirty()
+
+    @property
+    def column_break(self) -> bool:
+        """Whether this paragraph forces a column break before it starts.
+
+        This is ``hp:p``'s own ``columnBreak`` attribute -- a per-paragraph
+        instance flag (default ``"0"``, always present on every parsed
+        paragraph already), distinct from ``hh:breakSetting``'s
+        ``pageBreakBefore`` (a shared paraPr *style* property that
+        ``set_paragraph_format``'s ``page_break_before`` controls). The
+        sibling ``pageBreak`` attribute uses the same "0"/"1" lexical form
+        (real-corpus confirmed: 73/14266 paragraphs carry ``pageBreak="1"``,
+        never ``"true"``/``"false"`` — 6.12 트레인㊸ 갭④).
+        """
+        return self.element.get("columnBreak") == "1"
+
+    @column_break.setter
+    def column_break(self, value: bool) -> None:
+        new_value = "1" if value else "0"
+        if self.element.get("columnBreak") != new_value:
+            self.element.set("columnBreak", new_value)
             self.section.mark_dirty()
 
     @property

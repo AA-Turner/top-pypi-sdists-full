@@ -1,0 +1,5 @@
+rules:
+  superfluous-actions:
+    ignore:
+      # `gh pr create` cannot sign commits; the action can.
+      - bump.yml

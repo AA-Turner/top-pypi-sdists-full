@@ -9,6 +9,7 @@
 # Usage:
 #     ./on_Snapshot__57_mercury.py [...] > events.jsonl
 
+import sys
 import html
 import json
 import os
@@ -16,7 +17,6 @@ import argparse
 import re
 import shlex
 import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
@@ -211,6 +211,7 @@ def main():
             raise RuntimeError("MERCURY_BINARY was not resolved by abxpkg")
 
         # Run extraction
+        print("Mercury extraction started", flush=True)
         status, output = extract_mercury(args.url, config, output_dir)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)

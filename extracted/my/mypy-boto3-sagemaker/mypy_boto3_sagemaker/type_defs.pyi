@@ -5296,9 +5296,9 @@ class PriorityClassTypeDef(TypedDict):
     Weight: int
 
 class ProcessingClusterConfigTypeDef(TypedDict):
-    InstanceCount: int
-    InstanceType: ProcessingInstanceTypeType
     VolumeSizeInGB: int
+    InstanceCount: NotRequired[int]
+    InstanceType: NotRequired[ProcessingInstanceTypeType]
     VolumeKmsKeyId: NotRequired[str]
 
 class ProcessingFeatureStoreOutputTypeDef(TypedDict):

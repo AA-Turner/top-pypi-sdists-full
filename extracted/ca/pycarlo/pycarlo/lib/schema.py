@@ -1056,6 +1056,7 @@ class AlertSubType(pycarlo.lib.types.Enum):
     * `POWER_BI_DATAFLOW_FAILURE`None
     * `PSEUDO_INTEGRATION_TEST`None
     * `RULE_RUN_EXECUTION_ERROR`None
+    * `SALESFORCE_DATA_CLOUD_DATA_STREAM_FAILURE`None
     * `SCHEMA_ANOMALY_FIELDS_ADDED`None
     * `SCHEMA_ANOMALY_FIELDS_CHANGED`None
     * `SCHEMA_ANOMALY_FIELDS_REMOVED`None
@@ -1118,6 +1119,7 @@ class AlertSubType(pycarlo.lib.types.Enum):
         "POWER_BI_DATAFLOW_FAILURE",
         "PSEUDO_INTEGRATION_TEST",
         "RULE_RUN_EXECUTION_ERROR",
+        "SALESFORCE_DATA_CLOUD_DATA_STREAM_FAILURE",
         "SCHEMA_ANOMALY_FIELDS_ADDED",
         "SCHEMA_ANOMALY_FIELDS_CHANGED",
         "SCHEMA_ANOMALY_FIELDS_REMOVED",
@@ -3149,6 +3151,7 @@ class EtlType(pycarlo.lib.types.Enum):
     * `INFORMATICA_V2`None
     * `MULESOFT`None
     * `POWER_BI_DATAFLOW`None
+    * `SALESFORCE_DATA_CLOUD`None
     * `SNOWFLAKE`None
     """
 
@@ -3165,6 +3168,7 @@ class EtlType(pycarlo.lib.types.Enum):
         "INFORMATICA_V2",
         "MULESOFT",
         "POWER_BI_DATAFLOW",
+        "SALESFORCE_DATA_CLOUD",
         "SNOWFLAKE",
     )
 
@@ -4811,6 +4815,7 @@ class IncidentSubType(pycarlo.lib.types.Enum):
     * `mulesoft_flow_failure`None
     * `performance_anomaly`None
     * `power_bi_dataflow_failure`None
+    * `salesforce_data_cloud_data_stream_failure`None
     * `snowflake_task_graph_failure`None
     * `sql_rule_breach`None
     * `unchanged_size`None
@@ -4857,6 +4862,7 @@ class IncidentSubType(pycarlo.lib.types.Enum):
         "mulesoft_flow_failure",
         "performance_anomaly",
         "power_bi_dataflow_failure",
+        "salesforce_data_cloud_data_stream_failure",
         "snowflake_task_graph_failure",
         "sql_rule_breach",
         "unchanged_size",
@@ -5200,6 +5206,7 @@ class LineageNodeJobType(pycarlo.lib.types.Enum):
     * `MSK_KAFKA_CONNECT`None
     * `MULESOFT`None
     * `POWER_BI_DATAFLOW`None
+    * `SALESFORCE_DATA_CLOUD`None
     * `SELF_HOSTED_KAFKA_CONNECT`None
     * `SNOWFLAKE`None
     * `UNKNOWN`None
@@ -5221,6 +5228,7 @@ class LineageNodeJobType(pycarlo.lib.types.Enum):
         "MSK_KAFKA_CONNECT",
         "MULESOFT",
         "POWER_BI_DATAFLOW",
+        "SALESFORCE_DATA_CLOUD",
         "SELF_HOSTED_KAFKA_CONNECT",
         "SNOWFLAKE",
         "UNKNOWN",
@@ -6049,6 +6057,17 @@ class PerformanceInsightImpactKind(pycarlo.lib.types.Enum):
     __choices__ = ("STORAGE", "TIME")
 
 
+class PerformanceInsightTicketProvider(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `JIRA`None
+    * `LINEAR`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("JIRA", "LINEAR")
+
+
 class PeriodGrouping(pycarlo.lib.types.Enum):
     """Time size of the periods.
 
@@ -6132,6 +6151,7 @@ class Permission(pycarlo.lib.types.Enum):
     * `MonitorsManagementValidationDraft`None
     * `MonitorsManagementValidationEdit`None
     * `PerformanceAccess`None
+    * `PerformanceInsightsEdit`None
     * `SettingsAccess`None
     * `SettingsAgentsAccess`None
     * `SettingsAgentsEdit`None
@@ -6178,6 +6198,7 @@ class Permission(pycarlo.lib.types.Enum):
     * `SettingsSessionAccess`None
     * `SettingsSessionEdit`None
     * `SettingsSetAccountName`None
+    * `SettingsSetRequiredMonitorFields`None
     * `SettingsSsoAccess`None
     * `SettingsSsoEdit`None
     * `SettingsUserSubscribeWeeklyDigest`None
@@ -6253,6 +6274,7 @@ class Permission(pycarlo.lib.types.Enum):
         "MonitorsManagementValidationDraft",
         "MonitorsManagementValidationEdit",
         "PerformanceAccess",
+        "PerformanceInsightsEdit",
         "SettingsAccess",
         "SettingsAgentsAccess",
         "SettingsAgentsEdit",
@@ -6299,6 +6321,7 @@ class Permission(pycarlo.lib.types.Enum):
         "SettingsSessionAccess",
         "SettingsSessionEdit",
         "SettingsSetAccountName",
+        "SettingsSetRequiredMonitorFields",
         "SettingsSsoAccess",
         "SettingsSsoEdit",
         "SettingsUserSubscribeWeeklyDigest",
@@ -7067,16 +7090,18 @@ class RemediationStatus(pycarlo.lib.types.Enum):
 
 
 class ReportInterval(pycarlo.lib.types.Enum):
-    """Recurrence interval; pairs with `day_of_period`.
+    """Recurrence interval; pairs with `interval_position` (unused for
+    DAY).
 
     Enumeration Choices:
 
+    * `DAY`None
     * `MONTH`None
     * `WEEK`None
     """
 
     __schema__ = schema
-    __choices__ = ("MONTH", "WEEK")
+    __choices__ = ("DAY", "MONTH", "WEEK")
 
 
 class ReportStatusEnum(pycarlo.lib.types.Enum):
@@ -7098,10 +7123,11 @@ class ReportType(pycarlo.lib.types.Enum):
     Enumeration Choices:
 
     * `EXPENSIVE_QUERIES`None
+    * `REINFORCEMENT_LOOP_DIGEST`None
     """
 
     __schema__ = schema
-    __choices__ = ("EXPENSIVE_QUERIES",)
+    __choices__ = ("EXPENSIVE_QUERIES", "REINFORCEMENT_LOOP_DIGEST")
 
 
 class ReportTypeEnum(pycarlo.lib.types.Enum):
@@ -7128,6 +7154,19 @@ class ReportTypeEnum(pycarlo.lib.types.Enum):
         "MONITOR_LOGS_REPORT",
         "MONITOR_RUNS_REPORT",
     )
+
+
+class RequiredMonitorField(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `AUDIENCE`None
+    * `DATA_QUALITY_DIMENSION`None
+    * `PRIORITY`None
+    * `TAGS`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AUDIENCE", "DATA_QUALITY_DIMENSION", "PRIORITY", "TAGS")
 
 
 class ResourcePolicyPath(pycarlo.lib.types.Enum):
@@ -7243,6 +7282,10 @@ class ResourcePolicyPath(pycarlo.lib.types.Enum):
     * `MonitorsTune`None
     * `MonitorsWrite`None
     * `PerformanceAll`None
+    * `PerformanceInsightsAll`None
+    * `PerformanceInsightsPropose`None
+    * `PerformanceInsightsRead`None
+    * `PerformanceInsightsWrite`None
     * `PerformancePropose`None
     * `PerformanceRead`None
     * `PerformanceWrite`None
@@ -7445,6 +7488,10 @@ class ResourcePolicyPath(pycarlo.lib.types.Enum):
         "MonitorsTune",
         "MonitorsWrite",
         "PerformanceAll",
+        "PerformanceInsightsAll",
+        "PerformanceInsightsPropose",
+        "PerformanceInsightsRead",
+        "PerformanceInsightsWrite",
         "PerformancePropose",
         "PerformanceRead",
         "PerformanceWrite",
@@ -11711,7 +11758,35 @@ class CreateGoldenSetInput(sgqlc.types.Input):
     """Retention window in days (defaults to 90)."""
 
 
+class CreateJiraPerformanceInsightTicketInput(sgqlc.types.Input):
+    """Jira ticket details for a performance insight."""
+
+    __schema__ = schema
+    __field_names__ = ("integration_id", "project", "issuetype", "summary", "description", "fields")
+    integration_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="integrationId")
+    """UUID of the Jira integration to create the ticket under."""
+
+    project = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="project")
+    """Jira project id."""
+
+    issuetype = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="issuetype")
+    """Jira issue-type id."""
+
+    summary = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="summary")
+    """Ticket summary (must be non-empty)."""
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """Ticket description (Markdown)."""
+
+    fields = sgqlc.types.Field(JSONString, graphql_name="fields")
+    """Additional Jira fields keyed by field id (e.g. required custom
+    fields).
+    """
+
+
 class CreateJiraStorageTicketInput(sgqlc.types.Input):
+    """Jira ticket details for a set of storage-optimization candidates."""
+
     __schema__ = schema
     __field_names__ = ("integration_id", "project", "issuetype", "summary", "description", "fields")
     integration_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="integrationId")
@@ -11773,7 +11848,26 @@ class CreateJiraTicketForAgentHealthIssueInput(sgqlc.types.Input):
     """
 
 
+class CreateLinearPerformanceInsightTicketInput(sgqlc.types.Input):
+    """Linear ticket details for a performance insight."""
+
+    __schema__ = schema
+    __field_names__ = ("title", "description", "team_id")
+    title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
+    """Ticket title (must be non-empty)."""
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """Ticket description (Markdown)."""
+
+    team_id = sgqlc.types.Field(String, graphql_name="teamId")
+    """Linear team ID; defaults to the integration's default team."""
+
+
 class CreateLinearStorageTicketInput(sgqlc.types.Input):
+    """Linear ticket details for a set of storage-optimization
+    candidates.
+    """
+
     __schema__ = schema
     __field_names__ = ("title", "description", "team_id")
     title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
@@ -19524,6 +19618,7 @@ class IMonitor(sgqlc.types.Interface):
         "agent_mcon",
         "agent",
         "is_auto_created",
+        "missing_required_fields",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Unique identifier for monitors"""
@@ -19792,6 +19887,15 @@ class IMonitor(sgqlc.types.Interface):
     is_auto_created = sgqlc.types.Field(Boolean, graphql_name="isAutoCreated")
     """Whether this monitor was auto-created by the recommendation
     service.
+    """
+
+    missing_required_fields = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(RequiredMonitorField)),
+        graphql_name="missingRequiredFields",
+    )
+    """Fields this account requires that the monitor leaves empty. Empty
+    when the monitor conforms, and always empty when the account
+    requires no fields.
     """
 
 
@@ -21501,6 +21605,17 @@ class AddPowerBiDataflowsConnection(sgqlc.types.relay.Connection):
 
 class AddRedshiftConsumerConnectionMutation(sgqlc.types.Type):
     """Add a Redshift consumer connection. Used for DataShare lineage."""
+
+    __schema__ = schema
+    __field_names__ = ("connection",)
+    connection = sgqlc.types.Field("Connection", graphql_name="connection")
+
+
+class AddSalesforceDataCloudEtlConnection(sgqlc.types.relay.Connection):
+    """Enable ETL monitoring on an existing Salesforce Data Cloud
+    connection. Data streams are collected as jobs alongside the
+    connection's existing metadata and query monitoring.
+    """
 
     __schema__ = schema
     __field_names__ = ("connection",)
@@ -29749,6 +29864,12 @@ class CreateJiraTicketForIncident(sgqlc.types.Type):
     """The created Jira ticket"""
 
 
+class CreateJiraTicketForPerformanceInsights(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("ticket",)
+    ticket = sgqlc.types.Field("PerformanceInsightTicket", graphql_name="ticket")
+
+
 class CreateJiraTicketForStorageCandidates(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("ticket",)
@@ -29759,6 +29880,12 @@ class CreateLinearTicketForAgentHealthIssue(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("ticket",)
     ticket = sgqlc.types.Field(AgentHealthIssueLinearTicket, graphql_name="ticket")
+
+
+class CreateLinearTicketForPerformanceInsights(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("ticket",)
+    ticket = sgqlc.types.Field("PerformanceInsightTicket", graphql_name="ticket")
 
 
 class CreateLinearTicketForStorageCandidates(sgqlc.types.Type):
@@ -35019,6 +35146,38 @@ class DomainMonitorCounts(sgqlc.types.Type):
 
     total = sgqlc.types.Field(Int, graphql_name="total")
     """Number of monitors of this type"""
+
+
+class DomainMonitoringPlanState(sgqlc.types.Type):
+    """A domain's monitoring-plan surface in one consistent read.  The
+    latest run drives the tab's state (nothing / running / done /
+    failed); the plan is always the newest COMPLETE one, never a
+    partial. While a new run is in flight — or finished but still
+    draining the findings ingestion queue — `plan` keeps holding the
+    previous complete plan, and `settled` is what says the window has
+    closed.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("latest_run", "plan", "settled")
+    latest_run = sgqlc.types.Field(AgenticPlatformPipelineExecutionOutput, graphql_name="latestRun")
+    """The domain's most recent monitoring-run execution, reconciled
+    against the agent on read. Null when no run was ever requested.
+    """
+
+    plan = sgqlc.types.Field("MonitoringPlan", graphql_name="plan")
+    """The domain's newest fully-ingested plan. Null when no complete
+    plan exists yet. While a newer run is publishing, this keeps
+    holding the previous complete plan.
+    """
+
+    settled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="settled")
+    """Whether this state has stopped moving. False while a run is in
+    flight or a completed run's findings are still being ingested —
+    poll while false. True means what is here is the outcome: a run
+    that failed or published nothing settles without its uuid ever
+    matching the plan's, so poll on this, not on uuid comparison.
+    """
 
 
 class DomainOutput(sgqlc.types.Type):
@@ -43971,6 +44130,10 @@ class MonitorLabelObject(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
                 (
+                    "missing_required_fields",
+                    sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
+                ),
+                (
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
@@ -44059,6 +44222,12 @@ class MonitorLabelObject(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `missing_required_fields` (`Boolean`): Filter monitors by
+      whether they are missing a field this account requires. When
+      true, returns only monitors missing at least one required field;
+      when false, only monitors that have all of them; when null, no
+      filtering. Returns nothing when true and the account requires no
+      fields, since no monitor can be missing one.
     * `created_by_agent` (`Boolean`): Filter monitors by whether their
       creator is an agent user. When true, returns only monitors
       created by an agent user. When false, returns only monitors
@@ -45052,6 +45221,8 @@ class MsTeamsInstallationList(sgqlc.types.Type):
 class Mutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
+        "create_linear_ticket_for_performance_insights",
+        "create_jira_ticket_for_performance_insights",
         "create_linear_ticket_for_storage_candidates",
         "create_jira_ticket_for_storage_candidates",
         "bulk_update_monitor_exceptions",
@@ -45368,6 +45539,7 @@ class Mutation(sgqlc.types.Type):
         "delete_monte_carlo_config_template",
         "convert_ui_monitors_to_config_template",
         "convert_config_template_to_ui_monitors",
+        "update_required_monitor_fields",
         "create_monitor_tuning_run",
         "apply_monitor_tuning_run",
         "dismiss_monitor_tuning_suggestion",
@@ -45587,6 +45759,8 @@ class Mutation(sgqlc.types.Type):
         "remove_snowflake_tasks_from_connection",
         "add_power_bi_dataflows_connection",
         "remove_power_bi_dataflows_from_connection",
+        "add_salesforce_data_cloud_etl_connection",
+        "remove_salesforce_data_cloud_etl_from_connection",
         "toggle_event_config",
         "configure_metadata_events",
         "configure_query_log_events",
@@ -45677,6 +45851,90 @@ class Mutation(sgqlc.types.Type):
         "update_account_secret",
         "delete_account_secret",
     )
+    create_linear_ticket_for_performance_insights = sgqlc.types.Field(
+        CreateLinearTicketForPerformanceInsights,
+        graphql_name="createLinearTicketForPerformanceInsights",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "details",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(CreateLinearPerformanceInsightTicketInput),
+                        graphql_name="details",
+                        default=None,
+                    ),
+                ),
+                (
+                    "insight_keys",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="insightKeys",
+                        default=None,
+                    ),
+                ),
+                (
+                    "thread_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="threadId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create a Linear issue for a set of cost/performance
+    insights.
+
+    Arguments:
+
+    * `details` (`CreateLinearPerformanceInsightTicketInput!`)None
+    * `insight_keys` (`[String!]!`): Keys of the selected insights,
+      within 'threadId'.
+    * `thread_id` (`String!`): Run that surfaced the selected
+      insights.
+    """
+
+    create_jira_ticket_for_performance_insights = sgqlc.types.Field(
+        CreateJiraTicketForPerformanceInsights,
+        graphql_name="createJiraTicketForPerformanceInsights",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "details",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(CreateJiraPerformanceInsightTicketInput),
+                        graphql_name="details",
+                        default=None,
+                    ),
+                ),
+                (
+                    "insight_keys",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="insightKeys",
+                        default=None,
+                    ),
+                ),
+                (
+                    "thread_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="threadId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create a Jira ticket for a set of cost/performance
+    insights.
+
+    Arguments:
+
+    * `details` (`CreateJiraPerformanceInsightTicketInput!`)None
+    * `insight_keys` (`[String!]!`): Keys of the selected insights,
+      within 'threadId'.
+    * `thread_id` (`String!`): Run that surfaced the selected
+      insights.
+    """
+
     create_linear_ticket_for_storage_candidates = sgqlc.types.Field(
         CreateLinearTicketForStorageCandidates,
         graphql_name="createLinearTicketForStorageCandidates",
@@ -48215,9 +48473,7 @@ class Mutation(sgqlc.types.Type):
                 ("enabled", sgqlc.types.Arg(Boolean, graphql_name="enabled", default=None)),
                 (
                     "interval_position",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(Int), graphql_name="intervalPosition", default=None
-                    ),
+                    sgqlc.types.Arg(Int, graphql_name="intervalPosition", default=None),
                 ),
                 (
                     "name",
@@ -48252,9 +48508,12 @@ class Mutation(sgqlc.types.Type):
       depends on the report type.
     * `enabled` (`Boolean`): Whether the report starts enabled.
       Defaults to true.
-    * `interval_position` (`Int!`): Position within the interval:
-      weekday (1=Mon..7=Sun) for WEEK, day of month (1-31, clamped to
-      month end) for MONTH.
+    * `interval_position` (`Int`): Position within the interval:
+      optional hour of day (0-23, UTC) for DAY — omit to let Monte
+      Carlo pick the delivery time — required weekday (1=Mon..7=Sun)
+      for WEEK or day of month (1-31, clamped to month end) for MONTH.
+      Some report types always pick the delivery time and reject an
+      explicit DAY hour.
     * `name` (`String!`): User-facing display name of the report.
     * `report_type` (`ReportType!`): Kind of report to schedule.
     * `time_interval` (`ReportInterval!`): Recurrence interval.
@@ -48302,9 +48561,14 @@ class Mutation(sgqlc.types.Type):
     * `config` (`JSONString`): Report scope configuration; shape
       depends on the report type.
     * `enabled` (`Boolean`): Whether the report is actively scheduled.
-    * `interval_position` (`Int`): Position within the interval:
-      weekday (1=Mon..7=Sun) for WEEK, day of month (1-31, clamped to
-      month end) for MONTH.
+    * `interval_position` (`Int`): Position within the interval: hour
+      of day (0-23, UTC) for DAY, weekday (1=Mon..7=Sun) for WEEK, day
+      of month (1-31, clamped to month end) for MONTH. When
+      timeInterval changes, the stored position is never reused:
+      provide one in the same call for WEEK/MONTH; for DAY it is
+      optional (omitted → Monte Carlo picks the delivery time). Some
+      report types always pick the delivery time and reject an
+      explicit DAY hour.
     * `name` (`String`): User-facing display name of the report.
     * `report_uuid` (`UUID!`): UUID of the report to update.
     * `time_interval` (`ReportInterval`): Recurrence interval.
@@ -56851,6 +57115,35 @@ class Mutation(sgqlc.types.Type):
 
     * `dry_run` (`Boolean`): Dry run? (default: `false`)
     * `namespace` (`String!`): Namespace of config template
+    """
+
+    update_required_monitor_fields = sgqlc.types.Field(
+        "UpdateRequiredMonitorFields",
+        graphql_name="updateRequiredMonitorFields",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "fields",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(sgqlc.types.non_null(RequiredMonitorField))
+                        ),
+                        graphql_name="fields",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Set the monitor fields that are required when
+    creating or editing a monitor in the calling user's account.
+
+    Arguments:
+
+    * `fields` (`[RequiredMonitorField!]!`): The complete set of
+      fields to require, replacing any previous set. Pass an empty
+      list to stop requiring any field. Requires permission to change
+      account settings, granted to account owners by default.
     """
 
     create_monitor_tuning_run = sgqlc.types.Field(
@@ -66477,6 +66770,58 @@ class Mutation(sgqlc.types.Type):
       monitoring Dataflows on.
     """
 
+    add_salesforce_data_cloud_etl_connection = sgqlc.types.Field(
+        AddSalesforceDataCloudEtlConnection,
+        graphql_name="addSalesforceDataCloudEtlConnection",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
+                    ),
+                ),
+                ("name", sgqlc.types.Arg(String, graphql_name="name", default=None)),
+            )
+        ),
+    )
+    """(experimental) Enable ETL monitoring on a Salesforce Data Cloud
+    connection
+
+    Arguments:
+
+    * `connection_id` (`UUID!`): Enable ETL on this existing
+      Salesforce Data Cloud connection, reusing its credentials and
+      data collector.
+    * `name` (`String`): Friendly name for the Salesforce Data Cloud
+      ETL integration (the ETL container). Defaults to a name derived
+      from the connection, which keeps multiple Data Cloud connections
+      in one account from colliding.
+    """
+
+    remove_salesforce_data_cloud_etl_from_connection = sgqlc.types.Field(
+        "RemoveSalesforceDataCloudEtlFromConnection",
+        graphql_name="removeSalesforceDataCloudEtlFromConnection",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Stop ETL monitoring on a Salesforce Data Cloud
+    connection
+
+    Arguments:
+
+    * `connection_id` (`UUID!`): ID of the Salesforce Data Cloud
+      connection to stop ETL monitoring on.
+    """
+
     toggle_event_config = sgqlc.types.Field(
         "ToggleEventConfig",
         graphql_name="toggleEventConfig",
@@ -71364,11 +71709,68 @@ class PauseTableMonitor(sgqlc.types.Type):
     table_monitor = sgqlc.types.Field("TableMonitor", graphql_name="tableMonitor")
 
 
+class PerformanceInsightTicket(sgqlc.types.Type):
+    """A ticket (Linear issue / Jira ticket) created from
+    cost/performance insights.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "provider",
+        "identifier",
+        "url",
+        "source_thread_id",
+        "covered_insight_keys",
+        "created_by",
+        "created_time",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
+    """Linkage identifier."""
+
+    provider = sgqlc.types.Field(
+        sgqlc.types.non_null(PerformanceInsightTicketProvider), graphql_name="provider"
+    )
+    """Ticketing provider the ticket was created in."""
+
+    identifier = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="identifier")
+    """Human-readable ticket key shown in the URL (e.g. ENG-123,
+    COST-45).
+    """
+
+    url = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="url")
+    """Web URL of the created ticket."""
+
+    source_thread_id = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="sourceThreadId"
+    )
+    """Run that surfaced the insights this ticket covers."""
+
+    covered_insight_keys = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="coveredInsightKeys",
+    )
+    """Keys of all insights this ticket covers, within 'sourceThreadId'
+    (a ticket can span several).
+    """
+
+    created_by = sgqlc.types.Field("UserInfoOutput", graphql_name="createdBy")
+    """Display label for the user who created the ticket. Returns the
+    user's email for human users; for agent users, returns a derived
+    display label (e.g. ``Agent on <domain>``) — never the agent's
+    internal address.
+    """
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+    """When the ticket was created."""
+
+
 class PerformancePageInsightOutput(sgqlc.types.Type):
     """A single insight surfaced on the Performance Page."""
 
     __schema__ = schema
     __field_names__ = (
+        "key",
         "title",
         "headline",
         "category",
@@ -71377,7 +71779,14 @@ class PerformancePageInsightOutput(sgqlc.types.Type):
         "related_warehouses",
         "estimated_savings",
         "impact",
+        "tickets",
     )
+    key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="key")
+    """Identifies this insight within the run that produced it, so a
+    ticket can be filed against it. Only meaningful alongside that
+    run's 'threadId'.
+    """
+
     title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
     """Full insight title, as a sentence."""
 
@@ -71416,6 +71825,15 @@ class PerformancePageInsightOutput(sgqlc.types.Type):
     storage or recurring compute time). Null when the insight has no
     storage- or time-based quantity; the dollar figure is on
     'estimatedSavings'.
+    """
+
+    tickets = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(PerformanceInsightTicket))),
+        graphql_name="tickets",
+    )
+    """Tickets already created for this insight. Empty when none have
+    been filed. Tickets are scoped to the run, so a new run starts
+    with none.
     """
 
 
@@ -73430,6 +73848,7 @@ class Query(sgqlc.types.Type):
         "get_incident_warehouse_tables",
         "get_alert_warehouse_tables",
         "get_triage_availability",
+        "get_required_monitor_fields",
         "get_monitor_tuning_runs",
         "get_monitor_tuning_suggestions",
         "get_monitor_tuning_auto_apply_config",
@@ -73440,6 +73859,7 @@ class Query(sgqlc.types.Type):
         "findings",
         "finding",
         "latest_monitoring_plan",
+        "domain_monitoring_plan_state",
         "monitoring_plan",
         "monitoring_plans",
         "monitoring_plan_for_monitor",
@@ -73721,8 +74141,17 @@ class Query(sgqlc.types.Type):
     get_scheduled_reports = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("ScheduledReportType"))),
         graphql_name="getScheduledReports",
+        args=sgqlc.types.ArgDict(
+            (("report_type", sgqlc.types.Arg(ReportType, graphql_name="reportType", default=None)),)
+        ),
     )
-    """(experimental) List all scheduled reports for the calling account."""
+    """(experimental) List all scheduled reports for the calling account.
+
+    Arguments:
+
+    * `report_type` (`ReportType`): Only return reports of this type.
+      Omit for all types.
+    """
 
     get_scheduled_report = sgqlc.types.Field(
         sgqlc.types.non_null("ScheduledReportType"),
@@ -83952,6 +84381,10 @@ class Query(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
                 (
+                    "missing_required_fields",
+                    sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
+                ),
+                (
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
@@ -84040,6 +84473,12 @@ class Query(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `missing_required_fields` (`Boolean`): Filter monitors by
+      whether they are missing a field this account requires. When
+      true, returns only monitors missing at least one required field;
+      when false, only monitors that have all of them; when null, no
+      filtering. Returns nothing when true and the account requires no
+      fields, since no monitor can be missing one.
     * `created_by_agent` (`Boolean`): Filter monitors by whether their
       creator is an agent user. When true, returns only monitors
       created by an agent user. When false, returns only monitors
@@ -84256,6 +84695,10 @@ class Query(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
                 (
+                    "missing_required_fields",
+                    sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
+                ),
+                (
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
@@ -84344,6 +84787,12 @@ class Query(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `missing_required_fields` (`Boolean`): Filter monitors by
+      whether they are missing a field this account requires. When
+      true, returns only monitors missing at least one required field;
+      when false, only monitors that have all of them; when null, no
+      filtering. Returns nothing when true and the account requires no
+      fields, since no monitor can be missing one.
     * `created_by_agent` (`Boolean`): Filter monitors by whether their
       creator is an agent user. When true, returns only monitors
       created by an agent user. When false, returns only monitors
@@ -84560,6 +85009,10 @@ class Query(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
                 (
+                    "missing_required_fields",
+                    sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
+                ),
+                (
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
@@ -84648,6 +85101,12 @@ class Query(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `missing_required_fields` (`Boolean`): Filter monitors by
+      whether they are missing a field this account requires. When
+      true, returns only monitors missing at least one required field;
+      when false, only monitors that have all of them; when null, no
+      filtering. Returns nothing when true and the account requires no
+      fields, since no monitor can be missing one.
     * `created_by_agent` (`Boolean`): Filter monitors by whether their
       creator is an agent user. When true, returns only monitors
       created by an agent user. When false, returns only monitors
@@ -84864,6 +85323,10 @@ class Query(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
                 (
+                    "missing_required_fields",
+                    sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
+                ),
+                (
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
@@ -84952,6 +85415,12 @@ class Query(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `missing_required_fields` (`Boolean`): Filter monitors by
+      whether they are missing a field this account requires. When
+      true, returns only monitors missing at least one required field;
+      when false, only monitors that have all of them; when null, no
+      filtering. Returns nothing when true and the account requires no
+      fields, since no monitor can be missing one.
     * `created_by_agent` (`Boolean`): Filter monitors by whether their
       creator is an agent user. When true, returns only monitors
       created by an agent user. When false, returns only monitors
@@ -85168,6 +85637,10 @@ class Query(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
                 (
+                    "missing_required_fields",
+                    sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
+                ),
+                (
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
@@ -85256,6 +85729,12 @@ class Query(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `missing_required_fields` (`Boolean`): Filter monitors by
+      whether they are missing a field this account requires. When
+      true, returns only monitors missing at least one required field;
+      when false, only monitors that have all of them; when null, no
+      filtering. Returns nothing when true and the account requires no
+      fields, since no monitor can be missing one.
     * `created_by_agent` (`Boolean`): Filter monitors by whether their
       creator is an agent user. When true, returns only monitors
       created by an agent user. When false, returns only monitors
@@ -85472,6 +85951,10 @@ class Query(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
                 (
+                    "missing_required_fields",
+                    sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
+                ),
+                (
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
@@ -85560,6 +86043,12 @@ class Query(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `missing_required_fields` (`Boolean`): Filter monitors by
+      whether they are missing a field this account requires. When
+      true, returns only monitors missing at least one required field;
+      when false, only monitors that have all of them; when null, no
+      filtering. Returns nothing when true and the account requires no
+      fields, since no monitor can be missing one.
     * `created_by_agent` (`Boolean`): Filter monitors by whether their
       creator is an agent user. When true, returns only monitors
       created by an agent user. When false, returns only monitors
@@ -85776,6 +86265,10 @@ class Query(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
                 (
+                    "missing_required_fields",
+                    sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
+                ),
+                (
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
@@ -85864,6 +86357,12 @@ class Query(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `missing_required_fields` (`Boolean`): Filter monitors by
+      whether they are missing a field this account requires. When
+      true, returns only monitors missing at least one required field;
+      when false, only monitors that have all of them; when null, no
+      filtering. Returns nothing when true and the account requires no
+      fields, since no monitor can be missing one.
     * `created_by_agent` (`Boolean`): Filter monitors by whether their
       creator is an agent user. When true, returns only monitors
       created by an agent user. When false, returns only monitors
@@ -86080,6 +86579,10 @@ class Query(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
                 (
+                    "missing_required_fields",
+                    sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
+                ),
+                (
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
@@ -86168,6 +86671,12 @@ class Query(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `missing_required_fields` (`Boolean`): Filter monitors by
+      whether they are missing a field this account requires. When
+      true, returns only monitors missing at least one required field;
+      when false, only monitors that have all of them; when null, no
+      filtering. Returns nothing when true and the account requires no
+      fields, since no monitor can be missing one.
     * `created_by_agent` (`Boolean`): Filter monitors by whether their
       creator is an agent user. When true, returns only monitors
       created by an agent user. When false, returns only monitors
@@ -86384,6 +86893,10 @@ class Query(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
                 ),
                 (
+                    "missing_required_fields",
+                    sgqlc.types.Arg(Boolean, graphql_name="missingRequiredFields", default=None),
+                ),
+                (
                     "created_by_agent",
                     sgqlc.types.Arg(Boolean, graphql_name="createdByAgent", default=None),
                 ),
@@ -86472,6 +86985,12 @@ class Query(sgqlc.types.Type):
     * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
       status. When true, returns only monitors auto-created by the
       recommendation service.
+    * `missing_required_fields` (`Boolean`): Filter monitors by
+      whether they are missing a field this account requires. When
+      true, returns only monitors missing at least one required field;
+      when false, only monitors that have all of them; when null, no
+      filtering. Returns nothing when true and the account requires no
+      fields, since no monitor can be missing one.
     * `created_by_agent` (`Boolean`): Filter monitors by whether their
       creator is an agent user. When true, returns only monitors
       created by an agent user. When false, returns only monitors
@@ -88525,6 +89044,13 @@ class Query(sgqlc.types.Type):
     the caller's account.
     """
 
+    get_required_monitor_fields = sgqlc.types.Field(
+        "RequiredMonitorFields", graphql_name="getRequiredMonitorFields"
+    )
+    """(experimental) Get the monitor fields that are required when
+    creating or editing a monitor in the calling user's account.
+    """
+
     get_monitor_tuning_runs = sgqlc.types.Field(
         MonitorTuningRunConnection,
         graphql_name="getMonitorTuningRuns",
@@ -88764,6 +89290,36 @@ class Query(sgqlc.types.Type):
 
     * `domain_uuid` (`UUID!`): UUID of the metadata domain whose
       latest monitoring plan to fetch.
+    """
+
+    domain_monitoring_plan_state = sgqlc.types.Field(
+        sgqlc.types.non_null(DomainMonitoringPlanState),
+        graphql_name="domainMonitoringPlanState",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) The domain's monitoring-plan surface in one read:
+    the latest run execution (reconciled against the agent, so a
+    freshly-finished run reports its terminal status immediately) plus
+    the newest COMPLETE plan. Never returns a partial plan: a run's
+    findings arrive asynchronously, so until they have all landed the
+    previous complete plan keeps serving. Poll while `settled` is
+    false. Monitor-permission-gated (monitors/management write or
+    propose) — NOT alerts/access — so a monitor-only user who ran the
+    plan can read it.
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`): UUID of the metadata domain whose
+      monitoring-plan state to fetch.
     """
 
     monitoring_plan = sgqlc.types.Field(
@@ -98631,6 +99187,7 @@ class RemediationResult(sgqlc.types.Type):
         "status",
         "tsa_run_id",
         "summary",
+        "instructions",
         "recommended_action",
         "response_type",
         "reference_uuid",
@@ -98661,6 +99218,18 @@ class RemediationResult(sgqlc.types.Type):
     proposes, as Markdown. Generated text derived from a report that
     can contain customer-controlled content: render it as plain text
     or sanitized Markdown, never as HTML. Available when status is
+    COMPLETED.
+    """
+
+    instructions = sgqlc.types.Field(String, graphql_name="instructions")
+    """The step-by-step plan for whoever carries the work out, as
+    Markdown, ending in the execution protocol it is to be followed
+    under. Longer than summary and a different document: summary is
+    the banner beside the alert, this is the plan itself. Pass it on
+    whole — the protocol is part of it. No steps to execute when
+    drafted is false. Generated text derived from a report that can
+    contain customer-controlled content: render it as plain text or
+    sanitized Markdown, never as HTML. Available when status is
     COMPLETED.
     """
 
@@ -98781,6 +99350,17 @@ class RemovePowerBiDataflowsFromConnection(sgqlc.types.relay.Connection):
     success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
 
 
+class RemoveSalesforceDataCloudEtlFromConnection(sgqlc.types.relay.Connection):
+    """Stop ETL monitoring on a Salesforce Data Cloud connection. Data
+    stream monitoring is turned off and the connection's existing
+    metadata and query monitoring is kept.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+
+
 class RemoveSnowflakeTasksFromConnection(sgqlc.types.relay.Connection):
     """Stop monitoring Snowflake Tasks on a connection. If the connection
     is used only for Snowflake Tasks it is removed; otherwise
@@ -98828,6 +99408,33 @@ class ReportStatus(sgqlc.types.Type):
     error = sgqlc.types.Field(String, graphql_name="error")
 
     download_url = sgqlc.types.Field(String, graphql_name="downloadUrl")
+
+
+class RequiredMonitorFields(sgqlc.types.Type):
+    """Account-level configuration of which monitor fields are mandatory."""
+
+    __schema__ = schema
+    __field_names__ = ("fields", "updated_time", "updated_by")
+    fields = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(RequiredMonitorField))),
+        graphql_name="fields",
+    )
+    """Monitor fields that must be non-empty when a monitor is created or
+    edited in this account. An empty list means no fields are
+    required.
+    """
+
+    updated_time = sgqlc.types.Field(DateTime, graphql_name="updatedTime")
+    """When the required field list was last changed. Null if it has
+    never been set.
+    """
+
+    updated_by = sgqlc.types.Field("UserInfoOutput", graphql_name="updatedBy")
+    """Display label for the user who last changed the required field
+    list. Returns the user's email for human users; for agent users,
+    returns a derived display label (e.g. ``Agent on <domain>``) —
+    never the agent's internal address.
+    """
 
 
 class ResourceConnection(sgqlc.types.relay.Connection):
@@ -99798,11 +100405,11 @@ class ScheduledReportType(sgqlc.types.Type):
     )
     """Recurrence interval."""
 
-    interval_position = sgqlc.types.Field(
-        sgqlc.types.non_null(Int), graphql_name="intervalPosition"
-    )
-    """Position within the interval: weekday (1=Mon..7=Sun) for WEEK, day
-    of month (1-31, clamped to month end) for MONTH.
+    interval_position = sgqlc.types.Field(Int, graphql_name="intervalPosition")
+    """Position within the interval: hour of day (0-23, UTC) for DAY —
+    null means Monte Carlo picks the delivery time — weekday
+    (1=Mon..7=Sun) for WEEK, day of month (1-31, clamped to month end)
+    for MONTH.
     """
 
     next_execution_time = sgqlc.types.Field(
@@ -107397,6 +108004,19 @@ class UpdateRedshiftCredentialsV2Mutation(sgqlc.types.Type):
     result = sgqlc.types.Field(UpdateCredentialsV2Result, graphql_name="result")
 
 
+class UpdateRequiredMonitorFields(sgqlc.types.Type):
+    """Replace the monitor fields this account requires on monitor create
+    and edit.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("required_monitor_fields",)
+    required_monitor_fields = sgqlc.types.Field(
+        RequiredMonitorFields, graphql_name="requiredMonitorFields"
+    )
+    """The updated required field configuration."""
+
+
 class UpdateScheduledReportMutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("report",)
@@ -112681,6 +113301,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "paused_reason",
         "is_draft",
         "is_auto_created",
+        "auto_apply_tuning_override",
         "alert_grouping",
         "rule_type",
         "warehouse_uuid",
@@ -112824,6 +113445,12 @@ class CustomRule(sgqlc.types.Type, Node):
 
     is_auto_created = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isAutoCreated")
     """Was this monitor auto-created by the recommendation service?"""
+
+    auto_apply_tuning_override = sgqlc.types.Field(Boolean, graphql_name="autoApplyTuningOverride")
+    """Per-monitor override for auto-apply tuning (null = inherit from
+    domain/account, true/false = force enable/disable for this
+    monitor).
+    """
 
     alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
     """Per-monitor alert grouping configuration. Null means legacy per-
@@ -116851,6 +117478,7 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "paused_reason",
         "is_draft",
         "is_auto_created",
+        "auto_apply_tuning_override",
         "alert_grouping",
         "type",
         "warehouse_uuid",
@@ -116977,6 +117605,12 @@ class MetricMonitoring(sgqlc.types.Type, Node):
 
     is_auto_created = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isAutoCreated")
     """Was this monitor auto-created by the recommendation service?"""
+
+    auto_apply_tuning_override = sgqlc.types.Field(Boolean, graphql_name="autoApplyTuningOverride")
+    """Per-monitor override for auto-apply tuning (null = inherit from
+    domain/account, true/false = force enable/disable for this
+    monitor).
+    """
 
     alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
     """Per-monitor alert grouping configuration (null = legacy behavior)."""
@@ -120098,6 +120732,7 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
         "monitor_sql_blocks",
         "sampling_config",
         "alert_grouping",
+        "auto_apply_tuning_override",
         "agent_names",
         "entity_mcons",
         "agent_span_filters",
@@ -120297,6 +120932,11 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
 
     alert_grouping = sgqlc.types.Field(JSONString, graphql_name="alertGrouping")
     """Per-monitor alert grouping configuration from monitors"""
+
+    auto_apply_tuning_override = sgqlc.types.Field(Boolean, graphql_name="autoApplyTuningOverride")
+    """Per-monitor auto-apply tuning override from monitors (null =
+    inherit)
+    """
 
     agent_names = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="agentNames"

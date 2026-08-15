@@ -23,14 +23,16 @@ from torch.utils.data import IterableDataset
 
 from litdata import __version__
 from litdata.constants import _INDEX_FILENAME
+from litdata.debugger import CAT_SAMPLE, emit_trace, is_tracing
 from litdata.helpers import _check_version_and_prompt_upgrade
 from litdata.streaming import Cache
 from litdata.streaming.config import ChunksConfig
 from litdata.streaming.item_loader import BaseItemLoader, ParquetLoader, PyTreeLoader
+from litdata.streaming.posix_fast import PosixFastProfile, detect_posix_fast, posix_fast_supports_config
 from litdata.streaming.resolver import Dir, _resolve_dir
 from litdata.streaming.sampler import ChunkedIndex
 from litdata.streaming.serializers import Serializer, _get_serializers
-from litdata.streaming.shuffle import FullShuffle, NoShuffle, Shuffle
+from litdata.streaming.shuffle import FullShuffle, NoShuffle, Shuffle, WindowShuffle
 from litdata.utilities.dataset_utilities import (
     _should_replace_path,
     _should_replace_path_filestores,
@@ -183,6 +185,8 @@ class StreamingDataset(IterableDataset):
         # Upcoming in-chunk sample indexes for this worker. ``deque`` keeps ``popleft`` O(1);
         # a list ``pop(0)`` would be O(n) per sample for large chunks.
         self.upcoming_indexes: deque[int] = deque()
+        # Lazy parquet key index (``keys/shard-*.parquet``) for ``dataset[key]`` lookups.
+        self._key_index: Any | None = None
 
         # which index of the array `self.worker_chunks` will we work on after this chunk is completely consumed
         self.worker_next_chunk_index = 0
@@ -212,6 +216,16 @@ class StreamingDataset(IterableDataset):
         elif input_dir.data_connection_id and storage_options is None:
             storage_options = {"data_connection_id": input_dir.data_connection_id}
         self.storage_options = storage_options
+        self.posix_fast: PosixFastProfile | None = detect_posix_fast(
+            input_dir.path,
+            storage_options,
+            remote_url=input_dir.url,
+        )
+        if self.posix_fast is not None:
+            logger.info(
+                "StreamingDataset POSIX-fast %s: mmap chunks in place (no cache copy, no source delete).",
+                self.posix_fast.kind,
+            )
         self.session_options = session_options
         self.max_pre_download = max_pre_download
         if transform is not None:
@@ -274,7 +288,8 @@ class StreamingDataset(IterableDataset):
             self.current_epoch = current_epoch
 
     def _create_cache(self, worker_env: _WorkerEnv) -> Cache:
-        if _should_replace_path(self.input_dir.path):
+        skip_copy = self.posix_fast is not None and self.posix_fast.skip_cache_copy
+        if not skip_copy and _should_replace_path(self.input_dir.path):
             cache_path = _try_create_cache_dir(
                 input_dir=self.input_dir.path if self.input_dir.path else self.input_dir.url,
                 cache_dir=self.cache_dir.path,
@@ -330,6 +345,15 @@ class StreamingDataset(IterableDataset):
                 "\n HINT: Did you successfully optimize a dataset to the provided `input_dir`?"
             )
 
+        if self.posix_fast is not None and not posix_fast_supports_config(cache._reader._config):
+            self.posix_fast = None
+
+        if self.posix_fast is not None and self.posix_fast.in_place and cache._reader._config is not None:
+            chunks = cache._reader._config._chunks or []
+            cache._reader.enable_posix_fast(
+                list(range(len(chunks))), keep=max(4, self.max_pre_download), prefetch=False
+            )
+
         return cache
 
     def _create_shuffler(self, cache: Cache) -> Shuffle:
@@ -339,7 +363,11 @@ class StreamingDataset(IterableDataset):
             state: dict[str, Any] = self._state_dict
             seed = state["seed"]
             drop_last = state["drop_last"]
-        return FullShuffle(cache, seed, drop_last) if self.shuffle else NoShuffle(cache, seed, drop_last)
+        if not self.shuffle:
+            return NoShuffle(cache, seed, drop_last)
+        if self.posix_fast is not None and self.posix_fast.window_shuffle:
+            return WindowShuffle(cache, seed, drop_last)
+        return FullShuffle(cache, seed, drop_last)
 
     def __len__(self) -> int:
         return self.get_len(self.num_workers, self.batch_size if self.batch_size else 1)
@@ -406,12 +434,21 @@ class StreamingDataset(IterableDataset):
 
         shared_chunks = _get_shared_chunks(workers_chunks[worker_start:worker_end])
         my_shared_chunks = {chunk_index for chunk_index in self.worker_chunks if chunk_index in shared_chunks}
-        self.cache._reader.acquire_shared_locks(my_shared_chunks)
 
-        # Chunks this worker owns exclusively are safe to memory-map for faster reads; shared chunks
-        # are not (a co-worker could delete/replace one while it is mapped -> SIGSEGV).
-        my_nonshared_chunks = {chunk_index for chunk_index in self.worker_chunks if chunk_index not in shared_chunks}
-        self.cache._reader.enable_mmap_for_chunks(my_nonshared_chunks)
+        posix = self.posix_fast is not None and self.posix_fast.in_place
+        if posix:
+            # Source chunks are never deleted, so shared mmap is safe (FFCV OS-cache model).
+            # Skip .cnt lock files — they are extra metadata IOPS on Vast/NFS.
+            self.cache._reader.enable_posix_fast(
+                list(dict.fromkeys(self.worker_chunks)),
+                keep=max(4, self.max_pre_download),
+            )
+        else:
+            self.cache._reader.acquire_shared_locks(my_shared_chunks)
+            my_nonshared_chunks = {
+                chunk_index for chunk_index in self.worker_chunks if chunk_index not in shared_chunks
+            }
+            self.cache._reader.enable_mmap_for_chunks(my_nonshared_chunks)
 
         # Handle restart
         if self._state_dict:
@@ -483,12 +520,20 @@ class StreamingDataset(IterableDataset):
 
         # bump the chunk_index
         self.worker_next_chunk_index += 1
+        if self.posix_fast is not None and self.posix_fast.in_place and self.cache is not None:
+            keep = max(4, self.max_pre_download)
+            start = max(self.worker_next_chunk_index - 1, 0)
+            self.cache._reader.prefetch_posix_window(self.worker_chunks[start : start + keep])
 
-    def __getitem__(self, index: ChunkedIndex | int | slice) -> Any:
+    def __getitem__(self, index: ChunkedIndex | int | slice | str) -> Any:
         if self.cache is None:
             self.worker_env = _WorkerEnv.detect()
             self.cache = self._create_cache(worker_env=self.worker_env)
             self.shuffler = self._create_shuffler(self.cache)
+        # String keys go through the keys/ store. Int remains a global sample index;
+        # use ``get_by_key`` for int entity keys.
+        if isinstance(index, str):
+            return self.get_by_key(index)
         if isinstance(index, int):
             index = ChunkedIndex(*self.cache._get_chunk_index_from_index(index))
         elif isinstance(index, slice):
@@ -497,6 +542,15 @@ class StreamingDataset(IterableDataset):
             _my_indices = list(range(start, stop, step))
             _my_cache_indices = [ChunkedIndex(*self.cache._get_chunk_index_from_index(idx)) for idx in _my_indices]
             return [self.cache[chnk_idx] for chnk_idx in _my_cache_indices]
+        tracing_sample = is_tracing(CAT_SAMPLE)
+        if tracing_sample:
+            emit_trace(
+                "sample",
+                "B",
+                CAT_SAMPLE,
+                chunk=getattr(index, "chunk_index", ""),
+                index=getattr(index, "index", index),
+            )
         item = self.cache[index]
         if hasattr(self, "transform"):
             if isinstance(self.transform, list):
@@ -504,8 +558,49 @@ class StreamingDataset(IterableDataset):
                     item = transform_fn(item)
             else:
                 item = self.transform(item)
+        if tracing_sample:
+            emit_trace(
+                "sample",
+                "E",
+                CAT_SAMPLE,
+                chunk=getattr(index, "chunk_index", ""),
+                index=getattr(index, "index", index),
+            )
 
         return item
+
+    def get_by_key(self, key: Any) -> Any:
+        """Load a sample by entity key from the ``keys/`` store (str or int keys).
+
+        The key store is read from the dataset root (local cache if present, else
+        the remote URL). Remote lookups use Polars ``scan_parquet`` with predicate
+        pushdown so shards stay in object storage.
+        """
+        from litdata.utilities.keys_index import KeyIndex, has_keys_index
+
+        if self.cache is None:
+            self.worker_env = _WorkerEnv.detect()
+            self.cache = self._create_cache(worker_env=self.worker_env)
+            self.shuffler = self._create_shuffler(self.cache)
+
+        if self._key_index is None:
+            local_root = self.input_dir.path
+            remote_root = self.input_dir.url
+            root: str | None = None
+            if local_root and has_keys_index(local_root):
+                root = local_root
+            elif remote_root and has_keys_index(remote_root, self.storage_options):
+                root = remote_root
+            if root is None:
+                raise KeyError(f"Keyed access requires a keys/ index next to the dataset. Missing for key={key!r}.")
+            self._key_index = KeyIndex(root, storage_options=self.storage_options)
+
+        global_index, chunk_index, chunk_offset = self._key_index.resolve(key)
+        if chunk_index >= 0:
+            chunked = ChunkedIndex(index=chunk_offset, chunk_index=chunk_index)
+        else:
+            chunked = ChunkedIndex(*self.cache._get_chunk_index_from_index(global_index))
+        return self[chunked]
 
     def __next__(self) -> Any:
         # check if we have reached the end of the dataset (i.e., all the chunks have been processed)
@@ -546,6 +641,10 @@ class StreamingDataset(IterableDataset):
             )
 
             self.worker_next_chunk_index += 1  # bump the chunk_index
+            if self.posix_fast is not None and self.posix_fast.in_place and self.cache is not None:
+                keep = max(4, self.max_pre_download)
+                start = self.worker_next_chunk_index - 1
+                self.cache._reader.prefetch_posix_window(self.worker_chunks[start : start + keep])
 
         # Get the first index (O(1) with deque)
         index = self.upcoming_indexes.popleft()

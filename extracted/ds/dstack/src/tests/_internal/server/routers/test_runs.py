@@ -11,7 +11,6 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from dstack._internal.core.errors import GatewayError
 from dstack._internal.core.models.backends.base import BackendType
 from dstack._internal.core.models.common import ApplyAction, EntityReference
 from dstack._internal.core.models.configurations import (
@@ -50,12 +49,11 @@ from dstack._internal.core.models.volumes import InstanceMountPoint, MountPoint
 from dstack._internal.server.models import JobModel, RunModel
 from dstack._internal.server.schemas.runs import MAX_JOB_SUBMISSIONS_LIMIT, ApplyRunPlanRequest
 from dstack._internal.server.services.projects import add_project_member
-from dstack._internal.server.services.resources import (
-    set_gpu_vendor_default,
-    set_resources_defaults,
-)
 from dstack._internal.server.services.runs import run_model_to_run
-from dstack._internal.server.services.runs.spec import validate_run_spec_and_set_defaults
+from dstack._internal.server.services.runs.spec import (
+    set_run_spec_resources_defaults,
+    validate_run_spec_and_set_defaults,
+)
 from dstack._internal.server.testing.common import (
     create_backend,
     create_export,
@@ -87,6 +85,32 @@ pytestmark = pytest.mark.usefixtures("image_config_mock", "disable_sshproxy")
 @pytest.fixture
 def disable_sshproxy(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr("dstack._internal.server.settings.SSHPROXY_ENABLED", False)
+
+
+def get_default_gpu_dict(docker: Optional[bool] = None) -> Dict:
+    """
+    The GPU spec the server sets when the client submits no GPU requirements.
+    The vendor is inferred from the image: the default dstack image is NVIDIA-only,
+    while the DinD image works with any vendor.
+    """
+    return {
+        "vendor": None if docker else "nvidia",
+        "name": None,
+        "count": {"min": 0, "max": None},
+        "memory": None,
+        "total_memory": None,
+        "compute_capability": None,
+    }
+
+
+def get_submitted_run_spec_dict(run_spec: Dict) -> Dict:
+    """
+    A copy of the run spec dict as submitted by the client, that is, without the resource
+    defaults that the server sets (see `set_run_spec_resources_defaults`).
+    """
+    run_spec = copy.deepcopy(run_spec)
+    run_spec["configuration"]["resources"]["gpu"] = None
+    return run_spec
 
 
 def get_dev_env_run_plan_dict(
@@ -185,7 +209,7 @@ def get_dev_env_run_plan_dict(
                 "cpu": {"arch": "x86", "count": {"min": 2, "max": None}},
                 "memory": {"min": 8.0, "max": None},
                 "disk": None,
-                "gpu": None,
+                "gpu": get_default_gpu_dict(docker),
                 "shm_size": None,
             },
             "volumes": [json.loads(v.model_dump_json()) for v in volumes],
@@ -267,7 +291,8 @@ def get_dev_env_run_plan_dict(
     return {
         "project_name": project_name,
         "user": username,
-        "run_spec": run_spec,
+        # `run_spec` is returned as submitted, `effective_run_spec` — with the server defaults
+        "run_spec": get_submitted_run_spec_dict(run_spec),
         "effective_run_spec": run_spec,
         "job_plans": [
             {
@@ -294,7 +319,7 @@ def get_dev_env_run_plan_dict(
                             "cpu": {"arch": "x86", "count": {"min": 2, "max": None}},
                             "memory": {"min": 8.0, "max": None},
                             "disk": None,
-                            "gpu": None,
+                            "gpu": get_default_gpu_dict(docker),
                             "shm_size": None,
                         },
                         "max_price": None,
@@ -437,7 +462,7 @@ def get_dev_env_run_dict(
                     "cpu": {"arch": "x86", "count": {"min": 2, "max": None}},
                     "memory": {"min": 8.0, "max": None},
                     "disk": None,
-                    "gpu": None,
+                    "gpu": get_default_gpu_dict(docker),
                     "shm_size": None,
                 },
                 "volumes": [],
@@ -541,7 +566,7 @@ def get_dev_env_run_dict(
                             "cpu": {"arch": "x86", "count": {"min": 2, "max": None}},
                             "memory": {"min": 8.0, "max": None},
                             "disk": None,
-                            "gpu": None,
+                            "gpu": get_default_gpu_dict(docker),
                             "shm_size": None,
                         },
                         "max_price": None,
@@ -3100,13 +3125,7 @@ class TestGetRunPlan:
             run_spec=run_spec,
         )
         run = run_model_to_run(run_model)
-        # Apply the same defaults the server applies to current_resource
-        set_resources_defaults(run.run_spec.configuration.resources)
-        set_gpu_vendor_default(
-            run.run_spec.configuration.resources,
-            image=run.run_spec.configuration.image,
-            docker=getattr(run.run_spec.configuration, "docker", None),
-        )
+        set_run_spec_resources_defaults(run.run_spec)
         run_spec.configuration = new_conf
         response = await client.post(
             f"/api/project/{project.name}/runs/get_plan",
@@ -3307,7 +3326,7 @@ class TestApplyPlan:
                 headers=get_auth_headers(user.token),
                 json={
                     "plan": {
-                        "run_spec": run_dict["run_spec"],
+                        "run_spec": get_submitted_run_spec_dict(run_dict["run_spec"]),
                         "current_resource": None,
                     },
                     "force": False,
@@ -3977,8 +3996,9 @@ class TestSubmitService:
         assert response.status_code == 200
         assert response.json()["service"]["url"] == expected_service_url
         assert response.json()["service"]["model"]["base_url"] == expected_model_url
-        events = await list_events(session)
-        assert ("Service registered in gateway" in {e.message for e in events}) == is_gateway
+        res = await session.execute(select(RunModel))
+        run = res.scalar_one()
+        assert (run.gateway_id is not None) == is_gateway
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("populate_configuration", [True, False])
@@ -4029,8 +4049,9 @@ class TestSubmitService:
         )
         assert response.status_code == 200
         assert response.json()["service"]["url"] == "https://test-service.my-gateway.example"
-        events = await list_events(session)
-        assert "Service registered in gateway" in {e.message for e in events}
+        res = await session.execute(select(RunModel))
+        run = res.scalar_one()
+        assert run.gateway_id is not None
 
     @pytest.mark.asyncio
     async def test_return_error_if_specified_gateway_not_exists(
@@ -4381,62 +4402,6 @@ class TestSubmitService:
                 }
             ]
         }
-
-    @pytest.mark.asyncio
-    async def test_unregister_dangling_service(
-        self,
-        test_db,
-        session: AsyncSession,
-        client: AsyncClient,
-        mock_gateway_connection: AsyncMock,
-    ) -> None:
-        user = await create_user(session=session, global_role=GlobalRole.USER)
-        project = await create_project(session=session, owner=user, name="test-project")
-        await add_project_member(
-            session=session, project=project, user=user, project_role=ProjectRole.USER
-        )
-        repo = await create_repo(session=session, project_id=project.id)
-        backend = await create_backend(session=session, project_id=project.id)
-        gateway = await create_gateway(
-            session=session,
-            project_id=project.id,
-            backend_id=backend.id,
-            status=GatewayStatus.RUNNING,
-            wildcard_domain="example.com",
-        )
-        await create_gateway_compute(session=session, backend_id=backend.id, gateway_id=gateway.id)
-        project.default_gateway_id = gateway.id
-        await session.commit()
-
-        client_mock = (
-            mock_gateway_connection.return_value.client.return_value.__aenter__.return_value
-        )
-        client_mock.register_service.side_effect = [
-            GatewayError("Service test-project/test-service is already registered"),
-            None,  # Second call succeeds
-        ]
-
-        response = await client.post(
-            f"/api/project/{project.name}/runs/apply",
-            headers=get_auth_headers(user.token),
-            json={
-                "plan": {
-                    "run_spec": get_service_run_spec(repo_id=repo.name, run_name="test-service"),
-                    "current_resource": None,
-                },
-                "force": False,
-            },
-        )
-
-        assert response.status_code == 200
-        assert response.json()["service"]["url"] == "https://test-service.example.com"
-        # Verify that unregister_service was called to clean up the dangling service
-        client_mock.unregister_service.assert_called_once_with(
-            project=project.name,
-            run_name="test-service",
-        )
-        # Verify that register_service was called twice (first failed, then succeeded)
-        assert client_mock.register_service.call_count == 2
 
     @pytest.mark.asyncio
     async def test_return_error_if_default_gateway_forbids_new_services(

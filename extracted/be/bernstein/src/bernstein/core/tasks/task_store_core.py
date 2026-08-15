@@ -22,6 +22,7 @@ from typing_extensions import TypedDict
 
 from bernstein.core.defaults import TASK as _TASK_DEFAULTS
 from bernstein.core.hook_events import HookEvent
+from bernstein.core.persistence.anchored_write import anchored_append
 from bernstein.core.persistence.durable_write import fsynced_write
 from bernstein.core.persistence.runtime_state import rotate_log_file
 from bernstein.core.security.sanitize import sanitize_log
@@ -40,7 +41,7 @@ from bernstein.core.tasks.models import (
     TaskType,
     UpgradeProposalDetails,
 )
-from bernstein.core.tenanting import ensure_tenant_layout, normalize_tenant_id
+from bernstein.core.tenanting import ensure_tenant_layout, normalize_tenant_id, try_normalize_tenant_id
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -366,7 +367,11 @@ async def _retry_io(fn: Any, *args: Any) -> Any:
     import errno
 
     max_retries = _TASK_DEFAULTS.max_io_retries
-    non_transient = {errno.ENOSPC, errno.EROFS, errno.EACCES, errno.EPERM}
+    # ELOOP/ENOTDIR come from an anchored write refusing a component that is a
+    # symlink or not a directory. That is a statement about the layout, not a
+    # condition that clears on its own, so retrying only delays the same
+    # failure and reports it as a store outage rather than as what it is.
+    non_transient = {errno.ENOSPC, errno.EROFS, errno.EACCES, errno.EPERM, errno.ELOOP, errno.ENOTDIR}
     last_exc: OSError | None = None
     for attempt in range(max_retries):
         try:
@@ -823,8 +828,7 @@ class TaskStore:
 
         try:
             tenant_paths = ensure_tenant_layout(self._sdd_dir, str(record["tenant_id"]))
-            target_path = tenant_paths.backlog_dir / "tasks.jsonl"
-            with target_path.open("a", encoding="utf-8") as handle:
+            with anchored_append(tenant_paths.anchor.child("backlog"), "tasks.jsonl") as handle:
                 handle.write(line)
         except OSError as exc:
             # Tenant mirror is best-effort during recovery; the authoritative
@@ -906,7 +910,12 @@ class TaskStore:
 
         if tenant_id is not None:
             normalized = normalize_tenant_id(tenant_id)
-            records = [record for record in records if normalize_tenant_id(str(record.get("tenant_id"))) == normalized]
+            # The stored value goes through unchanged. Coercing it first turns
+            # a row that cannot be read into one that reads as a tenant name:
+            # `str(True)` is `"True"` and `str(None)` is `"None"`, both valid
+            # identifiers, so the row would be handed to whichever tenant
+            # happens to be called that.
+            records = [record for record in records if try_normalize_tenant_id(record.get("tenant_id")) == normalized]
         return records[-limit:]
 
     async def _append_archive(self, task: Task, completed_at: float) -> None:
@@ -945,10 +954,10 @@ class TaskStore:
         """Mirror task lifecycle records into a tenant-scoped backlog file."""
 
         tenant_paths = ensure_tenant_layout(self._sdd_dir, str(record["tenant_id"]))
-        target_path = tenant_paths.backlog_dir / "tasks.jsonl"
+        backlog = tenant_paths.anchor.child("backlog")
 
         def _write() -> None:
-            with target_path.open("a", encoding="utf-8") as handle:
+            with anchored_append(backlog, "tasks.jsonl") as handle:
                 handle.write(line)
 
         await _retry_io(_write)
@@ -957,10 +966,10 @@ class TaskStore:
         """Mirror archive records into a tenant-scoped backlog archive file."""
 
         tenant_paths = ensure_tenant_layout(self._sdd_dir, tenant_id)
-        target_path = tenant_paths.backlog_dir / "archive.jsonl"
+        backlog = tenant_paths.anchor.child("backlog")
 
         def _write() -> None:
-            with target_path.open("a", encoding="utf-8") as handle:
+            with anchored_append(backlog, "archive.jsonl") as handle:
                 handle.write(line)
 
         await _retry_io(_write)
@@ -1176,6 +1185,27 @@ class TaskStore:
             self._by_status[TaskStatus.CLOSED].values()
         )
         done_ids = {done_task.id for done_task in completed_tasks}
+
+        # Check for terminal-not-successful dependencies (issue #3621)
+        # A task whose depends_on contains any task in a terminal-not-successful
+        # status should not be re-queued forever.
+        terminal_failed = {
+            TaskStatus.FAILED,
+            TaskStatus.CANCELLED,
+            TaskStatus.REFUSED,
+            TaskStatus.ORPHANED,
+        }
+        for dep_id in task.depends_on:
+            dep_task = self._tasks.get(dep_id)
+            if dep_task and dep_task.status in terminal_failed:
+                logger.warning(
+                    "Task %s dependency %s is %s — task will never run",
+                    task.id,
+                    dep_id,
+                    dep_task.status.value,
+                )
+                return False
+
         if not all(dep in done_ids for dep in task.depends_on):
             return False
         if task.depends_on_repo is None:
@@ -3218,10 +3248,51 @@ class TaskStore:
 
     # -- status summary / cost tracking --------------------------------------
 
-    def status_summary(self) -> dict[str, Any]:
-        """Return aggregated task counts for the dashboard."""
-        role_counts = self._build_role_counts()
-        total_cost, cost_by_role = self._compute_costs()
+    def status_summary(self, tenant_id: str | None = None) -> dict[str, Any]:
+        """Return aggregated task counts for the dashboard.
+
+        Args:
+            tenant_id: If provided, the task figures are computed over that
+                tenant's rows only.  ``None`` keeps the whole-store roll-up,
+                matching :meth:`list_tasks`, whose ``tenant_id`` is optional
+                for the same reason: the CLI, the TUI and the supervisor read
+                this store outside any request and have no scope to apply.
+
+        Note:
+            A tenant scope narrows the *task* figures.  The cost figures keep
+            folding in the per-role metrics JSONL, which carries no tenant of
+            its own, exactly as they did before - narrowing untenanted cost
+            records is a separate question from narrowing task rows, and
+            ``/status`` reads that same file directly for its headline spend
+            besides.
+
+            Per-status counts are read from the same by-status index the
+            unscoped roll-up and :meth:`count_by_status` read, filtered rather
+            than recomputed, so a scoped ``/status`` and a scoped
+            ``/tasks/counts`` cannot disagree with each other.
+        """
+        normalized_tenant = normalize_tenant_id(tenant_id) if tenant_id is not None else None
+        counted_statuses = (
+            TaskStatus.OPEN,
+            TaskStatus.CLAIMED,
+            TaskStatus.DONE,
+            TaskStatus.FAILED,
+            TaskStatus.REFUSED,
+        )
+        if normalized_tenant is None:
+            tasks = list(self._tasks.values())
+            status_counts = {status: len(self._by_status.get(status, {})) for status in counted_statuses}
+        else:
+            tasks = [task for task in self._tasks.values() if task.tenant_id == normalized_tenant]
+            status_counts = {
+                status: sum(
+                    1 for task in self._by_status.get(status, {}).values() if task.tenant_id == normalized_tenant
+                )
+                for status in counted_statuses
+            }
+
+        role_counts = self._build_role_counts(tasks)
+        total_cost, cost_by_role = self._compute_costs(tasks)
 
         per_role = []
         for role, counts in sorted(role_counts.items()):
@@ -3233,22 +3304,22 @@ class TaskStore:
             per_role.append(entry)
 
         summary: dict[str, Any] = {
-            "total": len(self._tasks),
-            "open": len(self._by_status.get(TaskStatus.OPEN, {})),
-            "claimed": len(self._by_status.get(TaskStatus.CLAIMED, {})),
-            "done": len(self._by_status.get(TaskStatus.DONE, {})),
-            "failed": len(self._by_status.get(TaskStatus.FAILED, {})),
-            "refused": len(self._by_status.get(TaskStatus.REFUSED, {})),
+            "total": len(tasks),
+            "open": status_counts[TaskStatus.OPEN],
+            "claimed": status_counts[TaskStatus.CLAIMED],
+            "done": status_counts[TaskStatus.DONE],
+            "failed": status_counts[TaskStatus.FAILED],
+            "refused": status_counts[TaskStatus.REFUSED],
             "per_role": per_role,
             "total_cost_usd": round(total_cost, 4),
         }
         self._attach_bandit_stats(summary)
         return summary
 
-    def _build_role_counts(self) -> dict[str, dict[str, int]]:
-        """Build per-role breakdown across all statuses."""
+    def _build_role_counts(self, tasks: list[Task]) -> dict[str, dict[str, int]]:
+        """Build per-role breakdown across all statuses for *tasks*."""
         role_counts: dict[str, dict[str, int]] = {}
-        for task in self._tasks.values():
+        for task in tasks:
             if task.role not in role_counts:
                 role_counts[task.role] = {"open": 0, "claimed": 0, "done": 0, "failed": 0}
             status_key = task.status.value
@@ -3256,9 +3327,9 @@ class TaskStore:
                 role_counts[task.role][status_key] += 1
         return role_counts
 
-    def _compute_costs(self) -> tuple[float, dict[str, float]]:
-        """Compute total cost from in-memory tasks and metrics JSONL."""
-        total_cost = sum(t.cost_usd for t in self._tasks.values() if hasattr(t, "cost_usd") and t.cost_usd)
+    def _compute_costs(self, tasks: list[Task]) -> tuple[float, dict[str, float]]:
+        """Compute total cost from *tasks* and the metrics JSONL."""
+        total_cost = sum(t.cost_usd for t in tasks if hasattr(t, "cost_usd") and t.cost_usd)
         cost_by_role = self._read_cost_by_role()
         metrics_cost = sum(cost_by_role.values())
         if metrics_cost > total_cost:

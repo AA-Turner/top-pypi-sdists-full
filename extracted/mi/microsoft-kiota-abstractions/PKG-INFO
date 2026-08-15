@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: microsoft-kiota-abstractions
-Version: 1.11.8
+Version: 1.11.9
 Summary: Core abstractions for kiota generated libraries in Python
 Keywords: kiota,openAPI,Microsoft,Graph
 Author-email: Microsoft <graphtooling+python@microsoft.com>
@@ -20,6 +20,7 @@ Requires-Dist: opentelemetry-sdk>=1.27.0
 Project-URL: Documentation, https://learn.microsoft.com/openapi/kiota/
 Project-URL: Homepage, https://github.com/microsoft/kiota#readme
 Project-URL: Repository, https://github.com/microsoft/kiota-python
+Import-Name: kiota_abstractions
 
 # Microsoft Kiota Abstractions Library for Python
 

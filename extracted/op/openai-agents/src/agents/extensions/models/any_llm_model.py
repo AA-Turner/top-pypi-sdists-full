@@ -881,19 +881,13 @@ class AnyLLMModel(Model):
         if tracing.include_data():
             span.span_data.input = converted_messages
 
-        parallel_tool_calls = (
-            True
-            if model_settings.parallel_tool_calls and tools
-            else False
-            if model_settings.parallel_tool_calls is False
-            else None
-        )
         tool_choice = Converter.convert_tool_choice(model_settings.tool_choice)
         response_format = Converter.convert_response_format(output_schema)
         converted_tools = [Converter.tool_to_openai(tool) for tool in tools] if tools else []
         for handoff in handoffs:
             converted_tools.append(Converter.convert_handoff_tool(handoff))
         converted_tools = _to_dump_compatible(converted_tools)
+        parallel_tool_calls = model_settings.parallel_tool_calls if converted_tools else None
 
         if _debug.DONT_LOG_MODEL_DATA:
             logger.debug("Calling LLM")
@@ -1057,14 +1051,6 @@ class AnyLLMModel(Model):
         list_input = _to_dump_compatible(list_input)
         list_input = self._sanitize_any_llm_responses_input(list_input)
 
-        parallel_tool_calls = (
-            True
-            if model_settings.parallel_tool_calls and tools
-            else False
-            if model_settings.parallel_tool_calls is False
-            else None
-        )
-
         tool_choice = OpenAIResponsesConverter.convert_tool_choice(
             model_settings.tool_choice,
             tools=tools,
@@ -1079,6 +1065,9 @@ class AnyLLMModel(Model):
             tool_choice=model_settings.tool_choice,
         )
         converted_tools_payload = _materialize_responses_tool_params(converted_tools.tools)
+        parallel_tool_calls = (
+            model_settings.parallel_tool_calls if converted_tools_payload else None
+        )
 
         include_set = set(converted_tools.includes)
         if model_settings.response_include is not None:

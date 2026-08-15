@@ -23,7 +23,17 @@ pub enum PostgresType {
     Timestamp,
     Interval,
     List(Box<Column>),
-    UserDefined { fields: Vec<Box<Column>> }, // User-defined type, e.g. a struct
+    /// A user-defined type, e.g. a Postgres composite built from an Arrow struct.
+    ///
+    /// `oid` is the type's OID *in the database being loaded*. Composite OIDs are allocated by
+    /// the server when the type is created, so pgpq cannot know them; a caller that needs one
+    /// supplies it (see `ArrowToPostgresBinaryEncoder::with_composite_oids`). It is `None` until
+    /// then, and only actually required when the composite is nested inside another composite —
+    /// that is the one place its OID goes on the wire.
+    UserDefined {
+        fields: Vec<Box<Column>>,
+        oid: Option<u32>,
+    },
 }
 
 impl PostgresType {
@@ -58,7 +68,7 @@ impl PostgresType {
             PostgresType::Int4 => Some(23),
             PostgresType::Char => Some(18),
             PostgresType::Text => Some(25),
-            PostgresType::Json => Some(3802),
+            PostgresType::Json => Some(114),
             PostgresType::Jsonb => Some(3802),
             PostgresType::Float4 => Some(700),
             PostgresType::Float8 => Some(701),
@@ -67,8 +77,49 @@ impl PostgresType {
             PostgresType::Time => Some(1083),
             PostgresType::Timestamp => Some(1114),
             PostgresType::Interval => Some(1186),
+            PostgresType::List(inner) => inner.data_type.array_oid(),
+            // Whatever the caller supplied, and nothing otherwise.
+            //
+            // This used to be a hard-coded 16385. Postgres only tolerated that because it
+            // assumes an OID it does not recognise belongs to a sender-side type — and 16385 is
+            // the *first* OID a cluster hands out for user objects, so on any database that has
+            // ever created one, `record_recv` found a real (and different) type there and
+            // rejected the COPY. Fresh test clusters never had one, which is why it survived.
+            // See <https://github.com/adriangb/pgpq/issues/96>.
+            PostgresType::UserDefined { oid, .. } => *oid,
+        }
+    }
+    /// The OID of the Postgres array type whose *element* type is `self` (`_int4` for `int4`, …).
+    ///
+    /// Postgres validates these: `record_recv` rejects a composite field whose declared OID names
+    /// a different type than the column, and `array_recv` does the same for an array's element
+    /// OID. (It only lets an OID through when the OID is unknown to the receiving server, which is
+    /// why the dummy OID used for composites has been getting away with it.)
+    ///
+    /// Only built-in types have a stable, well-known array OID. A composite type's array type is
+    /// created together with the type itself and its OID is therefore only known to the server, so
+    /// nested cases — an array of composites, or an array of arrays, neither of which Postgres has
+    /// a distinct type for anyway — return `None` and the caller reports the type as unsupported.
+    pub fn array_oid(&self) -> Option<u32> {
+        match &self {
+            PostgresType::Bool => Some(1000),      // _bool
+            PostgresType::Bytea => Some(1001),     // _bytea
+            PostgresType::Char => Some(1002),      // _char
+            PostgresType::Int2 => Some(1005),      // _int2
+            PostgresType::Int4 => Some(1007),      // _int4
+            PostgresType::Text => Some(1009),      // _text
+            PostgresType::Int8 => Some(1016),      // _int8
+            PostgresType::Float4 => Some(1021),    // _float4
+            PostgresType::Float8 => Some(1022),    // _float8
+            PostgresType::Timestamp => Some(1115), // _timestamp
+            PostgresType::Date => Some(1182),      // _date
+            PostgresType::Time => Some(1183),      // _time
+            PostgresType::Interval => Some(1187),  // _interval
+            PostgresType::Numeric => Some(1231),   // _numeric
+            PostgresType::Json => Some(199),       // _json
+            PostgresType::Jsonb => Some(3807),     // _jsonb
             PostgresType::List(_) => None,
-            PostgresType::UserDefined { .. } => Some(16385), // arbitrary dummy oid
+            PostgresType::UserDefined { .. } => None,
         }
     }
     pub fn name(&self) -> Option<String> {
@@ -112,6 +163,16 @@ pub struct PostgresSchema {
     pub columns: Vec<Column>,
 }
 
+/// Quote one SQL identifier.
+///
+/// Every identifier in the generated DDL comes from caller data — the table name, the column
+/// names and (now that composite fields carry their Arrow names) the struct field names — so all
+/// of them are double quoted, with any embedded double quote doubled per the SQL rules. Without
+/// this a field named `a"b` would end the quoted identifier early.
+fn quote_ident(ident: &str) -> String {
+    format!("\"{}\"", ident.replace('"', "\"\""))
+}
+
 impl PostgresSchema {
     /// Generate DDL for creating the table and any required types.
     /// If `temp_table` is true, creates a TEMP TABLE, otherwise a regular TABLE.
@@ -122,29 +183,31 @@ impl PostgresSchema {
             types: &mut Vec<(String, Vec<(String, String)>)>,
             type_map: &mut std::collections::HashMap<*const Column, String>,
         ) {
-            if let PostgresType::UserDefined { fields } = &col.data_type {
+            if let PostgresType::UserDefined { fields, .. } = &col.data_type {
                 for field in fields.iter() {
                     collect_types(field, types, type_map); // Recursively collect nested types first
                 }
-                let type_name = format!("{}_t", col.name);
+                let type_name = quote_ident(&format!("{}_t", col.name));
                 type_map.insert(col as *const _, type_name.clone());
                 let field_ddls = fields
                     .iter()
-                    .enumerate()
-                    .map(|(i, field)| {
-                        let field_name = format!("f{}", i);
+                    .map(|field| {
+                        // The composite's fields keep the names they had in Arrow: a Postgres
+                        // composite has named fields, and positional `f0`, `f1`, … made the
+                        // created type awkward to actually use from SQL.
+                        let field_name = quote_ident(&field.name);
                         let field_type = match &field.data_type {
                             PostgresType::UserDefined { .. } => type_map
                                 .get(&(field.as_ref() as *const _))
                                 .cloned()
-                                .unwrap_or_else(|| "userdefined_t".to_string()),
+                                .unwrap_or_else(|| quote_ident("userdefined_t")),
                             PostgresType::List(inner) => match &inner.data_type {
                                 PostgresType::UserDefined { .. } => format!(
                                     "{}[]",
                                     type_map
                                         .get(&(inner.as_ref() as *const _))
                                         .cloned()
-                                        .unwrap_or_else(|| "userdefined_t".to_string())
+                                        .unwrap_or_else(|| quote_ident("userdefined_t"))
                                 ),
                                 _ => format!("{}[]", inner.data_type.name().unwrap()),
                             },
@@ -170,7 +233,7 @@ impl PostgresSchema {
         for (type_name, fields) in &types {
             let fields_ddl = fields
                 .iter()
-                .map(|(fname, ftype)| format!("\"{}\" {}", fname, ftype))
+                .map(|(fname, ftype)| format!("{} {}", fname, ftype))
                 .collect::<Vec<_>>()
                 .join(", ");
             ddl.push_str(&format!("CREATE TYPE {} AS ({});\n", type_name, fields_ddl));
@@ -185,29 +248,31 @@ impl PostgresSchema {
                     PostgresType::UserDefined { .. } => type_map
                         .get(&(col as *const _))
                         .cloned()
-                        .unwrap_or_else(|| "userdefined_t".to_string()),
+                        .unwrap_or_else(|| quote_ident("userdefined_t")),
                     PostgresType::List(inner) => match &inner.data_type {
                         PostgresType::UserDefined { .. } => format!(
                             "{}[]",
                             type_map
                                 .get(&(inner.as_ref() as *const _))
                                 .cloned()
-                                .unwrap_or_else(|| "userdefined_t".to_string())
+                                .unwrap_or_else(|| quote_ident("userdefined_t"))
                         ),
                         _ => format!("{}[]", inner.data_type.name().unwrap()),
                     },
                     _ => col.data_type.name().unwrap(),
                 };
                 let nullability = if col.nullable { "" } else { " NOT NULL" };
-                format!("\"{}\" {}{}", col.name, type_str, nullability)
+                format!("{} {}{}", quote_ident(&col.name), type_str, nullability)
             })
             .collect::<Vec<_>>()
             .join(", ");
 
         let table_type = if temp_table { "TEMP TABLE" } else { "TABLE" };
         ddl.push_str(&format!(
-            "CREATE {} \"{}\" ({});",
-            table_type, table_name, cols
+            "CREATE {} {} ({});",
+            table_type,
+            quote_ident(table_name),
+            cols
         ));
         ddl
     }
@@ -241,6 +306,7 @@ mod tests {
                                 nullable: false,
                             }),
                         ],
+                        oid: None,
                     },
                     nullable: true,
                 },
@@ -249,15 +315,42 @@ mod tests {
 
         let ddl = schema.ddl("test_table", true);
 
-        let expected_ddl = r#"CREATE TYPE data_t AS ("f0" TEXT, "f1" INT8);
-CREATE TEMP TABLE "test_table" ("id" INT4 NOT NULL, "data" data_t);"#;
+        let expected_ddl = r#"CREATE TYPE "data_t" AS ("field1" TEXT, "field2" INT8);
+CREATE TEMP TABLE "test_table" ("id" INT4 NOT NULL, "data" "data_t");"#;
 
         assert_eq!(ddl.trim(), expected_ddl.trim());
 
         // Test with temp_table = false
         let ddl_regular = schema.ddl("test_table", false);
-        let expected_ddl_regular = r#"CREATE TYPE data_t AS ("f0" TEXT, "f1" INT8);
-CREATE TABLE "test_table" ("id" INT4 NOT NULL, "data" data_t);"#;
+        let expected_ddl_regular = r#"CREATE TYPE "data_t" AS ("field1" TEXT, "field2" INT8);
+CREATE TABLE "test_table" ("id" INT4 NOT NULL, "data" "data_t");"#;
         assert_eq!(ddl_regular.trim(), expected_ddl_regular.trim());
+    }
+
+    /// Every identifier the DDL emits comes from caller data, so every one of them is quoted with
+    /// embedded double quotes doubled. This only started mattering for field names once they
+    /// stopped being the generated `f0`, `f1`, … .
+    #[test]
+    fn test_ddl_quotes_identifiers() {
+        let schema = PostgresSchema {
+            columns: vec![Column {
+                name: "od d\"name".to_string(),
+                data_type: PostgresType::UserDefined {
+                    fields: vec![Box::new(Column {
+                        name: "a\"b".to_string(),
+                        data_type: PostgresType::Text,
+                        nullable: true,
+                    })],
+                    oid: None,
+                },
+                nullable: true,
+            }],
+        };
+
+        let ddl = schema.ddl("ta\"ble", false);
+
+        let expected = r#"CREATE TYPE "od d""name_t" AS ("a""b" TEXT);
+CREATE TABLE "ta""ble" ("od d""name" "od d""name_t");"#;
+        assert_eq!(ddl.trim(), expected.trim());
     }
 }

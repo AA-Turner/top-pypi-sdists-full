@@ -148,6 +148,7 @@ async function takeScreenshot(url) {
     timeoutMs,
     puppeteer,
   });
+  console.log("Screenshot capture started");
 
   try {
     const captureTimeoutMs = Math.max(timeoutMs, 10000);

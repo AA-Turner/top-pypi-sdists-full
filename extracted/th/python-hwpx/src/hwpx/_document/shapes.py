@@ -3,13 +3,15 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Sequence, cast
 
+from ._units import _mm_to_hwp_units
 from ..errors import HwpxStateError, HwpxValueError
 
 if TYPE_CHECKING:
     from hwpx.document import HwpxDocument
     from ..oxml import (
+        ContainerMember,
         HwpxOxmlInlineObject,
         HwpxOxmlNote,
         HwpxOxmlParagraph,
@@ -171,6 +173,76 @@ def add_line(
     )
 
 
+def add_composed_character(
+    doc: "HwpxDocument",
+    compose_text: str,
+    char_pr_id_refs: Sequence[str | int] | None = None,
+    *,
+    circle_type: str | None = None,
+    char_sz: int | None = None,
+    compose_type: str | None = None,
+    paragraph: HwpxOxmlParagraph | None = None,
+    section: HwpxOxmlSection | None = None,
+    section_index: int | None = None,
+    char_pr_id_ref: str | int | None = None,
+) -> HwpxOxmlInlineObject:
+    """Insert ``hp:compose`` (글자 겹치기/원문자) inline, in *paragraph* if
+    given, else a freshly-appended one -- matching :func:`add_line`'s own
+    "attach here, or make a home" contract (compose/dutmal are typically
+    inline within a sentence, not their own standalone paragraph like a
+    drawing shape usually is).
+    """
+    if paragraph is None:
+        paragraph = doc.add_paragraph(
+            "", section=section, section_index=section_index,
+            include_run=False,
+        )
+    return paragraph.add_composed_character(
+        compose_text,
+        char_pr_id_refs,
+        circle_type=circle_type,
+        char_sz=char_sz,
+        compose_type=compose_type,
+        char_pr_id_ref=char_pr_id_ref,
+    )
+
+
+def add_dutmal(
+    doc: "HwpxDocument",
+    main_text: str,
+    sub_text: str,
+    *,
+    pos_type: str = "TOP",
+    align: str = "CENTER",
+    sz_ratio: int | None = 0,
+    option: int | None = 0,
+    style_id_ref: str | int | None = None,
+    paragraph: HwpxOxmlParagraph | None = None,
+    section: HwpxOxmlSection | None = None,
+    section_index: int | None = None,
+    char_pr_id_ref: str | int | None = None,
+) -> HwpxOxmlInlineObject:
+    """Insert ``hp:dutmal`` (덧말) inline, in *paragraph* if given, else a
+    freshly-appended one. See ``HwpxOxmlParagraph.add_dutmal``'s docstring
+    for the low-confidence-axis disclosure (single real-corpus sample).
+    """
+    if paragraph is None:
+        paragraph = doc.add_paragraph(
+            "", section=section, section_index=section_index,
+            include_run=False,
+        )
+    return paragraph.add_dutmal(
+        main_text,
+        sub_text,
+        pos_type=pos_type,
+        align=align,
+        sz_ratio=sz_ratio,
+        option=option,
+        style_id_ref=style_id_ref,
+        char_pr_id_ref=char_pr_id_ref,
+    )
+
+
 def add_rectangle(
     doc: "HwpxDocument",
     width: int = 14400,
@@ -229,6 +301,120 @@ def add_ellipse(
         line_color=line_color, line_width=line_width,
         fill_color=fill_color, treat_as_char=treat_as_char,
     )
+
+
+def add_arc(
+    doc: "HwpxDocument",
+    width: int = 14400,
+    height: int = 14400,
+    *,
+    corner: str = "TOP_LEFT",
+    arc_type: str = "NORMAL",
+    line_color: str = "#000000",
+    line_width: str = "283",
+    fill_color: str | None = None,
+    treat_as_char: bool = True,
+    paragraph: HwpxOxmlParagraph | None = None,
+    section: HwpxOxmlSection | None = None,
+    section_index: int | None = None,
+) -> HwpxOxmlShape:
+    """Insert a quarter-ellipse arc drawing shape.
+
+    Dimensions are in HWPUNIT. Only ``corner="TOP_LEFT"`` is corpus-verified
+    point-for-point (real-corpus contract — see ``_create_arc_element``); the
+    other three corners mirror that pattern via ``hp:flip``, the same
+    mechanism every other shape here already uses. *arc_type* is the
+    schema's own ``NORMAL``/``PIE``/``CHORD`` passthrough.
+    """
+    if paragraph is None:
+        paragraph = doc.add_paragraph(
+            "", section=section, section_index=section_index,
+            include_run=False,
+        )
+    return paragraph.add_arc(
+        width, height,
+        corner=corner, arc_type=arc_type,
+        line_color=line_color, line_width=line_width,
+        fill_color=fill_color, treat_as_char=treat_as_char,
+    )
+
+
+def add_polygon(
+    doc: "HwpxDocument",
+    points_mm: Sequence[tuple[float, float]],
+    *,
+    line_color: str = "#000000",
+    line_width: str = "283",
+    fill_color: str | None = None,
+    treat_as_char: bool = True,
+    paragraph: HwpxOxmlParagraph | None = None,
+    section: HwpxOxmlSection | None = None,
+    section_index: int | None = None,
+) -> HwpxOxmlShape:
+    """Insert a polygon drawing shape.
+
+    *points_mm* are millimetre vertex coordinates (3 or more). Hancom stores
+    a polygon's vertices in its own top-left-anchored local coordinate space
+    (real-corpus contract — see ``_create_polygon_element``), so the points
+    are translated to that local space here: passing page-space coordinates
+    does not itself position the shape on the page, only paragraph placement
+    does that.
+    """
+    points = list(points_mm)
+    if len(points) < 3:
+        raise HwpxValueError(
+            "add_polygon requires at least 3 points",
+            code="shape-polygon-too-few-points",
+            context={"count": len(points)},
+            suggestion="Pass 3 or more (x, y) millimetre vertices.",
+        )
+    if paragraph is None:
+        paragraph = doc.add_paragraph(
+            "", section=section, section_index=section_index,
+            include_run=False,
+        )
+    hwp_points = [(_mm_to_hwp_units(x), _mm_to_hwp_units(y)) for x, y in points]
+    return paragraph.add_polygon(
+        hwp_points,
+        line_color=line_color, line_width=line_width,
+        fill_color=fill_color, treat_as_char=treat_as_char,
+    )
+
+
+def add_container(
+    doc: "HwpxDocument",
+    members: Sequence["ContainerMember"],
+    *,
+    treat_as_char: bool = True,
+    paragraph: HwpxOxmlParagraph | None = None,
+    section: HwpxOxmlSection | None = None,
+    section_index: int | None = None,
+) -> HwpxOxmlShape:
+    """Insert a group (``<hp:container>``) wrapping *members*.
+
+    Each member is built with :class:`hwpx.oxml.ContainerMember`'s
+    ``rect``/``ellipse``/``polygon`` classmethods, which take the member's
+    position in the group's own local coordinate space (HWPUNIT, top-left
+    anchored) alongside its usual shape parameters::
+
+        doc.shapes.add_container([
+            ContainerMember.rect(0, 0, 5000, 3000, fill_color="#FFCC00"),
+            ContainerMember.ellipse(6000, 0, 4000, 4000),
+        ])
+
+    The group's own size is the union bounding box of its members — see
+    :func:`hwpx.oxml.objects._create_container_element` for the real-corpus
+    contract (member envelope, ``groupLevel``, shared ``id`` convention).
+    Grouping already-placed shapes together (rather than building the
+    group from scratch) is not supported by this entry point — build the
+    members through ``ContainerMember`` instead.
+    """
+    if paragraph is None:
+        paragraph = doc.add_paragraph(
+            "", section=section, section_index=section_index,
+            include_run=False,
+        )
+    return paragraph.add_container(members, treat_as_char=treat_as_char)
 
 
 def add_equation(
@@ -384,5 +570,62 @@ def add_chart(
     raise HwpxStateError(
         "created chart was not recognized by the standard section scan",
         code="shape-chart-not-created",
+        suggestion="Check that this document has a standard section structure.",
+    )
+
+
+def add_drop_cap(
+    doc: "HwpxDocument",
+    character: str,
+    *,
+    width: int,
+    height: int,
+    style: str = "TripleLine",
+    paragraph: HwpxOxmlParagraph | None = None,
+    section: HwpxOxmlSection | None = None,
+    section_index: int | None = None,
+    char_pr_id_ref: str | int | None = None,
+    para_pr_id_ref: str | int | None = None,
+) -> HwpxOxmlInlineObject:
+    """Insert a drop cap (문단 첫 글자 장식), reverse-engineered from the one
+    real-corpus example that carries a non-default ``dropcapstyle``
+    (``error__20230809__test.hwpx`` -- see ``oxml.drop_cap``'s own
+    docstring for the full structural reverse engineering and why v1
+    supports only ``style="TripleLine"``).
+
+    Element construction (element-building validation included) happens in
+    :func:`hwpx.oxml.drop_cap.create_drop_cap_element`; after insertion the
+    anchor is re-read through the standard section scan, matching
+    :func:`add_chart`'s own "creation fails loudly if it did not land"
+    self-check.
+    """
+
+    from ..oxml.namespaces import HP
+
+    if paragraph is None:
+        paragraph = doc.add_paragraph(
+            "", section=section, section_index=section_index, include_run=False,
+        )
+    inline_object = paragraph.add_drop_cap(
+        character,
+        width=width, height=height, style=style,
+        char_pr_id_ref=char_pr_id_ref, para_pr_id_ref=para_pr_id_ref,
+    )
+
+    created_id = inline_object.element.get("id", "")
+    for owning_section in doc.sections:
+        for candidate in owning_section.element.iter(f"{HP}rect"):
+            if candidate.get("id") != created_id:
+                continue
+            if candidate.get("dropcapstyle") != style:
+                raise HwpxStateError(
+                    "created drop cap does not carry the requested dropcapstyle",
+                    code="shape-drop-cap-anchor-detached",
+                    suggestion="Reopen the document and check the section structure.",
+                )
+            return inline_object
+    raise HwpxStateError(
+        "created drop cap was not recognized by the standard section scan",
+        code="shape-drop-cap-not-created",
         suggestion="Check that this document has a standard section structure.",
     )

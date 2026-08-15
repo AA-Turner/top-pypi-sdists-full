@@ -25,7 +25,7 @@ from chalk.utils.df_utils import pa_array_to_pl_series
 from chalk.utils.log_with_context import get_logger
 from chalk.utils.missing_dependency import missing_dependency_exception
 from chalk.utils.pl_helpers import str_json_decode_compat
-from chalk.utils.threading import DEFAULT_IO_EXECUTOR, MultiSemaphore
+from chalk.utils.threading import DEFAULT_IO_EXECUTOR, MultiSemaphore, shutdown_prefetch_workers
 from chalk.utils.tracing import safe_incr, safe_set_gauge, safe_trace
 
 if TYPE_CHECKING:
@@ -718,6 +718,7 @@ class AthenaSourceImpl(BaseSQLSource):
                     x = result_handles.get_nowait()
                 except queue.Empty:
                     break
+                acquired = 0
                 weight = x.estimated_uncompressed_size
                 as_arrow = None
                 if sem:
@@ -728,10 +729,20 @@ class AthenaSourceImpl(BaseSQLSource):
                         # No need to acquire the semaphore for empty tables
                         if not sem.acquire(weight):
                             raise RuntimeError("Failed to acquire semaphore for reading athena unload")
+                        acquired = weight
                         safe_set_gauge("chalk.athena.remaining_prefetch_bytes", sem.get_value())
-                if as_arrow is None:
-                    as_arrow = x.to_arrow(self._s3_filesystem())
-                pa_table_queue.put((as_arrow, weight))
+                try:
+                    if as_arrow is None:
+                        as_arrow = x.to_arrow(self._s3_filesystem())
+                    pa_table_queue.put((as_arrow, weight))
+                    # The consumer owns the weight now, and releases it once it has yielded the chunk.
+                    acquired = 0
+                finally:
+                    # A failed download never reaches the queue, so nobody downstream would ever
+                    # release its weight. Hand it back here instead of shrinking the budget for
+                    # the rest of this query.
+                    if sem is not None and acquired > 0:
+                        sem.release(acquired)
         finally:
             # At the end, putting the worker id to signal that this worker is done
             pa_table_queue.put(worker_idx)
@@ -762,38 +773,41 @@ class AthenaSourceImpl(BaseSQLSource):
         }
         schema: pa.Schema | None = None
 
-        while len(futures) > 0:
-            x = pa_table_queue.get()
-            if isinstance(x, int):
-                futures.pop(x).result()
-                continue
-            tbl, weight = x
-            if schema is None:
-                schema = tbl.schema
-            try:
-                if len(tbl) == 0:
+        try:
+            while len(futures) > 0:
+                x = pa_table_queue.get()
+                if isinstance(x, int):
+                    futures.pop(x).result()
                     continue
-                assert isinstance(tbl, pa.Table)
-                # Convert decimal columns to float64 for compatibility
-                tbl = self._convert_decimals_to_float64_table(tbl)
-                features = columns_to_features(tbl.schema.names)
-                yield self._postprocess_table(features, tbl)
-                safe_incr("chalk.athena.downloaded_bytes", tbl.nbytes or 0)
-                safe_incr("chalk.athena.downloaded_rows", tbl.num_rows or 0)
-                yielded = True
-            finally:
-                # Releasing the semaphore post-yield to better respect the limit
-                if sem is not None and weight > 0:
-                    sem.release(weight)
-                    safe_set_gauge("chalk.athena.remaining_prefetch_bytes", sem.get_value())
-        if not yielded and query_execution_parameters.yield_empty_batches:
-            if schema is not None:
-                features = columns_to_features(schema.names)
-                yield pa.RecordBatch.from_arrays(
-                    arrays=[[] for _ in features],
-                    names=[x.root_fqn for x in features.values()],
-                )
-                return
+                tbl, weight = x
+                if schema is None:
+                    schema = tbl.schema
+                try:
+                    if len(tbl) == 0:
+                        continue
+                    assert isinstance(tbl, pa.Table)
+                    # Convert decimal columns to float64 for compatibility
+                    tbl = self._convert_decimals_to_float64_table(tbl)
+                    features = columns_to_features(tbl.schema.names)
+                    yield self._postprocess_table(features, tbl)
+                    safe_incr("chalk.athena.downloaded_bytes", tbl.nbytes or 0)
+                    safe_incr("chalk.athena.downloaded_rows", tbl.num_rows or 0)
+                    yielded = True
+                finally:
+                    # Releasing the semaphore post-yield to better respect the limit
+                    if sem is not None and weight > 0:
+                        sem.release(weight)
+                        safe_set_gauge("chalk.athena.remaining_prefetch_bytes", sem.get_value())
+            if not yielded and query_execution_parameters.yield_empty_batches:
+                if schema is not None:
+                    features = columns_to_features(schema.names)
+                    yield pa.RecordBatch.from_arrays(
+                        arrays=[[] for _ in features],
+                        names=[x.root_fqn for x in features.values()],
+                    )
+                    return
+        finally:
+            shutdown_prefetch_workers(result_handles, pa_table_queue, sem, futures)
 
     def execute_query_efficient_raw(
         self,

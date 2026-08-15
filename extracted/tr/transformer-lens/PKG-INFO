@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: transformer-lens
-Version: 3.7.1
+Version: 3.7.2
 Summary: An implementation of transformers tailored for mechanistic interpretability.
 Author-email: Neel Nanda <77788841+TransformerLensOrg@users.noreply.github.com>
 License: MIT

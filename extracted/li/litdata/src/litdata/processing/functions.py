@@ -64,6 +64,19 @@ def _is_remote_file(path: str) -> bool:
     return obj.scheme in _SUPPORTED_PROVIDERS
 
 
+def _assert_supported_write_url(output_dir: Dir) -> None:
+    """optimize/map can upload only s3/gs/r2. azure:// and hf:// are read-side."""
+    if output_dir.url is None:
+        return
+    scheme = parse.urlparse(output_dir.url).scheme
+    if scheme and scheme not in _SUPPORTED_PROVIDERS:
+        raise ValueError(
+            f"Cannot write optimized data to `{scheme}://` ({output_dir.url}). "
+            f"Supported upload schemes: {', '.join(_SUPPORTED_PROVIDERS)}. "
+            "Stream from azure:// or hf:// with StreamingDataset after uploading via s3/gs/r2 or a local copy."
+        )
+
+
 def _get_indexed_paths(data: Any) -> dict[int, str]:
     flattened_item, _ = tree_flatten(data)
 
@@ -169,6 +182,7 @@ class LambdaDataChunkRecipe(DataChunkRecipe):
         encryption: Encryption | None = None,
         existing_index: dict[str, Any] | None = None,
         storage_options: dict[str, Any] = {},
+        key_fn: Callable[[Any], Any] | None = None,
     ):
         super().__init__(
             chunk_size=chunk_size,
@@ -176,6 +190,7 @@ class LambdaDataChunkRecipe(DataChunkRecipe):
             compression=compression,
             encryption=encryption,
             storage_options=storage_options,
+            key_fn=key_fn,
         )
         self._fn = fn
         self._inputs = inputs
@@ -220,6 +235,7 @@ class QueueDataChunkRecipe(DataChunkRecipe):
         encryption: Encryption | None = None,
         existing_index: dict[str, Any] | None = None,
         storage_options: dict[str, Any] = {},
+        key_fn: Callable[[Any], Any] | None = None,
     ):
         super().__init__(
             chunk_size=chunk_size,
@@ -227,6 +243,7 @@ class QueueDataChunkRecipe(DataChunkRecipe):
             compression=compression,
             encryption=encryption,
             storage_options=storage_options,
+            key_fn=key_fn,
         )
         self._fn = fn
         self._queue = queue
@@ -326,6 +343,7 @@ def map(
         # Detect before `_resolve_dir` expands `{%strftime}` (Dir objects lose the template).
         should_broadcast_paths = broadcast_paths or _has_time_template(output_dir) or _has_time_template(input_dir)
         _output_dir: Dir = _resolve_dir(output_dir)
+        _assert_supported_write_url(_output_dir)
 
         if _output_dir.url and "cloudspaces" in _output_dir.url:
             raise ValueError(
@@ -422,6 +440,7 @@ def optimize(
     keep_data_ordered: bool = True,
     verbose: bool = True,
     broadcast_paths: bool = False,
+    key_fn: Callable[[Any], Any] | None = None,
 ) -> None:
     """This function converts a dataset into chunks, possibly in a distributed way.
 
@@ -455,9 +474,12 @@ def optimize(
             Set this to ``False`` if the order in which samples are processed should be preserved.
         batch_size: Group the inputs into batches of batch_size length.
         mode: The mode to use when writing the data. Accepts either ``append`` or ``overwrite`` or None.
-            Defaults to None.
+            Defaults to None. ``append`` continues **chunk indices** from an existing dataset; it does not
+            resume an interrupted job (use ``use_checkpoint`` for that).
         use_checkpoint: Whether to create checkpoints while processing the data, which can be used to resume the
-            processing from the last checkpoint if the process is interrupted. (`Default: False`)
+            processing from the last checkpoint if the process is interrupted. (`Default: False`).
+            This is **not** the same as ``mode="append"`` (which continues chunk numbering from an existing
+            ``index.json``). Do not combine them. Checkpoint resume is unsupported for generators and Queue inputs.
         item_loader: The item loader that will be used during loading in StreamingDataset. Determines
                 the format in which the data is stored and optimized for loading.
         start_method: The start method used by python multiprocessing package. Default to spawn unless running
@@ -473,6 +495,9 @@ def optimize(
         broadcast_paths: Broadcast resolved input/output dirs across multi-node ranks. Defaults to ``False``.
             Auto-enabled when ``input_dir`` or ``output_dir`` contains a ``{%strftime}`` time template so ranks
             share one expanded path. When off, each rank uses its locally resolved path.
+        key_fn: Optional callable ``sample -> key`` (str or int). When set, writes a ``keys/``
+            sidecar mapping each key to its sample ``index`` (and chunk location) for
+            ``dataset[key]`` / ``dataset_update``.
     """
     _check_version_and_prompt_upgrade(__version__)
 
@@ -536,6 +561,8 @@ def optimize(
             output_dir = _output_dir.path.replace("/teamspace/studios/this_studio", "")
             output_dir = _get_work_dir().lstrip("/").rstrip("/") + "/" + output_dir.lstrip("/").rstrip("/")
             _output_dir = _resolve_dir(output_dir)
+
+        _assert_supported_write_url(_output_dir)
 
         if _output_dir.url is not None and "cloudspaces" in _output_dir.url:
             raise ValueError(
@@ -608,6 +635,7 @@ def optimize(
                     encryption=encryption,
                     existing_index=existing_index_file_content,
                     storage_options=storage_options,
+                    key_fn=key_fn,
                 )
             else:
                 assert queue is not None
@@ -620,6 +648,7 @@ def optimize(
                     encryption=encryption,
                     existing_index=existing_index_file_content,
                     storage_options=storage_options,
+                    key_fn=key_fn,
                 )
             assert recipe is not None, "Recipe should be defined at this point."
             data_processor.run(recipe)
@@ -636,10 +665,11 @@ def _listdir(folder: str) -> tuple[str, list[str]]:
 
 
 class walk:
-    """This class is an optimized version of os.walk for listing files and folders from cloud filesystem.
+    """Threaded directory listing via ``os.listdir`` (Studio-oriented).
 
-    .. note:: The order of files and folders yielded aren't depth-first anymore due to the asynchronous listing call.
-
+    This is **not** a cloud-aware ``os.walk``. It lists local / FUSE paths with a
+    thread pool. Yield order is not depth-first. Outside Lightning Studio a
+    warning is printed — prefer ``os.walk`` or bucket listing APIs locally.
     """
 
     def __init__(self, folder: str, max_workers: int | None = os.cpu_count()) -> None:

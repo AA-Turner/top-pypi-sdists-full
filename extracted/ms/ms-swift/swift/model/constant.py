@@ -101,6 +101,7 @@ class LLMModelType:
     dbrx = 'dbrx'
     grok = 'grok'
     mamba = 'mamba'
+    nemotron_h = 'nemotron_h'
     polylm = 'polylm'
     aya = 'aya'
     mimo = 'mimo'
@@ -236,10 +237,12 @@ class MLLMModelType:
     step_audio2_mini = 'step_audio2_mini'
     kimi_vl = 'kimi_vl'
     kimi_k25 = 'kimi_k25'
+    kimi_k3 = 'kimi_k3'
     keye_vl = 'keye_vl'
     keye_vl_1_5 = 'keye_vl_1_5'
     dots_ocr = 'dots_ocr'
     sail_vl2 = 'sail_vl2'
+    mimo_v2 = 'mimo_v2'
 
     phi3_vision = 'phi3_vision'
     phi4_multimodal = 'phi4_multimodal'
@@ -263,6 +266,7 @@ class MLLMModelType:
     paddleocr_vl = 'paddleocr_vl'
     hunyuan_ocr = 'hunyuan_ocr'
     step3_vl = 'step3_vl'
+    muse_glimmer = 'muse_glimmer'
 
     jina_reranker_m0 = 'jina_reranker_m0'
 

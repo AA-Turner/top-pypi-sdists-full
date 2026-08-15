@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lusid-sdk
-Version: 2.3.185
+Version: 2.3.186
 Summary: LUSID API
 License: MIT
 Keywords: OpenAPI,OpenAPI-Generator,LUSID API,lusid-sdk
@@ -1715,6 +1715,7 @@ Class | Method | HTTP request | Description
  - [PaymentDetailsReference](docs/PaymentDetailsReference.md)
  - [PaymentDetailsReferenceResponse](docs/PaymentDetailsReferenceResponse.md)
  - [PaymentDetailsSeriesIdentifiers](docs/PaymentDetailsSeriesIdentifiers.md)
+ - [PaymentInKindEvent](docs/PaymentInKindEvent.md)
  - [PaymentInstruction](docs/PaymentInstruction.md)
  - [PaymentInstructionRequest](docs/PaymentInstructionRequest.md)
  - [PaymentInstructionStatus](docs/PaymentInstructionStatus.md)

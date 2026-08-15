@@ -470,6 +470,7 @@ class Row(Element):
         style: str | None = None,
         cell_type: str | None = None,
         currency: str | None = None,
+        formula: str | None = None,
     ) -> None:
         """Shortcut to set the value of the cell at position "x".
 
@@ -482,12 +483,34 @@ class Row(Element):
                 'percentage'.
             currency: The currency symbol if the type is
                 'currency'.
+            formula: The formula to set for the cell.
         """
-        self.set_cell(
-            x,
-            Cell(value, style=style, cell_type=cell_type, currency=currency),
-            clone=False,
+        x_int = self._translate_x_from_any(x)
+        if x_int < self.width:
+            current = self._get_cell2_base(x_int)
+            if current is not None:
+                cell = current.clone
+                cell.repeated = None
+                cell.set_value(
+                    value,
+                    cell_type=cell_type,
+                    currency=currency,
+                    formula=formula,
+                )
+                if style:
+                    cell.style = style
+                self.set_cell(x_int, cell, clone=False)
+                return
+            else:  # pragma: nocover
+                pass
+        cell = Cell(
+            value,
+            style=style,
+            cell_type=cell_type,
+            currency=currency,
+            formula=formula,
         )
+        self.set_cell(x_int, cell, clone=False)
 
     def insert_cell(
         self,
@@ -726,14 +749,7 @@ class Row(Element):
         else:
             start = self._translate_x_from_any(start)
         values_list = list(values)  # we need the number of values
-        if start == 0 and (len(values_list) >= self.width):
-            self.clear()
-            cells = [
-                Cell(value, style=style, cell_type=cell_type, currency=currency)
-                for value in values_list
-            ]
-            self.extend_cells(cells)
-        else:
+        if start >= self.width:
             x = start
             for value in values_list:
                 self.set_cell(
@@ -742,6 +758,50 @@ class Row(Element):
                     clone=False,
                 )
                 x += 1
+        else:
+            x = start
+            for value in values_list:
+                self.set_value(
+                    x, value=value, style=style, cell_type=cell_type, currency=currency
+                )
+
+                x += 1
+
+    @property
+    def values(self) -> list[CellValue | None]:
+        """Get or set the list of cell values of the row.
+
+        When getting, the type of each cell value is inferred from the
+        'office:value-type' attribute.
+        When setting, the type of the provided Python value determines the
+        'office:value-type' of the cell. The style of the cell is kept, to
+        clear completely the cell, use Row.clear().
+
+        Note: the cell style content is kepts when using "cell.value = None".
+        To ensure an absolute empty cell, use Row.clear() that will remove
+        all cells.
+
+        Warning:
+            *   For `date`, `datetime`, and `timedelta`, a default text value
+                is automatically generated.
+            *   For boolean types, the text value will be either 'True' or
+                'False'.
+            *   For numeric types, the return value is typically `Decimal` or
+                `int`.
+            *   To customize the text representation, use the `set_value()`
+                method.
+            *   To change the string representation of the cell without
+                changing the cell type, use the low level property cell.text
+
+        Returns:
+            list[str, bool, int, Decimal, date, datetime, timedelta, None]:
+                The list of values of cells in their appropriate Python type.
+        """
+        return [cell.value for cell in self.iter_cells()]
+
+    @values.setter
+    def values(self, values: Iterable[CellValue | None]) -> None:
+        self.set_values(values)
 
     def rstrip(self, aggressive: bool = False) -> None:
         """Remove empty cells at the right of the row, in-place.

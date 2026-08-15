@@ -4,10 +4,10 @@
 # ///
 """Extract article content using trafilatura from local HTML snapshots."""
 
+import sys
 import argparse
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
@@ -113,6 +113,7 @@ def main() -> None:
             emit_archive_result_record("skipped", "TRAFILATURA_ENABLED=False")
             sys.exit(0)
 
+        print("Trafilatura extraction started", flush=True)
         status, output = extract_trafilatura(args.url, config.TRAFILATURA_BINARY)
 
         if status == "failed":

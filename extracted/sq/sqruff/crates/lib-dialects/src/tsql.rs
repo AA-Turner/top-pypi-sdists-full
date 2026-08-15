@@ -845,10 +845,61 @@ pub fn raw_dialect() -> Dialect {
             Ref::new("SqlcmdCommandSegment").to_matchable(),
             Ref::new("CreateExternalFileFormat").to_matchable(),
             Ref::new("CreateExternalTableStatementSegment").to_matchable(),
+            Ref::new("DropExternalTableStatementSegment").to_matchable(),
+            Ref::new("CopyIntoTableStatementSegment").to_matchable(),
         ])
         .config(|this| this.terminators = vec![Ref::new("DelimiterGrammar").to_matchable()])
         .to_matchable(),
     );
+
+    // IDENTITY = '...' [, SECRET = '...'] used by credential-related statements.
+    dialect.add([(
+        "CredentialGrammar".into(),
+        Sequence::new(vec![
+            Ref::keyword("IDENTITY").to_matchable(),
+            Ref::new("EqualsSegment").to_matchable(),
+            Ref::new("QuotedLiteralSegment").to_matchable(),
+            Sequence::new(vec![
+                Ref::new("CommaSegment").to_matchable(),
+                Ref::keyword("SECRET").to_matchable(),
+                Ref::new("EqualsSegment").to_matchable(),
+                Ref::new("QuotedLiteralSegment").to_matchable(),
+            ])
+            .config(|this| this.optional())
+            .to_matchable(),
+        ])
+        .to_matchable()
+        .into(),
+    )]);
+
+    // Azure Blob Storage / Data Lake Storage Gen2 external locations for COPY INTO.
+    // https://learn.microsoft.com/en-us/sql/t-sql/statements/copy-into-transact-sql#external-locations
+    dialect.add([
+        (
+            "AzureBlobStoragePath".into(),
+            RegexParser::new(
+                concat!(
+                    r"'https://[a-z0-9][a-z0-9-]{1,61}[a-z0-9]\.blob\.core\.windows\.net/[a-z0-9]",
+                    r"[a-z0-9\.-]{1,61}[a-z0-9](?:/.+)?'",
+                ),
+                SyntaxKind::ExternalLocation,
+            )
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "AzureDataLakeStorageGen2Path".into(),
+            RegexParser::new(
+                concat!(
+                    r"'https://[a-z0-9][a-z0-9-]{1,61}[a-z0-9]\.dfs\.core\.windows\.net/[a-z0-9]",
+                    r"[a-z0-9\.-]{1,61}[a-z0-9](?:/.+)?'",
+                ),
+                SyntaxKind::ExternalLocation,
+            )
+            .to_matchable()
+            .into(),
+        ),
+    ]);
 
     // CREATE DATABASE SCOPED CREDENTIAL statement
     // https://learn.microsoft.com/en-us/sql/t-sql/statements/create-database-scoped-credential-transact-sql
@@ -862,17 +913,7 @@ pub fn raw_dialect() -> Dialect {
                 Ref::keyword("CREDENTIAL").to_matchable(),
                 Ref::new("ObjectReferenceSegment").to_matchable(),
                 Ref::keyword("WITH").to_matchable(),
-                Ref::keyword("IDENTITY").to_matchable(),
-                Ref::new("EqualsSegment").to_matchable(),
-                Ref::new("QuotedLiteralSegment").to_matchable(),
-                Sequence::new(vec![
-                    Ref::new("CommaSegment").to_matchable(),
-                    Ref::keyword("SECRET").to_matchable(),
-                    Ref::new("EqualsSegment").to_matchable(),
-                    Ref::new("QuotedLiteralSegment").to_matchable(),
-                ])
-                .config(|this| this.optional())
-                .to_matchable(),
+                Ref::new("CredentialGrammar").to_matchable(),
             ])
             .to_matchable()
         })
@@ -1361,6 +1402,164 @@ pub fn raw_dialect() -> Dialect {
         .into(),
     )]);
 
+    // DROP EXTERNAL TABLE (#4919)
+    // https://learn.microsoft.com/en-us/sql/t-sql/statements/drop-external-table-transact-sql
+    dialect.add([(
+        "DropExternalTableStatementSegment".into(),
+        NodeMatcher::new(SyntaxKind::DropExternalTableStatement, |_| {
+            Sequence::new(vec![
+                Ref::keyword("DROP").to_matchable(),
+                Ref::keyword("EXTERNAL").to_matchable(),
+                Ref::keyword("TABLE").to_matchable(),
+                Ref::new("TableReferenceSegment").to_matchable(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable()
+        .into(),
+    )]);
+
+    // A T-SQL external storage location (used as a table expression by COPY INTO).
+    // https://learn.microsoft.com/en-us/sql/t-sql/statements/copy-into-transact-sql#external-locations
+    dialect.add([(
+        "StorageLocationSegment".into(),
+        NodeMatcher::new(SyntaxKind::StorageLocation, |_| {
+            one_of(vec![
+                Ref::new("AzureBlobStoragePath").to_matchable(),
+                Ref::new("AzureDataLakeStorageGen2Path").to_matchable(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable()
+        .into(),
+    )]);
+
+    // COPY INTO <table> statement
+    // https://learn.microsoft.com/en-us/sql/t-sql/statements/copy-into-transact-sql
+    dialect.add([(
+        "CopyIntoTableStatementSegment".into(),
+        NodeMatcher::new(SyntaxKind::CopyIntoTableStatement, |_| {
+            Sequence::new(vec![
+                Ref::keyword("COPY").to_matchable(),
+                Ref::keyword("INTO").to_matchable(),
+                Ref::new("TableReferenceSegment").to_matchable(),
+                Bracketed::new(vec![
+                    Delimited::new(vec![Ref::new("ColumnDefinitionSegment").to_matchable()])
+                        .to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+                Ref::new("FromClauseSegment").to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("WITH").to_matchable(),
+                    Bracketed::new(vec![
+                        Delimited::new(vec![
+                            Sequence::new(vec![
+                                Ref::keyword("FILE_TYPE").to_matchable(),
+                                Ref::new("EqualsSegment").to_matchable(),
+                                Ref::new("QuotedLiteralSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("FILE_FORMAT").to_matchable(),
+                                Ref::new("EqualsSegment").to_matchable(),
+                                Ref::new("ObjectReferenceSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("CREDENTIAL").to_matchable(),
+                                Ref::new("EqualsSegment").to_matchable(),
+                                Bracketed::new(vec![Ref::new("CredentialGrammar").to_matchable()])
+                                    .to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("ERRORFILE").to_matchable(),
+                                Ref::new("EqualsSegment").to_matchable(),
+                                Ref::new("QuotedLiteralSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("ERRORFILE_CREDENTIAL").to_matchable(),
+                                Ref::new("EqualsSegment").to_matchable(),
+                                Bracketed::new(vec![Ref::new("CredentialGrammar").to_matchable()])
+                                    .to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("MAXERRORS").to_matchable(),
+                                Ref::new("EqualsSegment").to_matchable(),
+                                Ref::new("NumericLiteralSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("COMPRESSION").to_matchable(),
+                                Ref::new("EqualsSegment").to_matchable(),
+                                Ref::new("QuotedLiteralSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("FIELDQUOTE").to_matchable(),
+                                Ref::new("EqualsSegment").to_matchable(),
+                                Ref::new("QuotedLiteralSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("FIELDTERMINATOR").to_matchable(),
+                                Ref::new("EqualsSegment").to_matchable(),
+                                Ref::new("QuotedLiteralSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("ROWTERMINATOR").to_matchable(),
+                                Ref::new("EqualsSegment").to_matchable(),
+                                Ref::new("QuotedLiteralSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("FIRSTROW").to_matchable(),
+                                Ref::new("EqualsSegment").to_matchable(),
+                                Ref::new("NumericLiteralSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("DATEFORMAT").to_matchable(),
+                                Ref::new("EqualsSegment").to_matchable(),
+                                Ref::new("QuotedLiteralSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("ENCODING").to_matchable(),
+                                Ref::new("EqualsSegment").to_matchable(),
+                                Ref::new("FileEncodingSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("IDENTITY_INSERT").to_matchable(),
+                                Ref::new("EqualsSegment").to_matchable(),
+                                Ref::new("QuotedLiteralSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                            Sequence::new(vec![
+                                Ref::keyword("AUTO_CREATE_TABLE").to_matchable(),
+                                Ref::new("EqualsSegment").to_matchable(),
+                                Ref::new("QuotedLiteralSegment").to_matchable(),
+                            ])
+                            .to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable()
+        .into(),
+    )]);
+
     // `LOCATION = ...` clause, used by external tables and external data sources.
     dialect.add([(
         "TableLocationClause".into(),
@@ -1494,6 +1693,7 @@ pub fn raw_dialect() -> Dialect {
             Ref::new("OpenJsonSegment").to_matchable(),
             Ref::new("FunctionSegment").to_matchable(),
             Ref::new("TableReferenceSegment").to_matchable(),
+            Ref::new("StorageLocationSegment").to_matchable(),
             Bracketed::new(vec![Ref::new("SelectableGrammar").to_matchable()]).to_matchable(),
             Sequence::new(vec![
                 Ref::new("TableReferenceSegment").to_matchable(),
@@ -1514,7 +1714,6 @@ pub fn raw_dialect() -> Dialect {
                     Delimited::new(vec![Ref::new("TableHintElement").to_matchable()])
                         .to_matchable(),
                 ])
-                .config(|this| this.parse_mode = ParseMode::Greedy)
                 .to_matchable(),
             ])
             .to_matchable()
@@ -1615,7 +1814,7 @@ pub fn raw_dialect() -> Dialect {
                     .to_matchable(),
                 Ref::new("JoinKeywordsGrammar").to_matchable(),
                 MetaSegment::indent().to_matchable(),
-                Ref::new("FromExpressionElementSegment").to_matchable(),
+                Ref::new("JoinTargetGrammar").to_matchable(),
                 AnyNumberOf::new(vec![Ref::new("NestedJoinGrammar").to_matchable()]).to_matchable(),
                 MetaSegment::dedent().to_matchable(),
                 Sequence::new(vec![
@@ -1843,6 +2042,40 @@ pub fn raw_dialect() -> Dialect {
             Ref::new("ObjectLiteralSegment").to_matchable(),
             Ref::new("ParameterizedSegment").to_matchable(), // Add T-SQL variables
         ])
+        .to_matchable()
+        .into(),
+    )]);
+
+    // T-SQL supports CREATE VIEW, ALTER VIEW, and CREATE OR ALTER VIEW.
+    // https://learn.microsoft.com/en-us/sql/t-sql/statements/alter-view-transact-sql
+    dialect.add([(
+        "CreateViewStatementSegment".into(),
+        NodeMatcher::new(SyntaxKind::CreateViewStatement, |_| {
+            Sequence::new(vec![
+                one_of(vec![
+                    Ref::keyword("CREATE").to_matchable(),
+                    Ref::keyword("ALTER").to_matchable(),
+                    Sequence::new(vec![
+                        Ref::keyword("CREATE").to_matchable(),
+                        Ref::keyword("OR").to_matchable(),
+                        Ref::keyword("ALTER").to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable(),
+                Ref::keyword("VIEW").to_matchable(),
+                Ref::new("TableReferenceSegment").to_matchable(),
+                Ref::new("BracketedColumnReferenceListGrammar")
+                    .optional()
+                    .to_matchable(),
+                Ref::keyword("AS").to_matchable(),
+                Ref::new("SelectableGrammar").to_matchable(),
+                Ref::new("WithNoSchemaBindingClauseSegment")
+                    .optional()
+                    .to_matchable(),
+            ])
+            .to_matchable()
+        })
         .to_matchable()
         .into(),
     )]);
@@ -2233,6 +2466,27 @@ pub fn raw_dialect() -> Dialect {
                     ])
                     .to_matchable(),
                 ])
+                .to_matchable(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable(),
+    );
+
+    // T-SQL CREATE ROLE with optional AUTHORIZATION clause
+    // https://learn.microsoft.com/en-us/sql/t-sql/statements/create-role-transact-sql
+    dialect.replace_grammar(
+        "CreateRoleStatementSegment",
+        NodeMatcher::new(SyntaxKind::CreateRoleStatement, |_| {
+            Sequence::new(vec![
+                Ref::keyword("CREATE").to_matchable(),
+                Ref::keyword("ROLE").to_matchable(),
+                Ref::new("RoleReferenceSegment").to_matchable(),
+                Sequence::new(vec![
+                    Ref::keyword("AUTHORIZATION").to_matchable(),
+                    Ref::new("RoleReferenceSegment").to_matchable(),
+                ])
+                .config(|this| this.optional())
                 .to_matchable(),
             ])
             .to_matchable()

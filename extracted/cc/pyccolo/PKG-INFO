@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyccolo
-Version: 0.0.94
+Version: 0.0.95
 Summary: Declarative instrumentation for Python
 Home-page: https://github.com/smacke/pyccolo
 Author: Stephen Macke

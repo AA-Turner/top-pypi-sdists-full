@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: eventlet
-Version: 0.41.1
+Version: 0.41.2
 Summary: Highly concurrent networking library
 Project-URL: Homepage, https://github.com/eventlet/eventlet
 Project-URL: History, https://github.com/eventlet/eventlet/blob/master/NEWS
@@ -28,7 +28,7 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: dnspython>=1.15.0
-Requires-Dist: greenlet<3.4
+Requires-Dist: greenlet>=1.0
 Provides-Extra: dev
 Requires-Dist: black; extra == 'dev'
 Requires-Dist: build; extra == 'dev'

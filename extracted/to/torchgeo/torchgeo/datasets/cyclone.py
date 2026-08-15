@@ -5,7 +5,7 @@
 
 import os
 from collections.abc import Callable
-from functools import lru_cache
+from typing import Literal, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -53,7 +53,7 @@ class TropicalCyclone(NonGeoDataset):
     def __init__(
         self,
         root: Path = 'data',
-        split: str = 'train',
+        split: Literal['train', 'test'] = 'train',
         transforms: Callable[[Sample], Sample] | None = None,
         download: bool = False,
     ) -> None:
@@ -101,7 +101,7 @@ class TropicalCyclone(NonGeoDataset):
             'label': torch.tensor(self.labels.iat[index, 1]),
         }
 
-        image_id = self.labels.iat[index, 0]
+        image_id = cast(str, self.labels.iat[index, 0])
         sample['image'] = self._load_image(image_id)
 
         if self.transforms is not None:
@@ -117,7 +117,6 @@ class TropicalCyclone(NonGeoDataset):
         """
         return len(self.labels)
 
-    @lru_cache
     def _load_image(self, image_id: str) -> Tensor:
         """Load a single image.
 

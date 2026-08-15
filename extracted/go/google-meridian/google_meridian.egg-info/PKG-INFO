@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-meridian
-Version: 1.7.1
+Version: 1.8.0
 Summary: Google's open source mixed marketing model library, helps you understand your return on investment and direct your ad spend with confidence. 
 Author-email: The Meridian Authors <no-reply@google.com>
 Project-URL: homepage, https://github.com/google/meridian
@@ -26,9 +26,9 @@ Requires-Dist: numpy<2.4.0,>=2.0.2
 Requires-Dist: pandas<3,>=2.2.2
 Requires-Dist: scipy<2,>=1.13.1
 Requires-Dist: statsmodels>=0.14.5
-Requires-Dist: tensorflow<2.21,>=2.19.0
+Requires-Dist: tensorflow<2.22,>=2.21.0
 Requires-Dist: tfp-nightly==0.26.0.dev20260130
-Requires-Dist: tf-keras<2.21,>=2.18
+Requires-Dist: tf-keras<2.22,>=2.21.0
 Requires-Dist: xarray
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0.0; extra == "dev"
@@ -39,7 +39,7 @@ Provides-Extra: colab
 Requires-Dist: psutil; extra == "colab"
 Requires-Dist: python-calamine; extra == "colab"
 Provides-Extra: and-cuda
-Requires-Dist: tensorflow[and-cuda]<2.21,>=2.19.0; extra == "and-cuda"
+Requires-Dist: tensorflow[and-cuda]<2.22,>=2.21.0; extra == "and-cuda"
 Provides-Extra: mlflow
 Requires-Dist: mlflow; extra == "mlflow"
 Provides-Extra: jax
@@ -211,7 +211,7 @@ To cite this repository:
   author = {Google Meridian Marketing Mix Modeling Team},
   title = {Meridian: Marketing Mix Modeling},
   url = {https://github.com/google/meridian},
-  version = {1.7.1},
+  version = {1.8.0},
   year = {2026},
 }
 ```

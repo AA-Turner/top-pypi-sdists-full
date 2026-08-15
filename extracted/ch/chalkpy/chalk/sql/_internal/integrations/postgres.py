@@ -3,6 +3,7 @@ from __future__ import annotations
 import collections
 import contextlib
 import csv
+import functools
 import io
 import logging
 import os
@@ -37,15 +38,16 @@ if TYPE_CHECKING:
     from polars.type_aliases import PolarsTemporalType
     from sqlalchemy.engine import URL, Connection
 
-try:
-    import sqlalchemy as sa
-except ImportError:
-    sa = None
 
-if sa is None:
-    _supported_sqlalchemy_types_for_pa_csv_querying = ()
-else:
-    _supported_sqlalchemy_types_for_pa_csv_querying = (
+@functools.cache
+def _get_supported_sqlalchemy_types_for_pa_csv_querying() -> tuple[type, ...]:
+    """Return SQLAlchemy types supported by PostgreSQL Arrow execution."""
+    try:
+        import sqlalchemy as sa
+    except ImportError:
+        return ()
+
+    return (
         sa.BigInteger,
         sa.Boolean,
         sa.Float,
@@ -66,6 +68,7 @@ else:
         sa.TIMESTAMP,
         sa.VARCHAR,
     )
+
 
 _logger = get_logger(__name__)
 
@@ -400,7 +403,7 @@ class PostgreSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIn
 
             if isinstance(finalized_query.query, Select):
                 validate_dtypes_for_efficient_execution(
-                    finalized_query.query, _supported_sqlalchemy_types_for_pa_csv_querying
+                    finalized_query.query, _get_supported_sqlalchemy_types_for_pa_csv_querying()
                 )
 
             assert len(finalized_query.temp_tables) == 0, "Should not create temp tables with postgres source"
@@ -467,7 +470,7 @@ class PostgreSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIn
 
         if isinstance(finalized_query.query, Select):
             validate_dtypes_for_efficient_execution(
-                finalized_query.query, _supported_sqlalchemy_types_for_pa_csv_querying
+                finalized_query.query, _get_supported_sqlalchemy_types_for_pa_csv_querying()
             )
 
         assert len(finalized_query.temp_tables) == 0, "Should not create temp tables with postgres source"

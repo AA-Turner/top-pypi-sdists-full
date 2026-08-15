@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-13T18:38:42.638880                                                            #
+# Generated on 2026-08-14T20:17:07.997552                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ import typing
 import metaflow
 if typing.TYPE_CHECKING:
     import metaflow.exception
-    import metaflow.plugins.datatools.s3.s3
     import io
+    import metaflow.plugins.datatools.s3.s3
 
 from ....flowspec import FlowSpec as FlowSpec
 from ....metaflow_current import current as current

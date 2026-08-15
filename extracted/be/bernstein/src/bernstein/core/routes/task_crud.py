@@ -31,6 +31,11 @@ from bernstein.core.role_classifier import classify_role
 from bernstein.core.routes._rate_limit_headers import rate_limit_exception
 from bernstein.core.routes._sse import SSE_RESPONSES
 from bernstein.core.security.auth_middleware import enforce_agent_task_scope_for_ids
+from bernstein.core.security.path_containment import (
+    PathContainmentError,
+    contained_subpath,
+    validate_path_segment,
+)
 from bernstein.core.security.sanitize import sanitize_log
 
 # Import Pydantic models from server - this works because server.py's
@@ -86,7 +91,12 @@ from bernstein.core.tasks.contracts import (
     parse_terminal_payload_text,
 )
 from bernstein.core.telemetry import start_span
-from bernstein.core.tenanting import request_tenant_id, resolve_tenant_scope
+from bernstein.core.tenanting import (
+    request_tenant_cross_scope,
+    request_tenant_id,
+    requested_tenant_override,
+    resolve_tenant_scope,
+)
 from bernstein.plugins.manager import HookBlockingError, get_plugin_manager
 
 logger = logging.getLogger(__name__)
@@ -94,7 +104,7 @@ logger = logging.getLogger(__name__)
 _DRAINING_DETAIL = "Server is draining -- no new claims accepted"
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Sequence
+    from collections.abc import AsyncGenerator, Iterable, Sequence
     from pathlib import Path
 
     from bernstein.core.models import Task
@@ -160,6 +170,40 @@ def _get_workdir(request: Request) -> Path:
     return request.app.state.workdir  # type: ignore[no-any-return]
 
 
+def _checked_claim_session(claimed_by_session: str | None) -> str | None:
+    """Return *claimed_by_session* once it is a usable opaque identifier.
+
+    A claim records this value on the task, and later stages name a
+    directory with it (``.sdd/worktrees/<session id>``).  Checking the
+    shape here means a malformed value is refused at the boundary that
+    accepts it, with the request's own 422, rather than being stored and
+    then declined by a downstream consumer that can only log.
+
+    An absent or empty value means "no owning session" and is passed
+    through unchanged - the consumers already branch on that.
+
+    Args:
+        claimed_by_session: The raw query/body value, if any.
+
+    Returns:
+        The value, unchanged.
+
+    Raises:
+        HTTPException: 422 if the value is not a single safe identifier.
+    """
+    if not claimed_by_session:
+        return claimed_by_session
+    try:
+        return validate_path_segment(claimed_by_session, label="claimed_by_session")
+    except PathContainmentError as exc:
+        logger.warning(
+            "claim rejected: claimed_by_session=%s reason=%s",
+            sanitize_log(str(claimed_by_session)),
+            sanitize_log(str(exc)),
+        )
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+
+
 def _get_gate_report_path(request: Request, task_id: str) -> Path:
     return _get_runtime_dir(request) / "gates" / f"{task_id}.json"
 
@@ -203,13 +247,22 @@ def _get_tenant_registry(request: Request) -> TenantRegistry | None:
 
 
 def _resolve_request_tenant_scope(request: Request, requested_tenant: str | None = None) -> str:
-    """Resolve the tenant scope for the current request."""
+    """Resolve the tenant scope for the current request.
 
+    The bound tenant comes from the authenticated principal.  A selector -
+    the ``?tenant=`` query parameter where a route offers one, otherwise the
+    ``X-Tenant-Id`` header - is treated as a *request* for a scope and only
+    takes effect when the principal carries the operator scope that permits
+    it; otherwise it is a 403 rather than a silent widening.
+    """
+
+    override = requested_tenant if requested_tenant is not None else requested_tenant_override(request)
     try:
         return resolve_tenant_scope(
             request_tenant_id(request),
-            requested_tenant,
+            override,
             registry=_get_tenant_registry(request),
+            allow_cross_tenant=request_tenant_cross_scope(request),
         )
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
@@ -248,6 +301,67 @@ def _enforce_parent_task_scope(request: Request, parent_task_ids: Sequence[str |
     named = [task_id for task_id in parent_task_ids if task_id]
     if named:
         enforce_agent_task_scope_for_ids(request, named)
+        _require_parent_tenant_scope(request, named)
+
+
+def require_tenant_scope_for_ids(request: Request, task_ids: Sequence[str]) -> None:
+    """Reject any of *task_ids* that resolves outside the caller's tenant scope.
+
+    The by-id counterpart to :func:`_require_task_access`, for the routes that
+    take a list of ids rather than one in the path.  It is deliberately an
+    all-or-nothing gate over the whole list: checking the ids together, before
+    anything acts on them, is what stops a caller smuggling one row past the
+    boundary by burying it among ids it does hold.
+
+    An id that does not resolve at all is left to the caller's existing
+    behaviour - this guard narrows scope, it does not add an existence check.
+    """
+    store = _get_store(request)
+    effective_tenant = _resolve_request_tenant_scope(request)
+    for task_id in task_ids:
+        task = store.get_task(task_id)
+        if task is not None and task.tenant_id != effective_tenant:
+            raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found")
+
+
+def task_ids_outside_tenant_scope(request: Request, task_ids: Iterable[str]) -> set[str]:
+    """Return the members of *task_ids* that resolve outside the caller's scope.
+
+    The reading counterpart to :func:`require_tenant_scope_for_ids`.  The
+    routes that render *runtime records* - an agent session, a token sidecar -
+    do not hold a tenant of their own; what places such a record is the task
+    it names.  Resolving that task is therefore how those readers narrow, and
+    this returns the ids they have to drop.
+
+    An id that does not resolve at all is NOT reported: it has no tenant to
+    compare against, so refusing it would be an existence check rather than a
+    scope narrowing, and would hide records whose task has since been
+    archived out of the store.
+    """
+    store = _get_store(request)
+    effective_tenant = _resolve_request_tenant_scope(request)
+    outside: set[str] = set()
+    for task_id in task_ids:
+        if not task_id:
+            continue
+        task = store.get_task(task_id)
+        if task is not None and task.tenant_id != effective_tenant:
+            outside.add(task_id)
+    return outside
+
+
+def _require_parent_tenant_scope(request: Request, parent_task_ids: Sequence[str]) -> None:
+    """Reject a parent association that reaches outside the caller's scope.
+
+    ``enforce_agent_task_scope_for_ids`` pins an *agent* credential to its own
+    task ids and says nothing about any other credential type, so on its own it
+    leaves the association open for the rest.  The child row is written into
+    the scope :func:`_resolve_request_tenant_scope` returns, and grafting it
+    onto a parent resolved outside that scope would let one scope's write
+    drive another's subtree lifecycle.  The parent has to sit where the child
+    lands.
+    """
+    require_tenant_scope_for_ids(request, parent_task_ids)
 
 
 # ---------------------------------------------------------------------------
@@ -381,7 +495,25 @@ def _run_auto_commit_pre_complete(
         return
 
     workdir = _get_workdir(request)
-    worktree_path = workdir / ".sdd" / "worktrees" / session_id
+    # The session id is a stored, caller-supplied string and the joined path
+    # becomes a ``subprocess.run`` cwd below, so it is asserted to name a
+    # directory under the worktree root rather than assumed to.  A refusal is
+    # treated like a missing worktree: log and leave, matching this hook's
+    # fail-open contract.
+    try:
+        worktree_path = contained_subpath(
+            workdir / ".sdd" / "worktrees",
+            session_id,
+            label="session id",
+        )
+    except PathContainmentError as exc:
+        logger.info(
+            "auto_commit_pre_complete: task=%s session=%s reason=unsafe_session_path error=%s",
+            sanitize_log(str(task.id)),
+            sanitize_log(str(session_id)),
+            sanitize_log(str(exc)),
+        )
+        return
 
     if not worktree_path.exists() or not worktree_path.is_dir():
         logger.info(
@@ -807,7 +939,13 @@ async def create_task(body: TaskCreate, request: Request) -> TaskResponse:
     store = _get_store(request)
     sse_bus = _get_sse_bus(request)
     _enforce_parent_task_scope(request, [body.parent_task_id])
-    effective_body = body.model_copy(update={"tenant_id": request_tenant_id(request)})
+    # The row is written into the caller's authorized scope, never into a
+    # tenant the request names.  ``body.tenant_id`` is ignored (it always was);
+    # a header selector is authorized before it can take effect, so a request
+    # naming a tenant the caller cannot reach is refused rather than quietly
+    # landing a row somewhere else.
+    effective_tenant = _resolve_request_tenant_scope(request)
+    effective_body = body.model_copy(update={"tenant_id": effective_tenant})
     if effective_body.metadata is None:
         effective_body.metadata = {}
     traceparent = request.headers.get("traceparent")
@@ -848,7 +986,6 @@ async def create_task(body: TaskCreate, request: Request) -> TaskResponse:
             None,
         )
         if tenant_mgr is not None:
-            effective_tenant = request_tenant_id(request)
             current_count = store.count_by_status(tenant_id=effective_tenant).get("total", 0)
             allowed, reason = tenant_mgr.check_quota(effective_tenant, current_count)
             if not allowed:
@@ -868,7 +1005,7 @@ async def create_task(body: TaskCreate, request: Request) -> TaskResponse:
 
         # Pre-create hook: may block via HookBlockingError (T719)
         try:
-            pm = get_plugin_manager()
+            pm = get_plugin_manager(_get_workdir(request))
             pm.fire_pre_task_create(
                 task_id="",  # ID not yet assigned - use empty string
                 role=effective_body.role,
@@ -930,7 +1067,7 @@ async def create_task(body: TaskCreate, request: Request) -> TaskResponse:
             build_log_record(task.id, task, assessment),
         )
         sse_bus.publish("task_update", json.dumps({"id": task.id, "status": task.status.value}))
-        get_plugin_manager().fire_task_created(task_id=task.id, role=task.role, title=task.title)
+        get_plugin_manager(_get_workdir(request)).fire_task_created(task_id=task.id, role=task.role, title=task.title)
         return task_to_response(task)
 
 
@@ -953,8 +1090,9 @@ async def create_tasks_batch(body: BatchCreateRequest, request: Request) -> Batc
 
     prepared: list[TaskCreate] = []
     assessments: list[TaskRiskAssessment] = []
+    batch_tenant = _resolve_request_tenant_scope(request)
     for task_body in body.tasks:
-        effective = task_body.model_copy(update={"tenant_id": request_tenant_id(request)})
+        effective = task_body.model_copy(update={"tenant_id": batch_tenant})
 
         # Auto-classify role if not specified
         if effective.role == "auto":
@@ -976,7 +1114,7 @@ async def create_tasks_batch(body: BatchCreateRequest, request: Request) -> Batc
 
         # Pre-create hook: skip individual task if blocked (don't fail entire batch)
         try:
-            pm = get_plugin_manager()
+            pm = get_plugin_manager(_get_workdir(request))
             pm.fire_pre_task_create(
                 task_id="",
                 role=effective.role,
@@ -1002,7 +1140,7 @@ async def create_tasks_batch(body: BatchCreateRequest, request: Request) -> Batc
                 build_log_record(task.id, task, task_assessment),
             )
         sse_bus.publish("task_update", json.dumps({"id": task.id, "status": task.status.value}))
-        get_plugin_manager().fire_task_created(task_id=task.id, role=task.role, title=task.title)
+        get_plugin_manager(_get_workdir(request)).fire_task_created(task_id=task.id, role=task.role, title=task.title)
 
     return BatchCreateResponse(
         created=[task_to_response(t) for t in created_tasks],
@@ -1038,6 +1176,11 @@ async def self_create_subtask(body: TaskSelfCreate, request: Request) -> TaskRes
     if parent is None:
         raise HTTPException(status_code=404, detail=f"Parent task '{body.parent_task_id}' not found")
 
+    # The parent is transitioned to ``waiting_for_subtasks`` below, so it has
+    # to sit in the scope this request resolves to - the same rule the other
+    # create paths apply to a body-supplied ``parent_task_id``.
+    _require_parent_tenant_scope(request, [body.parent_task_id])
+
     # Build a full TaskCreate from the self-create payload
     full_body = TaskCreate(
         title=body.title,
@@ -1050,7 +1193,7 @@ async def self_create_subtask(body: TaskSelfCreate, request: Request) -> TaskRes
         depends_on=body.depends_on,
         parent_task_id=body.parent_task_id,
         owned_files=body.owned_files,
-        tenant_id=request_tenant_id(request),
+        tenant_id=_resolve_request_tenant_scope(request),
     )
 
     # Auto-estimate difficulty if minutes not provided
@@ -1072,7 +1215,7 @@ async def self_create_subtask(body: TaskSelfCreate, request: Request) -> TaskRes
                     json.dumps({"id": parent.id, "status": "waiting_for_subtasks"}),
                 )
 
-        get_plugin_manager().fire_task_created(task_id=task.id, role=task.role, title=task.title)
+        get_plugin_manager(_get_workdir(request)).fire_task_created(task_id=task.id, role=task.role, title=task.title)
         return task_to_response(task)
 
 
@@ -1101,6 +1244,7 @@ async def next_task(
             status_code=503,
             detail=_DRAINING_DETAIL,
         )
+    claimed_by_session = _checked_claim_session(claimed_by_session)
     store = _get_store(request)
     task = await store.claim_next(
         role,
@@ -1134,6 +1278,7 @@ async def claim_batch(body: BatchClaimRequest, request: Request) -> BatchClaimRe
         # otherwise claim task B here after being denied on
         # ``POST /tasks/B/claim``.
         enforce_agent_task_scope_for_ids(request, body.task_ids)
+        claim_session = _checked_claim_session(body.claimed_by_session)
         store = _get_store(request)
         tenant_id = _resolve_request_tenant_scope(request)
         # Tenant authorization is enforced inside store.claim_batch under
@@ -1142,7 +1287,7 @@ async def claim_batch(body: BatchClaimRequest, request: Request) -> BatchClaimRe
         claimed, failed = await store.claim_batch(
             list(body.task_ids),
             body.agent_id,
-            claimed_by_session=body.claimed_by_session,
+            claimed_by_session=claim_session,
             tenant_id=tenant_id,
         )
         if failed:
@@ -1187,6 +1332,7 @@ async def claim_task(
             status_code=503,
             detail=_DRAINING_DETAIL,
         )
+    claimed_by_session = _checked_claim_session(claimed_by_session)
     with start_span("task.claim", {"task.id": task_id}):
         store = _get_store(request)
         sse_bus = _get_sse_bus(request)
@@ -1277,7 +1423,7 @@ async def _handle_contract_violation(
         sanitize_log(violation.path),
     )
     sse_bus.publish("task_update", json.dumps({"id": failed_task.id, "status": failed_task.status.value}))
-    get_plugin_manager().fire_task_failed(
+    get_plugin_manager(_get_workdir(request)).fire_task_failed(
         task_id=failed_task.id,
         role=failed_task.role,
         error=f"contract_violation: {violation.path}",
@@ -1427,7 +1573,7 @@ async def complete_task(task_id: str, body: TaskCompleteRequest, request: Reques
                     "task_update",
                     json.dumps({"id": failed_task.id, "status": failed_task.status.value}),
                 )
-                get_plugin_manager().fire_task_failed(
+                get_plugin_manager(_get_workdir(request)).fire_task_failed(
                     task_id=failed_task.id,
                     role=failed_task.role,
                     error="completion missing summary",
@@ -1445,7 +1591,9 @@ async def complete_task(task_id: str, body: TaskCompleteRequest, request: Reques
         if refusal is not None:
             return await _finalize_refusal(request, task, refusal, store, sse_bus)
         sse_bus.publish("task_update", json.dumps({"id": task.id, "status": "done"}))
-        get_plugin_manager().fire_task_completed(task_id=task.id, role=task.role, result_summary=result_summary)
+        get_plugin_manager(_get_workdir(request)).fire_task_completed(
+            task_id=task.id, role=task.role, result_summary=result_summary
+        )
 
         # Sigstore/Ed25519 attestation for the task completion (fire-and-forget)
         _try_attest_task_completion(request, task.id, task.role, result_summary)
@@ -1523,7 +1671,7 @@ async def fail_task(task_id: str, body: TaskFailRequest, request: Request) -> Ta
         )
         raise HTTPException(status_code=409, detail=str(exc)) from None
     sse_bus.publish("task_update", json.dumps({"id": task.id, "status": "failed"}))
-    get_plugin_manager().fire_task_failed(task_id=task.id, role=task.role, error=body.reason)
+    get_plugin_manager(_get_workdir(request)).fire_task_failed(task_id=task.id, role=task.role, error=body.reason)
 
     # Update per-file health scores with failure outcome (fire-and-forget)
     _update_file_health(request, task.id, list(task.owned_files), "failure")
@@ -2106,7 +2254,10 @@ def get_task_graph_neighbors(task_id: str, request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found")
     _require_task_access(task, request)
 
-    all_tasks = store.list_tasks()
+    # Neighbours are materialised from the caller's scope, not from the whole
+    # store: an edge that crosses a tenant boundary would otherwise surface
+    # the other side's title, status and role through this panel.
+    all_tasks = store.list_tasks(tenant_id=_resolve_request_tenant_scope(request))
     by_id = {t.id: t for t in all_tasks}
 
     def _neighbor(other: Task) -> dict[str, Any]:

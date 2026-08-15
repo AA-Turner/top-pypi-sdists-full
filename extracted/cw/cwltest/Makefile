@@ -25,11 +25,11 @@ PACKAGE=cwltest
 
 # `SHELL=bash` doesn't work for some, so don't use BASH-isms like
 # `[[` conditional expressions.
-PYSOURCES=$(wildcard ${MODULE}/**.py tests/*.py)
-DEVPKGS=-rdev-requirements.txt -rtest-requirements.txt -rmypy-requirements.txt
+PYSOURCES=$(wildcard src/${MODULE}/**.py tests/*.py)
+DEVPKGS=-rtest-requirements.txt -rdev-requirements.txt -rmypy-requirements.txt
 DEBDEVPKGS=pep8 python-autopep8 pylint python-coverage pydocstyle sloccount \
 	   python-flake8 python-mock shellcheck
-VERSION=2.6.$(shell TZ=UTC git log --first-parent --max-count=1 \
+VERSION=2.7.$(shell TZ=UTC git log --first-parent --max-count=1 \
 	--format=format:%cd --date=format-local:%Y%m%d%H%M%S)
 
 ## all                    : default task (install in dev mode)
@@ -46,8 +46,7 @@ cleanup: sort_imports format flake8 diff_pydocstyle_report
 install-dep: install-dependencies
 
 install-dependencies: FORCE
-	pip install --upgrade $(DEVPKGS)
-	pip install -r requirements.txt
+	python3 -m pip install --upgrade $(DEVPKGS)
 
 ## install-deb-dep        : install most of the dev dependencies via apt-get
 install-deb-dep:
@@ -55,18 +54,18 @@ install-deb-dep:
 
 ## install                : install the cwltest package and cwltest script
 install: FORCE
-	pip install .
+	python3 -m pip install .
 
 ## dev                    : install the cwltest package in dev mode
 dev: install-dep
-	pip install -U pip setuptools wheel
-	pip install -e .
+	python3 -m pip install -U pip setuptools wheel
+	python3 -m pip install -e .
 
 ## dist                   : create a module package for distribution
 dist: dist/${MODULE}-$(VERSION).tar.gz
 
 dist/${MODULE}-$(VERSION).tar.gz: $(SOURCES)
-	python -m build
+	python3 -m build
 
 ## docs                   : make the docs
 docs: FORCE
@@ -74,7 +73,7 @@ docs: FORCE
 
 ## clean                  : clean up all temporary / machine-generated files
 clean: FORCE
-	rm -f ${MODILE}/*.pyc tests/*.pyc
+	find src -name '*.pyc' -delete
 	rm -Rf .coverage\.* .coverage
 	rm -f diff-cover.html
 
@@ -103,10 +102,10 @@ codespell:
 	codespell -w $(shell git ls-files | grep -v mypy-stubs | grep -v gitignore)
 
 ## format                 : check/fix all code indentation and formatting (runs black)
-format: $(filter-out cwltest/_version.py,$(PYSOURCES)) mypy-stubs
+format: $(PYSOURCES) mypy-stubs
 	black $^
 
-format-check: $(filter-out cwltest/_version.py,$(PYSOURCES)) mypy-stubs
+format-check: $(PYSOURCES) mypy-stubs
 	black --diff --check $^
 
 ## pylint                 : run static code analysis on Python code
@@ -122,8 +121,8 @@ diff_pylint_report: pylint_report.txt
 	diff-quality --compare-branch=main --violations=pylint pylint_report.txt
 
 .coverage: $(PYSOURCES)
-	COV_CORE_SOURCE=cwltest COV_CORE_CONFIG=.coveragerc COV_CORE_DATAFILE=.coverage \
-		python -m pytest --cov --cov-append --cov-report=
+	COV_CORE_SOURCE=src/cwltest COV_CORE_CONFIG=.coveragerc COV_CORE_DATAFILE=.coverage \
+		python3 -m pytest --cov --cov-append --cov-report=
 	# https://pytest-cov.readthedocs.io/en/latest/plugins.html#plugin-coverage
 
 coverage.xml: .coverage
@@ -146,7 +145,7 @@ diff-cover.html: coverage.xml
 
 ## test                   : run the cwltest test suite
 test: $(PYSOURCES)
-	python -m pytest -rs ${PYTEST_EXTRA}
+	python3 -m pytest -rs ${PYTEST_EXTRA}
 
 ## testcov                : run the cwltest test suite and collect coverage
 testcov: $(PYSOURCES)
@@ -179,9 +178,9 @@ release:
 	export SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION} && \
 	./release-test.sh && \
 	. testenv2/bin/activate && \
-		pip install build && \
-		python -m build testenv2/src/${PACKAGE} && \
-		pip install twine && \
+		python3 -m pip install build && \
+		python3 -m build testenv2/src/${PACKAGE} && \
+		python3 -m pip install twine && \
 		twine upload testenv2/src/${PACKAGE}/dist/* && \
 		git tag --no-sign ${VERSION} && git push --tags
 

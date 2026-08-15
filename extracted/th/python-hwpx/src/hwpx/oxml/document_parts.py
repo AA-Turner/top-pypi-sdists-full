@@ -3,10 +3,9 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import dataclass
 import logging
-from typing import TYPE_CHECKING, Iterable, Sequence
+from typing import TYPE_CHECKING, Iterable, Mapping, Sequence, TypeVar
 import xml.etree.ElementTree as ET
 
 from hwpx.opc.relationships import resolve_part_name
@@ -22,7 +21,6 @@ from ._document_primitives import (
     _element_local_name,
     _is_integer_literal,
     _normalize_color,
-    _object_id,
     _paragraph_id,
     _serialize_xml,
 )
@@ -32,6 +30,7 @@ from .header import (
     MemoShape,
     ParagraphProperty,
     Style,
+    TabDefinition,
     TrackChange,
     TrackChangeAuthor,
 )
@@ -40,7 +39,14 @@ from .namespaces import tag_local_name
 from .paragraph import HwpxOxmlParagraph
 from .run import RunStyle, _char_properties_from_header
 from .section import HwpxOxmlSection
-from .simple_parts import HwpxOxmlHistory, HwpxOxmlMasterPage, HwpxOxmlVersion
+from . import section_layout as _section_layout
+from .simple_parts import (
+    HwpxOxmlHistory,
+    HwpxOxmlMasterPage,
+    HwpxOxmlSettings,
+    HwpxOxmlVersion,
+    _HwpxOxmlSimplePart,
+)
 
 if TYPE_CHECKING:
     from hwpx.opc.package import HwpxPackage
@@ -66,6 +72,9 @@ class _RunStyleSpec:
     letter_spacing: int | None = None
     shadow_color: str | None = None
     script: str | None = None
+    outline: str | None = None
+    emboss: bool | None = None
+    engrave: bool | None = None
 
 
 def _run_style_element_flags(element: ET.Element) -> tuple[bool, bool, bool]:
@@ -137,7 +146,41 @@ def _run_style_extensions_match(element: ET.Element, spec: _RunStyleSpec) -> boo
         return False
     if not _run_style_script_matches(element, spec.script):
         return False
+    return _run_style_residual_matches(element, spec)
+
+
+def _run_style_residual_matches(element: ET.Element, spec: _RunStyleSpec) -> bool:
+    """cycle-6.3 문자 서식 잔여(outline/emboss/engrave) 매칭.
+
+    ``_run_style_extensions_match`` 에서 분리한 별도 함수 — 한 함수에 다
+    몰아넣으면 C901 한도(10)를 넘는다."""
+    if not _run_style_outline_matches(element, spec.outline):
+        return False
+    if not _run_style_emboss_matches(element, spec.emboss):
+        return False
+    if not _run_style_engrave_matches(element, spec.engrave):
+        return False
     return True
+
+
+def _run_style_outline_matches(element: ET.Element, outline: str | None) -> bool:
+    if outline is None:
+        return True
+    outline_el = element.find(f"{_HH}outline")
+    have = (outline_el.get("type", "NONE").upper() if outline_el is not None else "NONE")
+    return have == outline
+
+
+def _run_style_emboss_matches(element: ET.Element, emboss: bool | None) -> bool:
+    if emboss is None:
+        return True
+    return (element.find(f"{_HH}emboss") is not None) == bool(emboss)
+
+
+def _run_style_engrave_matches(element: ET.Element, engrave: bool | None) -> bool:
+    if engrave is None:
+        return True
+    return (element.find(f"{_HH}engrave") is not None) == bool(engrave)
 
 
 def _run_style_shadow_matches(element: ET.Element, shadow_color: str | None) -> bool:
@@ -157,7 +200,16 @@ def _run_style_script_matches(element: ET.Element, script: str | None) -> bool:
     off_el = element.find(f"{_HH}offset")
     # 실한컴 렌더 실측: offset 음수=위로(위첨자), 양수=아래로(아래첨자).
     wanted_offset = "-30" if script == "sup" else "30"
-    return off_el is not None and off_el.get("hangul") == wanted_offset
+    if off_el is None or off_el.get("hangul") != wanted_offset:
+        return False
+    # hwpxlib 실코퍼스 실측(error__20250808 문서 charPr id=513): 실한컴이
+    # 위첨자 토글로 쓴 charPr은 offset/relSz 근사와 별개로 <hh:supscript/>
+    # 실요소를 갖고 있었다(그 문서 자체는 relSz=100/offset=0 그대로였다 —
+    # 즉 한컴 렌더러는 이 요소만으로 판단하고 수치는 건드리지 않는다).
+    # 우리는 기존 offset 계약(파괴 금지)을 지키며 요소를 병행 방출한다.
+    if script == "sup":
+        return element.find(f"{_HH}supscript") is not None
+    return element.find(f"{_HH}subscript") is not None
 
 
 def _run_style_predicate(element: ET.Element, spec: _RunStyleSpec) -> bool:
@@ -289,9 +341,69 @@ def _run_style_apply_extensions(element: ET.Element, spec: _RunStyleSpec) -> Non
         shadow_el.set("color", spec.shadow_color)
         shadow_el.set("offsetX", "12")
         shadow_el.set("offsetY", "12")
-    if spec.script is not None:
-        _run_style_set_lang_values(element, "relSz", 67)
-        _run_style_set_lang_values(element, "offset", -30 if spec.script == "sup" else 30)
+    _run_style_apply_script_extension(element, spec.script)
+    _run_style_apply_outline(element, spec.outline)
+    _run_style_apply_emboss(element, spec.emboss)
+    _run_style_apply_engrave(element, spec.engrave)
+
+
+def _run_style_apply_script_extension(element: ET.Element, script: str | None) -> None:
+    """`script` kwarg 적용 — 기존 relSz/offset 근사(파괴 금지 계약)에 더해
+    실코퍼스 실측(hwpxlib error__20250808 문서, charPr id=513)이 보인 실제
+    ``hh:supscript``/``hh:subscript`` 요소를 병행 방출한다. 그 문서는
+    relSz=100·offset=0 기본값 그대로였다 — 한컴 렌더러는 이 요소만으로
+    위·아래첨자를 판정하고, 수치 근사는 별개 목적이라는 뜻이다.
+    ``_run_style_apply_extensions``에서 분리한 이유는 C901(10) 초과 방지."""
+
+    if script is None:
+        return
+    _run_style_set_lang_values(element, "relSz", 67)
+    _run_style_set_lang_values(element, "offset", -30 if script == "sup" else 30)
+    if script == "sup":
+        stale = element.find(f"{_HH}subscript")
+        if stale is not None:
+            element.remove(stale)
+        if element.find(f"{_HH}supscript") is None:
+            _append_child(element, f"{_HH}supscript")
+    else:
+        stale = element.find(f"{_HH}supscript")
+        if stale is not None:
+            element.remove(stale)
+        if element.find(f"{_HH}subscript") is None:
+            _append_child(element, f"{_HH}subscript")
+
+
+def _run_style_apply_outline(element: ET.Element, outline: str | None) -> None:
+    """cycle-6.3 문자 서식 잔여 — 분리 이유는 위 함수와 같다(C901 한도)."""
+
+    if outline is None:
+        return
+    outline_el = element.find(f"{_HH}outline")
+    if outline_el is None:
+        outline_el = _append_child(element, f"{_HH}outline")
+    outline_el.set("type", outline)
+
+
+def _run_style_apply_emboss(element: ET.Element, emboss: bool | None) -> None:
+    if emboss is None:
+        return
+    existing = element.find(f"{_HH}emboss")
+    if emboss:
+        if existing is None:
+            _append_child(element, f"{_HH}emboss")
+    elif existing is not None:
+        element.remove(existing)
+
+
+def _run_style_apply_engrave(element: ET.Element, engrave: bool | None) -> None:
+    if engrave is None:
+        return
+    existing = element.find(f"{_HH}engrave")
+    if engrave:
+        if existing is None:
+            _append_child(element, f"{_HH}engrave")
+    elif existing is not None:
+        element.remove(existing)
 
 
 def _run_style_modifier(element: ET.Element, spec: _RunStyleSpec) -> None:
@@ -324,6 +436,9 @@ def _run_style_modifier(element: ET.Element, spec: _RunStyleSpec) -> None:
     _run_style_apply_extensions(element, spec)
 
 
+_SimplePartT = TypeVar("_SimplePartT", bound=_HwpxOxmlSimplePart)
+
+
 class HwpxOxmlDocument:
     """Aggregates the XML parts that make up an HWPX document."""
 
@@ -336,6 +451,7 @@ class HwpxOxmlDocument:
         master_pages: Sequence[HwpxOxmlMasterPage] | None = None,
         histories: Sequence[HwpxOxmlHistory] | None = None,
         version: HwpxOxmlVersion | None = None,
+        settings: HwpxOxmlSettings | None = None,
         manifest_path: str = "Contents/content.hpf",
     ):
         self._manifest_path = manifest_path
@@ -345,6 +461,7 @@ class HwpxOxmlDocument:
         self._master_pages = list(master_pages or [])
         self._histories = list(histories or [])
         self._version = version
+        self._settings = settings
         self._char_property_cache: dict[str, RunStyle] | None = None
         self._manifest_dirty = False
 
@@ -358,6 +475,32 @@ class HwpxOxmlDocument:
             history.attach_document(self)
         if self._version is not None:
             self._version.attach_document(self)
+        if self._settings is not None:
+            self._settings.attach_document(self)
+
+    @staticmethod
+    def _load_optional_simple_part(
+        package: "HwpxPackage",
+        path: str | None,
+        part_cls: type[_SimplePartT],
+        *,
+        label: str,
+    ) -> _SimplePartT | None:
+        """Load a singular, optional part (``version.xml``/``settings.xml``
+        — at most one per package, absence is normal)."""
+
+        if not path:
+            return None
+        if not package.has_part(path):
+            logger.warning(
+                "manifest가 가리키는 %s 파트가 누락되었습니다: part_path=%s", label, path
+            )
+            return None
+        try:
+            return part_cls(path, package.get_xml(path))
+        except Exception:
+            logger.exception("%s 파싱 실패: part_path=%s", label, path)
+            raise
 
     @classmethod
     def from_package(cls, package: "HwpxPackage") -> "HwpxOxmlDocument":
@@ -374,6 +517,7 @@ class HwpxOxmlDocument:
         master_page_paths = package.master_page_paths()
         history_paths = package.history_paths()
         version_path = package.version_path()
+        settings_path = package.settings_path()
 
         sections: list[HwpxOxmlSection] = []
         for section_index, path in enumerate(section_paths):
@@ -417,18 +561,12 @@ class HwpxOxmlDocument:
                 logger.exception("history 파싱 실패: part_path=%s", path)
                 raise
 
-        version = None
-        if version_path and package.has_part(version_path):
-            try:
-                version = HwpxOxmlVersion(version_path, package.get_xml(version_path))
-            except Exception:
-                logger.exception("version 파싱 실패: part_path=%s", version_path)
-                raise
-        elif version_path:
-            logger.warning(
-                "manifest가 가리키는 version 파트가 누락되었습니다: part_path=%s",
-                version_path,
-            )
+        version = cls._load_optional_simple_part(
+            package, version_path, HwpxOxmlVersion, label="version"
+        )
+        settings = cls._load_optional_simple_part(
+            package, settings_path, HwpxOxmlSettings, label="settings"
+        )
         return cls(
             manifest,
             sections,
@@ -436,6 +574,7 @@ class HwpxOxmlDocument:
             master_pages=master_pages,
             histories=histories,
             version=version,
+            settings=settings,
             manifest_path=package.main_content.full_path,
         )
 
@@ -455,6 +594,35 @@ class HwpxOxmlDocument:
     def master_pages(self) -> list[HwpxOxmlMasterPage]:
         return list(self._master_pages)
 
+    def add_master_page(
+        self,
+        *,
+        text: str | None = None,
+        paragraphs: "Sequence[str] | None" = None,
+        page_type: str = "OPTIONAL_PAGE",
+        page_number: int = 1,
+        page_duplicate: bool = False,
+        page_front: bool = False,
+    ) -> str:
+        """새 바탕쪽 파트를 만들어 매니페스트에 등록하고, 그 id를 돌려준다.
+
+        구현 본체는 `master_page_authoring.py`에 산다(6.13 트레인㊻ --
+        신규 모듈, born in the gate). 절에서 실제로 참조하려면
+        ``section.properties.add_master_page_reference(id)``를 별도로
+        호출할 것 -- 이 메서드는 파트만 만든다.
+        """
+        from .master_page_authoring import add_master_page as _add_master_page
+
+        return _add_master_page(
+            self,
+            text=text,
+            paragraphs=paragraphs,
+            page_type=page_type,
+            page_number=page_number,
+            page_duplicate=page_duplicate,
+            page_front=page_front,
+        )
+
     @property
     def histories(self) -> list[HwpxOxmlHistory]:
         return list(self._histories)
@@ -462,6 +630,10 @@ class HwpxOxmlDocument:
     @property
     def version(self) -> HwpxOxmlVersion | None:
         return self._version
+
+    @property
+    def settings(self) -> HwpxOxmlSettings | None:
+        return self._settings
 
     def _ensure_char_property_cache(self) -> dict[str, RunStyle]:
         if self._char_property_cache is None:
@@ -500,6 +672,12 @@ class HwpxOxmlDocument:
         "SLIM_THICK_SLIM", "WAVE", "DOUBLEWAVE",
     })
 
+    #: OWPML ``hc:LineType1`` — ``hh:outline`` 의 ``type`` 어휘(Header XML
+    #: schema.xml:906). underline/strikeout 의 ``LineType2`` 보다 좁다.
+    _OUTLINE_TYPES = frozenset({
+        "NONE", "SOLID", "DOT", "THICK", "DASH", "DASH_DOT", "DASH_DOT_DOT",
+    })
+
     def ensure_run_style(
         self,
         *,
@@ -518,6 +696,9 @@ class HwpxOxmlDocument:
         letter_spacing: int | None = None,
         shadow: str | None = None,
         script: str | None = None,
+        outline: str | None = None,
+        emboss: bool | None = None,
+        engrave: bool | None = None,
         base_char_pr_id: str | int | None = None,
     ) -> str:
         """Return a char property identifier matching the requested flags.
@@ -528,6 +709,11 @@ class HwpxOxmlDocument:
         ``letter_spacing`` (자간 %), ``shadow`` (drop-shadow colour), and
         ``script`` (``"sup"``/``"sub"``). Values outside the OWPML vocabulary
         are rejected — no silent approximation.
+
+        6.3 additions: ``outline`` (외곽선, ``hc:LineType1`` 어휘),
+        ``emboss``/``engrave`` (양각/음각), and ``script`` now also pairs the
+        real ``hh:supscript``/``hh:subscript`` element with its existing
+        ``relSz``/``offset`` approximation (see ``_run_style_apply_script_extension``).
         """
 
         if not self._headers:
@@ -549,6 +735,18 @@ class HwpxOxmlDocument:
             raise ValueError("letter_spacing must be between -50 and 100")
         if script is not None and script not in ("sup", "sub"):
             raise ValueError('script must be "sup" or "sub"')
+        normalized_outline: str | None = None
+        if outline is not None:
+            candidate = str(outline).upper()
+            if candidate not in self._OUTLINE_TYPES:
+                from ..errors import HwpxValueError
+                suggestion = "outline must be one of " + ", ".join(sorted(self._OUTLINE_TYPES))
+                raise HwpxValueError(
+                    f"unsupported outline {outline!r}",
+                    code="style-run-outline-type-invalid",
+                    suggestion=suggestion,
+                )
+            normalized_outline = candidate
 
         header = self._headers[0]
         spec = _RunStyleSpec(
@@ -565,6 +763,9 @@ class HwpxOxmlDocument:
             letter_spacing=int(letter_spacing) if letter_spacing is not None else None,
             shadow_color=_normalize_color(shadow),
             script=script,
+            outline=normalized_outline,
+            emboss=None if emboss is None else bool(emboss),
+            engrave=None if engrave is None else bool(engrave),
         )
         element = header.ensure_char_property(
             predicate=lambda el: _run_style_predicate(el, spec),
@@ -606,6 +807,8 @@ class HwpxOxmlDocument:
         border_color: str = "#BFBFBF",
         border_width: str = "0.12 mm",
         fill_color: str | None = None,
+        fill_image: Mapping[str, str] | None = None,
+        fill_gradient: Mapping[str, object] | None = None,
         active_borders: Iterable[str] | None = None,
         border_type: str = "SOLID",
     ) -> str:
@@ -615,20 +818,58 @@ class HwpxOxmlDocument:
             border_color=border_color,
             border_width=border_width,
             fill_color=fill_color,
+            fill_image=fill_image,
+            fill_gradient=fill_gradient,
             active_borders=active_borders,
             border_type=border_type,
         )
 
+    def ensure_font(
+        self,
+        face: str,
+        *,
+        lang: Iterable[str] | str | None = None,
+        font_type: str = "TTF",
+        is_embedded: bool = False,
+        binary_item_id_ref: str | None = None,
+        subst_face: str | None = None,
+        subst_type: str | None = None,
+        subst_is_embedded: bool = False,
+        subst_binary_item_id_ref: str | None = None,
+    ) -> str:
+        if not self._headers:
+            from ..errors import HwpxStateError
+
+            raise HwpxStateError(
+                "document does not contain any headers",
+                code="document-header-missing",
+            )
+        return self._headers[0].ensure_font(
+            face,
+            lang=lang,
+            font_type=font_type,
+            is_embedded=is_embedded,
+            binary_item_id_ref=binary_item_id_ref,
+            subst_face=subst_face,
+            subst_type=subst_type,
+            subst_is_embedded=subst_is_embedded,
+            subst_binary_item_id_ref=subst_binary_item_id_ref,
+        )
+
     def ensure_shading_border_fill(
         self,
-        color: str,
+        color: str | None = None,
         *,
+        fill_image: Mapping[str, str] | None = None,
+        fill_gradient: Mapping[str, object] | None = None,
         base_border_fill_id: str | int | None = None,
     ) -> str:
         if not self._headers:
             return "0"
         return self._headers[0].ensure_shading_border_fill(
             color,
+            fill_image=fill_image,
+            fill_gradient=fill_gradient,
             base_border_fill_id=base_border_fill_id,
         )
 
@@ -655,6 +896,29 @@ class HwpxOxmlDocument:
             return None
         return shapes.get(normalized)
 
+    def ensure_memo_shape(
+        self,
+        *,
+        width: int = 15591,
+        line_width: int | str = 1,
+        line_type: str = "SOLID",
+        line_color: str = "#000000",
+        fill_color: str = "#CCFF99",
+        active_color: str = "#FFFF99",
+        memo_type: str = "NOMAL",
+    ) -> str:
+        if not self._headers:
+            return "0"
+        return self._headers[0].ensure_memo_shape(
+            width=width,
+            line_width=line_width,
+            line_type=line_type,
+            line_color=line_color,
+            fill_color=fill_color,
+            active_color=active_color,
+            memo_type=memo_type,
+        )
+
     @property
     def bullets(self) -> dict[str, Bullet]:
         mapping: dict[str, Bullet] = {}
@@ -676,6 +940,36 @@ class HwpxOxmlDocument:
         self, para_pr_id_ref: int | str | None
     ) -> ParagraphProperty | None:
         return HwpxOxmlHeader._lookup_by_id(self.paragraph_properties, para_pr_id_ref)
+
+    @property
+    def tab_properties(self) -> dict[str, TabDefinition]:
+        mapping: dict[str, TabDefinition] = {}
+        for header in self._headers:
+            mapping.update(header.tab_properties)
+        return mapping
+
+    def tab_property(self, tab_pr_id_ref: int | str | None) -> TabDefinition | None:
+        return HwpxOxmlHeader._lookup_by_id(self.tab_properties, tab_pr_id_ref)
+
+    def ensure_tab_definition(
+        self,
+        *,
+        tab_stops: Iterable[Mapping[str, object]] | None = None,
+        auto_tab_left: bool = False,
+        auto_tab_right: bool = False,
+    ) -> str:
+        if not self._headers:
+            from ..errors import HwpxStateError
+
+            raise HwpxStateError(
+                "document does not contain any headers",
+                code="document-header-missing",
+            )
+        return self._headers[0].ensure_tab_definition(
+            tab_stops=tab_stops,
+            auto_tab_left=auto_tab_left,
+            auto_tab_right=auto_tab_right,
+        )
 
     def ensure_numbering(
         self,
@@ -926,95 +1220,16 @@ class HwpxOxmlDocument:
     # Section management
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _has_positive_page_geometry(section_properties: ET.Element) -> bool:
-        page_properties = section_properties.find(f"{_HP}pagePr")
-        if page_properties is None or page_properties.find(f"{_HP}margin") is None:
-            return False
-        try:
-            page_width = int(page_properties.get("width", "0"))
-            page_height = int(page_properties.get("height", "0"))
-        except (TypeError, ValueError):
-            return False
-        return page_width > 0 and page_height > 0
-
-    @classmethod
-    def _renderable_section_carriers(
-        cls,
-        section: HwpxOxmlSection,
-    ) -> tuple[ET.Element, ET.Element, ET.Element] | None:
-        """Locate a valid ``secPr`` and its ``colPr`` carrier."""
-        first_paragraph = section.element.find(f"{_HP}p")
-        if first_paragraph is None:
-            return None
-        first_run = first_paragraph.find(f"{_HP}run")
-        if first_run is None:
-            return None
-
-        section_properties = first_run.find(f"{_HP}secPr")
-        if section_properties is None:
-            return None
-        if not cls._has_positive_page_geometry(section_properties):
-            return None
-
-        for control in first_run.findall(f"{_HP}ctrl"):
-            column_properties = control.find(f"{_HP}colPr")
-            if column_properties is not None:
-                return section_properties, control, column_properties
-        return None
-
-    @classmethod
-    def _copy_renderable_section_layout(
-        cls,
-        section: HwpxOxmlSection,
-    ) -> tuple[ET.Element, ET.Element] | None:
-        """Return story-free ``secPr`` and ``colPr`` carriers from *section*.
-
-        Hancom requires every section part to carry positive page geometry and
-        a column definition in its first paragraph's first run.  Header/footer
-        stories are deliberately excluded because their object identifiers and
-        content belong to the source section.
-        """
-        carriers = cls._renderable_section_carriers(section)
-        if carriers is None:
-            return None
-        section_properties, column_control, column_properties = carriers
-
-        copied_properties = deepcopy(section_properties)
-        story_children = {
-            "header",
-            "footer",
-            "headerApply",
-            "footerApply",
-            "masterPage",
-            "presentation",
-        }
-        for child in list(copied_properties):
-            if _element_local_name(child) in story_children:
-                copied_properties.remove(child)
-        copied_properties.set("masterPageCnt", "0")
-        if copied_properties.get("id") is None:
-            copied_properties.set("id", "")
-
-        copied_column_control = column_control.makeelement(
-            column_control.tag,
-            dict(column_control.attrib),
-        )
-        copied_column_properties = deepcopy(column_properties)
-        column_id = copied_column_properties.get("id")
-        if column_id:
-            copied_column_properties.set("id", _object_id())
-        elif column_id is None:
-            copied_column_properties.set("id", "")
-        copied_column_control.append(copied_column_properties)
-        return copied_properties, copied_column_control
-
     def _section_layout_for_insertion(
         self,
         *,
         after: int | None,
     ) -> tuple[ET.Element, ET.Element]:
-        """Select the nearest renderable layout for a newly inserted section."""
+        """Select the nearest renderable layout for a newly inserted section.
+
+        The actual carrier lookup lives in ``section_layout.py`` (overflow
+        module, cycle 6.11 train 44 -- see that module's own docstring).
+        """
         if not self._sections:
             raise ValueError(
                 "cannot add a renderable section: the document has no source section"
@@ -1026,7 +1241,7 @@ class HwpxOxmlDocument:
             key=lambda index: (abs(index - anchor), index),
         )
         for index in candidate_indices:
-            layout = self._copy_renderable_section_layout(self._sections[index])
+            layout = _section_layout.copy_renderable_section_layout(self._sections[index])
             if layout is not None:
                 return layout
 

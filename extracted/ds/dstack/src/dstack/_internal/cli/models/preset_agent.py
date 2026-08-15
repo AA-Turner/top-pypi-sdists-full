@@ -36,14 +36,16 @@ _BENCHMARK_JSON_SCHEMA = {
                 "output_tokens": {"type": "integer", "minimum": 2},
                 "concurrency": {"type": "integer", "minimum": 1},
                 "shared_prefix_tokens": {"type": "integer", "minimum": 0},
+                "dataset": {"type": "string", "minLength": 1},
             },
+            # `shared_prefix_tokens` and `dataset` are not required: one schema
+            # serves both session modes, and each mode knows only its own field.
             "required": [
                 "api",
                 "num_requests",
                 "input_tokens",
                 "output_tokens",
                 "concurrency",
-                "shared_prefix_tokens",
             ],
             "additionalProperties": False,
         },
@@ -85,6 +87,7 @@ AGENT_FINAL_REPORT_JSON_SCHEMA = {
         "run_id": {"type": "string"},
         "run_name": {"type": "string"},
         "service_yaml": {"type": "string"},
+        "trial": {"type": "integer", "minimum": 1},
         "base": {"type": "string"},
         "model": {"type": "string"},
         "context_length": {"type": "integer", "minimum": 1},
@@ -101,6 +104,7 @@ class AgentFinalReport(CoreModel):
     run_id: Optional[uuid.UUID] = None
     run_name: Optional[str] = None
     service_yaml: Optional[str] = None
+    trial: Optional[PositiveInt] = None
     base: Optional[str] = None
     model: Optional[str] = None
     context_length: Optional[PositiveInt] = None
@@ -114,6 +118,7 @@ class AgentFinalReport(CoreModel):
                 "run_id",
                 "run_name",
                 "service_yaml",
+                "trial",
                 "base",
                 "model",
                 "context_length",

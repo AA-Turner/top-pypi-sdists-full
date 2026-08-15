@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_github
-Version: 6.14.1
+Version: 6.15.0
 Summary: A Pulumi package for creating and managing github cloud resources.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.io

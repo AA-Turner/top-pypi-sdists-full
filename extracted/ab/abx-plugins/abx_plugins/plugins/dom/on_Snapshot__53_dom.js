@@ -26,10 +26,7 @@ const {
   hasStaticFileOutput,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
-const {
-  connectToPage,
-  resolvePuppeteerModule,
-} = require("../chrome/chrome_utils.js");
+const { connectToPage } = require("../chrome/chrome_utils.js");
 const hookConfig = loadConfig();
 
 // Check if DOM is enabled BEFORE requiring puppeteer
@@ -38,9 +35,6 @@ if (!getEnvBool("DOM_ENABLED", true)) {
   emitArchiveResultRecord("skipped", "DOM_ENABLED=False");
   process.exit(0);
 }
-
-// Now safe to require puppeteer
-const puppeteer = resolvePuppeteerModule();
 
 // Extractor metadata
 const PLUGIN_NAME = "dom";
@@ -66,10 +60,10 @@ async function dumpDom(url, timeoutMs) {
       timeoutMs,
       waitForNavigationComplete: true,
       postLoadDelayMs: 200,
-      puppeteer,
     });
     browser = connection.browser;
     const page = connection.page;
+    console.log("DOM extraction started");
 
     // Get the full DOM content
     const domContent = await page.content();

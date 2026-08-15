@@ -42,19 +42,17 @@ from . import attention_modes
 from . import disk_gc, load_progress
 from .cache_paths import tensorhub_cas_dir
 from .errors import UrlExpiredError
-from .envelope import envelope_refusal
 from .loading import (
     assert_uniform_compute_dtype,
     composition_compute_dtype,
-    detect_diffusers_variant,
     load_from_pretrained,
     model_index_components,
-    specialized_weight_layout,
 )
 from .memory import place_pipeline
 from .refs import DEFAULT_REF_TAG, parse_model_ref
 from .. import activity as activity_mod
 from .. import mint_workers
+from .. import postmortem
 
 if TYPE_CHECKING:
     from ..aot_identity import ExpectedIdentity
@@ -116,10 +114,7 @@ def load_slot(
     component_trees: Optional[Dict[str, str]] = None,
     device: str = "",
     place: bool = True,
-    declared_vram_gb: float = 0.0,
     force_storage_dtype: str = "",
-    strict_vram: bool = False,
-    artifact_digest: str = "",
 ) -> SlotLoad:
     """Typed slot injection: the slot receives exactly what its ``setup``
     annotation says — a ``str``/``Path`` local path, or a constructed
@@ -171,33 +166,14 @@ def load_slot(
                 "serving at base precision")
             storage_dtype = ""
 
-    # pgw#1117 / th#1777: the artifact is weighed AS IT WILL LOAD and checked
-    # against the declared envelope BEFORE a single byte is staged. ie#642
-    # printed both numbers ("staged 0.67 GiB of 32.81 GiB" against
-    # vram_gb=22), staged anyway, and OOMed on a billed card inside setup().
-    # A clear breach is a typed refusal here; a marginal one still tries.
-    trees = [path, *sorted((component_trees or {}).values())]
-    refusal = envelope_refusal(
-        trees,
-        declared_vram_gb=declared_vram_gb,
-        strict_vram=strict_vram,
-        cast_dtype=dtype,
-        storage_dtype=storage_dtype,
-        variant=detect_diffusers_variant(Path(path)) or "",
-        specialized_layout=specialized_weight_layout(path),
-        slot=slot,
-        ref=ref,
-        artifact_digest=artifact_digest,
-    )
-    if refusal is not None:
-        logger.error("pre-load envelope refusal: %s", refusal)
-        try:
-            activity_mod.emit_event(
-                activity_mod.KIND_ENVELOPE_REFUSAL, str(refusal),
-                phase="refused")
-        except Exception:  # noqa: BLE001 - the refusal outranks its telemetry
-            logger.debug("envelope-refusal event dropped", exc_info=True)
-        raise refusal
+    # th#1867 deleted the pgw#1117/th#1777 pre-stage envelope precondition that
+    # stood here. It weighed the artifact as it would load and compared it
+    # against the release's declared `vram_gb` under `strict_vram` — and BOTH
+    # of those declarations are now gone (§2.4 ruling 4), so the check had no
+    # operands left. It was answering a real question badly: ie#642 was a WRONG
+    # BINDING (a bare `prod` head repointed at an fp32 archive clone), and the
+    # way to catch that is to compare the binding against the CATALOG, not
+    # against a card size the author guessed. th#1913 owns that.
 
     # pgw#1041: byte-level staging progress + death breadcrumb for the whole
     # load (hydration AND placement). The counter feeds the existing 10s
@@ -215,7 +191,6 @@ def load_slot(
             annotation, path, dtype=dtype, storage_dtype=storage_dtype,
             components=components or None,
             component_trees=component_trees or None,
-            declared_vram_gb=declared_vram_gb,
             ref=ref,
             # pgw#1063: the loader's own host-RAM decisions depend on where
             # this pipeline will END UP. `place_pipeline(mode=...)` below is
@@ -268,8 +243,7 @@ def load_slot(
         # is a ladder transition, not a failure.
         if place and device.strip().lower() != "cpu":
             reporter.set_phase("place")
-            out.placed = place_pipeline(
-                pipe, mode=mode, ref=ref, strict_vram=strict_vram)
+            out.placed = place_pipeline(pipe, mode=mode, ref=ref)
     finally:
         reporter.stop(clean=True)
     return out
@@ -451,6 +425,19 @@ def arm_aot(
     _resident_before, _ = mint_workers.adopt_watermark(_budget_device)
     _load_bytes = 0
     _emitted = False
+    # pgw#1262: the same seam, for the same reason, one question over. pgw#1168
+    # put the adopt's MEASUREMENT here because this is the one point every arm
+    # route passes; its ATTRIBUTION was never wired at all. The two device
+    # spans below (the load, and the §4.32 gate's forwards) are the adopt's
+    # whole GPU surface, and until now neither held a compile in-flight marker
+    # — so a signal death in either was charged to whatever tenant request was
+    # running, `postmortem.compile_crash_rows()` stayed empty, and pgw#714's
+    # eager-only reboot never fired. Measured 2026-08-14: a z-image pod booked
+    # its adopt SIGSEGV against `generate`, restarted the same two arm_keys and
+    # crash-looped while th#1326 paid to hold it.
+    _adopt_label = "adopt:" + (
+        str((meta or {}).get("family") or getattr(cfg, "family", "") or "")
+        or "unknown")
 
     def _emit_adopt_budget(verify_bytes: int, armed: bool) -> None:
         """One `cell_adopt_budget` row per arm attempt, whatever the outcome.
@@ -501,8 +488,16 @@ def arm_aot(
     #
     # pgw#1176 makes that refusal cheaper still: the attempt is ONE graph
     # class, so a card that cannot hold it costs that class and no other.
-    outcome = aot_serve.enable(
-        pipe, cfg, cache_dir, artifact, expected=expected, declared=declared)
+    #
+    # pgw#1262: and the attempt is NAMED while it runs. `_bind_headroom` turns
+    # a CATCHABLE device OOM into the typed miss above; a device exhaustion
+    # under `expandable_segments:True` (imposed by this SDK at
+    # `settings_authority.py:83`) is a native mapping abort that no `except`
+    # sees, so the process dies here. When it does, this marker is what makes
+    # the death read as a COMPILE crash rather than as the tenant's.
+    with postmortem.compile_inflight(_adopt_label):
+        outcome = aot_serve.enable(
+            pipe, cfg, cache_dir, artifact, expected=expected, declared=declared)
     _, _peak_after_load = mint_workers.adopt_watermark(_budget_device)
     _load_bytes = max(0, _peak_after_load - _resident_before)
     if not outcome.armed and lifted_install_error:
@@ -517,7 +512,17 @@ def arm_aot(
     if outcome.armed:
         # §4.32: quality is proven at MINT and in author CI, never at adoption.
         # An adopting pod materializes, arms and serves.
-        gate_ok = not verify_numerics or gate_cell_numerics(pipe, cfg, strict=True)
+        # pgw#1262: the gate runs TWO forwards on a card that is already
+        # holding the resident pipeline(s) plus the runner just loaded above,
+        # so it is the adopt's peak device moment — and it is where the
+        # 2026-08-14 z-image death actually landed (`probe_cell` ->
+        # `gate_cell_numerics` -> `arm_aot`). Named, so that death is a
+        # compile's.
+        if verify_numerics:
+            with postmortem.compile_inflight(_adopt_label):
+                gate_ok = gate_cell_numerics(pipe, cfg, strict=True)
+        else:
+            gate_ok = True
         _, _peak_after_verify = mint_workers.adopt_watermark(_budget_device)
         if gate_ok:
             _emit_adopt_budget(_peak_after_verify - _peak_after_load, True)
@@ -1321,8 +1326,7 @@ def resolve_local_path(
     ``download.select_component_paths`` / ``cozy_snapshot.snapshot_dir_key``.
     """
 
-    configured_cas = current_or(_STANDALONE).tensorhub_cas_dir.strip()
-    cache_dir = Path(configured_cas) if configured_cas else Path(tensorhub_cas_dir())
+    cache_dir = Path(tensorhub_cas_dir())
 
     # Decode the bare ref into typed parts using the explicit provider.
     # No string-prefix sniffing — provider is the source of truth.
@@ -1430,8 +1434,8 @@ def resolve_local_path(
             raise ModelResolutionError(
                 f"--offline: tensorhub ref {parsed.tensorhub.canonical()} not in local "
                 f"CAS ({cache_dir}); warm the cache by running without "
-                "--offline once (or set TENSORHUB_CAS_DIR to a path with the "
-                "snapshot pre-seeded)."
+                "--offline once (or set TENSORHUB_CACHE_DIR to a cache root "
+                "with the snapshot pre-seeded)."
             )
         return _fetch_tensorhub_snapshot(
             parsed.tensorhub, cache_dir=cache_dir, emit=emit, components=components,

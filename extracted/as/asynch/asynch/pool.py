@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import asyncio
 import logging
+import time
 from collections import deque
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
-from typing import Optional
 
 from asynch.connection import Connection
 from asynch.errors import AsynchPoolError
@@ -18,6 +20,8 @@ class Pool:
         self,
         minsize: int = constants.POOL_MIN_SIZE,
         maxsize: int = constants.POOL_MAX_SIZE,
+        idle_timeout: float | None = None,
+        liveness_grace: float = 1.0,
         **kwargs,
     ):
         if maxsize < 1:
@@ -26,8 +30,20 @@ class Pool:
             raise ValueError("minsize is expected to be greater or equal to zero")
         if minsize > maxsize:
             raise ValueError("minsize is greater than maxsize")
+        if idle_timeout is not None and idle_timeout <= 0:
+            raise ValueError("idle_timeout is expected to be greater than zero")
         self._maxsize = maxsize
         self._minsize = minsize
+        # Reap connections idle for longer than this, down to minsize. None
+        # keeps every connection the pool ever opened, which is the historical
+        # behaviour: the pool grows to its high-water mark and stays there.
+        self._idle_timeout = idle_timeout
+        # Skip the liveness ping for a connection verified this recently. Each
+        # checkout otherwise costs two PING round-trips (acquire and release),
+        # which is invisible locally but is two extra RTTs in production.
+        self._liveness_grace = liveness_grace
+        # connection -> monotonic timestamp of its last release/verification
+        self._idle_since: dict[int, float] = {}
         self._connection_kwargs = kwargs
         self._sem = asyncio.Semaphore(maxsize)
         self._lock = asyncio.Lock()
@@ -36,7 +52,7 @@ class Pool:
         self._opened: bool = False
         self._closed: bool = False
 
-    async def __aenter__(self) -> "Pool":
+    async def __aenter__(self) -> Pool:
         await self.startup()
         return self
 
@@ -153,12 +169,51 @@ class Pool:
             raise AsynchPoolError(f"no free connection in {self}")
         return self._free_connections.popleft()
 
-    async def _get_fresh_connection(self) -> Optional[Connection]:
+    async def _discard_connection(self, conn: Connection) -> None:
+        """Drop a connection, closing its socket."""
+
+        logger.debug("discarding %s from %s", conn, self)
+        self._idle_since.pop(id(conn), None)
+        with suppress(Exception):
+            await conn.close()
+
+    async def _is_usable(self, conn: Connection) -> bool:
+        """Whether `conn` can be handed out, pinging unless recently verified."""
+
+        verified_at = self._idle_since.get(id(conn))
+        if verified_at is not None and (time.monotonic() - verified_at) <= self._liveness_grace:
+            return True
+        if await conn.is_live():
+            self._idle_since[id(conn)] = time.monotonic()
+            return True
+        return False
+
+    async def _reap_idle_connections(self) -> None:
+        """Close connections idle past `idle_timeout`, keeping `minsize`.
+
+        Called while holding `self._lock`, so it cannot race an acquire.
+        """
+
+        if self._idle_timeout is None:
+            return
+        now = time.monotonic()
+        while len(self._free_connections) > 0 and self._pool_size > self._minsize:
+            conn = self._free_connections[0]
+            idle_since = self._idle_since.get(id(conn), now)
+            if (now - idle_since) < self._idle_timeout:
+                break
+            self._free_connections.popleft()
+            logger.debug("reaping %s idle for %.1fs", conn, now - idle_since)
+            await self._discard_connection(conn)
+
+    async def _get_fresh_connection(self) -> Connection | None:
         while self._free_connections:
             conn = self._pop_connection()
-            with suppress(ConnectionError):
-                await conn._refresh()
+            if await self._is_usable(conn):
                 return conn
+            # A dead connection cannot be revived in place; drop it and let
+            # `_ensure_minsize_connections` refill the pool.
+            await self._discard_connection(conn)
         return None
 
     async def _acquire_connection(self) -> Connection:
@@ -176,13 +231,13 @@ class Pool:
             raise AsynchPoolError(f"the connection {conn} does not belong to {self}")
 
         self._acquired_connections.remove(conn)
-        try:
-            await conn._refresh()
-        except ConnectionError as e:
-            msg = f"the {conn} is invalidated"
-            raise AsynchPoolError(msg) from e
+        if not await conn.is_live():
+            await self._discard_connection(conn)
+            return
 
+        self._idle_since[id(conn)] = time.monotonic()
         self._free_connections.append(conn)
+        await self._reap_idle_connections()
 
     async def _init_connections(self, n: int, *, strict: bool = False) -> None:
         if n < 0:
@@ -240,7 +295,7 @@ class Pool:
                         logger.warning(e)
                     await self._ensure_minsize_connections(strict=True)
 
-    async def startup(self) -> "Pool":
+    async def startup(self) -> Pool:
         """Initialise the pool.
 
         When entering the context,

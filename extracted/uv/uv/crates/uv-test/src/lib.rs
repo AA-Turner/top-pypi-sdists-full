@@ -47,9 +47,9 @@ pub const DEFAULT_PYTHON_VERSION: &str = "3.12";
 const LATEST_PYTHON_3_15: &str = "3.15.0rc1";
 const LATEST_PYTHON_3_14: &str = "3.14.7";
 const LATEST_PYTHON_3_13: &str = "3.13.15";
-pub const LATEST_PYTHON_3_12: &str = "3.12.13";
-const LATEST_PYTHON_3_11: &str = "3.11.15";
-const LATEST_PYTHON_3_10: &str = "3.10.20";
+pub const LATEST_PYTHON_3_12: &str = "3.12.14";
+const LATEST_PYTHON_3_11: &str = "3.11.16";
+const LATEST_PYTHON_3_10: &str = "3.10.21";
 
 /// Create a new [`TestContext`] with the given Python version.
 ///
@@ -172,6 +172,30 @@ impl TestContext {
         new
     }
 
+    /// Set the cache directory for all commands and update its snapshot filters.
+    ///
+    /// Relative paths are resolved against the test working directory.
+    #[must_use]
+    pub fn with_cache_dir(mut self, cache_dir: impl AsRef<Path>) -> Self {
+        let cache_dir = if cache_dir.as_ref().is_absolute() {
+            cache_dir.as_ref().to_path_buf()
+        } else {
+            self.temp_dir
+                .join(cache_dir.as_ref().components().collect::<PathBuf>())
+        };
+
+        self.filters
+            .retain(|(_, replacement)| replacement != "[CACHE_DIR]/");
+        self.cache_dir = ChildPath::new(cache_dir);
+
+        for pattern in Self::path_patterns(&self.cache_dir) {
+            self.filters
+                .insert(0, (pattern, "[CACHE_DIR]/".to_string()));
+        }
+
+        self
+    }
+
     /// Set the "exclude newer" timestamp for all commands in this context.
     #[must_use]
     pub fn with_exclude_newer(mut self, exclude_newer: &str) -> Self {
@@ -186,6 +210,20 @@ impl TestContext {
         self.extra_env
             .push((EnvVars::UV_HTTP_TIMEOUT.into(), http_timeout.into()));
         self
+    }
+
+    /// Set the number of HTTP retries for all commands in this context.
+    #[must_use]
+    pub fn with_http_retries(mut self, http_retries: &str) -> Self {
+        self.extra_env
+            .push((EnvVars::UV_HTTP_RETRIES.into(), http_retries.into()));
+        self
+    }
+
+    /// Configure one HTTP retry with a one-second timeout for all commands in this context.
+    #[must_use]
+    pub fn with_fast_http_retry(self) -> Self {
+        self.with_http_timeout("1").with_http_retries("1")
     }
 
     /// Set the "concurrent installs" for all commands in this context.
@@ -678,6 +716,21 @@ impl TestContext {
             .push((EnvVars::UV_PYTHON_INSTALL_DIR.into(), managed.into()));
         self.extra_env
             .push((EnvVars::UV_PYTHON_DOWNLOADS.into(), "automatic".into()));
+
+        self
+    }
+
+    /// Configure isolated directories for installed tools and their executable entry points.
+    #[must_use]
+    pub fn with_tool_dirs(mut self) -> Self {
+        self.extra_env.push((
+            EnvVars::UV_TOOL_DIR.into(),
+            self.temp_dir.join("tools").into(),
+        ));
+        self.extra_env.push((
+            EnvVars::XDG_BIN_HOME.into(),
+            self.temp_dir.join("bin").into(),
+        ));
 
         self
     }
@@ -2238,6 +2291,8 @@ pub fn run_and_format_silent<T: AsRef<str>>(
     windows_filters: Option<WindowsFilters>,
     input: Option<&str>,
 ) -> (String, Output) {
+    assert_effective_cache_directory(command.borrow_mut());
+
     let program = command
         .borrow_mut()
         .get_program()
@@ -2355,6 +2410,33 @@ pub fn run_and_format_silent<T: AsRef<str>>(
     }
 
     (snapshot, output)
+}
+
+/// Reject cache environment overrides hidden by an explicit cache-directory argument.
+///
+/// Context commands always include `--cache-dir`, so setting `UV_CACHE_DIR` after constructing
+/// one cannot change its cache. Check the completed command immediately before execution so
+/// snapshots cannot silently pass without exercising their intended cache configuration.
+fn assert_effective_cache_directory(command: &Command) {
+    let cache_directory_override = command
+        .get_envs()
+        .find(|(name, value)| *name == EnvVars::UV_CACHE_DIR && value.is_some());
+
+    if cache_directory_override.is_none() {
+        return;
+    }
+
+    let explicit_cache_directory = command.get_args().any(|argument| {
+        argument == "--cache-dir"
+            || argument
+                .to_str()
+                .is_some_and(|argument| argument.starts_with("--cache-dir="))
+    });
+
+    assert!(
+        !explicit_cache_directory,
+        "`UV_CACHE_DIR` is ignored because this command already supplies `--cache-dir`; configure `TestContext::cache_dir` instead"
+    );
 }
 
 /// Recursively copy a directory and its contents, skipping gitignored files.
@@ -2547,4 +2629,58 @@ macro_rules! uv_snapshot {
         ::insta::assert_snapshot!(snapshot, @$snapshot);
         output
     }};
+}
+
+#[cfg(test)]
+mod cache_directory_tests {
+    use std::process::Command;
+
+    use uv_static::EnvVars;
+
+    use super::assert_effective_cache_directory;
+
+    #[test]
+    #[should_panic(expected = "`UV_CACHE_DIR` is ignored")]
+    fn rejects_environment_override_with_explicit_cache_argument() {
+        let mut command = Command::new("uv");
+        command
+            .arg("--cache-dir")
+            .arg("context-cache")
+            .env(EnvVars::UV_CACHE_DIR, "ignored-cache");
+
+        assert_effective_cache_directory(&command);
+    }
+
+    #[test]
+    #[should_panic(expected = "`UV_CACHE_DIR` is ignored")]
+    fn rejects_environment_override_with_inline_cache_argument() {
+        let mut command = Command::new("uv");
+        command
+            .arg("--cache-dir=context-cache")
+            .env(EnvVars::UV_CACHE_DIR, "ignored-cache");
+
+        assert_effective_cache_directory(&command);
+    }
+
+    #[test]
+    fn allows_environment_override_without_explicit_cache_argument() {
+        let mut command = Command::new("uv");
+        command
+            .arg("cache")
+            .arg("dir")
+            .env(EnvVars::UV_CACHE_DIR, "effective-cache");
+
+        assert_effective_cache_directory(&command);
+    }
+
+    #[test]
+    fn allows_removed_environment_override_with_explicit_cache_argument() {
+        let mut command = Command::new("uv");
+        command
+            .arg("--cache-dir")
+            .arg("context-cache")
+            .env_remove(EnvVars::UV_CACHE_DIR);
+
+        assert_effective_cache_directory(&command);
+    }
 }

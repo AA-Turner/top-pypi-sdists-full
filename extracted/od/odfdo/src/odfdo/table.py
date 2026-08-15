@@ -755,18 +755,16 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         area.
 
         Args:
-            coord: The coordinates of the area
-                to parse (e.g., "A1:C3" or (0, 0, 2, 2)). If None, the entire
-                table is parsed.
-            cell_type: Filters cells by their value type
-                (e.g., 'boolean', 'float', 'string'). 'all' retrieves any
-                non-empty cell.
-            complete: If True (default), missing values in the specified
-                area are replaced by None to ensure a complete matrix.
-            get_type: If True, returns tuples of (value, odf_type). For
-                empty cells with `complete=True`, this will be (None, None).
-            flat: If True, returns a single flat list of values instead
-                of a list of lists. Defaults to False.
+            coord: The coordinates of the area to parse (e.g., "A1:C3" or
+                (0, 0, 2, 2)). If None, the entire table is parsed.
+            cell_type: Filters cells by their value type (e.g., 'boolean',
+                'float', 'string'). 'all' retrieves any non-empty cell.
+            complete: If True (default), missing values in the specified area
+                are replaced by None to ensure a complete matrix.
+            get_type: If True, returns tuples of (value, odf_type). For empty
+                cells with `complete=True`, this will be (None, None).
+            flat: If True, returns a single flat list of values instead of a
+                list of lists. Defaults to False.
 
         Returns:
             list: A list of lists of Python types representing cell values,
@@ -801,6 +799,28 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
             else:
                 data.append(values)
         return data
+
+    @property
+    def values(self) -> list[list[CellValue | None]]:
+        """Get or set the matrix of cell values of the table.
+
+        When getting, the type of each cell value is inferred from the
+        'office:value-type' attribute.
+        When setting, the type of the provided Python value determines the
+        'office:value-type' of each cell.
+
+        Note: the cell style content is kept when using cell values.
+        To ensure an absolute empty table, use Table.clear().
+
+        Returns:
+            list[list[CellValue | None]]:
+                The 2D matrix of values of cells in their appropriate Python type.
+        """
+        return self.get_values()
+
+    @values.setter
+    def values(self, values: Iterable[Iterable[CellValue | None]]) -> None:
+        self.set_values(values)
 
     def iter_values(
         self,
@@ -865,9 +885,8 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
 
         Args:
             values: An iterable of iterables of Python types to set.
-            coord: The coordinate of the top-left
-                cell where values should be set (e.g., "A1" or (0, 0)).
-                Defaults to "A1".
+            coord: The coordinate of the top-left cell where values should be
+                set (e.g., "A1" or (0, 0)). Defaults to "A1".
             style: The name of a cell style to apply.
             cell_type: The value type for the cells (e.g., 'float').
             currency: A three-letter currency code (e.g., 'USD').
@@ -907,8 +926,8 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         evaluates to False) and no style.
 
         Args:
-            aggressive: If True, empty cells with styles are also
-                considered empty and will be removed.
+            aggressive: If True, empty cells with styles are also considered
+                empty and will be removed.
         """
         # Step 1: remove empty rows below the table
         for row in reversed(self._get_rows()):
@@ -1218,7 +1237,8 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
     def get_row(self, y: int | str, clone: bool = True, create: bool = True) -> Row:
         """Get the row at the given 'y' position (0-based).
 
-        A copy of the row is returned; use `set_row()` to apply any changes.
+        By default, a copy of the row is returned; use `set_row()` to apply
+        any changes.
 
         Args:
             y: The 0-based index or string representation of the row.
@@ -1232,8 +1252,6 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         # fixme : keep repeat ? maybe an option to functions : "raw=False"
         y = self._translate_y_from_any(y)
         row = self._get_row2(y, clone=clone, create=create)
-        if row is None:
-            raise ValueError("Row not found")
         row.y = y
         return row
 
@@ -1447,7 +1465,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         Returns:
             Row: The modified row, with its `y` attribute updated.
         """
-        row = Row()  # needed if clones rows
+        row = self.get_row(y)
         row.set_values(values, style=style, cell_type=cell_type, currency=currency)
         return self.set_row(y, row)  # needed if clones rows
 
@@ -1730,6 +1748,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         cell_type: str | None = None,
         currency: str | None = None,
         style: str | None = None,
+        formula: str | None = None,
     ) -> None:
         """Set the Python value of the cell at the given coordinates.
 
@@ -1739,12 +1758,22 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
             cell_type: The value type (e.g., 'float', 'string').
             currency: A three-letter currency code.
             style: The name of a cell style to apply.
+            formula: The formula to set for the cell.
         """
-        self.set_cell(
-            coord,
-            Cell(value, cell_type=cell_type, currency=currency, style=style),
-            clone=False,
+        # raise VAlue Error in get_cell if wrong coordinates
+        # always returns a Cell
+        current = self.get_cell(coord, clone=False)
+        cell = current.clone
+        cell.repeated = None
+        cell.set_value(
+            value,
+            cell_type=cell_type,
+            currency=currency,
+            formula=formula,
         )
+        if style:
+            cell.style = style
+        self.set_cell(coord, cell, clone=False)
 
     def set_cell_image(
         self,

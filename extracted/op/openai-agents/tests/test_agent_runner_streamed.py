@@ -46,24 +46,19 @@ from agents import (
     handoff,
     retry_policies,
 )
-from agents.items import (
-    ModelResponse,
-    RunItem,
-    ToolApprovalItem,
-    TResponseInputItem,
-    TResponseStreamEvent,
-)
+from agents.items import RunItem, ToolApprovalItem, TResponseInputItem, TResponseStreamEvent
 from agents.memory.openai_conversations_session import OpenAIConversationsSession
-from agents.models.interface import Model, ModelTracing
+from agents.models.interface import Model
 from agents.run import RunConfig
 from agents.run_internal import run_loop
 from agents.run_internal.run_loop import QueueCompleteSentinel
 from agents.stream_events import AgentUpdatedStreamEvent, RawResponsesStreamEvent, StreamEvent
-from agents.tool import FunctionTool, Tool
+from agents.testing import ModelStep, ScriptedModel
+from agents.tool import FunctionTool
 from agents.tool_guardrails import tool_input_guardrail, tool_output_guardrail
 from agents.usage import Usage, _attach_raw_usage_snapshot
+from tests.model_test_helpers import get_response_obj
 
-from .fake_model import FakeModel, get_response_obj
 from .test_responses import (
     get_final_output_message,
     get_function_tool,
@@ -108,6 +103,23 @@ def _find_reasoning_input_item(
     return None
 
 
+class _DummyWSClient:
+    """Stand-in for `AsyncOpenAI` that the websocket model only reads connection settings from."""
+
+    def __init__(self) -> None:
+        self.base_url = httpx.URL("https://api.openai.com/v1/")
+        self.websocket_base_url = None
+        self.default_query: dict[str, Any] = {}
+        self.default_headers = {
+            "Authorization": "Bearer test-key",
+            "User-Agent": "AsyncOpenAI/Python test",
+        }
+        self.timeout: Any = None
+
+    async def _refresh_api_key(self) -> None:
+        return None
+
+
 def _ws_terminal_response_frame(event_type: str, response_id: str, sequence_number: int) -> str:
     response = get_response_obj([get_text_message("partial final")], response_id=response_id)
     return json.dumps(
@@ -121,12 +133,12 @@ def _ws_terminal_response_frame(event_type: str, response_id: str, sequence_numb
 
 @pytest.mark.asyncio
 async def test_simple_first_run():
-    model = FakeModel()
+    model = ScriptedModel()
     agent = Agent(
         name="test",
         model=model,
     )
-    model.set_next_output([get_text_message("first")])
+    model.enqueue([get_text_message("first")])
 
     result = Runner.run_streamed(agent, input="test")
     async for _ in result.stream_events():
@@ -141,7 +153,7 @@ async def test_simple_first_run():
 
     assert len(result.to_input_list()) == 2, "should have original input and generated item"
 
-    model.set_next_output([get_text_message("second")])
+    model.enqueue([get_text_message("second")])
 
     result = Runner.run_streamed(
         agent, input=[get_text_input_item("message"), get_text_input_item("another_message")]
@@ -157,23 +169,23 @@ async def test_simple_first_run():
 
 @pytest.mark.asyncio
 async def test_empty_list_input_reaches_model():
-    model = FakeModel()
+    model = ScriptedModel()
     agent = Agent(name="test", model=model)
-    model.set_next_output([get_text_message("first")])
+    model.enqueue([get_text_message("first")])
 
     result = Runner.run_streamed(agent, input=[])
     async for _ in result.stream_events():
         pass
 
     assert result.final_output == "first"
-    assert model.last_turn_args["input"] == []
+    assert model.calls[-1].input == []
 
 
 @pytest.mark.asyncio
 async def test_streamed_tool_not_found_behavior_returns_error_to_model() -> None:
-    model = FakeModel()
+    model = ScriptedModel()
     agent = Agent(name="test", model=model)
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             [get_function_tool_call("missing_tool", "{}", call_id="call_missing")],
             [get_text_message("recovered")],
@@ -189,7 +201,7 @@ async def test_streamed_tool_not_found_behavior_returns_error_to_model() -> None
         pass
 
     assert result.final_output == "recovered"
-    second_turn_input = model.last_turn_args["input"]
+    second_turn_input = model.calls[-1].input
     assert isinstance(second_turn_input, list)
     assert {
         item.get("call_id"): item.get("output")
@@ -209,7 +221,7 @@ async def test_streamed_tool_not_found_behavior_returns_error_to_model() -> None
 async def test_streamed_run_rejects_failed_terminal_response_payload_events(
     terminal_event_type: str, terminal_event_cls: type[Any]
 ) -> None:
-    class TerminalPayloadFakeModel(FakeModel):
+    class TerminalPayloadScriptedModel(ScriptedModel):
         async def stream_response(
             self,
             system_instructions,
@@ -233,7 +245,7 @@ async def test_streamed_run_rejects_failed_terminal_response_payload_events(
                 "previous_response_id": previous_response_id,
                 "conversation_id": conversation_id,
             }
-            if self.first_turn_args is None:
+            if not self.calls:
                 self.first_turn_args = self.last_turn_args.copy()
 
             response = get_response_obj(
@@ -245,7 +257,7 @@ async def test_streamed_run_rejects_failed_terminal_response_payload_events(
                 sequence_number=0,
             )
 
-    model = TerminalPayloadFakeModel()
+    model = TerminalPayloadScriptedModel()
     agent = Agent(name="test", model=model)
 
     result = Runner.run_streamed(agent, input="test")
@@ -264,7 +276,7 @@ async def test_streamed_run_rejects_failed_terminal_response_payload_events(
 
 @pytest.mark.asyncio
 async def test_streamed_run_rejects_response_error_terminal_event() -> None:
-    class TerminalErrorFakeModel(FakeModel):
+    class TerminalErrorScriptedModel(ScriptedModel):
         async def stream_response(
             self,
             system_instructions,
@@ -288,7 +300,7 @@ async def test_streamed_run_rejects_response_error_terminal_event() -> None:
                 "previous_response_id": previous_response_id,
                 "conversation_id": conversation_id,
             }
-            if self.first_turn_args is None:
+            if not self.calls:
                 self.first_turn_args = self.last_turn_args.copy()
 
             yield ResponseErrorEvent(
@@ -299,7 +311,7 @@ async def test_streamed_run_rejects_response_error_terminal_event() -> None:
                 sequence_number=0,
             )
 
-    model = TerminalErrorFakeModel()
+    model = TerminalErrorScriptedModel()
     agent = Agent(name="test", model=model)
 
     result = Runner.run_streamed(agent, input="test")
@@ -323,7 +335,7 @@ async def test_streamed_run_rejects_response_error_terminal_event() -> None:
 async def test_streamed_run_exposes_request_id_on_raw_responses(
     preserve_raw_usage: bool | None,
 ) -> None:
-    class RequestIdTerminalFakeModel(FakeModel):
+    class RequestIdTerminalScriptedModel(ScriptedModel):
         async def stream_response(
             self,
             system_instructions,
@@ -352,7 +364,7 @@ async def test_streamed_run_exposes_request_id_on_raw_responses(
                 sequence_number=0,
             )
 
-    model = RequestIdTerminalFakeModel()
+    model = RequestIdTerminalScriptedModel()
     agent = Agent(
         name="test",
         model=model,
@@ -377,8 +389,8 @@ async def test_streamed_run_exposes_request_id_on_raw_responses(
 
 @pytest.mark.asyncio
 async def test_streamed_run_preserves_request_usage_entries_after_retry() -> None:
-    model = FakeModel()
-    model.set_hardcoded_usage(
+    model = ScriptedModel()
+    model.set_default_usage(
         Usage(
             requests=1,
             input_tokens=10,
@@ -386,7 +398,7 @@ async def test_streamed_run_preserves_request_usage_entries_after_retry() -> Non
             total_tokens=15,
         )
     )
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             APIConnectionError(
                 message="connection error",
@@ -419,67 +431,6 @@ async def test_streamed_run_preserves_request_usage_entries_after_retry() -> Non
     assert usage.request_usage_entries[1].total_tokens == 15
 
 
-class _RetryThenMissingUsageModel(Model):
-    """Stream a successful retry whose terminal Response omits usage data."""
-
-    def __init__(self) -> None:
-        self.calls = 0
-
-    async def get_response(
-        self,
-        system_instructions: str | None,
-        input: str | list[TResponseInputItem],
-        model_settings: ModelSettings,
-        tools: list[Tool],
-        output_schema: Any,
-        handoffs: list[Handoff],
-        tracing: ModelTracing,
-        *,
-        previous_response_id: str | None,
-        conversation_id: str | None,
-        prompt: Any | None,
-    ) -> ModelResponse:
-        self.calls += 1
-        if self.calls == 1:
-            raise APIConnectionError(
-                message="connection error",
-                request=httpx.Request("POST", "https://example.com"),
-            )
-        return ModelResponse(
-            output=[get_text_message("done")],
-            usage=Usage(requests=1),
-            response_id="resp-missing-usage",
-        )
-
-    async def stream_response(
-        self,
-        system_instructions: str | None,
-        input: str | list[TResponseInputItem],
-        model_settings: ModelSettings,
-        tools: list[Tool],
-        output_schema: Any,
-        handoffs: list[Handoff],
-        tracing: ModelTracing,
-        *,
-        previous_response_id: str | None,
-        conversation_id: str | None,
-        prompt: Any | None,
-    ) -> AsyncIterator[TResponseStreamEvent]:
-        self.calls += 1
-        if self.calls == 1:
-            raise APIConnectionError(
-                message="connection error",
-                request=httpx.Request("POST", "https://example.com"),
-            )
-        response = get_response_obj([get_text_message("done")])
-        response.usage = None
-        yield ResponseCompletedEvent(
-            type="response.completed",
-            response=response,
-            sequence_number=0,
-        )
-
-
 @pytest.mark.asyncio
 async def test_streamed_run_counts_retry_attempts_when_terminal_usage_missing() -> None:
     """Retry accounting must survive successful streams that omit Response.usage.
@@ -489,7 +440,24 @@ async def test_streamed_run_counts_retry_attempts_when_terminal_usage_missing() 
     matching the non-streaming ``apply_retry_attempt_usage`` path.
     """
 
-    model = _RetryThenMissingUsageModel()
+    async def missing_usage_stream(_call) -> AsyncIterator[TResponseStreamEvent]:
+        response = get_response_obj([get_text_message("done")])
+        response.usage = None
+        yield ResponseCompletedEvent(
+            type="response.completed",
+            response=response,
+            sequence_number=0,
+        )
+
+    model = ScriptedModel(
+        [
+            APIConnectionError(
+                message="connection error",
+                request=httpx.Request("POST", "https://example.com"),
+            ),
+            ModelStep.stream(missing_usage_stream),
+        ]
+    )
     agent = Agent(
         name="test",
         model=model,
@@ -506,7 +474,7 @@ async def test_streamed_run_counts_retry_attempts_when_terminal_usage_missing() 
         pass
 
     usage = result.context_wrapper.usage
-    assert model.calls == 2
+    assert len(model.calls) == 2
     assert usage.requests == 2
     assert len(usage.request_usage_entries) == 2
     assert usage.request_usage_entries[0].total_tokens == 0
@@ -515,8 +483,8 @@ async def test_streamed_run_counts_retry_attempts_when_terminal_usage_missing() 
 
 @pytest.mark.asyncio
 async def test_streamed_model_retry_does_not_rewind_committed_session_input() -> None:
-    model = FakeModel()
-    model.add_multiple_turn_outputs(
+    model = ScriptedModel()
+    model.extend(
         [
             APIConnectionError(
                 message="connection error",
@@ -550,8 +518,8 @@ async def test_streamed_model_retry_does_not_rewind_committed_session_input() ->
 async def test_streamed_run_preserves_request_usage_entries_after_conversation_locked_retry() -> (
     None
 ):
-    model = FakeModel()
-    model.set_hardcoded_usage(
+    model = ScriptedModel()
+    model.set_default_usage(
         Usage(
             requests=1,
             input_tokens=10,
@@ -559,7 +527,7 @@ async def test_streamed_run_preserves_request_usage_entries_after_conversation_l
             total_tokens=15,
         )
     )
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             _conversation_locked_error(),
             [get_text_message("done")],
@@ -612,22 +580,8 @@ async def test_streamed_run_rejects_failed_terminal_response_payload_events_from
             if self.close_code is None:
                 self.close_code = 1000
 
-    class DummyWSClient:
-        def __init__(self) -> None:
-            self.base_url = httpx.URL("https://api.openai.com/v1/")
-            self.websocket_base_url = None
-            self.default_query: dict[str, Any] = {}
-            self.default_headers = {
-                "Authorization": "Bearer test-key",
-                "User-Agent": "AsyncOpenAI/Python test",
-            }
-            self.timeout: Any = None
-
-        async def _refresh_api_key(self) -> None:
-            return None
-
     ws = DummyWSConnection([_ws_terminal_response_frame(terminal_event_type, "resp-ws", 1)])
-    model = OpenAIResponsesWSModel(model="gpt-4", openai_client=DummyWSClient())  # type: ignore[arg-type]
+    model = OpenAIResponsesWSModel(model="gpt-4", openai_client=_DummyWSClient())  # type: ignore[arg-type]
 
     async def fake_open(
         _ws_url: str,
@@ -654,14 +608,184 @@ async def test_streamed_run_rejects_failed_terminal_response_payload_events_from
     assert result.raw_responses == []
 
 
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_ws_terminal_failure_frees_the_request_lock_for_a_waiting_run(monkeypatch) -> None:
+    """A terminal failure must hand the shared websocket back to a run already waiting for it.
+
+    Run A holds `_ws_request_lock` while run B blocks on it. A then fails terminally, and B has
+    to complete on the surviving connection, which only happens if A's cleanup actually ran.
+    """
+    release_run_a = asyncio.Event()
+    run_a_holds_lock = asyncio.Event()
+    run_b_waiting_on_lock = asyncio.Event()
+
+    class SharedWSConnection:
+        def __init__(self) -> None:
+            self.close_code: int | None = None
+            self.send_calls = 0
+            self.recv_calls = 0
+
+        async def send(self, payload: str) -> None:
+            self.send_calls += 1
+            if self.send_calls == 1:
+                run_a_holds_lock.set()
+            return None
+
+        async def recv(self) -> str:
+            self.recv_calls += 1
+            if self.recv_calls == 1:
+                # Keep run A in-flight until run B is queued behind the request lock.
+                await release_run_a.wait()
+                return _ws_terminal_response_frame("response.incomplete", "resp-a", 1)
+            return _ws_terminal_response_frame("response.completed", "resp-b", 1)
+
+        async def close(self) -> None:
+            if self.close_code is None:
+                self.close_code = 1000
+
+    ws = SharedWSConnection()
+    open_calls = 0
+    model = OpenAIResponsesWSModel(model="gpt-4", openai_client=_DummyWSClient())  # type: ignore[arg-type]
+    request_lock = model._get_ws_request_lock()
+
+    async def fake_open(
+        _ws_url: str,
+        _headers: dict[str, str],
+        *,
+        connect_timeout: float | None = None,
+    ) -> SharedWSConnection:
+        nonlocal open_calls
+        open_calls += 1
+        return ws
+
+    monkeypatch.setattr(model, "_open_websocket_connection", fake_open)
+    original_await_websocket_with_timeout = model._await_websocket_with_timeout
+
+    async def observed_await_websocket_with_timeout(
+        awaitable: Any,
+        timeout_seconds: float | None,
+        phase: str,
+    ) -> Any:
+        if phase == "request lock wait" and request_lock.locked():
+            run_b_waiting_on_lock.set()
+        return await original_await_websocket_with_timeout(awaitable, timeout_seconds, phase)
+
+    monkeypatch.setattr(
+        model, "_await_websocket_with_timeout", observed_await_websocket_with_timeout
+    )
+    agent = Agent(name="test", model=model)
+
+    async def run_a() -> None:
+        result = Runner.run_streamed(agent, input="a")
+        with pytest.raises(ModelBehaviorError, match="response.incomplete"):
+            async for _ in result.stream_events():
+                pass
+
+    async def run_b() -> tuple[Any, list[str | None]]:
+        result = Runner.run_streamed(agent, input="b")
+        async for _ in result.stream_events():
+            pass
+        return result.final_output, [response.response_id for response in result.raw_responses]
+
+    task_a = asyncio.create_task(run_a())
+    try:
+        await asyncio.wait_for(run_a_holds_lock.wait(), timeout=5)
+        assert request_lock.locked(), "run A released the request lock before run B started"
+
+        task_b = asyncio.create_task(run_b())
+        await asyncio.wait_for(run_b_waiting_on_lock.wait(), timeout=5)
+        assert not task_b.done(), "run B was expected to be waiting on the request lock"
+    finally:
+        release_run_a.set()
+
+    await task_a
+    try:
+        # Only a hang guard: run B needs event loop turns, not wall-clock time.
+        output, response_ids = await asyncio.wait_for(task_b, timeout=5)
+    except TimeoutError:
+        pytest.fail("run A's terminal failure left `_ws_request_lock` held, so run B never woke")
+
+    assert output == "partial final", "run B did not complete on the surviving connection"
+    assert response_ids == ["resp-b"], "run B did not receive its own response"
+    assert not request_lock.locked(), "the request lock was left held after both runs finished"
+    assert ws.close_code is None, "the shared connection should survive a terminal failure"
+    assert open_calls == 1, "run B should reuse the websocket connection opened by run A"
+    assert ws.send_calls == 2, "run B should complete on the existing websocket connection"
+
+
+def _terminal_failure_event(event_type: str) -> Any:
+    """Build the terminal event the streamed run loop rejects for `event_type`."""
+    if event_type == "response.incomplete":
+        return ResponseIncompleteEvent(
+            response=get_response_obj([], response_id="resp-terminal"),
+            sequence_number=0,
+            type="response.incomplete",
+        )
+    if event_type == "response.failed":
+        return ResponseFailedEvent(
+            response=get_response_obj([], response_id="resp-terminal"),
+            sequence_number=0,
+            type="response.failed",
+        )
+    if event_type == "error":
+        return ResponseErrorEvent(
+            code=None, message="boom", param=None, sequence_number=0, type="error"
+        )
+    # `response.error` is not a literal the SDK models, but the run loop rejects it too.
+    return ResponseErrorEvent.model_construct(
+        code=None, message="boom", param=None, sequence_number=0, type="response.error"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "terminal_event_type",
+    ["response.incomplete", "response.failed", "error", "response.error"],
+)
+async def test_streamed_terminal_failure_closes_the_model_stream(terminal_event_type: str) -> None:
+    """The run loop must close the model stream itself before a terminal failure leaves the loop.
+
+    Comparing the closing task with the iterating one keeps this honest: an abandoned generator
+    is still finalized eventually, but by asyncio's async-generator hook, in another task and
+    context, which is what leaves the response span unended.
+    """
+    iterating_task: asyncio.Task[Any] | None = None
+    closing_task: asyncio.Task[Any] | None = None
+
+    class TerminalFailureModel(Model):
+        async def get_response(self, *args: Any, **kwargs: Any) -> Any:
+            raise NotImplementedError
+
+        async def stream_response(self, *args: Any, **kwargs: Any) -> AsyncIterator[Any]:
+            nonlocal iterating_task, closing_task
+            iterating_task = asyncio.current_task()
+            try:
+                yield _terminal_failure_event(terminal_event_type)
+            finally:
+                closing_task = asyncio.current_task()
+
+    agent = Agent(name="test", model=TerminalFailureModel())
+    result = Runner.run_streamed(agent, input="test")
+
+    with pytest.raises(ModelBehaviorError, match=terminal_event_type):
+        async for _ in result.stream_events():
+            pass
+
+    assert closing_task is not None and closing_task is iterating_task, (
+        "the run loop must close the model stream in its own task; it was left open or finalized "
+        "later by asyncio's async-generator hook"
+    )
+
+
 @pytest.mark.asyncio
 async def test_subsequent_runs():
-    model = FakeModel()
+    model = ScriptedModel()
     agent = Agent(
         name="test",
         model=model,
     )
-    model.set_next_output([get_text_message("third")])
+    model.enqueue([get_text_message("third")])
 
     result = Runner.run_streamed(agent, input="test")
     async for _ in result.stream_events():
@@ -671,7 +795,7 @@ async def test_subsequent_runs():
     assert len(result.new_items) == 1, "exactly one item should be generated"
     assert len(result.to_input_list()) == 2, "should have original input and generated item"
 
-    model.set_next_output([get_text_message("fourth")])
+    model.enqueue([get_text_message("fourth")])
 
     result = Runner.run_streamed(agent, input=result.to_input_list())
     async for _ in result.stream_events():
@@ -688,14 +812,14 @@ async def test_subsequent_runs():
 
 @pytest.mark.asyncio
 async def test_tool_call_runs():
-    model = FakeModel()
+    model = ScriptedModel()
     agent = Agent(
         name="test",
         model=model,
         tools=[get_function_tool("foo", "tool_result")],
     )
 
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             # First turn: a message and tool call
             [get_text_message("a_message"), get_function_tool_call("foo", json.dumps({"a": "b"}))],
@@ -728,7 +852,7 @@ async def test_streamed_parallel_tool_call_with_cancelled_sibling_reaches_final_
     async def _cancel_tool() -> str:
         raise asyncio.CancelledError("tool-cancelled")
 
-    model = FakeModel()
+    model = ScriptedModel()
     agent = Agent(
         name="test",
         model=model,
@@ -738,7 +862,7 @@ async def test_streamed_parallel_tool_call_with_cancelled_sibling_reaches_final_
         ],
     )
 
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             [
                 get_function_tool_call("ok_tool", "{}", call_id="call_ok"),
@@ -754,7 +878,7 @@ async def test_streamed_parallel_tool_call_with_cancelled_sibling_reaches_final_
     assert result.final_output == "final answer"
     assert len(result.raw_responses) == 2
 
-    second_turn_input = cast(list[dict[str, Any]], model.last_turn_args["input"])
+    second_turn_input = cast(list[dict[str, Any]], model.calls[-1].input)
     tool_outputs = [
         item for item in second_turn_input if item.get("type") == "function_call_output"
     ]
@@ -775,14 +899,14 @@ async def test_streamed_single_tool_call_with_cancelled_tool_reaches_final_outpu
     async def _cancel_tool() -> str:
         raise asyncio.CancelledError("tool-cancelled")
 
-    model = FakeModel()
+    model = ScriptedModel()
     agent = Agent(
         name="test",
         model=model,
         tools=[function_tool(_cancel_tool, name_override="cancel_tool")],
     )
 
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             [get_function_tool_call("cancel_tool", "{}", call_id="call_cancel")],
             [get_text_message("final answer")],
@@ -795,7 +919,7 @@ async def test_streamed_single_tool_call_with_cancelled_tool_reaches_final_outpu
     assert result.final_output == "final answer"
     assert len(result.raw_responses) == 2
 
-    second_turn_input = cast(list[dict[str, Any]], model.last_turn_args["input"])
+    second_turn_input = cast(list[dict[str, Any]], model.calls[-1].input)
     tool_outputs = [
         item for item in second_turn_input if item.get("type") == "function_call_output"
     ]
@@ -812,14 +936,14 @@ async def test_streamed_single_tool_call_with_cancelled_tool_reaches_final_outpu
 
 @pytest.mark.asyncio
 async def test_streamed_reasoning_item_id_policy_omits_follow_up_reasoning_ids() -> None:
-    model = FakeModel()
+    model = ScriptedModel()
     agent = Agent(
         name="test",
         model=model,
         tools=[get_function_tool("foo", "tool_result")],
     )
 
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             [
                 ResponseReasoningItem(
@@ -842,7 +966,7 @@ async def test_streamed_reasoning_item_id_policy_omits_follow_up_reasoning_ids()
         pass
 
     assert result.final_output == "done"
-    second_request_reasoning = _find_reasoning_input_item(model.last_turn_args.get("input"))
+    second_request_reasoning = _find_reasoning_input_item(model.calls[-1].input)
     assert second_request_reasoning is not None
     assert "id" not in second_request_reasoning
 
@@ -851,8 +975,8 @@ async def test_streamed_reasoning_item_id_policy_omits_follow_up_reasoning_ids()
     assert "id" not in history_reasoning
 
 
-class _StreamedRevokedReasoningIdModel(FakeModel):
-    """FakeModel that 404s like the Responses API when a revoked reasoning ID is replayed."""
+class _StreamedRevokedReasoningIdModel(ScriptedModel):
+    """ScriptedModel that 404s like the Responses API when a revoked reasoning ID is replayed."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -898,7 +1022,7 @@ async def test_streamed_omit_policy_strips_reasoning_ids_already_stored_in_the_s
     session = SQLiteSession("issue-2020-streamed")
 
     # Turn 1 predates the mitigation, so the session records the reasoning ID.
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             [
                 ResponseReasoningItem(id="rs_triage", type="reasoning", summary=[]),
@@ -919,7 +1043,7 @@ async def test_streamed_omit_policy_strips_reasoning_ids_already_stored_in_the_s
     model.revoked_reasoning_ids.add("rs_triage")
 
     # Turn 2 opts into the documented mitigation for this failure.
-    model.add_multiple_turn_outputs([[get_text_message("done")]])
+    model.extend([[get_text_message("done")]])
     second = Runner.run_streamed(
         triage,
         input="anything else?",
@@ -930,14 +1054,14 @@ async def test_streamed_omit_policy_strips_reasoning_ids_already_stored_in_the_s
         pass
 
     assert second.final_output == "done"
-    replayed_reasoning = _find_reasoning_input_item(model.last_turn_args.get("input"))
+    replayed_reasoning = _find_reasoning_input_item(model.calls[-1].input)
     assert replayed_reasoning is not None
     assert "id" not in replayed_reasoning
 
 
 @pytest.mark.asyncio
 async def test_streamed_run_again_persists_tool_items_to_session():
-    model = FakeModel()
+    model = ScriptedModel()
     call_id = "call-session-run-again"
     agent = Agent(
         name="test",
@@ -946,7 +1070,7 @@ async def test_streamed_run_again_persists_tool_items_to_session():
     )
     session = SimpleListSession()
 
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             [get_function_tool_call("foo", json.dumps({"a": "b"}), call_id=call_id)],
             [get_text_message("done")],
@@ -973,7 +1097,7 @@ async def test_streamed_run_again_persists_tool_items_to_session():
 
 @pytest.mark.asyncio
 async def test_handoffs():
-    model = FakeModel()
+    model = ScriptedModel()
     agent_1 = Agent(
         name="test",
         model=model,
@@ -989,7 +1113,7 @@ async def test_handoffs():
         tools=[get_function_tool("some_function", "result")],
     )
 
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             # First turn: a tool call
             [get_function_tool_call("some_function", json.dumps({"a": "b"}))],
@@ -1019,7 +1143,7 @@ class Foo(TypedDict):
 
 @pytest.mark.asyncio
 async def test_structured_output():
-    model = FakeModel()
+    model = ScriptedModel()
     agent_1 = Agent(
         name="test",
         model=model,
@@ -1034,7 +1158,7 @@ async def test_structured_output():
         handoffs=[agent_1],
     )
 
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             # First turn: a tool call
             [
@@ -1097,7 +1221,7 @@ def remove_new_items(handoff_input_data: HandoffInputData) -> HandoffInputData:
 
 @pytest.mark.asyncio
 async def test_handoff_filters():
-    model = FakeModel()
+    model = ScriptedModel()
     agent_1 = Agent(
         name="test",
         model=model,
@@ -1113,7 +1237,7 @@ async def test_handoff_filters():
         ],
     )
 
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             [get_text_message("1"), get_text_message("2"), get_handoff_tool_call(agent_1)],
             [get_text_message("last")],
@@ -1133,7 +1257,7 @@ async def test_handoff_filters():
 
 @pytest.mark.asyncio
 async def test_streamed_nested_handoff_filters_reasoning_items_from_model_input():
-    model = FakeModel()
+    model = ScriptedModel()
     delegate = Agent(
         name="delegate",
         model=model,
@@ -1144,7 +1268,7 @@ async def test_streamed_nested_handoff_filters_reasoning_items_from_model_input(
         handoffs=[delegate],
     )
 
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             [
                 ResponseReasoningItem(
@@ -1190,7 +1314,7 @@ async def test_streamed_nested_handoff_filters_reasoning_items_from_model_input(
 async def test_async_input_filter_supported():
     # DO NOT rename this without updating pyproject.toml
 
-    model = FakeModel()
+    model = ScriptedModel()
     agent_1 = Agent(
         name="test",
         model=model,
@@ -1217,7 +1341,7 @@ async def test_async_input_filter_supported():
         ],
     )
 
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             [get_text_message("1"), get_text_message("2"), get_handoff_tool_call(agent_1)],
             [get_text_message("last")],
@@ -1231,7 +1355,7 @@ async def test_async_input_filter_supported():
 
 @pytest.mark.asyncio
 async def test_invalid_input_filter_fails():
-    model = FakeModel()
+    model = ScriptedModel()
     agent_1 = Agent(
         name="test",
         model=model,
@@ -1259,7 +1383,7 @@ async def test_invalid_input_filter_fails():
         ],
     )
 
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             [get_text_message("1"), get_text_message("2"), get_handoff_tool_call(agent_1)],
             [get_text_message("last")],
@@ -1274,7 +1398,7 @@ async def test_invalid_input_filter_fails():
 
 @pytest.mark.asyncio
 async def test_non_callable_input_filter_causes_error():
-    model = FakeModel()
+    model = ScriptedModel()
     agent_1 = Agent(
         name="test",
         model=model,
@@ -1299,7 +1423,7 @@ async def test_non_callable_input_filter_causes_error():
         ],
     )
 
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             [get_text_message("1"), get_text_message("2"), get_handoff_tool_call(agent_1)],
             [get_text_message("last")],
@@ -1320,7 +1444,7 @@ async def test_handoff_on_input():
         nonlocal call_output
         call_output = data["bar"]
 
-    model = FakeModel()
+    model = ScriptedModel()
     agent_1 = Agent(
         name="test",
         model=model,
@@ -1338,7 +1462,7 @@ async def test_handoff_on_input():
         ],
     )
 
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             [
                 get_text_message("1"),
@@ -1366,7 +1490,7 @@ async def test_async_handoff_on_input():
         nonlocal call_output
         call_output = data["bar"]
 
-    model = FakeModel()
+    model = ScriptedModel()
     agent_1 = Agent(
         name="test",
         model=model,
@@ -1384,7 +1508,7 @@ async def test_async_handoff_on_input():
         ],
     )
 
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             [
                 get_text_message("1"),
@@ -1417,7 +1541,7 @@ async def test_input_guardrail_tripwire_triggered_causes_exception_streamed():
     agent = Agent(
         name="test",
         input_guardrails=[InputGuardrail(guardrail_function=guardrail_function)],
-        model=FakeModel(),
+        model=ScriptedModel([[]]),
     )
 
     with pytest.raises(InputGuardrailTripwireTriggered):
@@ -1460,7 +1584,7 @@ async def test_streamed_finalizer_failure_follows_both_data_policies(
     agent = Agent(
         name=agent_name,
         input_guardrails=[InputGuardrail(guardrail_function=safe_guardrail)],
-        model=FakeModel(initial_output=[get_text_message("done")]),
+        model=ScriptedModel(steps=[[get_text_message("done")]]),
     )
 
     with caplog.at_level(logging.DEBUG, logger="openai.agents"):
@@ -1502,8 +1626,8 @@ async def test_input_guardrail_streamed_does_not_save_assistant_message_to_sessi
 
     session = SimpleListSession()
 
-    model = FakeModel()
-    model.set_next_output([get_text_message("should_not_be_saved")])
+    model = ScriptedModel()
+    model.enqueue([get_text_message("should_not_be_saved")])
 
     agent = Agent(
         name="test",
@@ -1533,8 +1657,8 @@ async def test_input_guardrail_streamed_persists_user_input_for_sequential_guard
 
     session = SimpleListSession()
 
-    model = FakeModel()
-    model.set_next_output([get_text_message("should_not_be_saved")])
+    model = ScriptedModel()
+    model.enqueue([get_text_message("should_not_be_saved")])
 
     agent = Agent(
         name="test",
@@ -1567,8 +1691,8 @@ async def test_input_guardrail_streamed_persists_user_input_for_async_sequential
 
     session = SimpleListSession()
 
-    model = FakeModel()
-    model.set_next_output([get_text_message("should_not_be_saved")])
+    model = ScriptedModel()
+    model.enqueue([get_text_message("should_not_be_saved")])
 
     agent = Agent(
         name="test",
@@ -1620,8 +1744,8 @@ async def test_stream_input_persistence_strips_ids_for_openai_conversation_sessi
 
     session = DummyOpenAIConversationsSession()
 
-    model = FakeModel()
-    model.set_next_output([get_text_message("ok")])
+    model = ScriptedModel()
+    model.enqueue([get_text_message("ok")])
 
     agent = Agent(
         name="test",
@@ -1657,8 +1781,8 @@ async def test_stream_input_persistence_strips_ids_for_openai_conversation_sessi
 @pytest.mark.asyncio
 async def test_stream_input_persistence_saves_only_new_turn_input(monkeypatch: pytest.MonkeyPatch):
     session = SimpleListSession()
-    model = FakeModel()
-    model.add_multiple_turn_outputs(
+    model = ScriptedModel()
+    model.extend(
         [
             [get_text_message("first")],
             [get_text_message("second")],
@@ -1723,9 +1847,9 @@ async def test_slow_input_guardrail_still_raises_exception_streamed():
             tripwire_triggered=True,
         )
 
-    model = FakeModel()
+    model = ScriptedModel()
     # Ensure the model finishes streaming quickly.
-    model.set_next_output([get_text_message("ok")])
+    model.enqueue([get_text_message("ok")])
 
     agent = Agent(
         name="test",
@@ -1750,7 +1874,7 @@ async def test_output_guardrail_tripwire_triggered_causes_exception_streamed():
             tripwire_triggered=True,
         )
 
-    model = FakeModel(initial_output=[get_text_message("first_test")])
+    model = ScriptedModel(steps=[[get_text_message("first_test")]])
 
     agent = Agent(
         name="test",
@@ -1774,7 +1898,7 @@ async def test_output_guardrail_tripwire_raises_from_run_loop_task_before_stream
             tripwire_triggered=True,
         )
 
-    model = FakeModel(initial_output=[get_text_message("first_test")])
+    model = ScriptedModel(steps=[[get_text_message("first_test")]])
 
     agent = Agent(
         name="test",
@@ -1799,7 +1923,7 @@ async def test_output_guardrail_exception_raises_from_run_loop_task_before_strea
     ) -> GuardrailFunctionOutput:
         raise RuntimeError("guardrail failed")
 
-    model = FakeModel(initial_output=[get_text_message("first_test")])
+    model = ScriptedModel(steps=[[get_text_message("first_test")]])
 
     agent = Agent(
         name="test",
@@ -1829,7 +1953,7 @@ async def test_run_input_guardrail_tripwire_triggered_causes_exception_streamed(
 
     agent = Agent(
         name="test",
-        model=FakeModel(),
+        model=ScriptedModel([[]]),
     )
 
     with pytest.raises(InputGuardrailTripwireTriggered):
@@ -1854,7 +1978,7 @@ async def test_run_output_guardrail_tripwire_triggered_causes_exception_streamed
             tripwire_triggered=True,
         )
 
-    model = FakeModel(initial_output=[get_text_message("first_test")])
+    model = ScriptedModel(steps=[[get_text_message("first_test")]])
 
     agent = Agent(
         name="test",
@@ -1875,7 +1999,7 @@ async def test_run_output_guardrail_tripwire_triggered_causes_exception_streamed
 
 @pytest.mark.asyncio
 async def test_streaming_events():
-    model = FakeModel()
+    model = ScriptedModel()
     agent_1 = Agent(
         name="test",
         model=model,
@@ -1890,7 +2014,7 @@ async def test_streaming_events():
         handoffs=[agent_1],
     )
 
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             # First turn: a tool call
             [
@@ -1981,7 +2105,7 @@ async def test_streaming_events():
 
 @pytest.mark.asyncio
 async def test_dynamic_tool_addition_run_streamed() -> None:
-    model = FakeModel()
+    model = ScriptedModel()
 
     executed: dict[str, bool] = {"called": False}
 
@@ -1999,7 +2123,7 @@ async def test_dynamic_tool_addition_run_streamed() -> None:
 
     agent.tools.append(add_tool)
 
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             [get_function_tool_call("add_tool", json.dumps({}), call_id="call-add-tool")],
             [get_function_tool_call("tool2", json.dumps({}), call_id="call-tool-two")],
@@ -2135,8 +2259,8 @@ async def test_resumed_approved_tool_final_persists_call_output_before_output_gu
             tripwire_triggered=guardrail_state["tripwire"],
         )
 
-    model = FakeModel()
-    model.set_next_output([get_function_tool_call("approval_tool", "{}", call_id="call-approved")])
+    model = ScriptedModel()
+    model.enqueue([get_function_tool_call("approval_tool", "{}", call_id="call-approved")])
     agent = Agent(
         name="test",
         model=model,
@@ -2183,11 +2307,11 @@ async def test_resumed_approved_tool_final_persists_call_output_before_output_gu
 
     if tripwire:
         guardrail_state["tripwire"] = False
-        model.set_next_output([get_text_message("done")])
+        model.enqueue([get_text_message("done")])
         next_result = await run_once("Continue")
         assert next_result.final_output == "done"
 
-        model_input = model.last_turn_args["input"]
+        model_input = model.calls[-1].input
         assert isinstance(model_input, list)
         replayed_tool_items = [
             item
@@ -2223,8 +2347,8 @@ async def test_stop_on_first_tool_final_persists_committed_tool_items_on_tripwir
     ) -> GuardrailFunctionOutput:
         return GuardrailFunctionOutput(output_info=None, tripwire_triggered=True)
 
-    model = FakeModel()
-    model.set_next_output([get_function_tool_call("commit_tool", "{}", call_id="call-committed")])
+    model = ScriptedModel()
+    model.enqueue([get_function_tool_call("commit_tool", "{}", call_id="call-committed")])
     agent = Agent(
         name="test",
         model=model,
@@ -2257,7 +2381,7 @@ async def test_stop_on_first_tool_final_persists_committed_tool_items_on_tripwir
 
     # The next run must see the completed call instead of re-issuing the same side effect.
     agent.output_guardrails = []
-    model.set_next_output([get_text_message("done")])
+    model.enqueue([get_text_message("done")])
     if mode == "non_streamed":
         followup: Any = await Runner.run(agent, "Continue", session=session)
     else:
@@ -2266,7 +2390,7 @@ async def test_stop_on_first_tool_final_persists_committed_tool_items_on_tripwir
     assert followup.final_output == "done"
     assert calls == ["ran"]
 
-    model_input = model.last_turn_args["input"]
+    model_input = model.calls[-1].input
     assert isinstance(model_input, list)
     replayed = [
         (item.get("type"), item.get("call_id"))
@@ -2291,8 +2415,8 @@ async def test_blocked_message_final_output_is_not_persisted(mode: str) -> None:
     ) -> GuardrailFunctionOutput:
         return GuardrailFunctionOutput(output_info=None, tripwire_triggered=True)
 
-    model = FakeModel()
-    model.set_next_output([get_text_message("should_not_be_saved")])
+    model = ScriptedModel()
+    model.enqueue([get_text_message("should_not_be_saved")])
     agent = Agent(
         name="test",
         model=model,
@@ -2328,8 +2452,8 @@ async def test_blocked_final_persists_tool_items_but_not_the_message(mode: str) 
     ) -> GuardrailFunctionOutput:
         return GuardrailFunctionOutput(output_info=None, tripwire_triggered=True)
 
-    model = FakeModel()
-    model.add_multiple_turn_outputs(
+    model = ScriptedModel()
+    model.extend(
         [
             [get_function_tool_call("commit_tool", "{}", call_id="call-mixed")],
             [get_text_message("should_not_be_saved")],
@@ -2380,9 +2504,9 @@ async def test_mixed_final_turn_session_order_and_committed_items(
     ) -> GuardrailFunctionOutput:
         return GuardrailFunctionOutput(output_info=None, tripwire_triggered=tripwire)
 
-    model = FakeModel()
+    model = ScriptedModel()
     # The message precedes the tool call, so a split save would reorder the persisted turn.
-    model.set_next_output(
+    model.enqueue(
         [
             get_text_message("assistant-preamble"),
             get_function_tool_call("commit_tool", "{}", call_id="call-mixed"),
@@ -2443,8 +2567,8 @@ async def test_failing_output_guardrail_keeps_the_whole_final_turn(
     ) -> GuardrailFunctionOutput:
         raise RuntimeError("guardrail failed")
 
-    model = FakeModel()
-    model.set_next_output(
+    model = ScriptedModel()
+    model.enqueue(
         [
             get_text_message("assistant-preamble"),
             get_function_tool_call("commit_tool", "{}", call_id="call-mixed"),
@@ -2496,8 +2620,8 @@ async def test_streamed_session_save_error_takes_precedence_over_output_guardrai
         guardrail_failed = True
         raise RuntimeError("guardrail failed")
 
-    model = FakeModel()
-    model.set_next_output([get_text_message("assistant-preamble")])
+    model = ScriptedModel()
+    model.enqueue([get_text_message("assistant-preamble")])
     agent = Agent(
         name="test",
         model=model,
@@ -2535,7 +2659,7 @@ async def test_streamed_session_save_cancellation_is_not_a_public_immediate_canc
         guardrail_failed = True
         raise RuntimeError("guardrail failed")
 
-    model = FakeModel(initial_output=[get_text_message("assistant-preamble")])
+    model = ScriptedModel(steps=[[get_text_message("assistant-preamble")]])
     agent = Agent(
         name="test",
         model=model,
@@ -2578,7 +2702,7 @@ async def test_streamed_session_save_direct_base_exception_is_terminal() -> None
 
     agent = Agent(
         name="test",
-        model=FakeModel(initial_output=[get_text_message("assistant-preamble")]),
+        model=ScriptedModel(steps=[[get_text_message("assistant-preamble")]]),
         output_guardrails=[OutputGuardrail(guardrail_function=output_guardrail)],
     )
     session = AbortingFinalTurnSession()
@@ -2619,7 +2743,7 @@ async def test_public_immediate_cancel_during_guardrail_recovery_save_stays_prom
         guardrail_failed = True
         raise RuntimeError("guardrail failed")
 
-    model = FakeModel(initial_output=[get_text_message("assistant-preamble")])
+    model = ScriptedModel(steps=[[get_text_message("assistant-preamble")]])
     agent = Agent(
         name="test",
         model=model,
@@ -2670,8 +2794,8 @@ async def test_blocked_tool_final_keeps_reasoning_context_with_the_committed_cal
     ) -> GuardrailFunctionOutput:
         return GuardrailFunctionOutput(output_info=None, tripwire_triggered=tripwire)
 
-    model = FakeModel()
-    model.set_next_output(
+    model = ScriptedModel()
+    model.enqueue(
         [
             ResponseReasoningItem(
                 id="rs_committed",
@@ -2709,11 +2833,11 @@ async def test_blocked_tool_final_keeps_reasoning_context_with_the_committed_cal
 
     # The reasoning/call/output group has to reach the next request in that order.
     agent.output_guardrails = []
-    model.set_next_output([get_text_message("done")])
+    model.enqueue([get_text_message("done")])
     followup = await run_once("Continue")
     assert followup.final_output == "done"
 
-    model_input = model.last_turn_args["input"]
+    model_input = model.calls[-1].input
     assert isinstance(model_input, list)
     replayed = [
         item.get("type")
@@ -2749,8 +2873,8 @@ async def test_blocked_tool_final_drops_reasoning_tied_to_the_rejected_message(
     ) -> GuardrailFunctionOutput:
         return GuardrailFunctionOutput(output_info=None, tripwire_triggered=True)
 
-    model = FakeModel()
-    model.set_next_output(
+    model = ScriptedModel()
+    model.enqueue(
         [
             ResponseReasoningItem(
                 id="rs_rejected",
@@ -2799,11 +2923,11 @@ async def test_blocked_tool_final_drops_reasoning_tied_to_the_rejected_message(
 
     # ...and the surviving group still replays in order, with no dangling reasoning item.
     agent.output_guardrails = []
-    model.set_next_output([get_text_message("done")])
+    model.enqueue([get_text_message("done")])
     followup = await run_once("Continue")
     assert followup.final_output == "done"
 
-    model_input = model.last_turn_args["input"]
+    model_input = model.calls[-1].input
     assert isinstance(model_input, list)
     replayed = [
         item.get("type")
@@ -2816,7 +2940,7 @@ async def test_blocked_tool_final_drops_reasoning_tied_to_the_rejected_message(
 
 @pytest.mark.asyncio
 async def test_streaming_resume_preserves_filtered_model_input_after_handoff():
-    model = FakeModel()
+    model = ScriptedModel()
 
     @function_tool(name_override="approval_tool", needs_approval=True)
     def approval_tool() -> str:
@@ -2834,7 +2958,7 @@ async def test_streaming_resume_preserves_filtered_model_input_after_handoff():
         tools=[get_function_tool("some_function", "result")],
     )
 
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             [
                 get_function_tool_call(
@@ -3048,7 +3172,7 @@ async def test_streaming_max_turns_emits_pending_tool_output_events() -> None:
 @pytest.mark.asyncio
 async def test_streaming_non_max_turns_exception_does_not_emit_queued_events() -> None:
     model, agent = make_model_and_agent(name="test")
-    model.set_next_output([get_text_message("done")])
+    model.enqueue([get_text_message("done")])
 
     result = Runner.run_streamed(agent, input="hello")
     result.cancel()
@@ -3075,7 +3199,7 @@ async def test_streaming_hitl_server_conversation_tracker_priming():
     model, agent = make_model_and_agent(name="test")
 
     # First run with conversation_id
-    model.set_next_output([get_text_message("First response")])
+    model.enqueue([get_text_message("First response")])
     result1 = Runner.run_streamed(
         agent, input="test", conversation_id="conv123", previous_response_id="resp123"
     )
@@ -3085,7 +3209,7 @@ async def test_streaming_hitl_server_conversation_tracker_priming():
     state = result1.to_state()
 
     # Resume with same conversation_id - should not duplicate messages
-    model.set_next_output([get_text_message("Second response")])
+    model.enqueue([get_text_message("Second response")])
     result2 = Runner.run_streamed(
         agent, state, conversation_id="conv123", previous_response_id="resp123"
     )
@@ -3122,7 +3246,7 @@ def _tool_with_guardrails() -> FunctionTool:
 async def test_streamed_run_reports_tool_guardrail_results():
     """Streamed runs must expose tool guardrail results like non-streamed runs do."""
     model, agent = make_model_and_agent(tools=[_tool_with_guardrails()])
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             [get_function_tool_call("guarded_tool", "{}", call_id="call_1")],
             [get_text_message("done")],
@@ -3143,9 +3267,9 @@ async def test_streamed_run_reports_tool_guardrail_results():
 async def test_streamed_tool_guardrail_results_match_non_streamed():
     """The same run reports the same tool guardrail results in both execution modes."""
 
-    def _build() -> tuple[FakeModel, Agent[Any]]:
+    def _build() -> tuple[ScriptedModel, Agent[Any]]:
         model, agent = make_model_and_agent(tools=[_tool_with_guardrails()])
-        model.add_multiple_turn_outputs(
+        model.extend(
             [
                 [get_function_tool_call("guarded_tool", "{}", call_id="call_1")],
                 [get_function_tool_call("guarded_tool", "{}", call_id="call_2")],
@@ -3174,7 +3298,7 @@ async def test_streamed_tool_guardrail_results_match_non_streamed():
 @pytest.mark.asyncio
 async def test_streamed_tool_guardrail_results_survive_handoff():
     """Tool guardrail results from a handoff turn reach the streamed result."""
-    model = FakeModel()
+    model = ScriptedModel()
     target = Agent(name="target", model=model)
     agent = Agent(
         name="source",
@@ -3182,7 +3306,7 @@ async def test_streamed_tool_guardrail_results_survive_handoff():
         tools=[_tool_with_guardrails()],
         handoffs=[target],
     )
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             [
                 get_function_tool_call("guarded_tool", "{}", call_id="call_1"),
@@ -3217,7 +3341,7 @@ async def test_streamed_interruption_reports_tool_guardrail_results():
         return "approved-result"
 
     model, agent = make_model_and_agent(tools=[plain_tool, approval_tool])
-    model.set_next_output(
+    model.enqueue(
         [
             get_function_tool_call("plain_tool", "{}", call_id="call_plain"),
             get_function_tool_call("approval_tool", "{}", call_id="call_approval"),
@@ -3236,7 +3360,7 @@ async def test_streamed_interruption_reports_tool_guardrail_results():
 async def test_streamed_tool_guardrail_results_persist_into_run_state():
     """Tool guardrail results from a streamed run round-trip through RunState."""
     model, agent = make_model_and_agent(tools=[_tool_with_guardrails()])
-    model.add_multiple_turn_outputs(
+    model.extend(
         [
             [get_function_tool_call("guarded_tool", "{}", call_id="call_1")],
             [get_text_message("done")],
@@ -3260,7 +3384,7 @@ async def test_streamed_resume_tool_guardrail_results_match_non_streamed():
     to a specific count.
     """
 
-    def _build() -> tuple[FakeModel, Agent[Any]]:
+    def _build() -> tuple[ScriptedModel, Agent[Any]]:
         @tool_input_guardrail
         def record_input(_data: ToolInputGuardrailData) -> ToolGuardrailFunctionOutput:
             return ToolGuardrailFunctionOutput.allow(output_info="input-checked")
@@ -3279,7 +3403,7 @@ async def test_streamed_resume_tool_guardrail_results_match_non_streamed():
             return "approved-result"
 
         model, agent = make_model_and_agent(tools=[approval_tool])
-        model.add_multiple_turn_outputs(
+        model.extend(
             [
                 [get_function_tool_call("approval_tool", "{}", call_id="call_approval")],
                 [get_text_message("done")],
@@ -3319,7 +3443,7 @@ async def test_streamed_resume_terminal_turn_reports_tool_guardrail_results():
     regular turn loop.
     """
 
-    def _build() -> tuple[FakeModel, Agent[Any]]:
+    def _build() -> tuple[ScriptedModel, Agent[Any]]:
         @tool_input_guardrail
         def record_input(_data: ToolInputGuardrailData) -> ToolGuardrailFunctionOutput:
             return ToolGuardrailFunctionOutput.allow(output_info="input-checked")
@@ -3337,16 +3461,14 @@ async def test_streamed_resume_terminal_turn_reports_tool_guardrail_results():
         def approval_tool() -> str:
             return "approved-result"
 
-        model = FakeModel()
+        model = ScriptedModel()
         agent = Agent(
             name="TestAgent",
             model=model,
             tools=[approval_tool],
             tool_use_behavior="stop_on_first_tool",
         )
-        model.set_next_output(
-            [get_function_tool_call("approval_tool", "{}", call_id="call_approval")]
-        )
+        model.enqueue([get_function_tool_call("approval_tool", "{}", call_id="call_approval")])
         return model, agent
 
     _, streamed_agent = _build()
@@ -3380,7 +3502,7 @@ async def test_streamed_resume_terminal_turn_reports_tool_guardrail_results():
 async def test_streamed_resume_handoff_turn_reports_tool_guardrail_results():
     """A resumed streamed turn that hands off keeps the guardrail results it produced."""
 
-    def _build() -> tuple[FakeModel, Agent[Any]]:
+    def _build() -> tuple[ScriptedModel, Agent[Any]]:
         @tool_input_guardrail
         def record_input(_data: ToolInputGuardrailData) -> ToolGuardrailFunctionOutput:
             return ToolGuardrailFunctionOutput.allow(output_info="input-checked")
@@ -3398,7 +3520,7 @@ async def test_streamed_resume_handoff_turn_reports_tool_guardrail_results():
         def approval_tool() -> str:
             return "approved-result"
 
-        model = FakeModel()
+        model = ScriptedModel()
         target = Agent(name="target", model=model)
         agent = Agent(
             name="TestAgent",
@@ -3406,7 +3528,7 @@ async def test_streamed_resume_handoff_turn_reports_tool_guardrail_results():
             tools=[approval_tool],
             handoffs=[target],
         )
-        model.add_multiple_turn_outputs(
+        model.extend(
             [
                 [
                     get_function_tool_call("approval_tool", "{}", call_id="call_approval"),
@@ -3483,8 +3605,8 @@ async def test_streamed_cancel_during_output_guardrail_starts_no_final_turn_writ
         tool_call_count += 1
         return "committed-result"
 
-    model = FakeModel()
-    model.set_next_output(
+    model = ScriptedModel()
+    model.enqueue(
         [
             get_text_message("assistant-preamble"),
             get_function_tool_call("commit_tool", "{}", call_id="call-cancel"),

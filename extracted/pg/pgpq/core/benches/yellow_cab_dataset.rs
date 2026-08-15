@@ -1,15 +1,12 @@
-#![allow(unused)]
-
-use arrow::array::ArrayIter;
-use arrow::datatypes::{DataType, Schema, TimeUnit};
+use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatchReader;
 use arrow_array::RecordBatch;
 use bytes::BytesMut;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use parquet::arrow::arrow_reader::{ParquetRecordBatchReader, ParquetRecordBatchReaderBuilder};
+use criterion::{Criterion, criterion_group, criterion_main};
+use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use pgpq::ArrowToPostgresBinaryEncoder;
-use std::fs;
 use std::fs::File;
+use std::hint::black_box;
 use std::io;
 use std::path::PathBuf;
 
@@ -22,21 +19,25 @@ fn download_dataset() -> File {
         .join("yellow_tripdata_2022-01.parquet");
     if !path.exists() {
         let mut file = File::create(path.clone()).expect("failed to create file");
-        let mut resp = ureq::get(
+        // ureq 3 returns an `http::Response<Body>`; the streaming reader now
+        // hangs off the body rather than the response itself. `into_reader()`
+        // (unlike `read_to_vec`) has no size cap, which matters here: the
+        // dataset is a few hundred MB.
+        let resp = ureq::get(
             "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2022-01.parquet",
         )
         .call()
         .expect("request failed");
-        io::copy(&mut resp.into_reader(), &mut file).expect("failed to copy content");
+        io::copy(&mut resp.into_body().into_reader(), &mut file).expect("failed to copy content");
     }
 
     File::open(path).expect("failed to create file")
 }
 
 fn setup(row_limit: Option<usize>) -> (Vec<RecordBatch>, Schema) {
-    let mut file = download_dataset();
+    let file = download_dataset();
     let builder = ParquetRecordBatchReaderBuilder::try_new(file).unwrap();
-    let mut reader = builder.build().unwrap();
+    let reader = builder.build().unwrap();
     let schema = Schema::new(reader.schema().fields().clone());
     let data: Vec<RecordBatch> = match row_limit {
         Some(n) => reader.take(n).map(|v| v.unwrap()).collect(),
@@ -45,14 +46,17 @@ fn setup(row_limit: Option<usize>) -> (Vec<RecordBatch>, Schema) {
     (data, schema)
 }
 
-fn bench(batches: &Vec<RecordBatch>, schema: &Schema) {
+fn bench(batches: &[RecordBatch], schema: &Schema) {
     let mut encoder = ArrowToPostgresBinaryEncoder::try_new(schema).unwrap();
     let mut buff = BytesMut::new();
-    encoder.write_header(&mut buff);
+    encoder.write_header(&mut buff).unwrap();
     for batch in batches {
-        encoder.write_batch(batch, &mut buff);
+        // Unwrapped rather than discarded: a failing encode would otherwise be timed as if it
+        // had done the work, quietly reporting a bogus (fast) benchmark.
+        encoder.write_batch(batch, &mut buff).unwrap();
     }
-    encoder.write_footer(&mut buff);
+    encoder.write_footer(&mut buff).unwrap();
+    black_box(buff);
 }
 
 pub fn benchmark_nyc_taxi_small(c: &mut Criterion) {
@@ -68,7 +72,10 @@ pub fn benchmark_nyc_taxi_full(c: &mut Criterion) {
     group.sampling_mode(criterion::SamplingMode::Flat);
     group.sample_size(10); // the minimum
 
-    let (batches, schema) = setup(Some(100));
+    // `None` = read every batch in the dataset. This said `Some(100)`, which is
+    // exactly what `benchmark_nyc_taxi_small` uses, so the "full" benchmark was
+    // silently measuring the same small slice.
+    let (batches, schema) = setup(None);
     group.bench_function("NYC Yello Taxi full", |b| {
         b.iter(|| bench(&batches, &schema))
     });

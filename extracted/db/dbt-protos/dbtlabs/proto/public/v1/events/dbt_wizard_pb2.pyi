@@ -4,8 +4,10 @@ isort:skip_file
 """
 
 import builtins
+import dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2
 import dbtlabs.proto.public.v1.events.vortex_pb2
 import google.protobuf.descriptor
+import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
 import sys
 import typing
@@ -16,6 +18,39 @@ else:
     import typing_extensions
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
+
+class _DbtWizardToolOutcome:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _DbtWizardToolOutcomeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_DbtWizardToolOutcome.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    DBT_WIZARD_TOOL_OUTCOME_UNSPECIFIED: _DbtWizardToolOutcome.ValueType  # 0
+    DBT_WIZARD_TOOL_OUTCOME_SUCCEEDED: _DbtWizardToolOutcome.ValueType  # 1
+    """The tool completed successfully."""
+    DBT_WIZARD_TOOL_OUTCOME_REJECTED: _DbtWizardToolOutcome.ValueType  # 2
+    """The invocation could not be constructed or routed."""
+    DBT_WIZARD_TOOL_OUTCOME_BLOCKED: _DbtWizardToolOutcome.ValueType  # 3
+    """Policy or a pre-execution hook prevented execution."""
+    DBT_WIZARD_TOOL_OUTCOME_FAILED: _DbtWizardToolOutcome.ValueType  # 4
+    """Execution was attempted but failed."""
+    DBT_WIZARD_TOOL_OUTCOME_ABORTED: _DbtWizardToolOutcome.ValueType  # 5
+    """The attempt was interrupted or never reached a normal terminal result."""
+
+class DbtWizardToolOutcome(_DbtWizardToolOutcome, metaclass=_DbtWizardToolOutcomeEnumTypeWrapper): ...
+
+DBT_WIZARD_TOOL_OUTCOME_UNSPECIFIED: DbtWizardToolOutcome.ValueType  # 0
+DBT_WIZARD_TOOL_OUTCOME_SUCCEEDED: DbtWizardToolOutcome.ValueType  # 1
+"""The tool completed successfully."""
+DBT_WIZARD_TOOL_OUTCOME_REJECTED: DbtWizardToolOutcome.ValueType  # 2
+"""The invocation could not be constructed or routed."""
+DBT_WIZARD_TOOL_OUTCOME_BLOCKED: DbtWizardToolOutcome.ValueType  # 3
+"""Policy or a pre-execution hook prevented execution."""
+DBT_WIZARD_TOOL_OUTCOME_FAILED: DbtWizardToolOutcome.ValueType  # 4
+"""Execution was attempted but failed."""
+DBT_WIZARD_TOOL_OUTCOME_ABORTED: DbtWizardToolOutcome.ValueType  # 5
+"""The attempt was interrupted or never reached a normal terminal result."""
+Global___DbtWizardToolOutcome: typing_extensions.TypeAlias = DbtWizardToolOutcome
 
 @typing.final
 class DbtWizardSession(google.protobuf.message.Message):
@@ -41,6 +76,7 @@ class DbtWizardSession(google.protobuf.message.Message):
     ACCOUNT_IDENTIFIER_FIELD_NUMBER: builtins.int
     IS_WIZARD_INTERNAL_FIELD_NUMBER: builtins.int
     ANONYMOUS_ID_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     """Unique identifier for this event."""
     session_id: builtins.str
@@ -81,6 +117,8 @@ class DbtWizardSession(google.protobuf.message.Message):
     """
     @property
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment: ...
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
     def __init__(
         self,
         *,
@@ -102,9 +140,10 @@ class DbtWizardSession(google.protobuf.message.Message):
         account_identifier: builtins.str = ...,
         is_wizard_internal: builtins.bool = ...,
         anonymous_id: builtins.str = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["account_id", b"account_id", "account_identifier", b"account_identifier", "anonymous_id", b"anonymous_id", "arch", b"arch", "duration_ms", b"duration_ms", "enrichment", b"enrichment", "event_id", b"event_id", "is_wizard_internal", b"is_wizard_internal", "model", b"model", "os", b"os", "progress", b"progress", "result_type", b"result_type", "session_id", b"session_id", "session_source", b"session_source", "total_tokens", b"total_tokens", "turn_count", b"turn_count", "user_id", b"user_id", "version", b"version"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["account_id", b"account_id", "account_identifier", b"account_identifier", "anonymous_id", b"anonymous_id", "arch", b"arch", "common_context", b"common_context", "duration_ms", b"duration_ms", "enrichment", b"enrichment", "event_id", b"event_id", "is_wizard_internal", b"is_wizard_internal", "model", b"model", "os", b"os", "progress", b"progress", "result_type", b"result_type", "session_id", b"session_id", "session_source", b"session_source", "total_tokens", b"total_tokens", "turn_count", b"turn_count", "user_id", b"user_id", "version", b"version"]) -> None: ...
 
 Global___DbtWizardSession: typing_extensions.TypeAlias = DbtWizardSession
 
@@ -130,6 +169,7 @@ class DbtWizardTurn(google.protobuf.message.Message):
     IS_FIRST_TURN_FIELD_NUMBER: builtins.int
     COLLABORATION_MODE_FIELD_NUMBER: builtins.int
     IS_WIZARD_INTERNAL_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     """Unique identifier for this event."""
     session_id: builtins.str
@@ -158,6 +198,8 @@ class DbtWizardTurn(google.protobuf.message.Message):
     """Whether the WIZARD_INTERNAL env var was set for this session."""
     @property
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment: ...
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
     def __init__(
         self,
         *,
@@ -177,15 +219,18 @@ class DbtWizardTurn(google.protobuf.message.Message):
         is_first_turn: builtins.bool = ...,
         collaboration_mode: builtins.str = ...,
         is_wizard_internal: builtins.bool = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["cached_input_tokens", b"cached_input_tokens", "collaboration_mode", b"collaboration_mode", "duration_ms", b"duration_ms", "enrichment", b"enrichment", "event_id", b"event_id", "input_tokens", b"input_tokens", "is_first_turn", b"is_first_turn", "is_wizard_internal", b"is_wizard_internal", "model", b"model", "output_tokens", b"output_tokens", "reasoning_output_tokens", b"reasoning_output_tokens", "session_id", b"session_id", "status", b"status", "tool_call_count", b"tool_call_count", "total_tokens", b"total_tokens", "turn_id", b"turn_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["cached_input_tokens", b"cached_input_tokens", "collaboration_mode", b"collaboration_mode", "common_context", b"common_context", "duration_ms", b"duration_ms", "enrichment", b"enrichment", "event_id", b"event_id", "input_tokens", b"input_tokens", "is_first_turn", b"is_first_turn", "is_wizard_internal", b"is_wizard_internal", "model", b"model", "output_tokens", b"output_tokens", "reasoning_output_tokens", b"reasoning_output_tokens", "session_id", b"session_id", "status", b"status", "tool_call_count", b"tool_call_count", "total_tokens", b"total_tokens", "turn_id", b"turn_id"]) -> None: ...
 
 Global___DbtWizardTurn: typing_extensions.TypeAlias = DbtWizardTurn
 
 @typing.final
 class DbtWizardToolUse(google.protobuf.message.Message):
-    """Emitted once per tool invocation."""
+    """Emitted once per tool attempt after it reaches a terminal outcome.
+    Tool argument names and values are not captured.
+    """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -198,6 +243,12 @@ class DbtWizardToolUse(google.protobuf.message.Message):
     IS_ERROR_FIELD_NUMBER: builtins.int
     EXECUTION_TIME_MS_FIELD_NUMBER: builtins.int
     IS_WIZARD_INTERNAL_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
+    CALL_ID_FIELD_NUMBER: builtins.int
+    CALL_SOURCE_FIELD_NUMBER: builtins.int
+    CALL_OBSERVED_AT_MS_FIELD_NUMBER: builtins.int
+    OUTCOME_FIELD_NUMBER: builtins.int
+    ATTEMPT_DURATION_MS_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     """Unique identifier for this event."""
     session_id: builtins.str
@@ -205,17 +256,34 @@ class DbtWizardToolUse(google.protobuf.message.Message):
     turn_id: builtins.str
     """Turn correlation ID."""
     tool_type: builtins.str
-    """Tool category: "builtin", "mcp", "shell", "subagent"."""
+    """Tool category: one of "builtin", "mcp", "hosted", or "unknown"."""
     tool_name: builtins.str
-    """Specific tool name (e.g. "dbt_index.search", "apply_patch")."""
+    """Registered canonical flattened tool name (e.g.
+    "mcp__dbt_index__search"); unrecognized model-controlled names are emitted
+    as "<unknown>".
+    """
     is_error: builtins.bool
     """Whether the tool call resulted in an error."""
     execution_time_ms: builtins.int
     """Tool execution wall-clock time."""
     is_wizard_internal: builtins.bool
     """Whether the WIZARD_INTERNAL env var was set for this session."""
+    call_id: builtins.str
+    """Model/provider call correlation identifier."""
+    call_source: builtins.str
+    """Call origin: "direct" or "code_mode"."""
+    call_observed_at_ms: builtins.int
+    """Unix timestamp in milliseconds when the attempt was first observed."""
+    outcome: Global___DbtWizardToolOutcome.ValueType
+    """Terminal outcome of the tool attempt."""
+    attempt_duration_ms: builtins.int
+    """Elapsed wall-clock time from first observing the tool attempt through its
+    terminal outcome, including queueing, hooks, and execution.
+    """
     @property
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment: ...
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
     def __init__(
         self,
         *,
@@ -228,9 +296,15 @@ class DbtWizardToolUse(google.protobuf.message.Message):
         is_error: builtins.bool = ...,
         execution_time_ms: builtins.int = ...,
         is_wizard_internal: builtins.bool = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
+        call_id: builtins.str = ...,
+        call_source: builtins.str = ...,
+        call_observed_at_ms: builtins.int = ...,
+        outcome: Global___DbtWizardToolOutcome.ValueType = ...,
+        attempt_duration_ms: builtins.int = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["enrichment", b"enrichment", "event_id", b"event_id", "execution_time_ms", b"execution_time_ms", "is_error", b"is_error", "is_wizard_internal", b"is_wizard_internal", "session_id", b"session_id", "tool_name", b"tool_name", "tool_type", b"tool_type", "turn_id", b"turn_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["attempt_duration_ms", b"attempt_duration_ms", "call_id", b"call_id", "call_observed_at_ms", b"call_observed_at_ms", "call_source", b"call_source", "common_context", b"common_context", "enrichment", b"enrichment", "event_id", b"event_id", "execution_time_ms", b"execution_time_ms", "is_error", b"is_error", "is_wizard_internal", b"is_wizard_internal", "outcome", b"outcome", "session_id", b"session_id", "tool_name", b"tool_name", "tool_type", b"tool_type", "turn_id", b"turn_id"]) -> None: ...
 
 Global___DbtWizardToolUse: typing_extensions.TypeAlias = DbtWizardToolUse
 
@@ -253,6 +327,10 @@ class DbtWizardCliStarted(google.protobuf.message.Message):
     LAUNCHED_AT_FIELD_NUMBER: builtins.int
     IS_WIZARD_INTERNAL_FIELD_NUMBER: builtins.int
     ANONYMOUS_ID_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
+    SANDBOX_POLICY_FIELD_NUMBER: builtins.int
+    APPROVAL_POLICY_FIELD_NUMBER: builtins.int
+    MODEL_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     user_id: builtins.str
     """Anonymous UUID from ~/.dbt/.user.yml (created on first run)."""
@@ -274,8 +352,20 @@ class DbtWizardCliStarted(google.protobuf.message.Message):
     """The anonymous UUID from ~/.dbt/.user.yml. Always populated regardless of
     auth state, enabling a join between pre-auth and post-auth events.
     """
+    sandbox_policy: builtins.str
+    """Sandbox mode from the --sandbox flag: "read-only", "workspace-write",
+    "danger-full-access". Empty if the flag was not passed.
+    """
+    approval_policy: builtins.str
+    """Approval policy from CLI flags: "untrusted", "on-failure", "on-request",
+    "granular", "never" (yolo mode). Empty if not specified.
+    """
+    model: builtins.str
+    """Model slug passed via --model flag (empty if not specified)."""
     @property
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment: ...
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
     def __init__(
         self,
         *,
@@ -292,9 +382,13 @@ class DbtWizardCliStarted(google.protobuf.message.Message):
         launched_at: builtins.int = ...,
         is_wizard_internal: builtins.bool = ...,
         anonymous_id: builtins.str = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
+        sandbox_policy: builtins.str = ...,
+        approval_policy: builtins.str = ...,
+        model: builtins.str = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["account_id", b"account_id", "account_identifier", b"account_identifier", "anonymous_id", b"anonymous_id", "arch", b"arch", "enrichment", b"enrichment", "event_id", b"event_id", "is_first_run", b"is_first_run", "is_wizard_internal", b"is_wizard_internal", "launch_source", b"launch_source", "launched_at", b"launched_at", "os", b"os", "user_id", b"user_id", "version", b"version"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["account_id", b"account_id", "account_identifier", b"account_identifier", "anonymous_id", b"anonymous_id", "approval_policy", b"approval_policy", "arch", b"arch", "common_context", b"common_context", "enrichment", b"enrichment", "event_id", b"event_id", "is_first_run", b"is_first_run", "is_wizard_internal", b"is_wizard_internal", "launch_source", b"launch_source", "launched_at", b"launched_at", "model", b"model", "os", b"os", "sandbox_policy", b"sandbox_policy", "user_id", b"user_id", "version", b"version"]) -> None: ...
 
 Global___DbtWizardCliStarted: typing_extensions.TypeAlias = DbtWizardCliStarted
 
@@ -324,6 +418,7 @@ class DbtWizardOnboarding(google.protobuf.message.Message):
     TOTAL_STEPS_SHOWN_FIELD_NUMBER: builtins.int
     IS_WIZARD_INTERNAL_FIELD_NUMBER: builtins.int
     ANONYMOUS_ID_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     user_id: builtins.str
     account_id: builtins.str
@@ -359,6 +454,8 @@ class DbtWizardOnboarding(google.protobuf.message.Message):
     """
     @property
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment: ...
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
     def __init__(
         self,
         *,
@@ -382,9 +479,10 @@ class DbtWizardOnboarding(google.protobuf.message.Message):
         total_steps_shown: builtins.int = ...,
         is_wizard_internal: builtins.bool = ...,
         anonymous_id: builtins.str = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["account_id", b"account_id", "account_identifier", b"account_identifier", "anonymous_id", b"anonymous_id", "arch", b"arch", "auth_method", b"auth_method", "dbt_project_detected", b"dbt_project_detected", "enrichment", b"enrichment", "event_id", b"event_id", "is_first_run", b"is_first_run", "is_wizard_internal", b"is_wizard_internal", "os", b"os", "provider_configured", b"provider_configured", "step", b"step", "step_duration_ms", b"step_duration_ms", "step_index", b"step_index", "step_status", b"step_status", "total_steps_shown", b"total_steps_shown", "trust_decision", b"trust_decision", "user_id", b"user_id", "version", b"version"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["account_id", b"account_id", "account_identifier", b"account_identifier", "anonymous_id", b"anonymous_id", "arch", b"arch", "auth_method", b"auth_method", "common_context", b"common_context", "dbt_project_detected", b"dbt_project_detected", "enrichment", b"enrichment", "event_id", b"event_id", "is_first_run", b"is_first_run", "is_wizard_internal", b"is_wizard_internal", "os", b"os", "provider_configured", b"provider_configured", "step", b"step", "step_duration_ms", b"step_duration_ms", "step_index", b"step_index", "step_status", b"step_status", "total_steps_shown", b"total_steps_shown", "trust_decision", b"trust_decision", "user_id", b"user_id", "version", b"version"]) -> None: ...
 
 Global___DbtWizardOnboarding: typing_extensions.TypeAlias = DbtWizardOnboarding
 
@@ -411,6 +509,7 @@ class DbtWizardSubAgent(google.protobuf.message.Message):
     ACCOUNT_IDENTIFIER_FIELD_NUMBER: builtins.int
     IS_WIZARD_INTERNAL_FIELD_NUMBER: builtins.int
     ANONYMOUS_ID_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     session_id: builtins.str
     """Parent session (the main thread_id)."""
@@ -440,6 +539,8 @@ class DbtWizardSubAgent(google.protobuf.message.Message):
     """
     @property
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment: ...
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
     def __init__(
         self,
         *,
@@ -460,9 +561,10 @@ class DbtWizardSubAgent(google.protobuf.message.Message):
         account_identifier: builtins.str = ...,
         is_wizard_internal: builtins.bool = ...,
         anonymous_id: builtins.str = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["account_id", b"account_id", "account_identifier", b"account_identifier", "anonymous_id", b"anonymous_id", "depth", b"depth", "duration_ms", b"duration_ms", "enrichment", b"enrichment", "event_id", b"event_id", "is_wizard_internal", b"is_wizard_internal", "model", b"model", "progress", b"progress", "session_id", b"session_id", "status", b"status", "subagent_source", b"subagent_source", "subagent_thread_id", b"subagent_thread_id", "total_tokens", b"total_tokens", "turn_count", b"turn_count", "user_id", b"user_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["account_id", b"account_id", "account_identifier", b"account_identifier", "anonymous_id", b"anonymous_id", "common_context", b"common_context", "depth", b"depth", "duration_ms", b"duration_ms", "enrichment", b"enrichment", "event_id", b"event_id", "is_wizard_internal", b"is_wizard_internal", "model", b"model", "progress", b"progress", "session_id", b"session_id", "status", b"status", "subagent_source", b"subagent_source", "subagent_thread_id", b"subagent_thread_id", "total_tokens", b"total_tokens", "turn_count", b"turn_count", "user_id", b"user_id"]) -> None: ...
 
 Global___DbtWizardSubAgent: typing_extensions.TypeAlias = DbtWizardSubAgent
 
@@ -492,17 +594,21 @@ class DbtWizardError(google.protobuf.message.Message):
     OCCURRED_AT_FIELD_NUMBER: builtins.int
     IS_WIZARD_INTERNAL_FIELD_NUMBER: builtins.int
     ANONYMOUS_ID_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     session_id: builtins.str
     """Empty if error occurs before session starts."""
     error_category: builtins.str
-    """"sidecar_startup" | "provider_auth" | "turn_failure" | "panic" | "connection_lost" """
+    """"sidecar_startup" | "provider_auth" | "turn_failure" | "panic" | "connection_lost" | "sandbox" """
     error_code: builtins.str
-    """Structured code: "health_timeout", "401", "connection_refused", etc."""
+    """Structured code: "health_timeout", "401", "connection_refused", etc. When
+    error_category is "sandbox": "denied", "timeout", "signal_<N>",
+    "seccomp_install", "seccomp_backend", "landlock_restrict".
+    """
     error_class: builtins.str
     """Rust error type name (no message content)."""
     component: builtins.str
-    """"litellm_sidecar" | "app_server" | "tui" | "core" | "provider" """
+    """"litellm_sidecar" | "app_server" | "tui" | "core" | "provider" | "sandbox" """
     provider: builtins.str
     """"anthropic" | "openai" | "bedrock" | "" if not provider-related."""
     model: builtins.str
@@ -523,6 +629,8 @@ class DbtWizardError(google.protobuf.message.Message):
     """
     @property
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment: ...
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
     def __init__(
         self,
         *,
@@ -546,9 +654,10 @@ class DbtWizardError(google.protobuf.message.Message):
         occurred_at: builtins.int = ...,
         is_wizard_internal: builtins.bool = ...,
         anonymous_id: builtins.str = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["account_id", b"account_id", "account_identifier", b"account_identifier", "anonymous_id", b"anonymous_id", "arch", b"arch", "component", b"component", "enrichment", b"enrichment", "error_category", b"error_category", "error_class", b"error_class", "error_code", b"error_code", "event_id", b"event_id", "is_recoverable", b"is_recoverable", "is_wizard_internal", b"is_wizard_internal", "model", b"model", "occurred_at", b"occurred_at", "os", b"os", "provider", b"provider", "retry_count", b"retry_count", "session_id", b"session_id", "user_id", b"user_id", "version", b"version"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["account_id", b"account_id", "account_identifier", b"account_identifier", "anonymous_id", b"anonymous_id", "arch", b"arch", "common_context", b"common_context", "component", b"component", "enrichment", b"enrichment", "error_category", b"error_category", "error_class", b"error_class", "error_code", b"error_code", "event_id", b"event_id", "is_recoverable", b"is_recoverable", "is_wizard_internal", b"is_wizard_internal", "model", b"model", "occurred_at", b"occurred_at", "os", b"os", "provider", b"provider", "retry_count", b"retry_count", "session_id", b"session_id", "user_id", b"user_id", "version", b"version"]) -> None: ...
 
 Global___DbtWizardError: typing_extensions.TypeAlias = DbtWizardError
 
@@ -574,6 +683,7 @@ class DbtWizardFeedback(google.protobuf.message.Message):
     MODEL_FIELD_NUMBER: builtins.int
     IS_WIZARD_INTERNAL_FIELD_NUMBER: builtins.int
     ANONYMOUS_ID_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     """Unique identifier for this event."""
     session_id: builtins.str
@@ -610,6 +720,8 @@ class DbtWizardFeedback(google.protobuf.message.Message):
     """
     @property
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment: ...
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
     def __init__(
         self,
         *,
@@ -629,8 +741,153 @@ class DbtWizardFeedback(google.protobuf.message.Message):
         model: builtins.str = ...,
         is_wizard_internal: builtins.bool = ...,
         anonymous_id: builtins.str = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["account_id", b"account_id", "account_identifier", b"account_identifier", "anonymous_id", b"anonymous_id", "arch", b"arch", "category", b"category", "enrichment", b"enrichment", "event_id", b"event_id", "include_logs", b"include_logs", "is_wizard_internal", b"is_wizard_internal", "model", b"model", "os", b"os", "reason", b"reason", "session_id", b"session_id", "turn_id", b"turn_id", "user_id", b"user_id", "version", b"version"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["account_id", b"account_id", "account_identifier", b"account_identifier", "anonymous_id", b"anonymous_id", "arch", b"arch", "category", b"category", "common_context", b"common_context", "enrichment", b"enrichment", "event_id", b"event_id", "include_logs", b"include_logs", "is_wizard_internal", b"is_wizard_internal", "model", b"model", "os", b"os", "reason", b"reason", "session_id", b"session_id", "turn_id", b"turn_id", "user_id", b"user_id", "version", b"version"]) -> None: ...
 
 Global___DbtWizardFeedback: typing_extensions.TypeAlias = DbtWizardFeedback
+
+@typing.final
+class DbtWizardPermissionMode(google.protobuf.message.Message):
+    """Emitted whenever a thread's effective permission mode changes: the approval
+    policy, the sandbox/permission profile, or where approvals are routed.
+
+    The first observation for a thread establishes the baseline with
+    change_source = "initial" (emitted when settings are first applied, i.e. the
+    thread's first turn or first explicit override), then one event per
+    subsequent change. This makes in-session permission changes observable,
+    unlike sandbox toggles which are only visible as CLI flags at launch.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    ENRICHMENT_FIELD_NUMBER: builtins.int
+    EVENT_ID_FIELD_NUMBER: builtins.int
+    SESSION_ID_FIELD_NUMBER: builtins.int
+    CHANGE_SOURCE_FIELD_NUMBER: builtins.int
+    APPROVAL_POLICY_FIELD_NUMBER: builtins.int
+    PREVIOUS_APPROVAL_POLICY_FIELD_NUMBER: builtins.int
+    SANDBOX_POLICY_FIELD_NUMBER: builtins.int
+    PREVIOUS_SANDBOX_POLICY_FIELD_NUMBER: builtins.int
+    PERMISSION_PROFILE_FIELD_NUMBER: builtins.int
+    PREVIOUS_PERMISSION_PROFILE_FIELD_NUMBER: builtins.int
+    SANDBOX_NETWORK_ACCESS_FIELD_NUMBER: builtins.int
+    APPROVALS_REVIEWER_FIELD_NUMBER: builtins.int
+    IS_FULL_ACCESS_FIELD_NUMBER: builtins.int
+    MODEL_FIELD_NUMBER: builtins.int
+    SESSION_SOURCE_FIELD_NUMBER: builtins.int
+    CHANGED_AT_MS_FIELD_NUMBER: builtins.int
+    USER_ID_FIELD_NUMBER: builtins.int
+    ACCOUNT_ID_FIELD_NUMBER: builtins.int
+    ACCOUNT_IDENTIFIER_FIELD_NUMBER: builtins.int
+    VERSION_FIELD_NUMBER: builtins.int
+    OS_FIELD_NUMBER: builtins.int
+    ARCH_FIELD_NUMBER: builtins.int
+    IS_WIZARD_INTERNAL_FIELD_NUMBER: builtins.int
+    ANONYMOUS_ID_FIELD_NUMBER: builtins.int
+    COMMON_CONTEXT_FIELD_NUMBER: builtins.int
+    event_id: builtins.str
+    """Unique identifier for this event."""
+    session_id: builtins.str
+    """Session correlation ID (thread_id)."""
+    change_source: builtins.str
+    """What triggered the change: "initial" for the baseline, or
+    "settings_update" for a subsequent change.
+    """
+    approval_policy: builtins.str
+    """Approval policy after the change: "untrusted", "on-failure", "on-request",
+    "granular", "never" (yolo mode).
+    """
+    previous_approval_policy: builtins.str
+    """Approval policy before the change; empty when change_source is
+    "initial".
+    """
+    sandbox_policy: builtins.str
+    """Sandbox mode after the change: "read_only", "workspace_write",
+    "full_access", "external_sandbox".
+    """
+    previous_sandbox_policy: builtins.str
+    """Sandbox mode before the change; empty when change_source is
+    "initial".
+    """
+    permission_profile: builtins.str
+    """Permission profile id after the change, such as ":read-only",
+    ":workspace", ":danger-full-access", or a user-defined profile id.
+    """
+    previous_permission_profile: builtins.str
+    """Permission profile id before the change; empty when change_source is
+    "initial".
+    """
+    sandbox_network_access: builtins.bool
+    """Whether the sandbox permits network access after the change."""
+    approvals_reviewer: builtins.str
+    """Where approval requests are routed: "user" or "guardian_subagent"."""
+    is_full_access: builtins.bool
+    """Whether the mode after the change bypasses all approvals
+    (approval_policy = "never" and sandbox_policy = "full_access"). Convenience
+    flag for measuring yolo-mode adoption.
+    """
+    model: builtins.str
+    """Model slug active on the thread (e.g. "claude-sonnet-4-6")."""
+    session_source: builtins.str
+    """Client name: "cli", "vscode", "desktop", "mcp_server"."""
+    changed_at_ms: builtins.int
+    """Unix timestamp in milliseconds when the change was applied."""
+    user_id: builtins.str
+    """Authenticated dbt Cloud user ID (JWT sub claim); falls back to anonymous
+    UUID from ~/.dbt/.user.yml when unauthenticated.
+    """
+    account_id: builtins.str
+    """Numeric dbt Cloud account ID (from JWT claims or dbt_cloud.yml)."""
+    account_identifier: builtins.str
+    """Global dbt Cloud account identifier slug (from /api/v2/accounts/{id}/)."""
+    version: builtins.str
+    """dbt-wizard binary version."""
+    os: builtins.str
+    """Operating system: "macos", "linux", "windows"."""
+    arch: builtins.str
+    """CPU architecture: "aarch64", "x86_64"."""
+    is_wizard_internal: builtins.bool
+    """Whether the WIZARD_INTERNAL env var was set for this session."""
+    anonymous_id: builtins.str
+    """The anonymous UUID from ~/.dbt/.user.yml. Always populated regardless of
+    auth state, enabling a join between pre-auth and post-auth events.
+    """
+    @property
+    def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment: ...
+    @property
+    def common_context(self) -> dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext: ...
+    def __init__(
+        self,
+        *,
+        enrichment: dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment | None = ...,
+        event_id: builtins.str = ...,
+        session_id: builtins.str = ...,
+        change_source: builtins.str = ...,
+        approval_policy: builtins.str = ...,
+        previous_approval_policy: builtins.str = ...,
+        sandbox_policy: builtins.str = ...,
+        previous_sandbox_policy: builtins.str = ...,
+        permission_profile: builtins.str = ...,
+        previous_permission_profile: builtins.str = ...,
+        sandbox_network_access: builtins.bool = ...,
+        approvals_reviewer: builtins.str = ...,
+        is_full_access: builtins.bool = ...,
+        model: builtins.str = ...,
+        session_source: builtins.str = ...,
+        changed_at_ms: builtins.int = ...,
+        user_id: builtins.str = ...,
+        account_id: builtins.str = ...,
+        account_identifier: builtins.str = ...,
+        version: builtins.str = ...,
+        os: builtins.str = ...,
+        arch: builtins.str = ...,
+        is_wizard_internal: builtins.bool = ...,
+        anonymous_id: builtins.str = ...,
+        common_context: dbtlabs.proto.public.v1.common.vortex_telemetry_contexts_pb2.VortexTelemetryCommonContext | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["common_context", b"common_context", "enrichment", b"enrichment"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["account_id", b"account_id", "account_identifier", b"account_identifier", "anonymous_id", b"anonymous_id", "approval_policy", b"approval_policy", "approvals_reviewer", b"approvals_reviewer", "arch", b"arch", "change_source", b"change_source", "changed_at_ms", b"changed_at_ms", "common_context", b"common_context", "enrichment", b"enrichment", "event_id", b"event_id", "is_full_access", b"is_full_access", "is_wizard_internal", b"is_wizard_internal", "model", b"model", "os", b"os", "permission_profile", b"permission_profile", "previous_approval_policy", b"previous_approval_policy", "previous_permission_profile", b"previous_permission_profile", "previous_sandbox_policy", b"previous_sandbox_policy", "sandbox_network_access", b"sandbox_network_access", "sandbox_policy", b"sandbox_policy", "session_id", b"session_id", "session_source", b"session_source", "user_id", b"user_id", "version", b"version"]) -> None: ...
+
+Global___DbtWizardPermissionMode: typing_extensions.TypeAlias = DbtWizardPermissionMode

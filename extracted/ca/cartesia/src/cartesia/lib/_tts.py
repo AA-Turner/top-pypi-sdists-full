@@ -1,4 +1,5 @@
 # FIXME: Delete this code and use Stainless to generate a WebSocket method for v4.
+# Package 4.0 defaults Cartesia-Version to 2026-08-14.
 #
 # See [v3.1.0-b3](https://github.com/cartesia-ai/cartesia-python/releases/tag/v3.1.0-b3)
 # for how we can simplify our interfaces
@@ -725,7 +726,7 @@ class WebSocketContext:
             return  # Already completed, ignore
 
         voice: VoiceSpecifierParam = self._voice or cast(
-            VoiceSpecifierParam, {"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"}
+            VoiceSpecifierParam, "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"
         )
 
         self.send(
@@ -972,7 +973,7 @@ class AsyncWebSocketContext:
             return  # Already completed, ignore
 
         voice: VoiceSpecifierParam = self._voice or cast(
-            VoiceSpecifierParam, {"mode": "id", "id": "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"}
+            VoiceSpecifierParam, "6ccbfb76-1fc6-48f7-b71d-91ac6298247b"
         )
 
         await self.send(

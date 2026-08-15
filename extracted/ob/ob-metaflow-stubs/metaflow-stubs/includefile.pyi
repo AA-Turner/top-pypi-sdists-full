@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-13T18:38:42.549693                                                            #
+# Generated on 2026-08-14T20:17:07.903990                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow._vendor.click.types
-    import typing
     import metaflow.parameters
+    import typing
+    import metaflow._vendor.click.types
 
 from ._vendor import click as click
 from ._vendor import yaml as yaml

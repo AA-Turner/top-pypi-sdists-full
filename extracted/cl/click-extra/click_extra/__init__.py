@@ -231,6 +231,7 @@ from .styling import (
     ansi_to_textile,
     render_ansi,
     split_ansi,
+    wrap_ansi,
 )
 from .table import (
     ColumnsOption,
@@ -512,6 +513,7 @@ __all__ = [
     "verbose_option",
     "verbosity_option",
     "version_option",
+    "wrap_ansi",
     "wrap_text",
     "write_manpages",
     "zero_exit_option",
@@ -570,13 +572,13 @@ _scrub_foreign_modules()
 del _scrub_foreign_modules
 
 
-__version__ = "8.8.1"
+__version__ = "8.9.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "349ea28ed638bbf5aaf9578315362c97ca7a870c"
+__git_tag_sha__ = "4e7d75ffd14cababcdce7293f246e90d992feb0b"
 
 
 _LAZY_TEST_TOOLING = {

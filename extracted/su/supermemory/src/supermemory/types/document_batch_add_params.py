@@ -30,6 +30,16 @@ class DocumentBatchAddParams(TypedDict, total=False):
 
     content: None
 
+    document_date: Annotated[str, PropertyInfo(alias="documentDate")]
+    """When this document's content is from, as opposed to when it was uploaded.
+
+    Accepts YYYY-MM-DD or a full ISO 8601 timestamp. Memory extraction resolves
+    relative dates ('yesterday', 'last quarter') against this instead of the
+    ingestion time, and documents in a batch are processed oldest-first so newer
+    facts correctly supersede older ones. Set this whenever you backfill historical
+    content.
+    """
+
     dreaming: Literal["instant", "dynamic"]
     """Processing mode.
 
@@ -109,6 +119,16 @@ class DocumentsUnionMember0(TypedDict, total=False):
 
     This could be an ID from your database that will uniquely identify this
     document.
+    """
+
+    document_date: Annotated[str, PropertyInfo(alias="documentDate")]
+    """When this document's content is from, as opposed to when it was uploaded.
+
+    Accepts YYYY-MM-DD or a full ISO 8601 timestamp. Memory extraction resolves
+    relative dates ('yesterday', 'last quarter') against this instead of the
+    ingestion time, and documents in a batch are processed oldest-first so newer
+    facts correctly supersede older ones. Set this whenever you backfill historical
+    content.
     """
 
     dreaming: Literal["instant", "dynamic"]

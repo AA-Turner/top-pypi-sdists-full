@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: imgui-bundle
-Version: 1.92.801
+Version: 1.92.900
 Summary: Dear ImGui Bundle: From expressive code to powerful GUIs in no time. A fast, feature-rich, cross-platform toolkit for C++ and Python.
 Author-Email: Pascal Thomet <pthomet@gmail.com>
 Classifier: Development Status :: 5 - Production/Stable
@@ -23,6 +23,8 @@ Requires-Dist: pillow; extra == "imgproc"
 Requires-Dist: opencv-python; extra == "imgproc"
 Provides-Extra: pydantic
 Requires-Dist: pydantic>=2.0.0; extra == "pydantic"
+Provides-Extra: terminal
+Requires-Dist: pyte; extra == "terminal"
 Provides-Extra: opengl
 Requires-Dist: PyOpenGL; extra == "opengl"
 Provides-Extra: glfw
@@ -69,6 +71,8 @@ Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-asyncio; extra == "test"
 Requires-Dist: mypy; extra == "test"
+Requires-Dist: pyte; extra == "test"
+Requires-Dist: websockets; extra == "test"
 Description-Content-Type: text/markdown
 
 # Dear ImGui Bundle

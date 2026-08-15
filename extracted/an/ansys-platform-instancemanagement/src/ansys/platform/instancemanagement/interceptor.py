@@ -1,3 +1,25 @@
+# Copyright (C) 2022 - 2026 ANSYS, Inc. and/or its affiliates.
+# SPDX-License-Identifier: MIT
+#
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 """Interceptor that adds headers to outgoing requests.
 
 This is a direct adaptation of the official gRPC example, but it supports multiple headers.
@@ -16,10 +38,14 @@ class _GenericClientInterceptor(
     grpc.StreamUnaryClientInterceptor,
     grpc.StreamStreamClientInterceptor,
 ):
+    """gRPC client interceptor that applies a single function to all call types."""
+
     def __init__(self, interceptor_function):
+        """Initialize with the function to apply to every intercepted call."""
         self._fn = interceptor_function
 
     def intercept_unary_unary(self, continuation, client_call_details, request):
+        """Intercept a unary-unary RPC call."""
         new_details, new_request_iterator, postprocess = self._fn(
             client_call_details, iter((request,)), False, False
         )
@@ -27,6 +53,7 @@ class _GenericClientInterceptor(
         return postprocess(response) if postprocess else response
 
     def intercept_unary_stream(self, continuation, client_call_details, request):
+        """Intercept a unary-stream RPC call."""
         new_details, new_request_iterator, postprocess = self._fn(
             client_call_details, iter((request,)), False, True
         )
@@ -34,6 +61,7 @@ class _GenericClientInterceptor(
         return postprocess(response_it) if postprocess else response_it
 
     def intercept_stream_unary(self, continuation, client_call_details, request_iterator):
+        """Intercept a stream-unary RPC call."""
         new_details, new_request_iterator, postprocess = self._fn(
             client_call_details, request_iterator, True, False
         )
@@ -41,6 +69,7 @@ class _GenericClientInterceptor(
         return postprocess(response) if postprocess else response
 
     def intercept_stream_stream(self, continuation, client_call_details, request_iterator):
+        """Intercept a stream-stream RPC call."""
         new_details, new_request_iterator, postprocess = self._fn(
             client_call_details, request_iterator, True, True
         )
@@ -62,6 +91,11 @@ def header_adder_interceptor(headers: Sequence[Tuple[str, str]]):
     ----------
     headers : Sequence[Tuple[str, str]]
         List of metadata to inject.
+
+    Returns
+    -------
+    _GenericClientInterceptor
+        gRPC client interceptor that injects the given headers into every call.
     """
 
     def intercept_call(client_call_details, request_iterator, *_):

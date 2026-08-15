@@ -12,7 +12,7 @@ use crate::cache::{CachedResult, ParseCache};
 use crate::concatenation::{sort_by_longest, Concatenation};
 use crate::error::ParseError;
 use crate::matcher::Match;
-use crate::parser::{ArcParser, MatchList, NodeList, ParseResult};
+use crate::parser::{ArcParser, MatchList, NodeList, ParseResult, Src};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Repeat {
@@ -30,14 +30,33 @@ impl Repeat {
 pub struct Repetition {
     pub repeat: Repeat,
     pub element: ArcParser,
+    /// The `min` mandatory repetitions, as a single `Concatenation`.
+    /// `None` when `min` is zero.
+    ///
+    /// Depends only on `element` and `repeat.min`, both fixed at
+    /// construction, so it is built once here rather than on every
+    /// parse -- `1*X` is the most common repetition in any grammar,
+    /// and rebuilding it allocated a `Vec` plus a `Concatenation` per
+    /// call.  The pure-Python backend had the same wart, fixed the
+    /// same way.
+    ///
+    /// `Repeat` is `Copy` with public fields; nothing in the library
+    /// mutates one after handing it to `Repetition`, and a caller who
+    /// did would need to rebuild the `Repetition` too.
+    min_parser: Option<ArcParser>,
     cache: Mutex<ParseCache>,
 }
 
 impl Repetition {
     pub fn new(repeat: Repeat, element: ArcParser) -> Self {
+        let min_parser = (repeat.min > 0).then(|| {
+            let parsers = vec![element.clone(); repeat.min];
+            ArcParser::from(Concatenation::new(parsers))
+        });
         Self {
             repeat,
             element,
+            min_parser,
             cache: Mutex::new(ParseCache::default()),
         }
     }
@@ -46,7 +65,7 @@ impl Repetition {
         &self.cache
     }
 
-    pub fn lparse(&self, source: &str, start: usize) -> ParseResult {
+    pub fn lparse(&self, source: Src<'_>, start: usize) -> ParseResult {
         {
             // Tolerate a poisoned mutex: a panic in some unrelated
             // earlier code path must not permanently brick this rule.
@@ -57,7 +76,7 @@ impl Repetition {
                 .cache
                 .lock()
                 .unwrap_or_else(|e| e.into_inner());
-            if let Some(cached) = cache.get(source, start) {
+            if let Some(cached) = cache.get(start) {
                 return match cached {
                     CachedResult::Matches(ms) => Ok(ms),
                     CachedResult::Failed(err) => Err(err),
@@ -68,22 +87,20 @@ impl Repetition {
         let mut match_set: MatchList = if self.repeat.min == 0 {
             smallvec![Match::new(SmallVec::new(), start)]
         } else {
-            let parsers = vec![self.element.clone(); self.repeat.min];
-            let concat = Concatenation::new(parsers);
+            // Non-zero `min` implies `min_parser` was built.
+            let concat = self
+                .min_parser
+                .as_ref()
+                .expect("min_parser is Some whenever repeat.min > 0");
             match concat.lparse(source, start) {
                 Ok(ms) => ms,
                 Err(_) => {
                     let err = ParseError::new("Repetition", start);
-                    // Tolerate a poisoned mutex: a panic in some unrelated
-            // earlier code path must not permanently brick this rule.
-            // The cache is purely a hit-rate optimisation; stale
-            // entries left over by a poisoned holder only cost us a
-            // miss on the next lookup.
-            let mut cache = self
-                .cache
-                .lock()
-                .unwrap_or_else(|e| e.into_inner());
-                    cache.put(source, start, CachedResult::Failed(err.clone()));
+                    // Tolerate a poisoned mutex, as above: a stale
+                    // entry left by a poisoned holder costs a miss,
+                    // never a wrong answer.
+                    let mut cache = self.cache.lock().unwrap_or_else(|e| e.into_inner());
+                    cache.put(start, CachedResult::Failed(err.clone()));
                     return Err(err);
                 }
             }
@@ -145,7 +162,7 @@ impl Repetition {
                 .cache
                 .lock()
                 .unwrap_or_else(|e| e.into_inner());
-            cache.put(source, start, CachedResult::Matches(match_set.clone()));
+            cache.put(start, CachedResult::Matches(match_set.clone()));
         }
         Ok(match_set)
     }
@@ -183,7 +200,7 @@ mod tests {
 
         // Pre-fix this would panic with "ParseCache mutex poisoned".
         // Post-fix the parse succeeds.
-        let result = parser.lparse("xxx", 0);
+        let result = parser.lparse(&[0x78, 0x78, 0x78], 0);
         assert!(result.is_ok(), "expected Ok, got {result:?}");
     }
 }

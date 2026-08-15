@@ -1,0 +1,21 @@
+---
+name: Release Drafter
+# yamllint disable-line rule:truthy
+on:
+  push:
+    # branches to consider in the event; optional, defaults to all
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  update_release_draft:
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      # Drafts your next Release notes as Pull Requests are merged into "main"
+      - uses: release-drafter/release-drafter@v7.7.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

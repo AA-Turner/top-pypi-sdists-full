@@ -280,7 +280,12 @@ def define_cloud_run_service(
         opts=pulumi.ResourceOptions(
             delete_before_replace=False,
             depends_on=api_services,
-            ignore_changes=["template.containers[*].image"],
+            ignore_changes=[
+                "client",
+                "clientVersion",
+                "scaling",
+                "template.containers[*].image",
+            ],
         ),
     )
 
@@ -372,7 +377,12 @@ def define_preview_cloud_run_service(
         opts=pulumi.ResourceOptions(
             delete_before_replace=False,
             depends_on=api_services,
-            ignore_changes=["template.containers[*].image"],
+            ignore_changes=[
+                "client",
+                "clientVersion",
+                "scaling",
+                "template.containers[*].image",
+            ],
         ),
     )
 

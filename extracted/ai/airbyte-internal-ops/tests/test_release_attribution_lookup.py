@@ -229,7 +229,10 @@ def test_lookup_release_attribution_tiers(
     [
         pytest.param(
             _empty_pr_data,
-            {"merged_at": datetime(2023, 6, 23, tzinfo=timezone.utc)},
+            {
+                "merged_at": datetime(2023, 6, 23, tzinfo=timezone.utc),
+                "released_at": datetime(2023, 6, 23, tzinfo=timezone.utc),
+            },
             id="changelog_without_enrichment",
         ),
         pytest.param(
@@ -241,6 +244,7 @@ def test_lookup_release_attribution_tiers(
                 "attributed_to": "human",
                 "merge_commit_sha": "abc123",
                 "merged_at": datetime(2023, 6, 23, 12, 34, 56, tzinfo=timezone.utc),
+                "released_at": datetime(2023, 6, 23, 12, 34, 56, tzinfo=timezone.utc),
             },
             id="changelog_human_enrichment",
         ),
@@ -281,6 +285,7 @@ def test_changelog_lookup_enrichment(
         pr_number=27684,
         pr_url="https://github.com/airbytehq/airbyte/pull/27684",
         merged_at=datetime(2023, 6, 23, tzinfo=timezone.utc),
+        released_at=datetime(2023, 6, 23, tzinfo=timezone.utc),
         source="changelog",
     ).model_copy(update=expected_updates)
     assert result.status == "found"

@@ -2,13 +2,32 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import StaticPool
 from sqlalchemy.ext.asyncio import create_async_engine
-from testcontainers.postgres import PostgresContainer
+from testcontainers.community.postgres import PostgresContainer
 
 from dstack._internal.server import settings
 from dstack._internal.server.db import Database, override_db
 from dstack._internal.server.models import BaseModel
 
 SQLITE_URL = "sqlite+aiosqlite://"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def server_dir(tmp_path_factory: pytest.TempPathFactory):
+    """
+    Points the server dir at a tmp dir private to this pytest process.
+
+    The real `~/.dstack/server` is shared by every process on the machine, including a
+    developer's running server and, under `pytest -n auto`, the other workers. Sharing it
+    makes unrelated tests race over the same connection dirs and SSH control sockets.
+
+    Everything the server derives from `SERVER_DIR_PATH` is resolved on access, so patching
+    it here redirects all of it. `DSTACK_SERVER_DIR` is set too, for subprocesses.
+    """
+    path = tmp_path_factory.mktemp("server-dir")
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(settings, "SERVER_DIR_PATH", path)
+        monkeypatch.setenv("DSTACK_SERVER_DIR", str(path))
+        yield path
 
 
 @pytest.fixture(scope="session")

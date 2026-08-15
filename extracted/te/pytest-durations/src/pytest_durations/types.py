@@ -12,6 +12,10 @@ class CategoryMeta(type):
         return (v for k, v in cls.__dict__.items() if not k.startswith("__"))
 
 
+# NOTE: Do not replace with StrEnum or any enum subclass. Category values are
+# passed through pytest-xdist's execnet channel, which cannot serialize enum
+# objects. Using a plain string metaclass keeps values as simple strings while
+# still supporting iteration like an enum. See #67 and #74 for the full story.
 class Category(metaclass=CategoryMeta):
     """Measurement category constants."""
 
@@ -59,6 +63,9 @@ COLUMN_NAMES: dict[str, str] = {
     "max": "max",
     "med": "med",
     "total": "sum",
+    "p90": "p90",
+    "p95": "p95",
+    "p99": "p99",
 }
 
 DEFAULT_COLUMNS: tuple[str, ...] = ("total", "num", "med", "max")

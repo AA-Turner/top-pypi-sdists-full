@@ -32,6 +32,15 @@ class DocumentAddParams(TypedDict, total=False):
     Max 100 characters, alphanumeric with hyphens, underscores, and dots only.
     """
 
+    document_date: Annotated[str, PropertyInfo(alias="documentDate")]
+    """When this document's content is from, as opposed to when it was uploaded.
+
+    Accepts YYYY-MM-DD or a full ISO 8601 timestamp. Memory extraction resolves
+    relative dates against this instead of the ingestion time, and documents in a
+    batch are processed oldest-first so newer facts correctly supersede older ones.
+    Set this whenever you backfill historical content.
+    """
+
     dreaming: Literal["instant", "dynamic"]
     """Processing mode.
 

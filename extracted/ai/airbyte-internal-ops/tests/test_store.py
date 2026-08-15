@@ -128,12 +128,44 @@ def test_store_target_parse(
         pytest.param("unknown:dev", "Unknown store type", id="bad_store_type"),
         pytest.param("coral:staging", "Unknown environment", id="bad_env"),
         pytest.param("sonar:staging", "Unknown environment", id="bad_env_sonar"),
+        pytest.param("file:/tmp/output", "Unknown store type", id="file_target"),
     ],
 )
 def test_store_target_parse_errors(target: str, error_fragment: str) -> None:
     """RegistryStore.parse raises ValueError for invalid inputs."""
     with pytest.raises(ValueError, match=error_fragment):
         RegistryStore.parse(target)
+
+
+@pytest.mark.unit
+def test_local_store_target_is_local_only(tmp_path: Path) -> None:
+    """A local target resolves to a local root and never exposes a bucket."""
+    target = RegistryStore.parse(f"coral:local:{tmp_path}")
+    assert target.env == "local"
+    assert target.local_path == tmp_path
+    assert target.read_only is False
+    assert target.bucket_root == str(tmp_path)
+    with pytest.raises(ValueError, match="do not have a bucket"):
+        _ = target.bucket
+
+
+@pytest.mark.unit
+def test_local_store_without_path_allocates_temp_dir() -> None:
+    """A local target without a path allocates a temporary directory."""
+    target = RegistryStore.parse("coral:local:")
+    assert target.local_path is not None
+    assert target.local_path.is_dir()
+
+
+@pytest.mark.unit
+def test_local_path_invariant() -> None:
+    """Only local targets may carry a local path."""
+    with pytest.raises(ValueError, match="Only local"):
+        RegistryStore(
+            store_type=StoreType.CORAL,
+            env="prod",
+            local_path=Path("/tmp/output"),
+        )
 
 
 # ---------------------------------------------------------------------------

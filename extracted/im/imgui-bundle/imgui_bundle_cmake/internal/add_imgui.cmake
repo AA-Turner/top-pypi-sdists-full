@@ -24,6 +24,14 @@ function(add_imgui imgui_dir)
         # For python bindings we add opengl2 and/or opengl3 backends, unless disabled
         if (IMGUI_BUNDLE_BUILD_PYTHON AND NOT IMGUI_BUNDLE_PYTHON_DISABLE_OPENGL2)
             target_sources(imgui PRIVATE ${imgui_dir}/backends/imgui_impl_opengl2.cpp ${imgui_dir}/backends/imgui_impl_opengl2.h)
+            if (UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
+                # imgui_impl_opengl2 calls GL functions directly (no runtime loader), so imgui
+                # must declare the GL link dependency itself: this places libGL after libimgui.a
+                # in the link line, otherwise linkers defaulting to --as-needed (e.g. Alpine)
+                # drop libGL and leave gl* symbols unresolved.
+                find_package(OpenGL REQUIRED)
+                target_link_libraries(imgui PUBLIC OpenGL::GL)
+            endif()
         endif()
         if (IMGUI_BUNDLE_BUILD_PYTHON AND NOT IMGUI_BUNDLE_PYTHON_DISABLE_OPENGL3)
             target_sources(imgui PRIVATE ${imgui_dir}/backends/imgui_impl_opengl3.cpp ${imgui_dir}/backends/imgui_impl_opengl3.h)

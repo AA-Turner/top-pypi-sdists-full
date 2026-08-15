@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: svglib
-Version: 2.1.0
+Version: 2.2.0
 Summary: A pure-Python library for reading and converting SVG
 Project-URL: Homepage, https://github.com/deeplook/svglib
 Author: Dinu Gherman

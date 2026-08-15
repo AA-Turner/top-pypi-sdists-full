@@ -27,10 +27,16 @@ from ._document_primitives import (
     _object_id,
     _paragraph_id,
     _sanitize_text,
+    FILL_GRADIENT_TYPES,
+    FILL_IMAGE_MODES,
 )
+
+from .body import Label, parse_label_element
+from .objects import Caption, _read_caption, _remove_caption, _write_caption
 
 if TYPE_CHECKING:
     from hwpx.form_fit.policy import FitPolicy
+    from ..objects.binary_item import BinaryItem
     from hwpx.form_fit.report import FitResult
     from .paragraph import HwpxOxmlParagraph
     from .section import HwpxOxmlSection
@@ -394,6 +400,124 @@ class HwpxOxmlTable:
             ")"
         )
 
+    # --- caption (hp:caption) -----------------------------------------
+
+    @property
+    def caption(self) -> "Caption | None":
+        """This table's ``hp:caption``, or ``None`` if it doesn't have one."""
+
+        return _read_caption(self.element, self.paragraph.section)
+
+    def set_caption(
+        self,
+        text: str,
+        *,
+        side: str = "TOP",
+        full_sz: bool = False,
+        width: int | None = None,
+        gap: int = 850,
+        char_pr_id_ref: str | int | None = None,
+    ) -> "Caption":
+        """Create (or replace the text of) this table's ``hp:caption``.
+
+        실코퍼스 15건 전수 관행(93%가 표 캡션): ``side="TOP"``·``fullSz=False``
+        가 사실상 유일한 조합, ``gap`` 은 850(다수) 또는 566. See
+        ``hwpx.oxml.objects`` 모듈 상단 주석의 실측 근거.
+        """
+
+        return _write_caption(
+            self.element, text, section=self.paragraph.section,
+            side=side, full_sz=full_sz, width=width, gap=gap,
+            char_pr_id_ref=char_pr_id_ref,
+        )
+
+    def remove_caption(self) -> bool:
+        """Remove this table's ``hp:caption`` if present. Returns whether one was removed."""
+
+        return _remove_caption(self.element, self.paragraph.section)
+
+    # --- label (hp:label) -----------------------------------------
+
+    @property
+    def label(self) -> "Label | None":
+        """This table's ``hp:label`` (Avery-style label-sheet/nameplate
+        print layout), or ``None`` if it doesn't have one. Table-exclusive
+        (DEV-023, ``docs/owpml-deviations.md`` — reverse-engineered from
+        75 real private documents, structure matches the vendored schema
+        exactly, no deviation to register beyond the element's existence)."""
+
+        element = self.element.find(f"{_HP}label")
+        if element is None:
+            return None
+        return parse_label_element(element)
+
+    def set_label(
+        self,
+        *,
+        topmargin: int | None = None,
+        leftmargin: int | None = None,
+        boxwidth: int | None = None,
+        boxlength: int | None = None,
+        boxmarginhor: int | None = None,
+        boxmarginver: int | None = None,
+        labelcols: int | None = None,
+        labelrows: int | None = None,
+        landscape: str | None = None,
+        pagewidth: int | None = None,
+        pageheight: int | None = None,
+    ) -> "Label":
+        """Create (or replace) this table's ``hp:label``.
+
+        Always placed as the table's *last* child -- every real occurrence
+        (436/436, DEV-023) sits after all ``hp:tr`` rows, matching
+        ``ParaList XML schema.xml``'s own sequence order. Values are not
+        restricted to the two combinations the reverse-engineering sample
+        observed (a 2x9 small-label sheet and a 1x2 large-square nameplate
+        layout) -- there is no real-corpus evidence for what other
+        combinations Hancom accepts or rejects, so this does not guess at
+        a validation rule beyond the schema's own (``labelcols``/
+        ``labelrows``/etc. are ``xs:nonNegativeInteger``, ``landscape`` is
+        ``WIDELY``/``NARROWLY``).
+        """
+
+        existing = self.element.find(f"{_HP}label")
+        if existing is not None:
+            self.element.remove(existing)
+
+        attrs: dict[str, str] = {}
+        for name, value in (
+            ("topmargin", topmargin),
+            ("leftmargin", leftmargin),
+            ("boxwidth", boxwidth),
+            ("boxlength", boxlength),
+            ("boxmarginhor", boxmarginhor),
+            ("boxmarginver", boxmarginver),
+            ("labelcols", labelcols),
+            ("labelrows", labelrows),
+        ):
+            if value is not None:
+                attrs[name] = str(int(value))
+        if landscape is not None:
+            attrs["landscape"] = landscape
+        for name, value in (("pagewidth", pagewidth), ("pageheight", pageheight)):
+            if value is not None:
+                attrs[name] = str(int(value))
+
+        element = self.element.makeelement(f"{_HP}label", attrs)
+        self.element.append(element)
+        self.paragraph.section.mark_dirty()
+        return parse_label_element(element)
+
+    def remove_label(self) -> bool:
+        """Remove this table's ``hp:label`` if present. Returns whether one was removed."""
+
+        element = self.element.find(f"{_HP}label")
+        if element is None:
+            return False
+        self.element.remove(element)
+        self.paragraph.section.mark_dirty()
+        return True
+
     @classmethod
     def create(
         cls,
@@ -672,6 +796,95 @@ class HwpxOxmlTable:
         cell.element.set("borderFillIDRef", border_fill_id)
         self.mark_dirty()
 
+    def set_cell_fill_image(
+        self,
+        row_index: int,
+        col_index: int,
+        image: "str | BinaryItem",
+        *,
+        mode: str = "TOTAL",
+    ) -> None:
+        """Fill one cell's background with a ``doc.media.add_image(...)`` item.
+
+        *image* is a :class:`~hwpx.objects.binary_item.BinaryItem` (or its
+        ``item_id`` string) already registered via ``doc.media``. *mode*
+        selects the ``hc:imgBrush`` fit mode (Core XML schema.xml:813-889);
+        real corpus (hwpxlib_corpus, 5 files) observes only ``"TOTAL"``
+        (scale-to-fit), the default here.
+        """
+
+        cell = self.cell(row_index, col_index)
+        document = self.paragraph.section.document
+        if document is None:
+            raise ValueError("table is not attached to a document")
+        item_id = str(image)
+        if not item_id:
+            raise ValueError("image must be a non-empty doc.media binary item id")
+        normalized_mode = str(mode).upper()
+        if normalized_mode not in FILL_IMAGE_MODES:
+            raise ValueError(
+                f"unsupported mode {mode!r}; expected one of "
+                + ", ".join(sorted(FILL_IMAGE_MODES))
+            )
+        border_fill_id = document.ensure_shading_border_fill(
+            fill_image={
+                "binaryItemIDRef": item_id,
+                "mode": normalized_mode,
+                "bright": "0",
+                "contrast": "0",
+                "effect": "REAL_PIC",
+                "alpha": "0",
+            },
+            base_border_fill_id=cell.element.get("borderFillIDRef") or self.element.get("borderFillIDRef"),
+        )
+        cell.element.set("borderFillIDRef", border_fill_id)
+        self.mark_dirty()
+
+    def set_cell_fill_gradient(
+        self,
+        row_index: int,
+        col_index: int,
+        colors: Sequence[str],
+        *,
+        gradient_type: str = "LINEAR",
+        angle: int = 90,
+    ) -> None:
+        """Fill one cell's background with an ``hc:gradation`` (Core XML
+        schema.xml:710-803). *colors* needs at least two ``#RRGGBB`` values;
+        real corpus (hwpxlib_corpus, 2 files) observes only
+        ``gradient_type="LINEAR"``, the default here.
+        """
+
+        cell = self.cell(row_index, col_index)
+        document = self.paragraph.section.document
+        if document is None:
+            raise ValueError("table is not attached to a document")
+        color_list = [str(color) for color in colors]
+        if len(color_list) < 2:
+            raise ValueError("colors needs at least two entries")
+        normalized_type = str(gradient_type).upper()
+        if normalized_type not in FILL_GRADIENT_TYPES:
+            raise ValueError(
+                f"unsupported gradient_type {gradient_type!r}; expected one of "
+                + ", ".join(sorted(FILL_GRADIENT_TYPES))
+            )
+        border_fill_id = document.ensure_shading_border_fill(
+            fill_gradient={
+                "type": normalized_type,
+                "angle": str(int(angle)),
+                "centerX": "0",
+                "centerY": "0",
+                "step": "255",
+                "colorNum": str(len(color_list)),
+                "stepCenter": "50",
+                "alpha": "0",
+                "colors": color_list,
+            },
+            base_border_fill_id=cell.element.get("borderFillIDRef") or self.element.get("borderFillIDRef"),
+        )
+        cell.element.set("borderFillIDRef", border_fill_id)
+        self.mark_dirty()
+
     def set_column_widths(self, weights: Sequence[int | float]) -> None:
         if len(weights) != self.column_count:
             raise ValueError("column width weights must match table column count")
@@ -707,6 +920,46 @@ class HwpxOxmlTable:
                 continue
             width = sum(column_widths[start_col:start_col + span_col])
             entry.cell.set_size(width=width)
+
+    def equalize_column_widths(self) -> None:
+        """모든 열 너비를 같게 만든다(6.13 트레인㊻, 갭"셀 너비를 같게").
+
+        ``set_column_widths([1] * column_count)``와 정확히 동치다 — 균등
+        가중치를 넘기면 이미 그렇게 나뉜다. 이 메서드는 그 조합을
+        전용 이름으로 노출할 뿐, 신규 계산 로직은 없다(호출자가 매번
+        "가중치를 다 1로 넣으면 되나?"를 스스로 알아내야 했던 게 실제
+        갭이었다 — 편집기 메뉴 표면 역매핑 트레인㊷·㊺가 찾은 부분 대응).
+        """
+        self.set_column_widths([1] * self.column_count)
+
+    def equalize_row_heights(self) -> None:
+        """모든 행 높이를 같게 만든다(6.13 트레인㊻, 갭"셀 높이를 같게").
+
+        ``set_column_widths``의 행 대응 — 병합 셀은 자신이 덮는 행들의
+        새 높이 합을 받는다(같은 ``iter_grid``/rowSpan 로직, 축만 다름).
+        전체 높이는 표 자신의 ``hp:sz`` height를 우선하고, 없으면(방어적)
+        0열 셀들의 높이 합으로 대체한다 — ``set_column_widths``의
+        ``total_width`` 유도와 동형.
+        """
+        sz = self.element.find(f"{_HP}sz")
+        if sz is not None and sz.get("height", "").isdigit():
+            total_height = int(sz.get("height", "0"))
+        else:
+            total_height = sum(self.cell(row, 0).height for row in range(self.row_count))
+        row_heights = _distribute_size(max(total_height, 0), self.row_count)
+
+        updated_cells: set[int] = set()
+        for entry in self.iter_grid():
+            marker = id(entry.cell.element)
+            if marker in updated_cells:
+                continue
+            updated_cells.add(marker)
+            start_row, start_col = entry.cell.address
+            span_row, span_col = entry.cell.span
+            if span_row <= 0 or span_col <= 0:
+                continue
+            height = sum(row_heights[start_row:start_row + span_row])
+            entry.cell.set_size(height=height)
 
     def set_cell_text(
         self,

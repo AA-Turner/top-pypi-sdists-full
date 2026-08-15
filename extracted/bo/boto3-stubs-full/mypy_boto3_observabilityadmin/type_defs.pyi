@@ -39,6 +39,9 @@ from .literals import (
     SignalTypeType,
     SSEAlgorithmType,
     StatusType,
+    TagConflictResolutionStrategyType,
+    TagPropagationFailureReasonType,
+    TagPropagationStatusType,
     TelemetryEnrichmentStatusType,
     TelemetryPipelineStatusType,
     TelemetrySourceTypeType,
@@ -153,6 +156,7 @@ __all__ = (
     "StartTelemetryEvaluationForOrganizationInputTypeDef",
     "StartTelemetryEvaluationInputTypeDef",
     "StopTelemetryEnrichmentOutputTypeDef",
+    "TagPropagationConfigurationTypeDef",
     "TagResourceInputTypeDef",
     "TelemetryConfigurationTypeDef",
     "TelemetryDestinationConfigurationOutputTypeDef",
@@ -221,6 +225,8 @@ class CentralizationRuleSummaryTypeDef(TypedDict):
     LastUpdateTimeStamp: NotRequired[int]
     RuleHealth: NotRequired[RuleHealthType]
     FailureReason: NotRequired[CentralizationFailureReasonType]
+    TagPropagationStatus: NotRequired[TagPropagationStatusType]
+    TagPropagationFailureReason: NotRequired[TagPropagationFailureReasonType]
     DestinationAccountId: NotRequired[str]
     DestinationRegion: NotRequired[str]
 
@@ -282,6 +288,10 @@ class LogsEncryptionConfigurationTypeDef(TypedDict):
     KmsKeyArn: NotRequired[str]
     EncryptionConflictResolutionStrategy: NotRequired[EncryptionConflictResolutionStrategyType]
     EncryptionScope: NotRequired[EncryptionScopeType]
+
+class TagPropagationConfigurationTypeDef(TypedDict):
+    DestinationRoleArn: str
+    TagConflictResolutionStrategy: NotRequired[TagConflictResolutionStrategyType]
 
 class MetricsBackupConfigurationTypeDef(TypedDict):
     Region: str
@@ -555,6 +565,7 @@ class DestinationLogsConfigurationTypeDef(TypedDict):
     LogsEncryptionConfiguration: NotRequired[LogsEncryptionConfigurationTypeDef]
     BackupConfiguration: NotRequired[LogsBackupConfigurationTypeDef]
     LogGroupNameConfiguration: NotRequired[LogGroupNameConfigurationTypeDef]
+    TagPropagationConfiguration: NotRequired[TagPropagationConfigurationTypeDef]
 
 class DestinationMetricsConfigurationTypeDef(TypedDict):
     BackupConfiguration: NotRequired[MetricsBackupConfigurationTypeDef]
@@ -742,6 +753,8 @@ class GetCentralizationRuleForOrganizationOutputTypeDef(TypedDict):
     LastUpdateTimeStamp: int
     RuleHealth: RuleHealthType
     FailureReason: CentralizationFailureReasonType
+    TagPropagationStatus: TagPropagationStatusType
+    TagPropagationFailureReason: TagPropagationFailureReasonType
     CentralizationRule: CentralizationRuleOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 

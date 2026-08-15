@@ -28,6 +28,7 @@ from meridian.analysis.review import configs
 from meridian.analysis.review import constants as review_constants
 from meridian.analysis.review import results
 from meridian.model import context
+from meridian.model import prior_distribution
 import numpy as np
 import pandas as pd
 from scipy import stats as scipy_stats
@@ -83,6 +84,43 @@ class BaseCheck(abc.ABC, Generic[ConfigType, ResultType]):
     subclass.
     """
     raise NotImplementedError()
+
+  @classmethod
+  def is_relevant(
+      cls,
+      model_context: context.ModelContext,
+      inference_data: az.InferenceData | None = None,
+  ) -> bool:
+    """Checks if the check is relevant for the given model context."""
+    del model_context, inference_data
+    return True
+
+
+class BaseROICheck(BaseCheck[ConfigType, ResultType]):
+  """Base class for quality checks that rely on ROI priors and posterior estimates."""
+
+  @classmethod
+  def _uses_roi_priors(cls, model_context: context.ModelContext) -> bool:
+    """Checks if the model uses ROI priors."""
+    return (
+        model_context.n_media_channels > 0
+        and model_context.model_spec.effective_media_prior_type
+        == constants.TREATMENT_PRIOR_TYPE_ROI
+    ) or (
+        model_context.n_rf_channels > 0
+        and model_context.model_spec.effective_rf_prior_type
+        == constants.TREATMENT_PRIOR_TYPE_ROI
+    )
+
+  @classmethod
+  @override
+  def is_relevant(
+      cls,
+      model_context: context.ModelContext,
+      inference_data: az.InferenceData | None = None,
+  ) -> bool:
+    """Checks if the check is relevant for the given model context."""
+    return cls._uses_roi_priors(model_context)
 
 
 # ==============================================================================
@@ -278,11 +316,9 @@ class GoodnessOfFitCheck(
     )
     gof_df = gof_ds.to_dataframe().reset_index()
 
-    geo_granularity = (
-        constants.NATIONAL if self._model_context.n_geos == 1 else constants.GEO
-    )
-
-    gof_metrics = gof_df[gof_df[constants.GEO_GRANULARITY] == geo_granularity]
+    gof_metrics = gof_df[
+        gof_df[constants.GEO_GRANULARITY] == constants.NATIONAL
+    ]
     is_holdout = constants.EVALUATION_SET_VAR in gof_df.columns
 
     metrics_dict = {}
@@ -300,10 +336,13 @@ class GoodnessOfFitCheck(
         _set_metrics_from_gof_dataframe(
             metrics=metrics_dict,
             gof_df=set_metrics,
-            geo_granularity=geo_granularity,
+            geo_granularity=constants.NATIONAL,
             suffix=suffix,
         )
-        if metrics_dict[f"{review_constants.R_SQUARED}{suffix}"] <= 0:
+        if (
+            metrics_dict[f"{review_constants.R_SQUARED}{suffix}"]
+            <= self._config.r_squared_threshold
+        ):
           case = results.GoodnessOfFitCases.REVIEW
       return results.GoodnessOfFitCheckResult(
           case=case,
@@ -342,10 +381,13 @@ class GoodnessOfFitCheck(
       _set_metrics_from_gof_dataframe(
           metrics=metrics_dict,
           gof_df=gof_metrics,
-          geo_granularity=geo_granularity,
+          geo_granularity=constants.NATIONAL,
           suffix=review_constants.ALL_SUFFIX,
       )
-      if metrics_dict[review_constants.R_SQUARED] <= 0:
+      if (
+          metrics_dict[review_constants.R_SQUARED]
+          <= self._config.r_squared_threshold
+      ):
         case = results.GoodnessOfFitCases.REVIEW
       return results.GoodnessOfFitCheckResult(
           case=case,
@@ -562,6 +604,7 @@ def _compute_channel_results(
 
 def _compute_aggregate_result(
     channel_data: _ROIConsistencyChannelData,
+    config: configs.ROIConsistencyConfig,
 ) -> results.ROIConsistencyCheckResult:
   """Returns the aggregate result for the ROI Consistency Check."""
   channel_results = _compute_channel_results(channel_data=channel_data)
@@ -606,9 +649,18 @@ def _compute_aggregate_result(
   if (
       aggregate_details[review_constants.QUANTILE_NOT_DEFINED_MSG]
       or aggregate_details[review_constants.INF_CHANNELS_MSG]
-      or aggregate_details[review_constants.LOW_HIGH_CHANNELS_MSG]
   ):
     aggregate_case = results.ROIConsistencyAggregateCases.REVIEW
+  elif aggregate_details[review_constants.LOW_HIGH_CHANNELS_MSG]:
+    n_failing = (
+        channel_data.low_roi_channels.size + channel_data.high_roi_channels.size
+    )
+    if not config.is_failing_channels_within_threshold(
+        n_failing=n_failing, n_total=channel_data.all_channels.size
+    ):
+      aggregate_case = results.ROIConsistencyAggregateCases.REVIEW
+    else:
+      aggregate_case = results.ROIConsistencyAggregateCases.PASS
   else:
     aggregate_case = results.ROIConsistencyAggregateCases.PASS
 
@@ -620,9 +672,48 @@ def _compute_aggregate_result(
 
 
 class ROIConsistencyCheck(
-    BaseCheck[configs.ROIConsistencyConfig, results.ROIConsistencyCheckResult]
+    BaseROICheck[
+        configs.ROIConsistencyConfig, results.ROIConsistencyCheckResult
+    ]
 ):
   """Checks if ROI posterior mean is in tails of ROI prior."""
+
+  @classmethod
+  def _has_custom_roi_priors(cls, model_context: context.ModelContext) -> bool:
+    """Checks if the model uses custom ROI priors."""
+    default_distribution = prior_distribution.PriorDistribution()
+    if (
+        model_context.n_media_channels > 0
+        and model_context.model_spec.effective_media_prior_type
+        == constants.TREATMENT_PRIOR_TYPE_ROI
+    ):
+      if not prior_distribution.distributions_are_equal(
+          model_context.model_spec.prior.roi_m, default_distribution.roi_m
+      ):
+        return True
+    if (
+        model_context.n_rf_channels > 0
+        and model_context.model_spec.effective_rf_prior_type
+        == constants.TREATMENT_PRIOR_TYPE_ROI
+    ):
+      if not prior_distribution.distributions_are_equal(
+          model_context.model_spec.prior.roi_rf,
+          default_distribution.roi_rf,
+      ):
+        return True
+    return False
+
+  @classmethod
+  @override
+  def is_relevant(
+      cls,
+      model_context: context.ModelContext,
+      inference_data: az.InferenceData | None = None,
+  ) -> bool:
+    """Checks if the check is relevant for the given model context."""
+    if not super().is_relevant(model_context, inference_data):
+      return False
+    return cls._has_custom_roi_priors(model_context)
 
   def run(self) -> results.ROIConsistencyCheckResult:
     prior_rois = []
@@ -645,7 +736,9 @@ class ROIConsistencyCheck(
         prior_upper_quantile=self._config.prior_upper_quantile,
     )
 
-    return _compute_aggregate_result(channel_data=channel_data)
+    return _compute_aggregate_result(
+        channel_data=channel_data, config=self._config
+    )
 
 
 # ==============================================================================
@@ -706,7 +799,7 @@ def _get_shifted_mask(
 
 
 class PriorPosteriorShiftCheck(
-    BaseCheck[
+    BaseROICheck[
         configs.PriorPosteriorShiftConfig,
         results.PriorPosteriorShiftCheckResult,
     ]
@@ -803,7 +896,9 @@ class PriorPosteriorShiftCheck(
       channel_results.extend(results_part)
       no_shift_channels.extend(channels_part)
 
-    if no_shift_channels:
+    if not self._config.is_failing_channels_within_threshold(
+        n_failing=len(no_shift_channels), n_total=len(channel_results)
+    ):
       agg_case = results.PriorPosteriorShiftAggregateCases.REVIEW
     else:
       agg_case = results.PriorPosteriorShiftAggregateCases.PASS
@@ -850,7 +945,9 @@ def _calculate_spend_share(model_context: context.ModelContext) -> np.ndarray:
 
 
 class ImplausibleROICheck(
-    BaseCheck[configs.ImplausibleROIConfig, results.ImplausibleROICheckResult]
+    BaseROICheck[
+        configs.ImplausibleROIConfig, results.ImplausibleROICheckResult
+    ]
 ):
   """A check for paid channels with implausible posterior ROI estimates."""
 
@@ -917,7 +1014,6 @@ class ImplausibleROICheck(
       )
 
     if high_roi_channels or low_roi_channels:
-      agg_case = results.ImplausibleROIAggregateCases.REVIEW
       msg_parts = []
       if high_roi_channels:
         msg_parts.append(
@@ -934,8 +1030,12 @@ class ImplausibleROICheck(
       )
       aggregate_details = {"implausible_roi_msg": implausible_roi_msg}
     else:
-      agg_case = results.ImplausibleROIAggregateCases.PASS
       aggregate_details = {"implausible_roi_msg": ""}
+
+    if high_roi_channels or low_roi_channels:
+      agg_case = results.ImplausibleROIAggregateCases.REVIEW
+    else:
+      agg_case = results.ImplausibleROIAggregateCases.PASS
 
     return results.ImplausibleROICheckResult(
         case=agg_case,
@@ -950,7 +1050,7 @@ class ImplausibleROICheck(
 # Check: High Variance ROI
 # ==============================================================================
 class HighVarianceCheck(
-    BaseCheck[configs.HighVarianceConfig, results.HighVarianceCheckResult]
+    BaseROICheck[configs.HighVarianceConfig, results.HighVarianceCheckResult]
 ):
   """A check for paid channels with high variance in posterior ROI."""
 
@@ -1020,12 +1120,13 @@ class HighVarianceCheck(
           )
       )
 
+    if high_variance_channels:
+      agg_case = results.HighVarianceAggregateCases.REVIEW
+    else:
+      agg_case = results.HighVarianceAggregateCases.PASS
+
     return results.HighVarianceCheckResult(
-        case=(
-            results.HighVarianceAggregateCases.REVIEW
-            if high_variance_channels
-            else results.HighVarianceAggregateCases.PASS
-        ),
+        case=agg_case,
         channel_results=channel_results,
         high_variance_channels=high_variance_channels,
     )
@@ -1120,14 +1221,14 @@ class PotentialBiasCheck(
         dims=[constants.GEO, constants.CHANNEL, constants.CONTROL_VARIABLE],
     )
 
+    if low_correlation_channels:
+      agg_case = results.PotentialBiasAggregateCases.REVIEW
+    else:
+      agg_case = results.PotentialBiasAggregateCases.PASS
+
     return results.PotentialBiasCheckResult(
-        case=(
-            results.PotentialBiasAggregateCases.REVIEW
-            if low_correlation_channels
-            else results.PotentialBiasAggregateCases.PASS
-        ),
+        case=agg_case,
         channel_results=channel_results,
         low_correlation_channels=low_correlation_channels,
         correlation_matrix=correlation_matrix,
     )
-

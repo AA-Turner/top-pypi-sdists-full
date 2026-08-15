@@ -685,6 +685,17 @@ class TestComprehensive(unittest.TestCase):
             self.assertEqual(len(events), 1)
             self.assertEqual(events[0].id, second.id)
 
+            # we need to sleep here as per 2.5.40 we've moved the publish timestamp setting to the background process instead of front loading it.
+            # The default tick rate of the background worker is 5s so 10 seconds should be safe-ish. (assuming no other fuck-ups)
+            time.sleep(10)
+
+            # The add_event response no longer carries the publish_timestamp (it is now set by the background
+            # publish job, not synchronously), so the events fetched above still hold publish_timestamp == 0,
+            # which pythonify leaves as a plain int rather than a datetime. Re-fetch them now that the worker
+            # has published so publish_timestamp is populated as a datetime for the .timestamp() calls below.
+            first = self.pub_misp_connector.get_event(first, pythonify=True)
+            second = self.pub_misp_connector.get_event(second, pythonify=True)
+
             # Test 5 sec before timestamp of 2nd event
             events = self.pub_misp_connector.search(publish_timestamp=(second.publish_timestamp.timestamp()), pythonify=True)
             self.assertEqual(len(events), 1)
@@ -1070,6 +1081,20 @@ class TestComprehensive(unittest.TestCase):
             # Delete event
             self.admin_misp_connector.delete_event(first)
             self.admin_misp_connector.delete_event(second)
+
+    def test_event_no_sightings(self) -> None:
+        first = self.create_simple_event()
+        try:
+            first = self.user_misp_connector.add_event(first)
+            self.user_misp_connector.add_sighting({'value': first.attributes[0].value})
+
+            with_s = self.user_misp_connector.get_event(first.id)
+            self.assertTrue(any(a.sightings for a in with_s.attributes))
+
+            without_s = self.user_misp_connector.get_event(first.id, no_sightings=True)
+            self.assertFalse(any(a.sightings for a in without_s.attributes))
+        finally:
+            self.admin_misp_connector.delete_event(first)
 
     def test_edit_attribute(self) -> None:
         first = self.create_simple_event()
@@ -2508,6 +2533,9 @@ class TestComprehensive(unittest.TestCase):
         # Cache all enabled feeds
         r = self.admin_misp_connector.cache_all_feeds()
         self.assertEqual(r['message'], 'Feed caching job initiated.')
+        # Fetch all enabled feeds
+        # Cannot test that, it fetches all the events.
+        # r = self.admin_misp_connector.fetch_all_feeds()
         # Compare all enabled feeds
         r = self.admin_misp_connector.compare_feeds()
         # FIXME: https://github.com/MISP/MISP/issues/4834#issuecomment-511890466
@@ -3497,7 +3525,6 @@ class TestComprehensive(unittest.TestCase):
             "favouriteTags/getToggleField",  # TODO
             "feeds/feedCoverage",
             "feeds/importFeeds",
-            "feeds/fetchFromAllFeeds",
             "feeds/getEvent",
             "feeds/previewIndex",  # TODO
             "feeds/previewEvent",  # TODO

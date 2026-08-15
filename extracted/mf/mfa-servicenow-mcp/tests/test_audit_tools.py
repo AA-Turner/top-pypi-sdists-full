@@ -359,9 +359,9 @@ class TestAuditPendingChanges:
     def test_exclude_pattern(self):
         params = AuditPendingChangesParams(
             developer="test@example.com",
-            exclude_pattern="hopes",
+            exclude_pattern="myapp",
         )
-        assert params.exclude_pattern == "hopes"
+        assert params.exclude_pattern == "myapp"
 
     def test_max_entries_capped(self):
         params = AuditPendingChangesParams(

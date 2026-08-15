@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiohomekit
-Version: 4.0.0
+Version: 4.0.1
 Summary: An asyncio HomeKit client
 License-Expression: Apache-2.0
 License-File: LICENSE.md
@@ -18,14 +18,13 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Home Automation
 Requires-Dist: aiocoap (>=0.4.5)
-Requires-Dist: aiohappyeyeballs (>=2.3.0)
+Requires-Dist: aiohappyeyeballs (>=2.7.1)
 Requires-Dist: async-interrupt (>=1.1.1)
 Requires-Dist: async-timeout (>=4.0.2) ; python_version < "3.11"
 Requires-Dist: bleak (>=2)
 Requires-Dist: bleak-retry-connector (>=4.6.0)
 Requires-Dist: chacha20poly1305 (>=0.0.3,<0.0.4)
 Requires-Dist: chacha20poly1305-reuseable (>=0.12.1)
-Requires-Dist: commentjson (>=0.9.0,<0.10.0)
 Requires-Dist: cryptography (>=48.0.1)
 Requires-Dist: orjson (>=3.11.6)
 Requires-Dist: zeroconf (>=0.149.16)

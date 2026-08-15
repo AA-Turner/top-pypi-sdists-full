@@ -37,7 +37,9 @@ def make_gui() -> GuiFunction:
             "How to have smooth animations, and how spare the CPU when idling",
         ),
         DemoApp("demo_python_context_manager",
-                "How to use a python context manager for `imgui.begin()`, `imgui.end()`, etc."),
+                "How to use a python context manager for `imgui.begin()`, `imgui.end()`, `implot.begin_plot()`, etc."),
+        DemoApp("demo_chinese_font",
+                "How to display non-Latin text (Chinese, Japanese, Korean, ...) by loading a suitable font"),
         DemoApp(
             "demo_testengine",
             "How to use ImGui Test Engine to test and automate your application",
@@ -47,6 +49,10 @@ def make_gui() -> GuiFunction:
             "use `immapp.testing` to drive an app and capture screenshots, then exit"
         ),
         DemoApp("demo_run_async", "(Python) How to enable parallel Python execution with GUI rendering with optimal performance"),
+        DemoApp(
+            "demo_glfw_window_manip",
+            "(Python) How to manipulate the native GLFW window created by HelloImGui via `glfw_utils.glfw_window_hello_imgui()`",
+        ),
         DemoApp(
             "demo_command_palette",
             "a Sublime Text or VSCode style command palette in ImGui",

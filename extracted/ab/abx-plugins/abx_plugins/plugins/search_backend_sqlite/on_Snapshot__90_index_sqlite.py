@@ -17,11 +17,11 @@ Environment variables:
     SNAP_DIR: Snapshot directory (default: cwd)
 """
 
+import sys
 import argparse
 import os
 import re
 import sqlite3
-import sys
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
@@ -250,6 +250,7 @@ def main() -> None:
             status = "skipped"
             output_str = "SEARCH_BACKEND_SQLITE_ENABLED=False"
         else:
+            print("SQLite indexing started", flush=True)
             snapshot_id = get_snapshot_id_from_context()
             if not snapshot_id:
                 raise RuntimeError("missing snapshot_id in extra context")

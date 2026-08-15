@@ -19,7 +19,7 @@ from typing import (
     overload,
 )
 
-import httpx
+import httpx2
 from openai import AsyncOpenAI, NotGiven, Omit, omit
 from openai.types import ChatModel
 from openai.types.responses import (
@@ -41,6 +41,7 @@ from openai.types.responses.tool_param import LocalShell
 from typing_extensions import NotRequired
 
 from .. import _debug
+from .._httpx_compat import is_legacy_httpx_instance
 from .._tool_identity import (
     get_explicit_function_tool_namespace,
     get_function_tool_namespace_description,
@@ -789,13 +790,6 @@ class OpenAIResponsesModel(Model):
         list_input = _to_dump_compatible(list_input)
         list_input = self._remove_openai_responses_api_incompatible_fields(list_input)
 
-        if model_settings.parallel_tool_calls and tools:
-            parallel_tool_calls: bool | Omit = True
-        elif model_settings.parallel_tool_calls is False:
-            parallel_tool_calls = False
-        else:
-            parallel_tool_calls = omit
-
         should_omit_model = prompt is not None and not self._model_is_explicit
         effective_request_model: str | ChatModel | None = None if should_omit_model else self.model
         effective_computer_tool_model = Converter.resolve_computer_tool_model(
@@ -824,6 +818,11 @@ class OpenAIResponsesModel(Model):
                 tool_choice=model_settings.tool_choice,
             )
         converted_tools_payload = _materialize_responses_tool_params(converted_tools.tools)
+        parallel_tool_calls: bool | Omit = (
+            self._non_null_or_omit(model_settings.parallel_tool_calls)
+            if prompt is not None or converted_tools_payload
+            else omit
+        )
         response_format = Converter.get_response_format(output_schema)
         model_param: str | ChatModel | Omit = (
             effective_request_model if effective_request_model is not None else omit
@@ -1356,7 +1355,7 @@ class OpenAIResponsesWSModel(OpenAIResponsesModel):
         if timeout is None or _is_openai_omitted_value(timeout):
             return _WebsocketRequestTimeouts(lock=None, connect=None, send=None, recv=None)
 
-        if isinstance(timeout, httpx.Timeout):
+        if isinstance(timeout, httpx2.Timeout) or is_legacy_httpx_instance(timeout, "Timeout"):
             return _WebsocketRequestTimeouts(
                 lock=None if timeout.pool is None else float(timeout.pool),
                 connect=None if timeout.connect is None else float(timeout.connect),
@@ -1478,7 +1477,10 @@ class OpenAIResponsesWSModel(OpenAIResponsesModel):
 
     def _prepare_websocket_url(self, extra_query: Any) -> str:
         if self._client.websocket_base_url is not None:
-            base_url = httpx.URL(self._client.websocket_base_url)
+            websocket_base_url = self._client.websocket_base_url
+            if is_legacy_httpx_instance(websocket_base_url, "URL"):
+                websocket_base_url = str(websocket_base_url)
+            base_url = httpx2.URL(websocket_base_url)
             ws_scheme = {"http": "ws", "https": "wss"}.get(base_url.scheme, base_url.scheme)
             base_url = base_url.copy_with(scheme=ws_scheme)
         else:

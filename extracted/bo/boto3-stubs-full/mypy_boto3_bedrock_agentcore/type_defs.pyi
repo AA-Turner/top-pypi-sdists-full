@@ -58,6 +58,7 @@ from .literals import (
     PaymentHttpMethodTypeType,
     PaymentInstrumentStatusType,
     PaymentSessionStatusType,
+    PaymentTypeType,
     ProgrammingLanguageType,
     RecommendationStatusType,
     RecommendationTypeType,
@@ -377,6 +378,8 @@ __all__ = (
     "MouseMoveResultTypeDef",
     "MouseScrollArgumentsTypeDef",
     "MouseScrollResultTypeDef",
+    "MppPaymentInputTypeDef",
+    "MppPaymentOutputTypeDef",
     "OAuth2AuthenticationTypeDef",
     "OAuthCredentialProviderTypeDef",
     "OnlineEvaluationConfigSourceOutputTypeDef",
@@ -803,6 +806,7 @@ class MetadataValueTypeDef(TypedDict):
 class CryptoX402PaymentInputTypeDef(TypedDict):
     version: str
     payload: Mapping[str, Any]
+    permit2AllowanceLimit: NotRequired[str]
 
 class CryptoX402PaymentOutputTypeDef(TypedDict):
     version: str
@@ -1272,6 +1276,16 @@ class MemoryRecordMetadataValueOutputTypeDef(TypedDict):
     numberValue: NotRequired[float]
     dateTimeValue: NotRequired[datetime]
 
+class MppPaymentInputTypeDef(TypedDict):
+    version: str
+    wwwAuthenticateHeaders: Sequence[str]
+    buyerPaysGasFees: NotRequired[bool]
+
+class MppPaymentOutputTypeDef(TypedDict):
+    version: str
+    selectedPaymentId: str
+    paymentCredential: str
+
 class StripePrivyTokenRequestInputTypeDef(TypedDict):
     requestPath: str
     requestBody: str
@@ -1713,12 +1727,6 @@ class ContextTypeDef(TypedDict):
 class RightExpressionTypeDef(TypedDict):
     metadataValue: NotRequired[MetadataValueTypeDef]
 
-class PaymentInputTypeDef(TypedDict):
-    cryptoX402: NotRequired[CryptoX402PaymentInputTypeDef]
-
-class PaymentOutputTypeDef(TypedDict):
-    cryptoX402: NotRequired[CryptoX402PaymentOutputTypeDef]
-
 class EvaluatorSummaryTypeDef(TypedDict):
     evaluatorId: NotRequired[str]
     statistics: NotRequired[EvaluatorStatisticsTypeDef]
@@ -1931,6 +1939,14 @@ class MemoryRecordTypeDef(TypedDict):
     namespaces: list[str]
     createdAt: datetime
     metadata: NotRequired[dict[str, MemoryRecordMetadataValueOutputTypeDef]]
+
+class PaymentInputTypeDef(TypedDict):
+    cryptoX402: NotRequired[CryptoX402PaymentInputTypeDef]
+    mpp: NotRequired[MppPaymentInputTypeDef]
+
+class PaymentOutputTypeDef(TypedDict):
+    cryptoX402: NotRequired[CryptoX402PaymentOutputTypeDef]
+    mpp: NotRequired[MppPaymentOutputTypeDef]
 
 class PaymentTokenRequestInputTypeDef(TypedDict):
     coinbaseCdpTokenRequest: NotRequired[CoinbaseCdpTokenRequestInputTypeDef]
@@ -2152,28 +2168,6 @@ EventMetadataFilterExpressionTypeDef = TypedDict(
     },
 )
 
-class ProcessPaymentRequestTypeDef(TypedDict):
-    paymentManagerArn: str
-    paymentSessionId: str
-    paymentInstrumentId: str
-    paymentType: Literal["CRYPTO_X402"]
-    paymentInput: PaymentInputTypeDef
-    userId: NotRequired[str]
-    agentName: NotRequired[str]
-    clientToken: NotRequired[str]
-
-class ProcessPaymentResponseTypeDef(TypedDict):
-    processPaymentId: str
-    paymentManagerArn: str
-    paymentSessionId: str
-    paymentInstrumentId: str
-    paymentType: Literal["CRYPTO_X402"]
-    status: Literal["PROOF_GENERATED"]
-    paymentOutput: PaymentOutputTypeDef
-    createdAt: datetime
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class EvaluationJobResultsTypeDef(TypedDict):
     numberOfSessionsCompleted: NotRequired[int]
     numberOfSessionsInProgress: NotRequired[int]
@@ -2254,6 +2248,28 @@ class RetrieveMemoryRecordsOutputTypeDef(TypedDict):
 
 class GetMemoryRecordOutputTypeDef(TypedDict):
     memoryRecord: MemoryRecordTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ProcessPaymentRequestTypeDef(TypedDict):
+    paymentManagerArn: str
+    paymentSessionId: str
+    paymentInstrumentId: str
+    paymentType: PaymentTypeType
+    paymentInput: PaymentInputTypeDef
+    userId: NotRequired[str]
+    agentName: NotRequired[str]
+    clientToken: NotRequired[str]
+
+class ProcessPaymentResponseTypeDef(TypedDict):
+    processPaymentId: str
+    paymentManagerArn: str
+    paymentSessionId: str
+    paymentInstrumentId: str
+    paymentType: PaymentTypeType
+    status: Literal["PROOF_GENERATED"]
+    paymentOutput: PaymentOutputTypeDef
+    createdAt: datetime
+    updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetResourcePaymentTokenRequestTypeDef(TypedDict):

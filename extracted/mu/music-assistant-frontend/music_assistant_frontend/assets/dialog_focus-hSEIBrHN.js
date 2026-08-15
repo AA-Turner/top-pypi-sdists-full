@@ -1,0 +1,1 @@
+import{_ as e}from"./api-CrSEAM5P.js";var t=`[data-dismissable-layer]`;function n(n){if(!e.isTouchscreen||!(n.target instanceof HTMLElement))return;let r=n.target.matches(t)?n.target:n.target.querySelector(t);r&&(n.preventDefault(),r.focus({preventScroll:!0}))}export{n as t};

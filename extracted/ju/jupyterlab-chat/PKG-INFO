@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: jupyterlab_chat
-Version: 0.23.2
+Version: 0.24.0
 Summary: A chat extension based on shared documents
 Project-URL: documentation, https://jupyter-chat.readthedocs.io/
 Project-URL: homepage, https://github.com/jupyterlab/jupyter-chat

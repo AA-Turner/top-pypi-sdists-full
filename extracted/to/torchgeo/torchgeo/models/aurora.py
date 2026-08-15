@@ -5,7 +5,7 @@
 
 from typing import Any, cast
 
-import torch.nn as nn
+from torch import nn
 from torchvision.models._api import Weights, WeightsEnum
 
 from ..datasets.utils import lazy_import
@@ -33,7 +33,7 @@ _aurora_meta = {
 }
 
 
-class Aurora_Weights(WeightsEnum):  # type: ignore[misc]
+class Aurora_Weights(WeightsEnum):
     """Aurora weights.
 
     If you use this model in your research, please cite the following paper:

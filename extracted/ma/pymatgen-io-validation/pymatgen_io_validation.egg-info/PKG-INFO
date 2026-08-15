@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymatgen-io-validation
-Version: 0.1.3
+Version: 0.1.4
 Summary: A comprehensive I/O validator for electronic structure calculations
 Author: Janosh Riebesell, Jason Munro, Aaron Kaplan
 Author-email: Matthew Kuner <matthewkuner@gmail.com>

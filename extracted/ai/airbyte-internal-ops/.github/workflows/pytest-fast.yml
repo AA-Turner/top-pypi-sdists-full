@@ -126,7 +126,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "$GITHUB_EVENT_NAME" == "push" || "$GITHUB_EVENT_NAME" == "workflow_dispatch" || "$AIRBYTE_INTERNAL_OPS_CHANGED" == "true" ]]; then
-            uv run pytest --exitfirst --cov=airbyte_ops_mcp --cov-report=xml --cov-report=term tests
+            uv run pytest --exitfirst --cov=airbyte_ops_mcp --cov-report=xml --cov-report=term -m "not gcs_integration" tests
           fi
           if [[ "$GITHUB_EVENT_NAME" == "push" || "$GITHUB_EVENT_NAME" == "workflow_dispatch" || "$AIRBYTE_CLOUD_CLI_CHANGED" == "true" ]]; then
             uv run pytest --exitfirst airbyte-cloud-cli/tests

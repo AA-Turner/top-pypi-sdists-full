@@ -24,15 +24,19 @@ default = [
     "databricks",
     "db2",
     "duckdb",
+    "exasol",
     "greenplum",
     "hive",
     "mysql",
+    "materialize",
     "oracle",
     "postgres",
     "redshift",
     "snowflake",
     "sparksql",
     "sqlite",
+    "starrocks",
+    "teradata",
     "trino",
     "tsql",
 ]
@@ -42,15 +46,19 @@ clickhouse = []
 databricks = ["sparksql"]
 db2 = []
 duckdb = ["postgres"]
+exasol = []
 greenplum = ["postgres"]
 hive = []
 mysql = []
+materialize = ["postgres"]
 oracle = []
 postgres = []
 redshift = ["postgres"]
 snowflake = []
 sparksql = ["hive"]
 sqlite = []
+starrocks = ["mysql"]
+teradata = []
 trino = []
 tsql = []
 

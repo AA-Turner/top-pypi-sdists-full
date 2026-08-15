@@ -37,7 +37,6 @@ from .config import (
     CONFIG_FILE,
     GlobalConfig,
     _load_plugin_config_model,
-    get_derived_config,
     get_initial_env,
     get_required_binary_requests,
     set_user_config,
@@ -463,7 +462,7 @@ def _plugin_enabled_for_install(
         _load_plugin_config_model(
             plugin,
             user_env=initial_user_env,
-            derived_env=initial_derived_env if initial_derived_env is not None else get_derived_config(initial_user_env),
+            derived_env=initial_derived_env or {},
             hydrate_binaries=False,
         ),
         run_output_dir=Path.cwd(),
@@ -474,7 +473,7 @@ def _plugin_enabled_for_install(
 def _count_install_requests(plugins: Mapping[str, Plugin]) -> int:
     seen: set[str] = set()
     initial_user_env = get_initial_env()
-    initial_derived_env = get_derived_config(initial_user_env)
+    initial_derived_env: dict[str, object] = {}
     for plugin in get_install_plugins(dict(plugins)):
         if not _plugin_enabled_for_install(
             plugin,
@@ -1287,7 +1286,7 @@ def version(ctx, quiet: bool):
 )
 @click.option("--dir", "-d", "output_dir", type=click.Path(), help="Output directory")
 @click.option("--timeout", "-t", type=int, help="Timeout in seconds")
-@click.option("--max-urls", type=int, default=0, help="Maximum number of URLs to snapshot for this crawl (0 = unlimited)")
+@click.option("--max-urls", type=int, default=1, help="Maximum number of URLs to snapshot for this crawl (0 = unlimited)")
 @click.option("--crawl-max-size", default="0", help="Maximum total crawl size in bytes or units like 45mb / 1gb (0 = unlimited)")
 @click.option("--crawl-timeout", type=int, default=0, help="Maximum total crawl runtime in seconds (0 = unlimited)")
 @click.option("--snapshot-max-size", default="0", help="Maximum per-snapshot size in bytes or units like 45mb / 1gb (0 = unlimited)")
@@ -1787,7 +1786,7 @@ def plugins(ctx, plugin_names: tuple[str, ...], do_install: bool, dry_run: bool,
     else:
         # Check + info mode (default)
         initial_user_env = get_initial_env()
-        initial_derived_env = get_derived_config(initial_user_env)
+        initial_derived_env: dict[str, object] = {}
         rows: list[dict[str, str]] = []
         declared_binary_specs: dict[str, dict[str, object]] = {}
         for plugin in selected.values():
@@ -1797,7 +1796,6 @@ def plugins(ctx, plugin_names: tuple[str, ...], do_install: bool, dry_run: bool,
                 overrides=initial_user_env,
                 derived_overrides=initial_derived_env,
                 run_output_dir=Path.cwd(),
-                logical_names=False,
             ):
                 binary_signature = json.dumps(hydrated_spec, sort_keys=True, default=str)
                 declared_binary_specs.setdefault(binary_signature, hydrated_spec)
@@ -1836,7 +1834,6 @@ def plugins(ctx, plugin_names: tuple[str, ...], do_install: bool, dry_run: bool,
                         overrides=initial_user_env,
                         derived_overrides=initial_derived_env,
                         run_output_dir=Path.cwd(),
-                        logical_names=False,
                     ):
                         binary_signature = json.dumps(hydrated_spec, sort_keys=True, default=str)
                         binary = loaded_binaries[binary_signature]

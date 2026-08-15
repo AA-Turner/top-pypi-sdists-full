@@ -1855,6 +1855,68 @@ def test_build_binary_job_timeout_leaves_diagnostic_headroom() -> None:
         assert_that(headroom).described_as(job_id).is_greater_than_or_equal_to(10)
 
 
+def test_build_binary_job_timeout_covers_compile_and_smoke() -> None:
+    """The job deadline must cover compile + smoke + diagnostic headroom.
+
+    The smoke-test step can use 20 minutes on its own. A 35-minute job with a
+    25-minute compile bound can cancel a valid smoke test before that step's
+    own timeout fires.
+    """
+    workflow = _load_workflow(name=_BUILD_BINARY_WORKFLOW)
+    for job_id in ("build-macos", "build-linux"):
+        job = workflow["jobs"][job_id]
+        steps = job["steps"]
+        compile_timeout = next(
+            step["timeout-minutes"]
+            for step in steps
+            if step.get("name") == "Build binary"
+        )
+        smoke_timeout = next(
+            step["timeout-minutes"]
+            for step in steps
+            if step.get("name") == "Smoke-test tool registry"
+        )
+        headroom = job["timeout-minutes"] - compile_timeout - smoke_timeout
+        assert_that(headroom).described_as(job_id).is_greater_than_or_equal_to(10)
+
+
+def test_create_universal_binary_smoke_tests_the_post_lipo_artifact() -> None:
+    """The universal macOS binary is smoke-tested after lipo, not only per-arch.
+
+    Lipo can produce a binary that will not launch even when both inputs
+    passed the per-arch smoke test. The post-lipo artifact must be exercised
+    independently, with the same script, timeout, and checkout coverage the
+    per-arch jobs use.
+    """
+    workflow = _load_workflow(name=_BUILD_BINARY_WORKFLOW)
+    job = workflow["jobs"]["create-universal-binary"]
+    steps = job["steps"]
+    by_name = {step.get("name"): step for step in steps}
+
+    smoke = by_name["Smoke-test tool registry"]
+    assert_that(smoke["timeout-minutes"]).is_equal_to(20)
+    assert_that(smoke["run"]).is_equal_to(
+        "python3 scripts/ci/smoke-test-binary.py binaries/lintro-macos-universal",
+    )
+
+    names = [step.get("name") for step in steps]
+    assert_that(names.index("Create universal binary")).is_less_than(
+        names.index("Smoke-test tool registry"),
+    )
+    assert_that(names.index("Smoke-test tool registry")).is_less_than(
+        names.index("Upload universal artifact"),
+    )
+
+    checkout = by_name["Checkout scripts"]
+    sparse = checkout["with"]["sparse-checkout"]
+    assert_that(sparse).contains("scripts")
+    assert_that(sparse).contains("lintro/plugins")
+
+    assert_that(
+        job["timeout-minutes"] - smoke["timeout-minutes"],
+    ).is_greater_than_or_equal_to(10)
+
+
 def test_build_binary_compile_is_wrapped_by_memory_sampler() -> None:
     """Build binary is bracketed by the #1707 sampler with failure-only upload.
 

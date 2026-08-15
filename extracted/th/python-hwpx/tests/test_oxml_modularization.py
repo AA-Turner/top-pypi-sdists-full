@@ -171,6 +171,7 @@ C901_LIMITS = {
     },
     "oxml/header_part.py": {
         "ensure_char_property": 12,
+        "ensure_paragraph_format": 11,
         "ensure_shading_border_fill": 13,
     },
     "oxml/paragraph.py": {"add_tracked_delete": 12},
@@ -244,7 +245,50 @@ def test_frozen_facade_exports_remain_exact() -> None:
     # three equation-authoring names, 5.6 adds the edit-plan five and the
     # capabilities three to the experimental layer.
     assert len(total_top_level) == 57
-    assert len(oxml.__all__) == 110
+    # 110 -> 113: the paragraph tab-stop read model (TabStop, TabDefinition,
+    # TabDefinitionList) fills the audit's gap #2 — hh:tabPr/tabItem were
+    # frozen-template/unread; this is the "additive model extension" path
+    # the completeness audit's route ①/③ anticipated for that gap.
+    # 113 -> 120: the document-options/compatibility read models fill gap #13
+    # and its R1 "genuinely code-blind" element — LayoutCompatibility,
+    # CompatibleDocument (hh:layoutCompatibility/compatibleDocument) plus the
+    # settings.xml first-ever read surface (ApplicationSettings, CaretPosition,
+    # ConfigItem, ConfigItemSet, HwpxOxmlSettings) — settings.xml has no
+    # vendored OWPML schema at all, reverse-engineered from the real corpus.
+    # 120 -> 122: Caption/DrawText fill gap #3/#4 (hp:drawText/textMargin,
+    # hp:caption) — shared live views reused by HwpxOxmlShape,
+    # HwpxOxmlInlineObject, and HwpxOxmlTable rather than duplicated per host.
+    # 122 -> 127: gap #15's part-hierarchy read models — version.xml
+    # (HcfVersion), masterpage.xml (MasterPage), and history.xml (History,
+    # HistoryEntry, DiffNode). version.xml/masterpage.xml are reverse-engineered
+    # from the real corpus like settings.xml before them (and, like it, their
+    # real roots/namespaces drifted from the vendored 2024-draft OWPML schema —
+    # see version_part.py/master_page.py). history.xml has zero real examples
+    # anywhere reachable (vendored corpus + ~250 accessible personal Hancom
+    # documents), so History/HistoryEntry/DiffNode are schema-only and labeled
+    # as such in history_part.py's module docstring.
+    # 127 -> 128: ContainerMember (cycle 6.5 train 18) — doc.shapes.add_container
+    # groups already-built rect/ellipse/polygon members (hp:container) into one
+    # shape; the input-side constructor type callers use to place each member
+    # at its own local (x, y) before the group's bounding box is derived.
+    # 128 -> 132: ParagraphPropertyVersionBranch/ParagraphPropertyVersionSwitch +
+    # their parse_* functions (cycle 6.6 train 21) — a typed read model for
+    # hp:switch/case/default (DEV-018), the version-compat wrapper 236/237 real
+    # files (99.6%) use to hold hh:paraPr's margin/lineSpacing one level deeper
+    # than ParagraphProperty's direct-children loop was looking. Read-only by
+    # design: the editing path already walked both branches correctly (DEV-018
+    # confirmed by reading the code), so this closes a read-model gap only.
+    # 132 -> 134: TabDefinitionVersionBranch/TabDefinitionVersionSwitch (cycle
+    # 6.7 train 25, DEV-022) — the same hp:switch-blindness shape found in
+    # hh:tabPr, but a different contract from DEV-018: hp:case's tabItem/@pos
+    # is exactly half of hp:default's (34/34 pairs) and only hp:case declares
+    # unit="HWPUNIT" -- an unwrapped real document settled which branch is the
+    # real scale (hp:default matches it, hp:case does not), so tab_stops
+    # prefers default, the opposite of DEV-018's case-preferred choice. Also
+    # fixed the dedupe comparison in ensure_tab_definition (a real duplicate-
+    # creation bug, not just a read gap) since it shared the same
+    # direct-children-only blind spot.
+    assert len(oxml.__all__) == 134
     assert tuple(document_facade.__all__) == DOCUMENT_EXPORTS
 
 

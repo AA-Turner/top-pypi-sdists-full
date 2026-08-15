@@ -97,7 +97,7 @@ def test_the_page_namespace_is_free_of_internal_callbacks() -> None:
         ("refs", ["add_bookmark", "add_hyperlink"]),
         ("tracking", ["insert", "delete", "replace", "add_change", "change", "author"]),
         ("styles", ["resolve", "ensure_run", "apply_paragraph_format"]),
-        ("text", ["plain", "markdown", "html", "runs", "find_runs", "replace"]),
+        ("text", ["plain", "markdown", "html", "runs", "find_runs", "replace", "highlight", "highlights"]),
     ],
 )
 def test_every_namespace_exposes_its_verbs(namespace: str, verbs: list[str]) -> None:
@@ -123,12 +123,18 @@ AREA_NAMESPACES = {
     "shape-authoring": "shapes",
     "shape-escape-hatch": "shapes",
     "curve-objects": "shapes",
+    "container-authoring": "shapes",
     "chart": "shapes",
     "equation": "shapes",
+    "drop-cap": "shapes",
     "redline": "tracking",
+    "highlight": "text",
+    "border-fill-image-gradient": "styles",
     "memo": "notes",
     "footnote-endnote": "notes",
     "toc-crossref": "refs",
+    # 6.15 트레인 — DEV-044 titleMark 저작 보류 해제.
+    "title-mark": "refs",
     "form-field-create": "fields",
     "check-box": "fields",
     "table-structure": "tables",
@@ -136,6 +142,28 @@ AREA_NAMESPACES = {
     "edit-plan": None,
     "encrypted-hwpx": None,
     "hwp5-binary": None,
+    "document-options-compatibility": "parts",
+    # 6.8 트레인㉚ — 편집기 표면 인벤토리(트레인㉙)가 찾은 측정 갭 등재.
+    "page-layout": "page",
+    "character-formatting": "styles",
+    "list-formatting": "styles",
+    "font-registration": "styles",
+    "table-navigation-fill": "tables",
+    "find-replace": "text",
+    "hyperlink-bookmark": "refs",
+    # 6.8 트레인㉛ — 트레인㉚이 찾은 mail_merge 측정 갭 등재.
+    "mail-merge": None,  # 루트도 아니고 doc.* 네임스페이스도 아님(모듈 함수)
+    # 6.9 트레인㉝ — 편집기 표면 인벤토리(트레인㉙)가 찾은 "문서 끼워 넣기" 갭.
+    "document-merge": None,  # mail-merge와 같은 이유, 순수 hwpx.tools 모듈 함수
+    # 6.9 트레인㉞ — 덧말·글자 겹치기 저작.
+    "dutmal-compose": "shapes",
+    # 6.12 트레인㊸ — 편집기 메뉴 표면 역매핑(트레인㊷)이 찾은 "문서 정보" 갭.
+    "document-metadata": "parts",
+    "master-page": "parts",
+    # 6.13 트레인㊻ — 팀장 실한컴 GUI 프로브①③ gold 기반 날짜/시간·교정
+    # 부호 필드 저작. hp:fieldBegin 계열이라 form-field-create/check-box와
+    # 같은 fields 네임스페이스.
+    "date-time-proofreading-mark-fields": "fields",
 }
 
 

@@ -20,6 +20,14 @@ class Result(BaseModel):
     error: Optional[str] = None
     """Error message when status is 'error'"""
 
+    url: Optional[str] = None
+    """URL of the failed item, when it had one.
+
+    Only present on failed items, where it may be the only way to tell which input
+    the error belongs to (the id falls back to 'unknown' when the input had neither
+    an id nor a customId).
+    """
+
 
 class DocumentBatchAddResponse(BaseModel):
     failed: float

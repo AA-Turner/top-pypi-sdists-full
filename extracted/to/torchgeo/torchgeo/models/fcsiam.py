@@ -14,7 +14,7 @@ from segmentation_models_pytorch.decoders.unet.decoder import UnetDecoder
 from torch import Tensor
 
 
-class FCSiamConc(SegmentationModel):  # type: ignore[misc]
+class FCSiamConc(SegmentationModel):
     """Fully-convolutional Siamese Concatenation (FC-Siam-conc).
 
     If you use this model in your research, please cite the following paper:
@@ -98,7 +98,7 @@ class FCSiamConc(SegmentationModel):  # type: ignore[misc]
             n_blocks=encoder_depth,
             use_norm=decoder_use_batchnorm,
             attention_type=decoder_attention_type,
-            add_center_block=True if encoder_name.startswith('vgg') else False,
+            add_center_block=bool(encoder_name.startswith('vgg')),
         )
 
         self.segmentation_head = smp.base.SegmentationHead(
@@ -133,7 +133,7 @@ class FCSiamConc(SegmentationModel):  # type: ignore[misc]
         return masks
 
 
-class FCSiamDiff(Unet):  # type: ignore[misc]
+class FCSiamDiff(Unet):
     """Fully-convolutional Siamese Difference (FC-Siam-diff).
 
     If you use this model in your research, please cite the following paper:

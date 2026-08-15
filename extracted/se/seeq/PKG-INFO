@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seeq
-Version: 66.180.0.20260813
+Version: 66.181.0.20260814
 Summary: The Seeq SDK for Python
 Author-email: Seeq Corporation <support@seeq.com>
 License: Seeq Python Library – License File
@@ -471,7 +471,7 @@ https://pypi.org/project/seeq/59.0.1.184.25/
 
 If you are _not_ using **Seeq Data Lab**, you should install the version of the `seeq` module that corresponds
 to the first two numbers in the version of Seeq you are interfacing with. This version can be found at the top
-of the Seeq Server *API Reference* page.
+of the Seeq Server _API Reference_ page.
 E.G.: `pip install -U seeq~=65.1`. You should then upgrade SPy separately via `pip install -U seeq-spy`.
 
 # seeq.spy
@@ -484,7 +484,7 @@ For more advanced tasks than what the SPy module can provide, you may with to us
 # seeq.sdk
 
 The Seeq **SDK** module is a set of Python bindings for the Seeq Server REST API. You can experiment with the REST API
-by selecting the *API Reference* menu item in the upper-right "hamburger" menu of Seeq Workbench.
+by selecting the _API Reference_ menu item in the upper-right "hamburger" menu of Seeq Workbench.
 
 **The SDK module supports both Python 2.x and Python 3.x, but it is strongly recommended that you use Python 3.x
 (or later) as Python 2.x is end-of-life.**
@@ -512,9 +512,9 @@ auth_api.login(body=auth_input)
 ```
 
 The `api_client` object is then used as the argument to construct any API object you need, such as
-`seeq.sdk.ItemsApi`. Each of the root endpoints that you see in the *API Reference* webpage corresponds to
+`seeq.sdk.ItemsApi`. Each of the root endpoints that you see in the _API Reference_ webpage corresponds to
 a `seeq.sdk.XxxxxApi` class.
 
-----------
+---
 
 In case you are looking for the Gencove package, it is available here: https://pypi.org/project/gencove/

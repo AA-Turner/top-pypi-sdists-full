@@ -11,7 +11,7 @@ __all__ = ["ConnectionListDocumentsResponse", "ConnectionListDocumentsResponseIt
 
 
 class ConnectionListDocumentsResponseItem(BaseModel):
-    id: str
+    id: Optional[str] = None
 
     created_at: str = FieldInfo(alias="createdAt")
 

@@ -70,8 +70,8 @@ _STYLE_BOLD_CYAN = "bold cyan"
 def live(interval: float, classic: bool, no_splash: bool) -> None:
     """Live dashboard: active agents, task events, and stats (Ctrl+C to exit).
 
-    Launches the 3-column interactive Textual TUI by default:
-    Agents | Tasks | Activity feed + sparkline + chat input.
+    Launches the two-column interactive Textual TUI by default:
+    Agents | Tasks, with a full-width activity feed + sparkline + chat input below.
     Mouse + keyboard. Pass --classic for the simpler Rich Live display.
     """
     seed_path = find_seed_file()
@@ -1427,13 +1427,15 @@ def trace_project_cmd(run_id: str, workdir: str, no_stability: bool, as_json: bo
     help="Projection path (defaults to .sdd/runs/<run>/projection.otel.json).",
 )
 def trace_verify_projection_cmd(run_id: str, workdir: str, projection_path: str | None) -> None:
-    """Recompute span ids from ``RUN_ID``'s journal and verify the signature.
+    """Verify ``RUN_ID``'s signed projection and authenticated audit binding.
 
     Rejects a span whose id was altered or whose journal entry hash is absent
-    from the chain, and confirms the signature chains to the install identity.
+    from the chain, confirms the install signature, and authenticates the full
+    projection digest against the ``otel.projection`` audit event.
 
-    Exit codes: 0 = OK, 1 = bad input, 2 = verification failed.
+    Exit codes: 0 = OK, 1 = could not be evaluated, 2 = verification failed.
     """
+    from bernstein.cli.commands._otel_projection_audit import verify_and_render_projection
     from bernstein.cli.commands.credential_cmd import (
         _load_or_create_install_key,
         _signing_key_path,
@@ -1441,12 +1443,18 @@ def trace_verify_projection_cmd(run_id: str, workdir: str, projection_path: str 
     from bernstein.core.observability.otel_projection import (
         ProjectionError,
         projection_from_dict,
-        verify_projection,
     )
-    from bernstein.core.replay.journal import load_events
+    from bernstein.core.replay.journal import JournalParseError, load_events
 
     root = Path(workdir).resolve()
-    events = load_events(_journal_path_for_run(root, run_id))
+    try:
+        events = load_events(_journal_path_for_run(root, run_id), strict=True)
+    except JournalParseError as exc:
+        # A verifier attests over the journal on disk, not a filtered
+        # sequence: a malformed row is exactly the corruption a verifier
+        # exists to surface, so refuse rather than verify a partial view.
+        console.print(f"[red]Journal corrupted:[/red] {sanitize_log(str(exc))}; refusing to verify a filtered sequence")
+        raise SystemExit(1) from exc
     if not events:
         console.print(f"[red]No event journal for run[/red] {sanitize_log(run_id)}")
         raise SystemExit(1)
@@ -1464,20 +1472,15 @@ def trace_verify_projection_cmd(run_id: str, workdir: str, projection_path: str 
         raise SystemExit(1) from exc
 
     public_key = _load_or_create_install_key(_signing_key_path(root)).public_key()
-    result = verify_projection(projection, events, public_key)
-
-    console.print()
-    console.print(
-        f"[bold]OTel projection[/bold] run={sanitize_log(run_id)} "
-        f"trace={projection.trace_id[:16]} spans={len(projection.spans)}"
+    exit_code = verify_and_render_projection(
+        console,
+        root,
+        run_id=run_id,
+        projection=projection,
+        journal_events=events,
+        public_key=public_key,
     )
-    if result.ok:
-        console.print("[green]OK[/green] -- span ids recompute from the journal, signature chains to install identity.")
-        raise SystemExit(0)
-    console.print(f"[red]VERIFICATION FAILED[/red] -- {len(result.errors)} error(s):")
-    for err in result.errors:
-        console.print(f"  - {sanitize_log(err)}")
-    raise SystemExit(2)
+    raise SystemExit(exit_code)
 
 
 def _record_otel_projection_event(

@@ -873,6 +873,9 @@ from mixpeek.models.schema_mapping_output import SchemaMappingOutput
 from mixpeek.models.schema_sync_request import SchemaSyncRequest
 from mixpeek.models.schema_sync_response import SchemaSyncResponse
 from mixpeek.models.schema_sync_skipped_response import SchemaSyncSkippedResponse
+from mixpeek.models.score_item import ScoreItem
+from mixpeek.models.score_predictions_request import ScorePredictionsRequest
+from mixpeek.models.score_predictions_response import ScorePredictionsResponse
 from mixpeek.models.scroll_pagination_params import ScrollPaginationParams
 from mixpeek.models.scrolling_text_extractor_params import ScrollingTextExtractorParams
 from mixpeek.models.search_interaction import SearchInteraction

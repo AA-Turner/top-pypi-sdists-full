@@ -1,1 +1,0 @@
-var e=e=>{if(!(!e||!e.has_setup_flow&&!e.needs_setup))return e.needs_setup?`configure_player`:`reconfigure_player`};export{e as t};

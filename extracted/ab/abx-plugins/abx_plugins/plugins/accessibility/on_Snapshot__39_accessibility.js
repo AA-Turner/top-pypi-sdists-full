@@ -30,19 +30,6 @@ const {
 ensureNodeModuleResolution(module);
 const { connectToPage } = require("../chrome/chrome_utils.js");
 
-function resolvePuppeteer() {
-  for (const moduleName of ["puppeteer-core", "puppeteer"]) {
-    try {
-      return require(moduleName);
-    } catch (error) {}
-  }
-  throw new Error(
-    "Missing puppeteer dependency (need puppeteer-core or puppeteer)"
-  );
-}
-
-const puppeteer = resolvePuppeteer();
-
 // Extractor metadata
 const PLUGIN_NAME = "accessibility";
 const PLUGIN_DIR = path.basename(__dirname);
@@ -70,10 +57,10 @@ async function extractAccessibility(url, timeoutMs) {
       timeoutMs,
       waitForNavigationComplete: true,
       postLoadDelayMs: 200,
-      puppeteer,
     });
     browser = connection.browser;
     const page = connection.page;
+    console.log("Accessibility extraction started");
 
     // Get accessibility snapshot
     const accessibilityTree = await page.accessibility.snapshot({

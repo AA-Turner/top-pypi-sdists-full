@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inference-models
-Version: 0.35.0
+Version: 0.35.2
 Summary: The new inference engine for Computer Vision models
 Requires-Python: <3.13,>=3.10
 Description-Content-Type: text/markdown
@@ -12,7 +12,8 @@ Requires-Dist: requests<3.0.0,>=2.33.0
 Requires-Dist: supervision>=0.29.0
 Requires-Dist: backoff~=2.2.0
 Requires-Dist: python-dotenv<2.0.0,>=1.2.2
-Requires-Dist: transformers<=5.9.0,>=5.5.0
+Requires-Dist: transformers<5.16.0,>=5.5.0
+Requires-Dist: diffusers<0.41.0,>=0.39.0
 Requires-Dist: timm<2.0.0,>=1.0.0
 Requires-Dist: accelerate<2.0.0,>=1.0.0
 Requires-Dist: einops<1.0.0,>=0.7.0

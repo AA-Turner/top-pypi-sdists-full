@@ -150,6 +150,7 @@ from .fashion200k_t2i_retrieval import Fashion200kT2IRetrieval
 from .fashion_iq_it2i_retrieval import FashionIQIT2IRetrieval
 from .feedback_qa_retrieval import FeedbackQARetrieval
 from .fever_retrieval import FEVER, FEVERHardNegatives, FEVERHardNegativesV2
+from .fgmcaps_retrieval import FGMCapsA2TRetrieval, FGMCapsT2ARetrieval
 from .fi_qa2018_retrieval import FiQA2018
 from .fin_qa_retrieval import FinQARetrieval
 from .finance_bench_retrieval import FinanceBenchRetrieval
@@ -351,6 +352,7 @@ from .spart_qa_retrieval import SpartQA
 from .speech_coco import SpeechCocoA2IRetrieval, SpeechCocoI2ARetrieval
 from .spoken_coco_retrieval import SpokenCOCOA2IRetrieval, SpokenCOCOI2ARetrieval
 from .spoken_s_qu_ad import SpokenSQuADT2ARetrieval
+from .ssw60 import SSW60A2IRetrieval, SSW60I2ARetrieval
 from .stanford_cars_i2i_retrieval import StanfordCarsI2I
 from .temp_reason_l1_retrieval import TempReasonL1
 from .temp_reason_l2_context_retrieval import TempReasonL2Context
@@ -602,6 +604,8 @@ __all__ = [
     "EnglishHealthcare1Retrieval",
     "FEVERHardNegatives",
     "FEVERHardNegativesV2",
+    "FGMCapsA2TRetrieval",
+    "FGMCapsT2ARetrieval",
     "FLAREAudioT2VARetrieval",
     "FLAREUnifiedT2VARetrieval",
     "FLAREVisionT2VRetrieval",
@@ -749,6 +753,8 @@ __all__ = [
     "RealMMRAGTechSlidesRetrieval",
     "SHS100KA2ARetrieval",
     "SOPI2IRetrieval",
+    "SSW60A2IRetrieval",
+    "SSW60I2ARetrieval",
     "SciFact",
     "SciMMIRI2TRetrieval",
     "SciMMIRT2IRetrieval",

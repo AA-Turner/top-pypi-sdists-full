@@ -4,6 +4,7 @@
 """TorchGeo datamodules."""
 
 from .agrifieldnet import AgriFieldNetDataModule
+from .air_quality import AirQualityDataModule
 from .bigearthnet import BigEarthNetDataModule
 from .bright import BRIGHTDFC2025DataModule
 from .cabuar import CaBuArDataModule
@@ -11,14 +12,17 @@ from .caffe import CaFFeDataModule
 from .chabud import ChaBuDDataModule
 from .chesapeake import ChesapeakeCVPRDataModule
 from .cloud_cover import CloudCoverDetectionDataModule
+from .copernicus import CopernicusBenchBiomassS3DataModule
 from .cowc import COWCCountingDataModule
 from .cyclone import TropicalCycloneDataModule
 from .deepglobelandcover import DeepGlobeLandCoverDataModule
 from .digital_typhoon import DigitalTyphoonDataModule
+from .dlrsd import DLRSDDataModule, DLRSDMultilabelDataModule
 from .etci2021 import ETCI2021DataModule
 from .eurosat import EuroSAT100DataModule, EuroSATDataModule, EuroSATSpatialDataModule
 from .fair1m import FAIR1MDataModule
 from .fire_risk import FireRiskDataModule
+from .flair import FLAIRHUBDataModule, FLAIRHUBToyDataModule
 from .ftw import FieldsOfTheWorldDataModule
 from .geo import BaseDataModule, GeoDataModule, NonGeoDataModule
 from .geonrw import GeoNRWDataModule
@@ -66,6 +70,7 @@ from .xbd import XView2DataModule, xBDDataModule
 
 __all__ = (
     'AgriFieldNetDataModule',
+    'AirQualityDataModule',
     'BRIGHTDFC2025DataModule',
     'BaseDataModule',
     'BigEarthNetDataModule',
@@ -75,6 +80,9 @@ __all__ = (
     'ChaBuDDataModule',
     'ChesapeakeCVPRDataModule',
     'CloudCoverDetectionDataModule',
+    'CopernicusBenchBiomassS3DataModule',
+    'DLRSDDataModule',
+    'DLRSDMultilabelDataModule',
     'DeepGlobeLandCoverDataModule',
     'DigitalTyphoonDataModule',
     'ETCI2021DataModule',
@@ -82,6 +90,8 @@ __all__ = (
     'EuroSATDataModule',
     'EuroSATSpatialDataModule',
     'FAIR1MDataModule',
+    'FLAIRHUBDataModule',
+    'FLAIRHUBToyDataModule',
     'FieldsOfTheWorldDataModule',
     'FireRiskDataModule',
     'GID15DataModule',

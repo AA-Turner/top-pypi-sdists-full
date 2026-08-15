@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: openai
-Version: 3.0.0
+Version: 3.1.0
 Summary: The official Python library for the openai API
 Project-URL: Homepage, https://github.com/openai/openai-python
 Project-URL: Repository, https://github.com/openai/openai-python
@@ -53,7 +53,7 @@ The OpenAI Python library provides convenient access to the OpenAI REST API from
 application. The library includes type definitions for all request params and response fields,
 and offers both synchronous and asynchronous clients powered by [HTTPX2](https://httpx2.pydantic.dev/).
 
-It is generated from our [OpenAPI specification](https://github.com/openai/openai-openapi) with [Stainless](https://stainlessapi.com/).
+It is generated from our [OpenAPI specification](https://github.com/openai/openai-openapi).
 
 ## Documentation
 

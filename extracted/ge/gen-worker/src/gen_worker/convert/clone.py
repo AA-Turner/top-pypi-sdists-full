@@ -25,9 +25,18 @@ from typing import Any, Iterable, Optional
 
 from gen_worker.api.errors import ValidationError
 
-from ..hubio.client import HubClient, files_from_tree
-from ..hubio.journal import JOURNAL_NAME, PublishJournal
-from .keepalive import HubKeepalive
+from ..api.slot import OBJECTIVES
+from ..hubio.client import HubClient, _dtype_token, files_from_tree
+from ..hubio.publish_state import JOURNAL_NAME, ProducerRecovery
+from .convert import run_inline_conversion
+from .dtype_pins import (
+    DTYPE_BITS as _DTYPE_STORAGE_BITS,
+)
+from .dtype_pins import (
+    cast_exempt_components,
+    check_explicit_pin_conflict,
+    verify_produced_tree,
+)
 from .ingest import (
     IngestedSource,
     ingest_civitai,
@@ -35,27 +44,23 @@ from .ingest import (
     plan_civitai,
     plan_huggingface,
 )
+from .keepalive import HubKeepalive
+from .layout import canonical_model_family_from_variant, infer_model_family_variant_from_hint
+from .registry import repackage_family
 from .writer import (
     CAST_NORMALIZE_DTYPES as _CAST_NORMALIZE_DTYPES,
-    fp8_default_components,
+)
+from .writer import (
     apply_objective_scheduler_config,
     copy_non_weight_files,
     deshard_mirror_tree,
-    tree_has_sharded_safetensors,
-    normalize_variant_filenames as _normalize_variant_filenames,
+    fp8_default_components,
     snapshot_weight_groups,
+    tree_has_sharded_safetensors,
 )
-from .convert import run_inline_conversion
-from .dtype_pins import (
-    DTYPE_BITS as _DTYPE_STORAGE_BITS,
-    cast_exempt_components,
-    check_explicit_pin_conflict,
-    verify_produced_tree,
+from .writer import (
+    normalize_variant_filenames as _normalize_variant_filenames,
 )
-from .layout import canonical_model_family_from_variant, infer_model_family_variant_from_hint
-from .registry import repackage_family
-from ..api.slot import OBJECTIVES
-from ..hubio.client import _dtype_token
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +81,9 @@ _KNOWN_DTYPES = {
     "q4_0", "q4_1", "q3_k_m", "q3_k_s", "q2_k",
 }
 from ..component_vocab import quant_candidate_components
-_KNOWN_FILE_LAYOUTS = {"diffusers", "singlefile"}
+from ..models.file_layout import KNOWN_FILE_LAYOUTS, MULTI_FILE, SINGLE_FILE
+
+_KNOWN_FILE_LAYOUTS = set(KNOWN_FILE_LAYOUTS)
 _KNOWN_FILE_TYPES = {"safetensors", "gguf"}
 
 _default_quant_components = quant_candidate_components
@@ -158,7 +165,7 @@ def normalize_tags(values: Iterable[str] | None) -> list[str]:
     return sorted(out)
 
 
-def normalize_outputs(values: Iterable[Any] | None, *, layout_hint: str = "diffusers") -> list[OutputSpec]:
+def normalize_outputs(values: Iterable[Any] | None, *, layout_hint: str = MULTI_FILE) -> list[OutputSpec]:
     out: list[OutputSpec] = []
     seen: set[tuple[str, str, str]] = set()
     for item in values or []:
@@ -183,7 +190,7 @@ def normalize_outputs(values: Iterable[Any] | None, *, layout_hint: str = "diffu
             seen.add(key)
             out.append(OutputSpec(dtype=dtype, file_layout=layout, file_type=ftype))
     if not out:
-        layout = layout_hint if layout_hint in _KNOWN_FILE_LAYOUTS else "diffusers"
+        layout = layout_hint if layout_hint in _KNOWN_FILE_LAYOUTS else MULTI_FILE
         out.append(OutputSpec(dtype="bf16", file_layout=layout, file_type="safetensors"))
     return out
 
@@ -222,7 +229,7 @@ def build_flavor_tree(
                              "file_type": spec.file_type}
 
     source_dir = Path(source.dir)
-    source_layout = source.layout if source.layout in _KNOWN_FILE_LAYOUTS else "singlefile"
+    source_layout = source.layout if source.layout in _KNOWN_FILE_LAYOUTS else SINGLE_FILE
     source_dtype = str(source.attrs.get("dtype") or "").strip().lower()
 
     # dtype="source": pure mirror — publish the source weights untouched and
@@ -271,7 +278,7 @@ def build_flavor_tree(
         # of failing deep inside the converter.
         declared = repackage_family(family)
         if declared is None or not (
-            declared.supports_singlefile_to_diffusers if source_layout == "singlefile"
+            declared.supports_singlefile_to_diffusers if source_layout == SINGLE_FILE
             else declared.supports_diffusers_to_singlefile
         ):
             raise ValueError(
@@ -280,8 +287,8 @@ def build_flavor_tree(
 
         repack_dir = out_dir.parent / f"{out_dir.name}.__repack__"
         repack_dir.mkdir(parents=True, exist_ok=True)
-        if source_layout == "singlefile":
-            groups = snapshot_weight_groups(source_dir, "singlefile")
+        if source_layout == SINGLE_FILE:
+            groups = snapshot_weight_groups(source_dir, SINGLE_FILE)
             if not groups:
                 raise ValueError("no safetensors entry for repackage")
             singlefile_to_diffusers(
@@ -307,7 +314,7 @@ def build_flavor_tree(
     groups = snapshot_weight_groups(work_root, work_layout)
     is_fp8 = spec.dtype == "fp8"
     fp8_block_scope = False
-    if is_fp8 and work_layout != "diffusers":
+    if is_fp8 and work_layout != MULTI_FILE:
         # One root weight set = a transformers backbone (the whole checkpoint
         # IS the denoiser, e.g. HiDream-O1's UiT): block-scoped fp8 cast.
         # Multi-set singlefile bundles still refuse — component identity is
@@ -487,7 +494,7 @@ def _preflight_disk(workdir: Path, plan: Any, specs: list[OutputSpec]) -> None:
                                         for path, _ in files)
                 else "safetensors"
             )
-            attrs = {"file_layout": "singlefile", "file_type": source_type}
+            attrs = {"file_layout": SINGLE_FILE, "file_type": source_type}
             if source_type == "gguf":
                 strategy = "gguf"
         # run_clone routes a strategy="aio_singlefile" source whose family
@@ -614,8 +621,8 @@ def _reusable_flavor_tree(
     """
     if not flavor_dir.is_dir():
         return None
-    journal = PublishJournal.open(workdir / JOURNAL_NAME)
-    entry = journal.for_producer(spec_label=str(spec_label), tree=str(flavor_dir))
+    recovery = ProducerRecovery(workdir / JOURNAL_NAME)
+    entry = recovery.find(spec_label=str(spec_label), tree=str(flavor_dir))
     if entry is None:
         return None
     attrs = entry.producer_state.get("attrs")
@@ -624,12 +631,12 @@ def _reusable_flavor_tree(
     if not entry.declares([f.path for f in files_from_tree(flavor_dir)]):
         logger.info(
             "flavor-%s: retained tree no longer matches publish %s's declaration; "
-            "rebuilding", spec_label, entry.publish_id)
+            "rebuilding", spec_label, entry.session_id)
         return None
     logger.warning(
         "flavor-%s: REUSING the retained cast output for publish %s — "
         "re-uploading rather than re-casting (pgw#1003)",
-        spec_label, entry.publish_id)
+        spec_label, entry.session_id)
     return {str(k): str(v) for k, v in attrs.items()}
 
 
@@ -723,7 +730,7 @@ def run_clone(
     provider = str(provider or "").strip().lower()
     destination = normalize_destination_ref(destination_repo)
     tags = normalize_tags(destination_repo_tags)
-    layout_hint = str(target_layout or "diffusers").strip().lower() or "diffusers"
+    layout_hint = str(target_layout or MULTI_FILE).strip().lower() or MULTI_FILE
     specs = normalize_outputs(outputs, layout_hint=layout_hint)
     include = normalize_source_include(source_include)
     objective_fact = str(objective or "").strip().lower()
@@ -892,7 +899,7 @@ def run_clone(
                         # changes.
                         effective_layout = (
                             source.layout if source.layout in _KNOWN_FILE_LAYOUTS
-                            else "singlefile"
+                            else SINGLE_FILE
                         )
                         cast_spec = OutputSpec(
                             dtype=spec.dtype, file_layout=effective_layout,
@@ -1108,8 +1115,9 @@ def run_clone(
         # The tree survives exactly as long as there is a session to resume it
         # into. `_sweep_stale_workdirs` reaps any unlocked workdir past
         # COZY_CONVERT_SCRATCH_TTL_S at the start of the next clone.
-        resumable = 0 if succeeded else len(
-            PublishJournal.open(workdir / JOURNAL_NAME).entries)
+        resumable = (
+            0 if succeeded else ProducerRecovery(workdir / JOURNAL_NAME).count()
+        )
         if resumable:
             logger.warning(
                 "clone failed with %d publish session(s) still resumable; "

@@ -1,6 +1,6 @@
 [project]
 name = "gen-worker"
-version = "0.114.2"
+version = "0.116.0"
 description = "A library used to build custom functions in Cozy Creator's serverless function platform."
 readme = "README.md"
 license = "MIT"
@@ -28,6 +28,7 @@ dependencies = [
     "psutil>=7.0.0",
     "pyyaml>=6.0.0",
     "blake3>=1.0.0",
+    "hashrepo>=0.3,<0.4",
     "huggingface-hub>=0.26.0",
     # gen_worker.convert (GGUF quantization tooling; small, pure-python)
     "gguf>=0.10.0",
@@ -186,7 +187,7 @@ module = [
   "gen_worker.convert.dataset",
   "gen_worker.hubio.client",
   "gen_worker.convert.produced",
-  "gen_worker.hubio.journal",
+  "gen_worker.hubio.publish_state",
   "gen_worker.convert.source",
   "gen_worker.convert.writer",
   "gen_worker.executor",
@@ -197,7 +198,6 @@ module = [
   "gen_worker.hot_swap",
   "gen_worker.input_assets",
   "gen_worker.lifecycle",
-  "gen_worker.models.chunk_upload",
   "gen_worker.models.cozy_snapshot",
   "gen_worker.models.disk_gc",
   "gen_worker.models.loading",
@@ -306,7 +306,6 @@ module = [
   "gen_worker.aot_mint",
   "gen_worker.cuda_root",
   "gen_worker.fleet_cells",
-  "gen_worker.models.chunk_upload",
   "gen_worker.hot_swap",
   "gen_worker.models.cozy_snapshot",
   "gen_worker.models.lora_lifted",
@@ -433,11 +432,6 @@ module = [
   "tests.test_cell_resolve_pgw1090",
   "tests.test_child_call_pipelining_pgw943",
   "tests.test_child_code_identity_pgw840",
-  "tests.test_chunk_cas_parallel_th1362",
-  "tests.test_chunk_cas_pgw781",
-  "tests.test_chunk_resume_pgw972",
-  "tests.test_chunk_upload_pgw781",
-  "tests.test_chunk_upload_robustness_pgw1004",
   "tests.test_cold_boot_decomposition_pgw1087",
   "tests.test_compile_attribution_pgw830",
   "tests.test_compile_cache",
@@ -556,7 +550,6 @@ module = [
   "tests.test_media_upload_orgless_pgw1138",
   "tests.test_meta_init_capability_pgw1123",
   "tests.test_meta_instantiation_pgw1080",
-  "tests.test_meta_roundtrip_pgw1111",
   "tests.test_micro_conv_pgw1073",
   "tests.test_micro_endpoint_pgw997",
   "tests.test_mint_abort_classification_th1299",
@@ -564,7 +557,7 @@ module = [
   "tests.test_mint_child_slot_bindings_pgw969",
   "tests.test_mint_child_warm_context_pgw828",
   "tests.test_mint_credential_expiry_th1423",
-  "tests.test_mint_delegate_pgw784",
+  "tests.test_mint_supervisor_pgw1215",
   "tests.test_mint_dispatch_admission_pgw844",
   "tests.test_mint_liveness_pgw784",
   "tests.test_mint_memory_fit_pgw848",
@@ -587,12 +580,10 @@ module = [
   "tests.test_objectives_pgw654",
   "tests.test_one_safetensors_header_bound_pgw973",
   "tests.test_optional_slots_th1226",
-  "tests.test_overlap_export_compile_pgw1052",
   "tests.test_override_dtype_pgw675",
   "tests.test_p1_stream_lifecycle",
   "tests.test_p2_residency_reconcile",
   "tests.test_p3_slot_binding_precedence",
-  "tests.test_p4_cas_multiwriter_integrity",
   "tests.test_p6_cancel_stream_backpressure",
   "tests.test_p7_boot_smoke",
   "tests.test_p9_result_upload_metrics",
@@ -633,7 +624,6 @@ module = [
   "tests.test_seal_lib_memo_pgw832",
   "tests.test_serve_finalize_pgw672",
   "tests.test_shape_growth_pgw916",
-  "tests.test_shape_hints_pgw998",
   "tests.test_shared_lane_precision_th1043",
   "tests.test_silent_failure_audit_pgw824",
   "tests.test_slot_layout_demand_pgw1143",
@@ -666,7 +656,6 @@ module = [
   "tests.test_url_fetch_pgw663",
   "tests.test_verifier_bounds_pgw1013",
   "tests.test_vocabulary_train_pgw654",
-  "tests.test_volume_tee_pgw971",
   "tests.test_w8a8_snapshot_skip_patterns_ie681",
   "tests.test_warm_fault_typed_pgw1118",
   "tests.test_warmup_kind_collision_pgw1067",

@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2026-07-28 AT 17:37:39
+# AUTO GENERATED ON 2026-08-14 AT 14:44:29
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -602,34 +602,9 @@ def by_signature(cuda_kernel_templates):
     f.is_ptr = [True, True, False, False]
     out['awkward_ListOffsetArray_reduce_local_nextparents_64', uint32, uint32] = f
 
-    def f(grid, block, args):
-        (outoffsets, parents, lenparents, outlength, invocation_index, err_code) = args
-        if block[0] > 0:
-            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
-        else:
-            grid_size = 1
-        temp = cupy.zeros(lenparents, dtype=cupy.int64)
-        scan_in_array = cupy.zeros(outlength, dtype=cupy.uint64)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListOffsetArray_reduce_local_outoffsets_64_a", cupy.dtype(outoffsets.dtype).type, parents.dtype]))((grid_size,), block, (outoffsets, parents, lenparents, outlength, scan_in_array, temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListOffsetArray_reduce_local_outoffsets_64_b", cupy.dtype(outoffsets.dtype).type, parents.dtype]))((grid_size,), block, (outoffsets, parents, lenparents, outlength, scan_in_array, temp, invocation_index, err_code))
-        scan_in_array = cupy.cumsum(scan_in_array)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListOffsetArray_reduce_local_outoffsets_64_c", cupy.dtype(outoffsets.dtype).type, parents.dtype]))((grid_size,), block, (outoffsets, parents, lenparents, outlength, scan_in_array, temp, invocation_index, err_code))
-    out["awkward_ListOffsetArray_reduce_local_outoffsets_64_a", int64, int64] = None
-    out["awkward_ListOffsetArray_reduce_local_outoffsets_64_b", int64, int64] = None
-    out["awkward_ListOffsetArray_reduce_local_outoffsets_64_c", int64, int64] = None
-    f.dir = ['out', 'in', 'in', 'in']
-    f.is_ptr = [True, True, False, False]
-    out['awkward_ListOffsetArray_reduce_local_outoffsets_64', int64, int64] = f
-
     out['awkward_ListOffsetArray_reduce_nonlocal_maxcount_offsetscopy_64', int64, int64, int64] = None
 
     out['awkward_ListOffsetArray_reduce_nonlocal_nextshifts_64', int64, int64, int64, int64, int64, int64, int64] = None
-
-    def f(grid, block, args):
-        cuda_kernel_templates.get_function(fetch_specialization(['awkward_ListOffsetArray_reduce_nonlocal_nextstarts_64', int64, int64]))(grid, block, args)
-    f.dir = ['out', 'in', 'in']
-    f.is_ptr = [True, True, False]
-    out['awkward_ListOffsetArray_reduce_nonlocal_nextstarts_64', int64, int64] = f
 
     def f(grid, block, args):
         (outstarts, outstops, distincts, lendistincts, outlength, invocation_index, err_code) = args
@@ -1425,6 +1400,28 @@ def by_signature(cuda_kernel_templates):
     out['awkward_reduce_sumofpowers', float64, float32, int64] = None
 
     out['awkward_reduce_sumofpowers', float64, float64, int64] = None
+
+    out['awkward_reduce_centered_sumofsquares', float64, int8, int64, float64] = None
+
+    out['awkward_reduce_centered_sumofsquares', float64, uint8, int64, float64] = None
+
+    out['awkward_reduce_centered_sumofsquares', float64, int16, int64, float64] = None
+
+    out['awkward_reduce_centered_sumofsquares', float64, uint16, int64, float64] = None
+
+    out['awkward_reduce_centered_sumofsquares', float64, int32, int64, float64] = None
+
+    out['awkward_reduce_centered_sumofsquares', float64, uint32, int64, float64] = None
+
+    out['awkward_reduce_centered_sumofsquares', float64, int64, int64, float64] = None
+
+    out['awkward_reduce_centered_sumofsquares', float64, uint64, int64, float64] = None
+
+    out['awkward_reduce_centered_sumofsquares', float64, bool_, int64, float64] = None
+
+    out['awkward_reduce_centered_sumofsquares', float64, float32, int64, float64] = None
+
+    out['awkward_reduce_centered_sumofsquares', float64, float64, int64, float64] = None
 
     out['awkward_reduce_sum_complex', float32, float32, int64] = None
 

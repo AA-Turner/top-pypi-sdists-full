@@ -14,6 +14,12 @@ class Document(BaseModel):
     id: str
     """Unique identifier of the document."""
 
+    connection_id: Optional[str] = FieldInfo(alias="connectionId", default=None)
+    """Optional ID of connection the document was created from.
+
+    This is useful for identifying the source of the document.
+    """
+
     created_at: str = FieldInfo(alias="createdAt")
     """Creation timestamp"""
 
@@ -35,6 +41,9 @@ class Document(BaseModel):
 
     status: Literal["unknown", "queued", "extracting", "chunking", "embedding", "indexing", "done", "failed"]
     """Status of the document"""
+
+    summary: Optional[str] = None
+    """Summary of the document content"""
 
     title: Optional[str] = None
     """Title of the document"""

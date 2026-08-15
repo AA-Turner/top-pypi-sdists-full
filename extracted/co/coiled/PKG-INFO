@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: coiled
-Version: 1.135.2
+Version: 1.135.3
 Summary: Python client for coiled.io dask clusters
 Project-URL: Homepage, https://coiled.io
 Maintainer-email: Coiled <info@coiled.io>

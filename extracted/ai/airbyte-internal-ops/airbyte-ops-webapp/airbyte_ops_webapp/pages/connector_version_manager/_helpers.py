@@ -602,16 +602,8 @@ def progressive_rollout_rows() -> list[dict[str, Any]]:
 
         tier_displays: dict[str, str] = {}
         tier_statuses: dict[str, tuple[str, str]] = {}
-        for display_tier, stage_value in _CARD_TIER_STAGES:
-            matching = [
-                r
-                for r in sorted_group
-                if r.get("tier") == stage_value
-                or (
-                    display_tier == CustomerTier.TIER_0
-                    and r.get("tier") == CustomerTier.ALL.value
-                )
-            ]
+        for _display_tier, stage_value in _CARD_TIER_STAGES:
+            matching = [r for r in sorted_group if r.get("tier") == stage_value]
             if matching:
                 rollout = matching[0]
                 tier_statuses[stage_value] = tier_rollout_status(
@@ -1245,19 +1237,12 @@ def build_rollout_summary(
         factors = factors_by_tier.get(display_tier.value)
         active_matching = [r for r in sorted_rollouts if r.get("tier") == stage_value]
         context_matching = [r for r in rollout_context if r.get("tier") == stage_value]
-        active_all = [
-            r for r in sorted_rollouts if r.get("tier") == CustomerTier.ALL.value
-        ]
-        context_all = [
-            r for r in rollout_context if r.get("tier") == CustomerTier.ALL.value
-        ]
-        active_row_matching = active_matching or active_all
-        matching = active_row_matching or context_matching or context_all
+        matching = active_matching or context_matching
         eligible_fallback = eligible_by_tier.get(display_tier.value) or 0
         if matching:
             rollout = matching[0]
             pct = format_rollout_pct(rollout.get("current_target_rollout_pct"))
-            population_available = bool(active_row_matching)
+            population_available = bool(active_matching)
             # Only the current-stage percentage is surfaced (a single clean
             # backend-reported number); the final-goal field is not shown.
             tier_parts.append(f"{display_tier.label}: {pct}")

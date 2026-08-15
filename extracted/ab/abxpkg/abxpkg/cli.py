@@ -3,13 +3,11 @@ from __future__ import annotations
 import json
 import os
 import re
-import stat
 import sys
 
 # Keep typing-only imports off the warm CLI path.
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from pathlib import Path
     from typing import Any, cast
 else:
 
@@ -254,24 +252,72 @@ def _parse_script_argv(
     return options, binary_name, script_args[0], script_args
 
 
-def _script_dependency_paths(
-    raw_value: str | None,
-    script_path: str | os.PathLike[str],
-) -> list[Path]:
+def _expand_dependency_value(value: Any, values: dict[str, str]) -> Any:
+    if isinstance(value, str):
+        return re.sub(
+            r"\{([A-Za-z_][A-Za-z0-9_]*)\}",
+            lambda match: values.get(match.group(1), match.group(0)),
+            value,
+        )
+    if isinstance(value, list):
+        return [_expand_dependency_value(item, values) for item in value]
+    if isinstance(value, dict):
+        return {
+            str(key): _expand_dependency_value(item, values)
+            for key, item in value.items()
+        }
+    return value
+
+
+def _deps_from_config_specs(
+    raw_specs: list[str] | tuple[str, ...],
+    *,
+    base_path: str | os.PathLike[str],
+    lib_dir: str | os.PathLike[str],
+) -> list[Any]:
     from pathlib import Path
 
-    resolved_script = Path(script_path)
-    paths: list[Path] = []
-    for raw_spec in (raw_value or "").split(","):
-        spec = raw_spec.strip()
-        if not spec:
-            continue
-        raw_path, _, _selector = spec.partition(":")
-        path = Path(raw_path)
-        if not path.is_absolute():
-            path = resolved_script.parent / path
-        paths.append(path.expanduser().resolve(strict=False))
-    return paths
+    deps: list[Any] = []
+    values = {key: str(value) for key, value in os.environ.items()}
+    values["ABXPKG_LIB_DIR"] = os.fspath(lib_dir)
+    for raw_spec_group in raw_specs:
+        for raw_spec in str(raw_spec_group or "").split(","):
+            spec = raw_spec.strip()
+            if not spec:
+                continue
+            raw_path, _, selector = spec.partition(":")
+            deps_path = Path(raw_path)
+            if not deps_path.is_absolute():
+                deps_path = Path(base_path) / deps_path
+            root = json.loads(deps_path.read_text())
+            selected: Any = root
+            for part in (selector or "dependencies").split("."):
+                selected = selected[part]
+
+            properties = root.get("properties") if isinstance(root, dict) else None
+            if isinstance(properties, dict):
+                for key, prop in properties.items():
+                    if (
+                        key not in values
+                        and isinstance(prop, dict)
+                        and "default" in prop
+                    ):
+                        values[str(key)] = str(prop["default"])
+
+            selected_items = selected if isinstance(selected, list) else [selected]
+            for selected_item in selected_items:
+                expanded = _expand_dependency_value(selected_item, values)
+                if isinstance(selected_item, dict) and isinstance(expanded, dict):
+                    template_name = str(selected_item.get("name") or "").strip()
+                    template_match = re.fullmatch(
+                        r"\{([A-Za-z_][A-Za-z0-9_]*)\}",
+                        template_name,
+                    )
+                    if template_match:
+                        expanded = dict(expanded)
+                        expanded["_abxpkg_env_key"] = template_match.group(1)
+                deps.append(expanded)
+    return deps
 
 
 def _script_cache_context(
@@ -280,7 +326,8 @@ def _script_cache_context(
     script_path: str | os.PathLike[str],
     meta: dict[str, Any],
     options: Any,
-) -> tuple[str, list[Path]] | None:
+    explicit_provider_selection: bool,
+) -> str | None:
     from pathlib import Path
 
     if set(raw_options) - {"--lib", "--binproviders", "--deps-from"}:
@@ -290,21 +337,14 @@ def _script_cache_context(
         return None
 
     resolved_script = Path(script_path).expanduser().resolve(strict=False)
-    dependency_paths = _script_dependency_paths(
-        raw_options.get("--deps-from"),
-        resolved_script,
-    )
-    template_text = json.dumps(meta, separators=(",", ":"), sort_keys=True)
     try:
-        template_text += "".join(
-            path.read_text(encoding="utf-8", errors="replace")
-            for path in dependency_paths
+        dependencies = _deps_from_config_specs(
+            (raw_options.get("--deps-from", ""),),
+            base_path=resolved_script.parent,
+            lib_dir=options.lib_dir,
         )
-    except OSError:
+    except (OSError, KeyError, json.JSONDecodeError):
         return None
-    template_env_names = sorted(
-        set(re.findall(r"\{([A-Za-z_][A-Za-z0-9_]*)\}", template_text)),
-    )
     tool_section = meta.get("tool")
     tool_config = (
         tool_section.get("abxpkg", {}) if isinstance(tool_section, dict) else {}
@@ -316,15 +356,19 @@ def _script_cache_context(
         {
             "base": json.loads(base_context),
             "binary_name": binary_name,
-            "script_path": str(resolved_script),
-            "deps_from": raw_options.get("--deps-from"),
-            "template_env": {name: os.environ.get(name) for name in template_env_names},
+            "dependencies": dependencies,
+            "exec_env_inputs": {
+                name: os.environ.get(name)
+                for name in ("NODE_PATH", "PYTHONPATH", "LD_LIBRARY_PATH")
+            },
+            "explicit_provider_selection": explicit_provider_selection,
+            "metadata": meta,
             "tool_env": {name: os.environ.get(name) for name in tool_env_names},
         },
         separators=(",", ":"),
         sort_keys=True,
     )
-    return context, [resolved_script, *dependency_paths]
+    return context
 
 
 def warm_run_context(options: Any) -> str | None:
@@ -393,29 +437,50 @@ def _parse_warm_run_argv(
     return None
 
 
-def _fingerprints_match(raw_fingerprints: object) -> bool:
-    if not isinstance(raw_fingerprints, list) or not raw_fingerprints:
-        return False
-    for raw_fingerprint in raw_fingerprints:
-        if not isinstance(raw_fingerprint, dict):
-            return False
-        fingerprint = cast(dict[str, object], raw_fingerprint)
-        raw_path = fingerprint.get("path")
-        if not isinstance(raw_path, str):
-            return False
-        try:
-            stat_result = os.stat(raw_path)
-        except OSError:
-            return False
-        if fingerprint != {
-            "path": os.path.realpath(os.path.expanduser(raw_path)),
-            "size": stat_result.st_size,
-            "mtime_ns": stat_result.st_mtime_ns,
-            "mode": stat.S_IMODE(stat_result.st_mode),
-            "euid": stat_result.st_uid,
-        }:
-            return False
-    return True
+def _script_request(
+    dependency: object,
+    default_provider_names: list[str],
+) -> tuple[dict[str, object], list[str], str | None] | None:
+    request = {"name": dependency} if isinstance(dependency, str) else None
+    if isinstance(dependency, dict):
+        typed_dependency = cast(dict[str, object], dependency)
+        if "name" in typed_dependency:
+            request = typed_dependency
+    if request is None:
+        return None
+    if not isinstance(request.get("name"), str) or not request["name"]:
+        raise ValueError("invalid binary name")
+    raw_provider_names = (
+        request["binproviders"] if "binproviders" in request else default_provider_names
+    )
+    if isinstance(raw_provider_names, str):
+        provider_names = [
+            name.strip() for name in raw_provider_names.split(",") if name.strip()
+        ]
+    elif isinstance(raw_provider_names, list):
+        provider_names = [
+            str(name).strip() for name in raw_provider_names if str(name).strip()
+        ]
+    else:
+        raise ValueError("invalid binary providers")
+    if not provider_names or any(
+        re.fullmatch(r"[a-z][a-z0-9_-]*", name) is None for name in provider_names
+    ):
+        raise ValueError("invalid binary providers")
+    request = dict(request)
+    request["binproviders"] = provider_names
+    env_key = request.pop("_abxpkg_env_key", None)
+    return request, provider_names, str(env_key) if env_key else None
+
+
+def _cached_request_projection(
+    lib_dir: str | os.PathLike[str],
+    request: dict[str, object],
+    provider_names: list[str],
+) -> tuple[dict[str, object], dict[str, object], str, dict[str, str]] | None:
+    from .config import _load_cached_request_projection
+
+    return _load_cached_request_projection(lib_dir, request, provider_names)
 
 
 def _cached_records(
@@ -423,179 +488,140 @@ def _cached_records(
     provider_names: list[str],
     binary_name: str,
 ):
-    for provider_name in provider_names:
-        derived_env_path = os.path.join(lib_dir, provider_name, "derived.env")
+    from .config import _cached_records as records
+
+    yield from records(lib_dir, provider_names, binary_name)
+
+
+def _exec_cached_script_requests(
+    *,
+    lib_dir: str | os.PathLike[str],
+    provider_names: list[str],
+    binary_name: str,
+    dependencies: list[object],
+    explicit_provider_selection: bool,
+    script_args: list[str],
+) -> int | None:
+    resolved_dependencies: list[
+        tuple[dict[str, object], dict[str, object], str | None]
+    ] = []
+    target_request: dict[str, object] = {
+        "name": binary_name,
+        "binproviders": provider_names,
+    }
+    target_provider_names = provider_names
+    target_env_key: str | None = None
+    target_declaration_seen = False
+
+    for dependency in dependencies:
         try:
-            fd = os.open(
-                derived_env_path,
-                os.O_RDONLY
-                | getattr(os, "O_NOFOLLOW", 0)
-                | getattr(os, "O_NONBLOCK", 0),
-            )
-        except OSError:
+            parsed = _script_request(dependency, provider_names)
+        except ValueError:
+            return None
+        if parsed is None:
             continue
-        try:
-            before = os.fstat(fd)
-            if (
-                not stat.S_ISREG(before.st_mode)
-                or before.st_uid != os.geteuid()
-                or before.st_mode & 0o022
-            ):
-                continue
-            with os.fdopen(fd, encoding="utf-8") as cache_file:
-                fd = -1
-                contents = cache_file.read()
-                after = os.fstat(cache_file.fileno())
-            stable_fields = (
-                "st_dev",
-                "st_ino",
-                "st_size",
-                "st_mtime_ns",
-                "st_ctime_ns",
-                "st_uid",
-                "st_mode",
-            )
-            if any(
-                getattr(before, field) != getattr(after, field)
-                for field in stable_fields
-            ):
-                continue
-            cache = _load_current_derived_cache_text(contents)
-        except OSError:
+        request, dependency_provider_names, env_key = parsed
+        if request["name"] == binary_name:
+            if target_declaration_seen:
+                return None
+            target_declaration_seen = True
+            target_request = request
+            target_env_key = env_key
+            if explicit_provider_selection:
+                target_request["binproviders"] = provider_names
+            else:
+                target_provider_names = dependency_provider_names
             continue
-        finally:
-            if fd >= 0:
-                os.close(fd)
-        for record in cache.values():
-            if (
-                isinstance(record, dict)
-                and record.get("provider_name") == provider_name
-                and record.get("bin_name") == binary_name
-                and _fingerprints_match(record.get("fingerprint"))
-            ):
-                yield record
-
-
-def _load_current_derived_cache_text(
-    contents: str,
-) -> dict[str, dict[str, object]]:
-    prefix = "ABXPKG_DERIVED_CACHE="
-    raw_value = next(
-        (
-            line[len(prefix) :]
-            for line in contents.splitlines()
-            if line.startswith(prefix)
-        ),
-        "",
-    )
-    if raw_value.startswith("'") and raw_value.endswith("'"):
-        raw_value = raw_value[1:-1].replace("'\"'\"'", "'")
-    try:
-        parsed = json.loads(raw_value)
-    except json.JSONDecodeError:
-        return {}
-    return parsed if isinstance(parsed, dict) else {}
-
-
-def _find_executable(name: str, path: str) -> str | None:
-    candidates = (
-        (name,)
-        if os.path.dirname(name)
-        else tuple(
-            os.path.join(directory, name) for directory in path.split(os.pathsep)
+        resolved = _cached_request_projection(
+            lib_dir,
+            request,
+            dependency_provider_names,
         )
+        if resolved is None:
+            return None
+        record, projection, _exec_abspath, _validation_env = resolved
+        resolved_dependencies.append((record, projection, env_key))
+
+    target = _cached_request_projection(
+        lib_dir,
+        target_request,
+        target_provider_names,
     )
-    return next(
-        (
-            candidate
-            for candidate in candidates
-            if os.path.isfile(candidate) and os.access(candidate, os.X_OK)
-        ),
-        None,
+    if target is None:
+        return None
+    target_record, target_projection, exec_abspath, target_validation_env = target
+
+    from .config import build_exec_env
+
+    final_env = os.environ.copy()
+    for record, _projection, env_key in resolved_dependencies:
+        if env_key:
+            abspath = record.get("abspath")
+            if not isinstance(abspath, str):
+                return None
+            final_env[env_key] = abspath
+    if target_env_key:
+        target_abspath = target_record.get("abspath")
+        if not isinstance(target_abspath, str):
+            return None
+        final_env[target_env_key] = target_abspath
+    dependency_layers = [
+        layer
+        for _record, projection, _env_key in resolved_dependencies
+        for layer in cast(list[dict[str, object]], projection.get("provider_layers"))
+    ]
+    target_provider_layers = cast(
+        list[dict[str, object]],
+        target_projection.get("provider_layers"),
     )
+    target_provider_layer = target_provider_layers[0]
+    dependency_layers = [
+        layer
+        for layer in dependency_layers
+        if not (
+            layer.get("provider_name") == target_provider_layer.get("provider_name")
+            and (
+                target_provider_layer.get("install_root") is None
+                and target_provider_layer.get("bin_dir") is None
+                or (
+                    layer.get("install_root")
+                    == target_provider_layer.get("install_root")
+                    and layer.get("bin_dir") == target_provider_layer.get("bin_dir")
+                )
+            )
+        )
+    ]
+    target_layers = cast(
+        list[dict[str, object]],
+        target_projection.get("target_layers"),
+    )
+    user_env = {
+        key: target_validation_env[key]
+        for key in ("HOME", "LOGNAME", "USER")
+        if key in target_validation_env
+    }
+    final_env = build_exec_env(dependency_layers, base_env=final_env)
+    final_env = build_exec_env(
+        target_layers,
+        base_env=final_env,
+    )
+    final_env.update(user_env)
+    final_env["PWD"] = os.getcwd()
+    try:
+        os.execvpe(exec_abspath, [exec_abspath, *script_args], final_env)
+    except OSError as err:
+        print(f"abxpkg: failed to exec {exec_abspath}: {err}", file=sys.stderr)
+        return 1
+    return 1
 
 
 def _validated_cached_plan(
     raw_plan: object,
     run_context: str,
 ) -> tuple[str, dict[str, str]] | None:
-    if os.getuid() != os.geteuid():
-        return None
-    if not isinstance(raw_plan, dict):
-        return None
-    exec_plan = cast(dict[str, object], raw_plan)
-    if (
-        exec_plan.get("version") != 5
-        or exec_plan.get("run_context") != run_context
-        or exec_plan.get("euid") != os.geteuid()
-        or not _fingerprints_match(exec_plan.get("fingerprint"))
-    ):
-        return None
-    exec_abspath = exec_plan.get("abspath")
-    is_script = exec_plan.get("script")
-    env = exec_plan.get("env")
-    env_base = exec_plan.get("env_base")
-    resolutions = exec_plan.get("resolutions")
-    if (
-        not isinstance(exec_abspath, str)
-        or not os.path.isabs(exec_abspath)
-        or not os.access(exec_abspath, os.X_OK)
-        or not isinstance(is_script, bool)
-        or not isinstance(env, dict)
-        or not isinstance(env_base, dict)
-        or not isinstance(resolutions, list)
-        or not resolutions
-        or any(not isinstance(key, str) for key in env)
-        or any(not isinstance(value, str) for value in env.values())
-        or any(not isinstance(key, str) for key in env_base)
-        or any(
-            value is not None and not isinstance(value, str)
-            for value in env_base.values()
-        )
-    ):
-        return None
-    typed_env = cast(dict[str, str], env)
-    typed_env_base = cast(dict[str, str | None], env_base)
-    if any(
-        os.environ.get(key) != value
-        for key, value in typed_env_base.items()
-        if not (is_script and key in typed_env)
-    ):
-        return None
-    final_env = os.environ.copy()
-    final_env.update(typed_env)
-    final_env["PWD"] = os.getcwd()
-    for raw_resolution in resolutions:
-        if not isinstance(raw_resolution, dict):
-            return None
-        resolution = cast(dict[str, object], raw_resolution)
-        name = resolution.get("name")
-        abspath = resolution.get("abspath")
-        selected_path = resolution.get("selected_path")
-        ambient_abspath = resolution.get("ambient_abspath")
-        if (
-            not isinstance(name, str)
-            or not isinstance(abspath, str)
-            or not isinstance(selected_path, str)
-            or (ambient_abspath is not None and not isinstance(ambient_abspath, str))
-        ):
-            return None
-        if selected_path:
-            selected_command = _find_executable(name, selected_path)
-            if selected_command is None or os.path.realpath(
-                selected_command,
-            ) != os.path.realpath(abspath):
-                return None
-        if not (is_script and "PATH" in typed_env):
-            current_ambient = _find_executable(name, os.environ.get("PATH", ""))
-            resolved_ambient = (
-                os.path.realpath(current_ambient)
-                if current_ambient is not None
-                else None
-            )
-            if resolved_ambient != ambient_abspath:
-                return None
-    return exec_abspath, final_env
+    from .config import _validated_cached_plan as validate
+
+    return validate(raw_plan, run_context)
 
 
 def _exec_cached_plan(
@@ -751,13 +777,14 @@ def _run_cached(argv: list[str]) -> int | None:
             script_path,
             meta,
             ScriptOptions(lib_dir=lib_dir, provider_names=provider_names),
+            explicit_provider_selection=raw_names is not None,
         )
         if cache_context is None:
             return None
         import hashlib
         import abxpkg as package
 
-        run_context, _fingerprint_paths = cache_context
+        run_context = cache_context
         plan_key = hashlib.sha256(run_context.encode()).hexdigest()
         for record in _cached_records(
             lib_dir,
@@ -774,7 +801,24 @@ def _run_cached(argv: list[str]) -> int | None:
             )
             if result is not None:
                 return result
-        return None
+        if tool_config.get("runtime_binproviders"):
+            return None
+        dependencies = [
+            *meta.get("dependencies", []),
+            *_deps_from_config_specs(
+                (raw_options.get("--deps-from", ""),),
+                base_path=os.path.dirname(os.path.realpath(script_path)),
+                lib_dir=lib_dir,
+            ),
+        ]
+        return _exec_cached_script_requests(
+            lib_dir=lib_dir,
+            provider_names=provider_names,
+            binary_name=binary_name,
+            dependencies=dependencies,
+            explicit_provider_selection=raw_names is not None,
+            script_args=script_args,
+        )
 
     parsed = _parse_warm_run_argv(argv)
     if parsed is None:

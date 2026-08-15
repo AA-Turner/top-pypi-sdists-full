@@ -173,6 +173,30 @@ def test_new_version_metadata_release_scenarios(full_restate: bool) -> None:
 
 
 @pytest.mark.unit
+def test_existing_released_at_survives_non_restate_compile() -> None:
+    """A prior release timestamp is preserved when recompiling normally."""
+    store = RegistryStore.parse("coral:dev/test")
+    released_at = "2025-01-02T03:04:05Z"
+    prior_release = _release(10)
+    prior_release["released_at"] = released_at
+    fs = CountingFileSystem({})
+    index = _build_version_index(
+        fs,
+        store=store,
+        connector="source-test",
+        versions=["1.0.0"],
+        yanked=set(),
+        latest_version=None,
+        previous_index={
+            "connector": "source-test",
+            "versions": [{"version": "1.0.0", "release": prior_release}],
+        },
+        full_restate=False,
+    )
+    assert index["versions"][0]["release"]["released_at"] == released_at
+
+
+@pytest.mark.unit
 def test_full_restate_preserves_supplied_attribution_index() -> None:
     """A full restate keeps historical releases supplied by the Git index."""
     store = RegistryStore.parse("coral:dev/test")

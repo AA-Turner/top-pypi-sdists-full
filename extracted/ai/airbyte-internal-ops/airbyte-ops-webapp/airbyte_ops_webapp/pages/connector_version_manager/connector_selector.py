@@ -408,7 +408,7 @@ def _render_active_rollouts_table() -> None:
                     key="reason_display",
                     header="Status Detail",
                     sortable=True,
-                    cellClass="truncate max-w-[24rem]",
+                    cell_class="truncate max-w-[24rem]",
                 ),
             ],
             rows=STATE.progressive_rollout_rows,

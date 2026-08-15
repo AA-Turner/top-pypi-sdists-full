@@ -67,6 +67,7 @@ class DocumentsResource(SyncAPIResource):
         container_tags: SequenceNotStr[str] | Omit = omit,
         content: str | Omit = omit,
         custom_id: str | Omit = omit,
+        document_date: str | Omit = omit,
         filepath: str | Omit = omit,
         filter_by_metadata: Dict[str, Union[str, float, bool, SequenceNotStr[str]]] | Omit = omit,
         metadata: Dict[str, Union[str, float, bool, SequenceNotStr[str]]] | Omit = omit,
@@ -101,6 +102,13 @@ class DocumentsResource(SyncAPIResource):
 
           custom_id: Optional custom ID of the document. This could be an ID from your database that
               will uniquely identify this document.
+
+          document_date: When this document's content is from, as opposed to when it was uploaded.
+              Accepts YYYY-MM-DD or a full ISO 8601 timestamp. Memory extraction resolves
+              relative dates ('yesterday', 'last quarter') against this instead of the
+              ingestion time, and documents in a batch are processed oldest-first so newer
+              facts correctly supersede older ones. Set this whenever you backfill historical
+              content.
 
           filepath: Optional file path for the document (e.g., '/documents/reports/file.pdf'). Used
               by supermemoryfs to map documents to filesystem paths.
@@ -137,6 +145,7 @@ class DocumentsResource(SyncAPIResource):
                     "container_tags": container_tags,
                     "content": content,
                     "custom_id": custom_id,
+                    "document_date": document_date,
                     "filepath": filepath,
                     "filter_by_metadata": filter_by_metadata,
                     "metadata": metadata,
@@ -262,6 +271,7 @@ class DocumentsResource(SyncAPIResource):
         container_tag: str | Omit = omit,
         container_tags: SequenceNotStr[str] | Omit = omit,
         custom_id: str | Omit = omit,
+        document_date: str | Omit = omit,
         dreaming: Literal["instant", "dynamic"] | Omit = omit,
         entity_context: str | Omit = omit,
         filepath: str | Omit = omit,
@@ -287,6 +297,12 @@ class DocumentsResource(SyncAPIResource):
 
           custom_id: Optional custom ID of the document. Max 100 characters, alphanumeric with
               hyphens, underscores, and dots only.
+
+          document_date: When this document's content is from, as opposed to when it was uploaded.
+              Accepts YYYY-MM-DD or a full ISO 8601 timestamp. Memory extraction resolves
+              relative dates against this instead of the ingestion time, and documents in a
+              batch are processed oldest-first so newer facts correctly supersede older ones.
+              Set this whenever you backfill historical content.
 
           dreaming: Processing mode. "dynamic" (default) groups related documents together so
               memories form from coherent, logical units rather than one isolated entry at a
@@ -323,6 +339,7 @@ class DocumentsResource(SyncAPIResource):
                     "container_tag": container_tag,
                     "container_tags": container_tags,
                     "custom_id": custom_id,
+                    "document_date": document_date,
                     "dreaming": dreaming,
                     "entity_context": entity_context,
                     "filepath": filepath,
@@ -345,6 +362,7 @@ class DocumentsResource(SyncAPIResource):
         container_tag: str | Omit = omit,
         container_tags: SequenceNotStr[str] | Omit = omit,
         content: None | Omit = omit,
+        document_date: str | Omit = omit,
         dreaming: Literal["instant", "dynamic"] | Omit = omit,
         entity_context: str | Omit = omit,
         filepath: str | Omit = omit,
@@ -371,6 +389,13 @@ class DocumentsResource(SyncAPIResource):
           container_tags: (DEPRECATED: Use containerTag instead) Optional tags this document should be
               containerized by. This can be an ID for your user, a project ID, or any other
               identifier you wish to use to group documents.
+
+          document_date: When this document's content is from, as opposed to when it was uploaded.
+              Accepts YYYY-MM-DD or a full ISO 8601 timestamp. Memory extraction resolves
+              relative dates ('yesterday', 'last quarter') against this instead of the
+              ingestion time, and documents in a batch are processed oldest-first so newer
+              facts correctly supersede older ones. Set this whenever you backfill historical
+              content.
 
           dreaming: Processing mode. "dynamic" (default) groups related documents together so
               memories form from coherent, logical units rather than one isolated entry at a
@@ -413,6 +438,7 @@ class DocumentsResource(SyncAPIResource):
                     "container_tag": container_tag,
                     "container_tags": container_tags,
                     "content": content,
+                    "document_date": document_date,
                     "dreaming": dreaming,
                     "entity_context": entity_context,
                     "filepath": filepath,
@@ -670,6 +696,7 @@ class AsyncDocumentsResource(AsyncAPIResource):
         container_tags: SequenceNotStr[str] | Omit = omit,
         content: str | Omit = omit,
         custom_id: str | Omit = omit,
+        document_date: str | Omit = omit,
         filepath: str | Omit = omit,
         filter_by_metadata: Dict[str, Union[str, float, bool, SequenceNotStr[str]]] | Omit = omit,
         metadata: Dict[str, Union[str, float, bool, SequenceNotStr[str]]] | Omit = omit,
@@ -704,6 +731,13 @@ class AsyncDocumentsResource(AsyncAPIResource):
 
           custom_id: Optional custom ID of the document. This could be an ID from your database that
               will uniquely identify this document.
+
+          document_date: When this document's content is from, as opposed to when it was uploaded.
+              Accepts YYYY-MM-DD or a full ISO 8601 timestamp. Memory extraction resolves
+              relative dates ('yesterday', 'last quarter') against this instead of the
+              ingestion time, and documents in a batch are processed oldest-first so newer
+              facts correctly supersede older ones. Set this whenever you backfill historical
+              content.
 
           filepath: Optional file path for the document (e.g., '/documents/reports/file.pdf'). Used
               by supermemoryfs to map documents to filesystem paths.
@@ -740,6 +774,7 @@ class AsyncDocumentsResource(AsyncAPIResource):
                     "container_tags": container_tags,
                     "content": content,
                     "custom_id": custom_id,
+                    "document_date": document_date,
                     "filepath": filepath,
                     "filter_by_metadata": filter_by_metadata,
                     "metadata": metadata,
@@ -865,6 +900,7 @@ class AsyncDocumentsResource(AsyncAPIResource):
         container_tag: str | Omit = omit,
         container_tags: SequenceNotStr[str] | Omit = omit,
         custom_id: str | Omit = omit,
+        document_date: str | Omit = omit,
         dreaming: Literal["instant", "dynamic"] | Omit = omit,
         entity_context: str | Omit = omit,
         filepath: str | Omit = omit,
@@ -890,6 +926,12 @@ class AsyncDocumentsResource(AsyncAPIResource):
 
           custom_id: Optional custom ID of the document. Max 100 characters, alphanumeric with
               hyphens, underscores, and dots only.
+
+          document_date: When this document's content is from, as opposed to when it was uploaded.
+              Accepts YYYY-MM-DD or a full ISO 8601 timestamp. Memory extraction resolves
+              relative dates against this instead of the ingestion time, and documents in a
+              batch are processed oldest-first so newer facts correctly supersede older ones.
+              Set this whenever you backfill historical content.
 
           dreaming: Processing mode. "dynamic" (default) groups related documents together so
               memories form from coherent, logical units rather than one isolated entry at a
@@ -926,6 +968,7 @@ class AsyncDocumentsResource(AsyncAPIResource):
                     "container_tag": container_tag,
                     "container_tags": container_tags,
                     "custom_id": custom_id,
+                    "document_date": document_date,
                     "dreaming": dreaming,
                     "entity_context": entity_context,
                     "filepath": filepath,
@@ -948,6 +991,7 @@ class AsyncDocumentsResource(AsyncAPIResource):
         container_tag: str | Omit = omit,
         container_tags: SequenceNotStr[str] | Omit = omit,
         content: None | Omit = omit,
+        document_date: str | Omit = omit,
         dreaming: Literal["instant", "dynamic"] | Omit = omit,
         entity_context: str | Omit = omit,
         filepath: str | Omit = omit,
@@ -974,6 +1018,13 @@ class AsyncDocumentsResource(AsyncAPIResource):
           container_tags: (DEPRECATED: Use containerTag instead) Optional tags this document should be
               containerized by. This can be an ID for your user, a project ID, or any other
               identifier you wish to use to group documents.
+
+          document_date: When this document's content is from, as opposed to when it was uploaded.
+              Accepts YYYY-MM-DD or a full ISO 8601 timestamp. Memory extraction resolves
+              relative dates ('yesterday', 'last quarter') against this instead of the
+              ingestion time, and documents in a batch are processed oldest-first so newer
+              facts correctly supersede older ones. Set this whenever you backfill historical
+              content.
 
           dreaming: Processing mode. "dynamic" (default) groups related documents together so
               memories form from coherent, logical units rather than one isolated entry at a
@@ -1016,6 +1067,7 @@ class AsyncDocumentsResource(AsyncAPIResource):
                     "container_tag": container_tag,
                     "container_tags": container_tags,
                     "content": content,
+                    "document_date": document_date,
                     "dreaming": dreaming,
                     "entity_context": entity_context,
                     "filepath": filepath,

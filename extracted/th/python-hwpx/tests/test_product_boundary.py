@@ -253,8 +253,52 @@ def test_real_tree_gate_runs_from_a_gitless_source_copy(tmp_path: Path) -> None:
     # 3(_legacy·_resolve·headings) + _document/ns 13(__init__·_base·11 네임스페이스).
     # 6.0: +5 — 062-engine-surface WP-C. objects/ 반환 규약 소유 모듈
     # 5종(checkbox·form_field·tracked·binary_item·results).
+    # 6.1: +1 — settings.xml(ha:HWPApplicationSetting) read model, a brand new
+    # module (oxml/settings.py) alongside header.py/simple_parts.py.
+    # 6.2: +2 — highlight authoring (markpenBegin/markpenEnd). Owner module
+    # (_document/highlight.py) + return-contract payload (objects/highlight.py).
+    # 6.4: +3 — part-hierarchy read models (gap #15), same settings.py idiom:
+    # oxml/version_part.py + oxml/master_page.py + oxml/history_part.py.
+    # 6.6: +1 — document options/compatibility authoring (train 23), a brand
+    # new module (oxml/header_compat.py) — the write counterpart to 6.1's
+    # settings.py, living outside header_part.py because that owner file
+    # sits at its 1600-line modularization cap.
+    # 6.9: +1 — document insertion/merge (train 33), a brand new module
+    # (tools/document_merge.py) — header-owned shared-resource id remapping
+    # for copying another HWPX document's body into an open document.
+    # 6.9: +1 — dutmal/compose authoring (train 34), a brand new module
+    # (oxml/dutmal_compose.py) — paragraph.py's shape-authoring overflow
+    # destination (objects.py) itself ran out of headroom, so this is a
+    # second overflow module for the same 1600-line cap.
+    # 6.11: +1 — add_section()'s renderable-layout carrier lookup (train
+    # 44), a brand new module (oxml/section_layout.py) — extracted from
+    # document_parts.py (2 lines of headroom left under the 1600-line cap)
+    # while fixing the first-run assumption bug found in train 38/㊱.
+    # 6.12: +1 — opf:metadata (content.hpf document properties) read model
+    # (train 48), a brand new module (oxml/document_metadata.py) — same
+    # schema-undeclared-part idiom as settings.py/version_part.py.
+    # 6.12: +1 — drop cap (hp:rect dropcapstyle) shape authoring (train 48,
+    # gap #2), a brand new module (oxml/drop_cap.py) — paragraph.py's
+    # existing shape-authoring overflow destinations (objects.py,
+    # dutmal_compose.py) have no headroom left, so this is a third overflow
+    # module for the same 1600-line cap.
+    # 6.13: +1 — ensure_numbering's full body (bullet/number/outline kinds,
+    # train 48/㊻ gap #3-5: 개요 번호 모양·적용/해제·수준 증감), moved out
+    # of header_part.py (oxml/numbering_kinds.py) — no headroom left once
+    # the new "outline" kind pushed the owner file over 1600 lines.
+    # 6.13: +1 — master page (바탕쪽) part creation + manifest registration
+    # (train 48/㊻ gap #8: 바탕쪽 쓰기), a brand new module
+    # (oxml/master_page_authoring.py) — opens the write side the read-only
+    # HwpxOxmlMasterPage explicitly deferred (cycle 6.4 train 15).
+    # 6.13: +1 — date field + proofreading mark field authoring (train 48,
+    # GUI probe 1/3 gold), a brand new module (oxml/field_marks.py) —
+    # paragraph.py hit exactly 1600 lines with just the two delegators.
+    # 6.14: +1 — footnote/endnote authoring moved out of paragraph.py
+    # verbatim (train 48/debt3), a brand new module
+    # (oxml/note_authoring.py) — restores real headroom (1452/1600)
+    # instead of the 5 lines left after train 48/㊽b's PATH delegator.
     # 전부 module-ownership.json 에 개별 rationale 과 함께 등재돼 있다.
-    assert report["classifiedFiles"] == 131
+    assert report["classifiedFiles"] == 147
 
 
 def test_gitless_cli_reproduces_literal_dynamic_import_failure_without_mutating_source(

@@ -1,5 +1,199 @@
 rule: RF06
 
+# Exhaustive coverage for dialect-specific prefer_quoted_identifiers fixes.
+
+test_fail_prefer_quoted_identifiers_ansi:
+  fail_str: SELECT 1 AS foo;
+  fix_str: SELECT 1 AS "foo";
+  configs:
+    core:
+      dialect: ansi
+    rules:
+      references.quoting:
+        prefer_quoted_identifiers: true
+
+test_fail_prefer_quoted_identifiers_athena:
+  fail_str: SELECT 1 AS foo;
+  configs:
+    core:
+      dialect: athena
+    rules:
+      references.quoting:
+        prefer_quoted_identifiers: true
+
+test_fail_prefer_quoted_identifiers_bigquery:
+  fail_str: SELECT 1 AS foo;
+  fix_str: SELECT 1 AS `foo`;
+  configs:
+    core:
+      dialect: bigquery
+    rules:
+      references.quoting:
+        prefer_quoted_identifiers: true
+
+test_fail_prefer_quoted_identifiers_clickhouse:
+  fail_str: SELECT 1 AS foo;
+  fix_str: SELECT 1 AS "foo";
+  configs:
+    core:
+      dialect: clickhouse
+    rules:
+      references.quoting:
+        prefer_quoted_identifiers: true
+
+test_fail_prefer_quoted_identifiers_databricks:
+  fail_str: SELECT 1 AS foo;
+  fix_str: SELECT 1 AS `foo`;
+  configs:
+    core:
+      dialect: databricks
+    rules:
+      references.quoting:
+        prefer_quoted_identifiers: true
+
+test_fail_prefer_quoted_identifiers_db2:
+  fail_str: SELECT 1 AS foo;
+  fix_str: SELECT 1 AS "foo";
+  configs:
+    core:
+      dialect: db2
+    rules:
+      references.quoting:
+        prefer_quoted_identifiers: true
+
+test_fail_prefer_quoted_identifiers_duckdb:
+  fail_str: SELECT 1 AS foo;
+  fix_str: SELECT 1 AS "foo";
+  configs:
+    core:
+      dialect: duckdb
+    rules:
+      references.quoting:
+        prefer_quoted_identifiers: true
+
+test_fail_prefer_quoted_identifiers_exasol:
+  fail_str: SELECT 1 AS foo;
+  fix_str: SELECT 1 AS "foo";
+  configs:
+    core:
+      dialect: exasol
+    rules:
+      references.quoting:
+        prefer_quoted_identifiers: true
+
+test_fail_prefer_quoted_identifiers_greenplum:
+  fail_str: SELECT 1 AS foo;
+  fix_str: SELECT 1 AS "foo";
+  configs:
+    core:
+      dialect: greenplum
+    rules:
+      references.quoting:
+        prefer_quoted_identifiers: true
+
+test_fail_prefer_quoted_identifiers_mysql:
+  fail_str: SELECT 1 AS foo;
+  fix_str: SELECT 1 AS `foo`;
+  configs:
+    core:
+      dialect: mysql
+    rules:
+      references.quoting:
+        prefer_quoted_identifiers: true
+
+test_fail_prefer_quoted_identifiers_oracle:
+  fail_str: SELECT 1 AS foo;
+  fix_str: SELECT 1 AS "foo";
+  configs:
+    core:
+      dialect: oracle
+    rules:
+      references.quoting:
+        prefer_quoted_identifiers: true
+
+test_fail_prefer_quoted_identifiers_postgres:
+  fail_str: SELECT 1 AS foo;
+  fix_str: SELECT 1 AS "foo";
+  configs:
+    core:
+      dialect: postgres
+    rules:
+      references.quoting:
+        force_enable: true
+        prefer_quoted_identifiers: true
+
+test_fail_prefer_quoted_identifiers_redshift:
+  fail_str: SELECT 1 AS foo;
+  fix_str: SELECT 1 AS "foo";
+  configs:
+    core:
+      dialect: redshift
+    rules:
+      references.quoting:
+        prefer_quoted_identifiers: true
+
+test_fail_prefer_quoted_identifiers_snowflake:
+  fail_str: SELECT 1 AS foo;
+  fix_str: SELECT 1 AS "foo";
+  configs:
+    core:
+      dialect: snowflake
+    rules:
+      references.quoting:
+        force_enable: true
+        prefer_quoted_identifiers: true
+
+test_fail_prefer_quoted_identifiers_sparksql:
+  fail_str: SELECT 1 AS foo;
+  fix_str: SELECT 1 AS `foo`;
+  configs:
+    core:
+      dialect: sparksql
+    rules:
+      references.quoting:
+        prefer_quoted_identifiers: true
+
+test_fail_prefer_quoted_identifiers_sqlite:
+  fail_str: SELECT 1 AS foo;
+  fix_str: SELECT 1 AS "foo";
+  configs:
+    core:
+      dialect: sqlite
+    rules:
+      references.quoting:
+        prefer_quoted_identifiers: true
+
+test_fail_prefer_quoted_identifiers_starrocks:
+  fail_str: SELECT 1 AS foo;
+  fix_str: SELECT 1 AS `foo`;
+  configs:
+    core:
+      dialect: starrocks
+    rules:
+      references.quoting:
+        prefer_quoted_identifiers: true
+
+test_fail_prefer_quoted_identifiers_trino:
+  fail_str: SELECT 1 AS foo;
+  fix_str: SELECT 1 AS "foo";
+  configs:
+    core:
+      dialect: trino
+    rules:
+      references.quoting:
+        prefer_quoted_identifiers: true
+
+test_fail_prefer_quoted_identifiers_tsql:
+  fail_str: SELECT 1 AS foo;
+  fix_str: SELECT 1 AS [foo];
+  configs:
+    core:
+      dialect: tsql
+    rules:
+      references.quoting:
+        prefer_quoted_identifiers: true
+
+
 test_pass_column_reference:
   pass_str: |
     SELECT 123 AS foo;
@@ -121,6 +315,8 @@ test_pass_column_reference_prefer_quoted_tsql:
 test_fail_column_reference_prefer_quoted_ansi:
   fail_str: |
     SELECT 123 AS foo;
+  fix_str: |
+    SELECT 123 AS "foo";
   configs:
     rules:
       references.quoting:
@@ -150,6 +346,9 @@ test_fail_table_reference_prefer_quoted_ansi:
   fail_str: |
     SELECT "foo"
     FROM bar;
+  fix_str: |
+    SELECT "foo"
+    FROM "bar";
   configs:
     rules:
       references.quoting:
@@ -159,6 +358,9 @@ test_fail_table_reference_prefer_quoted_tsql:
   fail_str: |
     SELECT [foo]
     FROM bar;
+  fix_str: |
+    SELECT [foo]
+    FROM [bar];
   configs:
     core:
       dialect: tsql
@@ -190,6 +392,9 @@ test_fail_multiple_references_prefer_quoted_ansi:
   fail_str: |
     SELECT "foo"
     FROM bar.baz;
+  fix_str: |
+    SELECT "foo"
+    FROM "bar"."baz";
   configs:
     rules:
       references.quoting:
@@ -199,6 +404,9 @@ test_fail_multiple_references_prefer_quoted_tsql:
   fail_str: |
     SELECT [foo]
     FROM bar.baz;
+  fix_str: |
+    SELECT [foo]
+    FROM [bar].[baz];
   configs:
     core:
       dialect: tsql
@@ -273,6 +481,8 @@ test_pass_column_reference_prefer_quoted_backticks:
 test_fail_column_reference_prefer_quoted_backticks:
   fail_str: |
     SELECT 123 AS foo;
+  fix_str: |
+    SELECT 123 AS `foo`;
   configs:
     core:
       dialect: bigquery
@@ -295,6 +505,9 @@ test_fail_table_reference_prefer_quoted_backticks:
   fail_str: |
     SELECT `foo`
     FROM bar;
+  fix_str: |
+    SELECT `foo`
+    FROM `bar`;
   configs:
     core:
       dialect: bigquery
@@ -317,6 +530,9 @@ test_fail_multiple_references_prefer_quoted_backticks:
   fail_str: |
     SELECT `foo`
     FROM bar.baz;
+  fix_str: |
+    SELECT `foo`
+    FROM `bar`.`baz`;
   configs:
     core:
       dialect: bigquery
@@ -613,5 +829,23 @@ test_pass_exasol_password_literals:
     rules:
       references.quoting:
         prefer_quoted_identifiers: false
+    core:
+      dialect: exasol
+
+test_fail_alter_quoted_user_exasol:
+  fail_str: |
+    ALTER USER "USER1" IDENTIFIED BY "h22_xhz" REPLACE "h12_xhz";
+  fix_str: |
+    ALTER USER USER1 IDENTIFIED BY "h22_xhz" REPLACE "h12_xhz";
+  configs:
+    core:
+      dialect: exasol
+
+test_fail_alter_quoted_consumer_group_exasol:
+  fail_str: |
+    ALTER USER USER1 SET CONSUMER_GROUP = "CEO";
+  fix_str: |
+    ALTER USER USER1 SET CONSUMER_GROUP = CEO;
+  configs:
     core:
       dialect: exasol

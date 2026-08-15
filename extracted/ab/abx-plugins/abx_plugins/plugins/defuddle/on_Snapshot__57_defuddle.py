@@ -5,13 +5,13 @@
 #
 # Extract article content using Defuddle.
 
+import sys
 import argparse
 import html
 import json
 import os
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 from abx_plugins.plugins.base.utils import (
@@ -128,6 +128,7 @@ def main():
             sys.exit(0)
 
         binary = config.DEFUDDLE_BINARY
+        print("Defuddle extraction started", flush=True)
         status, output = extract_defuddle(args.url, binary)
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)

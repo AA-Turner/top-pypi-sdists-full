@@ -1,10 +1,10 @@
 [build-system]
-requires = ["flit_core>=3.2,<4"]
+requires = ["flit_core>=3.2,<5"]
 build-backend = "flit_core.buildapi"
 
 [project]
 name = "microsoft-kiota-serialization-text"
-version = "1.11.8"
+version = "1.11.9"
 description = "Core abstractions for kiota generated libraries in Python"
 authors = [{name = "Microsoft", email = "graphtooling+python@microsoft.com"}]
 license = {text = "MIT"}

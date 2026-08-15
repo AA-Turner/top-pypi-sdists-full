@@ -2,8 +2,8 @@
 """Registry store types and targets.
 
 This module defines the store *types* and parsed *store targets* used by the
-registry tooling to read/write connector metadata and build indexes. Two
-built-in store *types* exist today:
+registry tooling to read/write connector metadata and build indexes. The
+built-in registry types are:
 
 * **coral** -- the Airbyte Cloud/OSS connector registry stored in GCS.
   Connectors are prefixed `source-` or `destination-`.
@@ -11,14 +11,15 @@ built-in store *types* exist today:
   Connectors use bare names (`stripe`, `github`, ...).
 
 A *store target* string combines a store type with an environment and an
-optional path prefix, following the same `<env>[/<prefix>]` convention
-already used by `airbyte_ops_mcp.registry.publish_artifacts.parse_target`:
+optional path prefix. The `local` environment uses a filesystem path after a
+second colon:
 
     "coral:dev"              -> coral dev bucket, no prefix
     "coral:prod"             -> coral prod bucket
     "coral:dev/aj-test100"   -> coral dev bucket, prefix "aj-test100"
     "sonar:prod"             -> sonar prod bucket
     "sonar:dev"              -> sonar dev bucket
+    "coral:local:/tmp/output" -> local coral output
 
 Auto-detection
 --------------
@@ -37,6 +38,7 @@ from __future__ import annotations
 
 import logging
 import os
+import tempfile
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -132,6 +134,9 @@ BUCKET_MAP: dict[StoreType, dict[str, str]] = {
 class RegistryStore:
     """Parsed store target (type + environment + optional prefix).
 
+    `read_only` is an internal invariant used to ensure a source store
+    cannot yield a writable filesystem client.
+
     Examples::
 
         RegistryStore.parse("coral:dev")
@@ -145,12 +150,30 @@ class RegistryStore:
     store_type: StoreType
     env: str
     prefix: str = ""
+    read_only: bool = False
+    local_path: Path | None = None
+
+    def __post_init__(self) -> None:
+        """Validate local target fields and allocate omitted paths."""
+        if self.env == "local":
+            if self.prefix:
+                raise ValueError("Local store targets cannot have a prefix.")
+            if self.local_path is None:
+                object.__setattr__(
+                    self,
+                    "local_path",
+                    Path(tempfile.mkdtemp(prefix="airbyte-registry-")),
+                )
+        elif self.local_path is not None:
+            raise ValueError("Only local store targets may have a local path.")
 
     # -- Derived helpers -----------------------------------------------------
 
     @property
     def bucket(self) -> str:
         """Resolve the concrete bucket name for this target."""
+        if self.env == "local":
+            raise ValueError("Local stores do not have a bucket.")
         env_map = BUCKET_MAP.get(self.store_type)
         if env_map is None:
             raise ValueError(f"Unknown store type: {self.store_type!r}")
@@ -164,7 +187,10 @@ class RegistryStore:
 
     @property
     def bucket_root(self) -> str:
-        """Bucket name with optional prefix appended (`bucket/prefix`)."""
+        """Bucket or local root with optional prefix appended."""
+        if self.env == "local":
+            assert self.local_path is not None
+            return str(self.local_path)
         if self.prefix:
             return f"{self.bucket}/{self.prefix}"
         return self.bucket
@@ -182,6 +208,7 @@ class RegistryStore:
             "coral:prod"
             "coral:dev/aj-test100"
             "sonar:prod"
+            "coral:local:/tmp/registry-output"
 
         Raises:
             ValueError: If the string cannot be parsed or references an
@@ -207,6 +234,13 @@ class RegistryStore:
         store_type = valid_types[store_part_lower]
 
         # Split env and prefix
+        if env_part.startswith("local:"):
+            local_path_text = env_part.removeprefix("local:")
+            return cls(
+                store_type=store_type,
+                env="local",
+                local_path=Path(local_path_text) if local_path_text else None,
+            )
         env_key, _, prefix = env_part.partition("/")
         prefix = prefix.strip("/")
 

@@ -84,6 +84,8 @@ if TYPE_CHECKING:
         PythonVersion,
         PythonVersionMin,
     )
+    from datamodel_code_generator._publication import PublicationAnchor
+    from datamodel_code_generator._python_type_annotation import PythonTypeExpr
     from datamodel_code_generator._types import (
         AsyncAPIParserConfigDict,
         AvroParserConfigDict,
@@ -96,13 +98,50 @@ if TYPE_CHECKING:
     )
     from datamodel_code_generator._types.generate_config_dict import GenerateConfigDict
     from datamodel_code_generator.config import GenerateConfig
+    from datamodel_code_generator.model import DataModelSet
     from datamodel_code_generator.model_metadata import ModelMetadata
+    from datamodel_code_generator.parser.base import Result
     from datamodel_code_generator.remote_lock import RemoteReferenceLock
 
 T = TypeVar("T")
 
 YamlScalar: TypeAlias = str | int | float | bool | None
 YamlValue = TypeAliasType("YamlValue", "dict[str, YamlValue] | list[YamlValue] | YamlScalar")
+
+
+if TYPE_CHECKING:
+    _SchemaVersion = TypeVar(
+        "_SchemaVersion",
+        JsonSchemaVersion,
+        OpenAPIVersion,
+        AsyncAPIVersion,
+        XMLSchemaVersion,
+        ProtobufVersion,
+    )
+    _GenerationInput: TypeAlias = Path | str | ParseResult | Mapping[str, Any] | list[Any]
+    _ParserResults: TypeAlias = str | dict[tuple[str, ...], Result]
+    _ParserSource: TypeAlias = str | Path | list[Path] | ParseResult | dict[str, Any]
+    _PythonTypeExpressions: TypeAlias = Mapping[str, PythonTypeExpr]
+    _StagedArtifact: TypeAlias = tuple[Path, Path, PublicationAnchor, Path, Path]
+    _PreparedGenerationInput: TypeAlias = tuple[
+        GenerateConfig,
+        _GenerationInput,
+        str | None,
+        InputFileType,
+        DataclassArguments,
+        Mapping[str, Any] | None,
+        Path | None,
+        bool,
+        RemoteReferenceLock | None,
+    ]
+    _PreparedParser: TypeAlias = tuple[
+        DataModelSet,
+        _ParserSource,
+        bool,
+        ParserConfigDict,
+        _PythonTypeExpressions | None,
+    ]
+    _ParsedGeneration: TypeAlias = tuple[_ParserResults, ModelMetadata | None, DataModelSet, bool]
 
 
 GeneratedModules: TypeAlias = dict[tuple[str, ...], str]
@@ -593,7 +632,7 @@ def _normalized_absolute_path(path: Path, *, resolve_aliases: bool = False) -> P
 
 
 def _validate_generation_path_conflicts(  # noqa: PLR0912
-    input_: Path | str | ParseResult | Mapping[str, Any] | list[Any],
+    input_: _GenerationInput,
     output: Path | None,
     model_metadata: Path | None,
     lockfile: Path | None = None,
@@ -1061,7 +1100,7 @@ def _generate_config_values(generate_config: GenerateConfig) -> dict[str, Any]:
 
 
 def _warn_if_input_string_points_to_existing_path(
-    input_: Path | str | ParseResult | Mapping[str, Any] | list[Any],
+    input_: _GenerationInput,
 ) -> None:
     match input_:
         case str() as input_text if input_text and "\n" not in input_text and "\r" not in input_text:
@@ -1088,7 +1127,7 @@ def _warn_if_input_string_points_to_existing_path(
 
 @contextlib.contextmanager
 def _warn_on_input_string_path_failure(
-    input_: Path | str | ParseResult | Mapping[str, Any] | list[Any],
+    input_: _GenerationInput,
 ) -> Iterator[None]:
     try:
         yield
@@ -1099,13 +1138,7 @@ def _warn_on_input_string_path_failure(
 
 def _create_parser_config(
     generate_config: GenerateConfig,
-    additional_options: ParserConfigDict
-    | AvroParserConfigDict
-    | JSONSchemaParserConfigDict
-    | OpenAPIParserConfigDict
-    | AsyncAPIParserConfigDict
-    | GraphQLParserConfigDict
-    | ProtobufParserConfigDict,
+    additional_options: ParserConfigDict,
 ) -> Any:
     """Create a parser config from GenerateConfig with additional options.
 
@@ -1126,7 +1159,7 @@ _SchemaVersions: TypeAlias = tuple[
 ]
 
 
-def _parse_schema_version(enum_type: Any, schema_version: str, label: str) -> Any:
+def _parse_schema_version(enum_type: type[_SchemaVersion], schema_version: str, label: str) -> _SchemaVersion:
     try:
         return enum_type(schema_version)
     except ValueError:
@@ -1136,44 +1169,29 @@ def _parse_schema_version(enum_type: Any, schema_version: str, label: str) -> An
 
 
 def _resolve_schema_versions(input_file_type: InputFileType, schema_version: str | None) -> _SchemaVersions:
-    jsonschema_version: JsonSchemaVersion | None = None
-    openapi_version: OpenAPIVersion | None = None
-    asyncapi_version: AsyncAPIVersion | None = None
-    xmlschema_version: XMLSchemaVersion | None = None
-    protobuf_version: ProtobufVersion | None = None
     if not schema_version or schema_version == "auto":
-        return jsonschema_version, openapi_version, asyncapi_version, xmlschema_version, protobuf_version
+        return None, None, None, None, None
 
-    if input_file_type == InputFileType.Avro:
-        msg = "--schema-version is not supported for avro because Avro schemas do not carry a version marker"
-        raise Error(msg)
-    if input_file_type == InputFileType.GraphQL:
-        msg = f"--schema-version is not supported for {input_file_type.value}"
-        raise Error(msg)
-
-    version_targets = {
-        InputFileType.OpenAPI: (OpenAPIVersion, "OpenAPI"),
-        InputFileType.AsyncAPI: (AsyncAPIVersion, "AsyncAPI"),
-        InputFileType.XMLSchema: (XMLSchemaVersion, "XML Schema"),
-        InputFileType.Protobuf: (ProtobufVersion, "Protobuf"),
-    }
-    enum_type, label = version_targets.get(input_file_type, (JsonSchemaVersion, "JSON Schema"))
-    version = _parse_schema_version(enum_type, schema_version, label)
     match input_file_type:
+        case InputFileType.Avro:
+            msg = "--schema-version is not supported for avro because Avro schemas do not carry a version marker"
+            raise Error(msg)
+        case InputFileType.GraphQL:
+            msg = f"--schema-version is not supported for {input_file_type.value}"
+            raise Error(msg)
         case InputFileType.OpenAPI:
-            openapi_version = version
+            return None, _parse_schema_version(OpenAPIVersion, schema_version, "OpenAPI"), None, None, None
         case InputFileType.AsyncAPI:
-            asyncapi_version = version
+            return None, None, _parse_schema_version(AsyncAPIVersion, schema_version, "AsyncAPI"), None, None
         case InputFileType.XMLSchema:
-            xmlschema_version = version
+            return None, None, None, _parse_schema_version(XMLSchemaVersion, schema_version, "XML Schema"), None
         case InputFileType.Protobuf:
-            protobuf_version = version
+            return None, None, None, None, _parse_schema_version(ProtobufVersion, schema_version, "Protobuf")
         case _:
-            jsonschema_version = version
-    return jsonschema_version, openapi_version, asyncapi_version, xmlschema_version, protobuf_version
+            return _parse_schema_version(JsonSchemaVersion, schema_version, "JSON Schema"), None, None, None, None
 
 
-def _openapi_shared_options(config: GenerateConfig) -> dict[str, Any]:
+def _openapi_shared_options(config: GenerateConfig) -> OpenAPIParserConfigDict:
     return {
         "openapi_scopes": config.openapi_scopes,
         "include_path_parameters": config.include_path_parameters,
@@ -1184,7 +1202,7 @@ def _openapi_shared_options(config: GenerateConfig) -> dict[str, Any]:
 
 
 def _normalize_raw_input(  # noqa: PLR0912, PLR0915
-    input_: Path | str | ParseResult | Mapping[str, Any] | list[Any],
+    input_: _GenerationInput,
     input_text: str | None,
     input_file_type: InputFileType,
     config: GenerateConfig,
@@ -1259,7 +1277,7 @@ def _normalize_raw_input(  # noqa: PLR0912, PLR0915
 
 
 def _convert_mcp_tools(
-    input_: Path | str | ParseResult | Mapping[str, Any] | list[Any],
+    input_: _GenerationInput,
     input_text: str | None,
     config: GenerateConfig,
     remote_text_cache: DefaultPutDict[str, str],
@@ -1299,7 +1317,7 @@ def _convert_mcp_tools(
 
 
 def _validate_mapping_input(
-    input_: Path | str | ParseResult | Mapping[str, Any] | list[Any],
+    input_: _GenerationInput,
     input_file_type: InputFileType,
 ) -> None:
     """Reject mapping inputs for formats that require text or a file."""
@@ -1344,7 +1362,7 @@ def _uses_pydantic_v2_schema_validator(config: GenerateConfig) -> bool:
 
 
 def _prepare_parser_common_options(  # noqa: PLR0912, PLR0913, PLR0917
-    input_: Path | str | ParseResult | Mapping[str, Any] | list[Any],
+    input_: _GenerationInput,
     input_text: str | None,
     input_file_type: InputFileType,
     source_override: Mapping[str, Any] | None,
@@ -1354,7 +1372,7 @@ def _prepare_parser_common_options(  # noqa: PLR0912, PLR0913, PLR0917
     *,
     skip_root_model: bool,
     remote_text_cache: DefaultPutDict[str, str],
-) -> tuple[Any, Any, bool, ParserConfigDict, Mapping[str, Any] | None]:
+) -> _PreparedParser:
     if config.union_mode is not None:
         if config.output_model_type == DataModelType.PydanticV2BaseModel:
             default_field_extras = {"union_mode": config.union_mode}
@@ -1377,7 +1395,7 @@ def _prepare_parser_common_options(  # noqa: PLR0912, PLR0913, PLR0917
         include_graphql_models=input_file_type == InputFileType.GraphQL,
     )
 
-    python_type_expressions: Mapping[str, Any] | None = None
+    python_type_expressions: _PythonTypeExpressions | None = None
     if source_override is not None:
         source = dict(source_override)
     elif isinstance(input_, Mapping) and input_file_type not in RAW_DATA_TYPES:
@@ -1448,14 +1466,14 @@ def _build_parser(  # noqa: PLR0911, PLR0913
     source: Any,
     config: GenerateConfig,
     additional_options: ParserConfigDict,
-    data_model_types: Any,
+    data_model_types: DataModelSet,
     *,
     jsonschema_version: JsonSchemaVersion | None,
     openapi_version: OpenAPIVersion | None,
     asyncapi_version: AsyncAPIVersion | None,
     xmlschema_version: XMLSchemaVersion | None,
     protobuf_version: ProtobufVersion | None,
-    python_type_expressions: Mapping[str, Any] | None = None,
+    python_type_expressions: _PythonTypeExpressions | None = None,
 ) -> Any:
     match input_file_type:
         case InputFileType.OpenAPI:
@@ -1533,7 +1551,7 @@ def _build_parser(  # noqa: PLR0911, PLR0913
 
 
 def _emit_stdout_results(
-    results: str | dict[tuple[str, ...], Any],
+    results: _ParserResults,
     input_filename: str | None,
     header_prefix: str,
     header_suffix: str | None,
@@ -1563,7 +1581,7 @@ def _emit_stdout_results(
 
 
 def _write_results_to_output(  # noqa: PLR0913
-    results: str | dict[tuple[str, ...], Any],
+    results: _ParserResults,
     output: Path,
     config: GenerateConfig,
     *,
@@ -1615,7 +1633,7 @@ def _write_results_to_output(  # noqa: PLR0913
 def _format_deferred_output(
     output: Path,
     config: GenerateConfig,
-    data_model_types: Any,
+    data_model_types: DataModelSet,
     settings_path: Path,
 ) -> None:
     """Apply deferred Ruff formatting only when a Ruff formatter is configured."""
@@ -1652,14 +1670,14 @@ def _format_deferred_output(
 
 
 def _emit_results(  # noqa: PLR0913
-    results: str | dict[tuple[str, ...], Any],
-    input_: Path | str | ParseResult | Mapping[str, Any] | list[Any],
+    results: _ParserResults,
+    input_: _GenerationInput,
     input_filename: str | None,
     custom_file_header: str | None,
     config: GenerateConfig,
     *,
     defer_formatting: bool,
-    data_model_types: Any,
+    data_model_types: DataModelSet,
     settings_path: Path,
 ) -> str | GeneratedModules | None:
     if not input_filename:  # pragma: no cover
@@ -1761,28 +1779,25 @@ def generate(
     config = _apply_generate_config_preset(config)
     config = _apply_missing_sentinel_config(config)
 
-    if (
+    atomic_remote_update = (
         config.update_lock
         and not config.remote_lock_resolved
         and (config.output is not None or config.emit_model_metadata is not None)
-    ):
-        if config.output is not None and _uses_legacy_process_state(config):
-            with PROCESS_STATE_LOCK:
-                return _generate_with_atomic_remote_update(input_, config, Path.cwd(), use_output_cwd=True)
-        with PROCESS_STATE_LOCK:
-            caller_cwd = Path.cwd()
-        return _generate_with_atomic_remote_update(input_, config, caller_cwd, use_output_cwd=False)
-
+    )
     if config.output is not None and _uses_legacy_process_state(config):
         with PROCESS_STATE_LOCK:
-            return _generate(input_, config, Path.cwd(), use_output_cwd=config.output is not None)
+            return (_generate_with_atomic_remote_update if atomic_remote_update else _generate)(
+                input_, config, Path.cwd(), use_output_cwd=atomic_remote_update or config.output is not None
+            )
     with PROCESS_STATE_LOCK:
         caller_cwd = Path.cwd()
-    return _generate(input_, config, caller_cwd, use_output_cwd=False)
+    return (_generate_with_atomic_remote_update if atomic_remote_update else _generate)(
+        input_, config, caller_cwd, use_output_cwd=False
+    )
 
 
 def _generate_with_atomic_remote_update(  # noqa: PLR0912, PLR0914, PLR0915
-    input_: Path | str | ParseResult | Mapping[str, Any] | list[Any],
+    input_: _GenerationInput,
     config: GenerateConfig,
     caller_cwd: Path,
     *,
@@ -1815,12 +1830,12 @@ def _generate_with_atomic_remote_update(  # noqa: PLR0912, PLR0914, PLR0915
     _validate_generation_path_conflicts(input_, config.output, config.emit_model_metadata, canonical_lockfile)
     remote_lock = RemoteReferenceLock.open(canonical_lockfile, update=True, locked=False)
     contexts: list[tempfile.TemporaryDirectory[str]] = []
-    anchors = []
-    lock_anchor = None
-    lock_staging = None
+    anchors: list[PublicationAnchor] = []
+    lock_anchor: PublicationAnchor | None = None
+    lock_staging: StagingDirectory | None = None
     try:
         staged_updates: dict[str, Path] = {}
-        staged_artifacts: list[tuple[Path, Path, Any, Path, Path]] = []
+        staged_artifacts: list[_StagedArtifact] = []
         if (output := config.output) is not None:
             output_parent = Path(os.path.abspath(output.expanduser())).parent  # noqa: PTH100
             while not output_parent.exists():
@@ -1960,17 +1975,17 @@ def _copy_generation_extra_template_data(config: GenerateConfig) -> defaultdict[
 
 
 def _build_generation_parser(  # noqa: PLR0913, PLR0917
-    input_: Path | str | ParseResult | Mapping[str, Any] | list[Any],
+    input_: _GenerationInput,
     input_file_type: InputFileType,
-    parser_source: Any,
+    parser_source: _ParserSource,
     config: GenerateConfig,
     parser_options: ParserConfigDict,
-    data_model_types: Any,
+    data_model_types: DataModelSet,
     schema_versions: _SchemaVersions,
     diagnostic_source_path: Path | None,
     *,
     reference_cache: Any | None = None,
-    python_type_expressions: Mapping[str, Any] | None = None,
+    python_type_expressions: _PythonTypeExpressions | None = None,
 ) -> Any:
     """Build one fresh parser using the caller's reference-resolution base."""
     jsonschema_version, openapi_version, asyncapi_version, xmlschema_version, protobuf_version = schema_versions
@@ -1995,7 +2010,7 @@ def _build_generation_parser(  # noqa: PLR0913, PLR0917
 
 
 def _prepare_generation_input(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
-    input_: Path | str | ParseResult | Mapping[str, Any] | list[Any],
+    input_: _GenerationInput,
     config: GenerateConfig,
     caller_cwd: Path,
     remote_text_cache: DefaultPutDict[str, str],
@@ -2003,17 +2018,7 @@ def _prepare_generation_input(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
     input_file_type: InputFileType,
     dataclass_arguments: DataclassArguments | None,
     skip_root_model: bool,
-) -> tuple[
-    GenerateConfig,
-    Path | str | ParseResult | Mapping[str, Any] | list[Any],
-    str | None,
-    InputFileType,
-    DataclassArguments,
-    Mapping[str, Any] | None,
-    Path | None,
-    bool,
-    RemoteReferenceLock | None,
-]:
+) -> _PreparedGenerationInput:
     """Normalize input, resolve the remote lock, and retain only parse-ready values."""
     if (
         isinstance(input_, list)
@@ -2156,14 +2161,14 @@ def _prepare_generation_input(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
 
 
 def _parse_with_disposal(  # noqa: PLR0913
-    input_: Path | str | ParseResult | Mapping[str, Any] | list[Any],
+    input_: _GenerationInput,
     parser: Any,
     config: GenerateConfig,
     *,
     parser_settings_path: Path | None,
     use_output_cwd: bool,
     output_context_path: Path,
-) -> Any:
+) -> _ParserResults:
     """Parse with one parser and dispose it if parsing fails."""
     if not use_output_cwd:
         parser._formatter_cwd = output_context_path  # noqa: SLF001
@@ -2188,26 +2193,26 @@ def _parse_with_disposal(  # noqa: PLR0913
 
 
 def _parse_generation(  # noqa: PLR0913, PLR0914, PLR0917
-    input_: Path | str | ParseResult | Mapping[str, Any] | list[Any],
+    input_: _GenerationInput,
     input_text: str | None,
     input_file_type: InputFileType,
     source_override: Mapping[str, Any] | None,
     config: GenerateConfig,
-    parser_source: Any,
+    parser_source: _ParserSource,
     parser_options: ParserConfigDict,
-    data_model_types: Any,
+    data_model_types: DataModelSet,
     defer_formatting: bool,  # noqa: FBT001
     extra_template_data: defaultdict[str, dict[str, Any]] | None,
     dataclass_arguments: DataclassArguments,
     *,
-    python_type_expressions: Mapping[str, Any] | None,
+    python_type_expressions: _PythonTypeExpressions | None,
     skip_root_model: bool,
     schema_versions: _SchemaVersions,
     diagnostic_source_path: Path | None,
     parser_settings_path: Path | None,
     use_output_cwd: bool,
     output_context_path: Path,
-) -> tuple[Any, ModelMetadata | None, Any, bool]:
+) -> _ParsedGeneration:
     """Parse, dispose, and optionally retry invalid dotted stdout inside the output cwd."""
     # Phase 3: build before chdir so initial reference resolution keeps the caller's cwd.
     parser = _build_generation_parser(
@@ -2316,11 +2321,11 @@ def _parse_generation(  # noqa: PLR0913, PLR0914, PLR0917
 
 
 def _emit_generation(  # noqa: PLR0913
-    results: str | dict[tuple[str, ...], Any],
-    input_: Path | str | ParseResult | Mapping[str, Any] | list[Any],
+    results: _ParserResults,
+    input_: _GenerationInput,
     config: GenerateConfig,
     model_metadata: ModelMetadata | None,
-    data_model_types: Any,
+    data_model_types: DataModelSet,
     *,
     input_filename: str | None,
     custom_file_header: str | None,
@@ -2347,7 +2352,7 @@ def _emit_generation(  # noqa: PLR0913
 
 
 def _generate(  # noqa: PLR0914
-    input_: Path | str | ParseResult | Mapping[str, Any] | list[Any],
+    input_: _GenerationInput,
     config: GenerateConfig,
     caller_cwd: Path,
     *,

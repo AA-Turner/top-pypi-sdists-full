@@ -635,6 +635,149 @@ Rules:
 )
 
 
+# Everyday abbreviations models pass verbatim ("time in PST?") mapped to IANA zones.
+_TZ_ALIASES = {
+    "pst": "America/Los_Angeles",
+    "pdt": "America/Los_Angeles",
+    "mst": "America/Denver",
+    "mdt": "America/Denver",
+    "cst": "America/Chicago",
+    "cdt": "America/Chicago",
+    "est": "America/New_York",
+    "edt": "America/New_York",
+    "gmt": "Etc/GMT",
+    "utc": "UTC",
+    "bst": "Europe/London",
+    "cet": "Europe/Paris",
+    "cest": "Europe/Paris",
+    "ist": "Asia/Jerusalem",
+    "idt": "Asia/Jerusalem",
+    "jst": "Asia/Tokyo",
+    "aest": "Australia/Sydney",
+    "aedt": "Australia/Sydney",
+}
+
+_MAX_TIME_TIMEZONES = 8
+
+
+def _build_current_time_tool() -> Any:
+    """Build the ``xpget_current_time`` agno Function.
+
+    The context clock line is hour-coarsened so the cached prompt prefix stays
+    byte-identical within the hour; this tool is the minute-accurate complement.
+    """
+    from agno.tools.function import Function
+
+    def _entrypoint(payload: Optional[Union[Dict[str, Any], str]] = None) -> str:
+        """Return the precise current time in UTC plus any requested timezones."""
+        from datetime import datetime, timezone as _utc_tz
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+        if isinstance(payload, str):
+            parsed = parse_structured_string(payload)
+            payload = parsed if isinstance(parsed, dict) else {}
+        requested = (payload or {}).get("timezones") or []
+        if isinstance(requested, str):
+            requested = [requested]
+        now_utc = datetime.now(_utc_tz.utc)
+
+        def _entry(tz_name: str) -> Dict[str, str]:
+            local = now_utc.astimezone(
+                ZoneInfo(_TZ_ALIASES.get(tz_name.strip().lower(), tz_name.strip()))
+            )
+            offset = local.strftime("%z")
+            return {
+                "time": local.strftime("%Y-%m-%d %H:%M"),
+                "weekday": local.strftime("%A"),
+                "utc_offset": offset[:3] + ":" + offset[3:],
+                "abbreviation": local.strftime("%Z"),
+            }
+
+        out: Dict[str, Any] = {"UTC": _entry("UTC")}
+        # "utc" is pre-seeded so case variants can't produce a duplicate entry.
+        seen = {"utc"}
+        wanted: List[str] = []
+        for raw_name in requested:
+            tz_name = str(raw_name).strip()
+            if tz_name and tz_name.lower() not in seen:
+                seen.add(tz_name.lower())
+                wanted.append(tz_name)
+        dropped = wanted[_MAX_TIME_TIMEZONES:]
+        wanted = wanted[:_MAX_TIME_TIMEZONES]
+        for tz_name in wanted:
+            try:
+                out[tz_name] = _entry(tz_name)
+            except (ZoneInfoNotFoundError, ValueError):
+                out[tz_name] = {
+                    "error": (
+                        f"Unknown timezone '{tz_name}' - use an IANA name "
+                        "like 'America/Los_Angeles'."
+                    )
+                }
+            except Exception as exc:
+                logger.warning(f"[current-time] lookup failed for '{tz_name}': {exc}")
+                out[tz_name] = {"error": f"Time lookup failed for '{tz_name}'."}
+        if dropped:
+            out["_note"] = (
+                f"Skipped {len(dropped)} timezones beyond the "
+                f"{_MAX_TIME_TIMEZONES}-timezone cap: {', '.join(dropped)}."
+            )
+        return json.dumps(out)
+
+    return Function(
+        name="xpget_current_time",
+        description=(
+            "Get the exact current time. The clock line in your context is coarsened to "
+            "the hour; this tool returns the minute-accurate now. Call it whenever the "
+            "user asks the time or date, or when a precise now matters (scheduling "
+            "arithmetic, deadlines, countdowns). Returns UTC plus one entry per requested "
+            "timezone; state the timezone in your answer. "
+            "Wrap arguments in a `payload` object."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "payload": {
+                    "type": "object",
+                    "properties": {
+                        "timezones": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": (
+                                "IANA timezone names to include, e.g. "
+                                '["America/Los_Angeles", "Asia/Jerusalem"]. '
+                                "Common abbreviations (PST, EST, IST, ...) are "
+                                "accepted. Optional - UTC always comes back; "
+                                "up to 8 per call."
+                            ),
+                        },
+                        "headers": {
+                            "type": "object",
+                            "properties": {
+                                "toolcallreasoningtitle": {
+                                    "type": "string",
+                                    "description": 'Action-oriented title (max 5 words) describing the purpose. Example: "Check the current time".',
+                                },
+                                "toolcallreasoningdescription": {
+                                    "type": "string",
+                                    "description": 'One-sentence markdown summary of the action and goal (max 100 characters). Example: "Fetch the precise current time in the user\'s timezone."',
+                                },
+                            },
+                            "required": [
+                                "toolcallreasoningtitle",
+                                "toolcallreasoningdescription",
+                            ],
+                        },
+                    },
+                    "required": ["headers"],
+                },
+            },
+            "required": ["payload"],
+        },
+        entrypoint=_entrypoint,
+    )
+
+
 def _build_compact_tool():
     """Build the ``xpcompact_context`` agno Function.
 
@@ -2045,6 +2188,9 @@ async def build_agent_args(
     if tools and len(tools) != 0:
         args["tools"].extend(tools)
 
+    # The context clock is hour-coarsened for prompt caching; this is the precise clock.
+    args["tools"].append(_build_current_time_tool())
+
     _mem_user = task.input.user if task and task.input else None
     _mem_enabled = args.pop("_xpander_memory_enabled", True)
     if (
@@ -2203,6 +2349,8 @@ async def build_agent_args(
             # cache_control/cachePoint). Hour granularity keeps useful date/time
             # context while letting the prefix stay byte-identical within the hour.
             "datetime_format": "%Y-%m-%d %H:00 %Z",
+            # Without this agno uses naive local time and %Z renders as an empty string.
+            "timezone_identifier": "UTC",
         }
     )
 

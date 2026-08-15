@@ -582,6 +582,61 @@ def test_component_block_field_absent_component_is_a_noop(generated_rules) -> No
     assert render_migrations("other:\n  old_key: 1\n") is None
 
 
+def test_component_block_field_list_form_renames_every_item(generated_rules) -> None:
+    """The multi_conf shape (xiaomi_rtcgq02lm esp32_ble_id -> ble_hub_id)."""
+    generated_rules(_BLOCK_RULE)
+    text = "mycomp:\n  - old_key: a  # note\n    other: 1\n  - old_key: b\n"
+    new_text = _respell(text)
+    assert "  - new_key: a  # note\n" in new_text
+    assert "  - new_key: b\n" in new_text
+    assert "    other: 1\n" in new_text
+
+
+def test_component_block_field_list_item_collision_skips_that_item(generated_rules) -> None:
+    generated_rules(_BLOCK_RULE)
+    text = "mycomp:\n  - old_key: a\n    new_key: b\n  - old_key: c\n"
+    new_text = _respell(text)
+    assert "  - old_key: a\n" in new_text
+    assert "  - new_key: c\n" in new_text
+
+
+def test_component_block_field_list_ignores_deeper_decoys(generated_rules) -> None:
+    generated_rules(_BLOCK_RULE)
+    assert render_migrations("mycomp:\n  - child:\n      old_key: 1\n") is None
+
+
+def test_component_block_field_mapping_with_nested_list_stays_mapping(generated_rules) -> None:
+    """A dash inside a mapping body is a nested list, not the multi_conf form."""
+    generated_rules(_BLOCK_RULE)
+    text = "mycomp:\n  seq:\n    - old_key: nested\n  old_key: 1\n"
+    new_text = _respell(text)
+    assert "  new_key: 1\n" in new_text
+    assert "    - old_key: nested\n" in new_text
+
+
+def test_component_block_field_mapping_key_before_nested_automation(generated_rules) -> None:
+    """The ble_client shape: the real key beside an on_x automation list."""
+    generated_rules(_BLOCK_RULE)
+    text = "mycomp:\n  old_key: my_tracker\n  on_connect:\n    - lambda: 'x'\n"
+    new_text = _respell(text)
+    assert "  new_key: my_tracker\n" in new_text
+    assert "    - lambda: 'x'\n" in new_text
+
+
+def test_component_block_field_leading_comment_does_not_decide_form(generated_rules) -> None:
+    generated_rules(_BLOCK_RULE)
+    text = "mycomp:\n  # items\n\n  - old_key: a\n"
+    assert "  - new_key: a\n" in _respell(text)
+
+
+def test_component_block_field_mapping_scalar_dash_is_not_the_form(generated_rules) -> None:
+    generated_rules(_BLOCK_RULE)
+    text = "mycomp:\n  lambda: |-\n    - old_key: fake\n  old_key: 1\n"
+    new_text = _respell(text)
+    assert "  new_key: 1\n" in new_text
+    assert "    - old_key: fake\n" in new_text
+
+
 def test_generated_and_bespoke_rules_share_one_diff(generated_rules) -> None:
     generated_rules(_VOC_RULE)
     text = _LEGACY_API_YAML + "\n" + _SGP4X_YAML

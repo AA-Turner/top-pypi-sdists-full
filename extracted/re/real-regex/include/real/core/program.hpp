@@ -511,6 +511,25 @@ namespace real {
       std::uint8_t                 inner_literal_len    {};   //!< Bytes held in \ref inner_literal; 0 means the pattern has no required inner literal.
       std::int32_t                 inner_literal_prefix {-1}; //!< Top-level children before the literal; 0 = at the head, -1 = nested with no clean boundary.
 
+      /*!
+       * \brief Every `save` in this program writes slot 0 or slot 1, so a thread's whole capture state is
+       *        the group-0 START and nothing else.
+       *
+       * STRUCTURAL, not empirical: `compile()` emits `save 0` at pc 0 and `save 1` immediately before
+       * `match`, and emits no other `save` unless the pattern has a capture GROUP. So "no save past slot 1"
+       * is exactly "no groups" -- but it is derived here by SCANNING the code rather than from
+       * `group_count`, so it holds for any producer of a program, including one added later.
+       *
+       * What it licenses: the epsilon walk need not carry a refcounted capture block per branch. `save 0`
+       * sits at pc 0, so every thread one `add_thread` call adds shares one start -- either the one passed
+       * in, or `pos` if the walk crossed the head -- and both are single `std::size_t` values in the call
+       * frame. That is why this must be a GUARD and not an assumption: a program whose `save 0` sat behind
+       * a split would let one branch inherit its sibling's start, which is a wrong ANSWER, and this
+       * repository has already been bitten three times by a value that no longer fits going unchecked
+       * (tests/frontend/test_index_and_range_limits.cpp).
+       */
+      bool                         capture_free_walk    {false};
+
       //! \brief For a \ref fixed_shape run that is also HOMOGENEOUS -- every position accepts the
       //!        identical byte set, itself expressible as <= 2 contiguous ranges (`[0-9a-f]{8}`,
       //!        `\d{4}`) -- the shared range bounds and run length, driving the SIMD scan+verify
@@ -807,6 +826,29 @@ namespace real {
       const std::uint8_t*             cp_ascii_tables {nullptr}; //!< Flat ASCII tables per `cp_class`: `[i * 256 + b]`. Null as \ref class_tables.
       const std::uint64_t*            cp_page_tables  {nullptr}; //!< Flat page bitmaps per `cp_class`: `[i * 30]`. Null as \ref class_tables.
     };
+
+    /*!
+     * \brief This view is COPIED ON EVERY `find_iter` AND `count_matches` CALL, so its size is a per-call
+     *        cost and growing it is a decision, not a detail.
+     *
+     * A ceiling rather than a stopwatch, and that is the point. A per-call cost of this shape is fixed:
+     * it does not scale with the subject, so it vanishes into the noise of any throughput row and shows up
+     * only on short inputs. `benchmarks/bench_minimal.cpp` records the attempt to guard it by timing --
+     * the two candidate rows' measured noise floors were 6.2 % and 6.6 %, the worst two of 28, against an
+     * effect worth about 6.5 %. Counting is what works here, which is the same conclusion v2026.8.14
+     * reached when it found five allocations per call by size and by symbol rather than by stopwatch.
+     *
+     * The number is not a target to hit but a line to notice crossing: 10 spans (160) + \ref pattern_hints
+     * (240) + the scalars and pointers. Lower it when the view shrinks, and raise it only with the reason
+     * written down -- a change that adds a span here charges 16 bytes to every call on both surfaces.
+     *
+     * Guarded on the pointer width because `std::span` is two pointers: a literal byte count would fail on
+     * a 32-bit target for no reason (this project has a `win32-narrowing` CI leg), and the concern -- do
+     * not silently make the per-call copy bigger -- is the same on any width.
+     */
+    static_assert(sizeof(void*) != 8 || sizeof(program_view) <= 440,
+                  "program_view grew: it is copied once per find_iter/count_matches call. See the note "
+                  "above -- raise this ceiling deliberately, with the per-call cost accepted in writing.");
 
     /*!
      * \brief Owning, heap-allocated program: the storage backing `real::regex`.

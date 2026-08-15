@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from .. import activity as _activity
+from ..hubio.client import CommitFile, CommitResult, HubClient, files_from_tree
+from ..hubio.publish_state import JOURNAL_NAME
 from ..models.ladder import (
     CLASS_BASE,
     Placement,
@@ -24,10 +26,9 @@ from ..models.ladder import (
     placement_to_metadata,
 )
 from .dtype_pins import verify_produced_tree
-from ..hubio.client import CommitFile, CommitResult, HubClient, files_from_tree
-from ..hubio.journal import JOURNAL_NAME
 from .produced import ProducedFlavor
 from .writer import assert_one_file_per_component
+from ..models.file_layout import validate_file_layout
 
 _PLACEMENT_ATTR_KEYS = ("placement_sm_allowed", "placement_sm_min", "placement_engines")
 
@@ -238,7 +239,7 @@ def publish_flavors(
             tags=list(tags or []),
             mode=mode,
             # The conversion producer's own legs. (The per-object liveness beat
-            # lives in the data plane itself — `chunk_upload._beat` — so it
+            # lives in HashRepo's transfer progress callback, so it
             # cannot be lost by a caller who forgets to pass a callback.)
             on_stage=functools.partial(_publish_leg, dest, label),
             journal_path=journal_path or _journal_beside(flavor),
@@ -246,7 +247,7 @@ def publish_flavors(
             # header before recording it.
             artifact_contract=attrs.get("artifact_contract", ""),
             dtype=attrs.get("dtype", ""),
-            file_layout=attrs.get("file_layout", ""),
+            file_layout=validate_file_layout(attrs.get("file_layout", "")),
             file_type=attrs.get("file_type", ""),
             objective=str(objective or ""),
             distilled=distilled,

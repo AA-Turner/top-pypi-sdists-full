@@ -76,6 +76,13 @@ class TestRetrieverEvaluationsApi(unittest.TestCase):
         """
         pass
 
+    def test_score_predictions_evaluations(self) -> None:
+        """Test case for score_predictions_evaluations
+
+        Score predictions vs ground truth (stateless)
+        """
+        pass
+
     def test_start_evaluation_retrievers(self) -> None:
         """Test case for start_evaluation_retrievers
 

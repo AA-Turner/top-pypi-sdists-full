@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abnf
-Version: 2.7.0
+Version: 2.8.1
 Summary: Parsers for ABNF grammars.
 Author-email: Charles Yeomans <charles@declaresub.com>
 Project-URL: Homepage, https://github.com/declaresub/abnf
@@ -31,13 +31,13 @@ Requires-Dist: pyright[nodejs]==1.1.411; extra == "dev"
 Requires-Dist: pytest==9.1.1; extra == "dev"
 Requires-Dist: pytest-cov==7.1.0; extra == "dev"
 Requires-Dist: pytest-benchmark==5.2.3; extra == "dev"
-Requires-Dist: hypothesis==6.165.1; extra == "dev"
+Requires-Dist: hypothesis==6.165.2; extra == "dev"
 Requires-Dist: ruff==0.16.1; extra == "dev"
 Requires-Dist: setuptools==83.0.0; extra == "dev"
 Requires-Dist: tox==4.58.0; extra == "dev"
 Requires-Dist: setuptools_scm==10.2.1; extra == "dev"
 Provides-Extra: rust
-Requires-Dist: abnf-rust<3,>=2.5; extra == "rust"
+Requires-Dist: abnf-rust<3,>=2.7; extra == "rust"
 Provides-Extra: docs
 Requires-Dist: sphinx==8.1.3; extra == "docs"
 Requires-Dist: myst-parser==4.0.1; extra == "docs"
@@ -109,7 +109,8 @@ and follows the [Diátaxis](https://diataxis.fr/) framework:
 
 - **Tutorial** — *Parse your first header*, a ten-minute end-to-end walkthrough.
 - **How-to guides** — validate input, extract values with visitors, load a grammar
-  from a file, write your own grammar module, use the Rust backend.
+  from a file, write your own grammar module, exclude matches from a rule, use the
+  Rust backend.
 - **Reference** — the public API, the built-in core rules, the bundled grammars, and
   configuration knobs.
 - **Explanation** — what abnf parses (code points, not bytes), the combinator

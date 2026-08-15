@@ -1,20 +1,15 @@
-"""Required binary request orchestration and abx-dl cache projection."""
+"""Required binary requests and in-memory plugin config projection."""
 
 from __future__ import annotations
 
-import copy
-import json
-import os
 import re
-import shlex
-import shutil
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping
 from inspect import isawaitable
 from pathlib import Path
 from typing import Any, ClassVar
 
 from abxbus import BaseEvent, EventBus
-from abxpkg import BinProvider, Binary as AbxBinary, prepare_script_exec_plan
+from abxpkg import BinProvider
 from abxpkg.binary_service import BinaryEvent, BinaryRequestEvent
 
 from ..config import RuntimeConfig, get_config, get_plugin_env, get_required_binary_requests, is_path_like_env_value
@@ -46,22 +41,7 @@ async def build_plugin_process_env(
                 base_env=env,
                 extra_env=binary_event.env,
             )
-    return BinProvider.build_exec_env(base_env=env, extra_env=runtime_env)
-
-
-def _is_app_bundle_binary(path: Path) -> bool:
-    parts = path.expanduser().parts
-    try:
-        app_index = next(index for index, part in enumerate(parts) if part.endswith(".app"))
-    except StopIteration:
-        return False
-    return len(parts) > app_index + 2 and parts[app_index + 1 : app_index + 3] == ("Contents", "MacOS")
-
-
-def _write_binary_wrapper(wrapper_path: Path, target: Path) -> None:
-    target_abspath = target.expanduser().resolve(strict=False)
-    wrapper_path.write_text(f'#!/bin/sh\nexec {shlex.quote(str(target_abspath))} "$@"\n')
-    wrapper_path.chmod(0o755)
+    return env
 
 
 def _config_bool(value: Any) -> bool:
@@ -83,66 +63,6 @@ def _plugin_enabled_from_user_config(plugin: Plugin, user_config: RuntimeConfig)
     return True
 
 
-_ABXPKG_OVERRIDE_KEYS = {
-    "PATH",
-    "INSTALLER_BIN",
-    "euid",
-    "install_root",
-    "bin_dir",
-    "dry_run",
-    "postinstall_scripts",
-    "min_release_age",
-    "install_timeout",
-    "version_timeout",
-    "apt_gpg_keys",
-    "apt_sources",
-    "apt_system_groups",
-    "apt_system_users",
-    "abspath",
-    "version",
-    "install_args",
-    "packages",
-    "install",
-    "update",
-    "uninstall",
-    "docs_url",
-    "search",
-}
-
-
-def split_abxpkg_binary_request_overrides(
-    overrides: Mapping[str, Any] | None,
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Split abxpkg-native overrides from plugin-owned request metadata."""
-    if not isinstance(overrides, Mapping):
-        return {}, {}
-
-    native: dict[str, Any] = {}
-    provider_metadata: dict[str, Any] = {}
-    raw_overrides = copy.deepcopy(dict(overrides))
-
-    for provider_name, provider_overrides in overrides.items():
-        provider_key = str(provider_name)
-        if isinstance(provider_overrides, list):
-            native[provider_key] = {"install_args": provider_overrides}
-            continue
-        if not isinstance(provider_overrides, Mapping):
-            continue
-        native_values = {str(key): value for key, value in provider_overrides.items() if str(key) in _ABXPKG_OVERRIDE_KEYS}
-        metadata_values = {str(key): value for key, value in provider_overrides.items() if str(key) not in _ABXPKG_OVERRIDE_KEYS}
-        if native_values:
-            native[provider_key] = native_values
-        if metadata_values:
-            provider_metadata[provider_key] = metadata_values
-
-    extra_context: dict[str, Any] = {}
-    if provider_metadata:
-        extra_context["provider_metadata"] = provider_metadata
-    if provider_metadata or native != raw_overrides:
-        extra_context["raw_overrides"] = raw_overrides
-    return native, extra_context
-
-
 class PluginBinariesService(BaseService):
     """Emit abxpkg BinaryRequestEvents for enabled plugins' required binaries."""
 
@@ -159,7 +79,6 @@ class PluginBinariesService(BaseService):
         output_dir: Path | None = None,
         snapshot: Snapshot | None = None,
         abort_requested: Callable[[], bool | Awaitable[bool]] | None = None,
-        allowed_binproviders: Sequence[str] | None = None,
     ):
         self.auto_install = auto_install
         self.plugins = plugins
@@ -168,11 +87,6 @@ class PluginBinariesService(BaseService):
         self.snapshot = snapshot
         self.abort_requested = False
         self.abort_requested_callback = abort_requested
-        self.allowed_binproviders = (
-            {provider.strip().lower() for provider in allowed_binproviders if provider.strip()}
-            if allowed_binproviders is not None
-            else None
-        )
         super().__init__(bus)
         self.bus.on(InstallEvent, self.on_InstallEvent)
         self.bus.on(CrawlAbortEvent, self.on_CrawlAbortEvent)
@@ -205,7 +119,6 @@ class PluginBinariesService(BaseService):
         current_config = await get_config(self.bus)
         current_user_config = current_config.user
         current_derived_config = current_config.derived
-        seen: set[str] = set()
         request_events: list[BinaryRequestEvent] = []
         for plugin in self.install_plugins:
             if await self.should_abort():
@@ -231,31 +144,9 @@ class PluginBinariesService(BaseService):
             ):
                 if await self.should_abort():
                     break
-                if self.allowed_binproviders is not None:
-                    configured_value = record.get("binproviders", "")
-                    configured = (
-                        [provider.strip() for provider in configured_value.split(",") if provider.strip()]
-                        if isinstance(configured_value, str)
-                        else [str(provider).strip() for provider in configured_value if str(provider).strip()]
-                    )
-                    configured = [provider for provider in configured if provider.lower() in self.allowed_binproviders]
-                    if not configured:
-                        raise ValueError(
-                            f"Binary {record.get('name')!r} has no configured providers allowed by {sorted(self.allowed_binproviders)!r}",
-                        )
-                    record["binproviders"] = ",".join(configured) if isinstance(configured_value, str) else configured
-                signature = json.dumps(record, sort_keys=True, default=str)
-                if signature in seen:
-                    continue
-                seen.add(signature)
                 request_payload = {
                     key: value for key, value in record.items() if key in BinaryRequestEvent.model_fields and key != "extra_context"
                 }
-                native_overrides, override_extra_context = split_abxpkg_binary_request_overrides(record.get("overrides"))
-                if native_overrides:
-                    request_payload["overrides"] = native_overrides
-                else:
-                    request_payload.pop("overrides", None)
                 if current_user_config.ABXPKG_NO_CACHE:
                     request_payload["no_cache"] = True
                 request_event = BinaryRequestEvent(
@@ -270,7 +161,6 @@ class PluginBinariesService(BaseService):
                         "output_dir": str(plugin_output_dir),
                         "binary_id": uuid7(),
                         "machine_id": "",
-                        **override_extra_context,
                     },
                 )
                 request_events.append(request_event)
@@ -282,73 +172,35 @@ class PluginBinariesService(BaseService):
             completed_request = await emitted_request.now()
             await completed_request.event_results_list(raise_if_none=False)
 
-        if current_user_config.DRY_RUN or current_user_config.ABXPKG_NO_CACHE:
-            return
-        current_config = await get_config(self.bus)
-        for plugin in self.plugins.values():
-            if not _plugin_enabled_from_user_config(plugin, current_config):
-                continue
-            runtime = await get_plugin_env(
-                self.bus,
-                plugin=plugin,
-                run_output_dir=self.output_dir,
-                config=current_config,
-            )
-            # BinaryEvents are process-local install state. Prepared plans must
-            # match the persisted environment available after a cold restart.
-            runtime_env = runtime.to_env()
-            env = await build_plugin_process_env(
-                self.bus,
-                plugins=self.plugins,
-                plugin=plugin,
-                runtime_env=runtime_env,
-            )
-            if plugin.path.is_dir():
-                for script_path in plugin.path.iterdir():
-                    if script_path.is_file() and os.access(script_path, os.X_OK):
-                        prepare_script_exec_plan(script_path, env=env)
 
+class PluginBinaryEnvService(BaseService):
+    """Project resolved abxpkg binaries into the current plugin environment."""
 
-class AbxDlEnvConfigFileBinaryCacheBackend:
-    """Project abxpkg Binary events onto abx-dl derived config and symlinks."""
+    LISTENS_TO: ClassVar[list[type[BaseEvent]]] = [BinaryEvent]
+    EMITS: ClassVar[list[type[BaseEvent]]] = [MachineEvent]
 
     def __init__(self, bus: EventBus, *, plugins: dict[str, Plugin]):
         self.bus = bus
         self.plugins = plugins
+        super().__init__(bus)
+        self.bus.on(BinaryEvent, self.on_BinaryEvent)
 
-    def get(self, request: BinaryRequestEvent) -> AbxBinary | None:
-        return None
-
-    async def set(self, request: BinaryRequestEvent | None, binary: AbxBinary) -> None:
+    async def on_BinaryEvent(self, event: BinaryEvent) -> None:
         current_config = await get_config(self.bus)
-        if binary.loaded_abspath:
-            await self._link_installed_binary(binary.name, str(binary.loaded_abspath), config=current_config)
-            if request is not None:
-                await self._persist_binary_abspath_in_config(request, str(binary.loaded_abspath), config=current_config)
-
-    async def invalidate(self, request: BinaryRequestEvent, binary: AbxBinary, reason: str) -> None:
-        current_config = await get_config(self.bus)
-        for config_key in await self._config_keys_for_binary_request(request, config=current_config):
-            await request.emit(
-                MachineEvent(
-                    method="unset",
-                    key=f"config/{config_key}",
-                    config_type="derived",
-                ),
-            ).now()
+        await self._project_binary_abspath(event, event.abspath, config=current_config)
 
     def _request_run_output_dir(self, output_dir: str, plugin_name: str) -> Path:
         path = Path(output_dir).expanduser()
         return path.parent if plugin_name and path.name == plugin_name else path
 
-    async def _config_keys_for_binary_request(
+    async def _config_keys_for_binary_event(
         self,
-        request: BinaryRequestEvent,
+        event: BinaryEvent,
         *,
         config: RuntimeConfig | None = None,
     ) -> list[str]:
-        plugin_name = str(request.extra_context.get("plugin_name") or "")
-        output_dir = str(request.extra_context.get("output_dir") or "")
+        plugin_name = str(event.extra_context.get("plugin_name") or "")
+        output_dir = str(event.extra_context.get("output_dir") or "")
         plugin = self.plugins.get(plugin_name)
         if plugin is None:
             return []
@@ -374,7 +226,7 @@ class AbxDlEnvConfigFileBinaryCacheBackend:
                 hydrated_name = template_name.format(**runtime_env)
             except KeyError:
                 continue
-            if hydrated_name == request.name:
+            if hydrated_name == event.name:
                 matching_keys.append(key)
         if matching_keys:
             return list(dict.fromkeys(matching_keys))
@@ -384,23 +236,23 @@ class AbxDlEnvConfigFileBinaryCacheBackend:
             configured_value = str(runtime_env[key] or prop.get("default") or "").strip()
             if not configured_value:
                 continue
-            if configured_value == request.name:
+            if configured_value == event.name:
                 matching_keys.append(key)
                 continue
-            if is_path_like_env_value(configured_value) and Path(configured_value).expanduser().name == request.name:
+            if is_path_like_env_value(configured_value) and Path(configured_value).expanduser().name == event.name:
                 matching_keys.append(key)
         return list(dict.fromkeys(matching_keys))
 
-    async def _persist_binary_abspath_in_config(
+    async def _project_binary_abspath(
         self,
-        request: BinaryRequestEvent,
+        event: BinaryEvent,
         abspath: str,
         *,
         config: RuntimeConfig | None = None,
     ) -> None:
         current_config = config or await get_config(self.bus)
-        for config_key in await self._config_keys_for_binary_request(request, config=current_config):
-            await request.emit(
+        for config_key in await self._config_keys_for_binary_event(event, config=current_config):
+            await event.emit(
                 MachineEvent(
                     method="update",
                     key=f"config/{config_key}",
@@ -408,34 +260,3 @@ class AbxDlEnvConfigFileBinaryCacheBackend:
                     config_type="derived",
                 ),
             ).now()
-
-    async def _link_installed_binary(
-        self,
-        binary_name: str,
-        binary_abspath: str,
-        *,
-        config: RuntimeConfig | None = None,
-    ) -> None:
-        if is_path_like_env_value(binary_name):
-            return
-        current_user_config = (config or await get_config(self.bus)).user
-        if current_user_config.ABXPKG_LIB_DIR is None:
-            return
-        lib_bin_dir = current_user_config.ABXPKG_LIB_DIR / "bin"
-        lib_bin_dir.mkdir(parents=True, exist_ok=True)
-
-        target = Path(binary_abspath).expanduser().resolve(strict=False)
-        link_path = lib_bin_dir / binary_name
-        if target == link_path:
-            return
-        if _is_app_bundle_binary(target):
-            if link_path.is_symlink() or link_path.is_file():
-                link_path.unlink()
-            elif link_path.exists():
-                shutil.rmtree(link_path)
-            return
-        if link_path.is_symlink() or link_path.is_file():
-            link_path.unlink()
-        elif link_path.exists():
-            shutil.rmtree(link_path)
-        _write_binary_wrapper(link_path, target)

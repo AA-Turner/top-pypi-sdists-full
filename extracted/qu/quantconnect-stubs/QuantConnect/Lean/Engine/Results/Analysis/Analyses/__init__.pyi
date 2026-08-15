@@ -712,7 +712,7 @@ class AlgorithmSpeedAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.
         ...
 
     @overload
-    def run(self, speed: QuantConnect.Lean.Engine.Results.Analysis.AlgorithmSpeedTracker, logs: typing.Sequence[str] = None) -> typing.Sequence[QuantConnect.Analysis]:
+    def run(self, speed: QuantConnect.Lean.Engine.Results.Analysis.AlgorithmSpeedTracker, logs: typing.Sequence[str] = None, language: QuantConnect.Language = ..., performance_tracking_enabled: bool = False) -> typing.Sequence[QuantConnect.Analysis]:
         """
         Runs the algorithm speed analysis against the given speed metrics.
         Each detected condition is reported as its own sub-finding. Every condition must hold for
@@ -724,6 +724,9 @@ class AlgorithmSpeedAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.
         
         :param speed: The speed metrics tracked for the running backtest, or null when not tracked.
         :param logs: The log lines to search for the completion line, or null when not available.
+        :param language: The programming language the algorithm is written in.
+        :param performance_tracking_enabled: Whether the algorithm already has performance tracking enabled,
+        so the findings don't suggest enabling it again.
         :returns: The failed sub-findings, or empty when no speed condition failed or none could be measured.
         """
         ...

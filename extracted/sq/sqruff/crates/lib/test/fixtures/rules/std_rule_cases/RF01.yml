@@ -251,8 +251,6 @@ test_nested_join_clauses_do_not_flag:
       dialect: tsql
 
 test_parenthesized_join_clauses_do_not_flag:
-  # TODO: Fix T-SQL parenthesized JOIN parsing causing panic in join.rs
-  ignored: "T-SQL parenthesized JOIN syntax causes panic in parser"
   pass_str: |
     SELECT
         1 AS RegionCode
@@ -320,6 +318,66 @@ test_pass_postgres_select_with_alias_quoted:
       "user_profiles".first_name AS "user_profile_first_name"
     FROM
       public.user_profiles AS "user_profiles"
+  configs:
+    core:
+      dialect: postgres
+
+test_pass_trino_row_field_access_single_source:
+  # Trino uses dot access for fields in ROW values. In an unaliased,
+  # single-source query, this is indistinguishable from table qualification.
+  pass_str: |
+    SELECT some_row_object.some_attribute
+    FROM some_schema.some_table
+  configs:
+    core:
+      dialect: trino
+
+test_fail_trino_row_field_access_single_source_force_enable:
+  fail_str: |
+    SELECT some_row_object.some_attribute
+    FROM some_schema.some_table
+  configs:
+    core:
+      dialect: trino
+    rules:
+      references.from:
+        force_enable: true
+
+test_fail_trino_row_field_access_multiple_sources:
+  fail_str: |
+    SELECT some_row_object.some_attribute
+    FROM some_schema.some_table
+    CROSS JOIN other_schema.other_table
+  configs:
+    core:
+      dialect: trino
+
+test_fail_trino_row_field_access_aliased_source:
+  fail_str: |
+    SELECT some_row_object.some_attribute
+    FROM some_schema.some_table AS source_table
+  configs:
+    core:
+      dialect: trino
+test_pass_postgres_parenthesized_join:
+  # https://github.com/quarylabs/sqruff/issues/1573
+  pass_str: |
+    SELECT
+      c.short_name || ': ' || c.title || ', ' || ci.long_name AS label,
+      c.short_name || ', ' || ci.long_name AS short_label,
+      ci.id AS course_instance_id,
+      (e.id IS NOT NULL) AS enrolled,
+      users_is_instructor_in_course (u.user_id, c.id) AS instructor_access
+    FROM
+      users AS u
+      CROSS JOIN (
+        course_instances AS ci
+        JOIN pl_courses AS c ON (c.id = ci.course_id)
+      )
+      LEFT JOIN enrollments AS e ON (
+        e.user_id = u.user_id
+        AND e.course_instance_id = ci.id
+      )
   configs:
     core:
       dialect: postgres

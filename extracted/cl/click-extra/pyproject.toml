@@ -4,7 +4,7 @@ requires = ["uv-build>=0.8"]
 
 [project]
 name = "click-extra"
-version = "8.8.1"
+version = "8.9.0"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -84,38 +84,6 @@ dependencies = [
 name = "Kevin Deldycke"
 email = "kevin@deldycke.com"
 
-[project.entry-points.pytest11]
-click-extra = "click_extra.pytest"
-
-[project.entry-points."pygments.filters"]
-ansi-filter = "click_extra.pygments:AnsiFilter"
-
-[project.entry-points."pygments.formatters"]
-ansi-html-formatter = "click_extra.pygments:AnsiHtmlFormatter"
-
-[project.entry-points."pygments.lexers"]
-ansi-color = "click_extra.pygments:AnsiColorLexer"
-ansi-bash-session = "click_extra.pygments:AnsiBashSessionLexer"
-ansi-dylan-console = "click_extra.pygments:AnsiDylanConsoleLexer"
-ansi-elixir-console = "click_extra.pygments:AnsiElixirConsoleLexer"
-ansi-erlang-shell = "click_extra.pygments:AnsiErlangShellLexer"
-ansi-gap-console = "click_extra.pygments:AnsiGAPConsoleLexer"
-ansi-julia-console = "click_extra.pygments:AnsiJuliaConsoleLexer"
-ansi-matlab-session = "click_extra.pygments:AnsiMatlabSessionLexer"
-ansi-msdos-session = "click_extra.pygments:AnsiMSDOSSessionLexer"
-ansi-output = "click_extra.pygments:AnsiOutputLexer"
-ansi-postgres-console = "click_extra.pygments:AnsiPostgresConsoleLexer"
-ansi-power-shell-session = "click_extra.pygments:AnsiPowerShellSessionLexer"
-ansi-psysh-console = "click_extra.pygments:AnsiPsyshConsoleLexer"
-ansi-python-console = "click_extra.pygments:AnsiPythonConsoleLexer"
-ansi-r-console = "click_extra.pygments:AnsiRConsoleLexer"
-ansi-ruby-console = "click_extra.pygments:AnsiRubyConsoleLexer"
-ansi-sqlite-console = "click_extra.pygments:AnsiSqliteConsoleLexer"
-ansi-tcsh-session = "click_extra.pygments:AnsiTcshSessionLexer"
-
-[project.entry-points."mkdocs.plugins"]
-click-extra = "click_extra.mkdocs:AnsiColorPlugin"
-
 [project.optional-dependencies]
 all = ["click-extra[carapace,hjson,json5,jsonc,mkdocs,pygments,pytest,sphinx,toml,xml,yaml]"]
 carapace = ["pyyaml>=6.0.3"]
@@ -138,16 +106,48 @@ toml = ["tomlkit>=0.13"]
 xml = ["xmltodict>=1"]
 yaml = ["pyyaml>=6.0.3"]
 
+[project.urls]
+Changelog = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
+Download = "https://github.com/kdeldycke/click-extra/releases/tag/v8.9.0"
+Funding = "https://github.com/sponsors/kdeldycke"
+Homepage = "https://github.com/kdeldycke/click-extra"
+Issues = "https://github.com/kdeldycke/click-extra/issues"
+Repository = "https://github.com/kdeldycke/click-extra"
+
 [project.scripts]
 click-extra = "click_extra.__main__:main"
 
-[project.urls]
-Homepage = "https://github.com/kdeldycke/click-extra"
-Download = "https://github.com/kdeldycke/click-extra/releases/tag/v8.8.1"
-Changelog = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
-Issues = "https://github.com/kdeldycke/click-extra/issues"
-Repository = "https://github.com/kdeldycke/click-extra"
-Funding = "https://github.com/sponsors/kdeldycke"
+[project.entry-points."mkdocs.plugins"]
+click-extra = "click_extra.mkdocs:AnsiColorPlugin"
+
+[project.entry-points."pygments.filters"]
+ansi-filter = "click_extra.pygments:AnsiFilter"
+
+[project.entry-points."pygments.formatters"]
+ansi-html-formatter = "click_extra.pygments:AnsiHtmlFormatter"
+
+[project.entry-points."pygments.lexers"]
+ansi-bash-session = "click_extra.pygments:AnsiBashSessionLexer"
+ansi-color = "click_extra.pygments:AnsiColorLexer"
+ansi-dylan-console = "click_extra.pygments:AnsiDylanConsoleLexer"
+ansi-elixir-console = "click_extra.pygments:AnsiElixirConsoleLexer"
+ansi-erlang-shell = "click_extra.pygments:AnsiErlangShellLexer"
+ansi-gap-console = "click_extra.pygments:AnsiGAPConsoleLexer"
+ansi-julia-console = "click_extra.pygments:AnsiJuliaConsoleLexer"
+ansi-matlab-session = "click_extra.pygments:AnsiMatlabSessionLexer"
+ansi-msdos-session = "click_extra.pygments:AnsiMSDOSSessionLexer"
+ansi-output = "click_extra.pygments:AnsiOutputLexer"
+ansi-postgres-console = "click_extra.pygments:AnsiPostgresConsoleLexer"
+ansi-power-shell-session = "click_extra.pygments:AnsiPowerShellSessionLexer"
+ansi-psysh-console = "click_extra.pygments:AnsiPsyshConsoleLexer"
+ansi-python-console = "click_extra.pygments:AnsiPythonConsoleLexer"
+ansi-r-console = "click_extra.pygments:AnsiRConsoleLexer"
+ansi-ruby-console = "click_extra.pygments:AnsiRubyConsoleLexer"
+ansi-sqlite-console = "click_extra.pygments:AnsiSqliteConsoleLexer"
+ansi-tcsh-session = "click_extra.pygments:AnsiTcshSessionLexer"
+
+[project.entry-points.pytest11]
+click-extra = "click_extra.pytest"
 
 [dependency-groups]
 test = [
@@ -206,23 +206,14 @@ click_extra = [
 ]
 
 [tool.uv]
-exclude-newer = "1 week"
 required-version = ">=0.11.15"
+exclude-newer = "1 week"
 
 [tool.uv.dependency-groups.docs]
 requires-python = ">= 3.14"
 
-[tool.uv.exclude-newer-package]
-extra-platforms = "2026-07-28T00:00:00Z"
-
 [tool.uv.build-backend]
 module-root = ""
-source-include = [
-    ".github/**",
-    "changelog.md",
-    "docs/**",
-    "tests/**",
-]
 source-exclude = [
     "**/*.bak",
     "**/.DS_Store",
@@ -232,6 +223,12 @@ source-exclude = [
     "docs/html",
     "tests/.coverage",
 ]
+source-include = [
+    ".github/**",
+    "changelog.md",
+    "docs/**",
+    "tests/**",
+]
 
 [tool.nuitka]
 include-package-data = "click_extra"
@@ -239,13 +236,15 @@ include-package-data = "click_extra"
 [tool.ruff]
 preview = true
 fix = true
-unsafe-fixes = true
+unsafe-fixes = false
 show-fixes = true
+output-prefer-rule-codes = true
 
 [tool.ruff.format]
 docstring-code-format = true
 
 [tool.ruff.lint]
+extend-select = ["PLW1514"]
 ignore = [
     "B008",
     "D400",
@@ -282,14 +281,38 @@ MacOS = "macOS"
 PyPi = "PyPI"
 Typescript = "TypeScript"
 
-[tool.pytest]
-markers = [
-    "network: Tests that require network access (excluded with -m 'not network').",
-    "once: Tests that only need to run once, not across the full CI matrix.",
+[tool.mypy]
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+warn_unreachable = true
+pretty = true
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "hjson",
+    "jsonc",
+    "pymdownx",
+    "pymdownx.*",
+    "sphinxcontrib.mermaid",
 ]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["sphinx.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
+
+[tool.pytest]
 addopts = [
     "--durations=10",
     "--import-mode=importlib",
+]
+markers = [
+    "network: Tests that require network access (excluded with -m 'not network').",
+    "once: Tests that only need to run once, not across the full CI matrix.",
 ]
 testpaths = ["tests"]
 xfail_strict = true
@@ -299,13 +322,11 @@ branch = true
 source = ["click_extra"]
 
 [tool.coverage.report]
+fail_under = 70
 precision = 2
 
-[tool.click-extra.test-suite]
-file = "tests/cli-test-suite.toml"
-
 [tool.bumpversion]
-current_version = "8.8.1"
+current_version = "8.9.0"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.dev(?P<dev>\d+))?'
 serialize = [
     "{major}.{minor}.{patch}.dev{dev}",
@@ -388,30 +409,6 @@ exclude_bumps = ["dev"]
 search = "raw.githubusercontent.com/kdeldycke/click-extra/v{current_version}/"
 replace = "raw.githubusercontent.com/kdeldycke/click-extra/main/"
 
-[tool.mypy]
-check_untyped_defs = true
-warn_unused_configs = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_return_any = true
-warn_unreachable = true
-pretty = true
-
-[[tool.mypy.overrides]]
-ignore_missing_imports = true
-module = [
-    "hjson",
-    "jsonc",
-    "pymdownx",
-    "pymdownx.*",
-    "sphinxcontrib.mermaid",
-]
-
-[[tool.mypy.overrides]]
-ignore_missing_imports = true
-module = ["sphinx.*"]
-follow_imports = "skip"
-
 [tool.lychee]
 exclude = [
     "^https://github.com/.+/issues/[0-9]+#issuecomment-.*$",
@@ -454,7 +451,7 @@ click-version = "released"
 cloup-version = "released"
 
 [[tool.repomatic.test-matrix.exclude]]
-os = "ubuntu-slim"
+os = "ubuntu-26.04"
 python-version = "3.15"
 
 [[tool.repomatic.test-matrix.exclude]]
@@ -466,91 +463,94 @@ os = "windows-2025"
 python-version = "3.15"
 
 [[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-24.04-arm"
+os = "ubuntu-26.04-arm"
 python-version = "3.10"
 click-version = "8.3.1"
 cloup-version = "released"
 
 [[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-24.04-arm"
+os = "ubuntu-26.04-arm"
 python-version = "3.10"
 click-version = "8.3.2"
 cloup-version = "released"
 
 [[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-24.04-arm"
+os = "ubuntu-26.04-arm"
 python-version = "3.10"
 click-version = "8.3.3"
 cloup-version = "released"
 
 [[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-24.04-arm"
+os = "ubuntu-26.04-arm"
 python-version = "3.10"
 click-version = "8.4.0"
 cloup-version = "released"
 
 [[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-24.04-arm"
+os = "ubuntu-26.04-arm"
 python-version = "3.10"
 click-version = "8.4.1"
 cloup-version = "released"
 
 [[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-24.04-arm"
+os = "ubuntu-26.04-arm"
 python-version = "3.14"
 click-version = "stable"
 cloup-version = "released"
 
 [[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-24.04-arm"
+os = "ubuntu-26.04-arm"
 python-version = "3.14t"
 click-version = "stable"
 cloup-version = "released"
 
 [[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-24.04-arm"
+os = "ubuntu-26.04-arm"
 python-version = "3.14"
 click-version = "main"
 cloup-version = "released"
 
 [[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-24.04-arm"
+os = "ubuntu-26.04-arm"
 python-version = "3.14t"
 click-version = "main"
 cloup-version = "released"
 
 [[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-24.04-arm"
+os = "ubuntu-26.04-arm"
 python-version = "3.14"
 click-version = "released"
 cloup-version = "master"
 
 [[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-24.04-arm"
+os = "ubuntu-26.04-arm"
 python-version = "3.14t"
 click-version = "released"
 cloup-version = "master"
 
 [[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-24.04-arm"
+os = "ubuntu-26.04-arm"
 python-version = "3.14"
 click-version = "stable"
 cloup-version = "master"
 
 [[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-24.04-arm"
+os = "ubuntu-26.04-arm"
 python-version = "3.14t"
 click-version = "stable"
 cloup-version = "master"
 
 [[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-24.04-arm"
+os = "ubuntu-26.04-arm"
 python-version = "3.14"
 click-version = "main"
 cloup-version = "master"
 
 [[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-24.04-arm"
+os = "ubuntu-26.04-arm"
 python-version = "3.14t"
 click-version = "main"
 cloup-version = "master"
+
+[tool.click-extra.test-suite]
+file = "tests/cli-test-suite.toml"

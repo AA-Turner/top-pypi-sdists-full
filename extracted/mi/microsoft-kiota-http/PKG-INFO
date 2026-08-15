@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: microsoft-kiota-http
-Version: 1.11.8
+Version: 1.11.9
 Summary: Core abstractions for kiota generated libraries in Python
 Keywords: kiota,openAPI,Microsoft,Graph
 Author-email: Microsoft <graphtooling+python@microsoft.com>
@@ -21,6 +21,7 @@ Requires-Dist: httpx[http2]>=0.25,<1.0.0
 Project-URL: Documentation, https://learn.microsoft.com/openapi/kiota/
 Project-URL: Homepage, https://github.com/microsoft/kiota#readme
 Project-URL: Repository, https://github.com/microsoft/kiota-python
+Import-Name: kiota_http
 
 # Microsoft Kiota HTTP library
 

@@ -6,13 +6,13 @@
 import glob
 import os
 from collections.abc import Callable
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar, Literal, cast
 from xml.etree.ElementTree import Element, parse
 
-import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from matplotlib import patches
 from matplotlib.figure import Figure
 from PIL import Image
 from torch import Tensor
@@ -50,7 +50,7 @@ def parse_pascal_voc(path: Path) -> dict[str, Any]:
         label = name.text
         labels.append(label)
         points.append(tup_points)
-    return dict(filename=filename, points=points, labels=labels)
+    return {'filename': filename, 'points': points, 'labels': labels}
 
 
 class FAIR1M(NonGeoDataset):
@@ -231,10 +231,10 @@ class FAIR1M(NonGeoDataset):
     def __init__(
         self,
         root: Path = 'data',
-        split: str = 'train',
+        split: Literal['train', 'val', 'test'] = 'train',
         transforms: Callable[[Sample], Sample] | None = None,
         download: bool = False,
-        checksum: bool = False,
+        checksum: bool = True,
     ) -> None:
         """Initialize a new FAIR1M dataset instance.
 

@@ -20,7 +20,7 @@ class AttachVbrToVpconnRequest(DaraModel):
         self.dry_run = dry_run
         # The region ID of the shared Express Connect circuits.
         # 
-        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query the region ID.
+        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query region IDs.
         # 
         # This parameter is required.
         self.region_id = region_id
@@ -28,11 +28,11 @@ class AttachVbrToVpconnRequest(DaraModel):
         # 
         # The client token must be unique among different requests and cannot exceed 64 ASCII characters in length.
         self.token = token
-        # The instance ID of the VBR.
+        # The VBR instance ID.
         # 
         # This parameter is required.
         self.vbr_id = vbr_id
-        # The instance ID of the shared Express Connect circuits.
+        # The instance ID of the shared Express Connect circuits (VirtualPhysicalConnection), returned by the CreateVirtualPhysicalConnection operation.
         # 
         # This parameter is required.
         self.vpconn_id = vpconn_id

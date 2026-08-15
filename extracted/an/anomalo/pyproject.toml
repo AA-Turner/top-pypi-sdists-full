@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "anomalo"
-version = "0.50.0"
+version = "0.50.1"
 description = "Python bindings for the Anomalo API"
 readme = "README.public.md"
 license = "Apache-2.0"
@@ -21,6 +21,10 @@ dependencies = [
     "requests>=2.20.0",
     "tenacity>=8.1.0",
     "casefy>=1.1.0",
+    # `typing.Self` is 3.11+ and this package supports 3.9. Already installed
+    # for every user via dataclasses-json -> typing-inspect, so declaring it
+    # directly costs nothing and stops us leaning on a transitive edge.
+    "typing-extensions>=4.0.0",
 ]
 
 [project.optional-dependencies]

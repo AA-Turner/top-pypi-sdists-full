@@ -29,9 +29,6 @@ class ResultChunk(BaseModel):
     position: float
     """Position of chunk in the document (0-indexed)"""
 
-    score: float
-    """Similarity score between the query and chunk"""
-
 
 class ResultContextChild(BaseModel):
     memory: str
@@ -158,6 +155,13 @@ class Result(BaseModel):
 
     memory: Optional[str] = None
     """The memory content (only present for memory results)"""
+
+    root_memory_id: Optional[str] = FieldInfo(alias="rootMemoryId", default=None)
+    """ID of the root (first version) memory entry this one descends from.
+
+    Null for memories that have never been superseded. Only present on memory
+    results, not on standalone chunk results.
+    """
 
     version: Optional[float] = None
     """Version number of this memory entry"""

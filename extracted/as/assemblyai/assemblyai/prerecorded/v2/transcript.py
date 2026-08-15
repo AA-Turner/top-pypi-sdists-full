@@ -11,9 +11,14 @@ import httpx
 from typing_extensions import Self
 
 from ... import client as _client
-from ... import lemur, types
+from ... import types
 from . import api
-from ._base import TERMINAL_STATUSES, _BaseTranscript, config_from_response
+from ._base import (
+    TERMINAL_STATUSES,
+    _BaseTranscript,
+    _poll_timeout_message,
+    config_from_response,
+)
 
 
 class _TranscriptImpl:
@@ -53,14 +58,20 @@ class _TranscriptImpl:
 
         return self
 
-    def wait_for_completion(self) -> Self:
+    def wait_for_completion(self, *, poll_timeout: Optional[float] = None) -> Self:
         """
         polls the given transcript until we have a status other than `processing` or `queued`
+
+        Args:
+            `poll_timeout`: How long to poll, in seconds. `None` polls until the
+                transcript reaches a terminal status.
         """
         if not self.transcript_id:
             raise ValueError(
                 "Cannot wait for completion. The internal transcript ID is None."
             )
+
+        start = time.monotonic()
 
         while True:
             # No try-except - if there is an HTTP error then surface it to user
@@ -71,6 +82,15 @@ class _TranscriptImpl:
 
             if self.transcript.status in TERMINAL_STATUSES:
                 break
+
+            if poll_timeout is not None and time.monotonic() - start >= poll_timeout:
+                raise types.TranscriptError(
+                    _poll_timeout_message(
+                        transcript_id=self.transcript_id,
+                        status=self.transcript.status,
+                        poll_timeout=poll_timeout,
+                    )
+                )
 
             time.sleep(self._client.settings.polling_interval)
 
@@ -197,7 +217,7 @@ class _TranscriptImpl:
                     f.write(chunk)
 
     @classmethod
-    def delete_by_id(cls, transcript_id: str) -> types.Transcript:
+    def delete_by_id(cls, transcript_id: str) -> Transcript:
         client = _client.Client.get_default()
         response = api.delete_transcript(
             client=client.http_client, transcript_id=transcript_id
@@ -206,7 +226,7 @@ class _TranscriptImpl:
         return Transcript.from_response(client=client, response=response)
 
 
-class Transcript(_BaseTranscript, types.Sourcable):
+class Transcript(_BaseTranscript):
     """
     Transcript object to perform operations on the actual transcript.
     """
@@ -224,15 +244,29 @@ class Transcript(_BaseTranscript, types.Sourcable):
         )
         self._executor = concurrent.futures.ThreadPoolExecutor()
 
-    def wait_for_completion(self) -> Self:
-        self._impl.wait_for_completion()
+    def wait_for_completion(self, *, poll_timeout: Optional[float] = None) -> Self:
+        """
+        Polls the transcript until its status is `completed` or `error`.
+
+        Args:
+            poll_timeout: How long to poll, in seconds. `None` polls until the
+                transcript reaches a terminal status.
+
+        Raises:
+            TranscriptError: if `poll_timeout` elapses first.
+        """
+        self._impl.wait_for_completion(poll_timeout=poll_timeout)
 
         return self
 
     def wait_for_completion_async(
         self,
+        *,
+        poll_timeout: Optional[float] = None,
     ) -> concurrent.futures.Future[Self]:
-        return self._executor.submit(self.wait_for_completion)
+        return self._executor.submit(
+            functools.partial(self.wait_for_completion, poll_timeout=poll_timeout)
+        )
 
     @classmethod
     def from_response(
@@ -277,7 +311,7 @@ class Transcript(_BaseTranscript, types.Sourcable):
         return cls(transcript_id=transcript_id).wait_for_completion_async()
 
     @classmethod
-    def delete_by_id(cls, transcript_id: str) -> types.Transcript:
+    def delete_by_id(cls, transcript_id: str) -> Transcript:
         """Delete an existing transcript. Blocks until the transcript is completed.
 
         Args:
@@ -291,7 +325,7 @@ class Transcript(_BaseTranscript, types.Sourcable):
     @classmethod
     def delete_by_id_async(
         cls, transcript_id: str
-    ) -> concurrent.futures.Future[types.Transcript]:
+    ) -> concurrent.futures.Future[Transcript]:
         """Delete an existing transcript asynchronously.
 
         Args:
@@ -318,17 +352,6 @@ class Transcript(_BaseTranscript, types.Sourcable):
             raise ValueError("The internal Transcript object is None.")
 
         return self._impl.transcript
-
-    @property
-    def lemur(self) -> lemur.Lemur:
-        """
-        Access AssemblyAI's LeMUR features.
-        """
-
-        return lemur.Lemur(
-            client=self._client,
-            sources=[types.LemurSource(self)],
-        )
 
     def export_subtitles_srt(
         self,

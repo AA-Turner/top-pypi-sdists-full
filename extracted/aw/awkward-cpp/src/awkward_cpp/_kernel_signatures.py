@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2026-07-28 AT 17:37:39
+# AUTO GENERATED ON 2026-08-14 AT 14:44:29
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -912,12 +912,6 @@ def by_signature(lib):
     f.dir = ['out', 'in', 'in', 'in']
     out['awkward_ListOffsetArray_reduce_local_nextparents_64', uint32, uint32] = f
 
-    f = lib.awkward_ListOffsetArray_reduce_local_outoffsets_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
-    f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in']
-    out['awkward_ListOffsetArray_reduce_local_outoffsets_64', int64, int64] = f
-
     f = lib.awkward_ListOffsetArray_reduce_nonlocal_maxcount_offsetscopy_64
     f.argtypes = [POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), c_int64]
     f.restype = ERROR
@@ -929,12 +923,6 @@ def by_signature(lib):
     f.restype = ERROR
     f.dir = ['out', 'out', 'out', 'in', 'in', 'in', 'in', 'in', 'in', 'in', 'in']
     out['awkward_ListOffsetArray_reduce_nonlocal_nextshifts_64', int64, int64, int64, int64, int64, int64, int64] = f
-
-    f = lib.awkward_ListOffsetArray_reduce_nonlocal_nextstarts_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int64), c_int64]
-    f.restype = ERROR
-    f.dir = ['out', 'in', 'in']
-    out['awkward_ListOffsetArray_reduce_nonlocal_nextstarts_64', int64, int64] = f
 
     f = lib.awkward_ListOffsetArray_reduce_nonlocal_outstartsstops_64
     f.argtypes = [POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
@@ -2693,6 +2681,72 @@ def by_signature(lib):
     f.restype = ERROR
     f.dir = ['out', 'in', 'in', 'in', 'in']
     out['awkward_reduce_sumofpowers', float64, float64, int64] = f
+
+    f = lib.awkward_reduce_centered_sumofsquares_float64_int8_64
+    f.argtypes = [POINTER(c_double), POINTER(c_int8), POINTER(c_int64), c_int64, POINTER(c_double)]
+    f.restype = ERROR
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_centered_sumofsquares', float64, int8, int64, float64] = f
+
+    f = lib.awkward_reduce_centered_sumofsquares_float64_uint8_64
+    f.argtypes = [POINTER(c_double), POINTER(c_uint8), POINTER(c_int64), c_int64, POINTER(c_double)]
+    f.restype = ERROR
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_centered_sumofsquares', float64, uint8, int64, float64] = f
+
+    f = lib.awkward_reduce_centered_sumofsquares_float64_int16_64
+    f.argtypes = [POINTER(c_double), POINTER(c_int16), POINTER(c_int64), c_int64, POINTER(c_double)]
+    f.restype = ERROR
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_centered_sumofsquares', float64, int16, int64, float64] = f
+
+    f = lib.awkward_reduce_centered_sumofsquares_float64_uint16_64
+    f.argtypes = [POINTER(c_double), POINTER(c_uint16), POINTER(c_int64), c_int64, POINTER(c_double)]
+    f.restype = ERROR
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_centered_sumofsquares', float64, uint16, int64, float64] = f
+
+    f = lib.awkward_reduce_centered_sumofsquares_float64_int32_64
+    f.argtypes = [POINTER(c_double), POINTER(c_int32), POINTER(c_int64), c_int64, POINTER(c_double)]
+    f.restype = ERROR
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_centered_sumofsquares', float64, int32, int64, float64] = f
+
+    f = lib.awkward_reduce_centered_sumofsquares_float64_uint32_64
+    f.argtypes = [POINTER(c_double), POINTER(c_uint32), POINTER(c_int64), c_int64, POINTER(c_double)]
+    f.restype = ERROR
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_centered_sumofsquares', float64, uint32, int64, float64] = f
+
+    f = lib.awkward_reduce_centered_sumofsquares_float64_int64_64
+    f.argtypes = [POINTER(c_double), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_double)]
+    f.restype = ERROR
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_centered_sumofsquares', float64, int64, int64, float64] = f
+
+    f = lib.awkward_reduce_centered_sumofsquares_float64_uint64_64
+    f.argtypes = [POINTER(c_double), POINTER(c_uint64), POINTER(c_int64), c_int64, POINTER(c_double)]
+    f.restype = ERROR
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_centered_sumofsquares', float64, uint64, int64, float64] = f
+
+    f = lib.awkward_reduce_centered_sumofsquares_float64_bool_64
+    f.argtypes = [POINTER(c_double), POINTER(c_bool), POINTER(c_int64), c_int64, POINTER(c_double)]
+    f.restype = ERROR
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_centered_sumofsquares', float64, bool_, int64, float64] = f
+
+    f = lib.awkward_reduce_centered_sumofsquares_float64_float32_64
+    f.argtypes = [POINTER(c_double), POINTER(c_float), POINTER(c_int64), c_int64, POINTER(c_double)]
+    f.restype = ERROR
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_centered_sumofsquares', float64, float32, int64, float64] = f
+
+    f = lib.awkward_reduce_centered_sumofsquares_float64_float64_64
+    f.argtypes = [POINTER(c_double), POINTER(c_double), POINTER(c_int64), c_int64, POINTER(c_double)]
+    f.restype = ERROR
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_centered_sumofsquares', float64, float64, int64, float64] = f
 
     f = lib.awkward_reduce_sum_complex64_complex64_64
     f.argtypes = [POINTER(c_float), POINTER(c_float), POINTER(c_int64), c_int64]

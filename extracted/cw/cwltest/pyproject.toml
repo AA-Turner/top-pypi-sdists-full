@@ -1,7 +1,7 @@
 [build-system]
 requires = [
     "setuptools>=61.2",
-    "setuptools_scm>=8.0.4,<10",
+    "setuptools_scm[simple]>=8.0.4,<11",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -22,9 +22,10 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Typing :: Typed",
 ]
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.10,<3.16"
 dynamic = ["version", "dependencies"]
 
 [project.readme]
@@ -33,7 +34,6 @@ content-type = "text/x-rst"
 
 [project.urls]
 Homepage = "https://github.com/common-workflow-language/cwltest"
-Download = "https://github.com/common-workflow-language/cwltest"
 
 [project.entry-points.pytest11]
 cwl = "cwltest.plugin"
@@ -48,7 +48,7 @@ cwltest = "cwltest.main:main"
 test = "pytest"
 
 [tool.setuptools]
-package-dir = {"cwltest.tests" = "tests"}
+package-dir = {"cwltest" = "src/cwltest", "cwltest.tests" = "tests"}
 packages = ["cwltest", "cwltest.tests"]
 zip-safe = true
 include-package-data = true
@@ -66,6 +66,3 @@ include_trailing_comma = "True"
 force_grid_wrap = "0"
 use_parentheses = "True"
 line_length = "88"
-
-[tool.setuptools_scm]
-write_to = "cwltest/_version.py"

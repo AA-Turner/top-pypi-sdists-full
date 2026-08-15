@@ -1088,6 +1088,7 @@ if _BACKEND == config.Backend.JAX:
   gather = _jax_gather
   get_indices_where = _jax_get_indices_where
   get_seed_data = _jax_get_seed_data
+  is_finite = _ops.isfinite
   is_nan = _ops.isnan
   log = _ops.log
   make_ndarray = _jax_make_ndarray
@@ -1102,6 +1103,10 @@ if _BACKEND == config.Backend.JAX:
   ones_like = _ops.ones_like
   rank = _ops.ndim
   reduce_any = _ops.any
+  searchsorted = _ops.searchsorted
+  minimum = _ops.minimum
+  maximum = _ops.maximum
+  floor = _ops.floor
   reduce_max = _ops.max
   reduce_mean = _ops.mean
   reduce_min = _ops.min
@@ -1274,6 +1279,7 @@ elif _BACKEND == config.Backend.TENSORFLOW:
   gather = _tf_gather
   get_indices_where = _tf_get_indices_where
   get_seed_data = _tf_get_seed_data
+  is_finite = _ops.math.is_finite
   is_nan = _ops.math.is_nan
   log = _ops.math.log
   make_ndarray = _ops.make_ndarray
@@ -1288,6 +1294,10 @@ elif _BACKEND == config.Backend.TENSORFLOW:
   ones_like = _ops.ones_like
   rank = _ops.rank
   reduce_any = _ops.reduce_any
+  searchsorted = _ops.searchsorted
+  minimum = _ops.minimum
+  maximum = _ops.maximum
+  floor = _ops.floor
   reduce_max = _ops.reduce_max
   reduce_mean = _ops.reduce_mean
   reduce_min = _ops.reduce_min

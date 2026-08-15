@@ -49,7 +49,6 @@ from verl.experimental.agent_loop.utils import resolve_config_path
 from verl.protocol import DataProto
 from verl.tools.tool_registry import load_all_tools
 from verl.trainer.distillation import is_distillation_enabled
-from verl.utils.chat_template import apply_chat_template, initialize_system_prompt
 from verl.utils.config import omega_conf_to_dataclass
 from verl.utils.dataset.rl_dataset import RLHFDataset, get_dataset_class
 from verl.utils.model import compute_position_id_with_mask
@@ -59,11 +58,14 @@ from verl.utils.rollout_trace import (
     RolloutTraceConfig,
     rollout_trace_attr,
 )
+from verl.utils.skip import SkipManager
 from verl.utils.tokenizer import (
     build_multimodal_processor_inputs,
     get_processor_token_id,
     normalize_token_ids,
 )
+from verl.utils.tokenizer.chat_template import apply_chat_template, initialize_system_prompt, initialize_turn_separator
+from verl.utils.tokenizer.continuous_token_wiring import create_continuous_token_builder
 from verl.workers.config import (
     HFModelConfig,
     RolloutConfig,
@@ -125,7 +127,17 @@ class AgentLoopOutput(BaseModel):
 
         routed_experts = output.pop("routed_experts", None)
         if routed_experts is not None:
-            output["routed_experts"] = torch.tensor(routed_experts, dtype=torch.int64)
+            routed_experts = torch.tensor(routed_experts, dtype=torch.int64)
+            # Router replay indexes this field by absolute token position, so it must
+            # span the whole sequence. The rollout engine records fewer rows than that:
+            # it only sees tokens fed through the model, and multi-turn loops stop
+            # recording at the last generation. Trailing rows stay zero; replay masks
+            # them out instead of consuming them.
+            total_length = output["prompts"].size(0) + output["responses"].size(0)
+            aligned = routed_experts.new_zeros((total_length, *routed_experts.shape[1:]))
+            num_rows = min(routed_experts.size(0), total_length)
+            aligned[:num_rows] = routed_experts[:num_rows]
+            output["routed_experts"] = aligned
 
         # rm_scores: reward score for each token
         reward_score = output.pop("reward_score", None)
@@ -223,8 +235,34 @@ class AgentLoopBase(ABC):
         self.data_config = data_config.config
         self.apply_chat_template_kwargs = self.data_config.get("apply_chat_template_kwargs", {})
         self.mm_processor_kwargs = self.data_config.get("mm_processor_kwargs", {})
-        processing_class = self.processor if self.processor is not None else self.tokenizer
-        self.system_prompt = initialize_system_prompt(processing_class, **self.apply_chat_template_kwargs)
+        self.continuous_token_builder = None
+        self.enable_continuous_token = False
+        continuous_token_config = self.data_config.continuous_token
+        if continuous_token_config.enable and self.processor is None:
+            model_config = self.config.actor_rollout_ref.model
+            self.continuous_token_builder = create_continuous_token_builder(
+                self.tokenizer,
+                model_family=continuous_token_config.model_family,
+                model_path=model_config.path,
+                tokenizer_name_or_path=model_config.tokenizer_path,
+                chat_template_kwargs=self.apply_chat_template_kwargs,
+            )
+            self.enable_continuous_token = True
+            # Continuous Token doesn't use the legacy removable system prompt.
+            self.system_prompt = None
+            # Continuous Token re-renders non-assistant turns from the full message list, so it does
+            # not need the incremental turn separator.
+            self.turn_separator = []
+        else:
+            if continuous_token_config.enable and self.processor is not None:
+                logger.warning(
+                    "Continuous Token is enabled but processor is set; falling back to legacy multimodal path."
+                )
+            processing_class = self.processor if self.processor is not None else self.tokenizer
+            self.system_prompt = initialize_system_prompt(processing_class, **self.apply_chat_template_kwargs)
+            # Turn separator dropped when the model stops at the assistant close token; restored at
+            # turn boundaries in ``ToolAgentLoop._handle_processing_tools_state``.
+            self.turn_separator = initialize_turn_separator(processing_class, **self.apply_chat_template_kwargs)
         self.loop = get_event_loop()
 
     def _get_mm_processor_kwargs(self, audio_data: Optional[list[Any]] = None) -> dict[str, Any]:
@@ -268,6 +306,77 @@ class AgentLoopBase(ABC):
                 multi_modal_data["audios"] = audios
 
         return multi_modal_data
+
+    async def ct_build_initial_tokens(
+        self,
+        messages: list[dict],
+        tools: list[dict] = None,
+    ) -> list[int]:
+        """Build the initial prompt token ids with Continuous Token."""
+        prompt_ids = await self.loop.run_in_executor(
+            None,
+            lambda: self.continuous_token_builder.build_initial_tokens(messages, tools=tools),
+        )
+        return self._cap_text_prompt_length(prompt_ids)
+
+    async def ct_merge_non_assistant_msg(
+        self,
+        previous_messages: list[dict],
+        updated_messages: list[dict],
+        runtime_token_ids: list[int],
+        response_mask: list[int],
+        response_logprobs: Optional[list[float]] = None,
+        tools: list[dict] = None,
+    ):
+        """Merge appended non-assistant messages into runtime tokens and metadata."""
+        merge_result = await self.loop.run_in_executor(
+            None,
+            lambda: self.continuous_token_builder.merge_non_assistant_tokens(
+                previous_messages,
+                updated_messages,
+                runtime_token_ids,
+                tools=tools,
+            ),
+        )
+        aligned_response_mask, aligned_response_logprobs = self.continuous_token_builder.align_response_metadata(
+            merge_result, response_mask, response_logprobs
+        )
+        return merge_result, aligned_response_mask, aligned_response_logprobs
+
+    async def ct_merge_assistant_token(
+        self,
+        runtime_token_ids: list[int],
+        assistant_token_ids: list[int],
+        response_mask: list[int],
+        response_logprobs: Optional[list[float]] = None,
+        assistant_logprobs: Optional[list[float]] = None,
+    ):
+        """Merge assistant-generated tokens and align response metadata."""
+        merge_result = await self.loop.run_in_executor(
+            None,
+            lambda: self.continuous_token_builder.merge_assistant_tokens(
+                runtime_token_ids,
+                assistant_token_ids,
+            ),
+        )
+        aligned_response_mask, aligned_response_logprobs = self.continuous_token_builder.align_response_metadata(
+            merge_result,
+            response_mask,
+            response_logprobs,
+            assistant_logprobs=assistant_logprobs,
+        )
+        return merge_result, aligned_response_mask, aligned_response_logprobs
+
+    def _cap_text_prompt_length(self, prompt_ids: list[int]) -> list[int]:
+        prompt_length = self.rollout_config.prompt_length
+        if len(prompt_ids) > prompt_length:
+            logger.warning(
+                "Prompt of %d tokens exceeds rollout.prompt_length=%d; left-truncating.",
+                len(prompt_ids),
+                prompt_length,
+            )
+            return prompt_ids[-prompt_length:]
+        return prompt_ids
 
     async def apply_chat_template(
         self,
@@ -348,12 +457,7 @@ class AgentLoopBase(ABC):
                     f"(e.g. ``total_pixels`` / ``max_pixels`` / fps / number of frames) or "
                     f"increase ``rollout.prompt_length``."
                 )
-            logger.warning(
-                "Prompt of %d tokens exceeds rollout.prompt_length=%d; left-truncating.",
-                len(prompt_ids),
-                prompt_length,
-            )
-            prompt_ids = prompt_ids[-prompt_length:]
+            prompt_ids = self._cap_text_prompt_length(prompt_ids)
 
         return prompt_ids
 
@@ -453,6 +557,10 @@ class AgentLoopWorker:
             self.model_config.tokenizer.chat_template = self.model_config.custom_chat_template
 
         trace_config = self.rollout_config.trace
+        if trace_config.get("token2text", False):
+            # rollout_trace_op runs on the LLM client, so provide the tokenizer
+            # needed to decode each generate call's prompt and response tokens.
+            self.llm_client.tokenizer = self.tokenizer
         RolloutTraceConfig.init(
             self.rollout_config.trace.project_name,
             self.rollout_config.trace.experiment_name,
@@ -608,6 +716,14 @@ class AgentLoopWorker:
         return_attention_mask: bool,
     ) -> dict[str, torch.Tensor]:
         """Right/left pad a flat list of token ids to a ``(1, max_length)`` tensor."""
+        # tokenizer.pad() with empty input returns dict with list values
+        # instead of tensors, which breaks downstream .dim() calls.
+        if not tokens:
+            pad_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else 0
+            result = {"input_ids": torch.full((1, max_length), pad_id, dtype=torch.long)}
+            if return_attention_mask:
+                result["attention_mask"] = torch.zeros((1, max_length), dtype=torch.long)
+            return result
         self.tokenizer.padding_side = padding_side
         padded = self.tokenizer.pad(
             {"input_ids": tokens},
@@ -803,7 +919,8 @@ class AgentLoopWorker:
         mm_processor_kwargs: Optional[dict[str, Any]] = None,
     ) -> torch.Tensor:
         """Compute position ids for multi-modal inputs."""
-        if self.processor is None:
+        # text-only OR non-M-RoPE multimodal (e.g. Gemma4) -> standard 1D positions
+        if self.processor is None or not hasattr(self.processor, "get_rope_index"):
             return compute_position_id_with_mask(attention_mask)  # (1, seq_len)
 
         multi_modal_kwargs = {
@@ -820,6 +937,11 @@ class AgentLoopWorker:
             if video_token_id is not None:
                 mm_token_type_ids[0][input_ids[0] == video_token_id] = 2
             multi_modal_kwargs["mm_token_type_ids"] = mm_token_type_ids
+
+        # Allow model-specific processors to contribute additional RoPE inputs.
+        get_rope_index_kwargs = getattr(self.processor, "get_rope_index_kwargs", None)
+        if get_rope_index_kwargs is not None:
+            multi_modal_kwargs.update(get_rope_index_kwargs(multi_modal_inputs))
 
         # Model's get_rope_index has been dynamically bind to the processor.
         vision_position_ids, _ = self.processor.get_rope_index(
@@ -1099,6 +1221,7 @@ class AgentLoopManager:
             )
 
     @auto_await
+    @SkipManager.annotate(role="rollout")
     async def generate_sequences(self, prompts: DataProto) -> DataProto:
         """Split input batch and dispatch to agent loop workers.
 
@@ -1108,6 +1231,12 @@ class AgentLoopManager:
         Returns:
             DataProto: Output batch.
         """
+        # Attach per-sample priority to the batch (like ``uid``) so each sample gets
+        # a globally-unique priority that flows to vLLM request scheduling. Assigned
+        # before chunking so chunks own disjoint ranges without per-worker offsets.
+        if "priority" not in prompts.non_tensor_batch:
+            prompts.non_tensor_batch["priority"] = np.arange(len(prompts), dtype=np.int64)
+
         chunkes = prompts.chunk(len(self.agent_loop_workers))
         outputs = await asyncio.gather(
             *[

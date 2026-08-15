@@ -11787,6 +11787,10 @@ class IntradayVwap(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data.BaseD
         """
         ...
 
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
     def try_get_volume_and_average_price(self, input: QuantConnect.Data.BaseData, volume: typing.Optional[float], average_price: typing.Optional[float]) -> typing.Tuple[bool, float, float]:
         """
         Determines the volume and price to be used for the current input in the VWAP computation

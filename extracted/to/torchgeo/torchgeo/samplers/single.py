@@ -4,8 +4,7 @@
 """TorchGeo samplers."""
 
 import abc
-from collections.abc import Callable, Iterable, Iterator
-from functools import partial
+from collections.abc import Iterator
 
 import numpy as np
 import pandas as pd
@@ -14,6 +13,7 @@ import torch
 from shapely import Polygon
 from torch import Generator
 from torch.utils.data import Sampler
+from typing_extensions import deprecated
 
 from ..datasets import GeoDataset
 from ..datasets.utils import GeoSlice
@@ -21,6 +21,12 @@ from .constants import Units
 from .utils import _to_tuple, get_random_bounding_box, tile_to_chips
 
 
+# This class is deprecated, but we don't issue a deprecation warning because:
+#
+# 1. importing torchgeo.samplers would result in a warning due to subclass creation
+# 2. each subclass has its own more specific deprecation warning anyway
+#
+# TODO: we could directly subclass the new GeoSampler and delete this class.
 class GeoSampler(Sampler[GeoSlice], abc.ABC):
     """Abstract base class for sampling from :class:`~torchgeo.datasets.GeoDataset`.
 
@@ -34,7 +40,7 @@ class GeoSampler(Sampler[GeoSlice], abc.ABC):
         self,
         dataset: GeoDataset,
         roi: Polygon | None = None,
-        toi: pd.Interval | None = None,  # type: ignore[type-arg]
+        toi: pd.Interval | None = None,
     ) -> None:
         """Initialize a new Sampler instance.
 
@@ -79,6 +85,7 @@ class GeoSampler(Sampler[GeoSlice], abc.ABC):
         """
 
 
+@deprecated('Use torchgeo.samplers.RandomPatchSampler instead')
 class RandomGeoSampler(GeoSampler):
     """Samples elements from a region of interest randomly.
 
@@ -96,7 +103,7 @@ class RandomGeoSampler(GeoSampler):
         size: tuple[float, float] | float,
         length: int | None = None,
         roi: Polygon | None = None,
-        toi: pd.Interval | None = None,  # type: ignore[type-arg]
+        toi: pd.Interval | None = None,
         units: Units = Units.PIXELS,
         generator: Generator | None = None,
     ) -> None:
@@ -196,6 +203,7 @@ class RandomGeoSampler(GeoSampler):
         return self.length
 
 
+@deprecated('Use torchgeo.samplers.GriddedPatchSampler instead')
 class GridGeoSampler(GeoSampler):
     """Samples elements in a grid-like fashion.
 
@@ -217,7 +225,7 @@ class GridGeoSampler(GeoSampler):
         size: tuple[float, float] | float,
         stride: tuple[float, float] | float | None = None,
         roi: Polygon | None = None,
-        toi: pd.Interval | None = None,  # type: ignore[type-arg]
+        toi: pd.Interval | None = None,
         units: Units = Units.PIXELS,
     ) -> None:
         """Initialize a new Sampler instance.
@@ -301,6 +309,7 @@ class GridGeoSampler(GeoSampler):
         return self.length
 
 
+@deprecated('Use torchgeo.samplers.RandomPatchSampler instead')
 class PreChippedGeoSampler(GeoSampler):
     """Samples entire files at a time.
 
@@ -319,7 +328,7 @@ class PreChippedGeoSampler(GeoSampler):
         self,
         dataset: GeoDataset,
         roi: Polygon | None = None,
-        toi: pd.Interval | None = None,  # type: ignore[type-arg]
+        toi: pd.Interval | None = None,
         shuffle: bool = False,
         generator: Generator | None = None,
     ) -> None:
@@ -353,11 +362,12 @@ class PreChippedGeoSampler(GeoSampler):
         Yields:
             [xmin:xmax, ymin:ymax, tmin:tmax] coordinates to index a dataset.
         """
-        generator: Callable[[int], Iterable[int]] = range
         if self.shuffle:
-            generator = partial(torch.randperm, generator=self.generator)
+            indices = torch.randperm(len(self), generator=self.generator)
+        else:
+            indices = range(len(self))
 
-        for idx in generator(len(self)):
+        for idx in indices:
             i = int(idx)
             xmin, ymin, xmax, ymax = self.index.geometry.iloc[i].bounds
             tmin, tmax = self.index.index[i].left, self.index.index[i].right

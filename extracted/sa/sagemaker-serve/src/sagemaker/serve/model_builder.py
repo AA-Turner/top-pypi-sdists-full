@@ -83,7 +83,7 @@ from sagemaker.serve.mode.in_process_mode import InProcessMode
 from sagemaker.serve.utils.types import ModelServer, ModelHub
 from sagemaker.serve.detector.image_detector import _get_model_base, _detect_framework_and_version
 from sagemaker.serve.detector.pickler import save_pkl, save_xgboost
-from sagemaker.serve.validations.check_image_uri import is_1p_image_uri
+from sagemaker.serve.validations.check_image_uri import is_1p_image_uri, validate_hub_ecr_address
 from sagemaker.core.inference_config import ResourceRequirements
 from sagemaker.serve.inference_recommendation_mixin import _InferenceRecommenderMixin
 from sagemaker.serve.model_builder_utils import _ModelBuilderUtils
@@ -1289,6 +1289,9 @@ class ModelBuilder(_InferenceRecommenderMixin, _ModelBuilderServers, _ModelBuild
         if self._is_nova_model():
             nova_config = self._get_nova_hosting_config(instance_type=self.instance_type)
             if not self.image_uri:
+                # Defense-in-depth: reject a hub-sourced image URI that spoofs an ECR host before
+                # it can propagate to LocalContainerMode's docker login (see check_image_uri).
+                validate_hub_ecr_address(nova_config["image_uri"])
                 self.image_uri = nova_config["image_uri"]
             if self.env_vars:
                 user_overrides = dict(self.env_vars)
@@ -1309,6 +1312,9 @@ class ModelBuilder(_InferenceRecommenderMixin, _ModelBuilderServers, _ModelBuild
         if hosting_configs:
             config = self._select_recipe_hosting_config(hosting_configs)
             if not self.image_uri:
+                # Defense-in-depth: reject a hub-sourced image URI that spoofs an ECR host before
+                # it can propagate to LocalContainerMode's docker login (see check_image_uri).
+                validate_hub_ecr_address(config.get("EcrAddress"))
                 self.image_uri = config.get("EcrAddress")
 
             # Cache environment variables from recipe config. Use `or {}` (not a `{}` default) so a
@@ -4782,6 +4788,20 @@ class ModelBuilder(_InferenceRecommenderMixin, _ModelBuilderServers, _ModelBuild
             sagemaker_session=self.sagemaker_session,
         )
 
+    @property
+    def benchmark_metrics(self):
+        """Benchmark metrics for the model's JumpStart deployment configs.
+
+        Returns a pandas ``DataFrame`` (one row per config/instance) built from
+        the model's published benchmark data. Available for JumpStart models
+        (or HuggingFace models with a JumpStart equivalent) before deploy.
+        """
+        import pandas as pd
+
+        df = pd.DataFrame(self._get_deployment_configs_benchmarks_data())
+        df.index = [""] * len(df)
+        return df
+
     @_telemetry_emitter(
         feature=Feature.MODEL_CUSTOMIZATION, func_name="model_builder.display_benchmark_metrics"
     )
@@ -5572,6 +5592,7 @@ class ModelBuilder(_InferenceRecommenderMixin, _ModelBuilderServers, _ModelBuild
         *,
         recommendation_index: int,
         recommendation_spec_name: Optional[str],
+        recommendation_row: Optional[Any] = None,
         endpoint_name: Optional[str],
         model_name: Optional[str],
         endpoint_config_name: Optional[str],
@@ -5621,7 +5642,11 @@ class ModelBuilder(_InferenceRecommenderMixin, _ModelBuilderServers, _ModelBuild
                 f"{'Job failed: ' + str(failure_reason) if status == 'Failed' else 'Call job.wait() before deploy.'}"
             )
 
-        if recommendation_spec_name is not None:
+        if recommendation_row is not None:
+            # Row object passed to deploy(recommendation=...): use it directly,
+            # no positional lookup that a re-read/refresh could misroute.
+            rec = recommendation_row
+        elif recommendation_spec_name is not None:
             matches = [
                 row for row in rows
                 if getattr(getattr(row, "model_details", None), "inference_specification_name", None)
@@ -5812,6 +5837,7 @@ class ModelBuilder(_InferenceRecommenderMixin, _ModelBuilderServers, _ModelBuild
         # generate_deployment_recommendations was called previously, or when
         # this builder was hydrated via ModelBuilder.from_recommendation_job(...).
         use_recommendation: Optional[bool] = None,
+        recommendation: Optional[Any] = None,
         recommendation_index: int = 0,
         recommendation_spec_name: Optional[str] = None,
         auto_approve: bool = False,
@@ -5871,6 +5897,10 @@ class ModelBuilder(_InferenceRecommenderMixin, _ModelBuilderServers, _ModelBuild
                 None (default) deploys the recommendation when a recommendation job is
                 attached, else the built model. False forces the built-model path even if a
                 job is attached. True requires an attached job and errors otherwise.
+            recommendation (optional): Recommendation deploy only. A recommendation row to
+                deploy, e.g. ``mb.recommendations.best`` or ``mb.recommendations[i]``. Use
+                this instead of ``recommendation_index`` / ``recommendation_spec_name`` to
+                deploy a row without hand-copying its index. Mutually exclusive with those two.
             recommendation_index (int): Recommendation deploy only. Index of the recommendation
                 row to deploy. (Default: 0, the top-ranked row). Ignored when deploying a
                 normally-built model.
@@ -5923,10 +5953,31 @@ class ModelBuilder(_InferenceRecommenderMixin, _ModelBuilderServers, _ModelBuild
                 "Call generate_deployment_recommendations(...) or build via "
                 "ModelBuilder.from_recommendation_job(...) first."
             )
+        # A recommendation row (mb.recommendations.best or [i]) may be passed
+        # directly. Pass its underlying shape straight through so the exact row
+        # deploys — not a positional index, which can go stale or point into a
+        # different job.
+        recommendation_row = None
+        if recommendation is not None:
+            if recommendation_spec_name is not None or recommendation_index:
+                raise ValueError(
+                    "Pass only one of `recommendation`, `recommendation_spec_name`, "
+                    "or `recommendation_index` to deploy()."
+                )
+            recommendation_row = getattr(recommendation, "raw", None)
+            if recommendation_row is None or not hasattr(recommendation_row, "model_details"):
+                raise TypeError(
+                    "recommendation must be a recommendation row from "
+                    "mb.recommendations (e.g. mb.recommendations.best or "
+                    f"mb.recommendations[i]); got {type(recommendation).__name__}. "
+                    "To select by index or spec name, use recommendation_index= "
+                    "or recommendation_spec_name= instead."
+                )
         if has_recommendation and use_recommendation is not False:
             return self._deploy_recommendation(
                 recommendation_index=recommendation_index,
                 recommendation_spec_name=recommendation_spec_name,
+                recommendation_row=recommendation_row,
                 endpoint_name=endpoint_name,
                 model_name=model_name,
                 endpoint_config_name=endpoint_config_name,

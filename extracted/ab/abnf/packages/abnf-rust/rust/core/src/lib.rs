@@ -40,7 +40,7 @@ mod rule;
 mod visitor;
 
 pub use alternation::Alternation;
-pub use cache::ParseCache;
+pub use cache::{ParseCache, ParseScope, SourceScope};
 pub use concatenation::Concatenation;
 pub use core_rules::install_core_rules;
 pub use error::ParseError;
@@ -49,7 +49,7 @@ pub use matcher::Match;
 pub use meta_grammar::{build_meta_grammar, install_meta_grammar};
 pub use node::{LiteralNode, Node, NodeKind};
 pub use option::OptionParser;
-pub use parser::{arc, ArcParser, ExternalParser, MatchList, NodeList, ParseResult, Parser};
+pub use parser::{arc, ArcParser, ExternalParser, MatchList, NodeList, ParseResult, Parser, Src};
 pub use prose::Prose;
 pub use registry::RuleRegistry;
 pub use repetition::{Repeat, Repetition};

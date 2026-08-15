@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: certbot_dns_duckdns
-Version: 1.8.0
+Version: 1.9.0
 Summary: Obtain certificates using a DNS TXT record for DuckDNS domains
 Home-page: https://github.com/infinityofspace/certbot_dns_duckdns
 Author: infinityofspace
@@ -72,7 +72,7 @@ Plugin for certbot for a DNS-01 challenge with a DuckDNS domain.
 
 ### About
 
-*certbot_dn_duckdns* is a plugin for [*certbot*](https://github.com/certbot/certbot) to create the DNS-01 challenge for
+*certbot_dns_duckdns* is a plugin for [*certbot*](https://github.com/certbot/certbot) to create the DNS-01 challenge for
 a DuckDNS domain. The plugin takes care of setting and deleting the TXT entry via the DuckDNS API.
 
 ### Installation
@@ -490,4 +490,4 @@ Furthermore, this readme file contains embeddings of [Shields.io](https://github
 
 ### License
 
-[MIT](License) - Copyright (c) 2021-2024 Marvin Heptner
+[MIT](License) - Copyright (c) 2021-2026 Marvin Heptner

@@ -1000,7 +1000,7 @@ def _order_key(node: Dict[str, Any]) -> float:
 
 def _render_variables(variables: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Render an Action's Input/Output Variables panel: name, human label, type
-    — the chips the Data panel shows (e.g. 'service_close | Record')."""
+    — the chips the Data panel shows (e.g. 'sample_ref | Record')."""
     out: List[Dict[str, Any]] = []
     for v in variables or []:
         name = v.get("name", "")

@@ -40,6 +40,14 @@ except ImportError:
     HAS_OPENCV = False
 
 try:
+    # Workaround for PyOpenGL 3.1.6+ on Wayland: GLFW (used by immapp / hello_imgui)
+    # creates X11/XWayland windows, but PyOpenGL defaults to Wayland EGL, causing a
+    # context mismatch. Force the X11 backend before importing OpenGL.
+    # See https://github.com/pthom/imgui_bundle/issues/321
+    import os
+    if os.getenv("XDG_SESSION_TYPE") == "wayland" and not os.getenv("PYOPENGL_PLATFORM"):
+        os.environ["PYOPENGL_PLATFORM"] = "x11"
+
     import OpenGL.GL as GL
     import ctypes
     HAS_OPENGL = True
@@ -850,7 +858,7 @@ def _markdown_slide_gui(content_size: ImVec2):
     imgui.push_font(code_font.font, code_font.size * 0.9)
 
     # Render the text editor
-    _markdown_text_editor.render("##md_editor", ImVec2(half_w, h), False)
+    _markdown_text_editor.render("##md_editor", ImVec2(half_w, h))
 
     imgui.pop_font()
     imgui.end_child()
@@ -1069,7 +1077,7 @@ def _gallery_render_cell(idx: int, w: float, h: float, em: float, gui_func):
     # Editor
     code_font = imgui_md.get_code_font()
     imgui.push_font(code_font.font, code_font.size * 0.8)
-    editor.render(f"##ed_gallery_{idx}", ImVec2(-1, -1), False)
+    editor.render(f"##ed_gallery_{idx}", ImVec2(-1, -1))
     imgui.pop_font()
 
     imgui.end_child()

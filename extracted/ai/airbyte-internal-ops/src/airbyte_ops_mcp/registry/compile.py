@@ -24,7 +24,8 @@ High-level algorithm
    ensure a `version=<x.y.z>` marker exists in the versioned
    directory, then recursively copy the versioned directory to
    `latest/`.
-7. **Write index files**:
+7. **Write index files** (or, for output-store dry runs, read registry
+   entries directly from each computed version directory):
    a. Global `registries/v0/cloud_registry.json` and
       `registries/v0/oss_registry.json` (backwards-compatible).
    b. Per-connector `versions.json` (new).
@@ -49,10 +50,12 @@ import logging
 import re
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
-from typing import Any, Protocol
+from dataclasses import dataclass, field, replace
+from datetime import datetime, timezone
+from typing import Any, Protocol, TextIO
 
 import dpath.util
+import fsspec
 import gcsfs
 import yaml
 from packaging.version import InvalidVersion, Version
@@ -89,11 +92,115 @@ from airbyte_ops_mcp.registry.store import RegistryStore, StoreType
 logger = logging.getLogger(__name__)
 
 
-class _ReadableRegistryFileSystem(Protocol):
+class _RegistryFileSystem(Protocol):
     """Minimal filesystem interface needed to build a version index."""
 
-    def open(self, path: str, mode: str = "r") -> Any:
+    def open(self, path: str, mode: str = "r") -> TextIO:
         """Open a registry object for reading."""
+
+    def exists(self, path: str) -> bool:
+        """Return whether a registry object exists."""
+
+    def glob(self, path: str) -> list[str]:
+        """Return paths matching a glob."""
+
+    def rm(self, path: str, recursive: bool = False) -> None:
+        """Remove a registry object or directory."""
+
+    def copy(self, source: str, destination: str, recursive: bool = False) -> None:
+        """Copy a registry object or directory."""
+
+    def makedirs(self, path: str, exist_ok: bool = False) -> None:
+        """Create a directory tree."""
+
+    def mv(self, path1: str, path2: str, recursive: bool = False) -> None:
+        """Move a registry object or directory."""
+
+    def touch(self, path: str, truncate: bool = True, **kwargs: object) -> None:
+        """Create or update a registry object."""
+
+    def mkdir(self, path: str, create_parents: bool = True, **kwargs: object) -> None:
+        """Create a directory."""
+
+    def rmdir(self, path: str) -> None:
+        """Remove a directory."""
+
+
+class _ReadOnlyRegistryFileSystem:
+    """Reject all mutating operations on a registry filesystem."""
+
+    def __init__(self, filesystem: _RegistryFileSystem) -> None:
+        self._filesystem = filesystem
+
+    def open(self, path: str, mode: str = "r") -> TextIO:
+        if any(flag in mode for flag in ("w", "a", "x", "+")):
+            raise PermissionError(f"Read-only registry filesystem: open({mode!r})")
+        return self._filesystem.open(path, mode)
+
+    def exists(self, path: str) -> bool:
+        return self._filesystem.exists(path)
+
+    def glob(self, path: str) -> list[str]:
+        return self._filesystem.glob(path)
+
+    def _reject(self, operation: str) -> None:
+        raise PermissionError(f"Read-only registry filesystem: {operation}")
+
+    def rm(self, path: str, recursive: bool = False) -> None:
+        self._reject("rm")
+
+    def copy(self, source: str, destination: str, recursive: bool = False) -> None:
+        self._reject("copy")
+
+    def makedirs(self, path: str, exist_ok: bool = False) -> None:
+        self._reject("makedirs")
+
+    def mv(self, path1: str, path2: str, recursive: bool = False) -> None:
+        self._reject("mv")
+
+    def touch(self, path: str, truncate: bool = True, **kwargs: object) -> None:
+        self._reject("touch")
+
+    def mkdir(self, path: str, create_parents: bool = True, **kwargs: object) -> None:
+        self._reject("mkdir")
+
+    def rmdir(self, path: str) -> None:
+        self._reject("rmdir")
+
+
+def _filesystem_for_store(store: RegistryStore) -> _RegistryFileSystem:
+    """Create the filesystem client for a parsed registry store."""
+    if store.env == "local":
+        filesystem = fsspec.filesystem("file")
+    else:
+        token = get_gcs_credentials_token()
+        filesystem = gcsfs.GCSFileSystem(token=token)
+    if store.read_only:
+        return _ReadOnlyRegistryFileSystem(filesystem)
+    return filesystem
+
+
+def _write_registry_blob(
+    fs: _RegistryFileSystem,
+    *,
+    store: RegistryStore,
+    path: str,
+    content: str,
+    cache_control: str | None = None,
+) -> None:
+    """Write a compiled artifact to either GCS or a local output tree."""
+    if store.env == "local":
+        parent = path.rsplit("/", 1)[0]
+        fs.makedirs(parent, exist_ok=True)
+        with fs.open(path, "w") as file:
+            file.write(content)
+        return
+    _write_gcs_blob_with_custom_ttl(
+        bucket_name=store.bucket,
+        blob_path=path.removeprefix(f"{store.bucket}/"),
+        content=content,
+        cache_control=cache_control,
+    )
 
 
 # Regex for the `version=<semver>` marker filename inside `latest/`
@@ -111,6 +218,7 @@ _REGISTRY_INDEX_CACHE_CONTROL = "public, max-age=300"
 
 # Specs secrets mask filename
 _SPECS_SECRETS_MASK_FILENAME = "specs_secrets_mask.yaml"
+_COMPILE_METADATA_FILENAME = "compile-metadata.json"
 
 
 # ---------------------------------------------------------------------------
@@ -415,7 +523,7 @@ def _compute_release_candidates(
 
 
 def _read_rc_registry_entry(
-    fs: gcsfs.GCSFileSystem,
+    fs: _RegistryFileSystem,
     *,
     store: RegistryStore,
     connector: str,
@@ -510,7 +618,7 @@ def _apply_release_candidates_to_entries(
 
 
 def _scan_versions_and_markers(
-    fs: gcsfs.GCSFileSystem,
+    fs: _RegistryFileSystem,
     *,
     store: RegistryStore,
     connector_name: list[str] | None = None,
@@ -656,7 +764,7 @@ def _compute_latest_versions(
 
 
 def _scan_latest_markers(
-    fs: gcsfs.GCSFileSystem,
+    fs: _RegistryFileSystem,
     *,
     store: RegistryStore,
     connector_name: list[str] | None = None,
@@ -699,7 +807,7 @@ def _scan_latest_markers(
 
 
 def _requires_pinned_override_synthesis(
-    fs: gcsfs.GCSFileSystem,
+    fs: _RegistryFileSystem,
     *,
     store: RegistryStore,
     connector: str,
@@ -764,7 +872,7 @@ def _requires_pinned_override_synthesis(
 
 
 def _delete_latest_dir(
-    fs: gcsfs.GCSFileSystem,
+    fs: _RegistryFileSystem,
     *,
     store: RegistryStore,
     connector: str,
@@ -782,7 +890,7 @@ def _delete_latest_dir(
 
 
 def _ensure_version_marker(
-    fs: gcsfs.GCSFileSystem,
+    fs: _RegistryFileSystem,
     *,
     store: RegistryStore,
     connector: str,
@@ -805,7 +913,7 @@ def _ensure_version_marker(
 
 
 def _sync_latest_dir(
-    fs: gcsfs.GCSFileSystem,
+    fs: _RegistryFileSystem,
     *,
     store: RegistryStore,
     connector: str,
@@ -856,7 +964,7 @@ def _sync_latest_dir(
 
 
 def _apply_overrides_to_latest_entry(
-    fs: gcsfs.GCSFileSystem,
+    fs: _RegistryFileSystem,
     *,
     store: RegistryStore,
     connector: str,
@@ -1062,16 +1170,19 @@ def _resolve_definition_id_collision(
 
 
 def _compile_global_registry(
-    fs: gcsfs.GCSFileSystem,
+    fs: _RegistryFileSystem,
     *,
     store: RegistryStore,
     latest_versions: dict[str, str],
     registry_type: str,
+    source_from_version_dirs: bool = False,
 ) -> list[dict[str, Any]]:
-    """Read cloud.json or oss.json from each connector's latest/ dir.
+    """Read cloud.json or oss.json from each connector's registry directory.
 
     Reads are parallelised with up to `_COMPILE_READ_MAX_WORKERS` threads
     to avoid the ~150 s serial penalty on a full registry (~1 250 files).
+    Output-store dry runs read from the computed version directory so that
+    stale `latest/` entries are visible in the resulting index diff.
 
     When multiple connectors share the same `definitionId`, the collision
     is resolved by `_resolve_definition_id_collision()`.  Only the
@@ -1081,6 +1192,8 @@ def _compile_global_registry(
 
     Args:
         registry_type: "cloud" or "oss".
+        source_from_version_dirs: Read from each connector's computed version
+            directory instead of its `latest/` directory.
 
     Returns:
         List of registry entry dicts (deterministic order, sorted by connector name).
@@ -1089,7 +1202,10 @@ def _compile_global_registry(
     sorted_connectors = sorted(latest_versions)
 
     def _read_one(connector: str) -> dict[str, Any] | None:
-        json_path = f"{base}/{connector}/latest/{registry_type}.json"
+        version_or_latest = (
+            latest_versions[connector] if source_from_version_dirs else "latest"
+        )
+        json_path = f"{base}/{connector}/{version_or_latest}/{registry_type}.json"
         try:
             if not fs.exists(json_path):
                 return None
@@ -1325,7 +1441,7 @@ def _extract_secret_property_names(
 
 
 def _build_version_index(
-    fs: _ReadableRegistryFileSystem,
+    fs: _RegistryFileSystem,
     *,
     store: RegistryStore,
     connector: str,
@@ -1473,7 +1589,7 @@ def _build_version_index(
 
 
 def _read_previous_version_index(
-    fs: _ReadableRegistryFileSystem,
+    fs: _RegistryFileSystem,
     index_path: str,
     *,
     connector: str,
@@ -1544,7 +1660,7 @@ LEGACY_MIGRATION_VERSIONS = ("v1",)
 
 
 def _cleanup_disabled_registry_entries(
-    fs: gcsfs.GCSFileSystem,
+    fs: _RegistryFileSystem,
     *,
     store: RegistryStore,
     connector_versions: dict[str, list[str]],
@@ -1745,6 +1861,7 @@ def purge_latest_dirs(
 def compile_registry(
     *,
     store: RegistryStore,
+    output_store: RegistryStore | None = None,
     connector_name: list[str] | None = None,
     dry_run: bool = False,
     with_secrets_mask: bool = False,
@@ -1766,7 +1883,9 @@ def compile_registry(
         7. Synthesize missing registry entries from pinned latest overrides.
         8. (Optional) Legacy migration: delete disabled registry entries.
         9. (Optional) Read latest connector metrics.
-        10. Write global registry JSONs.
+        10. Write global registry JSONs. When an output store is supplied,
+            read each connector entry from its computed version directory
+            instead of `latest/`.
         11. Write composite registry JSON.
         12. Write per-connector `versions.json`.
         13. (Optional) Regenerate `specs_secrets_mask.yaml`.
@@ -1809,11 +1928,27 @@ def compile_registry(
             f"Unknown legacy migration version: {with_legacy_migration!r}. "
             f"Supported: {', '.join(LEGACY_MIGRATION_VERSIONS)}"
         )
+    if output_store is not None and with_legacy_migration is not None:
+        raise ValueError(
+            "Legacy migration is incompatible with --output-store because "
+            "the source store must remain read-only."
+        )
+    if output_store is not None and output_store.env == "prod":
+        raise ValueError("Production stores cannot be compile output targets.")
+    if output_store is not None and output_store.env != "local":
+        raise ValueError("--output-store must use a local environment.")
+    if output_store is not None and output_store.store_type is not store.store_type:
+        raise ValueError(
+            "Source and output stores must use the same registry type: "
+            f"{store.store_type.value!r} versus {output_store.store_type.value!r}."
+        )
 
-    result = CompileResult(target=store.bucket_root, dry_run=dry_run)
+    output_target = output_store or store
+    result = CompileResult(target=output_target.bucket_root, dry_run=dry_run)
 
-    token = get_gcs_credentials_token()
-    fs = gcsfs.GCSFileSystem(token=token)
+    source_store = replace(store, read_only=True) if output_store is not None else store
+    fs = _filesystem_for_store(source_store)
+    output_fs = _filesystem_for_store(output_target)
 
     # --- Steps 1 and 2: Scan versions and active markers ---
     # Always scan ALL connectors so that index rebuilds are complete.
@@ -1855,7 +1990,10 @@ def compile_registry(
     # --- Step 5: Check existing latest markers ---
     # When --connector-name is set, only check/sync those connectors (steps 5-6).
     # Index rebuilds always use the full unfiltered data.
-    if connector_name:
+    if output_store is not None:
+        _log_progress("Output store supplied; source store will remain read-only.")
+        sync_scope = {}
+    elif connector_name:
         connector_name_set = set(connector_name)
         sync_scope = {
             c: v for c, v in latest_versions.items() if c in connector_name_set
@@ -1870,10 +2008,14 @@ def compile_registry(
 
     _log_progress("Step 5: Checking existing latest/ markers...")
     sync_scope_names = list(sync_scope) if connector_name else None
-    existing_markers = _scan_latest_markers(
-        fs,
-        store=store,
-        connector_name=sync_scope_names,
+    existing_markers = (
+        {}
+        if output_store is not None
+        else _scan_latest_markers(
+            fs,
+            store=store,
+            connector_name=sync_scope_names,
+        )
     )
     _log_progress("  Found %d existing markers", len(existing_markers))
 
@@ -2055,6 +2197,7 @@ def compile_registry(
             store=store,
             latest_versions=latest_versions,
             registry_type=registry_type,
+            source_from_version_dirs=output_store is not None,
         )
 
         # Inject release candidate info into entries that have active RCs.
@@ -2117,10 +2260,14 @@ def compile_registry(
             )
         else:
             content = json.dumps(registry_json, indent=2, sort_keys=True) + "\n"
-            path_prefix = f"{store.prefix}/" if store.prefix else ""
-            _write_gcs_blob_with_custom_ttl(
-                bucket_name=store.bucket,
-                blob_path=f"{path_prefix}{_REGISTRIES_PREFIX}/{registry_type}_registry.json",
+            path = (
+                f"{output_target.bucket_root}/{_REGISTRIES_PREFIX}/"
+                f"{registry_type}_registry.json"
+            )
+            _write_registry_blob(
+                output_fs,
+                store=output_target,
+                path=path,
                 content=content,
                 cache_control=_REGISTRY_INDEX_CACHE_CONTROL,
             )
@@ -2147,10 +2294,13 @@ def compile_registry(
         )
     else:
         composite_content = json.dumps(composite_json, indent=2, sort_keys=True) + "\n"
-        path_prefix = f"{store.prefix}/" if store.prefix else ""
-        _write_gcs_blob_with_custom_ttl(
-            bucket_name=store.bucket,
-            blob_path=f"{path_prefix}{_REGISTRIES_PREFIX}/composite_registry.json",
+        path = (
+            f"{output_target.bucket_root}/{_REGISTRIES_PREFIX}/composite_registry.json"
+        )
+        _write_registry_blob(
+            output_fs,
+            store=output_target,
+            path=path,
             content=composite_content,
             cache_control=_REGISTRY_INDEX_CACHE_CONTROL,
         )
@@ -2164,7 +2314,7 @@ def compile_registry(
         "Step 12: Writing per-connector version indexes (max_workers=%d)...",
         _COMPILE_WRITE_MAX_WORKERS,
     )
-    base = f"{store.bucket_root}/{METADATA_FOLDER}/airbyte"
+    base = f"{output_target.bucket_root}/{METADATA_FOLDER}/airbyte"
     sorted_connectors = sorted(
         set(connector_versions)
         if connector_name is None
@@ -2179,8 +2329,17 @@ def compile_registry(
         index_path = f"{base}/{connector}/versions.json"
         previous_index = _read_previous_version_index(
             fs,
-            index_path,
+            f"{store.bucket_root}/{METADATA_FOLDER}/airbyte/{connector}/versions.json",
             connector=connector,
+        )
+        output_previous_index = (
+            previous_index
+            if output_store is None
+            else _read_previous_version_index(
+                output_fs,
+                index_path,
+                connector=connector,
+            )
         )
         index = _build_version_index(
             fs,
@@ -2200,7 +2359,7 @@ def compile_registry(
             ),
         )
         content = _version_index_content(index)
-        if _version_index_is_unchanged(previous_index, index):
+        if _version_index_is_unchanged(output_previous_index, index):
             action = "Would skip unchanged" if dry_run else "Skipped unchanged"
             _log_progress("  %s %s/versions.json", action, connector)
             return False
@@ -2211,7 +2370,10 @@ def compile_registry(
                 len(versions),
             )
         else:
-            with fs.open(index_path, "w") as f:
+            parent = index_path.rsplit("/", 1)[0]
+            if output_target.env == "local":
+                output_fs.makedirs(parent, exist_ok=True)
+            with output_fs.open(index_path, "w") as f:
                 f.write(content)
         return True
 
@@ -2245,7 +2407,8 @@ def compile_registry(
         result.specs_secrets_mask_properties = len(sorted_names)
         mask_content = yaml.dump({"properties": sorted_names}, default_flow_style=False)
         mask_path = (
-            f"{store.bucket_root}/{_REGISTRIES_PREFIX}/{_SPECS_SECRETS_MASK_FILENAME}"
+            f"{output_target.bucket_root}/{_REGISTRIES_PREFIX}/"
+            f"{_SPECS_SECRETS_MASK_FILENAME}"
         )
 
         _log_progress(
@@ -2260,12 +2423,34 @@ def compile_registry(
                 _SPECS_SECRETS_MASK_FILENAME,
             )
         else:
-            with fs.open(mask_path, "w") as f:
+            parent = mask_path.rsplit("/", 1)[0]
+            if output_target.env == "local":
+                output_fs.makedirs(parent, exist_ok=True)
+            with output_fs.open(mask_path, "w") as f:
                 f.write(mask_content)
             _log_progress(
                 "  Wrote %s",
                 _SPECS_SECRETS_MASK_FILENAME,
             )
+
+    if output_store is not None and not dry_run:
+        compile_metadata = (
+            json.dumps(
+                {
+                    "source_store": store.bucket_root,
+                    "output_store": output_store.bucket_root,
+                    "compiled_at": datetime.now(timezone.utc).isoformat(),
+                },
+                indent=2,
+            )
+            + "\n"
+        )
+        _write_registry_blob(
+            output_fs,
+            store=output_target,
+            path=f"{output_target.bucket_root}/{_COMPILE_METADATA_FILENAME}",
+            content=compile_metadata,
+        )
 
     _log_progress(result.summary())
     return result

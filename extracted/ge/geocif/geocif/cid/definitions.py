@@ -228,6 +228,24 @@ for _var in S2S_VARIABLES:
         dict_s2s[_key] = ["S2S", f"Mean S2S {_var} (lead {_lead})"]
         s2s_col_map[_key] = f"s2s_{_var}_lead{_lead}"
 
+# CHIRPS-MFC: CHIRPS3 long-term monthly precipitation forecasts
+# (hindcasts, monthly inits 1981-2023, leads 1-12, mm/month, init-anchored).
+# Raw columns from geomerge: chirps_mfc_prate_lead{k} — same monthly-broadcast
+# convention as FLDAS/S2S (geoprepare _MONTHLY_PREFIXES).
+CHIRPS_MFC_VARIABLES = ["prate"]
+CHIRPS_MFC_LEADS = list(range(1, 13))  # 1-based: [1..12]
+
+dict_chirps_mfc = {}
+chirps_mfc_col_map = {}  # index_name → raw column name in merged CSV
+
+for _var in CHIRPS_MFC_VARIABLES:
+    for _lead in CHIRPS_MFC_LEADS:
+        _key = f"MEAN_CHIRPS_MFC_{_var.upper()}_LEAD{_lead}"
+        dict_chirps_mfc[_key] = [
+            "CHIRPS-MFC", f"Mean CHIRPS-MFC {_var} (lead {_lead})"
+        ]
+        chirps_mfc_col_map[_key] = f"chirps_mfc_{_var}_lead{_lead}"
+
 # Engineered aggregate features (computed from raw leads, not read from CSV)
 # Precipitation: sum across leads; Temperature/SoilMoist/Evap/TWS: mean across leads
 FLDAS_AGG_FEATURES = {

@@ -27,7 +27,7 @@ class CopernicusBenchEuroSATS2(CopernicusBenchBase):
     """
 
     url = 'https://hf.co/datasets/wangyi111/Copernicus-Bench/resolve/9d252acd3aa0e3da3128e05c6f028647f0e48e5f/l2_eurosat_s1s2/eurosat_s2.zip'
-    md5 = 'b2be02ca9767554c717f2e9bd15bbd23'
+    sha256 = 'b78f2a2e4e059c0a5d6565335a447465de7468b7f8472835a0d406e6968a15a0'
     zipfile = 'eurosat_s2.zip'
     directory = 'eurosat_s2'
     filename = 'eurosat-{}.txt'
@@ -69,7 +69,7 @@ class CopernicusBenchEuroSATS2(CopernicusBenchBase):
         Returns:
             Data and labels at that index.
         """
-        file = self.files[index].replace('.jpg', '.tif')
+        file = str(self.files[index].replace('.jpg', '.tif'))
         classname = file.split('_')[0]
         path = os.path.join(self.root, self.directory, 'all_imgs', classname, file)
         sample = self._load_image(path)

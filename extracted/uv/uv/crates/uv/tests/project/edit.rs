@@ -613,6 +613,36 @@ fn add_git_branch() -> Result<()> {
 }
 
 #[test]
+#[cfg(feature = "test-git")]
+fn add_git_unnamed_partial_static_metadata_no_build() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = []
+
+        [tool.uv]
+        no-binary-package = ["dynamic-requires-python-tool"]
+        no-build = true
+    "#})?;
+
+    // The static project name should allow the package-specific exception to apply; see
+    // astral-sh/uv-dev#732.
+    uv_snapshot!(context.filters(), context.add()
+        .arg("git+https://github.com/astral-sh/uv-dynamic-requires-python-test@75a612dc87fc215e999a25a0efc376cbf9831afa#subdirectory=dynamic"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: Building source distributions is disabled
+    ");
+
+    Ok(())
+}
+
+#[test]
 #[cfg(feature = "test-git-lfs")]
 fn add_git_lfs() -> Result<()> {
     let context = uv_test::test_context!("3.13").with_git_lfs_config();
@@ -1703,8 +1733,7 @@ fn add_remove_workspace() -> Result<()> {
     add_cmd
         .arg("child2 @ git+https://github.com/astral-test/uv-public-pypackage")
         .arg("--package")
-        .arg("child1")
-        .current_dir(&context.temp_dir);
+        .arg("child1");
 
     uv_snapshot!(context.filters(), add_cmd, @"
     exit_code: 2 (failure)
@@ -1715,11 +1744,7 @@ fn add_remove_workspace() -> Result<()> {
     // Workspace packages should be detected automatically.
     let child1 = context.temp_dir.join("child1");
     let mut add_cmd = context.add();
-    add_cmd
-        .arg("child2")
-        .arg("--package")
-        .arg("child1")
-        .current_dir(&context.temp_dir);
+    add_cmd.arg("child2").arg("--package").arg("child1");
 
     uv_snapshot!(context.filters(), add_cmd, @"
     exit_code: 0 (success)
@@ -10841,7 +10866,7 @@ fn add_index_with_existing_relative_path_in_script() -> Result<()> {
         #
         # [[tool.uv.index]]
         # name = "local"
-        # url = "./links"
+        # url = "../links"
         # format = "flat"
         # ///
     "#})?;
@@ -10872,7 +10897,7 @@ fn add_index_with_existing_relative_path_in_script() -> Result<()> {
         #
         # [[tool.uv.index]]
         # name = "local"
-        # url = "links"
+        # url = "../links"
         # format = "flat"
         #
         # [tool.uv.sources]
@@ -10938,6 +10963,140 @@ async fn add_index_with_non_existent_relative_path_with_same_name_as_index() -> 
     Ok(())
 }
 
+/// Add a dependency using a configured index selected by name.
+#[test]
+fn add_index_by_name() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    // `explicit` and `default` are supported together; use both to test overriding behaviour.
+    let initial = indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = []
+
+        [[tool.uv.index]]
+        name = "internal"
+        url = "https://example.invalid/simple"
+        explicit = true
+        default = true
+    "#};
+    pyproject_toml.write_str(initial)?;
+
+    // Without preview, selecting a configured index by name emits a warning.
+    uv_snapshot!(context.filters(), context.add()
+        .arg("iniconfig")
+        .arg("--index").arg("internal")
+        .arg("--frozen"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    warning: Referencing an index by name is experimental and may change without warning. Pass `--preview-features index-by-name` to disable this warning.
+    ");
+
+    pyproject_toml.write_str(initial)?;
+
+    // Enabling preview suppresses the warning.
+    uv_snapshot!(context.filters(), context.add()
+        .arg("iniconfig")
+        .arg("--index").arg("internal")
+        .arg("--preview-features").arg("index-by-name")
+        .arg("--frozen"), @"
+    exit_code: 0 (success)
+    ");
+
+    // Preserve the existing index configuration and pin the dependency to it.
+    insta::with_settings!({
+        filters => context.filters(),
+    }, {
+        assert_snapshot!(context.read("pyproject.toml"), @r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = [
+            "iniconfig",
+        ]
+
+        [[tool.uv.index]]
+        name = "internal"
+        url = "https://example.invalid/simple"
+        explicit = true
+        default = true
+
+        [tool.uv.sources]
+        iniconfig = { index = "internal" }
+        "#);
+    });
+
+    Ok(())
+}
+
+/// Keep a named local index relative to its project when invoked from another directory.
+#[test]
+fn add_index_by_name_with_relative_path() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let project = context.temp_dir.child("project");
+    project.create_dir_all()?;
+    let pyproject_toml = project.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = []
+
+        [[tool.uv.index]]
+        name = "local"
+        url = "wheels"
+        format = "flat"
+    "#})?;
+
+    let packages = project.child("wheels");
+    packages.create_dir_all()?;
+    packages.child("placeholder").touch()?;
+
+    // Base the relative index URL at the project, not the invocation directory.
+    uv_snapshot!(context.filters(), context.add()
+        .arg("iniconfig")
+        .arg("--index").arg("local")
+        .arg("--preview-features").arg("index-by-name")
+        .arg("--project").arg(project.path())
+        .arg("--frozen"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Using CPython 3.12.[X] interpreter at: [PYTHON-3.12]
+    ");
+
+    let pyproject_toml = fs_err::read_to_string(pyproject_toml.path())?;
+
+    // Preserve the relative URL spelling and pin the dependency to the configured index.
+    insta::with_settings!({
+        filters => context.filters(),
+    }, {
+        assert_snapshot!(pyproject_toml, @r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = [
+            "iniconfig",
+        ]
+
+        [[tool.uv.index]]
+        name = "local"
+        url = "wheels"
+        format = "flat"
+
+        [tool.uv.sources]
+        iniconfig = { index = "local" }
+        "#);
+    });
+
+    Ok(())
+}
+
 #[tokio::test]
 async fn add_index_empty_directory() -> Result<()> {
     let context = uv_test::test_context!("3.12");
@@ -10977,8 +11136,7 @@ async fn add_index_empty_directory() -> Result<()> {
 
 #[test]
 fn add_index_with_ambiguous_relative_path() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
-    let context = context.with_filter((r"\./|\.\\", r"[PREFIX]"));
+    let context = uv_test::test_context!("3.12").with_filter((r"\./|\.\\", r"[PREFIX]"));
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml.write_str(indoc! {r#"
@@ -13642,13 +13800,8 @@ fn add_auth_policy_never_without_credentials() -> Result<()> {
 /// it should fail.
 #[tokio::test]
 async fn add_redirect_cross_origin() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
+    let context = uv_test::test_context!("3.12").with_filter((r"127\.0\.0\.1:\d*", "[LOCALHOST]"));
     let proxy = crate::pypi_proxy::start().await;
-    let filters = context
-        .filters()
-        .into_iter()
-        .chain([(r"127\.0\.0\.1:\d*", "[LOCALHOST]")])
-        .collect::<Vec<_>>();
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml.write_str(indoc! { r#"
@@ -13675,7 +13828,7 @@ async fn add_redirect_cross_origin() -> Result<()> {
     let _ = redirect_url.set_username("public");
     let _ = redirect_url.set_password(Some("heron"));
 
-    uv_snapshot!(filters, context.add().arg("--default-index").arg(redirect_url.as_str()).arg("anyio"), @"
+    uv_snapshot!(context.filters(), context.add().arg("--default-index").arg(redirect_url.as_str()).arg("anyio"), @"
     exit_code: 1 (failure)
     ----- stderr -----
       × No solution found when resolving dependencies:
@@ -13693,13 +13846,8 @@ async fn add_redirect_cross_origin() -> Result<()> {
 /// in the location, use those credentials for the redirect request.
 #[tokio::test]
 async fn add_redirect_cross_origin_credentials_in_location() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
+    let context = uv_test::test_context!("3.12").with_filter((r"127\.0\.0\.1:\d*", "[LOCALHOST]"));
     let proxy = crate::pypi_proxy::start().await;
-    let filters = context
-        .filters()
-        .into_iter()
-        .chain([(r"127\.0\.0\.1:\d*", "[LOCALHOST]")])
-        .collect::<Vec<_>>();
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml.write_str(indoc! { r#"
@@ -13725,7 +13873,7 @@ async fn add_redirect_cross_origin_credentials_in_location() -> Result<()> {
 
     let redirect_url = Url::parse(&redirect_server.uri())?;
 
-    uv_snapshot!(filters, context.add().arg("--default-index").arg(redirect_url.as_str()).arg("anyio"), @"
+    uv_snapshot!(context.filters(), context.add().arg("--default-index").arg(redirect_url.as_str()).arg("anyio"), @"
     exit_code: 0 (success)
     ----- stderr -----
     Resolved 4 packages in [TIME]
@@ -13758,13 +13906,8 @@ async fn add_redirect_with_keyring_cross_origin() -> Result<()> {
         .assert()
         .success();
 
-    let context = uv_test::test_context!("3.12");
+    let context = uv_test::test_context!("3.12").with_filter((r"127\.0\.0\.1:\d*", "[LOCALHOST]"));
     let proxy = crate::pypi_proxy::start().await;
-    let filters = context
-        .filters()
-        .into_iter()
-        .chain([(r"127\.0\.0\.1:\d*", "[LOCALHOST]")])
-        .collect::<Vec<_>>();
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml.write_str(indoc! { r#"
@@ -13793,7 +13936,7 @@ async fn add_redirect_with_keyring_cross_origin() -> Result<()> {
     let mut redirect_url = Url::parse(&redirect_server.uri())?;
     let _ = redirect_url.set_username("public");
 
-    uv_snapshot!(filters, context.add().arg("--default-index")
+    uv_snapshot!(context.filters(), context.add().arg("--default-index")
         .arg(redirect_url.as_str())
         .arg("anyio")
         .env(EnvVars::KEYRING_TEST_CREDENTIALS, format!(r#"{{"{host}": {{"public": "heron"}}}}"#, host = proxy.host_port()))
@@ -13818,13 +13961,8 @@ async fn add_redirect_with_keyring_cross_origin() -> Result<()> {
 /// for the new location.
 #[tokio::test]
 async fn pip_install_redirect_with_netrc_cross_origin() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
+    let context = uv_test::test_context!("3.12").with_filter((r"127\.0\.0\.1:\d*", "[LOCALHOST]"));
     let proxy = crate::pypi_proxy::start().await;
-    let filters = context
-        .filters()
-        .into_iter()
-        .chain([(r"127\.0\.0\.1:\d*", "[LOCALHOST]")])
-        .collect::<Vec<_>>();
 
     let netrc = context.temp_dir.child(".netrc");
     netrc.write_str(&format!(
@@ -13846,7 +13984,7 @@ async fn pip_install_redirect_with_netrc_cross_origin() -> Result<()> {
     let mut redirect_url = Url::parse(&redirect_server.uri())?;
     let _ = redirect_url.set_username("public");
 
-    uv_snapshot!(filters, context.pip_install()
+    uv_snapshot!(context.filters(), context.pip_install()
         .arg("anyio")
         .arg("--index-url")
         .arg(redirect_url.as_str())

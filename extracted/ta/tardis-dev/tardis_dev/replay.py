@@ -50,7 +50,7 @@ async def replay(
     api_key: str = "",
     cache_dir: str = DEFAULT_CACHE_DIR,
     endpoint: str = DEFAULT_ENDPOINT,
-    timeout: int = 60,
+    timeout: int = 135,
     http_proxy: Optional[str] = None,
     compression: ReplayCompression = "zstd",
     decode_response: bool = True,
@@ -309,9 +309,10 @@ async def _fetch_slice_if_not_cached(
             replay_cached_slices[slice_date] = CachedSlice(cached_slice_path, requested_slice_size)
             return SliceDownloadResult(requested_slice_size, DEFAULT_DATA_FEED_SLICE_SIZE)
 
+    request_compression = "zstd-multiframe" if compression == "zstd" else compression
     fetch_url = (
         f"{endpoint}/data-feeds/{exchange}?from={_format_replay_query_date(from_date)}"
-        f"&offset={offset}&compression={compression}"
+        f"&offset={offset}&compression={request_compression}"
     )
     if requested_slice_size > DEFAULT_DATA_FEED_SLICE_SIZE:
         fetch_url += f"&sliceSize={requested_slice_size}"

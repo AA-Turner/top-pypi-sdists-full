@@ -18,6 +18,13 @@ class ResultChunk(BaseModel):
     is_relevant: bool = FieldInfo(alias="isRelevant")
     """Whether this chunk is relevant to the query"""
 
+    position: float
+    """Position of this chunk within the source document (0-indexed).
+
+    Use it to order chunks and to locate surrounding context chunks
+    (isRelevant=false) relative to the matching ones.
+    """
+
     score: float
     """Similarity score for this chunk"""
 

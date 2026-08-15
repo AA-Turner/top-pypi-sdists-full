@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from geocif.progress import pbar as _pbar
@@ -58,6 +60,83 @@ def _canonicalize_region(region_norm, country):
     Country lookup is exact (post-normalization callers pass the same
     string into _REGION_SYNONYMS as the keys here)."""
     return _REGION_SYNONYMS.get(country, {}).get(region_norm, region_norm)
+
+
+# Single definition of the region-name matching rule used everywhere a
+# production-statistics admin column is compared against a pipeline region:
+# case-insensitive, underscores normalized to spaces (geoprepare extraction
+# converts spaces to underscores). Scalar + vectorized shapes of the SAME
+# rule — keep them in sync.
+def _norm_region_name(s) -> str:
+    return str(s).lower().replace("_", " ")
+
+
+def _norm_region_series(s: pd.Series) -> pd.Series:
+    return s.astype(str).str.lower().str.replace("_", " ", regex=False)
+
+
+def _resolve_stats_file(country, parser=None) -> str:
+    """Resolve the production-statistics filename for a country.
+
+    Order: per-country ``production_statistics_file`` config option →
+    ``[DEFAULT]`` option → hvstat default. (Extracted from add_statistics so
+    every consumer of the yield files shares one resolution rule.)
+    """
+    fn = "hvstat_africa_data_v1.0.csv"
+    if parser is not None:
+        country_key = country.lower().replace(" ", "_")
+        if parser.has_option(country_key, "production_statistics_file"):
+            fn = parser.get(country_key, "production_statistics_file")
+        elif parser.has_option("DEFAULT", "production_statistics_file"):
+            fn = parser.get("DEFAULT", "production_statistics_file")
+    if country == "Illinois":
+        fn = "illinois.csv"
+    return fn
+
+
+def regions_with_yields(dir_stats, country, crop, admin_zone, parser=None):
+    """Normalized names of regions with at least one usable yield record.
+
+    Reads the same file ``add_statistics`` would (via _resolve_stats_file)
+    and applies the same row hygiene it applies before joining: the
+    Wheat→Winter Wheat product rename, ``qc_flag == 0``, the (country,
+    product) mask, and the standard crop_production_system filter. A region
+    survives if ANY season/year row has a non-null yield — deliberately
+    conservative (no season filtering), so it removes only regions that can
+    never produce a yield row for this (country, crop) at this admin zone.
+
+    Args:
+        dir_stats: directory holding the production-statistics CSVs.
+        country: display form, e.g. "United States Of America".
+        crop: display form, e.g. "Maize".
+        admin_zone: which admin column names the regions — "admin_1" or
+            "admin_2". This is what makes the filter scale-generic.
+        parser: config parser for the file-resolution options.
+
+    Returns:
+        set of normalized region names, or None when the answer is unknown
+        (missing file/columns, or no rows for this country+crop — e.g.
+        GEOGLAM-format countries) — callers must treat None as "do not
+        filter".
+    """
+    path = Path(dir_stats) / _resolve_stats_file(country, parser)
+    if not path.is_file():
+        return None
+    df = pd.read_csv(path, low_memory=False)
+    required = {"country", "product", "yield", admin_zone}
+    if not required.issubset(df.columns):
+        return None
+    if "product" in df.columns:
+        df.loc[:, "product"] = df["product"].replace("Wheat", "Winter Wheat")
+    if "qc_flag" in df.columns:
+        df = df[df["qc_flag"] == 0]
+    if "crop_production_system" in df.columns:
+        df = df[df["crop_production_system"].isin(STANDARD_PRODUCTION_SYSTEMS)]
+    df = df[(df["country"] == country) & (df["product"] == crop)]
+    if df.empty:
+        return None
+    df = df[df["yield"].notna()]
+    return set(_norm_region_series(df[admin_zone]).dropna())
 
 
 def aggregate_yield_across_ps(yield_values, area_values, prod_values):
@@ -377,19 +456,9 @@ def add_statistics(
             df.loc[:, col] = np.nan
         return df
     
-    # Read hvstat filename: per-country override → DEFAULT override → hardcoded default
-    default_fn = "hvstat_africa_data_v1.0.csv"
-    if parser is not None:
-        country_key = country.lower().replace(" ", "_")
-        if parser.has_option(country_key, "production_statistics_file"):
-            default_fn = parser.get(country_key, "production_statistics_file")
-        elif parser.has_option("DEFAULT", "production_statistics_file"):
-            default_fn = parser.get("DEFAULT", "production_statistics_file")
-
-    if country == "Illinois":
-        fn = "illinois.csv"
-    else:
-        fn = default_fn
+    # Filename: per-country override → DEFAULT override → hvstat default
+    # (shared with regions_with_yields via _resolve_stats_file).
+    fn = _resolve_stats_file(country, parser)
     df_fewsnet = pd.read_csv(dir_stats / fn, low_memory=False)
     # HACK
     #if country == "Afghanistan":
@@ -475,8 +544,9 @@ def add_statistics(
             season_filter = season_filters.get(season, season_filters.get(None, []))
 
             # Case-insensitive region matching (normalize underscores to spaces
-            # because geoprepare extraction converts spaces to underscores)
-            mask_region = df_fewsnet[admin_zone].str.lower().str.replace("_", " ") == region.lower().replace("_", " ")
+            # because geoprepare extraction converts spaces to underscores) —
+            # same rule as regions_with_yields via the shared normalizers.
+            mask_region = _norm_region_series(df_fewsnet[admin_zone]) == _norm_region_name(region)
             mask_yield = (
                 df_fewsnet["crop_production_system"].isin(STANDARD_PRODUCTION_SYSTEMS)
                 & (df_fewsnet["harvest_year"] == harvest_year)

@@ -2322,7 +2322,23 @@ fn self_version_short() -> Result<()> {
 // (also setup a honeypot project and make sure it's not used)
 #[test]
 fn self_version_json() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
+    let context = uv_test::test_context!("3.12")
+        .with_filter((
+            r#"version": "\d+\.\d+\.\d+(-(alpha|beta|rc)\.\d+)?(\+\d+)?""#,
+            r#"version": "[VERSION]""#,
+        ))
+        .with_filter((
+            r#""short_commit_hash": ".*""#,
+            r#""short_commit_hash": "[HASH]""#,
+        ))
+        .with_filter((r#""commit_hash": ".*""#, r#""commit_hash": "[LONGHASH]""#))
+        .with_filter((r#"commit_date": ".*""#, r#"commit_date": "[DATE]""#))
+        .with_filter((r#"last_tag": (".*"|null)"#, r#"last_tag": "[TAG]""#))
+        .with_filter((
+            r#"commits_since_last_tag": .*"#,
+            r#"commits_since_last_tag": [COUNT]"#,
+        ))
+        .with_filter((r#"target_triple": ".*""#, r#"target_triple": "[TARGET]""#));
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml.write_str(
@@ -2333,31 +2349,8 @@ fn self_version_json() -> Result<()> {
         "#,
     )?;
 
-    let filters = context
-        .filters()
-        .into_iter()
-        .chain([
-            (
-                r#"version": "\d+\.\d+\.\d+(-(alpha|beta|rc)\.\d+)?(\+\d+)?""#,
-                r#"version": "[VERSION]""#,
-            ),
-            (
-                r#"short_commit_hash": ".*""#,
-                r#"short_commit_hash": "[HASH]""#,
-            ),
-            (r#"commit_hash": ".*""#, r#"commit_hash": "[LONGHASH]""#),
-            (r#"commit_date": ".*""#, r#"commit_date": "[DATE]""#),
-            (r#"last_tag": (".*"|null)"#, r#"last_tag": "[TAG]""#),
-            (
-                r#"commits_since_last_tag": .*"#,
-                r#"commits_since_last_tag": [COUNT]"#,
-            ),
-            (r#"target_triple": ".*""#, r#"target_triple": "[TARGET]""#),
-        ])
-        .collect::<Vec<_>>();
-
     if git_version_info_expected() {
-        uv_snapshot!(filters, context.self_version()
+        uv_snapshot!(context.filters(), context.self_version()
           .arg("--output-format").arg("json"), @r#"
         exit_code: 0 (success)
         ----- stdout -----
@@ -2365,7 +2358,7 @@ fn self_version_json() -> Result<()> {
           "package_name": "uv",
           "version": "[VERSION]",
           "commit_info": {
-            "short_commit_hash": "[LONGHASH]",
+            "short_commit_hash": "[HASH]",
             "commit_hash": "[LONGHASH]",
             "commit_date": "[DATE]",
             "last_tag": "[TAG]",
@@ -2375,7 +2368,7 @@ fn self_version_json() -> Result<()> {
         }
         "#);
     } else {
-        uv_snapshot!(filters, context.self_version()
+        uv_snapshot!(context.filters(), context.self_version()
           .arg("--output-format").arg("json"), @r#"
       exit_code: 0 (success)
       ----- stdout -----
@@ -2494,7 +2487,12 @@ fn version_virtual_workspace_root_rejects_before_members() -> Result<()> {
 /// Read the frozen version of a workspace member without discovering an interpreter.
 #[test]
 fn version_get_frozen_workspace_without_python() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
+    let context = uv_test::test_context!("3.12")
+        .with_cache_dir("cache-file")
+        .with_filter((
+            r"Caused by: failed to create directory `[^`]+`: .*",
+            "Caused by: failed to create directory `[CACHE_DIR]`: [ERROR]",
+        ));
 
     context
         .temp_dir
@@ -2529,13 +2527,11 @@ fn version_get_frozen_workspace_without_python() -> Result<()> {
     "#})?;
 
     // A file can't be initialized as a cache directory.
-    let cache_file = context.temp_dir.child("cache-file");
-    cache_file.touch()?;
+    context.cache_dir.touch()?;
 
     uv_snapshot!(context.filters(), context.version()
         .arg("--package").arg("child")
-        .arg("--short")
-        .env(EnvVars::UV_CACHE_DIR, cache_file.as_os_str()), @"
+        .arg("--short"), @"
     exit_code: 0 (success)
     ----- stdout -----
     2.0.0
@@ -2545,11 +2541,21 @@ fn version_get_frozen_workspace_without_python() -> Result<()> {
         .arg("--package").arg("child")
         .arg("--frozen")
         .arg("--python").arg("9.9")
-        .arg("--no-python-downloads")
-        .env(EnvVars::UV_CACHE_DIR, cache_file.as_os_str()), @"
+        .arg("--no-python-downloads"), @"
     exit_code: 0 (success)
     ----- stdout -----
     child 1.0.0
+    ");
+
+    // Writing a version initializes the cache, confirming that the cache path is invalid.
+    uv_snapshot!(context.filters(), context.version()
+        .arg("--package").arg("child")
+        .arg("--frozen")
+        .arg("--bump").arg("patch"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: Failed to initialize cache at `cache-file`
+      Caused by: failed to create directory `[CACHE_DIR]`: [ERROR]
     ");
 
     Ok(())
@@ -2616,11 +2622,7 @@ fn version_set_workspace() -> Result<()> {
 
     // Set one child's version, creating the lock and initial sync
     let mut version_cmd = context.version();
-    version_cmd
-        .arg("--package")
-        .arg("child2")
-        .arg("1.1.1")
-        .current_dir(&context.temp_dir);
+    version_cmd.arg("--package").arg("child2").arg("1.1.1");
 
     uv_snapshot!(context.filters(), version_cmd, @"
     exit_code: 0 (success)
@@ -2676,11 +2678,7 @@ fn version_set_workspace() -> Result<()> {
 
     // Set the other child's version, refreshing the lock and sync
     let mut version_cmd = context.version();
-    version_cmd
-        .arg("--package")
-        .arg("child1")
-        .arg("1.2.3")
-        .current_dir(&context.temp_dir);
+    version_cmd.arg("--package").arg("child1").arg("1.2.3");
 
     uv_snapshot!(context.filters(), version_cmd, @"
     exit_code: 0 (success)
@@ -3009,11 +3007,7 @@ fn version_set_evil_constraints() -> Result<()> {
     // This will not appear in the sync, but it will show up in the lock,
     // because we use "sufficient" sync semantics
     let mut version_cmd = context.version();
-    version_cmd
-        .arg("--project")
-        .arg("idna")
-        .arg("2.0.0")
-        .current_dir(&context.temp_dir);
+    version_cmd.arg("--project").arg("idna").arg("2.0.0");
 
     uv_snapshot!(context.filters(), version_cmd, @"
     exit_code: 0 (success)

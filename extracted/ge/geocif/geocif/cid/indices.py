@@ -50,6 +50,112 @@ _PERCENTILE_INDICES = frozenset({
     "WSDI",  # spell duration based on TX90p threshold
 })
 
+# Memory-lean input reading. Every parallel year-task holds its own full
+# copy of the merged input frame (multiprocessing, no shared memory), and at
+# county scale (30M+ rows) plain object-dtype string columns dominate that
+# copy: ~60-80 bytes/row/column vs 1-2 bytes as categorical codes. Reading
+# the repeated-label columns as ``category`` and skipping display-only
+# columns cut the per-worker frame from ~16 GB to ~5 GB on the usa_admin2
+# run. Both sets are applied against the actual header (missing columns
+# ignored), so inputs from any project/shape are safe.
+_READ_DROP_COLS = frozenset({
+    "name_month", "abbr_month", "day", "zone", "hemisphere",
+    "average_temperature", "season_length_dekads", "season_start_month",
+})
+_READ_CATEGORY_COLS = frozenset({
+    "country", "region", "adm0_name", "adm1_name", "adm2_name",
+    "calendar_region", "crop", "scale",
+})
+# NOTE: groupbys whose keys include these categorical columns must pass
+# ``observed=True`` wherever the code enumerates groups (list()/​.groups),
+# otherwise pandas yields one (empty) group per unused category level —
+# 3,111 county levels even in a frame filtered to a handful of regions.
+
+
+def _read_input_csv(path: Union[str, Path]) -> pd.DataFrame:
+    """Read a merged input CSV (crop_t*/crop_p*) with category dtypes and
+    display-column drops."""
+    header = pd.read_csv(path, nrows=0)
+    keep = [c for c in header.columns if c not in _READ_DROP_COLS]
+    dtypes = {c: "category" for c in keep if c in _READ_CATEGORY_COLS}
+    return pd.read_csv(path, usecols=keep, dtype=dtypes)
+
+
+def filter_frame_to_yield_regions(df, parser, admin_zone, country_key, crop):
+    """Drop regions that have zero usable yield records for (country, crop).
+
+    CID computation is yield-agnostic, so without this every EO-covered
+    region gets the full index treatment even when it can never contribute
+    to training or verification (at US county scale, 20-34% of counties).
+    Gated by the ``filter_regions_without_yields`` config flag (per-country
+    section, inheriting [DEFAULT]; default off). Yield coverage comes from
+    ml.stats.regions_with_yields, which shares its file resolution and
+    name normalization with the stats join itself — the filter can never
+    disagree with what add_statistics would later join.
+
+    Scale-generic by construction: ``admin_zone`` ("admin_1"/"admin_2")
+    names the production-statistics column the regions live in, so the
+    same code path serves state- and county-level projects.
+
+    Returns df unchanged when the flag is off, the frame is empty, or
+    coverage is unknown (regions_with_yields -> None).
+    """
+    try:
+        flag = parser.getboolean(
+            country_key, "filter_regions_without_yields", fallback=False
+        )
+    except Exception:
+        try:
+            flag = parser.getboolean(
+                "DEFAULT", "filter_regions_without_yields", fallback=False
+            )
+        except Exception:
+            flag = False
+    if not flag or df.empty or "adm1_name" not in df.columns:
+        return df
+
+    from geocif.ml import stats as ml_stats
+
+    dir_stats = parser.get("PATHS", "dir_production_statistics")
+    # Display forms matching the production-statistics 'country'/'product'
+    # columns — same conversion as utils.statistics_file_path.
+    country_str = country_key.title().replace("_", " ")
+    crop_str = crop.title().replace("_", " ")
+    keep = ml_stats.regions_with_yields(
+        dir_stats, country_str, crop_str, admin_zone, parser=parser
+    )
+    if keep is None:
+        logger.warning(
+            f"filter_regions_without_yields: yield coverage unknown for "
+            f"{country_str}/{crop_str} ({admin_zone}) — not filtering"
+        )
+        return df
+
+    col = df["adm1_name"]
+    n_before = col.nunique()
+    if isinstance(col.dtype, pd.CategoricalDtype):
+        # Normalize the ~few-thousand category levels, not the 30M row
+        # values — then select by code position.
+        cats_norm = ml_stats._norm_region_series(pd.Series(col.cat.categories))
+        keep_positions = np.flatnonzero(cats_norm.isin(keep).to_numpy())
+        mask = col.cat.codes.isin(keep_positions).to_numpy()
+    else:
+        mask = ml_stats._norm_region_series(col).isin(keep).to_numpy()
+
+    # shallow copy: clears the chained-assignment parent link left by the
+    # boolean mask without duplicating the underlying blocks
+    df = df[mask].copy(deep=False)
+    for c in df.columns:
+        if isinstance(df[c].dtype, pd.CategoricalDtype):
+            df[c] = df[c].cat.remove_unused_categories()
+    n_after = df["adm1_name"].nunique() if not df.empty else 0
+    logger.info(
+        f"filter_regions_without_yields: {country_str}/{crop_str} "
+        f"({admin_zone}): kept {n_after}/{n_before} regions "
+        f"({n_before - n_after} without yield records dropped)"
+    )
+    return df
+
 
 class ProcessFileArgs(NamedTuple):
     """
@@ -216,8 +322,10 @@ def add_season_information(
     Returns:
         pd.DataFrame: Updated DataFrame with an additional grouping column.
     """
-    # Group by region/Season so each region gets its own partition
-    grps = df.groupby(["adm1_name", "Season"], dropna=False)
+    # Group by region/Season so each region gets its own partition.
+    # observed=True: adm1_name is categorical (read_crop_t0) — without it this
+    # loop would visit one empty frame per unused region level.
+    grps = df.groupby(["adm1_name", "Season"], dropna=False, observed=True)
     frames = []
 
     for key, df_adm1_season in grps:
@@ -722,13 +830,31 @@ class CIDs:
             pd.DataFrame: The standardized input DataFrame.
         """
         try:
-            df = pd.read_csv(self.file_path)
+            df = _read_input_csv(self.file_path)
         except FileNotFoundError:
             logger.error(f"File not found: {self.file_path}")
             return pd.DataFrame()
 
         # Clean up columns, rename, unify climate vars, etc.
         df = standardize_dataframe(df, vi_var)
+
+        # Optionally drop regions with zero yield records BEFORE any further
+        # work (config: filter_regions_without_yields, default off). Non-fatal:
+        # on any problem the frame passes through unfiltered.
+        try:
+            country_key = (
+                str(df["adm0_name"].iloc[0]).lower().replace(" ", "_")
+                if "adm0_name" in df.columns and not df.empty
+                else self.country
+            )
+            crop_for_filter = self.crop or utils.get_crop_season(self.file_name)[0]
+            df = filter_frame_to_yield_regions(
+                df, self.parser, self.admin_zone, country_key, crop_for_filter
+            )
+        except Exception as e:
+            logger.warning(
+                f"no-yield region filter skipped: {type(e).__name__}: {e}"
+            )
 
         # For certain methods, add extra columns (fraction_season, dekad, etc.)
         if self.method in [
@@ -905,7 +1031,11 @@ class CIDs:
             int: Number of regions that produced results.
         """
         regions_written = 0
-        groups = list(self.df_country_crop.groupby(["adm0_name", "adm1_name"]))
+        # observed=True: keys are categorical (_read_input_csv) — without it,
+        # list() enumerates one empty group per unused region level.
+        groups = list(
+            self.df_country_crop.groupby(["adm0_name", "adm1_name"], observed=True)
+        )
 
         pbar = tqdm(groups, desc=f"Year {self.harvest_year}", unit="rgn",
                     leave=False, disable=not self.show_progress, mininterval=5)
@@ -936,7 +1066,10 @@ class CIDs:
             Number of regions that produced results.
         """
         regions_written = 0
-        groups = list(self.df_country_crop.groupby(["adm0_name", "adm1_name"]))
+        # observed=True: categorical keys — see process_data.
+        groups = list(
+            self.df_country_crop.groupby(["adm0_name", "adm1_name"], observed=True)
+        )
 
         pbar = tqdm(groups, desc=f"Pre-season {self.harvest_year}", unit="rgn",
                     leave=False, disable=not self.show_progress, mininterval=5)
@@ -1045,45 +1178,33 @@ class CIDs:
         )
 
         rows = []
-        # FLDAS features
-        for iname, (itype, idesc) in di.dict_fldas.items():
-            col_name = di.fldas_col_map.get(iname)
-            if col_name and col_name in row.index:
-                val = float(row[col_name])
-                rows.append({
-                    "Description": idesc,
-                    "CID": val,
-                    "Country": key[0].replace("_", " ").title(),
-                    "Region": key[1].replace("_", " ").title(),
-                    "Area": area,
-                    "Crop": self.crop.replace("_", " ").title(),
-                    "Season": self.season,
-                    "Method": self.method,
-                    "Stage": f"PS_{init_month}",
-                    "Harvest Year": self.harvest_year,
-                    "Index": iname,
-                    "Type": itype,
-                })
-
-        # S2S features
-        for iname, (itype, idesc) in di.dict_s2s.items():
-            col_name = di.s2s_col_map.get(iname)
-            if col_name and col_name in row.index:
-                val = float(row[col_name])
-                rows.append({
-                    "Description": idesc,
-                    "CID": val,
-                    "Country": key[0].replace("_", " ").title(),
-                    "Region": key[1].replace("_", " ").title(),
-                    "Area": area,
-                    "Crop": self.crop.replace("_", " ").title(),
-                    "Season": self.season,
-                    "Method": self.method,
-                    "Stage": f"PS_{init_month}",
-                    "Harvest Year": self.harvest_year,
-                    "Index": iname,
-                    "Type": itype,
-                })
+        # Forecast lead features — one loop per registered (dict, col_map)
+        # family: FLDAS, S2S, CHIRPS-MFC. Adding a family = registering it in
+        # definitions.py; nothing here changes.
+        _forecast_families = [
+            (di.dict_fldas, di.fldas_col_map),
+            (di.dict_s2s, di.s2s_col_map),
+            (di.dict_chirps_mfc, di.chirps_mfc_col_map),
+        ]
+        for _fam_dict, _fam_map in _forecast_families:
+            for iname, (itype, idesc) in _fam_dict.items():
+                col_name = _fam_map.get(iname)
+                if col_name and col_name in row.index:
+                    val = float(row[col_name])
+                    rows.append({
+                        "Description": idesc,
+                        "CID": val,
+                        "Country": key[0].replace("_", " ").title(),
+                        "Region": key[1].replace("_", " ").title(),
+                        "Area": area,
+                        "Crop": self.crop.replace("_", " ").title(),
+                        "Season": self.season,
+                        "Method": self.method,
+                        "Stage": f"PS_{init_month}",
+                        "Harvest Year": self.harvest_year,
+                        "Index": iname,
+                        "Type": itype,
+                    })
 
         # --- Engineered aggregate features (guarded by config flag) ---
         if not self.compute_forecast_aggregates:
@@ -1952,7 +2073,11 @@ def discover_regions(parser, process_type, file_path, file_name,
     df = obj.preprocess_input_df(vi_var)
     if df.empty:
         return []
-    return list(df.groupby(["adm0_name", "adm1_name"]).groups.keys())
+    # observed=True: categorical keys — .groups would otherwise list every
+    # unused region level as a phantom (empty) region.
+    return list(
+        df.groupby(["adm0_name", "adm1_name"], observed=True).groups.keys()
+    )
 
 
 def process_task(args: ProcessTaskArgs) -> tuple:

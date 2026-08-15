@@ -1,7 +1,8 @@
 import asyncio
 import logging
 import time
-from typing import Any, cast
+from datetime import datetime
+from typing import Any, NamedTuple, cast
 
 from typing_extensions import deprecated
 from unique_sdk import (
@@ -16,7 +17,10 @@ from unique_sdk import (
     SelectionMethod,
 )
 from unique_sdk import AgenticTableCell as SDKAgenticTableCell
-from unique_sdk.api_resources._agentic_table import ActivityStatus
+from unique_sdk.api_resources._agentic_table import (
+    ActivityStatus,
+    MagicTableMetadataEntry,
+)
 
 from .schemas import (
     CreatedMagicTableSheet,
@@ -26,6 +30,7 @@ from .schemas import (
     MagicTableCell,
     MagicTableSheet,
     RowMetadataEntry,
+    RowMetadataEntryInput,
     SheetMetadataEntryInput,
 )
 
@@ -47,6 +52,56 @@ def _sheet_batch_cells_include_row_metadata_from_api(
     first = cells[0]
     rm = first.get("rowMetadata")
     return "rowMetadata" in first and isinstance(rm, list)
+
+
+def _artifact_timestamp(value: str) -> datetime:
+    """Parse an artifact ISO-8601 timestamp (e.g. ``2026-07-31T16:26:36.344Z``)."""
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+class _ArtifactBaseline(NamedTuple):
+    """What a sheet's artifacts of one type looked like just before an export of
+    that type was triggered.
+
+    ``ids`` are the records of the type that already existed; ``latest`` is
+    their newest ``updated_at``. Two signals because either can carry the
+    result: a finished report normally arrives as a new record (the trigger's
+    nameless IN_PROGRESS marker and the named report are separate rows), but a
+    re-export can also refresh an existing record in place.
+
+    Kept per artifact type so that triggering one type does not fence out an
+    already-completed export of another type.
+
+    Mirrors the ``_ArtifactBaseline`` used by the SDK CLI's export wait.
+    """
+
+    ids: frozenset[str]
+    latest: datetime | None
+
+
+def _snapshot_artifacts(
+    artifacts: list[MagicTableArtifact],
+    artifact_types: list[MagicTableArtifactType],
+) -> dict[MagicTableArtifactType, _ArtifactBaseline]:
+    baselines: dict[MagicTableArtifactType, _ArtifactBaseline] = {}
+    for artifact_type in artifact_types:
+        records = [a for a in artifacts if a.artifact_type == artifact_type]
+        timestamps = [_artifact_timestamp(a.updated_at) for a in records]
+        baselines[artifact_type] = _ArtifactBaseline(
+            ids=frozenset(a.id for a in records),
+            latest=max(timestamps) if timestamps else None,
+        )
+    return baselines
+
+
+def _is_fresh(artifact: MagicTableArtifact, baseline: _ArtifactBaseline) -> bool:
+    """Whether *artifact* came out of a generation triggered after *baseline*."""
+    if artifact.id not in baseline.ids:
+        return True
+    return (
+        baseline.latest is not None
+        and _artifact_timestamp(artifact.updated_at) > baseline.latest
+    )
 
 
 class LockedAgenticTableError(Exception):
@@ -88,6 +143,9 @@ class AgenticTableService:
         self.table_id = table_id
         self.logger = logger
         self.created_sheet: CreatedMagicTableSheet | None = None
+        # Per-type snapshots taken by generate_artifacts so wait_for_artifacts can
+        # tell a new export apart from records left by earlier generations.
+        self._artifact_baselines: dict[MagicTableArtifactType, _ArtifactBaseline] = {}
 
     @classmethod
     async def create_sheet(
@@ -385,7 +443,6 @@ class AgenticTableService:
         include_log_history: bool = False,
         include_cell_meta_data: bool = False,
         include_row_metadata: bool = False,
-        scope_to_assigned_rows: bool = False,
     ) -> MagicTableSheet:
         """
         Gets the sheet data from the Agentic Table paginated by batch_size.
@@ -397,8 +454,6 @@ class AgenticTableService:
             include_log_history (bool): Whether to include the log history.
             include_cell_meta_data (bool): Whether to include the cell metadata (renderer, selection, agreement status).
             include_row_metadata (bool): Whether to include the row metadata (key value pairs).
-            scope_to_assigned_rows (bool): When true, scope row count and cell batches to rows
-                assigned to the current user (Can Answer role).
         Returns:
             MagicTableSheet: The sheet data.
         """
@@ -411,7 +466,6 @@ class AgenticTableService:
             includeCells=False,
             includeLogHistory=False,
             includeCellMetaData=False,
-            scopeToAssignedRows=scope_to_assigned_rows,
         )
         total_rows = sheet_info.get("magicTableRowCount")
         if total_rows is None:
@@ -441,7 +495,6 @@ class AgenticTableService:
                     startRow=row,
                     endRow=end_row_batch - 1,
                     includeRowMetadata=True,
-                    scopeToAssignedRows=scope_to_assigned_rows,
                 )
             else:
                 sheet_partial = await AgenticTable.get_sheet_data(
@@ -454,7 +507,6 @@ class AgenticTableService:
                     includeCellMetaData=include_cell_meta_data,  # renderer, selection, agreement status
                     startRow=row,
                     endRow=end_row_batch - 1,
-                    scopeToAssignedRows=scope_to_assigned_rows,
                 )
             if "magicTableCells" in sheet_partial:
                 batch_cells = sheet_partial["magicTableCells"]
@@ -634,9 +686,17 @@ class AgenticTableService:
         (or poll ``list_artifacts``) to detect completion, then download the artifact's
         ``content_id`` via the Content API.
 
+        Snapshots the sheet's artifacts of the requested types before
+        triggering, so a following ``wait_for_artifacts`` on this instance can
+        tell the new export apart from records left over from earlier
+        generations. Only the requested types' snapshots are replaced; a
+        baseline armed by an earlier trigger for another type is kept, so its
+        completed export stays recognisable.
+
         Raises:
             Exception: If the API reports a non-success status.
         """
+        baselines = _snapshot_artifacts(await self.list_artifacts(), artifact_types)
         result = await AgenticTable.generate_artifact(
             user_id=self._user_id,
             company_id=self._company_id,
@@ -647,6 +707,7 @@ class AgenticTableService:
             raise Exception(
                 result.get("message") or "Failed to trigger artifact generation"
             )
+        self._artifact_baselines.update(baselines)
 
     async def rerun_row(self, row_order: int) -> None:
         """Re-run the agent for a single row (`POST .../row/{rowOrder}/rerun`).
@@ -707,6 +768,63 @@ class AgenticTableService:
         )
         if not result.get("status"):
             raise Exception(result.get("message") or "Failed to create sheet metadata")
+
+    async def create_row_metadata(
+        self,
+        row: int,
+        entries: list[RowMetadataEntryInput],
+        row_id: str | None = None,
+    ) -> None:
+        """Create key/value row metadata for a single row, addressed by row order.
+
+        Row metadata is the per-row key/value store surfaced by the agentic
+        table's row-metadata UI and forwarded onto knowledge-base content at
+        add-to-library time. The backend endpoint addresses rows by their id, not
+        their order, so unless ``row_id`` is given the id is resolved from column
+        ``0`` of the row first (mirrors ``get_row_metadata`` read helpers).
+
+        NOTE: not to be confused with ``set_cell_metadata`` (selection /
+        agreement status) or ``create_sheet_metadata`` (sheet-level metadata).
+
+        Args:
+            row (int): The row index (row order).
+            entries (list[RowMetadataEntryInput]): Key/value entries to create.
+                Empty is a no-op.
+            row_id (str | None): The backend row id, when the caller already has
+                it. Callers writing many rows should read the range once (cells
+                carry ``rowId``) and pass it, rather than paying a ``get_cell``
+                round trip per row.
+
+        Raises:
+            ValueError: If the row id cannot be resolved from the row.
+            Exception: If the API reports a non-success status.
+        """
+        if not entries:
+            return
+        if row_id is None:
+            cell = await self.get_cell(row, 0, include_row_metadata=False)
+            row_id = cell.row_id
+        if not row_id:
+            raise ValueError(
+                f"Cannot write row metadata: row {row} has no resolvable row id "
+                f"on table {self.table_id}."
+            )
+        result = await AgenticTable.create_row_metadata(
+            user_id=self._user_id,
+            company_id=self._company_id,
+            tableId=self.table_id,
+            rowId=row_id,
+            entries=[
+                MagicTableMetadataEntry(
+                    key=entry.key,
+                    value=entry.value,
+                    exactFilter=entry.exact_filter,
+                )
+                for entry in entries
+            ],
+        )
+        if not result.get("status"):
+            raise Exception(result.get("message") or "Failed to create row metadata")
 
     async def delete_sheet_metadata(self, metadata_id: str) -> None:
         """Delete a sheet metadata entry by its id.
@@ -798,15 +916,26 @@ class AgenticTableService:
     ) -> list[MagicTableArtifact]:
         """Wait until artifacts of the given types are DONE, by polling ``list_artifacts``.
 
-        Artifact records are upserted per type: triggering an export flips the record
-        of that type to IN_PROGRESS and back to DONE when the file is ready. A
-        terminal state is accepted only after IN_PROGRESS has been observed for
-        that artifact type, so a result left over from an earlier generation is
-        not mistaken for the newly triggered one.
+        A sheet can hold several records of the same type: the export trigger
+        records a nameless IN_PROGRESS marker that is not always the record the
+        worker completes, so a stale IN_PROGRESS row can sit next to the DONE
+        result, and reports from earlier generations remain listed. Two fences
+        keep the wait from mistaking leftovers for the new export:
 
-        Because the API exposes only the current artifact state, a complete
-        IN_PROGRESS-to-terminal transition between two polls cannot be observed.
-        Keep ``poll_interval`` shorter than the expected minimum generation time.
+        - For a type that ``generate_artifacts`` was called for on this
+          instance, only records that are *fresh* relative to that trigger's
+          snapshot count: a record id that did not exist before, or an
+          ``updated_at`` newer than the snapshot. This also accepts exports
+          that finish before the first poll.
+        - For a type without a snapshot (export triggered elsewhere), a
+          terminal state is accepted only after IN_PROGRESS has been observed
+          for that type, and the newest record (by ``updated_at``) decides the
+          state. This cannot distinguish a result of an earlier generation
+          whose trigger marker is still IN_PROGRESS — prefer triggering and
+          waiting on the same service instance.
+
+        Because the API exposes only the current artifact state, keep
+        ``poll_interval`` shorter than the expected minimum generation time.
 
         Args:
             artifact_types: The artifact types to wait for (as passed to ``generate_artifacts``).
@@ -821,22 +950,41 @@ class AgenticTableService:
             AgenticTableRunTimeoutError: Not all artifacts were DONE within ``timeout``.
         """
         wanted = set(artifact_types)
+        baselines = {
+            artifact_type: baseline
+            for artifact_type, baseline in self._artifact_baselines.items()
+            if artifact_type in wanted
+        }
         started: set[MagicTableArtifactType] = set()
         deadline = time.monotonic() + timeout
         while True:
             artifacts = await self.list_artifacts()
-            current = {
-                a.artifact_type: a for a in artifacts if a.artifact_type in wanted
+            relevant = [a for a in artifacts if a.artifact_type in wanted]
+            candidates: list[MagicTableArtifact] = []
+            for artifact in relevant:
+                baseline = baselines.get(artifact.artifact_type)
+                if baseline is None:
+                    candidates.append(artifact)
+                    if artifact.artifact_state == MagicTableArtifactState.IN_PROGRESS:
+                        started.add(artifact.artifact_type)
+                elif _is_fresh(artifact, baseline):
+                    candidates.append(artifact)
+            gate = started | {
+                a.artifact_type for a in candidates if a.artifact_type in baselines
             }
-            started.update(
-                artifact_type
-                for artifact_type, artifact in current.items()
-                if artifact.artifact_state == MagicTableArtifactState.IN_PROGRESS
-            )
+            # Newest record per type decides the state; older duplicates (e.g. the
+            # stale nameless IN_PROGRESS row from the export trigger) are ignored.
+            current: dict[MagicTableArtifactType, MagicTableArtifact] = {}
+            for artifact in candidates:
+                newest = current.get(artifact.artifact_type)
+                if newest is None or _artifact_timestamp(
+                    artifact.updated_at
+                ) > _artifact_timestamp(newest.updated_at):
+                    current[artifact.artifact_type] = artifact
             failed = [
                 artifact
                 for artifact_type, artifact in current.items()
-                if artifact_type in started
+                if artifact_type in gate
                 and artifact.artifact_state == MagicTableArtifactState.ERROR
             ]
             if failed:
@@ -847,7 +995,7 @@ class AgenticTableService:
             done = {
                 artifact_type: artifact
                 for artifact_type, artifact in current.items()
-                if artifact_type in started
+                if artifact_type in gate
                 and artifact.artifact_state == MagicTableArtifactState.DONE
             }
             if wanted <= set(done.keys()):

@@ -1085,6 +1085,749 @@ def test_header_ensure_style_resolves_by_name_immediately_on_a_real_document() -
     doc.close()
 
 
+# -- 6.1 글꼴 선언·대체 (StylesNamespace.ensure_font) -----------------------
+
+
+def test_header_ensure_font_registers_all_lang_blocks_by_default() -> None:
+    head_element = ET.Element(f"{HH}head", {"version": "1.4", "secCnt": "1"})
+    header = HwpxOxmlHeader("header.xml", head_element)
+
+    font_id = header.ensure_font("우리새글꼴")
+
+    fontfaces = head_element.find(f"{HH}refList/{HH}fontfaces")
+    assert fontfaces is not None
+    assert fontfaces.get("itemCnt") == "7"
+    langs = [ff.get("lang") for ff in fontfaces.findall(f"{HH}fontface")]
+    assert langs == [
+        "HANGUL", "LATIN", "HANJA", "JAPANESE", "OTHER", "SYMBOL", "USER",
+    ]
+    for fontface in fontfaces.findall(f"{HH}fontface"):
+        assert fontface.get("fontCnt") == "1"
+        font = fontface.find(f"{HH}font")
+        assert font is not None
+        assert font.get("id") == font_id
+        assert font.get("face") == "우리새글꼴"
+        assert font.get("type") == "TTF"
+        assert font.get("isEmbedded") == "0"  # 실코퍼스 관행: "0"/"1"(true/false 아님)
+        assert "binaryItemIDRef" not in font.attrib  # 실코퍼스: 비-임베드는 속성 자체가 없다
+
+
+def test_header_ensure_font_single_lang_scopes_registration() -> None:
+    head_element = ET.Element(f"{HH}head", {"version": "1.4", "secCnt": "1"})
+    header = HwpxOxmlHeader("header.xml", head_element)
+
+    header.ensure_font("한글전용체", lang="HANGUL")
+
+    fontfaces = head_element.find(f"{HH}refList/{HH}fontfaces")
+    assert fontfaces is not None
+    assert [ff.get("lang") for ff in fontfaces.findall(f"{HH}fontface")] == ["HANGUL"]
+    fontface = fontfaces.find(f"{HH}fontface")
+    assert fontface.get("fontCnt") == "1"
+
+
+def test_header_ensure_font_dedupes_by_face_within_a_lang_block() -> None:
+    head_element = ET.Element(f"{HH}head", {"version": "1.4", "secCnt": "1"})
+    header = HwpxOxmlHeader("header.xml", head_element)
+
+    first_id = header.ensure_font("중복체", lang="HANGUL", font_type="TTF")
+    second_id = header.ensure_font("중복체", lang="HANGUL", font_type="TTF")
+
+    assert first_id == second_id
+    fontface = head_element.find(f"{HH}refList/{HH}fontfaces/{HH}fontface")
+    assert fontface.get("fontCnt") == "1"  # 안 늘어남
+    assert len(fontface.findall(f"{HH}font")) == 1
+
+    # 다른 face는 새 id.
+    other_id = header.ensure_font("다른체", lang="HANGUL")
+    assert other_id != first_id
+    assert fontface.get("fontCnt") == "2"
+
+
+def test_header_ensure_font_allocates_ids_independently_per_lang_block() -> None:
+    """실코퍼스 실측: fontface 블록마다 id 채번이 독립이다(공유 카운터가
+    아니다) — 한 블록에 미리 항목이 많으면 그 블록의 다음 id 만 밀린다."""
+
+    head_element = ET.Element(f"{HH}head", {"version": "1.4", "secCnt": "1"})
+    header = HwpxOxmlHeader("header.xml", head_element)
+
+    # HANGUL 블록만 먼저 채워서 다음 id를 밀어 둔다.
+    header.ensure_font("먼저등록체1", lang="HANGUL")
+    header.ensure_font("먼저등록체2", lang="HANGUL")
+
+    shared_id = header.ensure_font("공용체", lang=("HANGUL", "LATIN"))
+
+    fontfaces = head_element.find(f"{HH}refList/{HH}fontfaces")
+    hangul = next(ff for ff in fontfaces.findall(f"{HH}fontface") if ff.get("lang") == "HANGUL")
+    latin = next(ff for ff in fontfaces.findall(f"{HH}fontface") if ff.get("lang") == "LATIN")
+    hangul_entry = next(f for f in hangul.findall(f"{HH}font") if f.get("face") == "공용체")
+    latin_entry = next(f for f in latin.findall(f"{HH}font") if f.get("face") == "공용체")
+
+    assert hangul_entry.get("id") == "2"  # 앞선 두 등록 뒤라 다음 id
+    assert latin_entry.get("id") == "0"  # LATIN 블록은 비어 있었으므로 0부터
+    assert shared_id == hangul_entry.get("id")  # 반환값 = 정규 순서상 첫 lang(HANGUL) 블록의 id
+
+
+def test_header_ensure_font_rejects_empty_face() -> None:
+    from hwpx.errors import HwpxValueError
+
+    head_element = ET.Element(f"{HH}head", {"version": "1.4", "secCnt": "1"})
+    header = HwpxOxmlHeader("header.xml", head_element)
+
+    with pytest.raises(HwpxValueError) as excinfo:
+        header.ensure_font("   ")
+    assert excinfo.value.code == "style-font-face-empty"
+
+
+def test_header_ensure_font_rejects_invalid_lang() -> None:
+    from hwpx.errors import HwpxValueError
+
+    head_element = ET.Element(f"{HH}head", {"version": "1.4", "secCnt": "1"})
+    header = HwpxOxmlHeader("header.xml", head_element)
+
+    with pytest.raises(HwpxValueError) as excinfo:
+        header.ensure_font("아무체", lang="KLINGON")
+    assert excinfo.value.code == "style-font-lang-invalid"
+    assert "HANGUL" in excinfo.value.context["available"]
+
+
+def test_header_ensure_font_rejects_invalid_font_type() -> None:
+    from hwpx.errors import HwpxValueError
+
+    head_element = ET.Element(f"{HH}head", {"version": "1.4", "secCnt": "1"})
+    header = HwpxOxmlHeader("header.xml", head_element)
+
+    with pytest.raises(HwpxValueError) as excinfo:
+        header.ensure_font("아무체", lang="HANGUL", font_type="OTF")
+    assert excinfo.value.code == "style-font-type-invalid"
+
+
+def test_header_ensure_font_rejects_incomplete_substitute() -> None:
+    from hwpx.errors import HwpxValueError
+
+    head_element = ET.Element(f"{HH}head", {"version": "1.4", "secCnt": "1"})
+    header = HwpxOxmlHeader("header.xml", head_element)
+
+    with pytest.raises(HwpxValueError) as excinfo:
+        header.ensure_font("아무체", lang="HANGUL", subst_type="TTF")  # subst_face 없음
+    assert excinfo.value.code == "style-font-substitute-incomplete"
+
+
+def test_header_ensure_font_emits_subst_font_matching_real_corpus_shape() -> None:
+    head_element = ET.Element(f"{HH}head", {"version": "1.4", "secCnt": "1"})
+    header = HwpxOxmlHeader("header.xml", head_element)
+
+    font_id = header.ensure_font(
+        "없는글꼴",
+        lang="HANGUL",
+        subst_face="함초롬바탕",
+        subst_type="TTF",
+    )
+
+    font = head_element.find(f"{HH}refList/{HH}fontfaces/{HH}fontface/{HH}font")
+    assert font.get("id") == font_id
+    subst = font.find(f"{HH}substFont")
+    assert subst is not None
+    assert subst.get("face") == "함초롬바탕"
+    assert subst.get("type") == "TTF"
+    assert subst.get("isEmbedded") == "0"
+    # 실코퍼스 관행: substFont는 binaryItemIDRef를 항상 갖되(font와 반대)
+    # 값이 없으면 빈 문자열로 남는다.
+    assert subst.get("binaryItemIDRef") == ""
+
+    # dedupe 재호출은 이미 있는 hh:font를 재사용하고, 대체 글꼴을 새로
+    # 끼워 넣지 않는다(기존 선언을 조용히 바꾸지 않는다).
+    reused_id = header.ensure_font("없는글꼴", lang="HANGUL")
+    assert reused_id == font_id
+    fontface = head_element.find(f"{HH}refList/{HH}fontfaces/{HH}fontface")
+    assert fontface.get("fontCnt") == "1"
+
+
+def test_document_ensure_font_then_ensure_run_wires_a_real_font_ref() -> None:
+    """등록(ensure_font) → 사용(ensure_run(font=...)) 왕복이 한 호출 체인에서
+    가능해야 한다는 6.1 게이트 ②의 핵심 계약."""
+
+    from hwpx.document import HwpxDocument
+
+    doc = HwpxDocument.new()
+    face = "체인등록체"
+    font_id = doc.styles.ensure_font(face, lang="HANGUL")
+    run_id = doc.styles.ensure_run(font=face, bold=True)
+
+    char_pr = doc.oxml.char_property(run_id)
+    assert char_pr is not None
+    # RunStyle 모델은 자식 요소를 child_attributes[로컬이름] 로 노출한다.
+    font_ref = char_pr.child_attributes.get("fontRef")
+    assert font_ref is not None
+    assert font_ref.get("hangul") == font_id
+    doc.close()
+
+
+# -- 6.1 문단 탭 정의 (StylesNamespace.apply_paragraph_format(tab_stops=...)) --
+
+
+def test_header_ensure_tab_definition_creates_and_dedupes() -> None:
+    head_element = ET.Element(f"{HH}head", {"version": "1.4", "secCnt": "1"})
+    header = HwpxOxmlHeader("header.xml", head_element)
+
+    tab_id = header.ensure_tab_definition(
+        tab_stops=[{"pos": 3543, "type": "LEFT", "leader": "NONE"}],
+    )
+
+    tabprops = head_element.find(f"{HH}refList/{HH}tabProperties")
+    assert tabprops is not None
+    assert tabprops.get("itemCnt") == "1"
+    tabpr = tabprops.find(f"{HH}tabPr")
+    assert tabpr is not None
+    assert tabpr.get("id") == tab_id
+    assert tabpr.get("autoTabLeft") == "0"  # 실코퍼스 관행: "0"/"1"(true/false 아님)
+    assert tabpr.get("autoTabRight") == "0"
+    items = tabpr.findall(f"{HH}tabItem")
+    assert len(items) == 1
+    assert items[0].get("pos") == "3543"
+    assert items[0].get("type") == "LEFT"
+    assert items[0].get("leader") == "NONE"
+
+    # 동일 스펙 재호출은 새 항목을 안 만들고 같은 id를 재사용한다(ensure_style 선례).
+    reused_id = header.ensure_tab_definition(
+        tab_stops=[{"pos": 3543, "type": "LEFT", "leader": "NONE"}],
+    )
+    assert reused_id == tab_id
+    assert tabprops.get("itemCnt") == "1"
+
+
+def test_header_ensure_tab_definition_order_is_part_of_the_dedupe_key() -> None:
+    head_element = ET.Element(f"{HH}head", {"version": "1.4", "secCnt": "1"})
+    header = HwpxOxmlHeader("header.xml", head_element)
+
+    forward_id = header.ensure_tab_definition(
+        tab_stops=[{"pos": 1000, "type": "LEFT"}, {"pos": 2000, "type": "LEFT"}],
+    )
+    reversed_id = header.ensure_tab_definition(
+        tab_stops=[{"pos": 2000, "type": "LEFT"}, {"pos": 1000, "type": "LEFT"}],
+    )
+
+    assert forward_id != reversed_id
+    tabprops = head_element.find(f"{HH}refList/{HH}tabProperties")
+    assert tabprops.get("itemCnt") == "2"
+
+
+def test_header_ensure_tab_definition_auto_flags_are_part_of_the_dedupe_key() -> None:
+    head_element = ET.Element(f"{HH}head", {"version": "1.4", "secCnt": "1"})
+    header = HwpxOxmlHeader("header.xml", head_element)
+
+    plain_id = header.ensure_tab_definition()
+    left_id = header.ensure_tab_definition(auto_tab_left=True)
+    right_id = header.ensure_tab_definition(auto_tab_right=True)
+
+    assert len({plain_id, left_id, right_id}) == 3
+    tabprops = head_element.find(f"{HH}refList/{HH}tabProperties")
+    assert tabprops.get("itemCnt") == "3"
+    # 재호출은 dedupe.
+    assert header.ensure_tab_definition(auto_tab_left=True) == left_id
+    assert tabprops.get("itemCnt") == "3"
+
+
+def test_header_ensure_tab_definition_dedupes_against_a_switch_wrapped_existing_entry() -> None:
+    """DEV-022: 실코퍼스 449/449 hp:switch로 감싼 hh:tabPr은 직속 hh:tabItem이
+    없다 — 그 경우 dedupe 비교가 hp:default 분기를 보지 않으면 동등한
+    스펙을 "불일치"로 오판해 중복 tabPr을 만든다(결함-부활으로 확인됨)."""
+
+    head_element = ET.Element(f"{HH}head", {"version": "1.4", "secCnt": "1"})
+    header = HwpxOxmlHeader("header.xml", head_element)
+    ref_list = ET.SubElement(head_element, f"{HH}refList")
+    tabprops = ET.SubElement(ref_list, f"{HH}tabProperties", {"itemCnt": "1"})
+    tab_pr = ET.SubElement(
+        tabprops, f"{HH}tabPr", {"id": "0", "autoTabLeft": "0", "autoTabRight": "0"}
+    )
+    switch = ET.SubElement(tab_pr, f"{HP}switch")
+    case = ET.SubElement(
+        switch,
+        f"{HP}case",
+        {f"{HP}required-namespace": "http://www.hancom.co.kr/hwpml/2016/HwpUnitChar"},
+    )
+    ET.SubElement(case, f"{HH}tabItem", {"pos": "4032", "type": "LEFT", "leader": "NONE", "unit": "HWPUNIT"})
+    default = ET.SubElement(switch, f"{HP}default")
+    ET.SubElement(default, f"{HH}tabItem", {"pos": "8064", "type": "LEFT", "leader": "NONE"})
+
+    # hp:default's value (8064) is the real-corpus-verified standard scale --
+    # matching it should reuse id="0", not create a duplicate.
+    matched_id = header.ensure_tab_definition(
+        tab_stops=[{"pos": 8064, "type": "LEFT", "leader": "NONE"}],
+    )
+
+    assert matched_id == "0"
+    assert len(tabprops.findall(f"{HH}tabPr")) == 1
+
+
+def test_header_ensure_tab_definition_rejects_missing_pos() -> None:
+    from hwpx.errors import HwpxValueError
+
+    head_element = ET.Element(f"{HH}head", {"version": "1.4", "secCnt": "1"})
+    header = HwpxOxmlHeader("header.xml", head_element)
+
+    with pytest.raises(HwpxValueError) as excinfo:
+        header.ensure_tab_definition(tab_stops=[{"type": "LEFT"}])
+    assert excinfo.value.code == "paragraph-tab-pos-invalid"
+
+
+def test_header_ensure_tab_definition_rejects_negative_pos() -> None:
+    from hwpx.errors import HwpxValueError
+
+    head_element = ET.Element(f"{HH}head", {"version": "1.4", "secCnt": "1"})
+    header = HwpxOxmlHeader("header.xml", head_element)
+
+    with pytest.raises(HwpxValueError) as excinfo:
+        header.ensure_tab_definition(tab_stops=[{"pos": -1}])
+    assert excinfo.value.code == "paragraph-tab-pos-invalid"
+
+
+def test_header_ensure_tab_definition_rejects_invalid_type() -> None:
+    from hwpx.errors import HwpxValueError
+
+    head_element = ET.Element(f"{HH}head", {"version": "1.4", "secCnt": "1"})
+    header = HwpxOxmlHeader("header.xml", head_element)
+
+    with pytest.raises(HwpxValueError) as excinfo:
+        header.ensure_tab_definition(tab_stops=[{"pos": 100, "type": "MIDDLE"}])
+    assert excinfo.value.code == "paragraph-tab-type-invalid"
+
+
+def test_header_ensure_tab_definition_rejects_invalid_leader() -> None:
+    from hwpx.errors import HwpxValueError
+
+    head_element = ET.Element(f"{HH}head", {"version": "1.4", "secCnt": "1"})
+    header = HwpxOxmlHeader("header.xml", head_element)
+
+    with pytest.raises(HwpxValueError) as excinfo:
+        header.ensure_tab_definition(tab_stops=[{"pos": 100, "leader": "SPARKLE"}])
+    assert excinfo.value.code == "paragraph-tab-leader-invalid"
+
+
+def test_header_tab_properties_read_exposes_stops_and_resolves_by_id() -> None:
+    head_element = ET.Element(f"{HH}head", {"version": "1.4", "secCnt": "1"})
+    header = HwpxOxmlHeader("header.xml", head_element)
+
+    tab_id = header.ensure_tab_definition(
+        tab_stops=[{"pos": 2000, "type": "RIGHT", "leader": "DOT"}],
+        auto_tab_left=True,
+    )
+
+    definitions = header.tab_properties
+    assert tab_id in definitions
+    definition = definitions[tab_id]
+    assert definition.auto_tab_left is True
+    assert definition.auto_tab_right is False
+    assert len(definition.tab_stops) == 1
+    stop = definition.tab_stops[0]
+    assert stop.pos == 2000
+    assert stop.type == "RIGHT"
+    assert stop.leader == "DOT"
+
+    assert header.tab_property(tab_id) == definition
+    assert header.tab_property(int(tab_id)) == definition
+
+
+def test_document_apply_paragraph_format_wires_tab_pr_id_ref_to_a_resolvable_definition() -> None:
+    """등록(tab_stops=...) → 해석(doc.styles.tab_property) 왕복이 한 호출
+    체인에서 가능해야 한다는 6.1 게이트 ②의 핵심 계약(ensure_font 선례와 동형)."""
+
+    from hwpx.document import HwpxDocument
+
+    doc = HwpxDocument.new()
+    doc.add_paragraph("탭 정의 문단입니다.")
+    index = len(doc.paragraphs) - 1
+
+    doc.styles.apply_paragraph_format(
+        paragraph_index=index,
+        tab_stops=[{"pos_mm": 10}, {"pos_mm": 30, "type": "CENTER"}],
+    )
+
+    para = doc.paragraphs[index]
+    para_prop = doc.styles.paragraph_property(para.para_pr_id_ref)
+    assert para_prop is not None
+    assert para_prop.tab_pr_id_ref is not None
+
+    tab_def = doc.styles.tab_property(para_prop.tab_pr_id_ref)
+    assert tab_def is not None
+    assert [(s.pos, s.type) for s in tab_def.tab_stops] == [(2835, "LEFT"), (8504, "CENTER")]
+    doc.close()
+
+
+def test_document_apply_paragraph_format_tab_stops_reject_missing_pos_mm() -> None:
+    from hwpx.document import HwpxDocument
+    from hwpx.errors import HwpxValueError
+
+    doc = HwpxDocument.new()
+    doc.add_paragraph("문단")
+    with pytest.raises(HwpxValueError) as excinfo:
+        doc.styles.apply_paragraph_format(paragraph_index=1, tab_stops=[{"type": "LEFT"}])
+    assert excinfo.value.code == "paragraph-tab-pos-invalid"
+    doc.close()
+
+
+# -- 6.1 문서 옵션·호환성 읽기(hh:layoutCompatibility·compatibleDocument·-----
+# -- settings.xml ha:HWPApplicationSetting) ----------------------------------
+
+
+def test_header_compatible_document_reports_target_program_and_empty_flags_on_skeleton() -> None:
+    """실코퍼스 176파일 전수: targetProgram="HWP201X"·layoutCompatibility
+    플래그 0개(감사 §4-R1이 "코드가 단어조차 모르는" 요소로 지목한 자리)."""
+
+    from hwpx.document import HwpxDocument
+
+    doc = HwpxDocument.new()
+    model = doc.oxml.headers[0].to_model()
+    compatible = model.compatible_document
+    assert compatible is not None
+    assert compatible.target_program == "HWP201X"
+    assert compatible.layout_compatibility is not None
+    assert compatible.layout_compatibility.flags == frozenset()
+    doc.close()
+
+
+def test_header_layout_compatibility_preserves_unknown_flags_without_hardcoded_enum() -> None:
+    """실문서에 등장한 적 없는 조합이라도(로컬 코퍼스 176파일 전수 0개) 무손실
+    보존해야 한다 — 이름→존재 집합 모델이지 하드코딩 열거가 아니라는 계약."""
+
+    from hwpx.oxml.header import parse_compatible_document
+
+    node = ET.Element(f"{HH}compatibleDocument", {"targetProgram": "MS_WORD"})
+    layout = ET.SubElement(node, f"{HH}layoutCompatibility")
+    ET.SubElement(layout, f"{HH}applyFontWeightToBold")
+    ET.SubElement(layout, f"{HH}doNotApplyImageEffect")
+    ET.SubElement(layout, f"{HH}notInTheSchema42")  # 스키마 밖 미래 플래그도 무손실
+    compatible = parse_compatible_document(node)
+    assert compatible.target_program == "MS_WORD"
+    assert compatible.layout_compatibility.flags == {
+        "applyFontWeightToBold",
+        "doNotApplyImageEffect",
+        "notInTheSchema42",
+    }
+    assert compatible.layout_compatibility.has("applyFontWeightToBold")
+    assert not compatible.layout_compatibility.has("useInnerUnderline")
+
+
+def test_header_compatible_document_matches_real_hancom_documents() -> None:
+    """게이트 ①: 실한컴 저장본 3표본에서 targetProgram이 원 XML과 정합."""
+
+    from hwpx.document import HwpxDocument
+
+    fixtures = [
+        "tests/fixtures/hwpxlib_corpus/error__20250808__2015년_12월_재난안전종합상황_분석_및_전망.hwpx",
+        "tests/fixtures/hwpxlib_corpus/error__20251107__test_re.hwpx",
+        "tests/fixtures/hwpxlib_corpus/error__20230728__test.hwpx",
+    ]
+    ns = {"hh": "http://www.hancom.co.kr/hwpml/2011/head"}
+    for path in fixtures:
+        import zipfile
+        from lxml import etree as LET2
+
+        raw = zipfile.ZipFile(path).read("Contents/header.xml")
+        raw_root = LET2.fromstring(raw)
+        raw_compatible = raw_root.find(".//hh:compatibleDocument", ns)
+        expected_target = raw_compatible.get("targetProgram")
+        raw_layout = raw_compatible.find("hh:layoutCompatibility", ns)
+        expected_flags = frozenset(LET2.QName(c.tag).localname for c in raw_layout)
+
+        doc = HwpxDocument.open(path)
+        compatible = doc.oxml.headers[0].to_model().compatible_document
+        assert compatible.target_program == expected_target, path
+        assert compatible.layout_compatibility.flags == expected_flags, path
+        doc.close()
+
+
+def test_settings_parse_application_settings_from_bare_xml() -> None:
+    from hwpx.oxml.settings import parse_application_settings
+
+    xml = (
+        "<ha:HWPApplicationSetting xmlns:ha='http://www.hancom.co.kr/hwpml/2011/app' "
+        "xmlns:config='urn:oasis:names:tc:opendocument:xmlns:config:1.0'>"
+        "<ha:CaretPosition listIDRef='0' paraIDRef='72' pos='16'/>"
+        "<config:config-item-set name='PrintInfo'>"
+        "<config:config-item name='PrintAutoFootNote' type='boolean'>false</config:config-item>"
+        "<config:config-item name='ZoomX' type='short'>100</config:config-item>"
+        "</config:config-item-set>"
+        "</ha:HWPApplicationSetting>"
+    )
+    settings = parse_application_settings(ET.fromstring(xml))
+    assert settings.caret_position.list_id_ref == 0
+    assert settings.caret_position.para_id_ref == 72
+    assert settings.caret_position.pos == 16
+    print_info = settings.config_item_sets["PrintInfo"]
+    assert print_info.items["PrintAutoFootNote"].value is False
+    assert print_info.items["ZoomX"].value == 100
+    assert isinstance(print_info.items["ZoomX"].value, int)
+
+
+def test_settings_parse_application_settings_rejects_wrong_root() -> None:
+    from hwpx.errors import HwpxValueError
+    from hwpx.oxml.settings import parse_application_settings
+
+    with pytest.raises(HwpxValueError) as excinfo:
+        parse_application_settings(ET.fromstring("<ha:NotSettings xmlns:ha='urn:x'/>"))
+    assert excinfo.value.code == "document-settings-root-invalid"
+
+
+def test_document_parts_settings_available_on_a_new_skeleton_document() -> None:
+    from hwpx.document import HwpxDocument
+
+    doc = HwpxDocument.new()
+    settings_part = doc.parts.settings
+    assert settings_part is not None
+    model = settings_part.to_model()
+    assert model.caret_position is not None
+    doc.close()
+
+
+def test_document_parts_settings_matches_real_hancom_documents() -> None:
+    """게이트 ①: 실한컴 저장본 3표본에서 CaretPosition·config-item 값이
+    원 settings.xml과 정합. 게이트 ②: 읽기 전용 open→save가 settings.xml
+    바이트를 무손상 보존(쓰기 경로를 열지 않았으므로 당연히 불변)."""
+
+    import zipfile
+
+    from hwpx.document import HwpxDocument
+
+    fixtures = [
+        "tests/fixtures/hwpxlib_corpus/error__20250808__2015년_12월_재난안전종합상황_분석_및_전망.hwpx",
+        "tests/fixtures/hwpxlib_corpus/error__20251107__test_re.hwpx",
+        "tests/fixtures/hwpxlib_corpus/error__20230728__test.hwpx",
+    ]
+    for path in fixtures:
+        original_settings_bytes = zipfile.ZipFile(path).read("settings.xml")
+
+        doc = HwpxDocument.open(path)
+        model = doc.parts.settings.to_model()
+        assert model.caret_position is not None
+        out_bytes = doc.to_bytes()
+        doc.close()
+
+        reopened_settings_bytes = zipfile.ZipFile(io.BytesIO(out_bytes)).read("settings.xml")
+        assert reopened_settings_bytes == original_settings_bytes, path
+
+
+# -- 6.1 도형 안 텍스트(hp:drawText) + 개체 캡션(hp:caption) ------------------
+
+
+def test_shape_draw_text_and_caption_match_real_hancom_document() -> None:
+    """게이트 ①: 실한컴 저장본에서 drawText/caption 읽기 값이 원 XML과 정합."""
+
+    from hwpx.document import HwpxDocument
+
+    doc = HwpxDocument.open("tests/fixtures/hwpxlib_corpus/reader_writer__SimpleRectangle.hwpx")
+    shape = doc.sections[0].paragraphs[0].shapes[0]
+
+    draw_text = shape.draw_text
+    assert draw_text is not None
+    assert draw_text.text == "ABC"
+    assert draw_text.editable is False
+    assert draw_text.text_margin == {"left": 283, "right": 283, "top": 283, "bottom": 283}
+
+    caption = shape.caption
+    assert caption is not None
+    assert caption.side == "BOTTOM"
+    assert caption.full_sz is False
+    assert caption.width == 8504
+    assert caption.gap == 850
+    assert "그림" in caption.text
+    doc.close()
+
+
+def test_table_caption_matches_real_hancom_document() -> None:
+    from hwpx.document import HwpxDocument
+
+    doc = HwpxDocument.open(
+        "tests/fixtures/hwpxlib_corpus/"
+        "error__20250808__2015년_12월_재난안전종합상황_분석_및_전망.hwpx"
+    )
+    captions = []
+    for section in doc.sections:
+        for para in section.paragraphs:
+            for tbl in para.tables:
+                if tbl.caption is not None:
+                    captions.append(tbl.caption)
+    doc.close()
+
+    assert len(captions) == 10
+    assert all(c.side == "TOP" for c in captions)
+    assert all(c.full_sz is False for c in captions)
+    assert any("기상특보" in c.text for c in captions)
+
+
+def test_shape_set_draw_text_creates_and_round_trips() -> None:
+    from hwpx.document import HwpxDocument
+
+    doc = HwpxDocument.new()
+    p = doc.sections[0].add_paragraph()
+    rect = p.add_rectangle(20000, 10000, treat_as_char=True)
+    assert rect.draw_text is None
+
+    rect.set_draw_text("제목 텍스트", name="사각형1")
+    assert rect.draw_text.text == "제목 텍스트"
+    assert rect.draw_text.name == "사각형1"
+    assert rect.draw_text.text_margin == {"left": 283, "right": 283, "top": 283, "bottom": 283}
+
+    out = doc.to_bytes()
+    doc.close()
+
+    reopened = HwpxDocument.open(io.BytesIO(out))
+    shape2 = reopened.sections[0].paragraphs[1].shapes[0]
+    assert shape2.draw_text.text == "제목 텍스트"
+    reopened.close()
+
+
+def test_shape_set_caption_rejects_invalid_side() -> None:
+    from hwpx.document import HwpxDocument
+    from hwpx.errors import HwpxValueError
+
+    doc = HwpxDocument.new()
+    p = doc.sections[0].add_paragraph()
+    rect = p.add_rectangle(20000, 10000, treat_as_char=True)
+    with pytest.raises(HwpxValueError) as excinfo:
+        rect.set_caption("캡션", side="MIDDLE")
+    assert excinfo.value.code == "shape-caption-side-invalid"
+    doc.close()
+
+
+def test_shape_remove_caption_and_draw_text() -> None:
+    from hwpx.document import HwpxDocument
+
+    doc = HwpxDocument.new()
+    p = doc.sections[0].add_paragraph()
+    rect = p.add_rectangle(20000, 10000, treat_as_char=True)
+    rect.set_caption("캡션")
+    rect.set_draw_text("텍스트")
+
+    assert rect.remove_caption() is True
+    assert rect.remove_draw_text() is True
+    assert rect.caption is None
+    assert rect.draw_text is None
+    # 이미 없는 것을 다시 지우면 False.
+    assert rect.remove_caption() is False
+    assert rect.remove_draw_text() is False
+    doc.close()
+
+
+def test_table_set_caption_creates_and_round_trips_at_real_document_position() -> None:
+    """게이트 ①: 신규 저작 캡션의 자식 순서가 실코퍼스 실측(outMargin,
+    caption, inMargin, tr)과 일치해야 한다."""
+
+    from hwpx.document import HwpxDocument
+    from hwpx.oxml.namespaces import tag_local_name
+
+    doc = HwpxDocument.new()
+    p = doc.sections[0].add_paragraph()
+    tbl = p.add_table(2, 2)
+    assert tbl.caption is None
+
+    tbl.set_caption("표 1 요약", side="TOP")
+    children = [tag_local_name(c.tag) for c in tbl.element]
+    assert children.index("caption") == children.index("outMargin") + 1
+    assert children.index("caption") == children.index("inMargin") - 1
+
+    out = doc.to_bytes()
+    doc.close()
+
+    reopened = HwpxDocument.open(io.BytesIO(out))
+    tbl2 = reopened.sections[0].paragraphs[1].tables[0]
+    assert tbl2.caption.text == "표 1 요약"
+    assert tbl2.caption.side == "TOP"
+    reopened.close()
+
+
+def test_inline_object_set_caption_on_picture() -> None:
+    from hwpx.document import HwpxDocument
+    from hwpx.oxml.namespaces import tag_local_name
+
+    doc = HwpxDocument.new()
+    p = doc.sections[0].add_paragraph()
+    media = doc.media.add_image(b"\x89PNG\r\n\x1a\n" + b"0" * 40, "png")
+    pic = p.add_picture(media.item_id, width=10000, height=8000)
+    assert pic.caption is None
+
+    pic.set_caption("그림 1. 테스트", side="BOTTOM")
+    assert pic.caption.text == "그림 1. 테스트"
+    # outMargin 다음(표/도형과 같은 관행) — 이 자리는 실코퍼스 표본이 없어
+    # unverified 명시: 표/도형에서 검증된 규칙을 그대로 적용했을 뿐이다.
+    children = [tag_local_name(c.tag) for c in pic.element]
+    assert children.index("caption") == children.index("outMargin") + 1
+
+    out = doc.to_bytes()
+    doc.close()
+
+    reopened = HwpxDocument.open(io.BytesIO(out))
+    from hwpx.oxml.objects import HwpxOxmlInlineObject
+
+    reopened_paragraph = reopened.sections[0].paragraphs[1]
+    pic_element = next(
+        e for e in reopened_paragraph.element.iter() if tag_local_name(e.tag) == "pic"
+    )
+    pic2 = HwpxOxmlInlineObject(pic_element, reopened_paragraph)
+    assert pic2.caption.text == "그림 1. 테스트"
+    assert pic2.caption.side == "BOTTOM"
+    reopened.close()
+
+
+def test_markdown_export_includes_table_caption() -> None:
+    from hwpx.document import HwpxDocument
+    from hwpx.tools.markdown_export import export_markdown
+
+    doc = HwpxDocument.new()
+    p = doc.sections[0].add_paragraph()
+    tbl = p.add_table(1, 1)
+    tbl.set_caption("표 1 매출 현황")
+    md = export_markdown(doc)
+    doc.close()
+    assert "표 1 매출 현황" in md
+
+
+def test_markdown_export_includes_picture_caption(tmp_path) -> None:
+    from hwpx.document import HwpxDocument
+    from hwpx.tools.markdown_export import export_markdown
+
+    doc = HwpxDocument.new()
+    p = doc.sections[0].add_paragraph()
+    media = doc.media.add_image(b"\x89PNG\r\n\x1a\n" + b"0" * 40, "png")
+    pic = p.add_picture(media.item_id, width=10000, height=8000)
+    pic.set_caption("그림 1. 매출 그래프")
+    md = export_markdown(doc, image_dir=str(tmp_path))
+    doc.close()
+    assert "![image]" in md
+    assert "*그림 1. 매출 그래프*" in md
+
+
+def test_shape_text_and_caption_stay_undistorted_after_real_document_round_trip() -> None:
+    """게이트 ②: 왕복 무손상 — drawText/caption 서브트리가 수정 없이
+    open→save 를 거쳐도 바이트 수준으로 그대로다."""
+
+    import zipfile
+
+    from lxml import etree
+
+    from hwpx.document import HwpxDocument
+
+    path = "tests/fixtures/hwpxlib_corpus/reader_writer__SimpleRectangle.hwpx"
+    with zipfile.ZipFile(path) as zf:
+        original = zf.read("Contents/section0.xml")
+
+    doc = HwpxDocument.open(path)
+    out = doc.to_bytes()
+    doc.close()
+
+    with zipfile.ZipFile(io.BytesIO(out)) as zf:
+        reopened = zf.read("Contents/section0.xml")
+
+    ns = {"hp": "http://www.hancom.co.kr/hwpml/2011/paragraph"}
+    orig_root = etree.fromstring(original)
+    new_root = etree.fromstring(reopened)
+    orig_dt = [etree.tostring(e) for e in orig_root.findall(".//hp:drawText", ns)]
+    new_dt = [etree.tostring(e) for e in new_root.findall(".//hp:drawText", ns)]
+    orig_cap = [etree.tostring(e) for e in orig_root.findall(".//hp:caption", ns)]
+    new_cap = [etree.tostring(e) for e in new_root.findall(".//hp:caption", ns)]
+    assert orig_dt == new_dt
+    assert orig_cap == new_cap
+
+
 def test_paragraph_add_shape_and_control_updates_attributes() -> None:
     section, paragraph = _build_section_with_paragraph()
 

@@ -6780,6 +6780,8 @@ class Client(OpenApiClient):
             query['PageNumber'] = request.page_number
         if not DaraCore.is_null(request.page_size):
             query['PageSize'] = request.page_size
+        if not DaraCore.is_null(request.process_id):
+            query['ProcessId'] = request.process_id
         if not DaraCore.is_null(request.proxy_user):
             query['ProxyUser'] = request.proxy_user
         if not DaraCore.is_null(request.query_keyword):
@@ -6846,6 +6848,8 @@ class Client(OpenApiClient):
             query['PageNumber'] = request.page_number
         if not DaraCore.is_null(request.page_size):
             query['PageSize'] = request.page_size
+        if not DaraCore.is_null(request.process_id):
+            query['ProcessId'] = request.process_id
         if not DaraCore.is_null(request.proxy_user):
             query['ProxyUser'] = request.proxy_user
         if not DaraCore.is_null(request.query_keyword):

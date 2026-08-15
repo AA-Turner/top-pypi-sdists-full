@@ -448,3 +448,83 @@ def test_correct_member_after_a_constructor_is_silent():
         ";\n"
     )
     assert diags == []
+
+
+# --- a collection literal names the type too -----------------------------------------------
+
+def test_collection_literal_names_the_type_of_a_variable():
+    """`знч Х = <Строка>[]` is as explicit as a constructor - the shape that used to slip
+    through: the type came from an annotation or `новый Тип(...)` alone."""
+    diags = _lint(
+        "метод Б(): Число\n"
+        "    знч Пользователи = <Строка>[]\n"
+        "    возврат Пользователи.Количество()\n"
+        ";\n"
+    )
+    assert len(diags) == 1 and "Массив" in diags[0].message
+
+
+def test_a_bare_array_literal_names_its_type():
+    """The arguments do not matter - an array has the same members whatever it holds."""
+    diags = _lint(
+        "метод Б(): Число\n"
+        "    знч Список = [1, 2]\n"
+        "    возврат Список.Количество()\n"
+        ";\n"
+    )
+    assert len(diags) == 1 and "Массив" in diags[0].message
+
+
+def test_map_and_set_literals_name_their_types():
+    for code, expected in (
+        ("знч Карта = <Строка, Число>{:}\n    возврат Карта.ТакогоНет()", "Соответствие"),
+        ("знч Набор = {1, 2}\n    возврат Набор.ТакогоНет()", "Множество"),
+    ):
+        diags = _lint(f"метод Б(): Число\n    {code}\n;\n")
+        assert len(diags) == 1 and expected in diags[0].message, (code, diags)
+
+
+def test_a_correct_member_after_a_literal_is_silent():
+    diags = _lint(
+        "метод В(): Число\n"
+        "    знч Список = <Строка>[]\n"
+        "    возврат Список.Размер()\n"
+        ";\n"
+    )
+    assert diags == []
+
+
+def test_an_event_of_the_type_is_a_member():
+    """Binding a handler to a component built in code is the documented form.
+
+    The docs of the type carry a "События" section and that very example; the extraction has
+    always kept the events, but the rule read properties and methods alone and answered
+    "no such member" to every such binding.
+    """
+    diags = _lint(
+        "метод Тест()\n"
+        "    пер Клавиша: Кнопка = новый Кнопка()\n"
+        "    Клавиша.ПриНажатии = &Обработать\n"
+        ";\n"
+    )
+    assert diags == [], [d.message for d in diags]
+
+
+def test_an_inherited_event_is_a_member_too():
+    diags = _lint(
+        "метод Тест(Страница: ВстроеннаяВебСтраница1СПредприятие)\n"
+        "    Страница.ПриОткрытии = &Открыли\n"
+        "    Страница.ПриПолученииСообщения = &Сообщение\n"
+        ";\n"
+    )
+    assert diags == [], [d.message for d in diags]
+
+
+def test_a_typo_in_an_event_name_is_still_flagged():
+    diags = _lint(
+        "метод Тест()\n"
+        "    пер Клавиша: Кнопка = новый Кнопка()\n"
+        "    Клавиша.ПриНажатие = &Обработать\n"
+        ";\n"
+    )
+    assert len(diags) == 1 and "ПриНажатие" in diags[0].message

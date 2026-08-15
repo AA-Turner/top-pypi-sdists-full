@@ -103,6 +103,29 @@ class _GenerateParseAbort(BaseException):
     """Test-only parse abort that is not an Exception subclass."""
 
 
+def test_parser_collects_empty_model_metadata() -> None:
+    """Collect an empty metadata payload when parsing emits no models."""
+    from datamodel_code_generator.model_metadata import dump_model_metadata
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+
+    parser = JsonSchemaParser(
+        JSON_SCHEMA_DATA_PATH / "const_null.json",
+        formatters=[],
+        skip_root_model=True,
+    )
+    try:
+        assert_output(
+            f"{parser.parse(collect_model_metadata=True, format_=False)!r}\n",
+            EXPECTED_MAIN_PATH / "empty_model_metadata_modules.txt",
+        )
+        assert_output(
+            f"{dump_model_metadata(parser.model_metadata)}\n",
+            EXPECTED_MAIN_PATH / "empty_model_metadata_map.txt",
+        )
+    finally:
+        parser._dispose()
+
+
 def test_parser_retains_builtin_import_cache_and_invalidates_custom_cache() -> None:
     """Retain built-in caches while keeping the legacy custom-model invalidation contract."""
     from datamodel_code_generator.model import DataModel, get_data_model_types
@@ -131,8 +154,8 @@ def test_parser_retains_builtin_import_cache_and_invalidates_custom_cache() -> N
             cache_state = "cached" if self._IMPORTS_CACHE_KEY in self.__dict__ else "empty"
             history = self.__dict__.setdefault("cache_clear_history", [])
             history.append(cache_state)
-            if (extra_template_data := getattr(self, "extra_template_data", None)) is not None:
-                extra_template_data["class_body_lines"] = [f"cache_clear_history = {history!r}"]
+            if getattr(self, "_internal_template_data", None) is not None:
+                self._set_internal_template_data("class_body_lines", [f"cache_clear_history = {history!r}"])
             super().clear_imports_cache()
 
     class InjectingJsonSchemaParser(JsonSchemaParser):
@@ -193,6 +216,29 @@ def test_parser_retains_builtin_import_cache_and_invalidates_custom_cache() -> N
     assert_output(
         "\n".join(unhashable_default_parser.cache_reuse_manifest) + "\n",
         EXPECTED_MAIN_PATH / "builtin_import_cache_unique_items_unhashable.txt",
+    )
+
+    input_path = DATA_PATH / "performance" / "large_models.json"
+    parser = CacheProbeJsonSchemaParser(
+        input_path,
+        **{**parser_options, "base_path": input_path.parent},
+    )
+    large_models = cast(
+        "dict[tuple[str, ...], Any]",
+        parser.parse(module_split_mode=datamodel_code_generator.ModuleSplitMode.Single),
+    )
+
+    assert_output(
+        large_models["model499.py",].body,
+        EXPECTED_MAIN_PATH / "module_split_large_models_model499.py",
+    )
+    assert_output(
+        f"{type(large_models).__name__}\n{len(large_models)}\nmodel499.py\n",
+        EXPECTED_MAIN_PATH / "module_split_large_models_manifest.txt",
+    )
+    assert_output(
+        f"{parser.module_processing_calls}\n",
+        EXPECTED_MAIN_PATH / "process_single_module_large_models_calls.txt",
     )
 
     input_path = JSON_SCHEMA_DATA_PATH / "person.json"
@@ -1924,6 +1970,91 @@ def test_import_overrides_apply_to_additional_imports(output_file: Path) -> None
             '{"TypeAlias": "typing", "annotations": "custom.future"}',
         ],
     )
+
+
+def test_generate_config_accepts_additional_imports(output_file: Path) -> None:
+    """Keep documented bare and dotted imports available through the public config API."""
+    config = GenerateConfig(
+        input_file_type=InputFileType.JsonSchema,
+        additional_imports=["collections"],
+        disable_timestamp=True,
+        formatters=[Formatter.BUILTIN],
+        output=output_file,
+    )
+    generate(JSON_SCHEMA_DATA_PATH / "person.json", config=config)
+    assert_file_content(output_file, "additional_imports_generate_config.py")
+
+
+@pytest.mark.parametrize(
+    ("import_path", "expected_paths"),
+    [
+        (" collections.deque ", ["collections.deque"]),
+        (" café.モジュール ", ["café.モジュール"]),
+        (None, None),
+    ],
+)
+@pytest.mark.allow_direct_assert
+def test_generate_config_normalizes_valid_additional_imports(
+    import_path: str | None,
+    expected_paths: list[str] | None,
+) -> None:
+    """Accept whitespace-padded and Unicode Python identifiers through GenerateConfig."""
+    additional_imports = None if import_path is None else [import_path]
+    assert GenerateConfig(additional_imports=additional_imports).additional_imports == expected_paths
+
+
+@pytest.mark.parametrize(
+    "import_path",
+    [
+        "from.collections",
+        "collections.deque; INJECTION_MARKER = 1",
+        "collections.deque\nINJECTION_MARKER = 1",
+    ],
+)
+def test_generate_config_rejects_invalid_additional_imports(import_path: str) -> None:
+    """Reject non-import syntax before a public config can generate source."""
+    with pytest.raises(Error, match="additional_imports must be a Python import path composed of identifiers"):
+        GenerateConfig(additional_imports=[import_path])
+
+
+def test_generate_revalidates_mutated_additional_imports() -> None:
+    """Retain import-path validation when a caller mutates a public config object."""
+    config = GenerateConfig(input_file_type=InputFileType.JsonSchema)
+    config.additional_imports = ["collections.deque\nINJECTION_MARKER = 1"]
+    with pytest.raises(Error, match="additional_imports must be a Python import path composed of identifiers"):
+        generate(JSON_SCHEMA_DATA_PATH / "person.json", config=config)
+
+
+def test_main_rejects_additional_import_injection(output_file: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Reject CLI import values that would otherwise escape the generated import block."""
+    invalid_import_path = (DATA_PATH / "config" / "additional_imports_invalid.txt").read_text(encoding="utf-8").strip()
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "person.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--additional-imports", invalid_import_path],
+        expected_exit=Exit.ERROR,
+        output_should_not_exist=True,
+    )
+    assert_output(capsys.readouterr().err, EXPECTED_MAIN_PATH / "additional_imports_invalid.txt")
+
+
+def test_main_rejects_additional_import_injection_in_extra_template_data(
+    output_file: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Reject extra template data import values before source generation starts."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "person.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--extra-template-data",
+            str(DATA_PATH / "config" / "additional_imports_injection_extra_template_data.json"),
+        ],
+        expected_exit=Exit.ERROR,
+        output_should_not_exist=True,
+    )
+    assert_output(capsys.readouterr().err, EXPECTED_MAIN_PATH / "additional_imports_invalid.txt")
 
 
 @pytest.mark.cli_doc(
@@ -4489,6 +4620,14 @@ _EXTRA_TEMPLATE_COMMENT_ROOT_SCHEMA = """
 }
 """
 _EXTRA_TEMPLATE_COMMENT_FORBIDDEN_STARTS = ("print(", "raise ", "import os", "exec(")
+_BUILTIN_TEMPLATE_DATA_MARKER = "builtin_template_data_marker"
+_BUILTIN_TEMPLATE_CONFIG_DATA_PATH = JSON_SCHEMA_DATA_PATH / "extra_data_builtin_template_config.json"
+_BUILTIN_TEMPLATE_MSGSPEC_DATA_PATH = JSON_SCHEMA_DATA_PATH / "extra_data_builtin_template_msgspec.json"
+_BUILTIN_TEMPLATE_RESERVED_DATA_PATH = JSON_SCHEMA_DATA_PATH / "extra_data_builtin_template_reserved.json"
+_BUILTIN_TEMPLATE_TYPED_DICT_DATA_PATH = JSON_SCHEMA_DATA_PATH / "extra_data_builtin_template_typed_dict.json"
+_BUILTIN_TEMPLATE_CUSTOM_DIR = DATA_PATH / "templates_builtin_template_data"
+_BUILTIN_TEMPLATE_INCLUDE_ONLY_DIR = DATA_PATH / "templates_include_only"
+_BUILTIN_TEMPLATE_EXPECTED_PATH = EXPECTED_MAIN_PATH / "template_data"
 
 
 def _generate_with_extra_template_comment(input_: str, **generate_kwargs: Any) -> str:
@@ -4583,6 +4722,163 @@ def test_main_extra_template_data_comment_is_safe(output_file: Path, tmp_path: P
         generated_content,
         forbidden_starts=_EXTRA_TEMPLATE_COMMENT_FORBIDDEN_STARTS,
     )
+
+
+def test_generate_builtin_template_data_is_non_executing() -> None:
+    """Render public built-in template data as literals rather than Python source."""
+    generated = generate(
+        input_=JSON_SCHEMA_DATA_PATH / "person.json",
+        input_file_type=InputFileType.JsonSchema,
+        output_model_type=DataModelType.PydanticV2BaseModel,
+        disable_timestamp=True,
+        formatters=[Formatter.BUILTIN],
+        extra_template_data=json.loads(_BUILTIN_TEMPLATE_CONFIG_DATA_PATH.read_text(encoding="utf-8")),
+    )
+    if not isinstance(generated, str):  # pragma: no cover
+        pytest.fail(f"Expected generate() to return str, got {type(generated).__name__}")
+    validate_generated_code(generated, "<generated>")
+    assert_output(f"{generated}\n", _BUILTIN_TEMPLATE_EXPECTED_PATH / "api_builtin_config.py")
+    tree = ast.parse(generated)
+    marker_assignments = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == _BUILTIN_TEMPLATE_DATA_MARKER for target in node.targets)
+    ]
+    if marker_assignments:  # pragma: no cover - assertion reports the exact source-safety regression
+        pytest.fail(f"Generated AST contains injected marker assignments: {marker_assignments!r}")
+
+
+@pytest.mark.parametrize(
+    ("output_model_type", "template_data_path", "expected_file"),
+    [
+        pytest.param(
+            "pydantic_v2.BaseModel",
+            _BUILTIN_TEMPLATE_CONFIG_DATA_PATH,
+            _BUILTIN_TEMPLATE_EXPECTED_PATH / "builtin_config.py",
+            id="pydantic-config",
+        ),
+        pytest.param(
+            "msgspec.Struct",
+            _BUILTIN_TEMPLATE_MSGSPEC_DATA_PATH,
+            _BUILTIN_TEMPLATE_EXPECTED_PATH / "builtin_msgspec.py",
+            id="msgspec-base-class-kwargs",
+        ),
+        pytest.param(
+            "typing.TypedDict",
+            _BUILTIN_TEMPLATE_TYPED_DICT_DATA_PATH,
+            _BUILTIN_TEMPLATE_EXPECTED_PATH / "builtin_typed_dict.py",
+            id="typed-dict-extra-items",
+        ),
+    ],
+)
+def test_main_builtin_template_data_is_non_executing(
+    output_file: Path,
+    output_model_type: str,
+    template_data_path: Path,
+    expected_file: Path,
+) -> None:
+    """Keep built-in CLI template data literal-only with fixture-backed output."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "person.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+            "--output-model-type",
+            output_model_type,
+            "--target-python-version",
+            "3.10",
+            "--extra-template-data",
+            str(template_data_path),
+        ],
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+    )
+
+
+def test_main_rejects_reserved_builtin_template_data(capsys: pytest.CaptureFixture[str], output_file: Path) -> None:
+    """Reject code-bearing template context keys before built-in output is written."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "person.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--extra-template-data",
+            str(_BUILTIN_TEMPLATE_RESERVED_DATA_PATH),
+        ],
+        expected_exit=Exit.ERROR,
+        output_should_not_exist=True,
+        capsys=capsys,
+        expected_stderr_contains="class_body_lines is reserved",
+    )
+
+
+def test_main_partial_custom_template_dir_keeps_builtin_template_data_safe(
+    capsys: pytest.CaptureFixture[str], output_file: Path
+) -> None:
+    """An include-only custom directory cannot opt a built-in root into raw context."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "person.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--custom-template-dir",
+            str(_BUILTIN_TEMPLATE_INCLUDE_ONLY_DIR),
+            "--extra-template-data",
+            str(_BUILTIN_TEMPLATE_RESERVED_DATA_PATH),
+        ],
+        expected_exit=Exit.ERROR,
+        output_should_not_exist=True,
+        capsys=capsys,
+        expected_stderr_contains="class_body_lines is reserved",
+    )
+
+
+def test_main_custom_template_data_remains_unrestricted(output_file: Path) -> None:
+    """Trusted custom templates retain their longstanding raw-context contract."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "person.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--disable-timestamp",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--custom-template-dir",
+            str(_BUILTIN_TEMPLATE_CUSTOM_DIR),
+            "--extra-template-data",
+            str(_BUILTIN_TEMPLATE_RESERVED_DATA_PATH),
+        ],
+        assert_func=assert_file_content,
+        expected_file=_BUILTIN_TEMPLATE_EXPECTED_PATH / "custom_template.py",
+    )
+
+
+def test_generate_extra_template_data_comment_object_is_safe() -> None:
+    """Built-in comments stringify extension objects before treating newlines as comments."""
+
+    class Comment:
+        def __str__(self) -> str:
+            return "safe\n__import__('os').system('id')"
+
+    generated = generate(
+        input_=_EXTRA_TEMPLATE_COMMENT_OBJECT_SCHEMA,
+        input_file_type=InputFileType.JsonSchema,
+        output_model_type=DataModelType.PydanticV2BaseModel,
+        disable_timestamp=True,
+        extra_template_data=defaultdict(dict, {"Model": {"comment": Comment()}}),
+    )
+    if not isinstance(generated, str):  # pragma: no cover
+        pytest.fail(f"Expected generate() to return str, got {type(generated).__name__}")
+    validate_generated_code(generated, "<generated>")
+    assert_no_uncommented_generated_code(generated, forbidden_starts=("__import__(",))
 
 
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="type statement requires Python 3.12+")

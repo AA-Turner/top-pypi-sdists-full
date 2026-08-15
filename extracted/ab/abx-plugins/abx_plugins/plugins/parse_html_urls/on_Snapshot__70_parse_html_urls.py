@@ -14,10 +14,10 @@
 # Examples:
 #     ./on_Snapshot__70_parse_html_urls.py --url=https://example.com/page.html
 
+import sys
 import json
 import os
 import re
-import sys
 from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path

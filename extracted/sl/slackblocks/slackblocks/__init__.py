@@ -3,17 +3,29 @@ from __future__ import annotations
 from .attachments import Attachment, Color, Field
 from .blocks import (
     ActionsBlock,
+    AlertBlock,
+    AlertLevel,
     Block,
+    CardBlock,
+    CarouselBlock,
+    ContainerBlock,
+    ContainerWidth,
+    ContextActionsBlock,
     ContextBlock,
+    DataTableBlock,
+    DataVisualizationBlock,
     DividerBlock,
     FileBlock,
     HeaderBlock,
     ImageBlock,
     InputBlock,
     MarkdownBlock,
+    PlanBlock,
     RichTextBlock,
     SectionBlock,
     TableBlock,
+    TaskCardBlock,
+    TaskStatus,
     VideoBlock,
 )
 from .builder import block_kit_builder_url
@@ -30,7 +42,10 @@ from .elements import (
     EmailInput,
     ExternalMultiSelectMenu,
     ExternalSelectMenu,
+    FeedbackButton,
+    FeedbackButtons,
     FileInput,
+    IconButton,
     Image,
     NumberInput,
     OverflowMenu,
@@ -41,6 +56,7 @@ from .elements import (
     StaticSelectMenu,
     TimePicker,
     URLInput,
+    URLSource,
     UserMultiSelectMenu,
     UserSelectMenu,
     WorkflowButton,
@@ -56,18 +72,30 @@ from .errors import (
 from .messages import Message, MessageResponse, ResponseType, WebhookMessage
 from .modals import Modal
 from .objects import (
+    AreaChart,
+    AxisConfig,
+    BarChart,
+    Chart,
+    ChartSegment,
     ColumnSettings,
     Confirm,
     ConfirmationDialogue,
     ConversationFilter,
+    DataPoint,
+    DataSeries,
     DispatchActionConfiguration,
     InputParameter,
+    LineChart,
     Markdown,
     Option,
     OptionGroup,
+    PieChart,
     PlainText,
+    RawNumber,
     RawText,
     SlackFile,
+    SlackIcon,
+    SlackIconName,
     Text,
     TextType,
     Trigger,
@@ -92,3 +120,7 @@ from .rich_text.objects import (
 from .views import HomeTabView, ModalView, View
 
 name = "slackblocks"
+
+# The version of the shared conformance spec (spec/SPEC.md) this
+# implementation conforms to.
+SPEC_VERSION: str = "1.0.1"

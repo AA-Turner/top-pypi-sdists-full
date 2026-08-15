@@ -1,15 +1,23 @@
 """Type Hints for SmartZone JSON Payloads"""
 
-from typing import Literal, Required, TypedDict
+import sys
+
+if sys.version_info >= (3, 11):
+    from typing import Literal, Required, TypedDict
+else:
+    from typing_extensions import Literal, Required, TypedDict
 
 from .ajaxtyping import L2Rule
 
+
 class PermissionResourceItemDict(TypedDict, total=False):
+    """A per-resource permission entry inside a permission category."""
     resource: str
     access: Literal["NA", "READ", "MODIFY", "FULL_ACCESS"]
     display: str
 
 class PermissionCategoryDict(TypedDict, total=False):
+    """A permission category with the access level granted to the user."""
     resource: Required[str]
     access: Required[Literal["READ", "MODIFY", "FULL_ACCESS"]]
     display: str
@@ -18,10 +26,12 @@ class PermissionCategoryDict(TypedDict, total=False):
     ids: list[str]
 
 class PermissionExtraDict(TypedDict, total=False):
+    """Extra flags describing the admin role of the logged-in user."""
     isSuperAdmin: bool
     isSuperAdminOfDomain: bool
 
 class PermissionCategoriesDict(TypedDict, total=False):
+    """Paginated list of permission categories for the current user."""
     totalCount: int
     hasMore: bool
     firstIndex: int
@@ -29,6 +39,7 @@ class PermissionCategoriesDict(TypedDict, total=False):
     extra: PermissionExtraDict
 
 class SessionDict(TypedDict, total=False):
+    """SmartZone session payload describing the logged-in user and cluster."""
     cpId: Required[str]
     domainId: Required[str]
     adminId: Required[str]
@@ -40,6 +51,7 @@ class SessionDict(TypedDict, total=False):
     cpSerialNumber: str
 
 class BlockClientZoneDict(TypedDict, total=False):
+    """A zone in which a client is blocked."""
     id: Required[str]
     zoneId: Required[str]
     description: str
@@ -47,4 +59,5 @@ class BlockClientZoneDict(TypedDict, total=False):
     modifierUsername: str
 
 class BlockClientDict(L2Rule, total=False):
+    """A blocked client MAC with the zones it is blocked in."""
     zones: Required[list[BlockClientZoneDict]]

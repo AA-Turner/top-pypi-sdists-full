@@ -1,13 +1,15 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: aioautomower
-Version: 2.7.6
+Version: 2.8.0
 Summary: MPython module to talk to Husqvarna Automower.
+Project-URL: Homepage, https://github.com/Thomas55555/aioautomower
+Project-URL: Repository, https://github.com/Thomas55555/aioautomower
+Project-URL: Documentation, https://github.com/Thomas55555/aioautomower
+Project-URL: Issues, https://github.com/Thomas55555/aioautomower/issues
+Author-email: Thomas Peter Protzner <thomas.protzner@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
-Keywords: Husqvarna,Automower,api,async,client
-Author: Thomas Peter Protzner
-Author-email: thomas.protzner@gmail.com
-Requires-Python: >=3.11,<4.0
+Keywords: Automower,Husqvarna,api,async,client
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
@@ -18,17 +20,14 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: PyJWT (>=2.8.0,<3.0.0)
-Requires-Dist: aiohttp (>=3.9.3,<4.0.0)
-Requires-Dist: ical (>=8.0.1)
-Requires-Dist: mashumaro (>=3.12,<4.0)
-Requires-Dist: orjson (>=3.11.2,<4.0.0)
-Requires-Dist: python-dateutil (>=2.9.0.post0,<3.0.0)
-Requires-Dist: tzlocal (>=5.2,<6.0)
-Project-URL: Documentation, https://github.com/Thomas55555/aioautomower
-Project-URL: Homepage, https://github.com/Thomas55555/aioautomower
-Project-URL: Issues, https://github.com/Thomas55555/aioautomower/issues
-Project-URL: Repository, https://github.com/Thomas55555/aioautomower
+Requires-Python: >=3.11
+Requires-Dist: aiohttp<4,>=3.9.3
+Requires-Dist: ical>=8.0.1
+Requires-Dist: mashumaro<4,>=3.12
+Requires-Dist: orjson<4,>=3.11.2
+Requires-Dist: pyjwt<3,>=2.8.0
+Requires-Dist: python-dateutil<3,>=2.9.0.post0
+Requires-Dist: tzlocal<6,>=5.2
 Description-Content-Type: text/markdown
 
 # Aioautomower
@@ -55,45 +54,44 @@ to access the API.
 You need at least:
 
 - Python 3.11+
-- [Poetry][poetry-install]
+- [uv][uv-install]
 
 For a first start you can run the `example.py`, by doing the following steps
 
 - `git clone https://github.com/Thomas55555/aioautomower.git`
 - `cd aioautomower`
-- `poetry install`
+- `uv sync`
 - Enter your personal `client_id` and `client_secret` in the `_secrets.yaml` and rename it to `secrets.yaml`
-- Run with `poetry run ./example.py`
+- Run with `uv run ./example.py`
 
 ## Contributing
 
 This is an active open-source project. We are always open to people who want to use the code or contribute to it.
-This Python project is fully managed using the [Poetry][poetry] dependency manager.
+This Python project is fully managed using [uv][uv].
 
 As this repository uses the [prek][prek] framework, all changes
 are linted and tested with each commit. You can run all checks and tests
 manually, using the following command:
 
 ```bash
-poetry run prek run --all-files
+uv run prek run --all-files
 ```
 
 To run just the Python tests:
 
 ```bash
-poetry run pytest
+uv run pytest
 ```
 
 To update snapshots:
 
 ```bash
-poetry run pytest --snapshot-update
+uv run pytest --snapshot-update
 ```
 
-[poetry-install]: https://python-poetry.org/docs/#installation
-[poetry]: https://python-poetry.org
+[uv-install]: https://docs.astral.sh/uv/getting-started/installation/
+[uv]: https://docs.astral.sh/uv/
 [prek]: https://github.com/prek/prek
-
 
 # Buying Equipment
 
@@ -105,4 +103,3 @@ Here are some affiliate links to support my work:
 - [Endurence blades](https://amzn.to/3OyK1YD)
 - [Regular blades](https://amzn.to/3ZCn8Zt)
 - [Cabel connector](https://amzn.to/4f3OtJn)
-

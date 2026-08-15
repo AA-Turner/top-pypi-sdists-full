@@ -33,7 +33,7 @@ class DescribeVpcsRequest(DaraModel):
         # 
         # - **true**: performs a dry run. The system checks the request for potential issues, including invalid AccessKey pairs, unauthorized RAM users, and missing parameter values. If the request fails the dry run, the corresponding error message is returned. If the request passes the dry run, the `DryRunOperation` error code is returned.
         # 
-        # - **false** (default): sends a normal request, and the resource status is directly queried after the request passes the check. An HTTP 2xx status code is returned.
+        # - **false** (default): sends a normal request. If the request passes the check, an HTTP 2xx status code is returned and the operation is performed.
         self.dry_run = dry_run
         # Specifies whether to query VPCs that have IPv6 CIDR blocks enabled in the specified region. The default value is empty, which means no filtering is applied based on IPv6 enablement. Valid values:
         # 
@@ -50,7 +50,7 @@ class DescribeVpcsRequest(DaraModel):
         self.owner_id = owner_id
         # The page number. Default value: **1**.
         self.page_number = page_number
-        # The number of entries per page in paging queries. Maximum value: **50**. Default value: **10**.
+        # The number of entries per page for paging queries. Maximum value: **50**. Default value: **10**.
         self.page_size = page_size
         # The region ID of the VPC. 
         # 
@@ -199,11 +199,11 @@ class DescribeVpcsRequestTag(DaraModel):
     ):
         # The tag key of the resource. You can specify up to 20 tag keys. The tag key cannot be an empty string.
         # 
-        # The tag key can be up to 128 characters in length. It cannot start with `aliyun` or `acs:`, and cannot contain `http://` or `https://`.
+        # The tag key can be up to 128 characters in length and cannot start with `aliyun` or `acs:`. It cannot contain `http://` or `https://`.
         self.key = key
         # The tag value of the resource. You can specify up to 20 tag values. The tag value can be an empty string.
         # 
-        # The tag value can be up to 128 characters in length. It cannot start with `aliyun` or `acs:`, and cannot contain `http://` or `https://`.
+        # The tag value can be up to 128 characters in length and cannot start with `aliyun` or `acs:`. It cannot contain `http://` or `https://`.
         self.value = value
 
     def validate(self):

@@ -1,4 +1,4 @@
-from typing import Mapping, Union
+from collections.abc import Mapping
 
 import pyarrow
 
@@ -66,24 +66,24 @@ class PostgresSchema:
     def columns(self) -> list[Column]: ...
     def ddl(self, table_name: str, temp_table=False) -> str: ...
 
-PostgresType = Union[
-    Bool,
-    Bytea,
-    Int2,
-    Int4,
-    Int8,
-    Float4,
-    Float8,
-    Numeric,
-    Char,
-    Text,
-    Jsonb,
-    Date,
-    Time,
-    Timestamp,
-    Interval,
-    List,
-]
+PostgresType = (
+    Bool
+    | Bytea
+    | Int2
+    | Int4
+    | Int8
+    | Float4
+    | Float8
+    | Numeric
+    | Char
+    | Text
+    | Jsonb
+    | Date
+    | Time
+    | Timestamp
+    | Interval
+    | List
+)
 
 class ArrowToPostgresBinaryEncoder:
     def __init__(self, __schema: pyarrow.Schema) -> None: ...
@@ -94,6 +94,8 @@ class ArrowToPostgresBinaryEncoder:
     def write_header(self) -> bytes: ...
     def write_batch(self, __batch: pyarrow.RecordBatch) -> bytes: ...
     def finish(self) -> bytes: ...
+    def composite_type_names(self) -> list[str]: ...
+    def with_composite_oids(self, oids: Mapping[str, int]) -> None: ...
     def schema(self) -> PostgresSchema: ...
     @staticmethod
     def infer_encoder(__field: pyarrow.Field) -> EncoderBuilder: ...
@@ -116,8 +118,10 @@ class UInt64EncoderBuilder:
 class Int8EncoderBuilder:
     def __init__(self, field: pyarrow.Field) -> None: ...
     @classmethod
+    # `Char` is not accepted: it declares bpchar (a text type) for an INT2 payload,
+    # which Postgres rejects on every value. See pgpq issue #95.
     def new_with_output(
-        cls, field: pyarrow.Field, output: Char | Int2
+        cls, field: pyarrow.Field, output: Int2
     ) -> Int8EncoderBuilder: ...
 
 class Int16EncoderBuilder:
@@ -204,6 +208,9 @@ class BinaryEncoderBuilder:
 class LargeBinaryEncoderBuilder:
     def __init__(self, field: pyarrow.Field) -> None: ...
 
+class FixedSizeBinaryEncoderBuilder:
+    def __init__(self, field: pyarrow.Field) -> None: ...
+
 class ListEncoderBuilder:
     def __init__(self, field: pyarrow.Field) -> None: ...
     @classmethod
@@ -217,6 +224,16 @@ class LargeListEncoderBuilder:
     def new_with_inner(
         cls, field: pyarrow.Field, inner_encoder_builder: EncoderBuilder
     ) -> LargeListEncoderBuilder: ...
+
+class FixedSizeListEncoderBuilder:
+    def __init__(self, field: pyarrow.Field) -> None: ...
+    @classmethod
+    def new_with_inner(
+        cls, field: pyarrow.Field, inner_encoder_builder: EncoderBuilder
+    ) -> FixedSizeListEncoderBuilder: ...
+
+class StructEncoderBuilder:
+    def __init__(self, field: pyarrow.Field) -> None: ...
 
 EncoderBuilder = (
     BooleanEncoderBuilder
@@ -249,6 +266,9 @@ EncoderBuilder = (
     | StringViewEncoderBuilder
     | BinaryEncoderBuilder
     | LargeBinaryEncoderBuilder
+    | FixedSizeBinaryEncoderBuilder
     | ListEncoderBuilder
     | LargeListEncoderBuilder
+    | FixedSizeListEncoderBuilder
+    | StructEncoderBuilder
 )

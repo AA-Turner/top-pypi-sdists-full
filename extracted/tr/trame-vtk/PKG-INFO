@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: trame-vtk
-Version: 2.11.15
+Version: 2.11.16
 Summary: VTK widgets for trame
 Author: Kitware Inc.
 License: BSD License

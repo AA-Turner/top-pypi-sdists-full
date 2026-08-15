@@ -27,7 +27,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
 from ...errors import HwpxValueError
-from .._resolve import resolve_section
+from .._resolve import resolve_paragraph, resolve_section
 from ._base import _Namespace
 
 if TYPE_CHECKING:
@@ -37,12 +37,17 @@ if TYPE_CHECKING:
         PageMargins,
         PageSize,
         SectionGrid,
+        SectionTextDirection,
         SectionVisibility,
     )
     from ...objects import PageSetup
     from ...oxml.section_story import HwpxOxmlSectionHeaderFooter
 
 __all__ = ["PageNamespace"]
+
+#: 6.12 트레인㊸ 갭③ — 스키마 선언 열거값(다른 어떤 값도 실코퍼스에 없음,
+#: 실측 근거는 SectionTextDirection 독스트링 참조).
+_TEXT_DIRECTIONS = frozenset({"HORIZONTAL", "VERTICAL", "VERTICALALL"})
 
 
 class PageNamespace(_Namespace):
@@ -339,6 +344,54 @@ class PageNamespace(_Namespace):
             section=self._section(section, section_index, "set_page_number"),
         )
 
+    def restart_page_number(
+        self,
+        paragraph: "HwpxOxmlParagraph | int",
+        *,
+        number: int = 1,
+        kind: str = "PAGE",
+    ) -> "HwpxOxmlInlineObject":
+        """*paragraph* 부터 *kind* 의 진행 번호를 *number* 로 재시작한다.
+
+        `set_page_number` 가 머리말/꼬리말의 *표시* 필드를 다루는 것과 달리,
+        이건 구역 중간의 재시작 지점(`hp:newNum`)을 문단에 심는다.
+        """
+
+        from .. import layout as _layout
+
+        return _layout.restart_page_number(
+            self._doc,
+            resolve_paragraph(self._doc, paragraph, caller="doc.page.restart_page_number"),
+            number=number,
+            kind=kind,
+        )
+
+    def hide_page_elements(
+        self,
+        paragraph: "HwpxOxmlParagraph | int",
+        *,
+        header: bool = False,
+        footer: bool = False,
+        master_page: bool = False,
+        border: bool = False,
+        fill: bool = False,
+        page_num: bool = False,
+    ) -> "HwpxOxmlInlineObject":
+        """*paragraph* 가 속한 쪽부터 지정한 요소를 숨긴다(`hp:pageHiding`)."""
+
+        from .. import layout as _layout
+
+        return _layout.hide_page_elements(
+            self._doc,
+            resolve_paragraph(self._doc, paragraph, caller="doc.page.hide_page_elements"),
+            header=header,
+            footer=footer,
+            master_page=master_page,
+            border=border,
+            fill=fill,
+            page_num=page_num,
+        )
+
     # -- 읽기: 현재 지면 상태 ----------------------------------------------
 
     def size(
@@ -368,6 +421,33 @@ class PageNamespace(_Namespace):
     # 저수준 API 는 ``HwpxOxmlSectionProperties`` 가 소유하고(Q3b), 여기서는 쪽
     # 기하 축의 나머지와 같은 자리에 노출하기만 한다.
 
+    def master_page_refs(
+        self,
+        *,
+        section: "int | HwpxOxmlSection | None" = None,
+        section_index: int | None = None,
+    ) -> tuple[str, ...]:
+        """이 절이 참조하는 바탕쪽 id(``hp:masterPage/@idRef``) 목록."""
+
+        return self._section(
+            section, section_index, "master_page_refs"
+        ).properties.master_page_refs
+
+    def set_master_page(
+        self,
+        master_page_id: str,
+        *,
+        section: "int | HwpxOxmlSection | None" = None,
+        section_index: int | None = None,
+    ) -> None:
+        """이 절이 바탕쪽(``doc.parts.add_master_page``가 만든 id)을
+        참조하도록 등록한다(6.13 트레인㊻). 이미 참조 중이면 아무 일도
+        안 한다(멱등)."""
+
+        self._section(
+            section, section_index, "set_master_page"
+        ).properties.add_master_page_reference(master_page_id)
+
     def grid(
         self,
         *,
@@ -393,6 +473,50 @@ class PageNamespace(_Namespace):
             line_grid=line_grid,
             char_grid=char_grid,
             wonggoji_format=wonggoji_format,
+        )
+
+    def text_direction(
+        self,
+        *,
+        section: "int | HwpxOxmlSection | None" = None,
+        section_index: int | None = None,
+    ) -> "SectionTextDirection":
+        """글자 방향(가로쓰기/세로쓰기)과 머리말/꼬리말 세로쓰기 여부."""
+
+        return self._section(
+            section, section_index, "text_direction"
+        ).properties.text_direction
+
+    def set_text_direction(
+        self,
+        direction: str | None = None,
+        *,
+        vertical_header_footer: bool | None = None,
+        section: "int | HwpxOxmlSection | None" = None,
+        section_index: int | None = None,
+    ) -> None:
+        """글자 방향(세로쓰기 포함)을 설정한다.
+
+        실코퍼스 67파일 전수에 `VERTICAL`/`VERTICALALL` 실사용 예가 없다
+        (74/74 `HORIZONTAL`) — 스키마 열거값 자체는 명확해 저작을 막지
+        않지만, 실한컴 렌더 검증 전까지는 "Create(experimental)"로만
+        표기한다(``docs/support-matrix.md`` 참조).
+        """
+
+        if direction is not None and direction not in _TEXT_DIRECTIONS:
+            raise HwpxValueError(
+                f"unsupported text direction: {direction}",
+                code="page-text-direction-unsupported",
+                context={
+                    "requested": direction,
+                    "supported": sorted(_TEXT_DIRECTIONS),
+                },
+                suggestion=f"Supported: {', '.join(sorted(_TEXT_DIRECTIONS))}",
+            )
+        self._section(
+            section, section_index, "set_text_direction"
+        ).properties.set_text_direction(
+            direction, vertical_header_footer=vertical_header_footer
         )
 
     def visibility(

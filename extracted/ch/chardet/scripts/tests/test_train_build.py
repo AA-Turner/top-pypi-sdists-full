@@ -5,12 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from data_sources import load_cached_articles
-from exclusions import build_exclusion_set, fingerprint_text
+from exclusions import ExclusionIndex, build_exclusion_set
 from train import _build_one_model, _worker_text_cache
 
 
 def test_build_one_model_returns_tuple(tmp_path: Path) -> None:
-    """_build_one_model returns a 4-tuple even with no cached texts."""
+    """_build_one_model returns a 5-tuple even with no cached texts."""
     _worker_text_cache.clear()
     result = _build_one_model(
         lang="xx",  # non-existent language
@@ -20,9 +20,10 @@ def test_build_one_model_returns_tuple(tmp_path: Path) -> None:
         max_samples=10,
     )
     assert isinstance(result, tuple)
-    assert len(result) == 4
-    key, bigrams, _samples, _total_bytes = result
+    assert len(result) == 5
+    key, bigrams, _samples, _total_bytes, retention = result
     assert key == "xx/utf-8"
+    assert retention is None
     # No cached texts for "xx", so bigrams should be None
     assert bigrams is None
 
@@ -48,12 +49,14 @@ def test_build_one_model_with_real_texts(tmp_path: Path) -> None:
         cache_dir=tmp_path,
         max_samples=100,
     )
-    key, bigrams, samples, total_bytes = result
+    key, bigrams, samples, total_bytes, retention = result
     assert key == "fr/iso-8859-1"
     assert bigrams is not None
     assert len(bigrams) > 0
     assert samples > 0
     assert total_bytes > 0
+    # All characters in the sample are iso-8859-1-encodable
+    assert retention == 1.0
 
 
 def test_load_cached_articles_does_not_filter(tmp_path: Path) -> None:
@@ -74,10 +77,11 @@ def test_load_cached_articles_does_not_filter(tmp_path: Path) -> None:
     for i, text in enumerate(articles):
         (lang_dir / f"{i:06d}.txt").write_text(text, encoding="utf-8")
 
-    # Even though article 1 matches an exclusion fingerprint, loading
-    # from cache returns all articles (filtering is a download concern).
-    exclusions = frozenset([fingerprint_text(articles[1])])
-    assert len(exclusions) == 1
+    # Even though article 1 is indexed as test content, loading from cache
+    # returns all articles (filtering is a download concern).
+    exclusions = ExclusionIndex()
+    exclusions.add(articles[1])
+    assert exclusions.overlaps(articles[1])
 
     texts = load_cached_articles(lang_dir, max_articles=10)
     assert len(texts) == 3
@@ -94,4 +98,4 @@ def test_build_exclusion_set_with_real_structure(tmp_path: Path) -> None:
 
     result = build_exclusion_set(tmp_path)
     assert len(result) == 1
-    assert fingerprint_text(text) in result
+    assert result.overlaps(text)

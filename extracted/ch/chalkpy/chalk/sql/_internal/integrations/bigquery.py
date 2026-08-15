@@ -30,15 +30,15 @@ if TYPE_CHECKING:
     from sqlalchemy.sql.ddl import CreateTable, DropTable
 
 
-try:
-    import sqlalchemy as sa
-except ImportError:
-    sa = None
+@functools.cache
+def _get_supported_sqlalchemy_types_for_pa_querying() -> tuple[type, ...]:
+    """Return SQLAlchemy types supported by BigQuery Arrow execution."""
+    try:
+        import sqlalchemy as sa
+    except ImportError:
+        return ()
 
-if sa is None:
-    _supported_sqlalchemy_types_for_pa_querying = ()
-else:
-    _supported_sqlalchemy_types_for_pa_querying = (
+    return (
         sa.BigInteger,
         sa.Boolean,
         sa.BINARY,
@@ -64,6 +64,7 @@ else:
         sa.TIMESTAMP,
         sa.VARCHAR,
     )
+
 
 _MAX_STATEMENT_LENGTH = 1024 * 1024
 """The actual maximum statement length that bigquery will accept. If the query is much longer than this, then we won't even
@@ -487,7 +488,9 @@ class BigQuerySourceImpl(BaseSQLSource):
             raise missing_dependency_exception("chalkpy[bigquery]")
 
         if isinstance(finalized_query.query, Select):
-            validate_dtypes_for_efficient_execution(finalized_query.query, _supported_sqlalchemy_types_for_pa_querying)
+            validate_dtypes_for_efficient_execution(
+                finalized_query.query, _get_supported_sqlalchemy_types_for_pa_querying()
+            )
 
         client: google.cloud.bigquery.Client
         with self._get_bq_client() as client:
@@ -586,7 +589,9 @@ class BigQuerySourceImpl(BaseSQLSource):
             raise missing_dependency_exception("chalkpy[bigquery]")
 
         if isinstance(finalized_query.query, Select):
-            validate_dtypes_for_efficient_execution(finalized_query.query, _supported_sqlalchemy_types_for_pa_querying)
+            validate_dtypes_for_efficient_execution(
+                finalized_query.query, _get_supported_sqlalchemy_types_for_pa_querying()
+            )
 
         client: google.cloud.bigquery.Client
         with self._get_bq_client() as client:

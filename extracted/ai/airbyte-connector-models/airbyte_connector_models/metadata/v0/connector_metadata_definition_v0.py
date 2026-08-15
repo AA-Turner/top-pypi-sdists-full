@@ -742,6 +742,13 @@ class ConnectorMetadataDefinitionV0DataGeneratedFields(BaseModel):
             title="GitInfo",
         ),
     ] = None
+    release: Annotated[
+        ConnectorMetadataDefinitionV0DataGeneratedFieldsReleaseInfo | None,
+        Field(
+            description="Attribution for the pull request and author that released this connector version. DO NOT DEFINE THIS FIELD MANUALLY. It will be overwritten by the CI.",
+            title="ReleaseInfo",
+        ),
+    ] = None
     source_file_info: Annotated[
         ConnectorMetadataDefinitionV0DataGeneratedFieldsSourceFileInfo | None,
         Field(
@@ -797,6 +804,84 @@ class ConnectorMetadataDefinitionV0DataGeneratedFieldsGitInfo(BaseModel):
             description="The git commit author email of the last commit that modified this file."
         ),
     ] = None
+
+
+class ConnectorMetadataDefinitionV0DataGeneratedFieldsReleaseInfo(BaseModel):
+    """
+    Attribution for the pull request and author that released this connector version. DO NOT DEFINE THIS FIELD MANUALLY. It will be overwritten by the CI.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pr_number: Annotated[
+        int | None,
+        Field(description="The number of the pull request that released this version."),
+    ] = None
+    pr_url: Annotated[
+        str | None,
+        Field(description="The URL of the pull request that released this version."),
+    ] = None
+    pr_author_id: Annotated[
+        int | None,
+        Field(description="The GitHub account ID of the pull request author."),
+    ] = None
+    pr_author_login: Annotated[
+        str | None, Field(description="The GitHub login of the pull request author.")
+    ] = None
+    pr_author_type: Annotated[
+        ConnectorMetadataDefinitionV0DataGeneratedFieldsReleaseInfoPrAuthorType | None,
+        Field(
+            description="Whether the pull request author is a human user, a bot, or unknown. Bot and unknown authors must never be contacted as a human owner of the release. Unknown means that the author could not be determined."
+        ),
+    ] = None
+    attributed_to: Annotated[
+        str | None,
+        Field(
+            description="The party the release is attributed to, which may differ from the pull request author."
+        ),
+    ] = None
+    merge_commit_sha: Annotated[
+        str | None,
+        Field(
+            description="The sha of the commit that merged the releasing pull request. Null for prereleases, which are published from an unmerged branch."
+        ),
+    ] = None
+    merged_at: Annotated[
+        AwareDatetime | None,
+        Field(
+            description="The timestamp at which the releasing pull request was merged. Null for prereleases, which are published from an unmerged branch."
+        ),
+    ] = None
+    released_at: Annotated[
+        AwareDatetime | None,
+        Field(description="The best available timestamp for when this version was released."),
+    ] = None
+    source: Annotated[
+        ConnectorMetadataDefinitionV0DataGeneratedFieldsReleaseInfoSource,
+        Field(description="How the attribution was determined."),
+    ]
+
+
+class ConnectorMetadataDefinitionV0DataGeneratedFieldsReleaseInfoPrAuthorType(Enum):
+    """
+    Whether the pull request author is a human user, a bot, or unknown. Bot and unknown authors must never be contacted as a human owner of the release. Unknown means that the author could not be determined.
+    """
+
+    user = "User"
+    bot = "Bot"
+    unknown = "Unknown"
+
+
+class ConnectorMetadataDefinitionV0DataGeneratedFieldsReleaseInfoSource(Enum):
+    """
+    How the attribution was determined.
+    """
+
+    publish = "publish"
+    git_backfill = "git-backfill"
+    prerelease = "prerelease"
+    changelog = "changelog"
 
 
 class ConnectorMetadataDefinitionV0DataGeneratedFieldsSourceFileInfo(BaseModel):

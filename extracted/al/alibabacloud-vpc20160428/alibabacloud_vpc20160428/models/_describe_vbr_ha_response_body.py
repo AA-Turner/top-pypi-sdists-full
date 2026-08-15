@@ -17,7 +17,7 @@ class DescribeVbrHaResponseBody(DaraModel):
         vbr_ha_id: str = None,
         vbr_id: str = None,
     ):
-        # The time when the VBR was created.
+        # The time when the VBR was created. The time is displayed in the ISO 8601 standard in the UTC time zone. The format is YYYY-MM-DDThh:mm:ss.
         self.creation_time = creation_time
         # The description of the VBR failover group.
         # 
@@ -31,7 +31,7 @@ class DescribeVbrHaResponseBody(DaraModel):
         self.region_id = region_id
         # The request ID.
         self.request_id = request_id
-        # The status of the VBR failover group. Valid values:
+        # The status of the VBR failover group.
         # 
         # - **Creating**: being created.
         # 

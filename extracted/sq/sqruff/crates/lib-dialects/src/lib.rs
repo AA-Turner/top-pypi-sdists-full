@@ -26,10 +26,18 @@ pub mod db2;
 mod db2_keywords;
 #[cfg(feature = "duckdb")]
 pub mod duckdb;
+#[cfg(feature = "exasol")]
+pub mod exasol;
+#[cfg(feature = "exasol")]
+mod exasol_keywords;
 #[cfg(feature = "greenplum")]
 pub mod greenplum;
 #[cfg(feature = "hive")]
 pub mod hive;
+#[cfg(feature = "materialize")]
+pub mod materialize;
+#[cfg(feature = "materialize")]
+mod materialize_keywords;
 #[cfg(feature = "mysql")]
 pub mod mysql;
 #[cfg(feature = "mysql")]
@@ -56,6 +64,12 @@ mod sparksql_keywords;
 pub mod sqlite;
 #[cfg(feature = "sqlite")]
 mod sqlite_keywords;
+#[cfg(feature = "starrocks")]
+pub mod starrocks;
+#[cfg(feature = "starrocks")]
+mod starrocks_keywords;
+#[cfg(feature = "teradata")]
+pub mod teradata;
 #[cfg(feature = "trino")]
 pub mod trino;
 #[cfg(feature = "trino")]
@@ -85,10 +99,16 @@ pub fn dialect_config_options(
         DialectKind::Db2 => db2::Db2DialectConfig::config_options(),
         #[cfg(feature = "duckdb")]
         DialectKind::Duckdb => duckdb::DuckDBDialectConfig::config_options(),
+        #[cfg(feature = "exasol")]
+        DialectKind::Exasol => exasol::ExasolDialectConfig::config_options(),
         #[cfg(feature = "greenplum")]
         DialectKind::Greenplum => greenplum::GreenplumDialectConfig::config_options(),
+        #[cfg(feature = "hive")]
+        DialectKind::Hive => hive::HiveDialectConfig::config_options(),
         #[cfg(feature = "mysql")]
         DialectKind::Mysql => mysql::MySQLDialectConfig::config_options(),
+        #[cfg(feature = "materialize")]
+        DialectKind::Materialize => materialize::MaterializeDialectConfig::config_options(),
         #[cfg(feature = "oracle")]
         DialectKind::Oracle => oracle::OracleDialectConfig::config_options(),
         #[cfg(feature = "postgres")]
@@ -101,6 +121,10 @@ pub fn dialect_config_options(
         DialectKind::Sparksql => sparksql::SparkSQLDialectConfig::config_options(),
         #[cfg(feature = "sqlite")]
         DialectKind::Sqlite => sqlite::SQLiteDialectConfig::config_options(),
+        #[cfg(feature = "starrocks")]
+        DialectKind::Starrocks => starrocks::StarRocksDialectConfig::config_options(),
+        #[cfg(feature = "teradata")]
+        DialectKind::Teradata => teradata::TeradataDialectConfig::config_options(),
         #[cfg(feature = "trino")]
         DialectKind::Trino => trino::TrinoDialectConfig::config_options(),
         #[cfg(feature = "tsql")]
@@ -125,10 +149,16 @@ pub fn kind_to_dialect(kind: &DialectKind, config: Option<&Value>) -> Option<Dia
         DialectKind::Db2 => db2::dialect(config),
         #[cfg(feature = "duckdb")]
         DialectKind::Duckdb => duckdb::dialect(config),
+        #[cfg(feature = "exasol")]
+        DialectKind::Exasol => exasol::dialect(config),
         #[cfg(feature = "greenplum")]
         DialectKind::Greenplum => greenplum::dialect(config),
+        #[cfg(feature = "hive")]
+        DialectKind::Hive => hive::dialect(config),
         #[cfg(feature = "mysql")]
         DialectKind::Mysql => mysql::dialect(config),
+        #[cfg(feature = "materialize")]
+        DialectKind::Materialize => materialize::dialect(config),
         #[cfg(feature = "oracle")]
         DialectKind::Oracle => oracle::dialect(config),
         #[cfg(feature = "postgres")]
@@ -141,6 +171,10 @@ pub fn kind_to_dialect(kind: &DialectKind, config: Option<&Value>) -> Option<Dia
         DialectKind::Sparksql => sparksql::dialect(config),
         #[cfg(feature = "sqlite")]
         DialectKind::Sqlite => sqlite::dialect(config),
+        #[cfg(feature = "starrocks")]
+        DialectKind::Starrocks => starrocks::dialect(config),
+        #[cfg(feature = "teradata")]
+        DialectKind::Teradata => teradata::dialect(config),
         #[cfg(feature = "trino")]
         DialectKind::Trino => trino::dialect(config),
         #[cfg(feature = "tsql")]

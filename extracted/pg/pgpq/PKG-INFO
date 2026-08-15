@@ -1,31 +1,33 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pgpq
-Version: 0.11.1
+Version: 0.12.0
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: pyarrow >=11
-Requires-Dist: pytest >=7.0.0 ; extra == 'test'
-Requires-Dist: maturin >=1.10.2 ; extra == 'test'
-Requires-Dist: pre-commit >=4.5.1 ; extra == 'test'
-Requires-Dist: testing-postgresql >=1.3.0 ; extra == 'test'
-Requires-Dist: psycopg[binary] >=3.3.2 ; extra == 'test'
-Requires-Dist: pyarrow >=22.0.0 ; extra == 'test'
-Requires-Dist: jupyter >=1.0.0 ; extra == 'bench'
+Requires-Dist: pyarrow>=11
+Requires-Dist: jupyter>=1.0.0 ; extra == 'bench'
 Requires-Dist: requests ; extra == 'bench'
 Requires-Dist: duckdb ; extra == 'bench'
-Provides-Extra: test
+Requires-Dist: pytest>=7.0.0 ; extra == 'test'
+Requires-Dist: pytest-cov>=7.0.0 ; extra == 'test'
+Requires-Dist: maturin>=1.14.1 ; extra == 'test'
+Requires-Dist: pre-commit>=4.5.1 ; extra == 'test'
+Requires-Dist: testing-postgresql>=1.3.0 ; extra == 'test'
+Requires-Dist: psycopg[binary]>=3.3.4 ; extra == 'test'
+Requires-Dist: pyarrow>=22.0.0 ; extra == 'test'
+Requires-Dist: hypothesis>=6.0.0 ; extra == 'test'
 Provides-Extra: bench
+Provides-Extra: test
 Summary: Arrow -> PostgreSQL encoder
 Author: Adrian Garcia Badaracco
-License: MIT
+License-Expression: MIT
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Homepage, https://github.com/adriangb/pgpq
 Project-URL: Documentation, https://github.com/adriangb/pgpq/README.md
+Project-URL: Homepage, https://github.com/adriangb/pgpq
 Project-URL: Repository, https://github.com/adriangb/pgpq
 
 # pgpq
@@ -38,6 +40,7 @@ Convert PyArrow RecordBatches to Postgres' native binary format.
 
 ```python
 """Example for README.md"""
+
 from tempfile import mkdtemp
 import psycopg
 import pyarrow.dataset as ds
@@ -92,6 +95,7 @@ with psycopg.connect("postgres://postgres:postgres@localhost:5432/postgres") as 
 
 ```python
 """Showcase defining encoders for fields."""
+
 import pgpq
 import psycopg
 import pyarrow as pa
@@ -101,7 +105,9 @@ from pgpq import schema
 
 data = [
     pa.array([1, 2, 3, 4]),
-    pa.array(['{"age": 33, "name": "alice"}', '{"age": 24, "name": "bob"}', "{}", "null"]),
+    pa.array(
+        ['{"age": 33, "name": "alice"}', '{"age": 24, "name": "bob"}', "{}", "null"]
+    ),
 ]
 arrow_schema = pa.schema([("id", pa.int64()), ("properties", pa.string())])
 record_batch = pa.RecordBatch.from_arrays(data, schema=arrow_schema)
@@ -123,7 +129,9 @@ field_encoders = {
         pa.field("properties", pa.string()), schema.Jsonb()
     ),
 }
-encoder = pgpq.ArrowToPostgresBinaryEncoder.new_with_encoders(record_batch.schema, field_encoders)
+encoder = pgpq.ArrowToPostgresBinaryEncoder.new_with_encoders(
+    record_batch.schema, field_encoders
+)
 pg_schema_with_jsonb_properties = encoder.schema()
 
 assert [
@@ -158,7 +166,9 @@ field_encoders = {
         pa.field("properties", pa.string()), schema.Jsonb()
     ),
 }
-encoder = pgpq.ArrowToPostgresBinaryEncoder.new_with_encoders(record_batch.schema, field_encoders)
+encoder = pgpq.ArrowToPostgresBinaryEncoder.new_with_encoders(
+    record_batch.schema, field_encoders
+)
 pg_schema_inferred_id_and_jsonb_properties = encoder.schema()
 
 assert [
@@ -168,7 +178,6 @@ assert [
 
 with psycopg.connect("postgres://postgres:postgres@localhost:5432/postgres") as conn:
     with conn.cursor() as cursor:
-
         with cursor.copy("COPY id_properties FROM STDIN WITH (FORMAT BINARY)") as copy:
             copy.write(encoder.write_header())
             copy.write(encoder.write_batch(record_batch))

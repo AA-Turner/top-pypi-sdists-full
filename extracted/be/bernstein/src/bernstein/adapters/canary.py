@@ -184,11 +184,15 @@ class CanaryOutcome:
         model: Model pinned for the probe.
         goal: The pinned goal text.
         installed_version: Parsed ``--version`` token, or ``None``.
-        verdict: ``"pass"`` / ``"fail"`` / ``"skip"`` / ``"refuse"``. A
-            ``refuse`` verdict marks a below-security-floor version the canary
-            declines to certify (see :data:`refused_below_floor`); it never
-            enters the last-green projection and is not an upstream-regression
-            signal.
+        verdict: ``"pass"`` / ``"fail"`` / ``"skip"`` / ``"refuse"`` /
+            ``"absent"``. A ``refuse`` verdict marks a below-security-floor
+            version the canary declines to certify (see
+            :data:`refused_below_floor`); it never enters the last-green
+            projection and is not an upstream-regression signal. An
+            ``absent`` verdict (#3562) marks a target whose binary was not
+            on ``PATH`` at probe time; it is a runner-environment fact, not
+            an upstream signal, so it never enters the failure or skip
+            counters and never files an issue.
         failures: Conformance failure lines (empty unless ``fail`` /
             ``refuse``).
         transcript: Human-readable probe transcript; rides into the
@@ -335,6 +339,13 @@ def run_canary_target(
 
     binary_resolved = resolver(target.binary)
     if binary_resolved is None:
+        # Gate on binary presence (issue #3562): an uninstalled binary is a
+        # runner-environment fact, not an upstream conformance signal. We
+        # return ``verdict="absent"`` rather than the original ``"skip"`` so
+        # the outcome never reaches the failure or skip counters in
+        # :func:`apply_canary_outcome` -- and therefore never files a
+        # skip-streak issue -- when the only reason the probe could not
+        # run is that the binary is not installed on this host.
         transcript.append(f"{target.binary}: not on PATH")
         return CanaryOutcome(
             adapter=target.adapter,
@@ -342,9 +353,8 @@ def run_canary_target(
             model=target.model,
             goal=target.goal,
             installed_version=None,
-            verdict="skip",
+            verdict="absent",
             transcript=tuple(transcript),
-            skip_reason="binary not on PATH",
         )
 
     # Record which file was actually probed. A shadowed or wrong binary on
@@ -569,6 +579,10 @@ def apply_canary_outcome(
       any prior degraded or failing streak.
     * ``refuse`` (#2515) leaves the state untouched: a below-floor version
       is an operator-environment issue, not an upstream signal.
+    * ``absent`` (#3562) leaves the state untouched and never opens an
+      issue: an uninstalled binary is a runner-environment fact, not an
+      upstream signal, so it cannot be the cause of a regression or a
+      chronic unverified-streak.
     * ``fail`` counts consecutively *per failure fingerprint*: a failure
       that fingerprints differently from the previous one restarts the
       count at 1, so a churning upstream must fail the same way twice in a
@@ -594,6 +608,17 @@ def apply_canary_outcome(
         # A below-floor version is an operator-environment issue, not an
         # upstream regression, so it never counts toward any threshold. The
         # refusal is still sealed as a receipt by ``run_matrix``.
+        return new_state, False
+
+    if outcome.verdict == "absent":
+        # Issue #3562: a target whose binary was not on PATH at probe time
+        # is a runner-environment fact, not an upstream signal. It must
+        # never count toward any threshold (a runner that simply does not
+        # ship the binary is not a degraded canary) and must never file a
+        # skip-streak issue (the only reason it cannot probe is that the
+        # binary is uninstalled). The receipt still records the transcript,
+        # so the next runner that DOES ship the binary is checked against
+        # the same outcome shape.
         return new_state, False
 
     entry = new_state.setdefault(
@@ -761,8 +786,66 @@ def canary_skip_issue_body(outcome: CanaryOutcome, *, receipt_sha: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+#: A row's ``receipt_sha256`` is the identity of the receipt that attested it:
+#: 64 lowercase hex characters, the shape ``hashlib.sha256().hexdigest()`` emits.
+_RECEIPT_SHA256 = re.compile(r"[0-9a-f]{64}")
+
+
+def _row_text(entry: dict[str, Any], key: str) -> str:
+    """Return *key* as a non-empty string, rejecting values JSON coerces well.
+
+    ``str(value)`` turns ``None`` into ``"None"`` and ``["2.1.0"]`` into
+    ``"['2.1.0']"`` -- values that read downstream as populated fields rather
+    than as the corruption they are. Every row here claims a receipt attested
+    it, so a field that was never a string is a corrupt row, not a row with an
+    unusual value.
+
+    The value is returned stripped. Surrounding whitespace carries no meaning
+    in any of these fields and does not survive a round trip, but it does
+    survive into consumers: ``shutil.which(" claude")`` finds nothing, and a
+    padded version reaches admission as a version nobody installed. Normalising
+    is right here rather than rejecting -- the row is not corrupt, its
+    formatting is.
+    """
+    value = entry[key]
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{key} must be a non-empty string, got {type(value).__name__}")
+    return value.strip()
+
+
+def _row_receipt_sha256(entry: dict[str, Any]) -> str:
+    """Return the attesting receipt hash, or reject the row.
+
+    The table is a projection of receipts and every row is meant to be
+    independently checkable against its receipt file. A hash that is not a hash
+    cannot be checked against anything, so it must not enter the projection
+    wearing the shape of one.
+    """
+    value = _row_text(entry, "receipt_sha256")
+    if not _RECEIPT_SHA256.fullmatch(value):
+        raise ValueError("receipt_sha256 must be 64 lowercase hex characters")
+    return value
+
+
+def _row_recorded_at(entry: dict[str, Any]) -> str:
+    """Return the attesting run's timestamp, or reject the row."""
+    value = _row_text(entry, "recorded_at")
+    try:
+        datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError("recorded_at must be an ISO 8601 timestamp") from exc
+    return value
+
+
 def load_last_green(path: Path | None = None) -> dict[str, LastGreenEntry]:
-    """Load the last-green projection (packaged file by default)."""
+    """Load the last-green projection (packaged file by default).
+
+    Rows are validated at the JSON boundary rather than coerced. A row that
+    does not satisfy the shape it claims is dropped with a warning: the entries
+    this returns feed admission and ``doctor``, which read them as attestations,
+    and an attestation assembled from a coerced value attests nothing while
+    still presenting as evidence.
+    """
     source = path if path is not None else LAST_GREEN_JSON_PATH
     try:
         raw = json.loads(source.read_text(encoding="utf-8"))
@@ -778,12 +861,16 @@ def load_last_green(path: Path | None = None) -> dict[str, LastGreenEntry]:
         try:
             entries[str(name)] = LastGreenEntry(
                 adapter=str(name),
-                binary=str(entry["binary"]),
-                version=str(entry["version"]),
-                receipt_sha256=str(entry["receipt_sha256"]),
-                recorded_at=str(entry["recorded_at"]),
+                binary=_row_text(entry, "binary"),
+                version=_row_text(entry, "version"),
+                receipt_sha256=_row_receipt_sha256(entry),
+                recorded_at=_row_recorded_at(entry),
             )
-        except KeyError:
+        except KeyError as exc:
+            logger.warning("last-green row %r is missing %s; dropped", name, exc)
+            continue
+        except ValueError as exc:
+            logger.warning("last-green row %r is malformed and was dropped: %s", name, exc)
             continue
     return entries
 

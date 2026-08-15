@@ -25,10 +25,7 @@ const {
   hasStaticFileOutput,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
-const {
-  connectToPage,
-  resolvePuppeteerModule,
-} = require("../chrome/chrome_utils.js");
+const { connectToPage } = require("../chrome/chrome_utils.js");
 const hookConfig = loadConfig();
 
 function tempPathFor(filePath) {
@@ -43,9 +40,6 @@ if (!getEnvBool("PDF_ENABLED", true)) {
   emitArchiveResultRecord("skipped", "PDF_ENABLED=False");
   process.exit(0);
 }
-
-// Now safe to require puppeteer
-const puppeteer = resolvePuppeteerModule();
 
 // Extractor metadata
 const PLUGIN_NAME = "pdf";
@@ -72,10 +66,10 @@ async function printToPdf(url, timeoutMs) {
       timeoutMs,
       waitForNavigationComplete: true,
       postLoadDelayMs: 200,
-      puppeteer,
     });
     browser = connection.browser;
     const page = connection.page;
+    console.log("PDF capture started");
 
     // Print to PDF
     console.log("rendering page to PDF...");

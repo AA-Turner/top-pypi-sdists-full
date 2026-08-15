@@ -6,7 +6,7 @@
 import glob
 import os
 from collections.abc import Callable, Sequence
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -93,11 +93,11 @@ class LoveDA(NonGeoDataset):
     def __init__(
         self,
         root: Path = 'data',
-        split: str = 'train',
-        scene: Sequence[str] = ['urban', 'rural'],
+        split: Literal['train', 'val', 'test'] = 'train',
+        scene: Sequence[Literal['urban', 'rural']] = ['urban', 'rural'],
         transforms: Callable[[Sample], Sample] | None = None,
         download: bool = False,
-        checksum: bool = False,
+        checksum: bool = True,
     ) -> None:
         """Initialize a new LoveDA dataset instance.
 
@@ -175,7 +175,9 @@ class LoveDA(NonGeoDataset):
         """
         return len(self.files)
 
-    def _load_files(self, scene_paths: list[str], split: str) -> list[dict[str, str]]:
+    def _load_files(
+        self, scene_paths: list[str], split: Literal['train', 'val', 'test']
+    ) -> list[dict[str, str]]:
         """Return the paths of the files in the dataset.
 
         Args:
@@ -192,9 +194,11 @@ class LoveDA(NonGeoDataset):
 
         if self.split != 'test':
             masks = [image.replace('images_png', 'masks_png') for image in images]
-            files = [dict(image=image, mask=mask) for image, mask in zip(images, masks)]
+            files = [
+                {'image': image, 'mask': mask} for image, mask in zip(images, masks)
+            ]
         else:
-            files = [dict(image=image) for image in images]
+            files = [{'image': image} for image in images]
 
         return files
 

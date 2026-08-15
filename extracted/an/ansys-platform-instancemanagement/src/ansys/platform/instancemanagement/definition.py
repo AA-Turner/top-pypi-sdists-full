@@ -1,3 +1,25 @@
+# Copyright (C) 2022 - 2026 ANSYS, Inc. and/or its affiliates.
+# SPDX-License-Identifier: MIT
+#
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 """Definition class module."""
 
 from typing import Sequence
@@ -8,9 +30,9 @@ from ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2 impor
 from ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2_grpc import (
     ProductInstanceManagerStub,
 )
-
 from ansys.platform.instancemanagement.configuration import Configuration
 from ansys.platform.instancemanagement.instance import Instance
+from ansys.platform.instancemanagement.security import SecuritySettings
 
 
 class Definition:
@@ -23,7 +45,7 @@ class Definition:
     _product_name: str
     _product_version: str
     _available_service_names: Sequence[str]
-    _stub: ProductInstanceManagerStub = None
+    _stub: ProductInstanceManagerStub | None = None
 
     @property
     def name(self) -> str:
@@ -70,9 +92,23 @@ class Definition:
         product_name: str,
         product_version: str,
         available_service_names: Sequence[str],
-        stub: ProductInstanceManagerStub = None,
+        stub: ProductInstanceManagerStub | None = None,
     ):
-        """Create a Definition."""
+        """Initialize a Definition.
+
+        Parameters
+        ----------
+        name : str
+            Server-assigned name, always starting with ``"definitions/"``.
+        product_name : str
+            Name of the product, e.g. ``"mapdl"``.
+        product_version : str
+            Version string of the product, e.g. ``"221"``.
+        available_service_names : Sequence[str]
+            Names of the services the product exposes (e.g. ``"grpc"``, ``"http"``).
+        stub : ProductInstanceManagerStub, optional
+            PIM stub used to create instances. The default is ``None``.
+        """
         self._name = name
         self._product_name = product_name
         self._product_version = product_version
@@ -99,22 +135,46 @@ class Definition:
         )
 
     def create_instance(
-        self, timeout: float = None, configuration: Configuration = None
+        self,
+        timeout: float | None = None,
+        configuration: Configuration | None = None,
+        security_settings: SecuritySettings | None = None,
     ) -> Instance:
         """Create a product instance from this definition.
 
         Parameters
         ----------
-        timeout : float
+        timeout : float, optional
             Time in seconds to create the instance. The default is ``None``.
+        configuration : Configuration, optional
+            Configuration to use when creating the instance. The default is ``None``.
+        security_settings : SecuritySettings, optional
+            Transport security settings for the instance. One of
+            ``InsecureSettings``, ``MtlsSettings``, ``WnuaSettings``, or
+            ``UdsSettings``. The default is ``None`` (server default). See
+            :ref:`security`.
 
         Returns
         -------
         instance
             Product instance.
+
+        Raises
+        ------
+        TimeoutError
+            If the instance creation times out.
+        RuntimeError
+            If the definition was not initialized with a ProductInstanceManagerStub.
         """
+        if self._stub is None:
+            raise RuntimeError("Cannot create instance without a ProductInstanceManagerStub.")
+
         return Instance._create(
-            definition_name=self.name, stub=self._stub, timeout=timeout, configuration=configuration
+            definition_name=self.name,
+            stub=self._stub,
+            timeout=timeout,
+            configuration=configuration,
+            security_settings=security_settings,
         )
 
     @staticmethod

@@ -1962,6 +1962,27 @@ namespace real::detail {
   }
 
   /*!
+   * \brief The STRUCTURAL half of \ref pattern_hints::capture_free_walk -- `save 0` is the program's first
+   *        instruction.
+   *
+   * Split out because the two halves have different owners. This half is a property of the PROGRAM and is
+   * never negotiable: the capture-free walk keeps group 0's start in one `std::size_t` local shared by a
+   * whole epsilon closure, which is only correct while `save 0` cannot be skipped. Behind a split, a branch
+   * that bypassed it would inherit its sibling's start — a wrong ANSWER, not a slow one. The other half
+   * (no `save` past slot 1, and `slot_count == 2`) is a property of what the CALLER WANTS: it says the
+   * pattern has no user groups, so ignoring their writes costs nothing. A caller that does not read
+   * captures — \ref real::basic_regex::count_matches — may set the flag on its own view of the program on
+   * this condition alone.
+   *
+   * \param[in] code The instruction stream.
+   * \return True when the capture-free walk's single-scalar start is sound for \p code.
+   */
+  [[nodiscard]] constexpr bool capture_free_walk_structural(std::span<const instr> code) noexcept
+  {
+    return !code.empty() && code[0].op == opcode::save && code[0].arg16 == 0U;
+  }
+
+  /*!
    * \brief Walks a compiled program once to derive its search hints.
    * \param[in] code           The instruction stream.
    * \param[in] classes        The interned character classes referenced by \p code.
@@ -1988,6 +2009,22 @@ namespace real::detail {
                                           std::span<const lookaround_sub> lookarounds = {})
   {
     pattern_hints hints;
+
+    // Derived by SCAN, not from the group count: any `save` past slot 1 means a thread carries capture
+    // positions someone asked for, and the epsilon walk must keep its refcounted block. See
+    // \ref pattern_hints::capture_free_walk for what the negative case licenses.
+    // Two conditions, and the SECOND is the one the walk's single scalar rests on: `save 0` must be the
+    // program's first instruction. If it sat behind a split, a branch that skipped it would inherit its
+    // sibling's start -- a wrong ANSWER. Every other `save` must write slot 1, which capture-free ignores
+    // because the end IS `pos` at the match. Lookaround sub-programs are regions of this same `code` and
+    // emit no saves of their own (checked: `a(?=b)` and `a(?<=b)c` both carry exactly [pc=0 slot=0] and
+    // [pc=n-2 slot=1]), so a bounded lookaround does not disqualify a pattern here.
+    hints.capture_free_walk = capture_free_walk_structural(code);
+    for (std::size_t i = 1; hints.capture_free_walk && i < code.size(); ++i) {
+      if (code[i].op == opcode::save && code[i].arg16 != 1U) {
+        hints.capture_free_walk = false;
+      }
+    }
 
     // A lookaround forces the general Pike VM: no DFA, no pure class-loop — EXCEPT the measured
     // trailing-LA class+ shape, which arms trailing_lookaround + trailing_la_class (not
@@ -2501,6 +2538,86 @@ namespace real::detail {
       return npos;
     }
     return pos + off;
+  }
+
+  /*!
+   * \brief Whether a consumer should ARM a filter on \ref find_members -- NEON only, and measured.
+   *
+   * Not "does the scan compile" but "does it beat what it replaces", which is per-ISA, exactly as
+   * `simd_literal_scan`'s own ISA note already found for the two-byte literal filter (named as code, not
+   * cross-referenced: it lives behind an `#if` and Doxygen builds with no vector ISA defined). A set that
+   * skips N per-member searches by scanning their first-byte union once is competing against the
+   * platform's `memchr`, once per member. Measured on a 8 KB subject where nothing matches, eight
+   * members, three interleaved passes:
+   *
+   *     arm64   8 x memchr 3190 ns   this loop 1260 ns   2.6x FASTER
+   *     x86-64  8 x memchr  747 ns   this loop 3949 ns   5.3x SLOWER
+   *
+   * The asymmetry is structural, not a stray copy: glibc's memchr is AVX2, 256-bit, twice this loop's
+   * width, and a miss over an eight-byte union does roughly twice the vector compares of eight AVX2
+   * sweeps on registers half as wide. No amount of tuning a 128-bit loop closes 747 ns. An AVX2 leg with
+   * a wider `mask_t` is the honest way to bring this to x86-64, and it is a different arc.
+   *
+   * \ref find_members itself stays compiled under SSE2: the test suite exercises it on either leg, and a
+   * future AVX2 leg plugs in there. What this constant gates is whether a consumer builds a mechanism on
+   * top of it. Shipping the SSE2 leg armed would only invite someone to keep it.
+   */
+#if defined(__ARM_NEON)
+  inline constexpr bool have_members_scan {true};
+#else
+  inline constexpr bool have_members_scan {false};
+#endif
+
+  /*!
+   * \brief Least index at or after \p pos whose byte is one of \p n members, in ONE pass.
+   *
+   * The difference from \ref find_bytes_cascade is the whole reason this exists: that function runs one
+   * `memchr` PER member, so an eight-member set costs eight sweeps of the subject. A consumer that wants to
+   * skip N per-member searches by scanning once therefore gains nothing from it -- measured: a six-byte
+   * union over a 8 KB subject cost what the six searches it replaced cost, for no net gain at all. This
+   * loop tests all \p n members against sixteen bytes at a time, which is what the engine's own
+   * `small_set` band (2..8) is served by.
+   *
+   * \param[in] text    The subject.
+   * \param[in] pos     Index to start scanning from.
+   * \param[in] mem     The member bytes, already in the mask load's layout (first \p n valid).
+   * \param[in] n       How many members, 1..8.
+   * \return The least index at or after \p pos whose byte is a member, else \ref npos.
+   */
+  inline std::size_t find_members(std::string_view                   text,
+                                  std::size_t                        pos,
+                                  const std::array<std::uint8_t, 8>& mem,
+                                  std::uint8_t                       n)
+  {
+    if (pos >= text.size() || n == 0U) {
+      return npos;
+    }
+    // The members arrive ALREADY in the layout the mask load wants. An earlier cut took `const char*` and
+    // copied eight bytes into a local array per call: on a subject where the caller's first member matches
+    // immediately -- the case a set's early-exit walk is fastest on -- that copy was most of a measured
+    // +16 % on a 55 ns baseline. A filter consulted on the fast path must cost nothing to consult.
+    const std::size_t cnt {n <= 8U ? static_cast<std::size_t>(n) : std::size_t {8}};
+    const std::size_t sz  {text.size()};
+    std::size_t       at  {pos};
+#if defined(__ARM_NEON) || defined(__SSE2__)
+    for (; at + 16 <= sz; at += 16) {
+      std::array<std::uint8_t, 16> buf {};
+      std::memcpy(buf.data(), text.data() + at, 16); // MISRA-clean byte load (no pointer type-pun)
+      const mask_t mask                {load_members_mask(buf.data(), mem.data(), cnt)};
+      if (!empty(mask)) {
+        return at + first_lane(mask);
+      }
+    }
+#endif
+    for (; at < sz; ++at) { // scalar tail, and the whole loop on a build with no vector ISA
+      const std::uint8_t byte {static_cast<std::uint8_t>(text[at])};
+      for (std::size_t i = 0; i < cnt; ++i) {
+        if (byte == mem[i]) {
+          return at;
+        }
+      }
+    }
+    return npos;
   }
 
   /*!

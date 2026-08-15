@@ -1,9 +1,10 @@
+use hashbrown::HashMap;
 use itertools::Itertools;
-use sqruff_lib::core::config::FluffConfig;
+use sqruff_lib::core::config::{FluffConfig, Value};
 use sqruff_lib::core::linter::core::Linter;
 use sqruff_lib::core::test_functions::fresh_ansi_dialect;
 use sqruff_lib_core::dialects::init::DialectKind;
-use sqruff_lib_core::dialects::syntax::SyntaxKind;
+use sqruff_lib_core::dialects::syntax::{SyntaxKind, SyntaxSet};
 use sqruff_lib_core::parser::Parser;
 use sqruff_lib_core::parser::context::ParseContext;
 use sqruff_lib_core::parser::matchable::MatchableTrait;
@@ -390,6 +391,173 @@ fn test_reindent_no_false_positive_in_jinja_for_loop() {
     );
 }
 
+#[test]
+fn test_clickhouse_tuple_element_access_has_no_spacing_violation() {
+    let config = FluffConfig::new(
+        HashMap::from([(
+            "core".into(),
+            Value::Map(HashMap::from([
+                ("dialect".into(), Value::String("clickhouse".into())),
+                ("rules".into(), Value::String("LT01".into())),
+            ])),
+        )]),
+        None,
+        None,
+    );
+    let mut lnt = Linter::new(config, None, None, true).unwrap();
+    let sql = concat!(
+        "SELECT test.1.1.2;\n",
+        "SELECT (test.1).2;\n",
+        "SELECT test.2;\n",
+        "SELECT tuple(1, 2).1 FROM t;\n",
+        "SELECT ((test.1).2).3 FROM t;\n",
+    );
+
+    let linted = lnt.lint_string_wrapped(sql, true).unwrap();
+
+    let lt01: Vec<_> = linted
+        .violations()
+        .iter()
+        .filter(|v| v.rule_code() == "LT01")
+        .map(|v| (v.line_no, v.line_pos))
+        .collect();
+    assert!(
+        lt01.is_empty(),
+        "unexpected LT01 tuple access violations: {lt01:?}"
+    );
+}
+
+#[test]
+fn test_clickhouse_tuple_element_access_parse_boundaries() {
+    let config = FluffConfig::new(
+        HashMap::from([(
+            "core".into(),
+            Value::Map(HashMap::from([(
+                "dialect".into(),
+                Value::String("clickhouse".into()),
+            )])),
+        )]),
+        None,
+        None,
+    );
+    let lnt = Linter::new(config, None, None, true).unwrap();
+    let tables = Tables::default();
+
+    let valid_sql = [
+        "SELECT test.1.1.2;",
+        "SELECT (test.1).2;",
+        "SELECT test.2;",
+        "SELECT tuple(1, 2).1 FROM t;",
+        "SELECT ((test.1).2).3 FROM t;",
+        "SELECT test.1[2] FROM t;",
+        "SELECT test.1[2].3 FROM t;",
+        "SELECT arr[1].2[3] FROM t;",
+        "SELECT t.a.1 FROM foo AS t;",
+        "SELECT uniq(col1) FROM table1 WHERE col1 IN (SELECT col1 FROM table1 WHERE col2 = 34);",
+    ]
+    .join("\n");
+    let parsed = lnt.parse_string(&tables, &valid_sql, None).unwrap();
+    assert!(
+        parsed.violations.is_empty(),
+        "expected valid ClickHouse tuple access to parse cleanly: {:?}",
+        parsed.violations
+    );
+
+    for sql in [
+        "SELECT .1abc;",
+        "SELECT .123abc;",
+        "SELECT test.1abc;",
+        "SELECT test.12a;",
+        "SELECT test.1_2;",
+        "SELECT test.1.2e3;",
+    ] {
+        let parsed = lnt.parse_string(&tables, sql, None).unwrap();
+        assert!(
+            !parsed.violations.is_empty(),
+            "expected invalid tuple index boundary to fail parsing: {sql}"
+        );
+    }
+
+    // ClickHouse numeric literals fall back to strtod parsing and support
+    // exponential notation, so `.1e2` should stay numeric syntax rather than
+    // tuple access. See: https://clickhouse.com/docs/sql-reference/syntax#numeric
+    let parsed = lnt.parse_string(&tables, "SELECT test.1e2;", None).unwrap();
+    let tree = parsed.tree.unwrap();
+    let tuple_access = tree.recursive_crawl(
+        &SyntaxSet::new(&[SyntaxKind::ColumnReference, SyntaxKind::TupleElementAccess]),
+        true,
+        &SyntaxSet::EMPTY,
+        true,
+    );
+    assert!(
+        tuple_access
+            .iter()
+            .all(|segment| segment.raw().as_str() != "test.1e2"),
+        "expected exponent-style numeric literal not to parse as tuple access"
+    );
+}
+
+#[test]
+fn test_clickhouse_group_by_totals_inside_indent() {
+    let config = FluffConfig::new(
+        HashMap::from([(
+            "core".into(),
+            Value::Map(HashMap::from([(
+                "dialect".into(),
+                Value::String("clickhouse".into()),
+            )])),
+        )]),
+        None,
+        None,
+    );
+    let lnt = Linter::new(config, None, None, true).unwrap();
+    let tables = Tables::default();
+
+    let parsed = lnt
+        .parse_string(
+            &tables,
+            "SELECT a, count() FROM t GROUP BY a WITH TOTALS HAVING count() > 1;",
+            None,
+        )
+        .unwrap();
+    assert!(
+        parsed.violations.is_empty(),
+        "expected ClickHouse GROUP BY WITH TOTALS to parse cleanly: {:?}",
+        parsed.violations
+    );
+
+    let tree = parsed.tree.unwrap();
+    let groupby = tree
+        .recursive_crawl(
+            &SyntaxSet::new(&[SyntaxKind::GroupbyClause]),
+            true,
+            &SyntaxSet::EMPTY,
+            true,
+        )
+        .into_iter()
+        .next()
+        .expect("expected a groupby_clause");
+
+    let segments = groupby.segments();
+    let indent_index = segments
+        .iter()
+        .position(|segment| segment.is_indent() && segment.indent_val() > 0)
+        .expect("expected groupby_clause indent");
+    let totals_index = segments
+        .iter()
+        .position(|segment| segment.raw().as_str().eq_ignore_ascii_case("TOTALS"))
+        .expect("expected WITH TOTALS inside groupby_clause");
+    let dedent_index = segments
+        .iter()
+        .position(|segment| segment.is_indent() && segment.indent_val() < 0)
+        .expect("expected groupby_clause dedent");
+
+    assert!(
+        indent_index < totals_index && totals_index < dedent_index,
+        "expected WITH TOTALS to stay inside the GROUP BY indent scope"
+    );
+}
+
 /// LT12 is a source-file rule. A templated file can render with a final newline
 /// while the source file still lacks one because trailing Jinja blocks render to
 /// zero length.
@@ -472,6 +640,199 @@ fn test_lt12_reports_missing_source_newline_after_jinja_block() {
         .map(|v| (v.line_no, v.line_pos))
         .collect();
     assert!(!lt12.is_empty(), "expected LT12 violation");
+}
+
+#[test]
+fn test_sqlite_create_temp_view_body_indent() {
+    let config = FluffConfig::new(
+        HashMap::from([(
+            "core".into(),
+            Value::Map(HashMap::from([
+                ("dialect".into(), Value::String("sqlite".into())),
+                ("rules".into(), Value::String("LT02".into())),
+            ])),
+        )]),
+        None,
+        None,
+    );
+    let mut lnt = Linter::new(config, None, None, true).unwrap();
+    let sql =
+        "CREATE TEMP VIEW IF NOT EXISTS view_name AS\nSELECT\ncol1,\ncol2\nFROM\ntable_name;\n";
+
+    let linted = lnt.lint_string_wrapped(sql, true).unwrap();
+
+    assert_eq!(
+        linted.fix_string(),
+        "CREATE TEMP VIEW IF NOT EXISTS view_name AS\nSELECT\n    col1,\n    col2\nFROM\n    table_name;\n"
+    );
+}
+
+#[test]
+fn test_clickhouse_parametric_type_spacing_fix() {
+    let config = FluffConfig::new(
+        HashMap::from([(
+            "core".into(),
+            Value::Map(HashMap::from([
+                ("dialect".into(), Value::String("clickhouse".into())),
+                ("rules".into(), Value::String("LT01".into())),
+            ])),
+        )]),
+        None,
+        None,
+    );
+    let mut lnt = Linter::new(config, None, None, true).unwrap();
+    let sql = concat!(
+        "CREATE TABLE t (\n",
+        "    event_created_at DateTime64 (3),\n",
+        "    event_created_at_tz DateTime ('UTC'),\n",
+        "    obs_value Decimal (18, 9),\n",
+        "    fixed_str FixedString (16),\n",
+        "    nullable_col Nullable (String),\n",
+        "    lc_col LowCardinality (String),\n",
+        "    arr_col Array (UInt8),\n",
+        "    map_col Map (String, UInt8),\n",
+        "    enum_col Enum8 ('a' = 1, 'b' = 2),\n",
+        "    tuple_col Tuple (UInt8, String),\n",
+        "    nested_col Nested (a UInt8, b String),\n",
+        "    t64 Time64 (3),\n",
+        "    dec32 Decimal32 (3),\n",
+        "    dec64 Decimal64 (6)\n",
+        ") ENGINE = MergeTree ORDER BY event_created_at;",
+    );
+
+    let linted = lnt.lint_string_wrapped(sql, true).unwrap();
+
+    assert_eq!(
+        linted.fix_string(),
+        concat!(
+            "CREATE TABLE t (\n",
+            "    event_created_at DateTime64(3),\n",
+            "    event_created_at_tz DateTime('UTC'),\n",
+            "    obs_value Decimal(18, 9),\n",
+            "    fixed_str FixedString(16),\n",
+            "    nullable_col Nullable(String),\n",
+            "    lc_col LowCardinality(String),\n",
+            "    arr_col Array(UInt8),\n",
+            "    map_col Map(String, UInt8),\n",
+            "    enum_col Enum8('a' = 1, 'b' = 2),\n",
+            "    tuple_col Tuple(UInt8, String),\n",
+            "    nested_col Nested(a UInt8, b String),\n",
+            "    t64 Time64(3),\n",
+            "    dec32 Decimal32(3),\n",
+            "    dec64 Decimal64(6)\n",
+            ") ENGINE = MergeTree ORDER BY event_created_at;",
+        )
+    );
+}
+
+#[test]
+fn test_clickhouse_select_apply_spacing_fix() {
+    let config = FluffConfig::new(
+        HashMap::from([(
+            "core".into(),
+            Value::Map(HashMap::from([
+                ("dialect".into(), Value::String("clickhouse".into())),
+                ("rules".into(), Value::String("LT01".into())),
+            ])),
+        )]),
+        None,
+        None,
+    );
+    let mut lnt = Linter::new(config, None, None, true).unwrap();
+    let sql = concat!(
+        "SELECT * APPLY (sum) FROM t1;\n",
+        "SELECT * EXCEPT (c1) APPLY (col -> sum(col)) FROM t1;\n",
+    );
+
+    let linted = lnt.lint_string_wrapped(sql, true).unwrap();
+
+    assert_eq!(
+        linted.fix_string(),
+        concat!(
+            "SELECT * APPLY(sum) FROM t1;\n",
+            "SELECT * EXCEPT (c1) APPLY(col -> sum(col)) FROM t1;\n",
+        )
+    );
+
+    let correct_sql = concat!(
+        "SELECT * APPLY(sum) FROM t1;\n",
+        "SELECT * EXCEPT (c1) APPLY(col -> sum(col)) FROM t1;\n",
+    );
+    let correct_linted = lnt.lint_string_wrapped(correct_sql, false).unwrap();
+    let lt01: Vec<_> = correct_linted
+        .violations()
+        .iter()
+        .filter(|v| v.rule_code() == "LT01")
+        .map(|v| (v.rule_code(), v.line_no, v.line_pos))
+        .collect();
+
+    assert!(
+        lt01.is_empty(),
+        "unexpected LT01 violations for correctly spaced APPLY clauses: {lt01:?}"
+    );
+}
+
+#[test]
+fn test_clickhouse_ternary_spacing_no_false_positive() {
+    let config = FluffConfig::new(
+        HashMap::from([(
+            "core".into(),
+            Value::Map(HashMap::from([
+                ("dialect".into(), Value::String("clickhouse".into())),
+                ("rules".into(), Value::String("LT01".into())),
+            ])),
+        )]),
+        None,
+        None,
+    );
+    let mut lnt = Linter::new(config, None, None, true).unwrap();
+    let sql = concat!(
+        "SELECT a ? b : c AS x FROM t;\n",
+        "SELECT col = '' ? 0 : 1 AS x FROM t;\n",
+    );
+
+    let linted = lnt.lint_string_wrapped(sql, false).unwrap();
+    let lt01: Vec<_> = linted
+        .violations()
+        .iter()
+        .filter(|v| v.rule_code() == "LT01")
+        .map(|v| (v.rule_code(), v.line_no, v.line_pos))
+        .collect();
+
+    assert!(
+        lt01.is_empty(),
+        "unexpected LT01 violations for correctly spaced ternary expressions: {lt01:?}"
+    );
+}
+
+#[test]
+fn test_clickhouse_datetime64_rejects_timezone_without_precision() {
+    let config = FluffConfig::new(
+        HashMap::from([(
+            "core".into(),
+            Value::Map(HashMap::from([(
+                "dialect".into(),
+                Value::String("clickhouse".into()),
+            )])),
+        )]),
+        None,
+        None,
+    );
+    let lnt = Linter::new(config, None, None, true).unwrap();
+    let tables = Tables::default();
+
+    let parsed = lnt
+        .parse_string(
+            &tables,
+            "SELECT '2024-01-01'::DateTime64('UTC') AS dt;",
+            None,
+        )
+        .unwrap();
+
+    assert!(
+        !parsed.violations.is_empty(),
+        "expected DateTime64 timezone argument without precision to fail parsing"
+    );
 }
 
 /// Trailing source-only Jinja blocks should not hide extra rendered newlines

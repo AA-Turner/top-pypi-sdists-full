@@ -17,7 +17,7 @@ else
     repo=https://github.com/common-workflow-language/cwltest.git
     HEAD=$(git rev-parse HEAD)
 fi
-run_tests="bin/py.test -p pytester --pyargs ${module}"
+run_tests="python -m pytest -p pytester --pyargs ${module}"
 pipver=23.1  # minimum required version of pip for Python 3.12
 setuptoolsver=67.6.1  # required for Python 3.12
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
@@ -36,14 +36,11 @@ then
 		&& pip install --force-reinstall -U pip==${pipver} \
 		&& pip install setuptools==${setuptoolsver} wheel
 	pip install -rtest-requirements.txt ".${extras}"
+	pip show cwltest | grep Version | grep -v -q 0.0.0
 	make test
 	pip uninstall -y ${package} || true; pip uninstall -y ${package} || true; make install
-	mkdir testenv1/not-${module}
-	# if there is a subdir named '${module}' py.test will execute tests
-	# there instead of the installed module's tests
-	pushd testenv1/not-${module}
-	# shellcheck disable=SC2086
-	../${run_tests}; popd
+	pip show cwltest | grep Version | grep -v -q 0.0.0
+	${run_tests}
 fi
 
 python3 -m venv testenv2
@@ -62,13 +59,16 @@ rm -f lib/python-wheels/setuptools* \
         && pip install setuptools==${setuptoolsver} wheel
 # The following can fail if you haven't pushed your commits to ${repo}
 pip install -e "git+${repo}@${HEAD}#egg=${package}${extras}"
+pip show cwltest | grep Version | grep -v -q 0.0.0
 pushd src/${package}
 pip install -rtest-requirements.txt build
+pip show cwltest | grep Version | grep -v -q 0.0.0
 make dist
 make test
 cp dist/${package}*tar.gz ../../../testenv3/
 cp dist/${module}*whl ../../../testenv4/
 pip uninstall -y ${package} || true; pip uninstall -y ${package} || true; make install
+pip show cwltest | grep Version | grep -v -q 0.0.0
 popd # ../.. no subdir named ${proj} here, safe for py.testing the installed module
 # shellcheck disable=SC2086
 ${run_tests}
@@ -86,18 +86,18 @@ rm -f lib/python-wheels/setuptools* \
 package_tar=$(find . -name "${package}*tar.gz")
 pip install "-r${DIR}/test-requirements.txt" build
 pip install "${package_tar}${extras}"
+pip show cwltest | grep Version | grep -v -q 0.0.0
 mkdir out
 tar --extract --directory=out -z -f ${package}*.tar.gz
 pushd out/${package}*
 make dist
 make test
 pip install "-r${DIR}/mypy-requirements.txt"
+pip show cwltest | grep Version | grep -v -q 0.0.0
 make mypy
 pip uninstall -y ${package} || true; pip uninstall -y ${package} || true; make install
-mkdir ../not-${module}
-pushd ../not-${module}
-# shellcheck disable=SC2086
-../../${run_tests}; popd
+pip show cwltest | grep Version | grep -v -q 0.0.0
+${run_tests}
 popd
 popd
 
@@ -110,9 +110,7 @@ rm -f lib/python-wheels/setuptools* \
 	&& pip install --force-reinstall -U pip==${pipver} \
         && pip install setuptools==${setuptoolsver} wheel
 pip install "$(ls ${module}*.whl)${extras}"
+pip show cwltest | grep Version | grep -v -q 0.0.0
 pip install "-r${DIR}/test-requirements.txt"
-mkdir not-${module}
-pushd not-${module}
-# shellcheck disable=SC2086
-../${run_tests}; popd
+${run_tests}
 popd

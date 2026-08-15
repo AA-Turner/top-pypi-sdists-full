@@ -44,7 +44,7 @@ from chalk.utils.df_utils import is_binary_like, read_parquet
 from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.log_with_context import LABELS_KEY, get_logger, get_logging_context
 from chalk.utils.missing_dependency import missing_dependency_exception
-from chalk.utils.threading import DEFAULT_IO_EXECUTOR, MultiSemaphore
+from chalk.utils.threading import DEFAULT_IO_EXECUTOR, MultiSemaphore, shutdown_prefetch_workers
 from chalk.utils.tracing import safe_incr, safe_set_gauge
 
 if TYPE_CHECKING:
@@ -357,6 +357,7 @@ class RedshiftSourceImpl(BaseSQLSource):
                     _logger.warning(f"Failed to get file size for {filename}, will estimate after download", exc_info=e)
 
                 # Acquire semaphore before downloading
+                acquired = 0
                 if sem and weight is not None:
                     if weight > sem.initial_value:
                         # If the file is larger than the maximum size, truncate to max
@@ -364,26 +365,37 @@ class RedshiftSourceImpl(BaseSQLSource):
                     if weight > 0:
                         if not sem.acquire(weight):
                             raise RuntimeError("Failed to acquire semaphore for redshift download")
+                        acquired = weight
                         safe_set_gauge(
                             "chalk.redshift.remaining_prefetch_bytes", sem.get_value(), tags=_get_resolver_tags()
                         )
 
-                # Download and convert to table
-                tbl = _download_file_to_table(self._s3_client, self._s3_bucket, filename, columns_to_features)
+                try:
+                    # Download and convert to table
+                    tbl = _download_file_to_table(self._s3_client, self._s3_bucket, filename, columns_to_features)
 
-                # If we didn't have a weight estimate, use actual table size
-                if weight is None:
-                    weight = tbl.nbytes
-                    if sem and weight is not None and weight > 0:
-                        if not sem.acquire(weight):
-                            raise RuntimeError("Failed to acquire semaphore for redshift download")
-                        safe_set_gauge(
-                            "chalk.redshift.remaining_prefetch_bytes", sem.get_value(), tags=_get_resolver_tags()
-                        )
+                    # If we didn't have a weight estimate, use actual table size
+                    if weight is None:
+                        weight = tbl.nbytes
+                        if sem and weight is not None and weight > 0:
+                            if not sem.acquire(weight):
+                                raise RuntimeError("Failed to acquire semaphore for redshift download")
+                            acquired = weight
+                            safe_set_gauge(
+                                "chalk.redshift.remaining_prefetch_bytes", sem.get_value(), tags=_get_resolver_tags()
+                            )
 
-                # Ensure weight is always an int
-                final_weight: int = weight if weight is not None else 0
-                pa_table_queue.put((tbl, final_weight))
+                    # Ensure weight is always an int
+                    final_weight: int = weight if weight is not None else 0
+                    pa_table_queue.put((tbl, final_weight))
+                    # The consumer owns the weight now, and releases it once it has yielded the chunk.
+                    acquired = 0
+                finally:
+                    # A failed download never reaches the queue, so nobody downstream would ever
+                    # release its weight. Hand it back here instead of shrinking the budget for
+                    # the rest of this query.
+                    if sem is not None and acquired > 0:
+                        sem.release(acquired)
         finally:
             # Signal that this worker is done
             pa_table_queue.put(worker_idx)
@@ -439,33 +451,36 @@ class RedshiftSourceImpl(BaseSQLSource):
         yielded = False
 
         # Process downloaded tables as they become available
-        while len(futures) > 0:
-            x = pa_table_queue.get()
-            if isinstance(x, int):
-                # Worker finished - remove from futures and check for errors
-                futures.pop(x).result()
-                continue
+        try:
+            while len(futures) > 0:
+                x = pa_table_queue.get()
+                if isinstance(x, int):
+                    # Worker finished - remove from futures and check for errors
+                    futures.pop(x).result()
+                    continue
 
-            tbl, weight = x
-            if schema is None:
-                schema = tbl.schema
+                tbl, weight = x
+                if schema is None:
+                    schema = tbl.schema
 
-            try:
-                if len(tbl) > 0:
-                    yield tbl.combine_chunks().to_batches()[0]
-                    safe_incr("chalk.redshift.downloaded_bytes", tbl.nbytes or 0, tags=_get_resolver_tags())
-                    safe_incr("chalk.redshift.downloaded_rows", tbl.num_rows or 0, tags=_get_resolver_tags())
-                    yielded = True
-            finally:
-                # Release semaphore after yielding
-                if sem is not None and weight > 0:
-                    sem.release(weight)
-                    safe_set_gauge(
-                        "chalk.redshift.remaining_prefetch_bytes", sem.get_value(), tags=_get_resolver_tags()
-                    )
+                try:
+                    if len(tbl) > 0:
+                        yield tbl.combine_chunks().to_batches()[0]
+                        safe_incr("chalk.redshift.downloaded_bytes", tbl.nbytes or 0, tags=_get_resolver_tags())
+                        safe_incr("chalk.redshift.downloaded_rows", tbl.num_rows or 0, tags=_get_resolver_tags())
+                        yielded = True
+                finally:
+                    # Release semaphore after yielding
+                    if sem is not None and weight > 0:
+                        sem.release(weight)
+                        safe_set_gauge(
+                            "chalk.redshift.remaining_prefetch_bytes", sem.get_value(), tags=_get_resolver_tags()
+                        )
 
-        if not yielded and yield_empty_batches and schema is not None:
-            yield pa.RecordBatch.from_pydict({k: [] for k in schema.names}, schema)
+            if not yielded and yield_empty_batches and schema is not None:
+                yield pa.RecordBatch.from_pydict({k: [] for k in schema.names}, schema)
+        finally:
+            shutdown_prefetch_workers(file_handles, pa_table_queue, sem, futures)
 
     def _download_worker_raw(
         self,
@@ -500,53 +515,65 @@ class RedshiftSourceImpl(BaseSQLSource):
                     _logger.warning(f"Failed to get file size for {filename}, will estimate after download", exc_info=e)
 
                 # Acquire semaphore before downloading
+                acquired = 0
                 if sem and weight is not None:
                     if weight > sem.initial_value:
                         weight = sem.initial_value
                     if weight > 0:
                         if not sem.acquire(weight):
                             raise RuntimeError("Failed to acquire semaphore for redshift download")
+                        acquired = weight
                         safe_set_gauge(
                             "chalk.redshift.remaining_prefetch_bytes", sem.get_value(), tags=_get_resolver_tags()
                         )
 
-                # Download parquet file
-                buffer = io.BytesIO()
-                with _boto_lock_ctx():
-                    self._s3_client.download_fileobj(Bucket=self._s3_bucket, Key=filename, Fileobj=buffer)
-                    buffer.seek(0)
-                    if env_var_bool("CHALK_REDSHIFT_POLARS_PARQUET"):
-                        tbl = read_parquet(buffer, use_pyarrow=False).to_arrow()
-                    else:
-                        tbl = pq.read_table(buffer)
+                try:
+                    # Download parquet file
+                    buffer = io.BytesIO()
+                    with _boto_lock_ctx():
+                        self._s3_client.download_fileobj(Bucket=self._s3_bucket, Key=filename, Fileobj=buffer)
+                        buffer.seek(0)
+                        if env_var_bool("CHALK_REDSHIFT_POLARS_PARQUET"):
+                            tbl = read_parquet(buffer, use_pyarrow=False).to_arrow()
+                        else:
+                            tbl = pq.read_table(buffer)
 
-                # If we didn't have a weight estimate, use actual table size
-                if weight is None:
-                    weight = tbl.nbytes
-                    if sem and weight is not None and weight > 0:
-                        if not sem.acquire(weight):
-                            raise RuntimeError("Failed to acquire semaphore for redshift download")
-                        safe_set_gauge(
-                            "chalk.redshift.remaining_prefetch_bytes", sem.get_value(), tags=_get_resolver_tags()
-                        )
+                    # If we didn't have a weight estimate, use actual table size
+                    if weight is None:
+                        weight = tbl.nbytes
+                        if sem and weight is not None and weight > 0:
+                            if not sem.acquire(weight):
+                                raise RuntimeError("Failed to acquire semaphore for redshift download")
+                            acquired = weight
+                            safe_set_gauge(
+                                "chalk.redshift.remaining_prefetch_bytes", sem.get_value(), tags=_get_resolver_tags()
+                            )
 
-                # Map columns to expected schema
-                arrays: list[pa.Array] = []
-                for field in expected_output_schema:
-                    if field.name in tbl.column_names:
-                        col = tbl.column(field.name)
-                        # Cast to expected type if needed
-                        if col.type != field.type:
-                            col = pc.cast(col, field.type)
-                        arrays.append(col)
-                    else:
-                        # Column not found, create null array
-                        arrays.append(pa.nulls(len(tbl), field.type))
+                    # Map columns to expected schema
+                    arrays: list[pa.Array] = []
+                    for field in expected_output_schema:
+                        if field.name in tbl.column_names:
+                            col = tbl.column(field.name)
+                            # Cast to expected type if needed
+                            if col.type != field.type:
+                                col = pc.cast(col, field.type)
+                            arrays.append(col)
+                        else:
+                            # Column not found, create null array
+                            arrays.append(pa.nulls(len(tbl), field.type))
 
-                mapped_tbl = pa.Table.from_arrays(arrays, schema=expected_output_schema)
-                # Ensure weight is always an int
-                final_weight: int = weight if weight is not None else 0
-                pa_table_queue.put((mapped_tbl, final_weight))
+                    mapped_tbl = pa.Table.from_arrays(arrays, schema=expected_output_schema)
+                    # Ensure weight is always an int
+                    final_weight: int = weight if weight is not None else 0
+                    pa_table_queue.put((mapped_tbl, final_weight))
+                    # The consumer owns the weight now, and releases it once it has yielded the chunk.
+                    acquired = 0
+                finally:
+                    # A failed download never reaches the queue, so nobody downstream would ever
+                    # release its weight. Hand it back here instead of shrinking the budget for
+                    # the rest of this query.
+                    if sem is not None and acquired > 0:
+                        sem.release(acquired)
         finally:
             # Signal that this worker is done
             pa_table_queue.put(worker_idx)
@@ -664,32 +691,35 @@ class RedshiftSourceImpl(BaseSQLSource):
         yielded = False
 
         # Process downloaded tables as they become available
-        while len(futures) > 0:
-            x = pa_table_queue.get()
-            if isinstance(x, int):
-                # Worker finished - remove from futures and check for errors
-                futures.pop(x).result()
-                continue
+        try:
+            while len(futures) > 0:
+                x = pa_table_queue.get()
+                if isinstance(x, int):
+                    # Worker finished - remove from futures and check for errors
+                    futures.pop(x).result()
+                    continue
 
-            tbl, weight = x
+                tbl, weight = x
 
-            try:
-                if len(tbl) > 0:
-                    yield tbl.to_batches()[0]
-                    safe_incr("chalk.redshift.downloaded_bytes", tbl.nbytes or 0, tags=_get_resolver_tags())
-                    safe_incr("chalk.redshift.downloaded_rows", tbl.num_rows or 0, tags=_get_resolver_tags())
-                    yielded = True
-            finally:
-                # Release semaphore after yielding
-                if sem is not None and weight > 0:
-                    sem.release(weight)
-                    safe_set_gauge(
-                        "chalk.redshift.remaining_prefetch_bytes", sem.get_value(), tags=_get_resolver_tags()
-                    )
+                try:
+                    if len(tbl) > 0:
+                        yield tbl.to_batches()[0]
+                        safe_incr("chalk.redshift.downloaded_bytes", tbl.nbytes or 0, tags=_get_resolver_tags())
+                        safe_incr("chalk.redshift.downloaded_rows", tbl.num_rows or 0, tags=_get_resolver_tags())
+                        yielded = True
+                finally:
+                    # Release semaphore after yielding
+                    if sem is not None and weight > 0:
+                        sem.release(weight)
+                        safe_set_gauge(
+                            "chalk.redshift.remaining_prefetch_bytes", sem.get_value(), tags=_get_resolver_tags()
+                        )
 
-        if not yielded and query_execution_parameters.yield_empty_batches:
-            arrays = [pa.nulls(0, field.type) for field in expected_output_schema]
-            yield pa.RecordBatch.from_arrays(arrays, schema=expected_output_schema)
+            if not yielded and query_execution_parameters.yield_empty_batches:
+                arrays = [pa.nulls(0, field.type) for field in expected_output_schema]
+                yield pa.RecordBatch.from_arrays(arrays, schema=expected_output_schema)
+        finally:
+            shutdown_prefetch_workers(file_handles, pa_table_queue, sem, futures)
 
     @classmethod
     def register_sqlalchemy_compiler_overrides(cls):

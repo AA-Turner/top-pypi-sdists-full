@@ -5,10 +5,10 @@
 
 import os
 import platform
+import tempfile
 from pathlib import Path
 from shutil import copy, copytree, rmtree
 from typing import List
-import tempfile
 
 from setuptools import find_packages, setup, Extension
 from setuptools.command.build_ext import build_ext
@@ -28,6 +28,7 @@ TBB_DIRS = ["tbb", "tbb_2020.3"]
 
 
 IS_WINDOWS = platform.platform().startswith("Win")
+
 
 def prune_cmdstan(cmdstan_dir: str) -> None:
     """

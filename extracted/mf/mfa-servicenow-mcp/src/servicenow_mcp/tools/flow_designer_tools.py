@@ -522,12 +522,22 @@ def _build_processflow_detail(
     }
 
 
-def _summarize_node_inputs(node: Dict[str, Any]) -> Dict[str, str]:
+def _summarize_node_inputs(
+    node: Dict[str, Any], label_map: Optional[Dict[str, str]] = None
+) -> Dict[str, str]:
     """Flatten a node's inputs into {name: value} preserving full values verbatim.
 
     When `value` and `displayValue` differ (raw pill vs. human label), keep both
     in the form ``"<value> / <displayValue>"`` — the UI shows both, so the
     summary should too. Never truncate.
+
+    A data pill gets the same treatment against its CANVAS form: the token
+    stays (trace_pill and every edit path match on it) and the breadcrumb the
+    designer shows is appended — ``{{<uuid>.x}} / Get Catalog Variables ▸ x``.
+    Without the map the leading segment is a bare uuid, so the answer and the
+    screen disagreed about which step produced a value, on the path most people
+    actually read (browser auth). Verified live: this summary already carried
+    every binding, and every pill in it was unreadable.
     """
     flat: Dict[str, str] = {}
     for inp in node.get("inputs", []) or []:
@@ -540,6 +550,12 @@ def _summarize_node_inputs(node: Dict[str, Any]) -> Dict[str, str]:
         display = inp.get("displayValue")
         value_str = "" if value in (None, "") else str(value)
         display_str = "" if display in (None, "") else str(display)
+        if not display_str and value_str:
+            # A pill is its own display value; resolve it to the canvas
+            # breadcrumb so the pairing below prints token / readable form.
+            readable = _readable_pill(value_str, label_map)
+            if readable and readable != value_str:
+                display_str = readable
         if value_str and display_str and value_str != display_str:
             flat[name] = f"{value_str} / {display_str}"
         elif value_str:
@@ -553,7 +569,9 @@ class FlowSummaryIntegrityError(ValueError):
     """Raised when a flow structure cannot be summarized without data loss."""
 
 
-def _build_action_row(node: Dict[str, Any], ui: str, depth: int) -> Dict[str, Any]:
+def _build_action_row(
+    node: Dict[str, Any], ui: str, depth: int, label_map: Optional[Dict[str, str]] = None
+) -> Dict[str, Any]:
     """Action row — keeps every semantically meaningful field, drops verbose IDs."""
     row: Dict[str, Any] = {
         "order": node.get("order", ""),
@@ -562,7 +580,7 @@ def _build_action_row(node: Dict[str, Any], ui: str, depth: int) -> Dict[str, An
         "ui_id": ui,
         "type": node.get("action_type_name") or "",
         "name": node.get("name") or "",
-        "inputs": _summarize_node_inputs(node),
+        "inputs": _summarize_node_inputs(node, label_map),
     }
     outputs = node.get("outputs") or []
     output_names = [o.get("name", "") for o in outputs if isinstance(o, dict) and o.get("name")]
@@ -577,7 +595,9 @@ def _build_action_row(node: Dict[str, Any], ui: str, depth: int) -> Dict[str, An
     return row
 
 
-def _build_logic_row(node: Dict[str, Any], ui: str, depth: int) -> Dict[str, Any]:
+def _build_logic_row(
+    node: Dict[str, Any], ui: str, depth: int, label_map: Optional[Dict[str, str]] = None
+) -> Dict[str, Any]:
     """Logic row — branching context, full condition verbatim."""
     row: Dict[str, Any] = {
         "order": node.get("order", ""),
@@ -590,7 +610,7 @@ def _build_logic_row(node: Dict[str, Any], ui: str, depth: int) -> Dict[str, Any
     }
     extra_inputs = {
         k: v
-        for k, v in _summarize_node_inputs(node).items()
+        for k, v in _summarize_node_inputs(node, label_map).items()
         if k not in ("condition_name", "condition")
     }
     if extra_inputs:
@@ -604,7 +624,9 @@ def _build_logic_row(node: Dict[str, Any], ui: str, depth: int) -> Dict[str, Any
     return row
 
 
-def _build_subflow_row(node: Dict[str, Any], ui: str, depth: int) -> Dict[str, Any]:
+def _build_subflow_row(
+    node: Dict[str, Any], ui: str, depth: int, label_map: Optional[Dict[str, str]] = None
+) -> Dict[str, Any]:
     """Subflow row — exposes sys_id + scope so caller can chain into the subflow."""
     row: Dict[str, Any] = {
         "order": node.get("order", ""),
@@ -614,7 +636,7 @@ def _build_subflow_row(node: Dict[str, Any], ui: str, depth: int) -> Dict[str, A
         "type": "Call Subflow",
         "name": node.get("subflow_name") or "",
         "subflow_sys_id": node.get("subflow_sys_id") or "",
-        "inputs": _summarize_node_inputs(node),
+        "inputs": _summarize_node_inputs(node, label_map),
     }
     if node.get("subflow_internal_name"):
         row["subflow_internal_name"] = node["subflow_internal_name"]
@@ -660,8 +682,8 @@ _QUERY_OPERATORS: List[tuple] = [
 
 
 def _readable_pill(value: str, label_map: Optional[Dict[str, str]] = None) -> Optional[str]:
-    """Turn a data-pill token '{{subflow.rfq1.division.name}}' into the canvas
-    breadcrumb 'subflow ▸ rfq1 ▸ division ▸ name'. If the leading segment is a
+    """Turn a data-pill token '{{subflow.step1.division.name}}' into the canvas
+    breadcrumb 'subflow ▸ step1 ▸ division ▸ name'. If the leading segment is a
     step's uiUniqueIdentifier, resolve it to that step's label."""
     if not isinstance(value, str):
         return None
@@ -1055,7 +1077,7 @@ def render_flow_compact(flow_data: Dict[str, Any], include_scripts: bool = False
     }
     try:
         detail = _build_processflow_detail(flow_data)
-        summary = _build_flow_summary(detail)
+        summary = _build_flow_summary(detail, label_map=label_map)
         tree = _render_tree_text(
             summary["tree"],
             summary.get("orphans", []),
@@ -1310,6 +1332,100 @@ _STRUCTURE_INLINE_BUDGET_BYTES = 12_000
 _BULK_STRUCTURE_KEYS = ("tree", "orphans", "tree_text", "summary_index")
 
 
+# The skeleton gets its own, larger ceiling than the full structure, on purpose.
+# The 12KB limit above is about per-node DETAIL, and every piece of that has a
+# targeted call to fetch it. A flow's SHAPE has no targeted call — it is
+# inherently whole-flow — so refusing it means the caller cannot see the flow at
+# all, which is what the counts-only reply amounted to. Measured: a 142-node
+# flow skeletonises to ~17KB columnar. Past roughly 200 nodes the counts really
+# are the better answer and the tier below takes over.
+_SKELETON_INLINE_BUDGET_BYTES = 28_000
+# The derived index competes with the tree for that budget; cap it well under.
+_SKELETON_INDEX_BUDGET_BYTES = 4_000
+
+# What a node is, minus what it was configured with. `ui_id` is deliberately in
+# the keep-list: it is the handle every follow-up call and every edit takes, so
+# a skeleton without it would be a picture you cannot act on.
+_SKELETON_NODE_KEYS = ("order", "depth", "kind", "ui_id", "type", "name")
+# A branch's condition IS its identity — "If" tells you nothing — so it is kept
+# and shortened rather than dropped with the other detail.
+_SKELETON_CONDITION_CHARS = 120
+
+
+def _skeletal_node(node: Dict[str, Any]) -> Dict[str, Any]:
+    """One node with its identity and place, without its bindings."""
+    out = {k: node[k] for k in _SKELETON_NODE_KEYS if node.get(k) not in (None, "")}
+    # Flow Designer fills `name` in only when a step has been renamed, so an
+    # unnamed step carries its action type in both fields — measured on a live
+    # flow, where every one of the four steps had name == type. Printing it
+    # twice per node costs a fifth of the skeleton and says nothing.
+    if out.get("name") and out.get("name") == out.get("type"):
+        out.pop("name")
+    condition = node.get("condition") or node.get("conditions")
+    if isinstance(condition, str) and condition:
+        if len(condition) > _SKELETON_CONDITION_CHARS:
+            condition = (
+                condition[:_SKELETON_CONDITION_CHARS]
+                + f"…(+{len(condition) - _SKELETON_CONDITION_CHARS} chars)"
+            )
+        out["condition"] = condition
+    if node.get("subflow_sys_id"):
+        # Which subflow a call goes to is structure, not detail: without it the
+        # branch of the tree that continues elsewhere is unfollowable.
+        out["subflow_sys_id"] = node["subflow_sys_id"]
+    children = node.get("children")
+    if isinstance(children, list) and children:
+        out["children"] = [_skeletal_node(c) for c in children if isinstance(c, dict)]
+    return out
+
+
+def _columnar_nodes(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Rows as {columns, data} — the same shape sn_query uses for wide reads.
+
+    Measured: on a 142-node flow the repeated key names were ~40 of every 183
+    bytes. Naming each column once instead of 142 times is a fifth of the
+    payload for zero information, which is the difference between returning the
+    flow's shape and refusing to.
+    """
+    columns: List[str] = []
+    for row in rows:
+        for key in row:
+            if key not in columns and key != "children":
+                columns.append(key)
+    return {
+        "columns": columns,
+        "data": [[row.get(c, "") for c in columns] for row in rows],
+    }
+
+
+def _skeletal_structure(structure: Dict[str, Any]) -> Dict[str, Any]:
+    """Every node, none of the bindings — and no `tree_text`, which duplicates it."""
+    out = {k: v for k, v in structure.items() if k not in _BULK_STRUCTURE_KEYS}
+    for key in ("tree", "orphans"):
+        rows = structure.get(key)
+        if isinstance(rows, list) and rows:
+            skeleton = [_skeletal_node(r) for r in rows if isinstance(r, dict)]
+            # `depth` already carries the nesting on these rows, so flattening
+            # to columns loses nothing a reader can see.
+            out[key] = _columnar_nodes(skeleton) if len(skeleton) > 8 else skeleton
+    # The index of the things people look for (approvals, state changes,
+    # subflow calls, branch conditions) is the answer to most questions asked of
+    # a big flow, so keep it — but it is DERIVED from the same nodes the tree
+    # above already lists in full. When it is large it is redundant weight
+    # competing with the tree for the same budget, and the tree is the thing
+    # with no other way to get it.
+    index = structure.get("summary_index")
+    if index:
+        if byte_len(index) <= _SKELETON_INDEX_BUDGET_BYTES:
+            out["summary_index"] = index
+        else:
+            out["summary_index_omitted"] = (
+                f"{byte_len(index)} bytes — it indexes the same nodes the tree above "
+                "already lists, so the tree was kept instead."
+            )
+    return out
+
+
 def _bound_structure(structure: Dict[str, Any]) -> Dict[str, Any]:
     """Return the tree when it is small enough to be an answer; otherwise say so.
 
@@ -1333,11 +1449,19 @@ def _bound_structure(structure: Dict[str, Any]) -> Dict[str, Any]:
 
     Reading a flow is a TARGETED job — which action runs here, what does this
     branch test, where does this pill come from — and every one of those has its
-    own call. So an oversized tree is not returned at all. What comes back is the
-    part that IS an answer (counts, integrity, warnings, all exact) plus the
-    measurement and the reads that exist. Nothing here pretends there is a
-    node-range parameter: there isn't one, and pointing at a call that does not
-    exist is worse than saying no.
+    own call.
+
+    But "too big" is not a reason to return nothing, and the three repairs above
+    are not the only options. There is a fourth: keep EVERY node and drop the
+    per-node detail. That is compression, not truncation — the shape of the flow
+    survives intact, so it cannot appear to end early, and what was removed is
+    named along with the call that returns it. Measured on the flow this
+    docstring cites, the bindings are most of the weight; the skeleton of all
+    142 nodes is a fraction of it.
+
+    So the tiers are: the whole tree when it fits, otherwise every node without
+    its bindings, and only when even that will not fit does the tree go away and
+    the exact counts stand alone.
     """
     if byte_len(structure) <= _STRUCTURE_INLINE_BUDGET_BYTES:
         return structure
@@ -1347,6 +1471,24 @@ def _bound_structure(structure: Dict[str, Any]) -> Dict[str, Any]:
     node_count = (len(tree) if isinstance(tree, list) else 0) + (
         len(orphans) if isinstance(orphans, list) else 0
     )
+
+    # Tier 2: the skeleton. Same nodes, same nesting, no bindings.
+    skeletal = _skeletal_structure(structure)
+    if byte_len(skeletal) <= _SKELETON_INLINE_BUDGET_BYTES:
+        skeletal["detail_omitted"] = {
+            "what": "step bindings (inputs), long conditions and script bodies",
+            "why": (
+                f"the full structure is {byte_len(structure)} bytes, over the "
+                f"{_STRUCTURE_INLINE_BUDGET_BYTES}-byte inline limit. Every one of the "
+                f"{node_count} nodes is still listed, in order and nesting — only their "
+                "per-node detail was dropped."
+            ),
+            "get_one_step": (
+                "action='get_detail', node_id=<the `ui_id` on any row> — that row's "
+                "bindings in full"
+            ),
+        }
+        return skeletal
 
     bounded = {k: v for k, v in structure.items() if k not in _BULK_STRUCTURE_KEYS}
     bounded["tree_omitted"] = True
@@ -1368,7 +1510,11 @@ def _bound_structure(structure: Dict[str, Any]) -> Dict[str, Any]:
     return bounded
 
 
-def _build_flow_summary(structure: Dict[str, Any], include_scripts: bool = False) -> Dict[str, Any]:
+def _build_flow_summary(
+    structure: Dict[str, Any],
+    include_scripts: bool = False,
+    label_map: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
     """Flat tree summary (depth + full conditions) for analysis use cases.
 
     Works on processflow-shape structure (actions/logic/subflows with parent_ui_id).
@@ -1432,10 +1578,10 @@ def _build_flow_summary(structure: Dict[str, Any], include_scripts: bool = False
         node = nodes_by_ui[ui]
         kind = node["_kind"]
         if kind == "LOGIC":
-            return _build_logic_row(node, ui, depth)
+            return _build_logic_row(node, ui, depth, label_map)
         if kind == "SUBFLOW":
-            return _build_subflow_row(node, ui, depth)
-        return _build_action_row(node, ui, depth)
+            return _build_subflow_row(node, ui, depth, label_map)
+        return _build_action_row(node, ui, depth, label_map)
 
     visited: set = set()
 
@@ -1980,7 +2126,9 @@ def get_flow_details(
                 }
                 if params.include_structure:
                     result["structure"] = _bound_structure(
-                        _build_flow_summary(detail) if params.summary_format else detail
+                        _build_flow_summary(detail, label_map=_build_label_map(pf_data))
+                        if params.summary_format
+                        else detail
                     )
                 if params.include_triggers:
                     # Compact by default; summary_format=False keeps the raw rows.

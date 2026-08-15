@@ -1,28 +1,37 @@
 [project]
 name = "GitHubKit"
-version = "0.16.0"
+version = "0.16.1"
 description = "GitHub SDK for Python"
-authors = [{ name = "yanyongyu", email = "yyy@yyydl.top" }]
 license = "MIT"
 readme = "README.md"
-keywords = ["github", "octokit"]
+keywords = [
+    "github",
+    "octokit",
+]
 requires-python = ">=3.10, <4.0"
 dependencies = [
-  "anyio >=3.6.1, <5.0.0",
-  "httpx >=0.23.0, <1.0.0",
-  "hishel[async,httpx] >=1.3.0, <=2.0.0",
-  "typing-extensions >=4.11.0, <5.0.0",
-  "pydantic >=1.9.1, <3.0.0, !=2.5.0, !=2.5.1",
-  "githubkit-schemas >=26.5.7",
+    "anyio >=3.6.1, <5.0.0",
+    "httpx >=0.23.0, <1.0.0",
+    "hishel[async,httpx] >=1.3.0, <=2.0.0",
+    "typing-extensions >=4.11.0, <5.0.0",
+    "pydantic >=1.9.1, <3.0.0, !=2.5.0, !=2.5.1",
+    "githubkit-schemas >=26.5.7",
 ]
+
+[[project.authors]]
+name = "yanyongyu"
+email = "yyy@yyydl.top"
 
 [project.optional-dependencies]
 jwt = ["PyJWT[crypto] >=2.4.0, <3.0.0"]
 auth-app = ["PyJWT[crypto] >=2.4.0, <3.0.0"]
-auth-oauth-device = []                                                     # backward compatibility
+auth-oauth-device = []
 auth = ["PyJWT[crypto] >=2.4.0, <3.0.0"]
 all-schemas = ["githubkit-schemas[all] >=26.5.7"]
-all = ["PyJWT[crypto] >=2.4.0, <3.0.0", "githubkit-schemas[all] >=26.5.7"]
+all = [
+    "PyJWT[crypto] >=2.4.0, <3.0.0",
+    "githubkit-schemas[all] >=26.5.7",
+]
 
 [project.urls]
 Homepage = "https://github.com/yanyongyu/githubkit"
@@ -33,43 +42,46 @@ Documentation = "https://github.com/yanyongyu/githubkit"
 [dependency-groups]
 thirdparty = ["hishel[redis] >=1.2.0, <=2.0.0"]
 dev = [
-  { include-group = "thirdparty" },
-  { include-group = "codegen" },
-  { include-group = "test" },
-  { include-group = "docs" },
-  "ruff >=0.15.0, <0.16.0",
-  "nonemoji >=0.1.2, <0.2.0",
-  "pre-commit >=4.0.0, <5.0.0",
+    { include-group = "thirdparty" },
+    { include-group = "codegen" },
+    { include-group = "test" },
+    { include-group = "docs" },
+    "ruff >=0.16.0, <0.17.0",
+    "nonemoji >=0.1.2, <0.2.0",
+    "pre-commit >=4.0.0, <5.0.0",
 ]
 codegen = [
-  "Jinja2 >=3.1.2, <4.0.0",
-  "tomlkit >=0.13.3, <0.16.0",
-  "jsonpointer >=3.0.0, <4.0.0",
-  "openapi-pydantic >=0.5.0, <0.6.0",
+    "Jinja2 >=3.1.2, <4.0.0",
+    "tomlkit >=0.13.3, <0.16.0",
+    "jsonpointer >=3.0.0, <4.0.0",
+    "openapi-pydantic >=0.5.0, <0.6.0",
 ]
 test = [
-  { include-group = "thirdparty" },
-  "pytest >=8.1.0, <10.0.0",
-  "pytest-cov >=7.0.0, <8.0.0",
-  "pytest-xdist >=3.5.0, <4.0.0",
-  "coverage-conditional-plugin >=0.9.0, <0.10.0",
+    { include-group = "thirdparty" },
+    "pytest >=8.1.0, <10.0.0",
+    "pytest-cov >=7.0.0, <8.0.0",
+    "pytest-xdist >=3.5.0, <4.0.0",
+    "coverage-conditional-plugin >=0.9.0, <0.10.0",
 ]
 docs = [
-  "pygments>=2.18.0,<3",
-  "mkdocs-material>=9.5.39,<10",
-  "pymdown-extensions>=10.11.1,<11",
-  "mkdocs-git-committers-plugin-2>=2.4.1,<3",
-  "mkdocs-git-revision-date-localized-plugin>=1.2.9,<2",
+    "pygments>=2.18.0,<3",
+    "mkdocs-material>=9.5.39,<10",
+    "pymdown-extensions>=10.11.1,<11",
+    "mkdocs-git-committers-plugin-2>=2.4.1,<3",
+    "mkdocs-git-revision-date-localized-plugin>=1.2.9,<2",
 ]
 pydantic-v1 = ["pydantic >=1.10.0, <2.0.0"]
 pydantic-v2 = ["pydantic >=2.0.0, <3.0.0"]
 
 [tool.uv]
 required-version = ">=0.8.0"
-conflicts = [[{ group = "pydantic-v1" }, { group = "pydantic-v2" }]]
+conflicts = [[
+    { group = "pydantic-v1" },
+    { group = "pydantic-v2" },
+]]
 
-[tool.uv.sources]
-githubkit-schemas = { workspace = true }
+[tool.uv.sources.githubkit-schemas]
+workspace = true
 
 [tool.uv.workspace]
 members = ["packages/*"]
@@ -77,30 +89,29 @@ members = ["packages/*"]
 [tool.uv.build-backend]
 module-root = ""
 
-[build-system]
-requires = ["uv_build >=0.8.3, <0.12.0"]
-build-backend = "uv_build"
-
 [tool.pytest.ini_options]
 addopts = "--cov=githubkit --cov-append --cov-report=term-missing"
-filterwarnings = ["error", "ignore::DeprecationWarning"]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning",
+]
 
 [tool.coverage.run]
 plugins = ["coverage_conditional_plugin"]
 
 [tool.coverage.report]
 exclude_lines = [
-  "pragma: no cover",
-  "def __repr__",
-  "def __str__",
-  "@(typing\\.)?overload",
-  "if (typing\\.)?TYPE_CHECKING( is True)?:",
-  "@(abc\\.)?abstractmethod",
-  "raise NotImplementedError",
-  "warnings\\.warn",
-  "^\\.\\.\\.$",
-  "pass",
-  "if __name__ == .__main__.:",
+    "pragma: no cover",
+    "def __repr__",
+    "def __str__",
+    '@(typing\.)?overload',
+    'if (typing\.)?TYPE_CHECKING( is True)?:',
+    '@(abc\.)?abstractmethod',
+    "raise NotImplementedError",
+    'warnings\.warn',
+    '^\.\.\.$',
+    "pass",
+    "if __name__ == .__main__.:",
 ]
 
 [tool.coverage.coverage_conditional_plugin.rules]
@@ -115,36 +126,41 @@ line-ending = "lf"
 
 [tool.ruff.lint]
 select = [
-  "F",     # Pyflakes
-  "W",     # pycodestyle warnings
-  "E",     # pycodestyle errors
-  "I",     # isort
-  "UP",    # pyupgrade
-  "ASYNC", # flake8-async
-  "C4",    # flake8-comprehensions
-  "T10",   # flake8-debugger
-  "T20",   # flake8-print
-  "PYI",   # flake8-pyi
-  "PT",    # flake8-pytest-style
-  "Q",     # flake8-quotes
-  "TID",   # flake8-tidy-imports
-  "RUF",   # Ruff-specific rules
+    "F",
+    "W",
+    "E",
+    "I",
+    "UP",
+    "ASYNC",
+    "C4",
+    "T10",
+    "T20",
+    "PYI",
+    "PT",
+    "Q",
+    "TID",
+    "RUF",
 ]
 ignore = [
-  "E402",   # module-import-not-at-top-of-file
-  "UP037",  # quoted-annotation
-  "RUF001", # ambiguous-unicode-character-string
-  "RUF002", # ambiguous-unicode-character-docstring
-  "RUF003", # ambiguous-unicode-character-comment
+    "E402",
+    "UP037",
+    "RUF001",
+    "RUF002",
+    "RUF003",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"packages/githubkit-schemas-**/**" = ["E501", "PYI016", "TID", "UP007"]
+"packages/githubkit-schemas-**/**" = [
+    "E501",
+    "PYI016",
+    "TID",
+    "UP007",
+]
 "packages/githubkit-schemas/githubkit_schemas/latest/**" = [
-  "E501",
-  "PYI016",
-  "TID",
-  "UP007",
+    "E501",
+    "PYI016",
+    "TID",
+    "UP007",
 ]
 
 [tool.ruff.lint.isort]
@@ -163,17 +179,23 @@ typeCheckingMode = "standard"
 reportPrivateImportUsage = false
 reportShadowedImports = false
 disableBytesTypePromotions = true
-
 pythonPlatform = "All"
-defineConstant = { PYDANTIC_V2 = true }
 
-executionEnvironments = [
-  # disable overload check for generated version codes
-  { root = "packages/**/githubkit_schemas/", pythonVersion = "3.10", reportOverlappingOverload = false },
-  # codegen env config for dev
-  { root = "codegen", pythonVersion = "3.10" },
-  { root = ".", pythonVersion = "3.10" },
-]
+[tool.pyright.defineConstant]
+PYDANTIC_V2 = true
+
+[[tool.pyright.executionEnvironments]]
+root = "packages/**/githubkit_schemas/"
+pythonVersion = "3.10"
+reportOverlappingOverload = false
+
+[[tool.pyright.executionEnvironments]]
+root = "codegen"
+pythonVersion = "3.10"
+
+[[tool.pyright.executionEnvironments]]
+root = "."
+pythonVersion = "3.10"
 
 [tool.codegen]
 schemas_output_dir = "packages/githubkit-schemas/githubkit_schemas/"
@@ -214,454 +236,606 @@ output_dir = "packages/githubkit-schemas-ghec-2026-03-10/githubkit_schemas/"
 
 [tool.codegen.overrides.field_overrides]
 "+1" = "plus_one"
-"-1" = "minus_one"
+-1 = "minus_one"
 
 [[tool.codegen.overrides]]
 
-[tool.codegen.overrides.schema_overrides]
-# enhancement: issue timeline discriminator
-"/components/schemas/labeled-issue-event/properties/event" = { const = "labeled" }
-"/components/schemas/unlabeled-issue-event/properties/event" = { const = "unlabeled" }
-"/components/schemas/milestoned-issue-event/properties/event" = { const = "milestoned" }
-"/components/schemas/demilestoned-issue-event/properties/event" = { const = "demilestoned" }
-"/components/schemas/renamed-issue-event/properties/event" = { const = "renamed" }
-"/components/schemas/review-requested-issue-event/properties/event" = { const = "review_requested" }
-"/components/schemas/review-request-removed-issue-event/properties/event" = { const = "review_request_removed" }
-"/components/schemas/review-dismissed-issue-event/properties/event" = { const = "review_dismissed" }
-"/components/schemas/locked-issue-event/properties/event" = { const = "locked" }
-"/components/schemas/added-to-project-issue-event/properties/event" = { const = "added_to_project" }
-"/components/schemas/moved-column-in-project-issue-event/properties/event" = { const = "moved_columns_in_project" }
-"/components/schemas/removed-from-project-issue-event/properties/event" = { const = "removed_from_project" }
-"/components/schemas/converted-note-to-issue-issue-event/properties/event" = { const = "converted_note_to_issue" }
-"/components/schemas/timeline-comment-event/properties/event" = { const = "commented" }
-"/components/schemas/timeline-cross-referenced-event/properties/event" = { const = "cross-referenced" }
-"/components/schemas/timeline-committed-event/properties/event" = { const = "committed" }
-"/components/schemas/timeline-reviewed-event/properties/event" = { const = "reviewed" }
-"/components/schemas/timeline-line-commented-event/properties/event" = { const = "line_commented" }
-"/components/schemas/timeline-commit-commented-event/properties/event" = { const = "commit_commented" }
-"/components/schemas/timeline-assigned-issue-event/properties/event" = { const = "assigned" }
-"/components/schemas/timeline-unassigned-issue-event/properties/event" = { const = "unassigned" }
-
-# https://github.com/github/rest-api-description/issues/1639
-"/components/schemas/issue/properties/body_text" = { type = ["string", "null"] }
-"/components/schemas/issue/properties/body_html" = { type = ["string", "null"] }
-"/components/schemas/timeline-reviewed-event/properties/body_text" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/timeline-reviewed-event/properties/body_html" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/release/properties/body_text" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/release/properties/body_html" = { type = [
-  "string",
-  "null",
-] }
-
-# https://github.com/github/rest-api-description/issues/4492
-# https://github.com/yanyongyu/githubkit/issues/188
-"/components/schemas/issue/properties/state_reason/enum" = { "<add>" = [
-  "duplicate",
-] }
-
-# https://github.com/github/rest-api-description/issues/1811
-# https://github.com/yanyongyu/githubkit/issues/64
-"/components/schemas/pull-request-simple/properties/head/properties/label" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/pull-request-simple/properties/head/properties/repo" = { anyOf = [
-  { type = "null" },
-  { "$ref" = "#/components/schemas/repository" },
-], "$ref" = "<unset>" }
-# https://github.com/yanyongyu/githubkit/issues/56
-"/components/schemas/pull-request/properties/head/properties/label" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/pull-request/properties/head/properties/user" = { anyOf = [
-  { type = "null" },
-  { "$ref" = "#/components/schemas/simple-user" },
-], "$ref" = "<unset>" }
-# https://github.com/yanyongyu/githubkit/issues/200
-"/components/schemas/pull-request/properties/head/properties/repo" = { anyOf = [
-  { type = "null" },
-  { "$ref" = "#/components/schemas/repository" },
-], "$ref" = "<unset>" }
-
-# https://github.com/github/rest-api-description/issues/1812
-"/components/schemas/pull-request-simple/properties/labels/items/properties/description" = { type = [
-  "string",
-  "null",
-] }
-
-# https://github.com/github/rest-api-description/issues/621
-"/components/schemas/repository/properties/temp_clone_token" = { type = [
-  "string",
-  "null",
-] }
-# "/components/schemas/full-repository/properties/template_repository/properties/temp_clone_token" = { type = [
-#   "string",
-#   "null",
-# ] }
-"/components/schemas/minimal-repository/properties/temp_clone_token" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/team-repository/properties/temp_clone_token" = { type = [
-  "string",
-  "null",
-] }
-# "/components/schemas/pull-request/properties/head/properties/repo/properties/temp_clone_token" = { type = [
-#   "string",
-#   "null",
-# ] }
-# "/components/schemas/pull-request/properties/base/properties/repo/properties/temp_clone_token" = { type = [
-#   "string",
-#   "null",
-# ] }
-"/components/schemas/repo-search-result-item/properties/temp_clone_token" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/repository-webhooks/properties/temp_clone_token" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/repository-webhooks/properties/template_repository/properties/temp_clone_token" = { type = [
-  "string",
-  "null",
-] }
-
-# https://github.com/yanyongyu/githubkit/issues/214
-# repo owner account may be deleted, can be null in pull request
-"/components/schemas/repository/properties/owner" = { anyOf = [
-  { type = "null" },
-  { "$ref" = "#/components/schemas/simple-user" },
-], "$ref" = "<unset>" }
-
-# https://github.com/yanyongyu/githubkit/issues/293
-"/components/schemas/repo-search-result-item/required" = { "<remove>" = [
-  "has_downloads",
-] }
-
-# https://github.com/github/rest-api-description/issues/2491
-"/components/schemas/auto-merge/properties/commit_title" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/auto-merge/properties/commit_message" = { type = [
-  "string",
-  "null",
-] }
-
-# https://github.com/github/rest-api-description/issues/2496
-"/paths/~1repos~1{owner}~1{repo}~1releases/post/requestBody/content/application~1json/schema/properties/make_latest" = { default = "true" }
-"/paths/~1repos~1{owner}~1{repo}~1releases~1{release_id}/patch/requestBody/content/application~1json/schema/properties/make_latest" = { default = "true" }
-
-# https://github.com/github/rest-api-description/issues/2507
-"/components/schemas/organization-full/properties/company" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/organization-full/properties/email" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/organization-full/properties/location" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/organization-full/properties/name" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/organization-full/properties/blog" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/team-organization/properties/company" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/team-organization/properties/email" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/team-organization/properties/location" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/team-organization/properties/name" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/team-organization/properties/blog" = { type = [
-  "string",
-  "null",
-] }
-
-# https://github.com/yanyongyu/githubkit/issues/299
-"/components/schemas/pages-deployment-status/properties/status/enum" = { "<add>" = [
-  "deployment_queued",
-] }
-
-# https://github.com/yanyongyu/githubkit/issues/300
-"/paths/~1repos~1{owner}~1{repo}~1pages~1deployments/post/requestBody/content/application~1json/schema/properties/artifact_id/type" = { "<copy>" = "#/components/parameters/artifact-id/schema/type" }
-
-# https://github.com/yanyongyu/githubkit/issues/199
-# https://github.com/github/rest-api-description/issues/4697
-# git user date format should be date-time
-"/components/schemas/git-user/properties/date" = { format = "date-time" }
-
-# https://github.com/yanyongyu/githubkit/pull/229
-# https://github.com/github/rest-api-description/issues/4995
-# verified_at should be optional when commit not verified
-"/components/schemas/verification/required" = { "<remove>" = ["verified_at"] }
-
-# https://github.com/yanyongyu/githubkit/pull/134
-# blob_url and raw_url may be null when the diff file is submodule's file
-"/components/schemas/diff-entry/properties/blob_url" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/diff-entry/properties/raw_url" = { type = [
-  "string",
-  "null",
-] }
-# https://github.com/yanyongyu/githubkit/issues/196
-# https://github.com/github/rest-api-description/issues/4652
-# sha may be null when the file only changes permissions
-"/components/schemas/diff-entry/properties/sha" = { type = ["string", "null"] }
-
-# [FIXED] copilot-seat-details/assignee is not valid
-# "/components/schemas/copilot-seat-details/properties/assignee" = { enum = "<unset>", oneOf = [
-#   { "$ref" = "#/components/schemas/simple-user" },
-#   { "$ref" = "#/components/schemas/team" },
-#   { "$ref" = "#/components/schemas/organization" },
-# ] }
-
-# https://github.com/yanyongyu/githubkit/issues/189
-# app installation permissions missing "read"
-"/components/schemas/app-permissions/properties/organization_copilot_seat_management/enum" = { "<add>" = [
-  "read",
-] }
-
-# date-time search syntax should be string
-# https://docs.github.com/search-github/getting-started-with-searching-on-github/understanding-the-search-syntax#query-for-dates
-"/components/parameters/created/schema" = { format = "<unset>" }
-
-# https://github.com/yanyongyu/githubkit/issues/144
-"/components/schemas/simple-classroom-assignment/properties/editor" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/simple-classroom-assignment/properties/language" = { type = [
-  "string",
-  "null",
-] }
-"/components/schemas/simple-classroom-assignment/required" = { "<remove>" = [
-  "submitted",
-] }
-
-# https://github.com/yanyongyu/githubkit/issues/148
-"/paths/~1repos~1{owner}~1{repo}~1check-runs/post/requestBody/content/application~1json/schema" = { discriminator = "<unset>" }
-# repo check runs status enum may have more values (missing in oneOf)
-"/paths/~1repos~1{owner}~1{repo}~1check-runs/post/requestBody/content/application~1json/schema/oneOf/1/properties/status/enum" = { "<add>" = [
-  "waiting",
-  "requested",
-  "pending",
-] }
-
-# get issue request body should be null
-# "/paths/~1repos~1{owner}~1{repo}~1issues~1{issue_number}/get" = { requestBody = "<unset>" }
-
-# get repo content request body should be null
-"/paths/~1repos~1{owner}~1{repo}~1contents~1{path}/get" = { requestBody = "<unset>" }
-# get repo content response discriminator not supported
-"/paths/~1repos~1{owner}~1{repo}~1contents~1{path}/get/responses/200/content/application~1json/schema" = { discriminator = "<unset>" }
-
-# get authenticated user response discriminator not supported
-"/paths/~1user/get/responses/200/content/application~1json/schema" = { discriminator = "<unset>" }
-# get user by account id response discriminator not supported
-"/paths/~1user~1{account_id}/get/responses/200/content/application~1json/schema" = { discriminator = "<unset>" }
-# get user by username response discriminator not supported
-"/paths/~1users~1{username}/get/responses/200/content/application~1json/schema" = { discriminator = "<unset>" }
-
-# Webhook schema overrides
-# webhook check run action is required
-"/components/schemas/webhook-check-run-completed/required" = { "<add>" = [
-  "action",
-] }
-"/components/schemas/webhook-check-run-created/required" = { "<add>" = [
-  "action",
-] }
-"/components/schemas/webhook-check-run-rerequested/required" = { "<add>" = [
-  "action",
-] }
-
-# webhook github app events enum schema is not always up to date
-# https://github.com/github/rest-api-description/issues/3775
-"/components/schemas/webhooks_issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhooks_issue_2/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-check-suite-completed/properties/check_suite/properties/app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-check-suite-requested/properties/check_suite/properties/app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-check-suite-rerequested/properties/check_suite/properties/app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-deployment-created/properties/deployment/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-deployment-status-created/properties/deployment/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-deployment-status-created/properties/deployment_status/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-issue-comment-created/properties/issue/allOf/0/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-issue-comment-deleted/properties/issue/allOf/0/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-issue-comment-edited/properties/issue/allOf/0/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-issues-closed/properties/issue/allOf/0/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-issues-deleted/properties/issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-issues-demilestoned/properties/issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-issues-edited/properties/issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-issues-labeled/properties/issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-issues-locked/properties/issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-issues-milestoned/properties/issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-issues-opened/properties/changes/properties/old_issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-issues-opened/properties/issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-issues-reopened/properties/issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-issues-transferred/properties/changes/properties/new_issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-issues-unlocked/properties/issue/properties/performed_via_github_app/properties/events/items" = { enum = "<unset>" }
-"/components/schemas/webhook-meta-deleted/properties/hook/properties/events/items" = { enum = "<unset>" }
-
-# webhook deployment payload object can contain additional properties
-"/components/schemas/webhook-deployment-status-created/properties/deployment/properties/payload" = { oneOf = [
-  { type = "string" },
-  { type = "object", additionalProperties = true },
-] }
-"/components/schemas/webhook-deployment-created/properties/deployment/properties/payload" = { oneOf = [
-  { type = "string" },
-  { type = "object", additionalProperties = true },
-] }
-
-# webhook deployment protection rule action is required
-"/components/schemas/webhook-deployment-protection-rule-requested" = { required = [
-  "action",
-] }
-# webhook secret scanning alert location action is required
-"/components/schemas/webhook-secret-scanning-alert-location-created/required" = { "<add>" = [
-  "action",
-] }
-
-# webhook fork topics can be null
-"/components/schemas/webhook-fork/properties/forkee/allOf/1/properties/topics/items" = { type = [
-  "string",
-  "null",
-] }
-# webhook project card after_id should be integer
-"/components/schemas/webhook-project-card-moved/properties/project_card/allOf/1/properties/after_id" = { type = [
-  "integer",
-  "null",
-] }
-# webhook workflow job run_id should be integer
-"/components/schemas/webhook-workflow-job-completed/properties/workflow_job/allOf/0/properties/run_id" = { type = "integer" }
-"/components/schemas/webhook-workflow-job-in-progress/properties/workflow_job/allOf/0/properties/run_id" = { type = "integer" }
-"/components/schemas/webhook-workflow-job-queued/properties/workflow_job/properties/run_id" = { type = "integer" }
-"/components/schemas/webhook-workflow-job-waiting/properties/workflow_job/properties/run_id" = { type = "integer" }
-# webhook workflow job runner_id should be integer
-"/components/schemas/webhook-workflow-job-completed/properties/workflow_job/allOf/1/properties/runner_id" = { type = [
-  "integer",
-  "null",
-] }
-"/components/schemas/webhook-workflow-job-in-progress/properties/workflow_job/allOf/1/properties/runner_id" = { type = [
-  "integer",
-  "null",
-] }
-# webhook workflow job runner_group_id should be integer
-"/components/schemas/webhook-workflow-job-completed/properties/workflow_job/allOf/1/properties/runner_group_id" = { type = [
-  "integer",
-  "null",
-] }
-"/components/schemas/webhook-workflow-job-in-progress/properties/workflow_job/allOf/1/properties/runner_group_id" = { type = [
-  "integer",
-  "null",
-] }
-
-# webhook workflow run pull_requests items id and number should be integers
-# https://github.com/github/rest-api-description/issues/4408
-"/components/schemas/webhook-workflow-run-completed/properties/workflow_run/properties/pull_requests/items/properties/id" = { type = "integer" }
-"/components/schemas/webhook-workflow-run-completed/properties/workflow_run/properties/pull_requests/items/properties/number" = { type = "integer" }
-"/components/schemas/webhook-workflow-run-in-progress/properties/workflow_run/properties/pull_requests/items/properties/id" = { type = "integer" }
-"/components/schemas/webhook-workflow-run-in-progress/properties/workflow_run/properties/pull_requests/items/properties/number" = { type = "integer" }
-"/components/schemas/webhook-workflow-run-requested/properties/workflow_run/properties/pull_requests/items/properties/id" = { type = "integer" }
-"/components/schemas/webhook-workflow-run-requested/properties/workflow_run/properties/pull_requests/items/properties/number" = { type = "integer" }
-
-# https://github.com/yanyongyu/githubkit/issues/275
-# https://github.com/github/rest-api-description/issues/6058
-"/components/schemas/webhook-code-scanning-alert-fixed/properties/alert/properties/fixed_at" = { type = [
-  "string",
-  "null",
-], format = "date-time" }
-# https://github.com/yanyongyu/githubkit/issues/276
-# https://github.com/github/rest-api-description/issues/6059
-"/components/schemas/webhook-code-scanning-alert-fixed/properties/alert/properties/state/enum" = { "<add>" = [
-  "dismissed",
-] }
-# https://github.com/yanyongyu/githubkit/issues/279
-# https://github.com/github/rest-api-description/issues/6081
-"/components/schemas/webhook-code-scanning-alert-closed-by-user/properties/alert/properties/fixed_at" = { type = [
-  "string",
-  "null",
-], format = "date-time" }
-# other same issues
-"/components/schemas/webhook-code-scanning-alert-appeared-in-branch/properties/alert/properties/fixed_at" = { type = [
-  "string",
-  "null",
-], format = "date-time" }
-"/components/schemas/webhook-code-scanning-alert-reopened/properties/alert/properties/fixed_at" = { type = [
-  "string",
-  "null",
-], format = "date-time" }
-"/components/schemas/webhook-code-scanning-alert-reopened-by-user/properties/alert/properties/fixed_at" = { type = [
-  "string",
-  "null",
-], format = "date-time" }
-"/components/schemas/webhook-code-scanning-alert-updated-assignment/properties/alert/properties/fixed_at" = { type = [
-  "string",
-  "null",
-], format = "date-time" }
-
-# https://github.com/yanyongyu/githubkit/issues/283
-# https://github.com/github/rest-api-description/issues/6107
-"/components/schemas/webhook-code-scanning-alert-reopened/properties/alert/properties/dismissed_by" = { "<copy>" = "#/components/schemas/webhook-code-scanning-alert-appeared-in-branch/properties/alert/properties/dismissed_by" }
-
-# webhook repository dispatch action can be any string
-"/webhooks/repository-dispatch-sample.collected/post" = { operationId = "repository-dispatch" }
-# "/components/schemas/webhook-repository-dispatch-sample/properties/action" = { enum = "<unset>" }
-
-# https://github.com/yanyongyu/githubkit/issues/239
-# discussion answer's parent id may be not null
-"/components/schemas/webhooks_answer/properties/parent_id" = { type = [
-  "integer",
-  "null",
-] }
-
-# https://github.com/yanyongyu/githubkit/issues/205
-# https://github.com/github/rest-api-description/issues/4727
-"/components/schemas/dependabot-alert-with-repository/properties/dependency/properties/relationship/enum" = { "<add>" = [
-  "inconclusive",
-] }
-# https://github.com/yanyongyu/githubkit/issues/284
-# https://github.com/github/rest-api-description/issues/6108
-"/components/schemas/dependabot-alert/properties/dependency/properties/relationship/enum" = { "<add>" = [
-  "inconclusive",
-] }
-# https://github.com/github/rest-api-description/issues/4728
-"/components/schemas/code-scanning-alert-classification/enum" = { "<add>" = [
-  "documentation",
-] }
+[tool.codegen.overrides.operation_overrides]
+"pull-request-stacks/" = "pull-request-stacks/stacks-"
 
 [[tool.codegen.overrides]]
-# override invalid schemas for ghec-2022-11-28
-target_descriptions = ["ghec-2022-11-28", "ghec-2026-03-10"]
+target_descriptions = [
+    "ghec-2022-11-28",
+    "ghec-2026-03-10",
+]
 
-[tool.codegen.overrides.schema_overrides]
-# duplicate operation name for enterprise apps
-"/paths/~1enterprises~1{enterprise}~1apps~1organizations~1{org}~1installations~1{installation_id}/delete" = { operationId = "enterprise-apps/enterprise-delete-installation" }
+[tool.codegen.overrides.operation_overrides]
+"enterprise-apps/" = "enterprise-apps/enterprise-"
+
+[[tool.codegen.overrides]]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/labeled-issue-event/properties/event"]
+const = "labeled"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/unlabeled-issue-event/properties/event"]
+const = "unlabeled"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/milestoned-issue-event/properties/event"]
+const = "milestoned"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/demilestoned-issue-event/properties/event"]
+const = "demilestoned"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/renamed-issue-event/properties/event"]
+const = "renamed"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/review-requested-issue-event/properties/event"]
+const = "review_requested"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/review-request-removed-issue-event/properties/event"]
+const = "review_request_removed"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/review-dismissed-issue-event/properties/event"]
+const = "review_dismissed"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/locked-issue-event/properties/event"]
+const = "locked"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/added-to-project-issue-event/properties/event"]
+const = "added_to_project"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/moved-column-in-project-issue-event/properties/event"]
+const = "moved_columns_in_project"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/removed-from-project-issue-event/properties/event"]
+const = "removed_from_project"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/converted-note-to-issue-issue-event/properties/event"]
+const = "converted_note_to_issue"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/timeline-comment-event/properties/event"]
+const = "commented"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/timeline-cross-referenced-event/properties/event"]
+const = "cross-referenced"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/timeline-committed-event/properties/event"]
+const = "committed"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/timeline-reviewed-event/properties/event"]
+const = "reviewed"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/timeline-line-commented-event/properties/event"]
+const = "line_commented"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/timeline-commit-commented-event/properties/event"]
+const = "commit_commented"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/timeline-assigned-issue-event/properties/event"]
+const = "assigned"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/timeline-unassigned-issue-event/properties/event"]
+const = "unassigned"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/issue/properties/body_text"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/issue/properties/body_html"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/timeline-reviewed-event/properties/body_text"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/timeline-reviewed-event/properties/body_html"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/release/properties/body_text"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/release/properties/body_html"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/issue/properties/state_reason/enum"]
+"<add>" = ["duplicate"]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/pull-request-simple/properties/head/properties/label"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/pull-request-simple/properties/head/properties/repo"]
+"$ref" = "<unset>"
+
+[[tool.codegen.overrides.schema_overrides."/components/schemas/pull-request-simple/properties/head/properties/repo".anyOf]]
+type = "null"
+
+[[tool.codegen.overrides.schema_overrides."/components/schemas/pull-request-simple/properties/head/properties/repo".anyOf]]
+"$ref" = "#/components/schemas/repository"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/pull-request/properties/head/properties/label"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/pull-request/properties/head/properties/user"]
+"$ref" = "<unset>"
+
+[[tool.codegen.overrides.schema_overrides."/components/schemas/pull-request/properties/head/properties/user".anyOf]]
+type = "null"
+
+[[tool.codegen.overrides.schema_overrides."/components/schemas/pull-request/properties/head/properties/user".anyOf]]
+"$ref" = "#/components/schemas/simple-user"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/pull-request/properties/head/properties/repo"]
+"$ref" = "<unset>"
+
+[[tool.codegen.overrides.schema_overrides."/components/schemas/pull-request/properties/head/properties/repo".anyOf]]
+type = "null"
+
+[[tool.codegen.overrides.schema_overrides."/components/schemas/pull-request/properties/head/properties/repo".anyOf]]
+"$ref" = "#/components/schemas/repository"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/pull-request-simple/properties/labels/items/properties/description"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/repository/properties/temp_clone_token"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/minimal-repository/properties/temp_clone_token"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/team-repository/properties/temp_clone_token"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/repo-search-result-item/properties/temp_clone_token"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/repository-webhooks/properties/temp_clone_token"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/repository-webhooks/properties/template_repository/properties/temp_clone_token"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/repository/properties/owner"]
+"$ref" = "<unset>"
+
+[[tool.codegen.overrides.schema_overrides."/components/schemas/repository/properties/owner".anyOf]]
+type = "null"
+
+[[tool.codegen.overrides.schema_overrides."/components/schemas/repository/properties/owner".anyOf]]
+"$ref" = "#/components/schemas/simple-user"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/repo-search-result-item/required"]
+"<remove>" = ["has_downloads"]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/auto-merge/properties/commit_title"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/auto-merge/properties/commit_message"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/paths/~1repos~1{owner}~1{repo}~1releases/post/requestBody/content/application~1json/schema/properties/make_latest"]
+default = "true"
+
+[tool.codegen.overrides.schema_overrides."/paths/~1repos~1{owner}~1{repo}~1releases~1{release_id}/patch/requestBody/content/application~1json/schema/properties/make_latest"]
+default = "true"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/organization-full/properties/company"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/organization-full/properties/email"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/organization-full/properties/location"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/organization-full/properties/name"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/organization-full/properties/blog"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/team-organization/properties/company"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/team-organization/properties/email"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/team-organization/properties/location"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/team-organization/properties/name"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/team-organization/properties/blog"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/pages-deployment-status/properties/status/enum"]
+"<add>" = ["deployment_queued"]
+
+[tool.codegen.overrides.schema_overrides."/paths/~1repos~1{owner}~1{repo}~1pages~1deployments/post/requestBody/content/application~1json/schema/properties/artifact_id/type"]
+"<copy>" = "#/components/parameters/artifact-id/schema/type"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/git-user/properties/date"]
+format = "date-time"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/verification/required"]
+"<remove>" = ["verified_at"]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/diff-entry/properties/blob_url"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/diff-entry/properties/raw_url"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/diff-entry/properties/sha"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/app-permissions/properties/organization_copilot_seat_management/enum"]
+"<add>" = ["read"]
+
+[tool.codegen.overrides.schema_overrides."/components/parameters/created/schema"]
+format = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/simple-classroom-assignment/properties/editor"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/simple-classroom-assignment/properties/language"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/simple-classroom-assignment/required"]
+"<remove>" = ["submitted"]
+
+[tool.codegen.overrides.schema_overrides."/paths/~1repos~1{owner}~1{repo}~1check-runs/post/requestBody/content/application~1json/schema"]
+discriminator = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/paths/~1repos~1{owner}~1{repo}~1check-runs/post/requestBody/content/application~1json/schema/oneOf/1/properties/status/enum"]
+"<add>" = [
+    "waiting",
+    "requested",
+    "pending",
+]
+
+[tool.codegen.overrides.schema_overrides."/paths/~1repos~1{owner}~1{repo}~1contents~1{path}/get"]
+requestBody = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/paths/~1repos~1{owner}~1{repo}~1contents~1{path}/get/responses/200/content/application~1json/schema"]
+discriminator = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/paths/~1user/get/responses/200/content/application~1json/schema"]
+discriminator = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/paths/~1user~1{account_id}/get/responses/200/content/application~1json/schema"]
+discriminator = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/paths/~1users~1{username}/get/responses/200/content/application~1json/schema"]
+discriminator = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-check-run-completed/required"]
+"<add>" = ["action"]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-check-run-created/required"]
+"<add>" = ["action"]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-check-run-rerequested/required"]
+"<add>" = ["action"]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhooks_issue/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhooks_issue_2/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-check-suite-completed/properties/check_suite/properties/app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-check-suite-requested/properties/check_suite/properties/app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-check-suite-rerequested/properties/check_suite/properties/app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-deployment-created/properties/deployment/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-deployment-status-created/properties/deployment/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-deployment-status-created/properties/deployment_status/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-issue-comment-created/properties/issue/allOf/0/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-issue-comment-deleted/properties/issue/allOf/0/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-issue-comment-edited/properties/issue/allOf/0/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-issues-closed/properties/issue/allOf/0/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-issues-deleted/properties/issue/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-issues-demilestoned/properties/issue/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-issues-edited/properties/issue/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-issues-labeled/properties/issue/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-issues-locked/properties/issue/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-issues-milestoned/properties/issue/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-issues-opened/properties/changes/properties/old_issue/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-issues-opened/properties/issue/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-issues-reopened/properties/issue/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-issues-transferred/properties/changes/properties/new_issue/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-issues-unlocked/properties/issue/properties/performed_via_github_app/properties/events/items"]
+enum = "<unset>"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-meta-deleted/properties/hook/properties/events/items"]
+enum = "<unset>"
+
+[[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-deployment-status-created/properties/deployment/properties/payload".oneOf]]
+type = "string"
+
+[[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-deployment-status-created/properties/deployment/properties/payload".oneOf]]
+type = "object"
+additionalProperties = true
+
+[[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-deployment-created/properties/deployment/properties/payload".oneOf]]
+type = "string"
+
+[[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-deployment-created/properties/deployment/properties/payload".oneOf]]
+type = "object"
+additionalProperties = true
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-deployment-protection-rule-requested"]
+required = ["action"]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-secret-scanning-alert-location-created/required"]
+"<add>" = ["action"]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-fork/properties/forkee/allOf/1/properties/topics/items"]
+type = [
+    "string",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-project-card-moved/properties/project_card/allOf/1/properties/after_id"]
+type = [
+    "integer",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-workflow-job-completed/properties/workflow_job/allOf/0/properties/run_id"]
+type = "integer"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-workflow-job-in-progress/properties/workflow_job/allOf/0/properties/run_id"]
+type = "integer"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-workflow-job-queued/properties/workflow_job/properties/run_id"]
+type = "integer"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-workflow-job-waiting/properties/workflow_job/properties/run_id"]
+type = "integer"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-workflow-job-completed/properties/workflow_job/allOf/1/properties/runner_id"]
+type = [
+    "integer",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-workflow-job-in-progress/properties/workflow_job/allOf/1/properties/runner_id"]
+type = [
+    "integer",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-workflow-job-completed/properties/workflow_job/allOf/1/properties/runner_group_id"]
+type = [
+    "integer",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-workflow-job-in-progress/properties/workflow_job/allOf/1/properties/runner_group_id"]
+type = [
+    "integer",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-workflow-run-completed/properties/workflow_run/properties/pull_requests/items/properties/id"]
+type = "integer"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-workflow-run-completed/properties/workflow_run/properties/pull_requests/items/properties/number"]
+type = "integer"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-workflow-run-in-progress/properties/workflow_run/properties/pull_requests/items/properties/id"]
+type = "integer"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-workflow-run-in-progress/properties/workflow_run/properties/pull_requests/items/properties/number"]
+type = "integer"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-workflow-run-requested/properties/workflow_run/properties/pull_requests/items/properties/id"]
+type = "integer"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-workflow-run-requested/properties/workflow_run/properties/pull_requests/items/properties/number"]
+type = "integer"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-code-scanning-alert-fixed/properties/alert/properties/fixed_at"]
+type = [
+    "string",
+    "null",
+]
+format = "date-time"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-code-scanning-alert-fixed/properties/alert/properties/state/enum"]
+"<add>" = ["dismissed"]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-code-scanning-alert-closed-by-user/properties/alert/properties/fixed_at"]
+type = [
+    "string",
+    "null",
+]
+format = "date-time"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-code-scanning-alert-appeared-in-branch/properties/alert/properties/fixed_at"]
+type = [
+    "string",
+    "null",
+]
+format = "date-time"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-code-scanning-alert-reopened/properties/alert/properties/fixed_at"]
+type = [
+    "string",
+    "null",
+]
+format = "date-time"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-code-scanning-alert-reopened-by-user/properties/alert/properties/fixed_at"]
+type = [
+    "string",
+    "null",
+]
+format = "date-time"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-code-scanning-alert-updated-assignment/properties/alert/properties/fixed_at"]
+type = [
+    "string",
+    "null",
+]
+format = "date-time"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-code-scanning-alert-reopened/properties/alert/properties/dismissed_by"]
+"<copy>" = "#/components/schemas/webhook-code-scanning-alert-appeared-in-branch/properties/alert/properties/dismissed_by"
+
+[tool.codegen.overrides.schema_overrides."/webhooks/repository-dispatch-sample.collected/post"]
+operationId = "repository-dispatch"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhooks_answer/properties/parent_id"]
+type = [
+    "integer",
+    "null",
+]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/dependabot-alert-with-repository/properties/dependency/properties/relationship/enum"]
+"<add>" = ["inconclusive"]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/dependabot-alert/properties/dependency/properties/relationship/enum"]
+"<add>" = ["inconclusive"]
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/code-scanning-alert-classification/enum"]
+"<add>" = ["documentation"]
+
+[build-system]
+requires = ["uv_build >=0.8.3, <0.12.0"]
+build-backend = "uv_build"

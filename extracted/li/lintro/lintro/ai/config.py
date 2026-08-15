@@ -307,15 +307,12 @@ class AIConfig(BaseModel):
     )
 
     cursor_trust_workspace: bool = Field(
-        default=False,
+        default=True,
         description=(
             "Pass '--trust' to the Cursor 'agent' CLI, granting it workspace "
-            "trust. Security risk: the Cursor provider is fed untrusted, "
-            "prompt-injectable content (e.g. 'lintro review --pr N' embeds "
-            "diffs from arbitrary fork PRs). Combining workspace trust with "
-            "such input could let an injected diff drive an agent operating "
-            "with full workspace trust, so this defaults to False and should "
-            "only be enabled for fully trusted local workspaces."
+            "trust. Trust follows from choosing provider: cursor, so this "
+            "defaults to True. Set false to restore the Cursor agent's "
+            "interactive trust prompt."
         ),
     )
 
@@ -459,9 +456,10 @@ class AIConfig(BaseModel):
         in ``.lintro-config.yaml`` must not break the whole run.
 
         Environment overrides (``LINTRO_AI_PROVIDER``, ``LINTRO_AI_MODEL``,
-        ``LINTRO_AI_TRANSPORT``, ``LINTRO_AI_ENABLED``) are applied here so
-        every consumer of :meth:`from_mapping` — execution, status, doctor,
-        MCP — sees the same effective values (#1970).
+        ``LINTRO_AI_TRANSPORT``, ``LINTRO_AI_ENABLED``,
+        ``LINTRO_AI_MAX_COST_USD``) are applied here so every consumer of
+        :meth:`from_mapping` — execution, status, doctor, MCP — sees the
+        same effective values (#1970, #2024).
 
         This is the boundary that keeps :mod:`lintro.config` free of any
         knowledge of ``AIConfig``'s field set (see issue #724): the loader
@@ -500,7 +498,7 @@ class AIConfig(BaseModel):
 
         Returns:
             Validated config together with provenance for ``provider``,
-            ``model``, ``transport``, and ``enabled``.
+            ``model``, ``transport``, ``enabled``, and ``max_cost_usd``.
         """
         from lintro.ai.config_overrides import (
             OVERRIDE_FIELDS,
