@@ -99,6 +99,9 @@ typedef struct{
 }DAQPBnB;
 
 typedef struct{
+    int is_symmetric;
+    int retry_rho_needed;
+
     c_float* Hsym;
     c_float* Hs_rho;
     c_float* H_rho;
@@ -117,6 +120,69 @@ typedef struct{
 
     c_float rho;
 }DAQPAVI;
+
+/*
+ * Elimination of equality constraints.
+ *
+ * The LDP
+ *   min 0.5||u||^2  s.t.  dlower <= M u <= dupper,
+ * in which the rows E are equalities (M_E u = d_E), is reduced with the QR
+ * factorization M_E' = [Q1 Q2] [R; 0] by the change of variables
+ *   u = Q1 y1 + Q2 w,   R' y1 = d_E.
+ * Since ||u||^2 = ||y1||^2+||w||^2, the reduced problem in w is again an LDP,
+ * with M_r = M Q2 and d_r = d - M Q1 y1, so no refactorization is needed.
+ * The reduced problem has no simple bounds (ms = 0) and keeps the constraint
+ * indexing of the original problem, with the eliminated rows marked immutable.
+ */
+typedef struct{
+    int n;  // Number of primal variables before elimination
+    int m;  // Number of constraints before elimination
+    int ms; // Number of simple bounds before elimination
+    int neq; // Number of eliminated equality constraints
+    int nign; // Number of equalities that were linearly dependent (ignored)
+    int ndrop; // Number of constraints that the equalities imply
+    int ncand; // Number of equality candidates that memory is allocated for
+    int nz; // Reduced number of primal variables (n-neq)
+    int m_r; // Reduced number of constraints
+    int installed; // Whether the reduced problem is currently in the workspace
+    int expanded; // Whether the reduced solution has already been expanded
+
+    int* eq_ids; // The neq eliminated, followed by the nign ignored, equalities
+    int* drop_ids; // Constraints that are implied by the equalities
+    int* map; // Constraint index in the original problem of each reduced one
+    c_float* Q; // Householder vectors (leading neq columns) and Q2 (trailing)
+    c_float* R; // Upper triangular factor of M_E' (packed by columns)
+    c_float* tau; // Householder scalars
+    c_float* s_eq; // Normalization of the eliminated equality constraints
+    c_float* y1; // Q1-part of u (solves R'y1 = d_E)
+    c_float* lam_eq; // Multipliers of the eliminated constraints
+    c_float* W; // Rinv*Q2 (n x nz, row major)
+    c_float* xp; // Part of the solution that the equalities determine
+    c_float* tmp; // Scratch of size 2n
+
+    c_float up_norm2; // ||up||^2 (offset in the objective function)
+
+    // Reduced problem (swapped into the workspace while solving)
+    c_float* M;
+    c_float* dupper;
+    c_float* dlower;
+    c_float* scaling;
+    c_float* Mu;
+    int* sense;
+    // Full problem (restored into the workspace when it is updated). The
+    // reduced problem has an identity Hessian, so the Hessian factor and the
+    // linear term are set aside as well: the solver then sees an ordinary
+    // least-distance problem.
+    c_float* M_full;
+    c_float* dupper_full;
+    c_float* dlower_full;
+    c_float* scaling_full;
+    c_float* Mu_full;
+    c_float* Rinv_full;
+    c_float* RinvD_full;
+    c_float* v_full;
+    int* sense_full;
+}DAQPEqElim;
 
 typedef struct{
     DAQPProblem* qp;
@@ -157,14 +223,27 @@ typedef struct{
     int iterations;
     int sing_ind; // Flag for denoting whether Mk Mk' is singular or not
 
-    // Semi-proximal support: prox_mask[i] == 1 iff direction i needed eps
-    // regularization to make the Cholesky factor non-singular.
+    // Proximal support. Diagonal Hessians can regularize individual
+    // directions; dense singular Hessians use a full shift for stability.
     int* prox_mask;
     int  n_prox; // Number of directions that needed regularization
 
 
     // Soft constraint
     c_float soft_slack;
+#ifdef SOFT_WEIGHTS
+    // The softened objective is given by
+    //    min  0.5 x'*H*x + f'x + 0.5 su'su + 0.5 sl'sl,
+    // and the softened constraints are given by (similarly for simple bounds)
+    //    lbA-rho_ls*sl <= A*x <= ubA+rho_us*su,
+    // with the bounds sl >= d_ls, su >= d_us.
+    // The bounds are assumed to include the contribution from d_ls/d_us,
+    // since the slacks start active at their bounds.
+    c_float *d_ls;
+    c_float *d_us;
+    c_float *rho_ls;
+    c_float *rho_us;
+#endif
 
     // Settings
     DAQPSettings* settings;
@@ -176,8 +255,12 @@ typedef struct{
     int* break_points;
     // AVI
     DAQPAVI* avi;
+    // Equality elimination (NULL if the LDP is not reduced)
+    DAQPEqElim* eq;
     // Timer (used for time limit checking, set externally by daqp_solve)
     void *timer;
+    // M*u from the latest feasibility scan (length m-ms); NULL disables batching
+    c_float *Mu;
 }DAQPWorkspace;
 
 # ifdef __cplusplus

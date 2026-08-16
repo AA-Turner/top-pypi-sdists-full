@@ -528,7 +528,9 @@ class Quote:
                 standardized_df, asset_type=self.asset_type, source="KBS"
             )
             # Convert to lowercase for final output
-            standardized_df["match_type"] = standardized_df["match_type"].str.lower()
+            standardized_df["match_type"] = (
+                standardized_df["match_type"].astype(str).str.lower()
+            )
 
         # id: Generate ID from timestamp, price, and volume (KBS doesn't have transaction ID)
         if "timestamp" in df.columns:

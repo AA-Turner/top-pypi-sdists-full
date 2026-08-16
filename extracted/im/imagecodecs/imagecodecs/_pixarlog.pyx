@@ -80,7 +80,6 @@ def pixarlog_version():
 
 def pixarlog_check(const uint8_t[::1] data, /):
     """Return whether data is PixarLog encoded or None if unknown."""
-    return None
 
 
 def pixarlog_encode(
@@ -136,14 +135,14 @@ def pixarlog_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     if deflate:
         with nogil:
             ret = pixarlog_encode_(
                 <const uint8_t*> src.data,
                 srcsize,
-                <uint8_t*> &dst[0],
+                <uint8_t*> dst._data,
                 dstsize,
                 width,
                 stride,
@@ -155,7 +154,7 @@ def pixarlog_encode(
             ret = pixarlog_encode_raw_(
                 <const uint8_t*> src.data,
                 srcsize,
-                <uint8_t*> &dst[0],
+                <uint8_t*> dst._data,
                 dstsize,
                 width,
                 stride,
@@ -185,7 +184,7 @@ def pixarlog_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize, width, stride, ret
         int datafmt
         numpy.dtype outdtype
@@ -236,7 +235,7 @@ def pixarlog_decode(
     if deflate:
         with nogil:
             ret = pixarlog_decode_(
-                &src[0],
+                <const uint8_t*> src._data,
                 srcsize,
                 <uint8_t*> dst.data,
                 dstsize,
@@ -247,7 +246,7 @@ def pixarlog_decode(
     else:
         with nogil:
             ret = pixarlog_decode_raw_(
-                &src[0],
+                <const uint8_t*> src._data,
                 srcsize,
                 <uint8_t*> dst.data,
                 dstsize,

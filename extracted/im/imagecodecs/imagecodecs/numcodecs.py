@@ -192,6 +192,11 @@ class Apng(Codec):
         filter: imagecodecs.APNG.FILTER | int | str | None = None,
         photometric: imagecodecs.APNG.COLOR_TYPE | int | str | None = None,
         delay: int | None = None,
+        primaries: imagecodecs.APNG.COLOR_PRIMARIES | int | str | None = None,
+        transfer: (
+            imagecodecs.APNG.TRANSFER_CHARACTERISTICS | int | str | None
+        ) = None,
+        matrix: imagecodecs.APNG.MATRIX_COEFFICIENTS | int | str | None = None,
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.APNG.available:
@@ -203,6 +208,13 @@ class Apng(Codec):
         self.filter = _enum_name(filter, imagecodecs.APNG.FILTER)
         self.photometric = _enum_name(photometric, imagecodecs.APNG.COLOR_TYPE)
         self.delay = None if delay is None else int(delay)
+        self.primaries = _enum_name(
+            primaries, imagecodecs.APNG.COLOR_PRIMARIES
+        )
+        self.transfer = _enum_name(
+            transfer, imagecodecs.APNG.TRANSFER_CHARACTERISTICS
+        )
+        self.matrix = _enum_name(matrix, imagecodecs.APNG.MATRIX_COEFFICIENTS)
         self.squeeze = squeeze
 
     def encode(self, buf):
@@ -214,6 +226,9 @@ class Apng(Codec):
             filter=self.filter,
             photometric=self.photometric,
             delay=self.delay,
+            primaries=self.primaries,
+            transfer=self.transfer,
+            matrix=self.matrix,
         )
 
     def decode(self, buf, out=None):
@@ -850,6 +865,46 @@ class Checksum(Codec):
             )
             raise RuntimeError(msg)
         return out
+
+
+class Chunked(Codec):
+    """CHUNKED codec for numcodecs."""
+
+    codec_id = 'imagecodecs_chunked'
+
+    def __init__(
+        self,
+        *,
+        level: int | None = None,
+        codec: imagecodecs.CHUNKED.CODEC | int | str | None = None,
+        chunksize: int | None = None,
+        itemsize: int = 1,
+        hilo: bool = False,
+    ) -> None:
+        if not imagecodecs.CHUNKED.available:
+            msg = 'imagecodecs.CHUNKED not available'
+            raise ValueError(msg)
+
+        self.level = None if level is None else int(level)
+        self.codec = _enum_name(codec, imagecodecs.CHUNKED.CODEC)
+        self.chunksize = None if chunksize is None else int(chunksize)
+        self.itemsize = int(itemsize)
+        self.hilo = bool(hilo)
+
+    def encode(self, buf):
+        return imagecodecs.chunked_encode(
+            buf,
+            level=self.level,
+            codec=self.codec,
+            chunksize=self.chunksize,
+            itemsize=self.itemsize,
+            hilo=self.hilo,
+        )
+
+    def decode(self, buf, out=None):
+        return imagecodecs.chunked_decode(
+            buf, itemsize=self.itemsize, out=_flat(out)
+        )
 
 
 class Cms(Codec):
@@ -2119,21 +2174,15 @@ class Packbits(Codec):
 
     codec_id = 'imagecodecs_packbits'
 
-    def __init__(
-        self,
-        *,
-        axis: int | None = None,
-    ) -> None:
+    def __init__(self) -> None:
         if not imagecodecs.PACKBITS.available:
             msg = 'imagecodecs.PACKBITS not available'
             raise ValueError(msg)
 
-        self.axis = None if axis is None else int(axis)
-
     def encode(self, buf):
         if not isinstance(buf, (bytes, bytearray)):
             buf = numpy.asarray(buf)
-        return imagecodecs.packbits_encode(buf, axis=self.axis)
+        return imagecodecs.packbits_encode(buf)
 
     def decode(self, buf, out=None):
         return imagecodecs.packbits_decode(buf, out=_flat(out))
@@ -2361,6 +2410,11 @@ class Png(Codec):
         level: int | None = None,
         strategy: imagecodecs.PNG.STRATEGY | int | str | None = None,
         filter: imagecodecs.PNG.FILTER | int | str | None = None,
+        primaries: imagecodecs.PNG.COLOR_PRIMARIES | int | str | None = None,
+        transfer: (
+            imagecodecs.PNG.TRANSFER_CHARACTERISTICS | int | str | None
+        ) = None,
+        matrix: imagecodecs.PNG.MATRIX_COEFFICIENTS | int | str | None = None,
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.PNG.available:
@@ -2370,6 +2424,11 @@ class Png(Codec):
         self.level = None if level is None else int(level)
         self.strategy = _enum_name(strategy, imagecodecs.PNG.STRATEGY)
         self.filter = _enum_name(filter, imagecodecs.PNG.FILTER)
+        self.primaries = _enum_name(primaries, imagecodecs.PNG.COLOR_PRIMARIES)
+        self.transfer = _enum_name(
+            transfer, imagecodecs.PNG.TRANSFER_CHARACTERISTICS
+        )
+        self.matrix = _enum_name(matrix, imagecodecs.PNG.MATRIX_COEFFICIENTS)
         self.squeeze = squeeze
 
     def encode(self, buf):
@@ -2379,6 +2438,9 @@ class Png(Codec):
             level=self.level,
             strategy=self.strategy,
             filter=self.filter,
+            primaries=self.primaries,
+            transfer=self.transfer,
+            matrix=self.matrix,
         )
 
     def decode(self, buf, out=None):

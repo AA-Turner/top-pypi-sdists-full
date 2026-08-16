@@ -941,11 +941,14 @@ SELECT_DESTINATION_SUCCESSFUL_SYNCS_FOR_VERSION = sqlalchemy.text(
 # =============================================================================
 
 # Aggregate sync health per actor for jobs run with a specific SOURCE version.
-# Groups by actor and returns succeeded/failed/total job counts plus the most
-# recent job status, all within the lookback window. Filters on the version
-# stamped into `jobs.config` at job-creation time (same primitive as
-# `SELECT_SOURCE_SYNC_RESULTS_FOR_VERSION`), so the population reflects actors
-# that actually ran this version rather than the current pin state.
+# The actor definition scope is required because the version lives in unindexed
+# `jobs.config` JSON; without it, the planner scans every connection in the
+# instance before applying the version filter. Groups by actor and returns
+# succeeded/failed/total job counts plus the most recent job status, all within
+# the lookback window. Filters on the version stamped into `jobs.config` at
+# job-creation time (same primitive as `SELECT_SOURCE_SYNC_RESULTS_FOR_VERSION`),
+# so the population reflects actors that actually ran this version rather than
+# the current pin state.
 #
 # Unlike the row-level sync-results queries, this aggregates in SQL so the
 # caller gets one row per actor (bounded by the actor count) instead of a
@@ -961,22 +964,23 @@ SELECT_SOURCE_VERSION_ACTOR_HEALTH = sqlalchemy.text(
              jobs.id AS job_id,
              jobs.status AS job_status,
              jobs.updated_at AS job_updated_at
-        FROM jobs
-        JOIN connection
-          ON jobs.scope = connection.id::text
-         AND connection.status != 'deprecated'
-        JOIN actor
-          ON connection.source_id = actor.id
-         AND actor.tombstone = false
+        FROM actor
         JOIN workspace
           ON actor.workspace_id = workspace.id
          AND workspace.tombstone = false
         LEFT JOIN dataplane_group
           ON workspace.dataplane_group_id = dataplane_group.id
-        WHERE
-             jobs.config_type = 'sync'
-         AND jobs.config->'sync'->>'sourceDefinitionVersionId' = :actor_definition_version_id
+        JOIN connection
+          ON connection.source_id = actor.id
+         AND connection.status != 'deprecated'
+        JOIN jobs
+          ON jobs.scope = connection.id::text
+         AND jobs.config_type = 'sync'
          AND jobs.updated_at >= :cutoff_date
+        WHERE
+             actor.actor_definition_id = :actor_definition_id
+         AND actor.tombstone = false
+         AND jobs.config->'sync'->>'sourceDefinitionVersionId' = :actor_definition_version_id
     ),
     latest AS (
         SELECT DISTINCT ON (actor_id)
@@ -1018,22 +1022,23 @@ SELECT_DESTINATION_VERSION_ACTOR_HEALTH = sqlalchemy.text(
              jobs.id AS job_id,
              jobs.status AS job_status,
              jobs.updated_at AS job_updated_at
-        FROM jobs
-        JOIN connection
-          ON jobs.scope = connection.id::text
-         AND connection.status != 'deprecated'
-        JOIN actor
-          ON connection.destination_id = actor.id
-         AND actor.tombstone = false
+        FROM actor
         JOIN workspace
           ON actor.workspace_id = workspace.id
          AND workspace.tombstone = false
         LEFT JOIN dataplane_group
           ON workspace.dataplane_group_id = dataplane_group.id
-        WHERE
-             jobs.config_type = 'sync'
-         AND jobs.config->'sync'->>'destinationDefinitionVersionId' = :actor_definition_version_id
+        JOIN connection
+          ON connection.destination_id = actor.id
+         AND connection.status != 'deprecated'
+        JOIN jobs
+          ON jobs.scope = connection.id::text
+         AND jobs.config_type = 'sync'
          AND jobs.updated_at >= :cutoff_date
+        WHERE
+             actor.actor_definition_id = :actor_definition_id
+         AND actor.tombstone = false
+         AND jobs.config->'sync'->>'destinationDefinitionVersionId' = :actor_definition_version_id
     ),
     latest AS (
         SELECT DISTINCT ON (actor_id)

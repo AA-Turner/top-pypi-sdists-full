@@ -22,6 +22,7 @@ from ..common import async_streaming_response_iterator, convert_float_to_int_or_
 
 if TYPE_CHECKING:
     from ...types import (
+        AudioEmbedding,
         ChatCompletion,
         ChatCompletionChunk,
         Completion,
@@ -601,16 +602,15 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
 
     async def ocr(self, image: Union[str, bytes], **kwargs):
         url = f"{self._base_url}/v1/images/ocr"
-        params = {
-            "model": self._model_uid,
-            "kwargs": json.dumps(kwargs),
-        }
-        params = _filter_params(params)
-        files: List[Any] = []
-        for key, value in params.items():
-            files.append((key, (None, value)))
-        files.append(("image", ("image", image, "application/octet-stream")))
-        response = await self.session.post(url, data=files, headers=self.auth_headers)
+        # aiohttp does not understand requests-style (key, (filename, value))
+        # tuples; build a proper multipart form instead.
+        form = aiohttp.FormData()
+        form.add_field("model", self._model_uid)
+        form.add_field("kwargs", json.dumps(kwargs))
+        form.add_field(
+            "image", image, filename="image", content_type="application/octet-stream"
+        )
+        response = await self.session.post(url, data=form, headers=self.auth_headers)
         if response.status != 200:
             raise RuntimeError(
                 f"Failed to ocr the images, detail: {await _get_error_string(response)}"
@@ -667,6 +667,7 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
         prompt: str,
         negative_prompt: Optional[str] = None,
         n: int = 1,
+        video: Optional[Union[str, bytes]] = None,
         **kwargs,
     ) -> "VideoList":
         """
@@ -682,6 +683,8 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
             The prompt or prompts not to guide the image generation.
         n: `int`, defaults to 1
             The number of videos to generate per prompt. Must be between 1 and 10.
+        video: `Union[str, bytes]`, optional
+            The driving video for character animation models.
         Returns
         -------
         VideoList
@@ -696,11 +699,25 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
             "kwargs": json.dumps(kwargs),
         }
         params = _filter_params(params)
-        files: List[Any] = []
+        data = aiohttp.FormData()
         for key, value in params.items():
-            files.append((key, (None, value)))
-        files.append(("image", ("image", image, "application/octet-stream")))
-        response = await self.session.post(url, data=files, headers=self.auth_headers)
+            data.add_field(key, str(value))
+        data.add_field(
+            "image", image, filename="image", content_type="application/octet-stream"
+        )
+        if video is not None:
+            if isinstance(video, str):
+                with open(video, "rb") as f:
+                    video_data = f.read()
+            else:
+                video_data = video
+            data.add_field(
+                "video",
+                video_data,
+                filename="video",
+                content_type="application/octet-stream",
+            )
+        response = await self.session.post(url, data=data, headers=self.auth_headers)
         if response.status != 200:
             raise RuntimeError(
                 f"Failed to create the video from image, detail: {await _get_error_string(response)}"
@@ -916,6 +933,24 @@ class AsyncRESTfulChatModelHandle(AsyncRESTfulGenerateModelHandle):
 
 
 class AsyncRESTfulAudioModelHandle(AsyncRESTfulModelHandle):
+    async def create_embedding(self, audio: bytes) -> "AudioEmbedding":
+        """Create a speaker embedding from encoded audio bytes."""
+        url = f"{self._base_url}/v1/audio/embeddings"
+        data = aiohttp.FormData()
+        data.add_field("model", self._model_uid)
+        data.add_field(
+            "file", audio, filename="file", content_type="application/octet-stream"
+        )
+        response = await self.session.post(url, data=data, headers=self.auth_headers)
+        if response.status != 200:
+            raise RuntimeError(
+                "Failed to create the audio embedding, "
+                f"detail: {await _get_error_string(response)}"
+            )
+        response_data = await response.json()
+        await _release_response(response)
+        return response_data
+
     async def transcriptions(
         self,
         audio: bytes,
@@ -1307,6 +1342,7 @@ class AsyncClient:
         request_limits: Optional[int] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
+        replica_config: Optional[List[Dict]] = None,
         model_path: Optional[str] = None,
         enable_thinking: Optional[bool] = None,
         **kwargs,
@@ -1348,6 +1384,13 @@ class AsyncClient:
             Specify the worker ip where the model is located in a distributed scenario.
         gpu_idx: Optional[Union[int, List[int]]]
             Specify the GPU index where the model is located.
+        replica_config: Optional[List[Dict]]
+            Per-replica placement spec. Each item is ``{"replica_uid": str|None,
+            "devices": [{"worker_ip": "ip:port", "n_gpu": int|"auto",
+            "gpu_idx": [int]|None}]}``. When set, each replica is pinned to the
+            given worker/GPU. Do not combine it with worker_ip/n_gpu/gpu_idx.
+            An omitted replica_uid defaults to ``{model_uid}-{replica_index}``.
+            ``devices`` length must be 1 (no cross-worker sharding per replica).
         model_path: Optional[str]
             Model path, if gguf format, should be the file path, otherwise, should be directory of the model.
         enable_thinking: Optional[bool]
@@ -1384,6 +1427,7 @@ class AsyncClient:
             "request_limits": request_limits,
             "worker_ip": worker_ip,
             "gpu_idx": gpu_idx,
+            "replica_config": replica_config,
             "model_path": model_path,
             "enable_thinking": enable_thinking,
         }
@@ -1476,6 +1520,47 @@ class AsyncClient:
                 f"Failed to terminate model, detail: {await _get_error_string(response)}"
             )
         await _release_response(response)
+
+    async def add_model_replica(
+        self,
+        model_uid: str,
+        replica_config: Optional[dict] = None,
+    ) -> dict:
+        """Add a new replica to a running model (scale-up).
+
+        Parameters
+        ----------
+        model_uid : str
+            The UID of the running model to extend.
+        replica_config : Optional[dict]
+            Optional single-device placement config, e.g.::
+
+                {
+                  "replica_uid": "my-replica-label",
+                  "devices": [
+                    {"worker_ip": "192.168.1.100:9999", "gpu_idx": [0, 1]}
+                  ]
+                }
+
+            Omit to let the supervisor auto-select a worker and GPU.
+
+        Returns
+        -------
+        dict
+            ``{"replica_id": int, "replica_model_uid": str, "worker_address": str}``
+        """
+        url = f"{self.base_url}/v1/models/{model_uid}/replicas"
+        payload: Dict[str, Any] = {}
+        if replica_config is not None:
+            payload["replica_config"] = replica_config
+        response = await self.session.post(url, json=payload, headers=self._headers)
+        if response.status != 200:
+            raise RuntimeError(
+                f"Failed to add model replica, detail: {await _get_error_string(response)}"
+            )
+        result = await response.json()
+        await _release_response(response)
+        return result
 
     async def terminate_model_replica(self, model_uid: str, replica_id: int) -> int:
         """Terminate a specific replica of a running model."""

@@ -79,6 +79,9 @@ def sperr_version():
 
 def sperr_check(const uint8_t[::1] data, /):
     """Return whether data is SPERR encoded or None if unknown."""
+    if data.shape[0] < 10:
+        return False
+    return None
 
 
 def sperr_encode(
@@ -94,7 +97,7 @@ def sperr_encode(
 ):
     """Return SPERR encoded data."""
     cdef:
-        numpy.ndarray src = numpy.asarray(data)
+        numpy.ndarray src = numpy.ascontiguousarray(data)
         const uint8_t[::1] dst  # must be const to write to bytes
         ssize_t dstsize
         void* dst_ptr = NULL
@@ -107,6 +110,9 @@ def sperr_encode(
 
     if data is out:
         raise ValueError('cannot encode in-place')
+
+    if src.size == 0:
+        raise ValueError('src is empty')
 
     if src.dtype.char == 'd':
         is_float = 0
@@ -188,12 +194,12 @@ def sperr_encode(
             out = _create_output(outtype, dstsize, <const char*> dst_ptr)
         else:
             dst = out
-            dstsize = dst.nbytes
+            dstsize = dst.shape[0]
             if <size_t> dstsize < dst_len:
                 raise ValueError(
                     f'output buffer too small {dstsize} < {dst_len}'
                 )
-            memcpy(<void*> &dst[0], <const void*> dst_ptr, dst_len)
+            memcpy(<void*> dst._data, <const void*> dst_ptr, dst_len)
             del dst
     finally:
         free(dst_ptr)
@@ -213,18 +219,17 @@ def sperr_decode(
 ):
     """Return decoded SPERR data.
 
-    Either a header (always present for 3D), a ndarray output, or shape & dtype
-    are required.
+    Either a header (always present for 3D), a ndarray output, or
+    shape and dtype are required.
 
-    `sperr_decomp_2d` may segfault if header argument is not correct.
-    `sperr_decomp_2d` reads beyond data buffer in some cases and may segfault,
-    especially if heap protection is enabled.
+    `sperr_decomp_2d` and `sperr_decomp_3d` read beyond data buffer in some
+    cases, may segfault or return wrong values.
 
     """
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        size_t src_len = <size_t> src.nbytes
+        size_t src_len = <size_t> src.shape[0]
         size_t dstlen
         void* dst_ptr = NULL
         size_t ndim = 0
@@ -235,6 +240,9 @@ def sperr_decode(
 
     if data is out:
         raise ValueError('cannot decode in-place')
+
+    if src_len == 0:
+        raise ValueError('src is empty')
 
     is_ndarray = isinstance(out, numpy.ndarray)
     if is_ndarray or (shape is not None and dtype is not None):
@@ -265,8 +273,12 @@ def sperr_decode(
             raise ValueError(f'invalid {shape=}')
 
     if out_inc_header:
+        if src_len < 10:
+            raise ValueError(
+                f'data too short to contain SPERR header {src_len}'
+            )
         sperr_parse_header(
-            <const void*> &src[0],
+            <const void*> src._data,
             &dimx,
             &dimy,
             &dimz,
@@ -298,6 +310,8 @@ def sperr_decode(
     dstlen = dst.nbytes
 
     try:
+        if src_len < <size_t> (10 * out_inc_header):
+            raise ValueError(f'data too short {src_len}')
         with nogil:
             if ndim == 2:
                 ret = sperr_decomp_2d(
@@ -312,7 +326,7 @@ def sperr_decode(
                     raise SperrError('sperr_decomp_2d', ret)
             else:
                 ret = sperr_decomp_3d(
-                    <const void*> &src[0],
+                    <const void*> src._data,
                     src_len,
                     is_float,
                     nthreads,
@@ -326,7 +340,7 @@ def sperr_decode(
 
         if dstlen != dimx * dimy * dimz * (4 if is_float else 8):
             raise ValueError(f'invalid output size {out.nbytes=}')
-        memcpy(<void*> &dst.data[0], <const void*> dst_ptr, dstlen)
+        memcpy(<void*> dst.data, <const void*> dst_ptr, dstlen)
     finally:
         free(dst_ptr)
 

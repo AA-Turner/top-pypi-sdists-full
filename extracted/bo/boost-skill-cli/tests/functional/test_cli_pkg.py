@@ -1184,12 +1184,13 @@ class TestSyncJson:
         assert "everything in sync" in r.out
         plan = json.loads(boost("sync", "--diff", "--json").out)
         assert plan == {"missing_store": [], "missing_links": [],
-                        "stale_links": [], "orphaned_store": [],
+                        "blocked_links": [], "stale_links": [],
+                        "orphaned_store": [],
                         "missing_materializations": [], "out_of_scope_links": [],
                         "project": {"missing": [], "orphaned": []}}
         data = json.loads(boost("sync", "--json").out)
         assert data == {"actions": [], "pruned": [], "orphaned_store": [],
-                        "out_of_scope_links": []}
+                        "out_of_scope_links": [], "blocked_links": []}
 
     def test_a_narrowing_reinstall_is_reported_and_pruned_only_on_request(
             self, boost, installed):
@@ -1372,8 +1373,9 @@ class TestBundleEdges:
 class TestImportEdges:
     def test_git_url_clone(self, boost, sandbox, tmp_path, monkeypatch):
         src = _skill_dir(tmp_path, "url-skill")
-        monkeypatch.setattr("boost_cli.core.gitutil.clone_shallow",
-                            lambda url, dest: shutil.copytree(src, dest))
+        monkeypatch.setattr(
+            "boost_cli.core.gitutil.clone_shallow",
+            lambda url, dest, sparse=True: shutil.copytree(src, dest))
         r = boost("import", "https://github.com/team/url-skill.git")
         assert "cloning https://github.com/team/url-skill.git" in r.out
         assert "Imported url-skill" in r.out

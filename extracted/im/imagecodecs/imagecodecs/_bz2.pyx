@@ -92,7 +92,7 @@ def bz2_encode(
     cdef:
         const uint8_t[::1] src = _readable_input(data)
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         ssize_t dstlen = 0
         int ret
@@ -113,7 +113,7 @@ def bz2_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     memset(<void*> &strm, 0, sizeof(bz_stream))
     ret = BZ2_bzCompressInit(&strm, compresslevel, 0, 0)
@@ -122,9 +122,9 @@ def bz2_encode(
 
     try:
         with nogil:
-            strm.next_in = <char*> &src[0]
+            strm.next_in = <char*> src._data
             strm.avail_in = <unsigned int> srcsize
-            strm.next_out = <char*> &dst[0]
+            strm.next_out = <char*> dst._data
             strm.avail_out = <unsigned int> dstsize
             # while True
             ret = BZ2_bzCompress(&strm, BZ_FINISH)
@@ -152,7 +152,7 @@ def bz2_decode(
     cdef:
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         ssize_t dstlen = 0
         int ret
@@ -173,7 +173,7 @@ def bz2_decode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     memset(<void*> &strm, 0, sizeof(bz_stream))
     ret = BZ2_bzDecompressInit(&strm, 0, 0)
@@ -182,9 +182,9 @@ def bz2_decode(
 
     try:
         with nogil:
-            strm.next_in = <char*> &src[0]
+            strm.next_in = <char*> src._data
             strm.avail_in = <unsigned int> srcsize
-            strm.next_out = <char*> &dst[0]
+            strm.next_out = <char*> dst._data
             strm.avail_out = <unsigned int> dstsize
             ret = BZ2_bzDecompress(&strm)
             dstlen = dstsize - <ssize_t> strm.avail_out

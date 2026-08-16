@@ -1,0 +1,42 @@
+name: README Sync
+
+on:
+  push:
+    paths:
+      - 'README.py'
+
+jobs:
+  create-readme-pr:
+    runs-on: ubuntu-latest
+    if: ${{ github.actor != 'github-actions[bot]' && github.ref == 'refs/heads/main' }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Generate README.md
+        run: |
+          # Generate new README.md
+          uv run ./make_readme.sh
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          commit-message: "[auto] Sync README.md from README.py"
+          title: '[auto] Sync README.md from README.py'
+          body: 'Auto-generated PR to sync README.md with changes from README.py'
+          branch: "update-readme"
+          delete-branch: true
+          labels: automated,documentation

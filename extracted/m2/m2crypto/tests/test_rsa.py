@@ -193,34 +193,43 @@ class RSATestCase(unittest.TestCase):
 
     def test_set_n(self):
         rsa = m2.rsa_new()
-        m2.rsa_set_n(rsa, b"\000\000\000\003\001\000\001")
+        try:
+            m2.rsa_set_n(rsa, b"\000\000\000\003\001\000\001")
 
-        n = m2.rsa_get_n(rsa)
-        e = m2.rsa_get_e(rsa)
+            n = m2.rsa_get_n(rsa)
+            e = m2.rsa_get_e(rsa)
 
-        self.assertEqual(n, b"\000\000\000\003\001\000\001")
-        self.assertEqual(e, b"\x00\x00\x00\x00")
+            self.assertEqual(n, b"\000\000\000\003\001\000\001")
+            self.assertEqual(e, b"\x00\x00\x00\x00")
+        finally:
+            m2.rsa_free(rsa)
 
     def test_set_e(self):
         rsa = m2.rsa_new()
-        m2.rsa_set_e(rsa, b"\000\000\000\003\001\000\001")
+        try:
+            m2.rsa_set_e(rsa, b"\000\000\000\003\001\000\001")
 
-        n = m2.rsa_get_n(rsa)
-        e = m2.rsa_get_e(rsa)
+            n = m2.rsa_get_n(rsa)
+            e = m2.rsa_get_e(rsa)
 
-        self.assertEqual(e, b"\000\000\000\003\001\000\001")
-        self.assertEqual(n, b"\x00\x00\x00\x00")
+            self.assertEqual(e, b"\000\000\000\003\001\000\001")
+            self.assertEqual(n, b"\x00\x00\x00\x00")
+        finally:
+            m2.rsa_free(rsa)
 
     def test_set_n_then_set_e(self):
         rsa = m2.rsa_new()
-        m2.rsa_set_n(rsa, b"\000\000\000\004\020\011\006\006")
-        m2.rsa_set_e(rsa, b"\000\000\000\003\001\000\001")
+        try:
+            m2.rsa_set_n(rsa, b"\000\000\000\004\020\011\006\006")
+            m2.rsa_set_e(rsa, b"\000\000\000\003\001\000\001")
 
-        n = m2.rsa_get_n(rsa)
-        e = m2.rsa_get_e(rsa)
+            n = m2.rsa_get_n(rsa)
+            e = m2.rsa_get_e(rsa)
 
-        self.assertEqual(e, b"\000\000\000\003\001\000\001")
-        self.assertEqual(n, b"\000\000\000\004\020\011\006\006")
+            self.assertEqual(e, b"\000\000\000\003\001\000\001")
+            self.assertEqual(n, b"\000\000\000\004\020\011\006\006")
+        finally:
+            m2.rsa_free(rsa)
 
     def test_newpub(self):
         old = RSA.load_pub_key(self.pubkey)
@@ -295,9 +304,7 @@ class RSATestCase(unittest.TestCase):
                 continue
             for salt_length in range(0, salt_max):
                 signature = rsa.sign_rsassa_pss(digest, algo, salt_length)
-                verify = rsa2.verify_rsassa_pss(
-                    digest, signature, algo, salt_length
-                )
+                verify = rsa2.verify_rsassa_pss(digest, signature, algo, salt_length)
                 self.assertEqual(
                     verify,
                     1,
@@ -344,11 +351,7 @@ class RSATestCase(unittest.TestCase):
         it has to be longer than a certain length.
         """
         rsa = RSA.load_key(self.privkey)
-        digest = (
-            b"""This string should be long enough to warrant an error in
-        RSA_sign"""
-            * 2
-        )
+        digest = b"This string should be long enough to warrant an error in RSA_sign" * 2 # fmt:skip
 
         # with self.assertRaises(RSA.RSAError):
         #     rsa.sign(digest)

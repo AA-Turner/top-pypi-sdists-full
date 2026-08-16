@@ -205,6 +205,7 @@ from chalk.parsed._proto.utils import encode_proto_to_b64
 from chalk.parsed.branch_state import BranchGraphSummary
 from chalk.parsed.to_proto import ToProtoConverter
 from chalk.prompts import Prompt
+from chalk.queries.data_quality import DataQualityCheck, check_env_overrides
 from chalk.queries.query_context import ContextJsonDict, JsonValue
 from chalk.scalinggroup.spec import (
     AutoScalingSpec,
@@ -2706,6 +2707,8 @@ https://docs.chalk.ai/cli/apply
         unload_resolvers: UnloadResolvers = None,
         feature_for_lower_upper_bound: Optional[FeatureReference] = None,
         write_to: str | None = None,
+        input_checks: Collection[Union[str, DataQualityCheck]] = (),
+        output_checks: Collection[Union[str, DataQualityCheck]] = (),
     ) -> DatasetImpl:
         run_asynchronously = (
             use_multiple_computers
@@ -2714,7 +2717,24 @@ https://docs.chalk.ai/cli/apply
             or num_shards is not None
             or num_workers is not None
             or (use_metaplanner is not None and use_metaplanner)
+            or bool(input_checks)
+            or bool(output_checks)
         )
+
+        if input_checks or output_checks:
+            if use_metaplanner is False:
+                raise ValueError(
+                    "Data quality checks are sequenced by the metaplanner, so they cannot be run with "
+                    + "`use_metaplanner=False`."
+                )
+            env_overrides = {
+                **(env_overrides or {}),
+                **check_env_overrides(
+                    input=input_checks,
+                    output=output_checks,
+                    query_name=query_name,
+                ),
+            }
 
         if env_overrides is not None and not run_asynchronously:
             warnings.warn(

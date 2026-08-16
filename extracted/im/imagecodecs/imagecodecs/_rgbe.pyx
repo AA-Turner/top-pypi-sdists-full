@@ -159,9 +159,9 @@ def rgbe_encode(
             raise ValueError('output too small')
         out = _create_output(outtype, dstsize)
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
-    stream = rgbe_stream_new(dstsize, <char*> &dst[0])
+    stream = rgbe_stream_new(dstsize, <char*> dst._data)
     if stream == NULL:
         raise MemoryError('rgbe_stream_new failed')
 
@@ -217,7 +217,7 @@ def rgbe_decode(
     try:
         # bytes
         src = data
-        srcsize = src.nbytes
+        srcsize = src.shape[0]
     except ValueError as exc:
         # decode uint8 array of shape (..., 4)
         # no header, no rle
@@ -253,16 +253,16 @@ def rgbe_decode(
     if srcsize > INT32_MAX:
         raise ValueError('input too large')
 
-    stream = rgbe_stream_new(srcsize, <char*> &src[0])
+    stream = rgbe_stream_new(srcsize, <char*> src._data)
     if stream == NULL:
         raise MemoryError('rgbe_stream_new failed')
 
     try:
         if header is None:
-            if src[0] == 35 and src[1] == 63:
+            if srcsize >= 2 and src[0] == 35 and src[1] == 63:
                 header = True
             elif imcd_strsearch(
-                <const char*> &src[0],
+                <const char*> src._data,
                 <ssize_t> min(srcsize, 8192),
                 "FORMAT=32-bit_rle_",
                 18

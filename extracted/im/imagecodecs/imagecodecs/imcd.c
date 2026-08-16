@@ -676,9 +676,9 @@ ssize_t imcd_byteshuffle(
 
 TIFF compression type 32773, a simple byte-oriented run-length scheme.
 
-*/
+Apple Technical Note TN1023. Understanding PackBits. Feb 1, 1996
 
-/* Apple Technical Note TN1023. Understanding PackBits. Feb 1, 1996 */
+*/
 
 /* Return length of uncompressed PackBits. */
 ssize_t imcd_packbits_decode_size(
@@ -2285,7 +2285,7 @@ void imcd_lzw_del(
                 memcpy(dst, &cp->firstchar, 2); \
                 dst += 2; \
             } else { \
-                *dst++ = cp->value; \
+                *dst++ = cp->firstchar; \
             } \
         } \
         else if (len == 3 && emit == 3) { \
@@ -2298,6 +2298,13 @@ void imcd_lzw_del(
             imcd_lzw_code_t* p = cp; \
             uint8_t* tp = dst + emit; \
             uint32_t n = emit; \
+            if (emit < len) { \
+                /* truncated: skip tail bytes to emit head of string */ \
+                uint32_t skip = len - emit; \
+                while (skip--) { \
+                    p = &tab[p->next]; \
+                } \
+            } \
             while (--n) { \
                 *--tp = p->value; \
                 p = &tab[p->next]; \

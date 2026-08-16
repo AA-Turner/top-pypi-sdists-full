@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvista-zstd
-Version: 0.3.0
+Version: 0.3.1
 Summary: VTK zstandard compression library.
 Author-email: The PyVista developers <info@pyvista.org>
 License-Expression: MIT

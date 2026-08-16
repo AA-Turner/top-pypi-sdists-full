@@ -61,7 +61,7 @@ def bmp_version():
 
 def bmp_check(const uint8_t[::1] data, /):
     """Return whether data is BMP encoded or None if unknown."""
-    return data.nbytes > 54 and data[0] == 66 and data[1] == 77  # b'BM'
+    return data.shape[0] > 54 and data[0] == 66 and data[1] == 77  # b'BM'
 
 
 def bmp_encode(
@@ -168,8 +168,8 @@ def bmp_encode(
     if out is None:
         out = _create_output(outtype, fileheader.size)
     dst = out
-    dstptr = <uint8_t*> &dst[0]
-    dstsize = dst.nbytes
+    dstptr = <uint8_t*> dst._data
+    dstsize = dst.shape[0]
     if dstsize < <ssize_t> fileheader.size:
         raise ValueError(f'output too small {dstsize} < {fileheader.size}')
 
@@ -199,11 +199,11 @@ def bmp_encode(
                     fileheader.offbits
                     + (infoheader.height - 1 - i) * (infoheader.width + rowpad)
                 )
-                for j in range(<ssize_t> infoheader.width):
+                for _j in range(<ssize_t> infoheader.width):
                     dstptr[dstindex] = srcptr[srcindex]
                     dstindex += 1
                     srcindex += 1
-                for j in range(rowpad):
+                for _j in range(rowpad):
                     dstptr[dstindex] = 0
                     dstindex += 1
 
@@ -216,7 +216,7 @@ def bmp_encode(
                     + (infoheader.height - 1 - i)
                     * (infoheader.width * 3 + rowpad)
                 )
-                for j in range(<ssize_t> infoheader.width):
+                for _j in range(<ssize_t> infoheader.width):
                     dstptr[dstindex] = srcptr[srcindex + 2]
                     dstindex += 1
                     dstptr[dstindex] = srcptr[srcindex + 1]
@@ -224,7 +224,7 @@ def bmp_encode(
                     dstptr[dstindex] = srcptr[srcindex]
                     dstindex += 1
                     srcindex += 3
-                for j in range(rowpad):
+                for _j in range(rowpad):
                     dstptr[dstindex] = 0
                     dstindex += 1
 
@@ -236,7 +236,7 @@ def bmp_encode(
                     fileheader.offbits
                     + (infoheader.height - 1 - i) * infoheader.width * 4
                 )
-                for j in range(<ssize_t> infoheader.width):
+                for _j in range(<ssize_t> infoheader.width):
                     dstptr[dstindex] = srcptr[srcindex + 2]  # B
                     dstindex += 1
                     dstptr[dstindex] = srcptr[srcindex + 1]  # G
@@ -282,8 +282,9 @@ def bmp_decode(
         numpy.ndarray dst
         uint8_t* dstptr = NULL
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t height, width, samples, rowpad, rowstride, i, j
+        ssize_t x, y, row, k, srclimit, nbytes
         ssize_t offset, palindex, dstindex, srcindex
         bmp_fileheader_t fileheader
         bmp_infoheader_t infoheader
@@ -291,29 +292,29 @@ def bmp_decode(
         uint32_t rmask, gmask, bmask, amask
         int rshift, gshift, bshift, ashift
         int rbits, gbits, bbits, abits
+        uint64_t size64
         uint32_t pixel32, m, rv, gv, bv, av
         uint16_t pixel16
         uint8_t count, code, palval
-        ssize_t x, y, row, k, srclimit, nbytes
         bint has_alpha
 
     if data is out:
         raise ValueError('cannot decode in-place')
 
-    if srcsize > UINT32_MAX:
+    if <uint64_t> srcsize > UINT32_MAX:
         raise ValueError('input too large')
     if srcsize < 54:
         raise BmpError(f'invalid BMP size {srcsize} < 54')
 
     # read file header
     memcpy(
-        <void*> &fileheader, <const void*> &src[0], sizeof(bmp_fileheader_t)
+        <void*> &fileheader, <const void*> src._data, sizeof(bmp_fileheader_t)
     )
     if fileheader.type != 0x4d42:  # b'BM'
         raise BmpError(f'invalid file header {bytes(src[:2])}')
-    if fileheader.size > srcsize:
+    if fileheader.size > <uint32_t> srcsize:
         raise BmpError(f'invalid file size {fileheader.size} > {srcsize}')
-    if fileheader.offbits >= srcsize:
+    if fileheader.offbits >= <uint32_t> srcsize:
         raise BmpError(f'invalid file size {fileheader.offbits} > {srcsize}')
     # if fileheader.reserved1 != 0 or fileheader.reserved2 != 0:
     #     raise BmpError('invalid file header')
@@ -326,7 +327,7 @@ def bmp_decode(
     if (
         infoheader_size < 16
         or infoheader_size > sizeof(bmp_infoheader_t)
-        or infoheader_size + offset > srcsize
+        or <ssize_t> infoheader_size + offset > srcsize
     ):
         raise BmpError(f'invalid {infoheader_size=}')
     memset(<void*> &infoheader, 0, sizeof(bmp_infoheader_t))
@@ -365,11 +366,20 @@ def bmp_decode(
             raise BmpError(f'invalid {infoheader.size_image=}')
         rowpad = (<ssize_t> infoheader.width * infoheader.bitcount // 8) % 4
         rowpad = 0 if rowpad == 0 else 4 - rowpad
-        infoheader.size_image = <uint32_t> (
-            abs(infoheader.height)
-            * (infoheader.width * infoheader.bitcount // 8 + rowpad)
+        size64 = (
+            <uint64_t> abs(infoheader.height)
+            * (<uint64_t> infoheader.width * infoheader.bitcount // 8 + rowpad)
         )
-    if infoheader.size_image + fileheader.offbits > srcsize:
+        if size64 > UINT32_MAX:
+            raise BmpError(
+                f'invalid image dimensions '
+                f'{infoheader.height=} {infoheader.width=}'
+            )
+        infoheader.size_image = <uint32_t> size64
+    if (
+        <uint64_t> infoheader.size_image + <uint64_t> fileheader.offbits
+        > <uint64_t> srcsize
+    ):
         raise BmpError(
             f'invalid {infoheader.size_image=} + {fileheader.offbits=}'
             f' > {srcsize=}'
@@ -394,7 +404,7 @@ def bmp_decode(
             # detect grayscale palette
             samples = 1
             palindex = offset
-            for i in range(infoheader.clr_used):
+            for i in range(<ssize_t> infoheader.clr_used):
                 if src[palindex] != i:
                     samples = 3
                     break
@@ -539,6 +549,14 @@ def bmp_decode(
     rowstride = <ssize_t> (
         ((width * <ssize_t> infoheader.bitcount + 31) // 32) * 4
     )
+    # for non-RLE formats, the actual required data must fit in the source
+    if infoheader.compression_type not in {BI_RLE8, BI_RLE4}:
+        if (
+            <uint64_t> height * <uint64_t> rowstride
+            + <uint64_t> fileheader.offbits
+            > <uint64_t> srcsize
+        ):
+            raise BmpError(f'invalid image dimensions {height=} {width=}')
 
     if samples > 1:
         shape = (int(height), int(width), samples)
@@ -560,9 +578,9 @@ def bmp_decode(
                 for i in range(height):
                     if infoheader.height > 0:
                         dstindex = (height - 1 - i) * width * 3
-                    for j in range(width):
+                    for _j in range(width):
                         palindex = src[srcindex]
-                        if palindex >= infoheader.clr_used:
+                        if palindex >= <ssize_t> infoheader.clr_used:
                             raise IndexError(
                                 f'{palindex=} >= {infoheader.clr_used=}'
                             )
@@ -581,7 +599,7 @@ def bmp_decode(
                 for i in range(height):
                     if infoheader.height > 0:
                         dstindex = (height - 1 - i) * width
-                    for j in range(width):
+                    for _j in range(width):
                         dstptr[dstindex] = src[srcindex]
                         dstindex += 1
                         srcindex += 1
@@ -591,7 +609,7 @@ def bmp_decode(
             for i in range(height):
                 if infoheader.height > 0:
                     dstindex = (height - 1 - i) * width * 3
-                for j in range(width):
+                for _j in range(width):
                     dstptr[dstindex] = src[srcindex + 2]  # R
                     dstindex += 1
                     dstptr[dstindex] = src[srcindex + 1]  # G
@@ -612,7 +630,7 @@ def bmp_decode(
                 srcindex = <ssize_t> fileheader.offbits + i * rowstride
                 for j in range(width):
                     palindex = (src[srcindex + j // 8] >> (7 - (j % 8))) & 1
-                    if palindex >= infoheader.clr_used:
+                    if palindex >= <ssize_t> infoheader.clr_used:
                         raise IndexError(
                             f'{palindex=} >= {infoheader.clr_used=}'
                         )
@@ -640,7 +658,7 @@ def bmp_decode(
                         palindex = (src[srcindex + j // 2] >> 4) & 0xF
                     else:
                         palindex = src[srcindex + j // 2] & 0xF
-                    if palindex >= infoheader.clr_used:
+                    if palindex >= <ssize_t> infoheader.clr_used:
                         raise IndexError(
                             f'{palindex=} >= {infoheader.clr_used=}'
                         )
@@ -740,7 +758,7 @@ def bmp_decode(
                 srcindex += 2
                 if count > 0:
                     # encoded run: repeat palette index 'code' count times
-                    for k in range(count):
+                    for _k in range(count):
                         if x >= width or y >= height:
                             break
                         if infoheader.height > 0:
@@ -772,7 +790,7 @@ def bmp_decode(
                     srcindex += 2
                 else:
                     # absolute mode: next 'code' literal palette indices
-                    for k in range(code):
+                    for _k in range(code):
                         if srcindex >= srclimit:
                             break
                         if x < width and y < height:

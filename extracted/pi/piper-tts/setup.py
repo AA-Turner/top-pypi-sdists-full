@@ -42,7 +42,7 @@ HTTP_DATA_FILES = [
 
 setup(
     name="piper-tts",
-    version="1.6.1",
+    version="1.7.0",
     description="Fast and local neural text-to-speech engine",
     url="http://github.com/OHF-voice/piper1-gpl",
     license="GPL-3.0-or-later",
@@ -81,6 +81,7 @@ setup(
         "dev": [
             "black==24.8.0",
             "flake8==7.1.1",
+            "isort==5.13.2",  # used by script/lint and script/format
             "mypy==1.14.0",
             "pylint==3.2.7",
             "pytest==8.3.4",
@@ -104,6 +105,9 @@ setup(
             "transformers>=4,<6",
             "sentence-stream>=1.2.1,<2",
             "unicode-rbnf>=2.4.0,<3",
+        ],
+        "ja": [
+            "pyopenjtalk-plus>=0.4,<1",
         ],
     },
     packages=[

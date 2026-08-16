@@ -1,9 +1,21 @@
 #include "factorization.h"
 
+ // Necessary to retain accuracy when FAST_MATH is used 
+static c_float dot_row(const c_float* a, const c_float* b, const int n){
+    c_float s0 = 0, s1 = 0, s2 = 0, s3 = 0;
+    int i;
+    for(i = 0; i+3 < n; i += 4){
+        s0 += a[i]*b[i];
+        s1 += a[i+1]*b[i+1];
+        s2 += a[i+2]*b[i+2];
+        s3 += a[i+3]*b[i+3];
+    }
+    for(; i < n; i++) s0 += a[i]*b[i];
+    return (s0+s1)+(s2+s3);
+}
+
 c_float daqp_dot(const c_float* v1, const c_float* v2, const int n) {
-    c_float sum = 0.0;
-    for (int i = 0; i < n; i++) sum += v1[i] * v2[i];
-    return sum;
+    return daqp_dot_inline(v1, v2, n);
 }
 
 void daqp_update_LDL_add(DAQPWorkspace *work, const int add_ind){
@@ -27,11 +39,15 @@ void daqp_update_LDL_add(DAQPWorkspace *work, const int add_ind){
     }
     if(Mi==NULL) sum = 1;
     else
-        for(i=start_col,sum=0;i<work->n;i++)
-            sum+=Mi[i]*Mi[i];
+        sum = dot_row(Mi+start_col,Mi+start_col,work->n-start_col);
 
+#ifdef SOFT_WEIGHTS
+    if(DAQP_IS_SOFT(add_ind) && DAQP_IS_SLACK_FREE(add_ind)){
+        sum+= DAQP_IS_LOWER(add_ind) ? work->rho_ls[add_ind] : work->rho_us[add_ind];
+#else
     if(DAQP_IS_SOFT(add_ind)){
         sum+=work->settings->rho_soft;
+#endif
         ns_active++;
     }
 
@@ -42,7 +58,11 @@ void daqp_update_LDL_add(DAQPWorkspace *work, const int add_ind){
     // store l <-- Mk* m
     for(i=0;i<work->n_active;i++){
         id = work->WS[i];
+#ifdef SOFT_WEIGHTS
+        if(DAQP_IS_SOFT(id) && DAQP_IS_SLACK_FREE(id)) ns_active++;
+#else
         if(DAQP_IS_SOFT(id)) ns_active++;
+#endif
         // Use Rinv or M for Mk depending on if k is simple bound or not 
         if(id < work->ms){ 
             Mk = (work->Rinv) ? work->Rinv+DAQP_R_OFFSET(id,work->n): NULL;
@@ -58,7 +78,7 @@ void daqp_update_LDL_add(DAQPWorkspace *work, const int add_ind){
         else if(Mi == NULL)
             sum = Mk[j];
         else
-            sum = daqp_dot(Mk+j,Mi+j,work->n-j);
+            sum = dot_row(Mk+j,Mi+j,work->n-j);
 
         work->L[new_L_start+i] = sum;
     }

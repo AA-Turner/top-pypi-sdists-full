@@ -1,6 +1,6 @@
 # imagecodecs/libultrahdr.pxd
 
-# Cython declarations for the `libultrahdr 1.4.0` library.
+# Cython declarations for the `libultrahdr 2.0.0` library.
 # https://github.com/google/libultrahdr
 
 cdef extern from 'ultrahdr_api.h' nogil:

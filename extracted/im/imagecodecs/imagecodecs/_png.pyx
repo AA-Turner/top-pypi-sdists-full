@@ -87,6 +87,66 @@ class PNG:
         FAST = PNG_FAST_FILTERS
         ALL = PNG_ALL_FILTERS
 
+    class COLOR_PRIMARIES(enum.IntEnum):
+        """PNG color primaries (ITU-T H.273)."""
+
+        BT709 = 1
+        SRGB = 1
+        UNSPECIFIED = 2
+        BT470M = 4
+        BT470BG = 5
+        BT601 = 6
+        SMPTE240 = 7
+        GENERIC_FILM = 8
+        BT2020 = 9
+        BT2100 = 9
+        XYZ = 10
+        SMPTE431 = 11
+        SMPTE432 = 12
+        DCI_P3 = 12
+        EBU3213 = 22
+
+    class TRANSFER_CHARACTERISTICS(enum.IntEnum):
+        """PNG transfer characteristics (ITU-T H.273)."""
+
+        BT709 = 1
+        UNSPECIFIED = 2
+        BT470M = 4
+        BT470BG = 5
+        BT601 = 6
+        SMPTE240 = 7
+        LINEAR = 8
+        LOG100 = 9
+        LOG100_SQRT10 = 10
+        IEC61966 = 11
+        BT1361 = 12
+        SRGB = 13
+        BT2020_10BIT = 14
+        BT2020_12BIT = 15
+        PQ = 16
+        SMPTE428 = 17
+        HLG = 18
+
+    class MATRIX_COEFFICIENTS(enum.IntEnum):
+        """PNG matrix coefficients (ITU-T H.273)."""
+
+        IDENTITY = 0
+        BT709 = 1
+        UNSPECIFIED = 2
+        FCC = 4
+        BT470BG = 5
+        BT601 = 6
+        SMPTE240 = 7
+        YCGCO = 8
+        BT2020_NCL = 9
+        BT2020_CL = 10
+        SMPTE2085 = 11
+        CHROMA_DERIVED_NCL = 12
+        CHROMA_DERIVED_CL = 13
+        ICTCP = 14
+        YCGCO_RE = 16
+        YCGCO_RO = 17
+
 
 class PngError(RuntimeError):
     """PNG codec exceptions."""
@@ -101,7 +161,7 @@ def png_check(const uint8_t[::1] data, /):
     """Return whether data is PNG encoded image or None if unknown."""
     if data.shape[0] < 8:
         return False
-    return png_sig_cmp(&data[0], 0, 8) == 0
+    return png_sig_cmp(<png_const_bytep> data._data, 0, 8) == 0
 
 
 def png_encode(
@@ -111,6 +171,9 @@ def png_encode(
     *,
     strategy=None,
     filter=None,
+    primaries=None,
+    transfer=None,
+    matrix=None,
     out=None,
 ):
     """Return PNG encoded image.
@@ -129,7 +192,7 @@ def png_encode(
         ssize_t srcsize = src.nbytes
         ssize_t rowstride = src.strides[0]
         ssize_t row
-        png_bytep rowptr = <png_bytep> &src.data[0]
+        png_bytep rowptr = <png_bytep> src.data
         int color_type = PNG_COLOR_TYPE_GRAY
         int level_ = _default_value(
             level, Z_DEFAULT_COMPRESSION, -1, Z_BEST_COMPRESSION
@@ -138,6 +201,9 @@ def png_encode(
             _enum_value(strategy, PNG.STRATEGY), Z_DEFAULT_STRATEGY, 0, Z_FIXED
         )
         int filter_ = _enum_value(filter, PNG.FILTER, -1)
+        int primaries_ = -1
+        int transfer_ = -1
+        int matrix_ = -1
         png_structp png_ptr = NULL
         png_infop info_ptr = NULL
         png_bytepp rowpointers = NULL
@@ -182,11 +248,15 @@ def png_encode(
         mempng.owner = 0
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
+
+    primaries_ = _enum_value(primaries, PNG.COLOR_PRIMARIES, -1)
+    transfer_ = _enum_value(transfer, PNG.TRANSFER_CHARACTERISTICS, -1)
+    matrix_ = _enum_value(matrix, PNG.MATRIX_COEFFICIENTS, -1)
 
     try:
         with nogil:
-            mempng.data = <png_bytep> &dst[0]
+            mempng.data = <png_bytep> dst._data
             mempng.size = <png_size_t> dstsize
             mempng.offset = 0
             mempng.error = NULL
@@ -237,6 +307,16 @@ def png_encode(
                 PNG_FILTER_TYPE_DEFAULT
             )
 
+            if primaries_ >= 0 or transfer_ >= 0 or matrix_ >= 0:
+                png_set_cICP(
+                    png_ptr,
+                    info_ptr,
+                    <png_byte> (primaries_ if primaries_ >= 0 else 2),
+                    <png_byte> (transfer_ if transfer_ >= 0 else 2),
+                    <png_byte> (matrix_ if matrix_ >= 0 else 2),
+                    1
+                )
+
             png_write_info(png_ptr, info_ptr)
             png_set_compression_level(png_ptr, level_)
             png_set_compression_strategy(png_ptr, strategy_)
@@ -279,7 +359,7 @@ def png_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         int samples = 0
         mempng_t mempng
         png_structp png_ptr = NULL
@@ -298,12 +378,12 @@ def png_decode(
     if data is out:
         raise ValueError('cannot decode in-place')
 
-    if srcsize < 8 or png_sig_cmp(&src[0], 0, 8) != 0:
+    if srcsize < 8 or png_sig_cmp(<png_const_bytep> src._data, 0, 8) != 0:
         raise ValueError('not a PNG image')
 
     try:
         with nogil:
-            mempng.data = <png_bytep> &src[0]
+            mempng.data = <png_bytep> src._data
             mempng.size = srcsize
             mempng.offset = 8
             mempng.owner = 0

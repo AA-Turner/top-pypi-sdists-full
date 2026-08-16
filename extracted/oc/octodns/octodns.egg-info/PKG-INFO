@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: octodns
-Version: 1.21.1
+Version: 1.22.0
 Summary: OctoDNS: DNS as code - Tools for managing DNS across multiple providers
 Author-email: Ross McFarland <rwmcfa1@gmail.com>
 License-Expression: MIT

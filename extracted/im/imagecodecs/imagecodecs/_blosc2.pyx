@@ -144,7 +144,7 @@ def blosc2_encode(
             src = view.tobytes()  # copy non-contiguous
         ctypesize = <int32_t> view.itemsize
 
-    srcsize = src.nbytes
+    srcsize = src.shape[0]
 
     if srcsize > INT32_MAX - BLOSC2_MAX_OVERHEAD:
         raise ValueError('data size larger than 2 GB')
@@ -170,7 +170,7 @@ def blosc2_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     with nogil:
         if nthreads == 0:
@@ -190,9 +190,9 @@ def blosc2_encode(
 
         ret = blosc2_compress_ctx(
             context,
-            <const void*> &src[0],
+            <const void*> src._data,
             <int32_t> srcsize,
-            <void*> &dst[0],
+            <void*> dst._data,
             <int32_t> dstsize
         )
 
@@ -217,7 +217,7 @@ def blosc2_decode(
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
         ssize_t dstsize
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         int32_t nbytes, cbytes, blocksize
         int16_t nthreads = _default_threads(numthreads)
         blosc2_context* context = NULL
@@ -227,7 +227,7 @@ def blosc2_decode(
     if data is out:
         raise ValueError('cannot decode in-place')
 
-    if src.nbytes > INT32_MAX:
+    if srcsize > INT32_MAX:
         raise ValueError('data size larger than 2 GB')
 
     out, dstsize, outgiven, outtype = _parse_output(out)
@@ -235,7 +235,7 @@ def blosc2_decode(
     if out is None:
         if dstsize < 0:
             blosc2_cbuffer_sizes(
-                <const void*> &src[0],
+                <const void*> src._data,
                 &nbytes,
                 &cbytes,
                 &blocksize
@@ -248,7 +248,7 @@ def blosc2_decode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
     if dstsize > INT32_MAX:
         raise ValueError('output size larger than 2 GB')
 
@@ -264,9 +264,9 @@ def blosc2_decode(
 
         ret = blosc2_decompress_ctx(
             context,
-            <const void*> &src[0],
+            <const void*> src._data,
             <int32_t> srcsize,
-            <void*> &dst[0],
+            <void*> dst._data,
             <int32_t> dstsize
         )
 
@@ -444,12 +444,14 @@ def b2nd_encode(
             out = _create_output(outtype, dstsize, <const char*> cframe)
         else:
             dst = out
-            dstsize = dst.nbytes
+            dstsize = dst.shape[0]
             if <int64_t> dstsize < cframe_len:
                 raise ValueError(
                     f'output buffer too small {dstsize} < {cframe_len}'
                 )
-            memcpy(<void*> &dst[0], <const void*> cframe, <size_t> cframe_len)
+            memcpy(
+                <void*> dst._data, <const void*> cframe, <size_t> cframe_len
+            )
             del dst
 
     finally:
@@ -474,7 +476,7 @@ def b2nd_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        int64_t srcsize = src.nbytes
+        int64_t srcsize = src.shape[0]
         int64_t dstsize
         b2nd_array_t* array = NULL
         int16_t nthreads = _default_threads(numthreads)
@@ -488,7 +490,7 @@ def b2nd_decode(
         old_nthreads = blosc2_set_nthreads(nthreads)
 
         with nogil:
-            ret = b2nd_from_cframe(<uint8_t *> &src[0], srcsize, 0, &array)
+            ret = b2nd_from_cframe(<uint8_t *> src._data, srcsize, 0, &array)
         if ret < 0:
             raise B2ndError('b2nd_from_cframe', ret)
 

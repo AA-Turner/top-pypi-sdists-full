@@ -1,8 +1,10 @@
 Metadata-Version: 2.4
 Name: hol-guard
-Version: 2.2.88
+Version: 2.2.96
 Summary: Open-source antivirus and runtime protection for AI agents, tools, MCP servers, plugins, skills, and package installs.
 Project-URL: Homepage, https://hol.org/guard
+Project-URL: Security, https://hol.org/guard/security
+Project-URL: Security Policy, https://github.com/hashgraph-online/hol-guard/blob/main/SECURITY.md
 Project-URL: Documentation, https://github.com/hashgraph-online/hol-guard/tree/main/docs/guard
 Project-URL: Repository, https://github.com/hashgraph-online/hol-guard
 Project-URL: Issues, https://github.com/hashgraph-online/hol-guard/issues

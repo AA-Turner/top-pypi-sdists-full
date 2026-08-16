@@ -33,6 +33,7 @@ from litdata.debugger import CAT_CRASH, CAT_DOWNLOAD, CAT_READ, emit_trace, trac
 from litdata.streaming.async_prefetch import (
     apply_async_pre_download_floor,
     async_chunk_prefetch_enabled,
+    async_download_concurrency,
     close_thread_event_loop,
     download_chunk_indexes_concurrently,
 )
@@ -44,6 +45,7 @@ from litdata.streaming.serializers import Serializer, _get_serializers
 from litdata.streaming.timing import StreamingTimingStats
 from litdata.utilities.encryption import Encryption
 from litdata.utilities.env import _DistributedEnv, _WorkerEnv
+from litdata.utilities.format import _resolve_max_cache_size
 
 warnings.filterwarnings("ignore", message=".*The given buffer is not writable.*")
 
@@ -99,6 +101,7 @@ class PrepareChunksThread(Thread):
         self._to_download_queue: Queue = Queue()
         self._to_delete_queue: Queue = Queue()
         self._force_stop_event = Event()
+        self._end_requested = False
 
         # TODO: Find a real fix to this problem
         self._force_download_queue: Queue = Queue()
@@ -132,6 +135,26 @@ class PrepareChunksThread(Thread):
     def _async_prefetch(self) -> bool:
         """True when this prepare thread should batch-download via asyncio."""
         return async_chunk_prefetch_enabled(self._config._remote_dir)
+
+    def _async_gather_width(self) -> int:
+        """How many queued chunk indexes to download together."""
+        if not self._async_prefetch():
+            return 1
+        return max(1, min(self._max_pre_download, async_download_concurrency(self._max_pre_download)))
+
+    def _free_prefetch_slots(self) -> int:
+        return max(0, self._max_pre_download - self._pre_download_counter)
+
+    def _should_start_download(self, *, over_budget: bool) -> bool:
+        """True when we should pull work from the download queue.
+
+        Use every free slot. Waiting for a gather-sized hole deadlocks when the
+        reader is blocked on the next undownloaded chunk (deletes are only queued
+        after that load succeeds). Overlap still happens when several slots are
+        free: ``_run_loop`` drains the queue up to gather width.
+        """
+        del over_budget
+        return self._free_prefetch_slots() > 0
 
     def get_ready_event(self, chunk_index: int) -> Event:
         """Return (creating if needed) the readiness event for ``chunk_index``."""
@@ -273,6 +296,12 @@ class PrepareChunksThread(Thread):
         file_existed = os.path.exists(chunk_filepath)
         try:
             self._item_loader.delete(chunk_index, chunk_filepath)
+            compressor = getattr(self._config, "_compressor_name", None)
+            basename = os.path.basename(chunk_filepath)
+            if compressor and chunk_filepath.endswith(".bin") and f".{compressor}." not in basename:
+                compressed = chunk_filepath.replace(".bin", f".{compressor}.bin")
+                with suppress(FileNotFoundError, PermissionError):
+                    os.remove(compressed)
             self._note_chunk_removed(chunk_index)
             # Only free a slot when we removed a real file that was counted toward
             # the budget. Force-redownload keeps the reservation for the replacement.
@@ -286,6 +315,7 @@ class PrepareChunksThread(Thread):
 
     def stop(self) -> None:
         """Receive the list of the chunk indices to download for the current epoch."""
+        self._end_requested = True
         self._to_download_queue.put(_END_TOKEN)
 
     def force_stop(self) -> None:
@@ -571,6 +601,8 @@ class PrepareChunksThread(Thread):
         """Download one or more chunk indexes (sync, or concurrent when env-enabled)."""
         if not chunk_indexes:
             return
+        # Shuffle / queue can repeat an index; one GET per chunk per batch.
+        chunk_indexes = list(dict.fromkeys(int(idx) for idx in chunk_indexes))
         # Respect the shared disk budget before bringing new bytes onto disk.
         pending: list[int] = []
         deferred: list[int] = []
@@ -665,7 +697,6 @@ class PrepareChunksThread(Thread):
                 self._has_exited = True
                 return
 
-            can_download_more = self._pre_download_counter < self._max_pre_download
             over_budget = False
             if self._slot_budget_enabled():
                 # Prefer eviction when over the shared disk budget so multi-worker
@@ -674,40 +705,49 @@ class PrepareChunksThread(Thread):
                 if over_budget:
                     self._maybe_delete_chunks(timeout=0.0)
 
+            can_download_more = self._should_start_download(over_budget=over_budget)
+
             # Non-blocking force/delete polls while download work can still proceed, so we do not
             # pay ~0.2s of empty-queue sleep per chunk. When the prefetch buffer is full, keep a
             # short timeout so force-download requests are not blocked behind a long delete wait.
             side_timeout = 0.0 if can_download_more else _DEFAULT_TIMEOUT
 
+            # When the window is full, drain deletes before blocking on force-download
+            # so slots free and we can refill instead of sitting on an empty force queue.
+            if self._max_cache_size and not can_download_more:
+                self._maybe_delete_chunks(timeout=0.0)
+
             self._force_download(timeout=side_timeout)
 
             if can_download_more:
                 chunk_index = _get_from_queue(self._to_download_queue)
+            elif self._end_requested:
+                chunk_index = _END_TOKEN
+            else:
+                chunk_index = None
+
+            if can_download_more or chunk_index == _END_TOKEN:
                 if chunk_index == _END_TOKEN:
                     if self._max_cache_size:
                         self._drain_and_flush_deletes()
                     self._has_exited = True
                     return
 
+                # Shuffle emits numpy.int64; do not use ``isinstance(..., int)``.
                 if chunk_index is not None:
-                    batch = [chunk_index]
-                    # Optionally drain more pending indexes up to the prefetch budget so
-                    # asyncio.gather can overlap remote downloads. When over disk budget,
-                    # download one chunk at a time so deletes can catch up.
+                    batch: list[int] = [int(chunk_index)]
+                    # Drain more pending indexes so asyncio.gather can overlap remote
+                    # downloads. When over disk budget, download one at a time.
                     if self._async_prefetch() and not over_budget:
-                        slots_left = self._max_pre_download - self._pre_download_counter - 1
-                        while slots_left > 0:
-                            # Non-blocking drain: a 0.1s Empty wait per missing
-                            # slot would serialize gather and erase async overlap.
+                        target = min(self._free_prefetch_slots(), self._async_gather_width())
+                        while len(batch) < target:
                             nxt = _get_from_queue(self._to_download_queue, timeout=0.0)
                             if nxt is None:
                                 break
                             if nxt == _END_TOKEN:
-                                # Put END back so the next loop iteration exits cleanly.
                                 self._to_download_queue.put(_END_TOKEN)
                                 break
-                            batch.append(nxt)
-                            slots_left -= 1
+                            batch.append(int(nxt))
                     self._download_chunk_indexes(batch)
 
             if self._max_cache_size:
@@ -725,7 +765,7 @@ class BinaryReader:
         cache_dir: str,
         subsampled_files: list[str] | None = None,
         region_of_interest: list[tuple[int, int]] | None = None,
-        max_cache_size: int | str | None = None,
+        max_cache_size: int | float | str | None = None,
         remote_input_dir: str | None = None,
         compression: str | None = None,
         encryption: Encryption | None = None,
@@ -756,8 +796,6 @@ class BinaryReader:
 
         """
         super().__init__()
-        warnings.filterwarnings("ignore", message=".*The given buffer is not writable.*")
-
         self._cache_dir = cache_dir
         self._remote_input_dir = remote_input_dir
 
@@ -782,7 +820,8 @@ class BinaryReader:
         # still holds. See `acquire_shared_locks` / `_release_shared_locks`.
         self._shared_chunk_indexes: set[int] = set()
         self._held_shared: set[int] = set()
-        self._max_cache_size = int(os.getenv("MAX_CACHE_SIZE", max_cache_size or 0))
+        self._max_cache_size = _resolve_max_cache_size(max_cache_size, cache_dir)
+        self._keep_node_shard: bool | None = None
         self._storage_options = storage_options
         self._session_options = session_options
         self._max_pre_download = max_pre_download
@@ -790,6 +829,8 @@ class BinaryReader:
         self._posix_fast = False
         self._posix_keep = 4
         self._posix_willneed = True
+        self._timing = StreamingTimingStats.instance()
+        self._pytree_loader = isinstance(self._item_loader, PyTreeLoader)
 
     def _get_chunk_index_from_index(self, index: int) -> tuple[int, int]:
         # Load the config containing the index
@@ -811,6 +852,12 @@ class BinaryReader:
             self._session_options,
         )
         return self._config
+
+    def set_keep_node_shard(self, keep: bool) -> None:
+        """Pin this node's chunk files when the shard fits in ``max_cache_size``."""
+        self._keep_node_shard = keep
+        if self._prepare_thread is not None:
+            self._prepare_thread._delete_chunks_when_processed = (not keep) and bool(self._max_cache_size)
 
     def acquire_shared_locks(self, shared_chunk_indexes: set[int]) -> None:
         """Eagerly reference-count the chunks this worker shares with other workers.
@@ -922,6 +969,10 @@ class BinaryReader:
                 self._item_loader.set_chunk_ready_provider(self._prepare_thread.get_ready_event)
                 self._item_loader.set_prefetch_error_provider(self._prepare_thread.prefetch_error)
                 self._prepare_thread.start()
+                if self._keep_node_shard is not None:
+                    self._prepare_thread._delete_chunks_when_processed = (not self._keep_node_shard) and bool(
+                        self._max_cache_size
+                    )
                 if index.chunk_indexes:
                     self._prepare_thread.download(index.chunk_indexes)
                     self._chunks_queued_for_download = True
@@ -955,7 +1006,7 @@ class BinaryReader:
         Prefetching should reduce the wait time to be the batch available.
 
         """
-        if not isinstance(index, ChunkedIndex):
+        if index.__class__ is not ChunkedIndex:
             raise ValueError("The Reader.read(...) method expects a chunked Index.")
 
         # Load the config containing the index
@@ -964,10 +1015,10 @@ class BinaryReader:
 
         # Fetch the element
         chunk_filepath, begin, filesize_bytes = self.config[index]
-        timing = StreamingTimingStats.instance()
-        decode_t0 = timing.start()
+        timing = self._timing
+        decode_t0 = timing.start() if timing.enabled else None
 
-        if isinstance(self._item_loader, PyTreeLoader):
+        if self._pytree_loader:
             if (
                 self.on_demand_bytes
                 and self._config
@@ -980,7 +1031,9 @@ class BinaryReader:
                 item = self._item_loader.load_item_from_bytes(raw_bytes, index.chunk_index)
             else:
                 self.setup_thread_and_download_chunk(index)
-                item = self._item_loader.load_item_from_chunk(
+                pytree_loader = self._item_loader
+                assert isinstance(pytree_loader, PyTreeLoader)
+                item = pytree_loader.load_item_from_chunk(
                     index.index, index.chunk_index, chunk_filepath, begin, filesize_bytes, self._encryption
                 )
         else:
@@ -1089,7 +1142,13 @@ class BinaryReader:
     def __getstate__(self) -> dict[str, Any]:
         state = self.__dict__.copy()
         state["_prepare_thread"] = None
+        # StreamingTimingStats holds a threading.Lock and is process-local.
+        state.pop("_timing", None)
         return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        self.__dict__.update(state)
+        self._timing = StreamingTimingStats.instance()
 
     def __del__(self) -> None:
         # Release eagerly-acquired shared-chunk locks that were never released (e.g. the loop was

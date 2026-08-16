@@ -75,10 +75,10 @@ def openzl_check(const uint8_t[::1] data, /):
     cdef:
         ZL_Report ret
 
-    if data.nbytes == 0:
+    if data.shape[0] == 0:
         return False
     ret = ZL_getFormatVersionFromFrame(
-        <const void*> &data[0], <size_t> data.nbytes
+        <const void*> data._data, <size_t> data.shape[0]
     )
     return not ZL_isError(ret)
 
@@ -104,7 +104,7 @@ def openzl_decode(
     cdef:
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         ZL_Report res
 
@@ -117,7 +117,7 @@ def openzl_decode(
         if dstsize < 0:
             with nogil:
                 res = ZL_getDecompressedSize(
-                    <const void*> &src[0], <size_t> srcsize,
+                    <const void*> src._data, <size_t> srcsize,
                 )
             if ZL_isError(res):
                 raise OpenzlError('ZL_getDecompressedSize', ZL_errorCode(res))
@@ -125,13 +125,13 @@ def openzl_decode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     with nogil:
         res = ZL_decompress(
-            <void*> &dst[0],
+            <void*> dst._data,
             <size_t> dstsize,
-            <const void*> &src[0],
+            <const void*> src._data,
             <size_t> srcsize
         )
     if ZL_isError(res):

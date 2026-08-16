@@ -3,7 +3,7 @@ from __future__ import annotations
 import types
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Collection, Mapping, Optional, Sequence, Union
 from uuid import UUID
 
 from chalk import DataFrame
@@ -26,6 +26,7 @@ from chalk.client.response import Dataset, OnlineQueryResult
 from chalk.features._encoding.json import FeatureEncodingOptions
 from chalk.features.tag import BranchId, DeploymentId, EnvironmentId
 from chalk.prompts import Prompt
+from chalk.queries.data_quality import DataQualityCheck
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -711,6 +712,8 @@ class AsyncChalkClient:
         unload_resolvers: UnloadResolvers = None,
         feature_for_lower_upper_bound: FeatureReference | None = None,
         write_to: str | None = None,
+        input_checks: Collection[Union[str, DataQualityCheck]] = (),
+        output_checks: Collection[Union[str, DataQualityCheck]] = (),
     ) -> Dataset:
         """Compute feature values from the offline store or by running offline/online resolvers.
         See `Dataset` for more information.
@@ -838,6 +841,13 @@ class AsyncChalkClient:
         write_to
             A storage URI (e.g. `s3://bucket/path`) to which the engine should write
             the query's output rows directly.
+        input_checks
+            Data quality checks over the query's input -- its spine, however it was
+            produced.
+        output_checks
+            Data quality checks over the query's computed output, before it is written to
+            the online and offline stores. Checks are built with the `Check`
+            constructors.
 
         Other Parameters
         ----------------

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vnstock
-Version: 4.0.5
+Version: 4.0.6
 Summary: A beginner-friendly yet powerful Python toolkit for financial analysis and automation — built to make modern investing accessible to everyone
 Author-email: Thinh Vu <support@vnstocks.com>
 License: Custom: Personal, research, non-commercial; contact support@vnstocks.com for other use
@@ -37,7 +37,7 @@ Requires-Dist: psutil
 Requires-Dist: packaging>=20.0
 Requires-Dist: importlib-metadata>=1.0
 Requires-Dist: tenacity
-Requires-Dist: vnai>=2.5.2
+Requires-Dist: vnai>=2.5.7
 Requires-Dist: vnstock_ezchart>=1.0.1
 Requires-Dist: pytz
 Provides-Extra: test

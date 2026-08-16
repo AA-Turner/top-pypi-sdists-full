@@ -1,66 +1,158 @@
+# --- Build System -------------------------------------------------------------
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# --- Project Metadata ---------------------------------------------------------
+[project]
+name = "nutree"
+version = "1.2.0"
+description = "Organize and query arbitrary Python objects as a tree — with clones, diffing, and graph export built in."
+readme = "README.md"
+license = {file = "LICENSE.txt"}
+authors = [
+    {name = "Martin Wendt", email = "nutree@wwwendt.de"},
+]
+maintainers = [
+    {name = "Martin Wendt", email = "nutree@wwwendt.de"},
+]
+keywords = ["tree", "data structure", "digraph", "graph", "nodes", "hierarchy", "treelib"]
+classifiers = [
+    # "Development Status :: 3 - Alpha",
+    # "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    # "Programming Language :: Python :: 3.7  # EOL 2023-06-27",
+    # "Programming Language :: Python :: 3.8  # EOL 2024-10",
+    # "Programming Language :: Python :: 3.9", # EOL 2025-10
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+# Minimal Python version that is supported by nutree (see also MIN_PYTHON_VERSION_INFO)
+requires-python = ">=3.10"
+dependencies = [
+    "typing_extensions>=4.0",
+]
+
+[project.optional-dependencies]
+graph = ["pydot", "rdflib", "graphviz"]
+random = ["fabulist"]
+all = ["pydot", "rdflib", "graphviz", "fabulist"]
+
+[tool.uv.sources]
+# benchman = {path = "../benchman", editable = true}
+
+[dependency-groups]
+dev = [
+    "benchman",
+    "fabulist",
+    "ipykernel",
+    "lxml",
+    "notebook",
+    "pre-commit",
+    "pydot",
+    "pytest",
+    "pytest-cov",
+    "pytest-html",
+    "PyYAML",
+    "rdflib",
+    "ruff>=0.15",
+    "Sphinx",
+    "furo",
+    "myst-parser[linkify]",
+    "sphinxcontrib-googleanalytics",
+    "sphinxcontrib-mermaid",
+    "sphinx-rtd-theme",
+    "tox",
+    "tox-uv",
+    "yabs",
+    "ty>=0.0.69",
+]
+
+[project.urls]
+Homepage = "https://github.com/mar10/nutree/"
+"Bug Tracker" = "https://github.com/mar10/nutree/issues"
+"Source Code" = "https://github.com/mar10/nutree"
+Documentation = "https://nutree.readthedocs.io/"
+Download = "https://github.com/mar10/nutree/releases/latest"
+
+# --- Setuptools Configuration -------------------------------------------------
+# [tool.setuptools.packages.find]
+# where = ["."]
+# exclude = ["tests*"]
+
+# [tool.setuptools.package-data]
+# nutree = ["py.typed"]
+
+
 # --- Ruff Settings ------------------------------------------------------------
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 src = ["nutree", "tests"]
 
 [tool.ruff.lint]
 select = [
-  "B",  # bugbear
+  "B", # bugbear
+  # "D",   # pydocstyle
   "E",  # pycodestyle
   "F",  # pyflakes
   "G",  # flake8-logging-format
   "I",  # isort
-  "UP", # pyupgrade
   "T",  # print, ...
-  # "D",   # pydocstyle
+  "UP", # pyupgrade
 ]
+
+# extend-select = ["ANN", "PYI"]
+# preview = true
+
 ignore = [
-  # We need the old syntax for python <= 3.9
-  "UP006", # Use `list` instead of `List` for type annotations (since Py39)
-  "UP007", # Use `X | Y` for type annotations (since Py310)
   "E721",  #  Do not compare types, use `isinstance()`
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"*.ipynb" = [  # Jupyter Notebooks
+# Jupyter Notebooks
+"*.ipynb" = [
   "T20",  # print statement
   "E402",  # module level import not at top of file
 ]
 
-# [tool.ruff.lint.isort]
+# [tool.ruff.isort]
 # case-sensitive = true
 
 # [tool.ruff.pydocstyle]
 # convention = "google"
 
-# --- Pyright Settings ---------------------------------------------------------
-[tool.pyright]
-typeCheckingMode = "standard"
-reportMissingImports = "none"
+# --- ty Settings --------------------------------------------------------------
+[tool.ty.src]
 include = ["nutree", "tests"]
-
-# https://github.com/microsoft/pyright/blob/main/docs/configuration.md#sample-pyprojecttoml-file
-reportUnnecessaryTypeIgnoreComment = true
-
-# --- Mypy Settings ------------------------------------------------------------
-[tool.mypy]
-warn_return_any = true
-warn_unused_configs = true
-# warn_unused_ignores = true
-# warn_redundant_casts = true
-# ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = [
-  "fabulist",
-  "pydot",
-  "pytest",
-  "pympler",
-  "pympler.asizeof",
-  "rdflib",
-  "rdflib.namespace",
+exclude = [
+    "tests/test_typing.py",
+    "tests/test_typing_concept.py",
 ]
-ignore_missing_imports = true
+
+[tool.ty.analysis]
+replace-imports-with-any = [
+    "fabulist.**",
+    "pydot.**",
+    "pytest.**",
+    "pympler.**",
+    "rdflib.**",
+]
+
+[tool.ty.rules]
+missing-type-argument = "error"
+possibly-unresolved-reference = "warn"
 
 # --- Pytest and Coverage Settings ---------------------------------------------
 [tool.pytest.ini_options]
@@ -78,10 +170,6 @@ markers = [
 # branch = true
 omit = [
     "tests/*",
-    "setup.py",
-    # nutree/leaves_cli.py
-    # nutree/cli_common.py
-    # nutree/monitor/*  
 ]
 
 [tool.coverage.report]

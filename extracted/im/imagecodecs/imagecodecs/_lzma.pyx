@@ -104,7 +104,7 @@ def lzma_encode(
     cdef:
         const uint8_t[::1] src = _readable_input(data)
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         ssize_t dstlen
         uint32_t preset = _default_value(level, 6, 0, 9)
@@ -125,7 +125,7 @@ def lzma_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     try:
         with nogil:
@@ -133,9 +133,9 @@ def lzma_encode(
             ret = lzma_easy_encoder(&strm, preset, check_)
             if ret != LZMA_OK:
                 raise LzmaError('lzma_easy_encoder', ret)
-            strm.next_in = <uint8_t*> &src[0]
+            strm.next_in = <uint8_t*> src._data
             strm.avail_in = <size_t> srcsize
-            strm.next_out = <uint8_t*> &dst[0]
+            strm.next_out = <uint8_t*> dst._data
             strm.avail_out = <size_t> dstsize
             ret = lzma_code(&strm, LZMA_RUN)
             if ret == LZMA_OK or ret == LZMA_STREAM_END:
@@ -160,7 +160,7 @@ def lzma_decode(
     cdef:
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         ssize_t dstlen
         lzma_ret ret
@@ -177,7 +177,7 @@ def lzma_decode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     try:
         with nogil:
@@ -185,9 +185,9 @@ def lzma_decode(
             ret = lzma_stream_decoder(&strm, UINT64_MAX, LZMA_CONCATENATED)
             if ret != LZMA_OK:
                 raise LzmaError('lzma_stream_decoder', ret)
-            strm.next_in = <uint8_t*> &src[0]
+            strm.next_in = <uint8_t*> src._data
             strm.avail_in = <size_t> srcsize
-            strm.next_out = <uint8_t*> &dst[0]
+            strm.next_out = <uint8_t*> dst._data
             strm.avail_out = <size_t> dstsize
             ret = lzma_code(&strm, LZMA_RUN)
             dstlen = dstsize - <ssize_t> strm.avail_out

@@ -6,10 +6,14 @@ from collections.abc import Callable
 
 import pytest
 
-from esphome_device_builder.controllers import migrations
 from esphome_device_builder.controllers.automations.parsing import parse_device_yaml
-from esphome_device_builder.controllers.migrations import render_migrations
 from esphome_device_builder.definitions import MigrationRule
+from esphome_device_builder.helpers import migrations
+from esphome_device_builder.helpers.migrations import (
+    has_pending_migrations,
+    render_migrations,
+)
+from esphome_device_builder.migration_rule_kinds import MIGRATION_RULE_EXTRA_FIELDS
 
 _LEGACY_API_YAML = """esphome:
   name: demo
@@ -75,6 +79,49 @@ def test_legacy_api_block_and_items() -> None:
 def test_already_canonical_returns_none() -> None:
     canonical = _LEGACY_API_YAML.replace("services:", "actions:").replace("- service:", "- action:")
     assert render_migrations(canonical) is None
+
+
+def test_prefilter_covers_every_bespoke_rule() -> None:
+    """A rule joining ``_RULES`` without a firing fixture here fails the set compare."""
+    fixtures = {
+        "_canonicalize_api_actions": _LEGACY_API_YAML,
+        "_canonicalize_action_nodes": _LEGACY_HA_YAML,
+        "_migrate_ethernet_clk": _ETHERNET_YAML,
+    }
+    rules = {}
+    for rule, tokens in migrations._RULES:
+        if rule.__name__ == "_apply_generated_renames":
+            continue
+        assert tokens, rule.__name__
+        rules[rule.__name__] = rule
+    assert set(rules) == set(fixtures)
+    for name, text in fixtures.items():
+        lines = text.splitlines(keepends=True)
+        assert rules[name](lines) != lines, name
+        assert has_pending_migrations(text) is True, name
+    assert has_pending_migrations(_respell(_LEGACY_API_YAML)) is False
+
+
+def test_has_pending_migrations_token_hit_without_migration() -> None:
+    assert has_pending_migrations("esphome:\n  service: desk\n") is False
+
+
+def test_has_pending_migrations_prose_skips_the_fold() -> None:
+    assert has_pending_migrations("esphome:\n  comment: service desk\n") is False
+
+
+def test_prefilter_matches_space_padded_keys() -> None:
+    """The loosest matchers fire on ``key :``; the prefilter must too."""
+    padded = (
+        "sensor:\n  - platform: sgp4x\n    voc :\n      name: x\n",
+        (
+            "esphome:\n  on_boot:\n    then:\n"
+            "      - homeassistant.service:\n          service : light.turn_on\n"
+        ),
+    )
+    for text in padded:
+        assert render_migrations(text) is not None, text
+        assert has_pending_migrations(text) is True, text
 
 
 def test_legacy_items_under_canonical_block() -> None:
@@ -548,6 +595,14 @@ def test_platform_item_rename_skips_block_scalars(generated_rules) -> None:
     assert render_migrations(text) is None
 
 
+def test_platform_item_platformless_item_untouched(generated_rules) -> None:
+    generated_rules(_VOC_RULE)
+    text = "sensor:\n  - voc: bare\n  - platform: sgp4x\n    voc: a\n"
+    new_text = _respell(text)
+    assert "  - voc: bare\n" in new_text
+    assert "    voc_index: a\n" in new_text
+
+
 def test_platform_value_tolerates_quotes_and_comment(generated_rules) -> None:
     generated_rules(_VOC_RULE)
     text = 'sensor:\n  - platform: "sgp4x"  # gas\n    voc:\n      name: x\n'
@@ -646,3 +701,25 @@ def test_generated_and_bespoke_rules_share_one_diff(generated_rules) -> None:
     assert "actions:" in new_text
     assert "voc_index:" in new_text
     assert diff.fromLine <= diff.toLine
+
+
+def test_prefilter_covers_every_generated_rule_kind(generated_rules) -> None:
+    """A new rule kind added without a firing fixture here fails the key compare."""
+    firing = {
+        "component_key": (_RP2_RULE, _RP2040_YAML),
+        "platform_item_field": (_VOC_RULE, _SGP4X_YAML),
+        "component_block_field": (_BLOCK_RULE, "mycomp:\n  old_key: 1\n"),
+    }
+    assert set(firing) == set(MIGRATION_RULE_EXTRA_FIELDS)
+    for kind, (rule, text) in firing.items():
+        generated_rules(rule)
+        assert render_migrations(text) is not None, kind
+        assert has_pending_migrations(text) is True, kind
+
+
+def test_prefilter_agrees_with_fold_on_every_fixture() -> None:
+    """The predicate must never disagree with the fold on any module fixture."""
+    fixtures = {n: v for n, v in globals().items() if n.endswith("_YAML") and isinstance(v, str)}
+    assert len(fixtures) >= 5
+    for name, text in fixtures.items():
+        assert has_pending_migrations(text) is (render_migrations(text) is not None), name

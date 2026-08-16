@@ -179,7 +179,7 @@ def jetraw_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
     if dstsize > INT32_MAX:
         raise RuntimeError('output too large')
     pdstlen = <int32_t> dstsize
@@ -201,7 +201,7 @@ def jetraw_encode(
             <const uint16_t*> src.data,
             width,
             height,
-            <char*> &dst[0],
+            <char*> dst._data,
             &pdstlen
         )
         if status != jetraw.dp_success:
@@ -221,7 +221,7 @@ def jetraw_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         jetraw.dp_status status = jetraw.dp_success
 
@@ -241,7 +241,7 @@ def jetraw_decode(
 
     with nogil:
         status = jetraw.jetraw_decode(
-            <const char*> &src[0],
+            <const char*> src._data,
             <int32_t> srcsize,
             <uint16_t*> dst.data,
             <int32_t> dstsize

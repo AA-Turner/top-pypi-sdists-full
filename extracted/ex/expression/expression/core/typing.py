@@ -5,7 +5,6 @@ from collections.abc import Iterable
 from typing import Any, Protocol, TypeVar, get_origin
 
 
-_T = TypeVar("_T")
 _T_co = TypeVar("_T_co", covariant=True)
 
 _Base = TypeVar("_Base")
@@ -16,6 +15,11 @@ class SupportsLessThan(Protocol):
     @abstractmethod
     def __lt__(self, __other: Any) -> bool:
         raise NotImplementedError
+
+
+class SupportsLessThanAndHash(SupportsLessThan, Protocol):
+    def __hash__(self) -> int:
+        return super().__hash__()
 
 
 class SupportsSum(Protocol):

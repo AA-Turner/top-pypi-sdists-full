@@ -104,6 +104,34 @@ class TestCacheSkipAndSetup(unittest.TestCase):
         self.assertTrue(Benchmark._is_parameter_free_setup(module_setup))
         self.assertFalse(Benchmark._is_parameter_free_setup(class_setup))
 
+    def test_bound_class_setup_does_not_run_in_do_setup_cache(self):
+        # Discovery builds sources as [func, instance, module], so class
+        # setup(self) is a bound method. signature().bind() then succeeds
+        # because self is already bound (asv_runner#52).
+        order = []
+
+        class Suite:
+            def setup(self):
+                order.append("class_setup")
+                raise AssertionError("class setup must not run in do_setup_cache")
+
+            def setup_cache(self):
+                order.append("setup_cache")
+                return {"ok": True}
+
+            def track_x(self):
+                return 1
+
+        inst = Suite()
+        func = inst.track_x
+        b = TrackBenchmark(
+            "mod.Suite.track_x", func, [func, inst, sys.modules[__name__]]
+        )
+        out = b.do_setup_cache()
+        self.assertEqual(out, {"ok": True})
+        self.assertEqual(order, ["setup_cache"])
+        self.assertFalse(Benchmark._is_parameter_free_setup(inst.setup))
+
     def test_benchmark_decorator_attrs_and_unknown(self):
         @benchmark(pretty_name="Pretty", timeout=12.5, max_time=30.0)
         def track_fn():

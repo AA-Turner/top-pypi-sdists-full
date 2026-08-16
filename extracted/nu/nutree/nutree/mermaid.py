@@ -9,10 +9,10 @@ Functions and declarations to support
 from __future__ import annotations
 
 import io
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 from subprocess import CalledProcessError, check_output
-from typing import IO, TYPE_CHECKING, Callable, Literal
+from typing import IO, TYPE_CHECKING, Any, Literal
 
 from nutree.common import DataIdType
 
@@ -84,14 +84,18 @@ def _node_to_mermaid_flowchart_iter(
     if isinstance(edge_mapper, str):
         edge_templ = edge_mapper
 
-        def edge_mapper(from_id, from_node, to_id, to_node):
+        def edge_mapper(
+            from_id: int, from_node: Node, to_id: int, to_node: Node
+        ) -> str:
             return edge_templ.format(
                 from_id=from_id, from_node=from_node, to_id=to_id, to_node=to_node
             )
 
     elif edge_mapper is None:
 
-        def edge_mapper(from_id, from_node, to_id, to_node):
+        def edge_mapper(
+            from_id: int, from_node: Node, to_id: int, to_node: Node
+        ) -> str:
             kind = getattr(to_node, "kind", None)
             templ = DEFAULT_EDGE_TYPED if kind else DEFAULT_EDGE
             return templ.format(
@@ -101,8 +105,9 @@ def _node_to_mermaid_flowchart_iter(
                 to_node=to_node,
                 kind=kind,
             )
+
     elif not callable(edge_mapper):  # pragma: no cover
-        raise ValueError("edge_mapper must be str or callable")
+        raise TypeError("edge_mapper must be str or callable")
 
     if as_markdown:
         yield "```mermaid"
@@ -165,7 +170,7 @@ def node_to_mermaid_flowchart(
     direction: MermaidDirectionType = "TD",
     title: str | bool | None = True,
     format: MermaidFormatType | None = None,
-    mmdc_options: dict | None = None,
+    mmdc_options: dict[str, Any] | None = None,
     add_root: bool = True,
     unique_nodes: bool = True,
     headers: Iterable[str] | None = None,
@@ -180,7 +185,8 @@ def node_to_mermaid_flowchart(
     if mmdc_options is None:
         mmdc_options = {}
 
-    def _write(fp):
+    def _write(fp: IO[str]) -> None:
+        """Write Mermaid formatted output to the given file pointer."""
         for line in _node_to_mermaid_flowchart_iter(
             node=node,
             as_markdown=as_markdown,
@@ -205,7 +211,7 @@ def node_to_mermaid_flowchart(
         target = Path(target)
 
     if not isinstance(target, Path):
-        raise ValueError(f"target must be a Path, str, or StringIO: {target}")
+        raise TypeError(f"target must be a Path, str, or StringIO: {target}")
 
     mm_path = target.with_suffix(".tmp") if format else target
 

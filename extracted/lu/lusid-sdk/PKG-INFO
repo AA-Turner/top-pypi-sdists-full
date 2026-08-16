@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lusid-sdk
-Version: 2.3.186
+Version: 2.3.187
 Summary: LUSID API
 License: MIT
 Keywords: OpenAPI,OpenAPI-Generator,LUSID API,lusid-sdk
@@ -983,6 +983,7 @@ Class | Method | HTTP request | Description
  - [CdsFlowConventions](docs/CdsFlowConventions.md)
  - [CdsIndex](docs/CdsIndex.md)
  - [CdsModelOptions](docs/CdsModelOptions.md)
+ - [CdsOption](docs/CdsOption.md)
  - [CdsProtectionDetailSpecification](docs/CdsProtectionDetailSpecification.md)
  - [CdxCreditEvent](docs/CdxCreditEvent.md)
  - [Change](docs/Change.md)
@@ -1013,8 +1014,11 @@ Class | Method | HTTP request | Description
  - [ClosedPeriod](docs/ClosedPeriod.md)
  - [Collateral](docs/Collateral.md)
  - [CollateralInstrument](docs/CollateralInstrument.md)
+ - [CommodityCalendarSchedule](docs/CommodityCalendarSchedule.md)
+ - [CommodityCalendarSwap](docs/CommodityCalendarSwap.md)
  - [CommodityForward](docs/CommodityForward.md)
  - [CommodityForwardCashSettlementEvent](docs/CommodityForwardCashSettlementEvent.md)
+ - [CommodityForwardPhysicalSettlementEvent](docs/CommodityForwardPhysicalSettlementEvent.md)
  - [ComparisonAttributeValuePair](docs/ComparisonAttributeValuePair.md)
  - [CompletePortfolio](docs/CompletePortfolio.md)
  - [CompleteRelation](docs/CompleteRelation.md)

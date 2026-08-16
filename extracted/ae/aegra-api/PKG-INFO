@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: aegra-api
-Version: 0.10.0
+Version: 0.10.2
 Summary: Aegra core API - Self-hosted Agent Protocol server
 Project-URL: Homepage, https://github.com/aegra/aegra
 Project-URL: Documentation, https://github.com/aegra/aegra#readme
@@ -37,7 +37,7 @@ Requires-Dist: redis[hiredis]>=5.0.0
 Requires-Dist: sqlalchemy>=2.0.0
 Requires-Dist: sse-starlette<4.0.0,>=3.3.4
 Requires-Dist: structlog>=25.4.0
-Requires-Dist: uvicorn>=0.35.0
+Requires-Dist: uvicorn>=0.36.0
 Description-Content-Type: text/markdown
 
 # aegra-api

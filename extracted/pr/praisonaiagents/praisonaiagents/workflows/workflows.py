@@ -627,7 +627,17 @@ class AgentFlow:
     execution: Optional[Any] = None  # Union[str, ExecutionConfig] - execution control
     caching: Optional[Any] = None  # Union[bool, CachingConfig] - caching
     learn: Optional[Any] = None  # Union[bool, LearnConfig] - continuous learning
-    
+
+    # ============================================================
+    # REMOTE EXECUTION
+    # ============================================================
+    # Union[str, ComputeProviderProtocol] - where each step's shell/file tools
+    # run: "docker", "e2b", "modal", "daytona", "flyio", "tenki", "local".
+    # Every step shares ONE sandbox and /workspace, so a file written by one
+    # step is visible to later steps. Orchestration stays local. Pass a
+    # configured provider instance instead of a name to customise resources.
+    run_on: Optional[Any] = None
+
     # ============================================================
     # ROBUSTNESS PARAMS (debugging & audit trail)
     # ============================================================
@@ -1105,9 +1115,80 @@ class AgentFlow:
                 "separate Workflow instance per concurrent run."
             )
         try:
-            return self._run_impl(input, llm, verbose, stream)
+            if self.run_on is None:
+                return self._run_impl(input, llm, verbose, stream)
+            # One sandbox for the whole run; torn down even if a step raises.
+            with self._shared_compute() as shared:
+                shared.attach(self._collect_agents())
+                # Expose the live sandbox so agents created *during* the run
+                # (e.g. an action-only step's temporary agent) can be attached
+                # too, instead of silently executing tools locally.
+                self._active_shared_compute = shared
+                try:
+                    return self._run_impl(input, llm, verbose, stream)
+                finally:
+                    self._active_shared_compute = None
         finally:
             self._execution_lock.release()
+
+    def _shared_compute(self):
+        """Build the SharedCompute for this run (see the ``run_on=`` field)."""
+        from ..managed.shared_compute import SharedCompute
+
+        return SharedCompute(self.run_on)
+
+    def _collect_agents(self) -> List[Any]:
+        """Walk steps (including nested route/parallel/loop/repeat/if) for Agents.
+
+        Returns each Agent once, in first-seen order. Anything that is not an
+        Agent -- plain functions, Tasks without an agent -- is ignored.
+        """
+        found: List[Any] = []
+        seen = set()
+
+        def visit(step: Any) -> None:
+            if step is None:
+                return
+            if isinstance(step, (list, tuple)):
+                for item in step:
+                    visit(item)
+                return
+
+            # Nested step containers.
+            if isinstance(step, Route):
+                for branch in step.routes.values():
+                    visit(branch)
+                visit(step.default)
+                return
+            if isinstance(step, Parallel):
+                visit(step.steps)
+                return
+            if isinstance(step, Loop):
+                visit(step.step)
+                visit(step.steps)
+                return
+            if isinstance(step, Repeat):
+                visit(step.step)
+                return
+            if isinstance(step, If):
+                visit(step.then_steps)
+                visit(step.else_steps)
+                return
+
+            # A Task carries the agent that will execute it.
+            agent = getattr(step, "agent", None)
+            candidate = agent if agent is not None else step
+
+            # Duck-type an Agent: has chat() and instructions/role.
+            if hasattr(candidate, "chat") and (
+                hasattr(candidate, "instructions") or hasattr(candidate, "role")
+            ):
+                if id(candidate) not in seen:
+                    seen.add(id(candidate))
+                    found.append(candidate)
+
+        visit(self.steps)
+        return found
 
     def _run_impl(
         self,
@@ -1442,6 +1523,13 @@ class AgentFlow:
                             caching=self.caching,  # Propagate caching config
                             hooks=self.hooks,  # Propagate hooks/callbacks
                         )
+                        # An action-only step builds its agent here, after the
+                        # run's initial attach(). Bind it to the shared sandbox
+                        # too, so its shell/file tools land in the same instance
+                        # as every other step instead of running locally.
+                        shared = getattr(self, "_active_shared_compute", None)
+                        if shared is not None:
+                            shared.attach([temp_agent])
                         # Substitute variables in action
                         action = step.action
                         action = _substitute_action_variables(action, all_variables, previous_output, input)
@@ -1474,11 +1562,8 @@ class AgentFlow:
                     
                     retry_count += 1
                     if retry_count <= max_retries:
-                        # Exponential backoff: wait 2^(retry_count-1) seconds
-                        backoff_seconds = 2 ** (retry_count - 1)
-                        if verbose:
-                            print(f"🔄 {step.name} failed (attempt {retry_count}/{max_retries}), retrying in {backoff_seconds}s: {e}")
-                        time.sleep(backoff_seconds)
+                        # Exponential backoff (shared with _apply_step_policies)
+                        self._retry_backoff(step, retry_count, max_retries, e, verbose)
                         continue  # Retry
                     
                     if self.on_step_error:
@@ -2398,6 +2483,20 @@ Create a brief execution plan (2-3 sentences) describing how to best accomplish 
             "variables": all_variables
         }
 
+    @staticmethod
+    def _retry_backoff(step, retry_count, max_retries, error, verbose):
+        """Sleep with exponential backoff and print retry progress.
+
+        Shared by the top-level loop and ``_apply_step_policies`` so the
+        retry-delay/print is defined exactly once. Behaviour is byte-for-byte
+        identical to the previous inline copies: backoff is ``2**(retry_count-1)``
+        seconds with the same verbose progress line.
+        """
+        backoff_seconds = 2 ** (retry_count - 1)
+        if verbose:
+            print(f"🔄 {step.name} failed (attempt {retry_count}/{max_retries}), retrying in {backoff_seconds}s: {error}")
+        time.sleep(backoff_seconds)
+
     def _apply_step_policies(self, step, run_body, all_variables, verbose):
         """Run a step body with retry, guardrail-retry and output_file handling.
 
@@ -2428,10 +2527,7 @@ Create a brief execution plan (2-3 sentences) describing how to best accomplish 
                     break
                 retry_count += 1
                 if retry_count <= max_retries:
-                    backoff_seconds = 2 ** (retry_count - 1)
-                    if verbose:
-                        print(f"🔄 {step.name} failed (attempt {retry_count}/{max_retries}), retrying in {backoff_seconds}s: {e}")
-                    time.sleep(backoff_seconds)
+                    self._retry_backoff(step, retry_count, max_retries, e, verbose)
                     continue
 
             # Guardrail check (guardrails canonical, guardrail deprecated)

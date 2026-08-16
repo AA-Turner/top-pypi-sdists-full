@@ -37,7 +37,11 @@ from .. import boot_phases
 from ..capability import InsufficientDiskError
 from .cache_paths import open_worker_cas
 from .download import components_present, select_component_paths
-from .errors import PickleWeightRefused
+from .errors import (
+    PICKLE_WEIGHT_EXTENSIONS,
+    PickleWeightRefused,
+    first_pickle_weight_path,
+)
 from .hub_client import WorkerResolvedRepo, WorkerResolvedRepoFile
 from .refs import TensorhubRef
 
@@ -92,15 +96,8 @@ def _component_of(path: str) -> str:
     return head if separator else "(root)"
 
 
-PICKLE_WEIGHT_EXTENSIONS = (".bin", ".ckpt", ".pt", ".pth", ".pkl", ".pickle")
-
-
-def first_pickle_weight_path(paths: Iterable[str]) -> str:
-    for raw in paths:
-        base = str(raw or "").strip().lower().rsplit("/", 1)[-1]
-        if base.endswith(PICKLE_WEIGHT_EXTENSIONS):
-            return raw
-    return ""
+# PICKLE_WEIGHT_EXTENSIONS and first_pickle_weight_path moved to .errors
+# (pgw#1273) so the HF lane refuses on the same list this one does.
 
 
 def _manifest_entry(file: WorkerResolvedRepoFile) -> FileEntry:
@@ -157,25 +154,19 @@ def _validate_resolved(ref: TensorhubRef, resolved: WorkerResolvedRepo) -> Worke
 
 
 SUBSET_MARKER = "__c"
-EXCLUDE_MARKER = "__x"
-
-
-def dir_key_excludes_components(path: str | Path) -> bool:
-    return EXCLUDE_MARKER in Path(path).name
 
 
 def snapshot_dir_key(
     snapshot_digest: str,
     components: Sequence[str] = (),
-    exclude: Sequence[str] = (),
 ) -> str:
+    """The snapshot directory name. th#1941: for a hub-composed manifest the
+    digest IS the whole key — the composition is already in it. ``components``
+    is the author-declared positive subset (HF/Hub ``components=``)."""
     included = sorted({str(value).strip() for value in components if str(value).strip()})
-    excluded = sorted({str(value).strip() for value in exclude if str(value).strip()})
     key = snapshot_digest
     if included:
         key += SUBSET_MARKER + hashlib.sha1("+".join(included).encode()).hexdigest()[:12]
-    if excluded:
-        key += EXCLUDE_MARKER + hashlib.sha1("+".join(excluded).encode()).hexdigest()[:12]
     return key
 
 
@@ -183,15 +174,14 @@ def _filter_resolved_components(
     ref: TensorhubRef,
     resolved: WorkerResolvedRepo,
     components: Sequence[str],
-    exclude: Sequence[str] = (),
 ) -> WorkerResolvedRepo:
     paths = [file.path for file in resolved.files]
-    if components and not components_present(paths, components):
+    if not components_present(paths, components):
         raise ValueError(
             f"components={list(components)!r} matched nothing in {ref.canonical()} "
             f"snapshot {resolved.snapshot_digest[:16]}"
         )
-    keep = select_component_paths(paths, components, exclude)
+    keep = select_component_paths(paths, components)
     return WorkerResolvedRepo(
         snapshot_digest=resolved.snapshot_digest,
         files=[file for file in resolved.files if file.path in keep],
@@ -311,20 +301,15 @@ class CozySnapshotDownloader:
         resolved: WorkerResolvedRepo | None,
         progress: ProgressFn | None = None,
         components: Sequence[str] = (),
-        exclude_components: Sequence[str] = (),
         fill_source_dir: Path | None = None,
     ) -> Path:
         if resolved is None:
             raise RuntimeError("cozy snapshot requires orchestrator-resolved URLs")
         selected = _validate_resolved(ref, resolved)
-        if components or exclude_components:
-            selected = _filter_resolved_components(
-                ref, selected, components, exclude_components
-            )
+        if components:
+            selected = _filter_resolved_components(ref, selected, components)
         manifest = _manifest(selected.files)
-        key = snapshot_dir_key(
-            selected.snapshot_digest, components, exclude_components
-        )
+        key = snapshot_dir_key(selected.snapshot_digest, components)
         snapshots = Path(base_dir) / "snapshots"
         snapshots.mkdir(parents=True, exist_ok=True)
         target = snapshots / key
@@ -533,7 +518,6 @@ async def ensure_snapshot_async(
     resolved: WorkerResolvedRepo | None,
     progress: ProgressFn | None = None,
     components: Sequence[str] = (),
-    exclude_components: Sequence[str] = (),
     fill_source_dir: Path | None = None,
 ) -> Path:
     return await CozySnapshotDownloader().ensure_snapshot(
@@ -542,7 +526,6 @@ async def ensure_snapshot_async(
         resolved=resolved,
         progress=progress,
         components=components,
-        exclude_components=exclude_components,
         fill_source_dir=fill_source_dir,
     )
 
@@ -551,7 +534,6 @@ __all__ = [
     "NetworkBytesScope",
     "PICKLE_WEIGHT_EXTENSIONS",
     "delete_blobs",
-    "dir_key_excludes_components",
     "ensure_snapshot_async",
     "first_pickle_weight_path",
     "snapshot_dir_key",

@@ -22,6 +22,13 @@ from ..config.feature_configs import DEFAULT_TOOL_OUTPUT_LIMIT
 
 logger = logging.getLogger(__name__)
 
+# Upper bound on how many timed-out (still-blocked) tool executors a single
+# agent may retire before it stops recycling and falls back to reusing the
+# existing bounded pool. This keeps the "fresh worker after a timeout"
+# throughput win while capping leaked threads from pathological repeated
+# timeouts so they cannot exhaust process resources.
+_MAX_ORPHANED_TOOL_EXECUTORS = 4
+
 if TYPE_CHECKING:
     pass
 
@@ -273,6 +280,37 @@ def build_tool_result_message_pair(
     return tool_message, followup_message
 
 
+def try_append_multimodal_tool_result(
+    messages, tool_result, tool_call_id, function_name=None, deferred_followups=None
+) -> bool:
+    """Append a multimodal (image/file) tool result if present.
+
+    The ``tool`` reply is appended in-place so all tool replies for the
+    assistant turn stay consecutive (provider contract). The media-bearing
+    ``user`` follow-up is collected into ``deferred_followups`` for the caller
+    to flush after the whole batch; if no collector is supplied it is appended
+    directly. External tool text parts are fenced via ``function_name``.
+
+    Returns True if the result was multimodal (caller should skip its default
+    text-only tool message); False otherwise for the unchanged path.
+    """
+    try:
+        pair = build_tool_result_message_pair(
+            tool_result, tool_call_id, function_name=function_name
+        )
+        if pair:
+            tool_message, followup_message = pair
+            messages.append(tool_message)
+            if deferred_followups is not None:
+                deferred_followups.append(followup_message)
+            else:
+                messages.append(followup_message)
+            return True
+    except Exception as e:
+        logging.debug(f"Multimodal tool result formatting skipped: {e}")
+    return False
+
+
 def _fence_external_text(function_name: str, text: str) -> str:
     """Apply the external-content prompt-injection fence to a text string."""
     try:
@@ -416,6 +454,15 @@ class ToolExecutionMixin:
         
         # Set up injection context for tools with Injected parameters
         from ..tools.injected import AgentState
+        try:
+            from .durable import get_durable_idempotency_key
+
+            idempotency_key = get_durable_idempotency_key()
+        except ImportError:
+            idempotency_key = None
+        state_metadata = {'agent_name': self.name}
+        if idempotency_key:
+            state_metadata['idempotency_key'] = idempotency_key
         state = AgentState(
             agent_id=self.name,
             run_id=getattr(self, '_current_run_id', 'unknown'),
@@ -423,7 +470,7 @@ class ToolExecutionMixin:
             last_user_message=self.chat_history[-1].get('content') if self.chat_history else None,
             memory=getattr(self, '_memory_instance', None),
             learn_manager=getattr(getattr(self, '_memory_instance', None), 'learn', None),
-            metadata={'agent_name': self.name}
+            metadata=state_metadata,
         )
         
         # Route through user-supplied tool middleware (Agent(hooks=[...])) when
@@ -642,14 +689,37 @@ class ToolExecutionMixin:
                     )
                     if _verdict.get("stuck"):
                         if _verdict.get("level") == "critical":
-                            # Block via the shared blocked_result path so trace
-                            # spans, stream events, AFTER_TOOL hooks, doom-loop
-                            # and loop-guard teardown still run (matches the
-                            # loop_guard BLOCK behaviour at line ~524).
-                            blocked_result = {
-                                "error": _verdict.get("message", "loop detected"),
-                                "loop_blocked": True,
-                            }
+                            # Route the detected loop through the unified approval
+                            # pipeline as a synthetic ``doom_loop`` target instead
+                            # of unconditionally blocking. This gives a human
+                            # override and per-project policy control while
+                            # preserving the historical hard-stop default:
+                            #   • allow -> proceed (reset the streak so a
+                            #     legitimate repeat, e.g. polling a build status,
+                            #     is not re-flagged next call);
+                            #   • deny/no-decision -> the existing block path.
+                            # Interactive backends surface the prompt (and emit
+                            # ON_PERMISSION_ASK); non-interactive sessions fall
+                            # back to the configured default (deny -> stop).
+                            if self._doom_loop_approved(function_name, arguments, _verdict):
+                                # Approved: purge the whole matching (tool, args)
+                                # streak so a legitimate repeat gets a fresh
+                                # critical_threshold window instead of
+                                # re-prompting on the very next identical call.
+                                # Removing by identity (not a blind pop) also
+                                # leaves any concurrent, unrelated records intact.
+                                _loop_detection.reset_matching_history(
+                                    _ld_history, function_name, arguments
+                                )
+                            else:
+                                # Block via the shared blocked_result path so trace
+                                # spans, stream events, AFTER_TOOL hooks, doom-loop
+                                # and loop-guard teardown still run (matches the
+                                # loop_guard BLOCK behaviour at line ~524).
+                                blocked_result = {
+                                    "error": _verdict.get("message", "loop detected"),
+                                    "loop_blocked": True,
+                                }
                         elif not getattr(self, '_loop_warned_this_turn', False):
                             self._loop_warned_this_turn = True
                             self._pending_self_correction = (
@@ -724,7 +794,7 @@ class ToolExecutionMixin:
                                         return self._execute_tool_with_circuit_breaker(function_name, arguments)
 
                                 # Use reusable executor to prevent resource leaks
-                                if not hasattr(self, '_tool_executor'):
+                                if not hasattr(self, '_tool_executor') or self._tool_executor is None:
                                     self._tool_executor = concurrent.futures.ThreadPoolExecutor(
                                         max_workers=2, thread_name_prefix=f"tool-{self.name}"
                                     )
@@ -738,6 +808,18 @@ class ToolExecutionMixin:
                                     future.cancel()
                                     logging.warning(f"Tool {function_name} timed out after {tool_timeout}s")
                                     result = {"error": f"Tool timed out after {tool_timeout}s", "timeout": True}
+                                    # The timed-out thread cannot be reclaimed. Retire this
+                                    # executor so the next call gets a fresh worker instead of
+                                    # queuing behind a permanently stuck one — but bound how many
+                                    # orphaned (still-blocked) threads we allow to accumulate:
+                                    # once the cap is reached we stop recycling and keep reusing
+                                    # the existing pool so repeated timeouts can't exhaust process
+                                    # resources with an unbounded number of leaked threads.
+                                    orphaned = getattr(self, '_tool_executor_orphaned', 0)
+                                    if orphaned < _MAX_ORPHANED_TOOL_EXECUTORS:
+                                        self._tool_executor.shutdown(wait=False)
+                                        self._tool_executor = None
+                                        self._tool_executor_orphaned = orphaned + 1
                         else:
                             with tool_progress_channel(_progress_sink), with_injection_context(state):
                                 result = self._execute_tool_with_circuit_breaker(function_name, arguments)
@@ -1066,6 +1148,20 @@ class ToolExecutionMixin:
                     execution_time_ms=(_time.time() - _tool_start_time) * 1000
                 )
                 after_tool_results = self._hook_runner.execute_sync(HookEvent.AFTER_TOOL, after_tool_input, target=function_name)
+
+                # Honour a post-tool block: a plugin/hook can deny the result
+                # (e.g. secret/PII detected) so the original output never
+                # reaches the model. Mirrors the BEFORE_TOOL block path above.
+                if self._hook_runner.is_blocked(after_tool_results):
+                    reason = self._hook_runner.get_blocking_reason(after_tool_results)
+                    logging.warning(f"Tool {function_name} result blocked by AFTER_TOOL hook")
+                    return reason or f"Result of {function_name} was blocked by security policy."
+
+                # Read back any rewritten/redacted tool_output so a plugin can
+                # scrub secrets before the result reaches the model. The bridge
+                # mutates ``after_tool_input.tool_output`` in place.
+                if getattr(after_tool_input, "tool_output", result) is not result:
+                    result = after_tool_input.tool_output
 
                 # Surface any additional_context returned by AFTER_TOOL hooks
                 # back to the model by appending it to the tool result (mirrors
@@ -1586,6 +1682,84 @@ class ToolExecutionMixin:
                     getattr(self, 'name', None), tool_name, tool_args,
                     force=manager_forces_approval,
                 )
+
+    def _doom_loop_approved(self, function_name, arguments, verdict) -> bool:
+        """Resolve a critical loop verdict through the unified approval pipeline.
+
+        Routes the detected loop as an internal, namespaced ``__doom_loop__``
+        permission target so the existing ask/allow/deny machinery (backends,
+        ``ON_PERMISSION_ASK``, env/YAML/PermissionManager rules) decides whether
+        to continue. Returns ``True`` only on an explicit *allow* (human
+        continue, a ``doom_loop=allow`` policy, env/YAML auto-approve); every
+        other outcome — deny, timeout, no backend, or any error — returns
+        ``False`` so the caller falls back to the historical hard-stop.
+
+        The synthetic target is namespaced (double-underscore) so it can never
+        collide with a real agent tool. An explicit ``PermissionManager`` rule
+        keyed on the friendly ``doom_loop`` alias is honoured first so a
+        configured ``allow``/``deny`` short-circuits before any backend prompt.
+        The original call's arguments are folded into a stable fingerprint so an
+        approval is scoped to *this* repeated call, not any doom-loop.
+        ``force=True`` gates the call even though the target is never executed.
+        """
+        try:
+            from ..approval import get_approval_registry
+            from ..approval.registry import DOOM_LOOP_TARGET
+
+            # Honour an explicit PermissionManager allow/deny on the friendly
+            # ``doom_loop`` policy alias before consulting a backend, so an
+            # Agent-level ``tool:doom_loop=allow`` continues (and ``deny`` stops)
+            # without being overridden by the default critical prompt.
+            manager = getattr(self, "_permission_manager", None)
+            if manager is not None:
+                try:
+                    from ..permissions import PermissionAction
+                    action = manager.resolve_tool_action(
+                        "doom_loop", getattr(self, "name", None)
+                    )
+                    if action == PermissionAction.ALLOW:
+                        return True
+                    if action == PermissionAction.DENY:
+                        return False
+                except Exception as e:  # noqa: BLE001
+                    logging.debug(
+                        "doom_loop permission-manager resolve failed (%s); "
+                        "falling through to backend", e,
+                    )
+
+            registry = get_approval_registry()
+            request_args = {
+                "tool": function_name,
+                "detector": verdict.get("detector"),
+                "count": verdict.get("count"),
+                # Scope the approval to this exact repeated call so an allow for
+                # one looping call cannot silently authorise a different one.
+                "args_fingerprint": self._doom_loop_args_fingerprint(
+                    function_name, arguments
+                ),
+            }
+            decision = registry.approve_sync(
+                getattr(self, "name", None),
+                DOOM_LOOP_TARGET,
+                request_args,
+                force=True,
+            )
+            return bool(getattr(decision, "approved", False))
+        except Exception as e:  # noqa: BLE001 — fail closed to the block path
+            logging.debug(
+                "doom_loop approval routing failed for %s (%s); blocking",
+                function_name, e,
+            )
+            return False
+
+    @staticmethod
+    def _doom_loop_args_fingerprint(function_name, arguments) -> str:
+        """Stable, immutable fingerprint of the looping (tool, args) pair."""
+        try:
+            from . import loop_detection as _loop_detection
+            return _loop_detection.hash_tool_call(function_name, arguments)
+        except Exception:  # noqa: BLE001 — fingerprint is best-effort scoping
+            return str(function_name)
 
     def _permission_manager_requires_approval(self, function_name) -> bool:
         """Return ``True`` when an explicit ``ask`` rule gates *function_name*.
@@ -2169,6 +2343,31 @@ class ToolExecutionMixin:
         except ImportError:
             pass  # MCP not available
         
+        # Normalize MCP transport/timeout failures (returned as bare "Error: ..."
+        # strings by MCPClient.call_tool) into the same {"error": ...} dict shape
+        # used by native tools, so they participate in retry, doom-loop detection
+        # and circuit-breaking instead of looking like a successful string result.
+        #
+        # IMPORTANT: a successful MCP tool may legitimately return text that
+        # begins with "Error: " (e.g. a linter/grep/echo tool). To avoid
+        # misclassifying valid output as a failure, we only convert MCP's own
+        # unambiguous internally-generated failure signatures, not any string
+        # that merely starts with the "Error: " prefix.
+        def _normalize_mcp_result(res):
+            if not isinstance(res, str) or not res.startswith("Error: "):
+                return res
+            message = res[len("Error: "):]
+            # MCP-internal timeout messages are unambiguous:
+            #   "MCP tool call timed out after Ns"
+            #   "MCP initialization timed out after Ns"
+            is_mcp_timeout = (
+                message.startswith("MCP tool call timed out after")
+                or message.startswith("MCP initialization timed out after")
+            )
+            if is_mcp_timeout:
+                return {"error": message, "timeout": True}
+            return res
+
         # Helper function to execute MCP tool
         def _execute_mcp_tool(mcp_instance, func_name, args):
             """Execute a tool from an MCP instance."""
@@ -2206,7 +2405,7 @@ class ToolExecutionMixin:
             logging.debug(f"Looking for MCP tool {function_name}")
             found, result = _execute_mcp_tool(self.tools, function_name, arguments)
             if found:
-                return result
+                return _normalize_mcp_result(result)
         
         # Check if tools is a list that may contain MCP instances
         if isinstance(self.tools, (list, tuple)):
@@ -2215,7 +2414,7 @@ class ToolExecutionMixin:
                     logging.debug(f"Looking for MCP tool {function_name} in MCP instance")
                     found, result = _execute_mcp_tool(tool, function_name, arguments)
                     if found:
-                        return result
+                        return _normalize_mcp_result(result)
 
         # Try to find the function in the agent's tools list first
         func = None
@@ -2269,11 +2468,36 @@ class ToolExecutionMixin:
             bind_target = func
             bind_arguments = arguments
             try:
+                try:
+                    from .durable import get_durable_idempotency_key
+
+                    durable_key = get_durable_idempotency_key()
+                except ImportError:
+                    durable_key = None
+
+                def _with_durable_key(target, values):
+                    if not durable_key:
+                        return values
+                    try:
+                        parameters = inspect.signature(target).parameters.values()
+                    except (TypeError, ValueError):
+                        return values
+                    if not any(
+                        parameter.name == "idempotency_key"
+                        or parameter.kind == inspect.Parameter.VAR_KEYWORD
+                        for parameter in parameters
+                    ):
+                        return values
+                    scoped = dict(values)
+                    scoped["idempotency_key"] = durable_key
+                    return scoped
+
                 # BaseTool instances (plugin system) - call run() method
                 from ..tools.base import BaseTool
                 if isinstance(func, BaseTool):
                     bind_target = func.run
-                    casted_arguments = self._cast_arguments(func.run, arguments)
+                    keyed_arguments = _with_durable_key(func.run, arguments)
+                    casted_arguments = self._cast_arguments(func.run, keyed_arguments)
                     bind_arguments = casted_arguments
                     return func.run(**casted_arguments)
                 
@@ -2281,7 +2505,8 @@ class ToolExecutionMixin:
                 if inspect.isclass(func) and hasattr(func, 'run') and not hasattr(func, '_run'):
                     instance = func()
                     bind_target = instance.run
-                    run_params = {k: v for k, v in arguments.items() 
+                    keyed_arguments = _with_durable_key(instance.run, arguments)
+                    run_params = {k: v for k, v in keyed_arguments.items()
                                   if k in inspect.signature(instance.run).parameters 
                                   and k != 'self'}
                     casted_params = self._cast_arguments(instance.run, run_params)
@@ -2292,7 +2517,8 @@ class ToolExecutionMixin:
                 elif inspect.isclass(func) and hasattr(func, '_run'):
                     instance = func()
                     bind_target = instance._run
-                    run_params = {k: v for k, v in arguments.items() 
+                    keyed_arguments = _with_durable_key(instance._run, arguments)
+                    run_params = {k: v for k, v in keyed_arguments.items()
                                   if k in inspect.signature(instance._run).parameters 
                                   and k != 'self'}
                     casted_params = self._cast_arguments(instance._run, run_params)
@@ -2302,7 +2528,8 @@ class ToolExecutionMixin:
                 # Otherwise treat as regular function
                 elif callable(func):
                     bind_target = func
-                    casted_arguments = self._cast_arguments(func, arguments)
+                    keyed_arguments = _with_durable_key(func, arguments)
+                    casted_arguments = self._cast_arguments(func, keyed_arguments)
                     bind_arguments = casted_arguments
                     return func(**casted_arguments)
             except Exception as e:

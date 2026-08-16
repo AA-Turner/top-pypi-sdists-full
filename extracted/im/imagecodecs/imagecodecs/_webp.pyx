@@ -238,12 +238,12 @@ def webp_encode(
             out = _create_output(outtype, dstsize)
 
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
         if <size_t> dstsize < output_size:
             raise RuntimeError('output too small')
 
         with nogil:
-            memcpy(<void*> &dst[0], <const void*> output, output_size)
+            memcpy(<void*> dst._data, <const void*> output, output_size)
 
     finally:
         WebPMemoryWriterClear(&writer)
@@ -287,8 +287,8 @@ def webp_decode(
     if data is out:
         raise ValueError('cannot decode in-place')
 
-    webp_data.bytes = &src[0]
-    webp_data.size = <size_t> src.nbytes
+    webp_data.bytes = <const uint8_t*> src._data
+    webp_data.size = <size_t> src.shape[0]
 
     demux = WebPDemux(&webp_data)
     if demux == NULL:
@@ -598,13 +598,13 @@ cdef _webp_encode_frames(
             out = _create_output(outtype, dstsize)
 
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
         if <size_t> dstsize < <size_t> output_size:
             raise RuntimeError('output too small')
 
         with nogil:
             memcpy(
-                <void*> &dst[0], <const void*> webp_data.bytes, output_size
+                <void*> dst._data, <const void*> webp_data.bytes, output_size
             )
 
     finally:

@@ -47,6 +47,9 @@ from .protocols import (
     OutboundMessengerProtocol,
     DeliveryResult,
     TargetInfo,
+    # Agent-callable message reactions (Issue #3917)
+    ReactionResult,
+    ReactionStatus,
     # Agent-callable cross-conversation request/reply (Issue #3689)
     ConversationReply,
     ConversationReplyStatus,
@@ -166,6 +169,8 @@ from .protocols import (
     WeakGatewaySecretError,
     is_weak_secret,
     assert_gateway_secret_strong,
+    # Per-platform identity canonicalization (Issue #3886)
+    IdentityCanonicalizerProtocol,
 )
 from .liveness import (
     # Event-loop liveness watchdog (Issue #3385)
@@ -307,6 +312,8 @@ __all__ = [
     "OutboundMessengerProtocol",
     "DeliveryResult",
     "TargetInfo",
+    "ReactionResult",
+    "ReactionStatus",
     # Agent-callable cross-conversation request/reply (Issue #3689)
     "ConversationReply",
     "ConversationReplyStatus",
@@ -425,6 +432,8 @@ __all__ = [
     "WeakGatewaySecretError",
     "is_weak_secret",
     "assert_gateway_secret_strong",
+    # Per-platform identity canonicalization (Issue #3886)
+    "IdentityCanonicalizerProtocol",
     # Event-loop liveness watchdog (Issue #3385)
     "LoopWatchdogPolicy",
     "LoopWatchdog",

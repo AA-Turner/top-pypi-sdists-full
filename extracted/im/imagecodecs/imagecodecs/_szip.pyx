@@ -108,7 +108,7 @@ def szip_encode(
     cdef:
         const uint8_t[::1] src = _readable_input(data)
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         size_t dstlen
         SZ_com_t_s param
@@ -151,14 +151,14 @@ def szip_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes - offset
+    dstsize = dst.shape[0] - offset
     dstlen = <size_t> dstsize
 
     with nogil:
         ret = SZ_BufftoBuffCompress(
             <void*> &dst[offset],
             &dstlen,
-            <const void*> &src[0],
+            <const void*> src._data,
             <size_t> srcsize,
             &param
         )
@@ -166,7 +166,7 @@ def szip_encode(
         raise SzipError('SZ_BufftoBuffCompress', ret)
 
     if header:
-        pdst = <uint8_t*> &dst[0]
+        pdst = <uint8_t*> dst._data
         pdst[0] = srcsize & 255
         pdst[1] = (srcsize >> 8) & 255
         pdst[2] = (srcsize >> 16) & 255
@@ -191,7 +191,7 @@ def szip_decode(
     cdef:
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         ssize_t dstsize_header = 0
         size_t dstlen
@@ -230,12 +230,12 @@ def szip_decode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
     dstlen = <size_t> dstsize
 
     with nogil:
         ret = SZ_BufftoBuffDecompress(
-            <void*> &dst[0],
+            <void*> dst._data,
             &dstlen,
             <const void*> &src[offset],
             <size_t> (srcsize - offset),

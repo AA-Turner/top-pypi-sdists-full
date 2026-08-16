@@ -16,10 +16,10 @@ extern "C" {
 #define DAQP_DEFAULT_DUAL_TOL 1e-12
 #define DAQP_DEFAULT_ZERO_TOL 1e-11
 #define DAQP_DEFAULT_PROG_TOL 1e-14
-#define DAQP_DEFAULT_LP_PROG_TOL 1e-10
 #define DAQP_DEFAULT_PIVOT_TOL 1e-6
 #define DAQP_DEFAULT_CYCLE_TOL 10
-#define DAQP_DEFAULT_ETA 1e-6
+#define DAQP_DEFAULT_ETA -1.0
+#define DAQP_AUTO_ETA_CAP 1e-6
 #define DAQP_DEFAULT_ITER_LIMIT 10000
 #define DAQP_DEFAULT_RHO_SOFT 1e-6
 #define DAQP_DEFAULT_REL_SUBOPT 0
@@ -27,6 +27,11 @@ extern "C" {
 #define DAQP_DEFAULT_SING_TOL (3.7e-11)
 #define DAQP_DEFAULT_REFACTOR_TOL 1e-9
 #define DAQP_DEFAULT_EPS_PROX 1e-6
+
+// Equality constraints are eliminated if there are sufficiently many of them
+// (neq > EQ_MIN_COUNT and EQ_MIN_RATIO*neq > n)
+#define DAQP_EQ_MIN_COUNT 5
+#define DAQP_EQ_MIN_RATIO 10
 
 
 // MACROS
@@ -52,6 +57,7 @@ extern "C" {
 #define DAQP_UPDATE_sense 16
 #define DAQP_UPDATE_hierarchy 32
 #define DAQP_UPDATE_unconstrained 64
+#define DAQP_UPDATE_eliminate 128
 
 // CONSTRAINT MASKS
 #define DAQP_ACTIVE 1
@@ -80,6 +86,13 @@ extern "C" {
 // marks that a constraint has to be active at either its upper or lower bound
 #define DAQP_BINARY 16
 #define DAQP_IS_BINARY(x) (work->sense[x]&16)
+
+// marks that the soft slack is at its lower bound (d_ls or d_us)
+#define DAQP_SLACK_FIXED 32
+#define DAQP_IS_SLACK_FIXED(x) (work->sense[x]&32)
+#define DAQP_IS_SLACK_FREE(x) ((work->sense[x]&32)==0)
+#define DAQP_SET_SLACK_FIXED(x) (work->sense[x]|=32)
+#define DAQP_SET_SLACK_FREE(x) (work->sense[x]&=~32)
 
 # ifdef __cplusplus
 }

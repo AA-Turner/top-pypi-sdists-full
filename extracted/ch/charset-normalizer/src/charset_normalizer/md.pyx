@@ -61,6 +61,12 @@ cdef int _LIGATURE_MASK = _LIGATURE
 cdef int _SUPERSCRIPT_MASK = _SUPERSCRIPT
 cdef int _SENTENCE_OPEN_PUNCTUATION_MASK = _SENTENCE_OPEN_PUNCTUATION
 
+cdef enum:
+    UNICODE_PAGE_SHIFT = 8
+    UNICODE_PAGE_SIZE = 256
+    UNICODE_PAGE_MASK = 255
+    UNICODE_PAGE_COUNT = 4352
+
 
 cdef class CharInfo:
     """Pre-computed character properties shared across all detectors."""
@@ -190,22 +196,29 @@ cdef class CharInfo:
         self.sep = is_separator(character)
 
 
-@lru_cache(maxsize=None)
 def _char_info(str character):
     """Build and cache character information for the public string API."""
-    cdef CharInfo info = CharInfo(character)
-    _CHAR_INFO_BY_CODEPOINT[<uint32_t>ord(character)] = info
-    return info
+    return _char_info_from_codepoint(ord(character))
 
 
 _ASCII_CHAR_INFO = [CharInfo(chr(codepoint)) for codepoint in range(128)]
-_CHAR_INFO_BY_CODEPOINT = {}
+_CHAR_INFO_PAGES = [None] * UNICODE_PAGE_COUNT
 
 
 cdef CharInfo _char_info_from_codepoint(Py_UCS4 codepoint):
-    cdef object info = _CHAR_INFO_BY_CODEPOINT.get(<uint32_t>codepoint)
+    cdef Py_ssize_t page_index = (<Py_ssize_t>codepoint) >> UNICODE_PAGE_SHIFT
+    cdef Py_ssize_t slot_index = (<Py_ssize_t>codepoint) & UNICODE_PAGE_MASK
+    cdef object page = _CHAR_INFO_PAGES[page_index]
+    cdef object info
+
+    if page is None:
+        page = [None] * UNICODE_PAGE_SIZE
+        _CHAR_INFO_PAGES[page_index] = page
+
+    info = (<list>page)[slot_index]
     if info is None:
-        info = _char_info(chr(codepoint))
+        info = CharInfo(chr(codepoint))
+        (<list>page)[slot_index] = info
     return <CharInfo>info
 
 

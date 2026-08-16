@@ -71,6 +71,9 @@ def ljpeg_version():
 
 def ljpeg_check(const uint8_t[::1] data, /):
     """Return whether data is LJPEG encoded image or None if unknown."""
+    if data.shape[0] < 10:
+        return False
+    return None
 
 
 def ljpeg_encode(
@@ -103,6 +106,7 @@ def ljpeg_encode(
 
     if not (
         src.dtype in {numpy.uint8, numpy.uint16}
+        and src.size > 0
         and src.ndim in {2, 3}
         and samples == 1  # {1, 3, 4}  RGB does not work correctly
         and src.shape[0] * src.shape[1] <= INT32_MAX
@@ -159,10 +163,10 @@ def ljpeg_encode(
             out = _create_output(outtype, dstsize)
 
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
 
         memcpy(
-            <void*> &dst[0],
+            <void*> dst._data,
             <const void*> encoded,
             min(dstsize, encoded_length)
         )
@@ -187,7 +191,7 @@ def ljpeg_decode(
         const uint8_t[::1] src = data
         uint16_t* target = NULL
         uint16_t* linearize_table = NULL
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         int linearize_length = 0
         int width = 0
         int height = 0
@@ -212,7 +216,7 @@ def ljpeg_decode(
     with nogil:
         ret = lj92_open(
             &lj,
-            <uint8_t*> &src[0],
+            <uint8_t*> src._data,
             <int> srcsize,
             &width,
             &height,

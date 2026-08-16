@@ -1,28 +1,29 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.5
 Name: Expression
-Version: 5.6.0
+Version: 5.7.0
 Summary: Practical functional programming for Python 3.10+
-License: MIT
-Author: Dag Brattli
-Author-email: dag.brattli@cognite.com
-Requires-Python: >=3.10,<4
+Project-URL: Homepage, https://github.com/cognitedata/Expression
+Author-email: Dag Brattli <dag.brattli@cognite.com>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Other Environment
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: <4,>=3.10
+Requires-Dist: typing-extensions>=4.6.0
 Provides-Extra: all
+Requires-Dist: pydantic<3.0.0,>=2.6.2; extra == 'all'
 Provides-Extra: pydantic
-Requires-Dist: pydantic (>=2.6.2,<3.0.0) ; extra == "pydantic" or extra == "all"
-Requires-Dist: typing-extensions (>=4.6.0)
-Project-URL: Homepage, https://github.com/cognitedata/Expression
+Requires-Dist: pydantic<3.0.0,>=2.6.2; extra == 'pydantic'
 Description-Content-Type: text/markdown
 
 
@@ -96,6 +97,33 @@ To add Pydantic v2 support, install the `pydantic` extra:
 > pip install expression[pydantic]
 ```
 
+<!-- #region -->
+### Start with a practical workflow
+
+Expression is designed for ordinary Python code. Start with one of these common needs:
+
+- Transform an iterable in readable steps with `pipe` and `Seq`.
+- Use `Option` when a value may be absent.
+- Use `Result` when a caller needs an expected failure reason.
+
+```python
+from expression import pipe
+from expression.collections import seq
+
+total = pipe(
+    [4, 7, 12, 15],
+    seq.filter(lambda score: score >= 10),
+    seq.map(lambda score: score * 2),
+    seq.sum,
+)
+
+assert total == 54
+```
+
+Learn progressively in the
+[documentation](https://expression.readthedocs.io/en/latest/): start with installation,
+then pipelines, optional values, expected failures, collections, and domain modelling.
+<!-- #endregion -->
 
 ## Goals
 
@@ -156,6 +184,11 @@ on-demand as we go along.
   is amazing stuff.
   - **option** - an optional world for working with optional values.
   - **result** - an error handling world for working with result values.
+  - **seq** - a world for working with sequences.
+  - **async_result** - an asynchronous error handling world for working
+    with asynchronous result values.
+  - **async_option** - an asynchronous optional world for working with
+    asynchronous optional values.
 - **Mailbox Processor**: for lock free programming using the [Actor
   model](https://en.wikipedia.org/wiki/Actor_model).
 - **Cancellation Token**: for cancellation of asynchronous (and
@@ -446,6 +479,134 @@ A simplified type called `Try` is also available. It's a result type that is
 pinned to `Exception` i.e., `Result[TSource, Exception]`.
 
 
+### AsyncResult
+
+The `AsyncResult[T, TError]` type is the asynchronous version of `Result`. It allows you
+to compose asynchronous operations that may fail, using the Result type. This is
+particularly useful for handling errors in asynchronous code, such as API calls,
+database operations, or any other I/O-bound tasks.
+
+Similar to the `Result` effect, AsyncResult enables "railway oriented programming" but
+for asynchronous operations. If any part of the function yields an `Error`, the function
+is short-circuited and the following statements will never be executed.
+
+```python
+from collections.abc import AsyncGenerator
+
+from expression import Error, Ok, effect
+
+
+@effect.async_result[int, str]()
+async def fn() -> AsyncGenerator[int, int]:
+    x: int = yield 42  # Regular value
+    y: int = yield await Ok(43)  # Awaitable Ok value
+
+    # Short-circuit if condition is met
+    if x + y > 80:
+        z: int = yield await Error("Value too large")  # This will short-circuit
+    else:
+        z: int = yield 44
+
+    yield x + y + z  # Final value
+
+
+# This would be run in an async context
+# result = await fn()
+# assert result == Error("Value too large")
+```
+
+AsyncResult works well with other async functions and can be nested:
+
+```python
+@effect.async_result[int, str]()
+async def inner(x: int) -> AsyncGenerator[int, int]:
+    y: int = yield x + 1
+    yield y + 1  # Final value is y + 1
+
+
+@effect.async_result[int, str]()
+async def outer() -> AsyncGenerator[int, int]:
+    x: int = yield 40
+
+    # Call inner and await its result
+    inner_result = await inner(x)
+    y: int = yield await inner_result
+
+    yield y  # Final value is y
+
+
+# This would be run in an async context
+# result = await outer()
+# assert result == Ok(42)  # 40 -> 41 -> 42
+```
+
+A simplified type called `AsyncTry` is also available. It's an async result type that is
+pinned to `Exception` i.e., `AsyncResult[TSource, Exception]`.
+
+
+### AsyncOption
+
+The `AsyncOption[T]` type is the asynchronous version of `Option`. It allows you to
+compose asynchronous operations that may return an optional value, using the Option type.
+This is particularly useful for handling optional values in asynchronous code, such as
+API calls that might not return a value, database queries that might not find a record,
+or any other I/O-bound tasks that might not produce a meaningful result. The AsyncOption
+builder was added in version 0.25.0.
+
+Similar to the `Option` effect, AsyncOption enables short-circuiting but for asynchronous
+operations. If any part of the function yields `Nothing`, the function is short-circuited
+and the following statements will never be executed.
+
+```python
+from collections.abc import AsyncGenerator
+
+from expression import Nothing, Some, effect
+
+
+@effect.async_option[int]()
+async def fn_option() -> AsyncGenerator[int, int]:
+    x: int = yield 42  # Regular value
+    y: int = yield await Some(43)  # Awaitable Some value
+
+    # Short-circuit if condition is met
+    if x + y > 80:
+        z: int = yield await Nothing  # This will short-circuit
+    else:
+        z: int = yield 44
+
+    yield x + y + z  # Final value
+
+
+# This would be run in an async context
+# result = await fn_option()
+# assert result is Nothing
+```
+
+AsyncOption works well with other async functions and can be nested:
+
+```python
+@effect.async_option[int]()
+async def inner_option(x: int) -> AsyncGenerator[int, int]:
+    y: int = yield x + 1
+    yield y + 1  # Final value is y + 1
+
+
+@effect.async_option[int]()
+async def outer_option() -> AsyncGenerator[int, int]:
+    x: int = yield 40
+
+    # Call inner and await its result
+    inner_result = await inner_option(x)
+    y: int = yield await inner_result
+
+    yield y  # Final value is y
+
+
+# This would be run in an async context
+# result = await outer_option()
+# assert result == Some(42)  # 40 -> 41 -> 42
+```
+
 ### Sequence
 
 Sequences is a thin wrapper on top of iterables and contains operations for working with
@@ -554,7 +715,7 @@ Note that when matching keyword arguments, then the `tag` keyword argument must 
 specified for static type checkers to check exhaustiveness correctly. It's not required
 for the code to work properly, but it's recommended to avoid typing errors.
 
-
+<!-- #region -->
 ## Notable differences between Expression and F\#
 
 In F# modules are capitalized, in Python they are lowercase
@@ -565,10 +726,14 @@ is `option` and the type is capitalized i.e `Option`.
 Thus in Expression you use `option` as the module to access module functions such as
 `option.map` and the name `Option` for the type itself.
 
-```pycon >>> from expression import Option, option >>> Option <class
-'expression.core.option.Option'> >>> option <module 'expression.core.option' from
-'/Users/dbrattli/Developer/Github/Expression/expression/core/option.py'> ```
-
+```python
+>>> from expression import Option, option
+>>> Option
+<class'expression.core.option.Option'>
+>>> option
+<module 'expression.core.option' from '/Users/dbrattli/Developer/Github/Expression/expression/core/option.py'>
+```
+<!-- #endregion -->
 
 ## Common Gotchas and Pitfalls
 
@@ -609,7 +774,7 @@ for creating this library.
 - Python is the Haskell You Never Knew You Had: Tail Call Optimization
   (<https://sagnibak.github.io/blog/python-is-haskell-tail-recursion/>)
 
-
+<!-- #region -->
 ## How-to Contribute
 
 You are very welcome to contribute with suggestions or PRs :heart_eyes: It is
@@ -626,10 +791,10 @@ Code checks are done using
 To run code checks on changed files every time you commit, install the pre-commit hooks
 by running:
 
-```console
+```bash
 > pre-commit install
 ```
-
+<!-- #endregion -->
 
 ## Code of Conduct
 
@@ -640,4 +805,3 @@ Conduct](https://github.com/cognitedata/Expression/blob/main/CODE_OF_CONDUCT.md)
 ## License
 
 MIT, see [LICENSE](https://github.com/cognitedata/Expression/blob/main/LICENSE).
-

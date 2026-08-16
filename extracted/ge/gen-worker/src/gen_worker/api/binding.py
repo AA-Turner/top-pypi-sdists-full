@@ -5,7 +5,7 @@ constructor argument — it comes from the ``models={}`` dict key (or, for a
 single ``model=`` binding, the ``setup()``/handler parameter name).
 
     HF("black-forest-labs/FLUX.1-dev", dtype="bf16")
-    Hub("owner/repo", tag="canary")
+    Hub("owner/repo", release="2026.08")
     Civitai("123456", version="789012")
     ModelScope("circlestone-labs/Anima", files=("split_files/*.safetensors",))
 
@@ -25,7 +25,6 @@ import msgspec
 from msgspec import structs
 
 from ..models.refs import (
-    DEFAULT_REF_TAG,
     HuggingFaceRef,
     WireRef,
     fold_ref,
@@ -69,7 +68,7 @@ class ModelRef(msgspec.Struct, frozen=True):
     slot-policy concern, not an identity-struct flag.
 
     Carries the union of every registry's per-source fields (tensorhub:
-    ``tag``; huggingface: ``revision``/``dtype``/``subfolder``/
+    ``release``; huggingface: ``revision``/``dtype``/``subfolder``/
     ``files``; civitai: ``version``; modelscope: ``revision``/``files``).
     ``storage_dtype`` is shared by tensorhub/huggingface. Build one via
     ``Hub``/``HF``/``Civitai``/``ModelScope`` rather than the raw
@@ -89,7 +88,10 @@ class ModelRef(msgspec.Struct, frozen=True):
 
     source: ModelSource
     path: str
-    tag: str = ""
+    #: th#1987: the tensorhub RELEASE this binding pins. There is no default —
+    #: a binding that names none addresses the repo and no artifact in it, and
+    #: the hub answers `release_not_found`.
+    release: str = ""
     revision: str = ""
     subfolder: str = ""
     dtype: str = ""
@@ -97,12 +99,6 @@ class ModelRef(msgspec.Struct, frozen=True):
     version: str = ""
     files: tuple[str, ...] = ()
     components: tuple[str, ...] = ()
-    # Hierarchical bindings (tensorhub only): sorted (component name,
-    # canonical ref) substitutions on the base composition — stamped from
-    # ModelBinding.components at dispatch, never declared by endpoint code.
-    # Part of the binding's identity: a component-only rebind derives a new
-    # instance/residency identity.
-    component_overrides: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         # msgspec.structs.force_setattr, NOT object.__setattr__: the latter
@@ -111,32 +107,32 @@ class ModelRef(msgspec.Struct, frozen=True):
         # CI), so the endpoint import dies at decoration in the image only.
         force = msgspec.structs.force_setattr
         force(self, "path", _clean(self.path))
-        force(self, "tag", _clean(self.tag))
+        force(self, "release", _clean(self.release))
         force(self, "revision", _clean(self.revision))
         force(self, "subfolder", _clean(self.subfolder))
         force(self, "dtype", _clean(self.dtype))
         force(self, "version", _clean(self.version))
         force(self, "files", tuple(_clean(p) for p in self.files if _clean(p)))
         force(self, "components", tuple(_clean(p) for p in self.components if _clean(p)))
-        force(self, "component_overrides", tuple(sorted(
-            (_clean(k), _clean(v))
-            for k, v in self.component_overrides if _clean(k) and _clean(v)
-        )))
         force(self, "storage_dtype", _clean_storage_dtype(self.storage_dtype))
 
-        if self.component_overrides and self.source != "tensorhub":
-            raise ValueError(
-                "component_overrides= is tensorhub-only (pgw#617: refs are "
-                "tensorhub-CAS, mirror-first)"
-            )
         # THE FLAVOR SYSTEM IS DEAD. A `#` in ANY binding path is a weight
         # selector and refuses typed here, at the site the author wrote — never
         # as a hub 400 three layers away. Cell refs are not bindings and never
         # reach this constructor.
         refuse_flavor_selector(self.path, where=f"{self.source} binding")
+        # th#1987: `release` is the TENSORHUB axis. On any other source it
+        # named nothing, was fetched by nothing, and reached only `label` —
+        # where it silently vanished behind a civitai `version=`. One home per
+        # value: refuse it where it cannot mean anything.
+        if self.source != "tensorhub" and self.release:
+            raise ValueError(
+                f"{self.source} bindings have no release axis (release="
+                f"{self.release!r}); it is a tensorhub release identifier. Use "
+                "revision= for a huggingface/modelscope commit or version= for "
+                "a civitai model-version."
+            )
         if self.source == "tensorhub":
-            if not self.tag:
-                msgspec.structs.force_setattr(self, "tag", DEFAULT_REF_TAG)
             if not self.path:
                 raise ValueError("Hub requires a non-empty ref")
         elif self.source == "huggingface":
@@ -163,23 +159,36 @@ class ModelRef(msgspec.Struct, frozen=True):
     @property
     def label(self) -> str:
         """Human-readable label for ``model_used`` metadata / logging —
-        mirrors the wire form each source's registry keys on."""
-        label = self.path
-        if self.source == "civitai" and self.version:
-            label += f"@{self.version}"
-        elif self.tag and self.tag != DEFAULT_REF_TAG:
-            label += f":{self.tag}"
-        return label
+        mirrors the wire form each source's registry keys on.
+
+        INJECTIVE (ie#727 residue): two bindings that pin different artifacts
+        never share a label. The old fold appended the release only when the
+        label carried no ``@`` at all, which silently dropped it twice — off a
+        civitai ref that also pinned a ``version=``, and off a hub ref whose
+        ``path`` already carried a release the side-channel ``release=``
+        OVERRIDES. The second case made ``label`` and :func:`wire_ref` name
+        different artifacts, so ``model_used`` reported the ref that was not
+        fetched. The hub branch is now the same fold the wire uses.
+        """
+        if self.source == "tensorhub":
+            return str(fold_ref(self.path, release=self.release))
+        if self.source == "civitai":
+            return f"{self.path}@{self.version}" if self.version else self.path
+        return f"{self.path}@{self.revision}" if self.revision else self.path
 
 
 def Hub(
     ref: str,
     *,
-    tag: str = DEFAULT_REF_TAG,
+    release: str = "",
     storage_dtype: str = "",
     components: tuple[str, ...] = (),
 ) -> ModelRef:
-    """Tensorhub-backed binding: ``Hub("owner/repo", tag=, storage_dtype=, components=)``.
+    """Tensorhub-backed binding: ``Hub("owner/repo@<release>", storage_dtype=, components=)``.
+
+    The release may ride the ref (``Hub("owner/repo@2026.08")``) or be given
+    beside it (``release="2026.08"``); the side channel wins. A binding that
+    names neither pins no artifact — th#1987 deleted the default.
 
     ``components=`` fetches only the named pipeline component
     subfolders (+ root config files) instead of the whole repo — e.g. a
@@ -187,7 +196,7 @@ def Hub(
     ``Hub("owner/sdxl-repo", components=("vae",))``.
     """
     return ModelRef(
-        source="tensorhub", path=ref, tag=tag,
+        source="tensorhub", path=ref, release=release,
         storage_dtype=storage_dtype, components=components,
     )
 
@@ -251,17 +260,14 @@ def wire_ref(binding: Binding) -> WireRef:
     """Normal-form ref string for the wire / cache key — delegates to the ONE
     grammar module (``gen_worker.models.refs``).
 
-    Hub refs carry ``:tag`` (elided when ``prod``, the grammar default — an
-    explicit ``tag="latest"`` is stamped verbatim); HF refs carry
-    ``@revision``. Load-time metadata (dtype/subfolder/files/storage_dtype)
+    Hub refs carry ``@<release>`` (nothing is elided — th#1987 deleted the
+    default); HF refs carry ``@revision``. Load-time metadata (dtype/subfolder/files/storage_dtype)
     never enters the ref, and there is no ``#flavor`` suffix — a binding has no
     second selector to mint.
     """
 
     if binding.source == "tensorhub":
-        # The default tag never overrides one embedded in ``ref``.
-        tag = binding.tag if binding.tag != DEFAULT_REF_TAG else ""
-        return fold_ref(binding.path, tag=tag)
+        return fold_ref(binding.path, release=binding.release)
     if binding.source == "huggingface":
         return HuggingFaceRef(binding.path, binding.revision or None).canonical()
     # civitai/modelscope: the path is ASSERTED to be normal form rather than
@@ -269,27 +275,6 @@ def wire_ref(binding: Binding) -> WireRef:
     # `WireRef(...)` makes that the one visible assertion in this function
     # instead of a silent widening of its whole return type.
     return WireRef(binding.path)
-
-
-def component_overrides(binding: Binding) -> tuple[tuple[str, WireRef], ...]:
-    """The ``(component, canonical ref)`` substitutions ``binding`` carries
-, normalized and sorted by :class:`ModelRef` itself.
-
-    This and :func:`binding_wire_refs` live HERE, beside the field they read —
-    they answer "what does this binding resolve to", which is not an executor
-    internal. Every consumer names the SAME derivation, so placement semantics
-    cannot fork.
-
-    ``getattr`` so an externally-constructed stand-in is answered, not raised
-    at.
-    """
-    return tuple(getattr(binding, "component_overrides", ()) or ())
-
-
-def binding_wire_refs(binding: Binding) -> list[WireRef]:
-    """The base :func:`wire_ref` plus every component-override ref (pgw#617):
-    the full set of refs materializing this binding pins and downloads."""
-    return [wire_ref(binding), *(ref for _, ref in component_overrides(binding))]
 
 
 def rebind_pick(
@@ -307,7 +292,7 @@ def rebind_pick(
     pick the rebound binding cannot re-mint would split the slot into two
     residency identities.
 
-    There is no within-tag-group selector left to fold, so a pick is a digest
+    There is no within-release selector left to fold, so a pick is a digest
     or it is nothing.
     """
 
@@ -334,6 +319,5 @@ def rebind_pick(
 
 __all__ = [
     "Binding", "BINDING_TYPES", "Civitai", "HF", "Hub", "ModelRef",
-    "ModelScope", "STORAGE_DTYPES", "binding_wire_refs", "component_overrides",
-    "rebind_pick", "wire_ref",
+    "ModelScope", "STORAGE_DTYPES", "rebind_pick", "wire_ref",
 ]

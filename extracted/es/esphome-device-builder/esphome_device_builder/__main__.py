@@ -27,6 +27,7 @@ from .constants import (
 from .helpers.credentials import resolve_credentials
 from .helpers.logging import activate_log_queue_handler
 from .helpers.startup_timing import StartupTimer
+from .helpers.windows_error_mode import suppress_child_error_dialogs
 
 if TYPE_CHECKING:
     from .controllers.config import DashboardSettings
@@ -423,6 +424,7 @@ def main() -> None:
     startup_timer.mark("settings")
 
     drop_inherited_idf_env()
+    suppress_child_error_dialogs()
 
     # Keyed on ``CORE.data_dir`` (not ``config_dir``) so the HA
     # addon's Prod/Beta/DEV flavors — each with its own per-instance

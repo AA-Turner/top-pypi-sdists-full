@@ -2157,6 +2157,7 @@ class UpdateRel(google.protobuf.message.Message):
     TABLE_SCHEMA_FIELD_NUMBER: builtins.int
     CONDITION_FIELD_NUMBER: builtins.int
     TRANSFORMATIONS_FIELD_NUMBER: builtins.int
+    COMMON_FIELD_NUMBER: builtins.int
     ADVANCED_EXTENSION_FIELD_NUMBER: builtins.int
     @property
     def named_table(self) -> Global___NamedTable: ...
@@ -2173,6 +2174,8 @@ class UpdateRel(google.protobuf.message.Message):
         """The list of transformations to apply to the columns of the named_table"""
 
     @property
+    def common(self) -> Global___RelCommon: ...
+    @property
     def advanced_extension(self) -> substrait.extensions.extensions_pb2.AdvancedExtension: ...
     def __init__(
         self,
@@ -2181,10 +2184,11 @@ class UpdateRel(google.protobuf.message.Message):
         table_schema: substrait.type_pb2.NamedStruct | None = ...,
         condition: Global___Expression | None = ...,
         transformations: collections.abc.Iterable[Global___UpdateRel.TransformExpression] | None = ...,
+        common: Global___RelCommon | None = ...,
         advanced_extension: substrait.extensions.extensions_pb2.AdvancedExtension | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "condition", b"condition", "named_table", b"named_table", "table_schema", b"table_schema", "update_type", b"update_type"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "condition", b"condition", "named_table", b"named_table", "table_schema", b"table_schema", "transformations", b"transformations", "update_type", b"update_type"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "common", b"common", "condition", b"condition", "named_table", b"named_table", "table_schema", b"table_schema", "update_type", b"update_type"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "common", b"common", "condition", b"condition", "named_table", b"named_table", "table_schema", b"table_schema", "transformations", b"transformations", "update_type", b"update_type"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["update_type", b"update_type"]) -> typing.Literal["named_table"] | None: ...
 
 Global___UpdateRel: typing_extensions.TypeAlias = UpdateRel
@@ -4134,6 +4138,9 @@ class Expression(google.protobuf.message.Message):
             steps_out: builtins.int
             """Number of subquery boundaries to traverse up for this field's
             reference. Must be >= 1.
+            Deprecated: use `rel_reference` instead, which resolves the outer
+            reference via the target relation's `RelCommon.rel_anchor` and is
+            unambiguous even in plans with shared relations (`ReferenceRel`).
             """
             rel_reference: builtins.int
             """References the plan-wide unique rel_anchor of the relation that this

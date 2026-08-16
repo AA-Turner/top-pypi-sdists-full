@@ -100,7 +100,7 @@ def bcn_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t width, height, i, ret
         char* psrc = NULL
         char* pdst = NULL
@@ -163,7 +163,7 @@ def bcn_decode(
     out = _create_array(out, shape, dtype)
     dst = out
     pdst = <char*> dst.data
-    psrc = <char*> &src[0]
+    psrc = <char*> src._data
 
     with nogil:
         ret = _bcn_decode(
@@ -193,7 +193,7 @@ cdef ssize_t _bcn_decode(
     # TODO: move this function to a C file
     cdef:
         int pitch
-        ssize_t size, i, j
+        ssize_t size, i
 
     height = height // 4
     size = height * width // 4
@@ -203,7 +203,7 @@ cdef ssize_t _bcn_decode(
         if srcsize < size * BCDEC_BC1_BLOCK_SIZE:
             return srcsize - size * BCDEC_BC1_BLOCK_SIZE
         pitch = <int> (width * 4)
-        for j in range(height):
+        for _j in range(height):
             i = 0
             while i < width:
                 i += 4
@@ -217,7 +217,7 @@ cdef ssize_t _bcn_decode(
         if srcsize < size * BCDEC_BC2_BLOCK_SIZE:
             return srcsize - size * BCDEC_BC2_BLOCK_SIZE
         pitch = <int> (width * 4)
-        for j in range(height):
+        for _j in range(height):
             i = 0
             while i < width:
                 i += 4
@@ -231,7 +231,7 @@ cdef ssize_t _bcn_decode(
         if srcsize < size * BCDEC_BC3_BLOCK_SIZE:
             return srcsize - size * BCDEC_BC3_BLOCK_SIZE
         pitch = <int> (width * 4)
-        for j in range(height):
+        for _j in range(height):
             i = 0
             while i < width:
                 i += 4
@@ -244,7 +244,7 @@ cdef ssize_t _bcn_decode(
         # BC4_UNORM
         if srcsize < size * BCDEC_BC4_BLOCK_SIZE:
             return srcsize - size * BCDEC_BC4_BLOCK_SIZE
-        for j in range(height):
+        for _j in range(height):
             i = 0
             while i < width:
                 i += 4
@@ -258,7 +258,7 @@ cdef ssize_t _bcn_decode(
         if srcsize < size * BCDEC_BC5_BLOCK_SIZE:
             return srcsize - size * BCDEC_BC5_BLOCK_SIZE
         pitch = <int> (width * 2)
-        for j in range(height):
+        for _j in range(height):
             i = 0
             while i < width:
                 i += 4
@@ -272,7 +272,7 @@ cdef ssize_t _bcn_decode(
         if srcsize < size * BCDEC_BC6H_BLOCK_SIZE:
             return srcsize - size * BCDEC_BC6H_BLOCK_SIZE
         pitch = <int> (width * 3)
-        for j in range(height):
+        for _j in range(height):
             i = 0
             while i < width:
                 i += 4
@@ -288,7 +288,7 @@ cdef ssize_t _bcn_decode(
         if srcsize < size * BCDEC_BC6H_BLOCK_SIZE:
             return srcsize - size * BCDEC_BC6H_BLOCK_SIZE
         pitch = <int> (width * 3)
-        for j in range(height):
+        for _j in range(height):
             i = 0
             while i < width:
                 i += 4
@@ -304,7 +304,7 @@ cdef ssize_t _bcn_decode(
         if srcsize < size * BCDEC_BC7_BLOCK_SIZE:
             return srcsize - size * BCDEC_BC7_BLOCK_SIZE
         pitch = <int> (width * 4)
-        for j in range(height):
+        for _j in range(height):
             i = 0
             while i < width:
                 i += 4
@@ -367,7 +367,7 @@ def dds_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t width, height, textures, depth, cubes, offset
         unsigned int fourcc, mipmaps
         DDS_HEADER_t* dds_header = NULL

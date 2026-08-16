@@ -29,8 +29,6 @@ from typing import (
     Tuple,
 )
 
-from .. import artifact_meta
-from .. import cell_key
 from ..cell_adopt import AdoptOutcome
 from ..component_vocab import denoiser_components
 from ..api.binding import ModelRef, wire_ref
@@ -48,9 +46,10 @@ from .loading import (
     load_from_pretrained,
     model_index_components,
 )
-from .memory import place_pipeline
-from .refs import DEFAULT_REF_TAG, parse_model_ref
+from .memory import flush_memory, mark_shared_components, place_pipeline
+from .refs import parse_model_ref
 from .. import activity as activity_mod
+from .. import adopt_fit
 from .. import mint_workers
 from .. import postmortem
 
@@ -66,6 +65,17 @@ EmitFn = Callable[[Dict[str, Any]], None]
 
 class ModelResolutionError(Exception):
     """A model binding cannot be resolved locally (CLI exit 3)."""
+
+
+def _compiled_graph_metadata(path: Path) -> Optional[Dict[str, Any]]:
+    """Read metadata through TCG, returning ``None`` for a non-TCG artifact."""
+
+    from torch_compiled_graphs import artifact as compiled_graph_artifact
+
+    try:
+        return dict(compiled_graph_artifact.read_metadata(Path(path)))
+    except (OSError, ValueError):
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -111,7 +121,6 @@ def load_slot(
     ref: str = "",
     mode: str = "auto",
     components: Optional[Dict[str, Any]] = None,
-    component_trees: Optional[Dict[str, str]] = None,
     device: str = "",
     place: bool = True,
     force_storage_dtype: str = "",
@@ -179,18 +188,35 @@ def load_slot(
     # load (hydration AND placement). The counter feeds the existing 10s
     # activity beat; the breadcrumb names the phase a SIGKILL lands in.
     staged_total = disk_gc.tree_bytes(Path(path))
-    for tree in (component_trees or {}).values():
-        staged_total += disk_gc.tree_bytes(Path(tree))
     # `clean=True` even on a raise: a Python-level failure reports itself, so
     # the breadcrumb clears. Only a kernel kill skips the finally — exactly
     # the death the surviving breadcrumb is for.
+    # ie#721/th#1867: MARK the shared modules before they are handed to
+    # `from_pretrained`. A module reaching a pipeline through `components` was
+    # loaded once and ALIASED into every lane that shares its content address
+    # (gw#479) — so moving it to the host under an offload rung strands every
+    # co-resident consumer on the device, which is the fatal
+    # `mat1 is on cuda:0, mat2 on cpu` mid-generate.
+    #
+    # That invariant is the one `provision`'s own docstring above still names
+    # ("an offload placement the shared-component invariant refuses"). Its
+    # enforcer WAS `Resources.strict_vram`, which th#1867 deleted as an author
+    # declaration about card size — correctly, but it took the enforcement with
+    # it and left the rule standing with nothing behind it.
+    #
+    # The mark is a FACT ABOUT WHAT HAPPENED (this object was injected as a
+    # shared component), never a number an author guessed, so it satisfies
+    # §1.35 by construction: nothing here declares how big a card must be.
+    # `memory.place_pipeline` reads it; marking at the injection site is what
+    # keeps `memory` free of an import edge to `residency`/`records`.
+    mark_shared_components(components)
+
     reporter = load_progress.LoadProgressReporter(
         f"{slot or 'slot'}:{ref or path}", staged_total).start()
     try:
         pipe = load_from_pretrained(
             annotation, path, dtype=dtype, storage_dtype=storage_dtype,
             components=components or None,
-            component_trees=component_trees or None,
             ref=ref,
             # pgw#1063: the loader's own host-RAM decisions depend on where
             # this pipeline will END UP. `place_pipeline(mode=...)` below is
@@ -272,6 +298,44 @@ def arm_route(mode: str) -> Optional[str]:
     }.get(str(mode or ""))
 
 
+def _abandon_adopt(
+    pipe: Any, meta: Optional[Dict[str, Any]], detail: str, *, entry: str,
+) -> None:
+    """Give the adopt back (pgw#1265): de-arm, RELEASE, say so, serve eager.
+
+    The half `_bind_headroom` never needed. A catchable bind OOM refuses before
+    the first live mutation, so the pipeline is already as eager as it was
+    found; a headroom verdict taken AFTER the arm is looking at a pipeline that
+    has been mutated and at a runner that is holding device memory. Abandoning
+    means both come back: :func:`aot_serve.disarm_entry` drops the runner from
+    the dispatch and restores the target's eager callable, and
+    ``flush_memory`` is what turns a dropped reference into free bytes — the
+    whole point is that the floor this adopt raised comes back down.
+
+    The de-arm is sticky for the boot (§4.31), which is invariant 3: this class
+    cannot be re-armed in this process, so a refused adopt cannot become a
+    retry loop that pays the load again on a card that is already full.
+    """
+    from .. import aot_serve
+
+    family = str((meta or {}).get("family") or "")
+    if entry:
+        try:
+            aot_serve.disarm_entry(pipe, entry, adopt_fit.REASON)
+        except Exception:  # noqa: BLE001 — the refusal must survive its cleanup
+            logger.warning(
+                "adopt-fit: de-arming %r after a headroom refusal failed",
+                entry, exc_info=True)
+        flush_memory()
+    logger.warning("adopt-fit: %s", detail)
+    activity_mod.emit_event(
+        "adopt_headroom_refused", detail, phase=adopt_fit.REASON,
+        family=family,
+        compiled_graph_key=str((meta or {}).get("compiled_graph_key") or ""),
+        graph_class=entry,
+    )
+
+
 def arm_aot(
     pipe: Any, cfg: Any, cache_dir: Optional[Path], artifact: Path,
     bucket: int, meta: Optional[Dict[str, Any]] = None,
@@ -315,7 +379,7 @@ def arm_aot(
     from .. import aot_serve
 
     if meta is None:
-        meta = artifact_meta.try_read_metadata(artifact)
+        meta = _compiled_graph_metadata(artifact)
     lifted_target: Any = None
     lifted_installed = False
     #: pgw#999: why the lifted-binding install failed, if it did. Carried into
@@ -343,25 +407,19 @@ def arm_aot(
         # component name (pgw#740: the vocabulary is not repeated in live
         # code; a guessed name on a non-UNet family would silently skip the
         # install and waste the arm).
-        targets = [str(t) for t in ((meta or {}).get("targets") or ())]
-        if not targets:
-            # pgw#1001: a packed multi-entry cell records its targets PER
-            # ENTRY and carries no top-level `targets`/`module` (measured:
-            # both None on a real 5-entry lora64 cell). Without this the name
-            # resolved to "" and the lifted install was silently skipped.
-            # pgw#1176: one artifact, one entry, one target.
-            name = str(
-                ((meta or {}).get("entry") or {}).get("target") or "").strip()
-            targets = [name] if name else []
+        graph_class = (meta or {}).get("graph_class") or {}
+        targets: list[str] = []
+        if isinstance(graph_class, Mapping):
+            target = str(graph_class.get("target") or "").strip()
+            targets = [target] if target else []
         # ...and among them the BRANCH-CAPABLE one: `decoder` sorts first
         # among entry names, and a lifted forward on a module with no branch
         # container fails by name. `branch_targets` is the authority.
         branch_capable = lora_lifted.branch_targets(pipe)
-        module_name = str((meta or {}).get("module") or "")
-        if not module_name:
-            module_name = next(
-                (t for t in targets if t in branch_capable),
-                targets[0] if targets else "")
+        module_name = next(
+            (target for target in targets if target in branch_capable),
+            targets[0] if targets else "",
+        )
         lifted_target = (
             getattr(pipe, module_name, None) if module_name else None)
         if lifted_target is None:
@@ -376,9 +434,8 @@ def arm_aot(
             # its two known causes; this closes it for every future one, by
             # refusing to leave the branch silently.
             lifted_install_error = (
-                f"no lifted target resolved: metadata names module="
-                f"{str((meta or {}).get('module') or '') or '<absent>'} "
-                f"targets={targets or '<absent>'}, branch-capable="
+                f"no lifted target resolved: graph_class target="
+                f"{targets or '<absent>'}, branch-capable="
                 f"{sorted(branch_capable) or '<none>'}"
                 + ("; the cell envelope was unreadable" if meta is None else ""))
             logger.warning(
@@ -440,7 +497,7 @@ def arm_aot(
         or "unknown")
 
     def _emit_adopt_budget(verify_bytes: int, armed: bool) -> None:
-        """One `cell_adopt_budget` row per arm attempt, whatever the outcome.
+        """One `compiled_graph_adopt_budget` row per arm attempt, whatever the outcome.
 
         Emitted even for a REFUSED arm: the device high-water was paid either
         way, and a refusal is exactly when the number is most worth having.
@@ -461,7 +518,7 @@ def arm_aot(
         entries = 1 if (meta or {}).get("entry") else 0
         gib = 1 << 30
         activity_mod.emit_event(
-            "cell_adopt_budget",
+            "compiled_graph_adopt_budget",
             f"family={family} lane={lane or '(plain)'} entries={entries} "
             f"adopt_device_peak={total / gib:.3f}GiB "
             f"load={_load_bytes / gib:.3f}GiB "
@@ -482,7 +539,7 @@ def arm_aot(
     # "CANNOT refuse a card that merely cannot hold 36 runners", i.e. it could
     # not refuse the failure it was written for (th#1825) and could refuse
     # cards that were fine. The honest gate is the bind itself:
-    # `aot_serve.arm_entry` attempts THIS entry and returns a typed
+    # `aot_serve.arm_compiled_graph` attempts THIS entry and returns a typed
     # `insufficient_adopt_vram` miss on a real device OOM, before any live
     # mutation, and this pod serves eager exactly as it did — on evidence.
     #
@@ -495,6 +552,17 @@ def arm_aot(
     # `settings_authority.py:83`) is a native mapping abort that no `except`
     # sees, so the process dies here. When it does, this marker is what makes
     # the death read as a COMPILE crash rather than as the tenant's.
+    #
+    # pgw#1265: which is exactly why the attempt cannot be the WHOLE gate. An
+    # uncatchable death has no refusal to return, so the one question a query
+    # can settle — is there room for a forward at all — is asked first, from
+    # `adopt_fit`'s two measured terms. It predicts nothing and refuses only on
+    # evidence this process produced; see that module for why pgw#1164's
+    # deleted estimate is not what this is.
+    _no_room = adopt_fit.refusal("the adopt's LOAD", _budget_device)
+    if _no_room:
+        _abandon_adopt(pipe, meta, _no_room, entry="")
+        return AdoptOutcome.miss(adopt_fit.REASON, _no_room)
     with postmortem.compile_inflight(_adopt_label):
         outcome = aot_serve.enable(
             pipe, cfg, cache_dir, artifact, expected=expected, declared=declared)
@@ -510,6 +578,25 @@ def arm_aot(
             + f" — {lifted_install_error}]".strip(),
             outcome.identity)
     if outcome.armed:
+        # pgw#1265: THE RUNNER IS NOW RESIDENT, and everything below runs
+        # beside it. This is where the floor rose, so this is where it is
+        # checked — and, because the arm has already mutated the pipeline, it
+        # is also the first point that needs a way BACK DOWN. Both spans below
+        # are abandonable: the entry de-arms, its runner is released, the
+        # pipeline serves eager and the worker stays alive.
+        graph_class = (meta or {}).get("graph_class") or {}
+        _entry_name = str(
+            graph_class.get("name") if isinstance(graph_class, Mapping) else ""
+        )
+        _no_room = adopt_fit.refusal(
+            "the §4.32 parity gate's forwards" if verify_numerics
+            else "serving through the freshly armed graph class",
+            _budget_device)
+        if _no_room:
+            _emit_adopt_budget(0, False)
+            _abandon_adopt(pipe, meta, _no_room, entry=_entry_name)
+            return AdoptOutcome.miss(
+                adopt_fit.REASON, _no_room, outcome.identity)
         # §4.32: quality is proven at MINT and in author CI, never at adoption.
         # An adopting pod materializes, arms and serves.
         # pgw#1262: the gate runs TWO forwards on a card that is already
@@ -525,6 +612,18 @@ def arm_aot(
             gate_ok = True
         _, _peak_after_verify = mint_workers.adopt_watermark(_budget_device)
         if gate_ok:
+            # pgw#1265: the gate's own forwards have just been paid and freed.
+            # The question this last verdict asks is the one the CALLER is
+            # about to act on — it advertises this arm and serves through it —
+            # so it is asked about the state the arm actually leaves behind,
+            # not about the state before the gate ran.
+            _no_room = adopt_fit.refusal(
+                "serving through the freshly armed graph class", _budget_device)
+            if _no_room:
+                _emit_adopt_budget(_peak_after_verify - _peak_after_load, False)
+                _abandon_adopt(pipe, meta, _no_room, entry=_entry_name)
+                return AdoptOutcome.miss(
+                    adopt_fit.REASON, _no_room, outcome.identity)
             _emit_adopt_budget(_peak_after_verify - _peak_after_load, True)
             return outcome
         _emit_adopt_budget(_peak_after_verify - _peak_after_load, False)
@@ -537,7 +636,7 @@ def arm_aot(
         # ran, so a reader counting armed adoptions over-counted every numerics
         # refusal and a second closing row existed only to correct the first.
         # Nothing is announced until the arm is final, so the refusal is simply
-        # what this function returns; the numbers still ride `cell_numerics`.
+        # what this function returns; the numbers still ride `compiled_graph_numerics`.
         meta = aot_serve.armed_metadata(pipe)
         # pgw#1176: THE PARITY REFUSAL IS PER ENTRY. This used to `unwrap` the
         # whole pipeline, which was correct while the gate's subject was a
@@ -546,11 +645,15 @@ def arm_aot(
         # condemns that class and says nothing about its siblings. The refused
         # entry de-arms sticky, its siblings keep serving compiled, and it is
         # not published.
-        entry = str((meta.get(cell_key.ENTRY_BLOCK_KEY) or {}).get("name") or "")
+        graph_class = meta.get("graph_class") or {}
+        entry = str(
+            graph_class.get("name") if isinstance(graph_class, Mapping) else ""
+        )
         aot_serve.disarm_entry(pipe, entry, "numerics_refused")
         outcome = AdoptOutcome.miss(
             "numerics_refused",
-            f"family={meta.get('family')} key={meta.get('cell_key')} "
+            f"family={meta.get('family')} key="
+            f"{meta.get('compiled_graph_key')} "
             f"entry={entry}: this pod MINTED these bytes and they do not "
             f"reproduce the eager forward they were traced from — this CLASS "
             f"is not published and serves eager; sibling classes are "
@@ -604,7 +707,7 @@ def gate_cell_numerics(pipe: Any, cfg: Any, *, strict: bool = False) -> bool:
 
     Outcomes, all typed rows on the wire:
 
-    * HEALTHY -> `cell_numerics phase=checked`; the mint arms and publishes.
+    * HEALTHY -> `compiled_graph_numerics phase=checked`; the mint arms and publishes.
       The pass is announced deliberately: an unannounced pass is
       indistinguishable from a gate that never ran, which is this program's
       signature failure.
@@ -643,7 +746,7 @@ def gate_cell_numerics(pipe: Any, cfg: Any, *, strict: bool = False) -> bool:
     try:
         numerics_ladder.gate(
             comparison,
-            kind=activity_mod.KIND_CELL_NUMERICS,
+            kind=activity_mod.KIND_COMPILED_GRAPH_NUMERICS,
             refuse=lambda detail, worst_row: numerics_probe.CellNumericsRefused(
                 detail, worst_row),
             context=report.context())
@@ -658,7 +761,7 @@ def gate_cell_numerics(pipe: Any, cfg: Any, *, strict: bool = False) -> bool:
             return False
         if comparison is not None and comparison.healthy:
             activity_mod.emit_event(
-                activity_mod.KIND_CELL_NUMERICS,
+                activity_mod.KIND_COMPILED_GRAPH_NUMERICS,
                 f"CHECKED against eager on every packaged entry — "
                 f"{report.context()}",
                 phase="checked", duration_ms=report.elapsed_ms)
@@ -692,7 +795,7 @@ def _refuse_unmeasurable(family: str, reason: str, detail: str) -> bool:
         "(%s): %s", family or "cell", reason, detail)
     try:
         activity_mod.emit_event(
-            activity_mod.KIND_CELL_NUMERICS,
+            activity_mod.KIND_COMPILED_GRAPH_NUMERICS,
             f"family={family} REFUSED TO ARM: the compiled-vs-eager "
             f"comparison could not be taken ({reason}). This is not a pass — "
             f"an unmeasurable cell stays eager (pgw#868). {detail}",
@@ -741,11 +844,9 @@ def enable_compiled(
     if bucket:
         compile_cache.apply_lora_execution_lane(pipe, bucket)
     if artifact is not None:
-        # ONE kind sniff for every non-inductor backend. `metadata.json` is
-        # the shared envelope member across all artifact kinds (the pgw#709
-        # receipts gate above reads it from the same place), so `kind` is the
-        # dispatch key: absent/unknown falls through to the inductor lane.
-        meta = artifact_meta.try_read_metadata(artifact)
+        # TCG owns the compiled-graph envelope. A non-TCG artifact falls
+        # through to the ordinary inductor lane.
+        meta = _compiled_graph_metadata(artifact)
         kind = str((meta or {}).get("kind") or "")
         if kind == aot_serve.ARTIFACT_KIND:
             aot = arm_aot(pipe, cfg, cache_dir, Path(artifact), bucket, meta)
@@ -765,7 +866,7 @@ def enable_compiled(
     # The inductor lane declines without a classified token of its own — "no
     # delivered cell for this identity" is the whole answer. A prior typed
     # refusal from the exported arm is the more specific one and survives.
-    return refused if refused is not None else AdoptOutcome.miss("no_cell")
+    return refused if refused is not None else AdoptOutcome.miss("no_compiled_graph")
 
 
 # ---------------------------------------------------------------------------
@@ -1203,9 +1304,11 @@ def resolve_bindings(
 
 
 def _hub_ref_map_path(cache_dir: Path, thref: Any) -> Path:
-    """CAS-local memory of tag->snapshot resolutions, so a previously-fetched
-    tag ref keeps working offline: cas/refs/<owner>/<repo>/<tag>."""
-    name = str(thref.tag or DEFAULT_REF_TAG)
+    """CAS-local memory of release->snapshot resolutions, so a
+    previously-fetched release ref keeps working offline:
+    cas/refs/<owner>/<repo>/<release>. A ref naming no release memoizes under
+    `_bare`, which is a repo-identity slot and resolves nothing on its own."""
+    name = str(thref.release or "_bare")
     safe = "".join(ch if (ch.isalnum() or ch in "._-") else "_" for ch in name)
     return cache_dir / "refs" / str(thref.owner) / str(thref.repo) / safe
 
@@ -1396,22 +1499,20 @@ def resolve_local_path(
     # file-oriented (allow_patterns) and has NO diffusers-layout requirement, so
     # it handles ComfyUI/DiffSynth split checkpoints the HF resolver rejects.
     if parsed.provider == "modelscope" and parsed.modelscope is not None:
-        try:
-            from modelscope import snapshot_download as _ms_snap
-        except Exception as e:
-            raise ModelResolutionError(
-                f"modelscope is required for modelscope refs ({parsed.modelscope.canonical()}): {e}"
-            ) from e
-        kwargs: Dict[str, Any] = {}
-        if parsed.modelscope.revision:
-            kwargs["revision"] = parsed.modelscope.revision
-        if allow_patterns:
-            kwargs["allow_patterns"] = list(allow_patterns)
-        if offline:
-            kwargs["local_files_only"] = True
+        from .download import download_modelscope
+        from .errors import PickleWeightRefused
+
         emit({"kind": "model_fetch.started", "ref": parsed.modelscope.canonical(), "provider": "modelscope"})
         try:
-            local = _ms_snap(model_id=parsed.modelscope.repo_id, **kwargs)
+            local = download_modelscope(
+                parsed.modelscope.repo_id,
+                revision=parsed.modelscope.revision or "",
+                allow_patterns=tuple(allow_patterns),
+                local_files_only=offline,
+            )
+        except PickleWeightRefused:
+            # Typed and terminal: a pickle repo is not a fetch failure to retry.
+            raise
         except Exception as e:
             raise ModelResolutionError(
                 f"failed to fetch modelscope ref {parsed.modelscope.canonical()}: {e}"
@@ -1425,7 +1526,7 @@ def resolve_local_path(
     # (optional) unlocks private repos. Offline stays CAS-only.
     if parsed.provider == "tensorhub" and parsed.tensorhub is not None:
         if offline:
-            # Tag refs: a previous online resolve remembered tag->digest.
+            # Release refs: a previous online resolve remembered release->digest.
             ref_map = _hub_ref_map_path(cache_dir, parsed.tensorhub)
             if ref_map.exists():
                 snap = cache_dir / "snapshots" / ref_map.read_text().strip()

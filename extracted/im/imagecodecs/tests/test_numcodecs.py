@@ -321,6 +321,7 @@ def test_ccitt_numcodecs(compression):
         'byteshuffle',
         'bz2',
         'checksum',
+        'chunked',
         'cms',
         'deflate',
         'delta',
@@ -478,6 +479,8 @@ def test_numcodecs(codec, photometric):
             compressor = numcodecs.Bz2(level=9)
         case 'checksum':
             compressor = numcodecs.Checksum(kind='crc32')
+        case 'chunked':
+            compressor = numcodecs.Chunked(codec='lz4')
         case 'cms':
             if photometric == 'gray':
                 compressor = numcodecs.Cms(
@@ -601,8 +604,8 @@ def test_numcodecs(codec, photometric):
                 dtype=data.dtype,
                 items=1 if photometric == 'gray' else None,
             )
-        case 'packbits' if photometric == 'rgb':
-            compressor = numcodecs.Packbits(axis=-2)
+        # case 'packbits' if photometric == 'rgb':
+        #     compressor = numcodecs.Packbits(axis=-2)
         case 'packbits':
             compressor = numcodecs.Packbits()
         case 'packints':

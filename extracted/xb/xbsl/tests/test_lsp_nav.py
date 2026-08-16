@@ -23,6 +23,7 @@ from xbsl.lsp_nav import (
 )
 from xbsl.rules._syntax import (
     chain_type_at,
+    enclosing_constructor,
     local_var_names,
     local_var_types,
     query_aliases,
@@ -437,7 +438,8 @@ def test_query_row_columns_for_loop():
     # a КАК alias, an alias-free field (its last segment), a computed expression only with an alias
     src = engine.load_text("Модуль.xbsl", МОДУЛЬ_С_ЗАПРОСОМ)
     got = query_row_columns(src, МОДУЛЬ_С_ЗАПРОСОМ.index("С.Заголовок"))
-    assert got == {"С": ["Заголовок", "Слаг", "Вес"]}
+    # The result variable answers by column too - the code reads a single-row query off it.
+    assert got == {"Результат": ["Заголовок", "Слаг", "Вес"], "С": ["Заголовок", "Слаг", "Вес"]}
 
 
 @pytest.mark.needs_data
@@ -1272,3 +1274,556 @@ def test_completion_offers_the_own_entries_of_an_element():
 
     labels = {e["label"] for e in got or []}
     assert "АдресСайта" in labels and "Обновить" in labels
+
+
+def test_completion_of_a_component_value_adds_the_inherited_members():
+    """A value of a component type answers with its own members AND those of its platform base.
+
+    Own first - they are what the author wrote; `OpenInModalWindow` comes from the base and
+    is what such a value is usually called for.
+    """
+    idx = dict(INDEX)
+    idx["struct_members"] = {
+        "ФормаЗаявки": {
+            "properties": ["Комментарий"],
+            "methods": ["Проверить"],
+            "kind": "КомпонентИнтерфейса",
+            "base": "Форма",
+        },
+    }
+    got = resolve_completions(
+        IndexLookup(idx),
+        language_id="xbsl",
+        line_prefix="    ).",
+        file_stem="ГлавнаяФорма",
+        stdlib_members={"Форма": {"methods": ["ОткрытьВМодальномОкне"], "properties": ["Заголовок"]}},
+        expr_type="ФормаЗаявки",
+    )
+
+    labels = [e["label"] for e in got or []]
+    assert labels[:2] == ["Комментарий", "Проверить"]
+    assert {"ОткрытьВМодальномОкне", "Заголовок"} <= set(labels)
+
+
+def test_completion_of_a_project_type_without_a_base_is_unchanged():
+    """A structure declared in a module has no platform base: the answer is its members alone."""
+    idx = dict(INDEX)
+    idx["struct_members"] = {"ДанныеКарточки": {"properties": ["Название"]}}
+    got = resolve_completions(
+        IndexLookup(idx),
+        language_id="xbsl",
+        line_prefix="    Товар.Загрузить(Слаг).",
+        file_stem="ГлавнаяФорма",
+        stdlib_members={"Форма": {"methods": ["ОткрытьВМодальномОкне"]}},
+        expr_type="ДанныеКарточки",
+    )
+
+    assert [e["label"] for e in got or []] == ["Название"]
+
+
+OWN_CALL_MODULE = """\
+структура ИтогЧтения
+    пер Создано: Число
+;
+
+метод ЗаписатьЧтение(): ИтогЧтения
+    возврат новый ИтогЧтения()
+;
+
+метод Загрузить()
+    знч Итог = ЗаписатьЧтение()
+    знч Ссылка = ЗаписатьЧтение
+    Итог.Создано
+;
+"""
+
+
+@pytest.mark.needs_data
+def test_a_call_of_the_modules_own_method_types_the_variable():
+    """A call with no qualifier is how a module calls its own code - and the commonest
+    initializer there is. The variable used to stay untyped, so the dot after it was empty."""
+    src = engine.load_text("Задачи.xbsl", OWN_CALL_MODULE)
+    offset = OWN_CALL_MODULE.index("Итог.Создано") + len("Итог.")
+
+    types = local_var_types(src, offset, returns={}, static_roots=set(),
+                            own_returns={"ЗаписатьЧтение": "ИтогЧтения"})
+
+    assert types["Итог"] == "ИтогЧтения"
+
+
+@pytest.mark.needs_data
+def test_a_bare_name_of_a_method_is_not_a_call():
+    """Only an invocation names the result: a bare name is a value, and guessing there would
+    type a variable by a method it merely mentions."""
+    src = engine.load_text("Задачи.xbsl", OWN_CALL_MODULE)
+    offset = OWN_CALL_MODULE.index("Итог.Создано") + len("Итог.")
+
+    types = local_var_types(src, offset, returns={}, static_roots=set(),
+                            own_returns={"ЗаписатьЧтение": "ИтогЧтения"})
+
+    assert "Ссылка" not in types
+
+
+@pytest.mark.needs_data
+def test_the_chain_over_an_own_call_is_typed_at_the_cursor():
+    """The same root serves the cursor after the dot: `ЗаписатьЧтение().` knows the result."""
+    text = OWN_CALL_MODULE.replace("    Итог.Создано\n", "    ЗаписатьЧтение().Создано\n")
+    src = engine.load_text("Задачи.xbsl", text)
+    offset = text.index("ЗаписатьЧтение().Создано") + len("ЗаписатьЧтение().")
+
+    got = chain_type_at(src, offset, own_returns={"ЗаписатьЧтение": "ИтогЧтения"})
+
+    assert got == "ИтогЧтения"
+
+
+LITERAL_MODULE = """\
+метод М()
+    знч Ключ = "текст"
+    пер Счётчик = 42
+    пер Включено = Истина
+    пер Сумма = 1 + 2
+    Ключ.Длина()
+;
+"""
+
+
+@pytest.mark.needs_data
+def test_a_plain_literal_types_the_variable():
+    """A string literal is the commonest initializer of a local, and it names its type."""
+    src = engine.load_text("М.xbsl", LITERAL_MODULE)
+    offset = LITERAL_MODULE.index("Ключ.Длина") + len("Ключ.")
+
+    types = local_var_types(src, offset, returns={}, static_roots=set())
+
+    assert types["Ключ"] == "Строка"
+    assert types["Счётчик"] == "Число"
+    assert types["Включено"] == "Булево"
+
+
+@pytest.mark.needs_data
+def test_an_expression_over_a_literal_is_not_claimed():
+    """An expression that goes on is an operation: its result is not the literal's to claim,
+    and answering here would name a type nothing computed."""
+    src = engine.load_text("М.xbsl", LITERAL_MODULE)
+    offset = LITERAL_MODULE.index("Ключ.Длина") + len("Ключ.")
+
+    types = local_var_types(src, offset, returns={}, static_roots=set())
+
+    assert "Сумма" not in types
+
+
+NONNULL_CHAIN = """\
+метод М(Разбор: Ответ)
+    знч Инфо = Разбор.file!.info!
+    знч Текст = Разбор.file!.Прочитать()
+    Инфо.Что
+;
+"""
+
+_NONNULL_RETURNS = {
+    "Ответ": {"file": "ДанныеФайла?"},
+    "ДанныеФайла": {"info": "СведенияПакета?", "Прочитать": "Строка"},
+}
+
+
+@pytest.mark.needs_data
+def test_a_non_null_operator_does_not_end_the_chain():
+    """`Разбор.file!.info` asserts the value is there and changes nothing else - the chain used
+    to stop at the operator and answer the type BEFORE it."""
+    src = engine.load_text("К.xbsl", NONNULL_CHAIN)
+    offset = NONNULL_CHAIN.index("Инфо.Что") + len("Инфо.")
+
+    types = local_var_types(src, offset, returns=_NONNULL_RETURNS, static_roots=set())
+
+    assert types["Инфо"] == "СведенияПакета"
+    assert types["Текст"] == "Строка"
+
+
+OWN_CALL_NAMESAKE = """\
+метод Реализация(): ОбработчикЗадач
+    возврат новый ОбработчикЗадач()
+;
+
+метод М()
+    знч Площадка = Реализация(Источник)
+    Площадка.Что
+;
+"""
+
+
+@pytest.mark.needs_data
+def test_a_call_outranks_a_type_of_the_same_name():
+    """A method may be named like a platform type, and `Имя(...)` is then a call, not the type:
+    a type is used as `Тип.Член`, never with parentheses."""
+    src = engine.load_text("Задачи.xbsl", OWN_CALL_NAMESAKE)
+    offset = OWN_CALL_NAMESAKE.index("Площадка.Что") + len("Площадка.")
+
+    types = local_var_types(src, offset, returns={}, static_roots={"Реализация"},
+                            own_returns={"Реализация": "ОбработчикЗадач"})
+
+    assert types["Площадка"] == "ОбработчикЗадач"
+
+
+LOOP_OVER_OWN_CALL = """\
+метод М()
+    знч Старые = ПрочитатьЗадачи()
+    для Запись из Старые
+        Запись.Код
+    ;
+;
+"""
+
+
+@pytest.mark.needs_data
+def test_a_loop_over_a_variable_from_a_call_takes_its_element():
+    """The variable keeps the written type of its initializer, so a for-each over it has a
+    generic argument to take the element from - the nominal head alone had dropped it."""
+    src = engine.load_text("К.xbsl", LOOP_OVER_OWN_CALL)
+    offset = LOOP_OVER_OWN_CALL.index("Запись.Код") + len("Запись.")
+
+    types = local_var_types(src, offset, returns={}, static_roots=set(),
+                            own_returns={"ПрочитатьЗадачи": "Массив<Задачи.Объект>"})
+
+    assert types["Запись"] == "Задачи.Объект"
+
+
+USE_QUERY_MODULE = """\
+метод М()
+    исп Выборка = Запрос{
+        ВЫБРАТЬ П.Ссылка КАК Ссылка, П.Наименование КАК Наименование
+        ИЗ Задачи КАК П
+    }.Выполнить()
+    для Запись из Выборка
+        Запись.Наименование
+    ;
+;
+"""
+
+
+@pytest.mark.needs_data
+def test_a_query_held_by_a_use_declaration_carries_its_columns():
+    """`исп` declares a variable like `знч` does, and a query result is the everyday thing it
+    holds - the selection is disposed at the end of the block. The columns used to bind to
+    nothing, so the loop variable was completed with nothing."""
+    src = engine.load_text("Задачи.xbsl", USE_QUERY_MODULE)
+    offset = USE_QUERY_MODULE.index("Запись.Наименование") + len("Запись.")
+
+    assert query_row_columns(src, offset) == {
+        "Выборка": ["Ссылка", "Наименование"], "Запись": ["Ссылка", "Наименование"],
+    }
+
+
+DECL_INSIDE_LOOP = """\
+метод М(Файлы: ЧитаемыйМассив<ДвоичныйОбъект.Ссылка>)
+    для Файл из Файлы
+        исп Поток = Файл.Загрузить().ОткрытьПотокЧтения()
+        Поток.ВСтроку()
+    ;
+;
+"""
+
+
+@pytest.mark.needs_data
+def test_a_declaration_inside_a_loop_leans_on_the_loop_variable():
+    """The loop variable is typed BEFORE the declarations now: a chain rooted in it used to
+    start from a name with no type, and everything downstream stayed unknown."""
+    src = engine.load_text("К.xbsl", DECL_INSIDE_LOOP)
+    offset = DECL_INSIDE_LOOP.index("Поток.ВСтроку") + len("Поток.")
+    returns = {
+        "ДвоичныйОбъект.Ссылка": {"Загрузить": "ДвоичныйОбъект"},
+        "ДвоичныйОбъект": {"ОткрытьПотокЧтения": "ПотокЧтения"},
+    }
+
+    types = local_var_types(src, offset, returns=returns, static_roots=set())
+
+    assert types["Файл"] == "ДвоичныйОбъект.Ссылка"
+    assert types["Поток"] == "ПотокЧтения"
+
+
+CTOR_MODULE = """\
+структура ЗаписьЖурнала
+    пер Логин: Строка
+    пер Роль: Строка
+;
+
+метод М()
+    Список.Добавить(новый ЗаписьЖурнала(
+        Логин = "иванов",
+        Роль
+    ))
+;
+"""
+
+
+@pytest.mark.needs_data
+def test_the_enclosing_constructor_is_found_across_lines_and_nesting():
+    """`новый Тип(` around the cursor, however the call is laid out: a multi-line call and one
+    nested in another call read alike."""
+    src = engine.load_text("Ж.xbsl", CTOR_MODULE)
+    offset = CTOR_MODULE.index("Роль\n") + len("Роль")
+
+    assert enclosing_constructor(src, offset) == "ЗаписьЖурнала"
+
+
+def test_completion_inside_a_constructor_offers_the_argument_names():
+    """Inside `новый Тип(` the author writes the NAMES of what the type carries: they are the
+    one thing an editor can supply there, and the snippet writes the `= ` for them."""
+    idx = dict(INDEX)
+    idx["struct_members"] = {
+        "ЗаписьЖурнала": {"properties": ["Логин", "Роль"],
+                          "property_types": {"Логин": "Строка", "Роль": "Строка"}},
+    }
+    got = resolve_completions(
+        IndexLookup(idx), language_id="xbsl", line_prefix="        ",
+        file_stem="Ж", stdlib_members={}, ctor_type="ЗаписьЖурнала",
+    )
+
+    assert [(e["label"], e.get("snippet")) for e in got or []] == [
+        ("Логин", "Логин = $0"), ("Роль", "Роль = $0"),
+    ]
+
+
+def test_completion_after_the_equals_sign_is_not_the_argument_name():
+    """After `=` the author writes the VALUE - the names of the type have no business there."""
+    idx = dict(INDEX)
+    idx["struct_members"] = {"ЗаписьЖурнала": {"properties": ["Логин"]}}
+    got = resolve_completions(
+        IndexLookup(idx), language_id="xbsl", line_prefix="        Логин = ",
+        file_stem="Ж", stdlib_members={}, ctor_type="ЗаписьЖурнала",
+    )
+
+    assert not [e for e in got or [] if e["label"] == "Логин"]
+
+
+GENERIC_CHAIN = """\
+метод М(Строки: Массив<Строка>)
+    знч Первая = Строки.Первый()
+    знч Сколько = Строки.Размер()
+    Первая.Длина()
+;
+"""
+
+
+@pytest.mark.needs_data
+def test_a_generic_member_resolves_by_the_written_arguments():
+    """A generic type names the result of its members BY THE PARAMETER (`Первый(): ТипЭлемента`).
+
+    The answer means nothing until the arguments the code wrote are put in: a value of
+    `Array<String>` answers `String`, and the dot after it offers the members of a string.
+    """
+    returns = {"Массив": {"Первый": "ТипЭлемента", "Размер": "Число"}}
+    src = engine.load_text("М.xbsl", GENERIC_CHAIN)
+    offset = GENERIC_CHAIN.index("Первая.Длина") + len("Первая.")
+
+    types = local_var_types(src, offset, returns=returns, static_roots=set())
+
+    assert types["Первая"] == "Строка"
+    assert types["Сколько"] == "Число"
+
+
+GENERIC_CALL = """\
+структура Пакет
+    пер Ид: Строка
+;
+
+метод М(Текст: Строка)
+    знч Разбор = СериализацияJson.ПрочитатьОбъект(Текст, Тип<Пакет>)
+    знч БезТипа = СериализацияJson.ПрочитатьОбъект(Текст)
+    Разбор.Ид
+;
+"""
+
+
+@pytest.mark.needs_data
+def test_a_generic_method_takes_its_result_from_the_call():
+    """A generic method names its result by a parameter of ITS OWN, and the call fixes it: the
+    code passes the type as a value (`Тип<Пакет>`)."""
+    src = engine.load_text("М.xbsl", GENERIC_CALL)
+    offset = GENERIC_CALL.index("Разбор.Ид") + len("Разбор.")
+    returns = {"СериализацияJson": {"ПрочитатьОбъект": "ТипОбъекта"}}
+
+    types = local_var_types(src, offset, returns=returns,
+                            static_roots={"СериализацияJson"})
+
+    assert types["Разбор"] == "Пакет"
+
+
+@pytest.mark.needs_data
+def test_a_generic_call_without_a_type_argument_stays_silent():
+    """The parameter names nothing then, and answering with its name would offer the members of
+    a type that does not exist."""
+    src = engine.load_text("М.xbsl", GENERIC_CALL)
+    offset = GENERIC_CALL.index("Разбор.Ид") + len("Разбор.")
+    returns = {"СериализацияJson": {"ПрочитатьОбъект": "ТипОбъекта"}}
+
+    types = local_var_types(src, offset, returns=returns,
+                            static_roots={"СериализацияJson"})
+
+    assert "БезТипа" not in types
+
+
+def test_completion_after_a_facet_namespace():
+    """`Сущность.` is a namespace, not a type: the catalogue keys such a type by BOTH segments,
+    and the dot after the first one used to answer nothing - though what may follow is known."""
+    got = resolve_completions(
+        LOOKUP, language_id="xbsl", line_prefix="    знч П = [Сущность.",
+        file_stem="Абоненты",
+        stdlib_members={"Сущность.Право": {"properties": ["Чтение"]},
+                        "Сущность.Объект": {"methods": ["Записать"]},
+                        "Массив": {"methods": ["Добавить"]}},
+    )
+
+    assert [e["label"] for e in got or []] == ["Объект", "Право"]
+
+
+FACET_CHAIN = """\
+метод М()
+    знч П = [Сущность.Право.Чтение]
+;
+"""
+
+
+@pytest.mark.needs_data
+def test_a_facet_is_resolved_as_a_two_segment_root():
+    """A facet is named by two segments, and resolving the first one apart killed the chain at
+    its root: the namespace alone is not a type."""
+    src = engine.load_text("М.xbsl", FACET_CHAIN)
+    offset = FACET_CHAIN.index("Право.Чтение") + len("Право.")
+
+    got = chain_type_at(src, offset, returns={}, static_roots={"Сущность.Право"})
+
+    assert got == "Сущность.Право"
+
+
+OWN_PROPERTY_MODULE = """\
+метод Пересчитать()
+    для Строка из Состав
+        Строка.Наименование
+    ;
+;
+"""
+
+
+@pytest.mark.needs_data
+def test_a_member_of_the_extended_type_is_addressed_by_a_bare_name():
+    """In a module of `Товары.Объект` a bare `Состав` is a member of that type, not a variable:
+    the module extends it, and its data is addressed by name."""
+    src = engine.load_text("Товары.Объект.xbsl", OWN_PROPERTY_MODULE)
+    offset = OWN_PROPERTY_MODULE.index("Строка.Наименование") + len("Строка.")
+
+    types = local_var_types(
+        src, offset, returns={}, static_roots=set(),
+        own_properties={"Состав": "Массив<Товары.Состав>"},
+    )
+
+    assert types["Состав"] == "Массив"
+    assert types["Строка"] == "Товары.Состав"
+
+
+@pytest.mark.needs_data
+def test_a_declaration_shadows_a_member_of_the_extended_type():
+    """A variable of the same name wins: the code that declared it means its own value."""
+    text = OWN_PROPERTY_MODULE.replace("метод Пересчитать()\n",
+                                       "метод Пересчитать()\n    знч Состав = \"\"\n")
+    src = engine.load_text("Товары.Объект.xbsl", text)
+    offset = text.index("Строка.Наименование") + len("Строка.")
+
+    types = local_var_types(
+        src, offset, returns={}, static_roots=set(),
+        own_properties={"Состав": "Массив<Товары.Состав>"},
+    )
+
+    assert types["Состав"] == "Строка"
+
+
+SINGLE_ROW_QUERY = """\
+метод Иконка(): Картинка
+    исп Выборка = Запрос{
+        ВЫБРАТЬ К.Иконка КАК Иконка, К.Слаг КАК Слаг
+        ИЗ Категории КАК К
+    }.Выполнить()
+    возврат Выборка.Иконка
+;
+"""
+
+
+@pytest.mark.needs_data
+def test_a_single_row_query_answers_by_column_off_the_result():
+    """The code reads a single-row query straight off the result variable, without a loop -
+    only the loop variable used to be completed, and such a dot answered nothing."""
+    src = engine.load_text("К.xbsl", SINGLE_ROW_QUERY)
+    offset = SINGLE_ROW_QUERY.index("Выборка.Иконка") + len("Выборка.")
+
+    assert query_row_columns(src, offset) == {"Выборка": ["Иконка", "Слаг"]}
+
+
+# --- the spelling of stdlib members follows the project language --------------------------
+
+
+_STDLIB_MEMBERS = {"Строка": {"properties": ["Длина"], "methods": ["ВСтроку", "НетТакогоЧлена"]}}
+
+
+def _member_labels(language):
+    entries = resolve_completions(
+        LOOKUP,
+        language_id="xbsl",
+        line_prefix="знч Х = Текст.",
+        file_stem="ГлавнаяФорма",
+        stdlib_members=_STDLIB_MEMBERS,
+        local_vars={"Текст": "Строка"},
+        project_language=language,
+    )
+    return {e["label"]: e for e in entries}
+
+
+def test_a_russian_project_keeps_the_catalogue_spelling():
+    assert set(_member_labels("ru")) == {"Длина", "ВСтроку", "НетТакогоЧлена"}
+
+
+@pytest.mark.needs_data  # the spelling pair lives in the compiler dictionary
+def test_an_english_project_is_offered_english_members():
+    """The catalogue keys types under both spellings but holds members in Russian only; the
+    compiler dictionary carries the pair, and the label is translated at the last step."""
+    labels = _member_labels("en")
+    assert "Length" in labels and "ToString" in labels
+    assert "Длина" not in labels and "ВСтроку" not in labels
+
+
+@pytest.mark.needs_data  # the spelling pair lives in the compiler dictionary
+def test_the_snippet_of_a_method_uses_the_same_spelling():
+    assert _member_labels("en")["ToString"]["snippet"] == "ToString($0)"
+
+
+def test_a_member_the_dictionary_does_not_know_stays_as_written():
+    # inventing a spelling would be worse than showing the one the catalogue has
+    assert "НетТакогоЧлена" in _member_labels("en")
+
+
+# --- the dot after a form component -------------------------------------------------------
+
+
+def test_completion_after_a_component_answers_the_members_of_its_type():
+    """The yaml states the component's type and the catalogue describes it in full; only the
+    methods of a component's own MODULE used to answer, so a group, a table or an input - a
+    component with no module of its own - left the dot silent."""
+    entries = resolve_completions(
+        LOOKUP,
+        language_id="xbsl",
+        line_prefix="    Компоненты.Кнопка.",
+        file_stem="ГлавнаяФорма",
+        stdlib_members={"Кнопка": {"properties": ["Видимость"], "methods": ["Нажать"]}},
+    )
+    labels = {e["label"] for e in entries or []}
+    # the methods of the component's own module stay in the list too
+    assert {"Видимость", "Нажать"} <= labels
+
+
+def test_a_component_without_a_known_type_stays_silent():
+    entries = resolve_completions(
+        LOOKUP,
+        language_id="xbsl",
+        line_prefix="    Компоненты.НетТакого.",
+        file_stem="ГлавнаяФорма",
+        stdlib_members={},
+    )
+    assert not entries

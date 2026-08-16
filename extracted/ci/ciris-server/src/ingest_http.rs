@@ -47,11 +47,26 @@
 //!
 //! ## Scrubbing
 //!
-//! `NullScrubber`, matching the relay (`LensCoreHandler`): scrubbing is the
-//! originating client node's egress-filter responsibility; the trace arrives
-//! post-egress-filter by contract (CIRISPersist#89). A deployment that points
-//! agents *directly* at this endpoint as a first-hop privacy boundary would
-//! need a real scrubber — same caveat as the relay.
+//! [`EgressScrubber`](crate::scrub::EgressScrubber) — persist's walker + regex
+//! redaction, run BEFORE the row is sealed.
+//!
+//! This used to pass `NullScrubber` on the reasoning that scrubbing is the
+//! originating client node's egress-filter responsibility and the trace arrives
+//! post-egress-filter by contract (CIRISPersist#89). That contract was a
+//! precondition **nothing verified and, on this node, nothing implemented** —
+//! there was no egress filter in this crate at all. persist said so on every
+//! batch (`NullScrubber used at non-GENERIC trace level`), 26 times in one day
+//! on the scout node, and the caveat about "a deployment that points agents
+//! directly at this endpoint" described the actual deployment.
+//!
+//! It has to happen here because a trace leaves as a SIGNED row replicated by
+//! anti-entropy rounds: nothing downstream of the signature can redact it
+//! without invalidating the signature that makes it admissible. This boundary is
+//! the last moment content can be scrubbed, so it is egress in the only sense
+//! that matters.
+//!
+//! `full_traces` is REFUSED rather than under-scrubbed when NER is not compiled
+//! in — see `crate::scrub`. Gated by `tests/egress_scrub.rs`.
 //!
 //! ## CIRISServer#370 — a refusal is counted, not only logged
 //!
@@ -92,6 +107,7 @@
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 
+use crate::scrub::EgressScrubber;
 use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -100,7 +116,6 @@ use axum::{Json, Router};
 use chrono::{DateTime, Duration, Utc};
 use ciris_persist::ingest::IngestError;
 use ciris_persist::prelude::Engine;
-use ciris_persist::scrub::NullScrubber;
 use ciris_persist::verify::Error as VerifyError;
 use serde::Serialize;
 
@@ -420,6 +435,11 @@ fn refused_signer(e: &IngestError) -> Option<&str> {
         },
         IngestError::Schema(_)
         | IngestError::Scrub(_)
+        // The mismatch is discovered AFTER verification, so a signer is known —
+        // but this variant carries the claimed label and the applied treatment,
+        // not an identity, and inventing one here would put a name against a
+        // refusal it did not describe. Counted, not attributed.
+        | IngestError::ScrubTreatmentMismatch { .. }
         | IngestError::Store(_)
         | IngestError::Sign(_)
         | IngestError::ScopeRefused(_)
@@ -616,7 +636,7 @@ async fn ingest(State(st): State<IngestState>, body: Bytes) -> Response {
     // posted bytes ARE a `BatchEnvelope`/`AccordEventsBatch` JSON; persist's
     // IngestPipeline canonicalizes + verifies BEFORE persisting (VerifyMode::Full,
     // the untrusted-input default — a direct HTTP POST is NOT pre-verified).
-    match engine.receive_and_persist(&body, &NullScrubber).await {
+    match engine.receive_and_persist(&body, &EgressScrubber).await {
         Ok(summary) => {
             st.refusals.observe_accept();
             tracing::info!(
@@ -683,6 +703,11 @@ fn ingest_status(e: &IngestError) -> StatusCode {
         IngestError::Schema(_) => StatusCode::UNPROCESSABLE_ENTITY,
         IngestError::ScopeRefused(_) => StatusCode::FORBIDDEN,
         IngestError::Store(_) => StatusCode::SERVICE_UNAVAILABLE,
+        // v32.1.0 (CIRISPersist#690) — the batch claims a trace_level the scrub
+        // did not deliver. 422, not 500: the SENDER can fix it by downgrading
+        // the level or loading a model, and calling it a server fault would send
+        // an operator to the wrong logs.
+        IngestError::ScrubTreatmentMismatch { .. } => StatusCode::UNPROCESSABLE_ENTITY,
         IngestError::Sign(_) | IngestError::Scrub(_) | IngestError::PipelineInvariant { .. } => {
             StatusCode::INTERNAL_SERVER_ERROR
         }

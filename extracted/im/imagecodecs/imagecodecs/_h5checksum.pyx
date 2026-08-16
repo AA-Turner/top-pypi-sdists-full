@@ -61,11 +61,11 @@ def h5checksum_fletcher32(
     """Return Fletcher-32 checksum of data (value is ignored)."""
     cdef:
         const uint8_t[::1] src = _readable_input(data)
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         uint32_t val = 0  # if value is None else value
 
     with nogil:
-        val = H5_checksum_fletcher32(<const void*> &src[0], srcsize)
+        val = H5_checksum_fletcher32(<const void*> src._data, srcsize)
     return int(val)
 
 
@@ -77,11 +77,11 @@ def h5checksum_lookup3(
     """Return Jenkins lookup3 checksum of data."""
     cdef:
         const uint8_t[::1] src = _readable_input(data)
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         uint32_t val = 0 if value is None else value
 
     with nogil:
-        val = H5_checksum_lookup3(<const void*> &src[0], srcsize, val)
+        val = H5_checksum_lookup3(<const void*> src._data, srcsize, val)
     return int(val)
 
 
@@ -93,11 +93,11 @@ def h5checksum_crc(
     """Return CRC checksum of data (value is ignored)."""
     cdef:
         const uint8_t[::1] src = _readable_input(data)
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         uint32_t val = 0  # if value is None else value
 
     with nogil:
-        val = H5_checksum_crc(<const void*> &src[0], srcsize)
+        val = H5_checksum_crc(<const void*> src._data, srcsize)
     return int(val)
 
 
@@ -109,11 +109,11 @@ def h5checksum_metadata(
     """Return checksum of metadata."""
     cdef:
         const uint8_t[::1] src = _readable_input(data)
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         uint32_t val = 0 if value is None else value
 
     with nogil:
-        val = H5_checksum_metadata(<const void*> &src[0], srcsize, val)
+        val = H5_checksum_metadata(<const void*> src._data, srcsize, val)
     return int(val)
 
 

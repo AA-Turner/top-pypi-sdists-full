@@ -10,7 +10,7 @@ from rich.panel import Panel
 from rich.tree import Tree
 
 from edgar.company_reports._base import CompanyReport, report_lookup_miss
-from edgar.company_reports._structures import FilingStructure
+from edgar.company_reports._structures import FilingStructure, item_sort_key
 from edgar.core import log
 from edgar.display.formatting import datefmt
 from edgar.documents import HTMLParser, ParserConfig, parse_html
@@ -61,18 +61,10 @@ _ITEM_TO_PART_10K = {
 }
 
 
-def _item_sort_key(item: str) -> tuple:
-    """Sort key producing canonical SEC 10-K item order.
-
-    Sorts by numeric item value first, then by the full token so letter
-    suffixes order correctly within a number (e.g. ``Item 1`` < ``Item 1A``
-    < ``Item 1B``, and ``Item 7`` < ``Item 7A``). Yields the canonical
-    sequence: 1, 1A, 1B, 1C, 2, 3, 4, 5, 6, 7, 7A, 8, 9, 9A, 9B, 9C,
-    10, 11, 12, 13, 14, 15, 16.
-    """
-    token = item.split()[-1]  # "Item 1A" -> "1A"
-    num = int(''.join(c for c in token if c.isdigit()) or '0')
-    return (num, token)
+# The canonical whole-numbered item order (1, 1A, 1B, 2, ... 16). Shared with
+# TwentyF, whose items sort by the same rule; kept bound here because it is
+# imported under this name.
+_item_sort_key = item_sort_key
 
 
 class TenK(CompanyReport):
@@ -330,11 +322,11 @@ class TenK(CompanyReport):
                     items.append(key)
             if items:
                 return _canonical(items)
-            return _canonical(self.chunked_document.list_items()) if self.chunked_document else []
+            return _canonical(self._chunked_document.list_items()) if self._chunked_document else []
 
         # Fallback to old parser for backward compatibility
-        if self.chunked_document:
-            return _canonical(self.chunked_document.list_items())
+        if self._chunked_document:
+            return _canonical(self._chunked_document.list_items())
 
         return []
 
@@ -387,7 +379,10 @@ class TenK(CompanyReport):
         return None
 
     @cached_property
-    def chunked_document(self):
+    def _chunked_document(self):
+        # Construction only — the deprecation lives on the public
+        # `chunked_document` in CompanyReport. Overriding that one here is what
+        # previously cost TenK users their warning entirely.
         return ChunkedDocument(self._filing.html(), prefix_src=self._filing.base_dir)
 
     @cached_property
@@ -722,7 +717,7 @@ class TenK(CompanyReport):
             f"New parser sections available: {list(self.sections.keys()) if self.sections else 'none'}. "
             f"This fallback will be removed in v6.0."
         )
-        item_text = self.chunked_document[item_or_part]
+        item_text = self._chunked_document[item_or_part]
 
         # Clean up the text if found
         if item_text:
@@ -765,7 +760,7 @@ class TenK(CompanyReport):
             return self.id_parse_document(markdown).get(item.lower())
 
         # Try chunked_document
-        item_text = self.chunked_document.get_item_with_part(part, item, markdown=markdown)
+        item_text = self._chunked_document.get_item_with_part(part, item, markdown=markdown)
         if item_text and item_text.strip():
             return item_text
 

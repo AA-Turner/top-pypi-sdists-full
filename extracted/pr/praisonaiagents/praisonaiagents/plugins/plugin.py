@@ -26,9 +26,12 @@ class GuardrailBlocked(Exception):
     A ``POLICY``/``GUARDRAIL`` plugin can raise this from any ``before_*``
     method (``before_tool``, ``before_llm``, ``before_agent``,
     ``before_message``) to stop the tool call / LLM request / agent run /
-    inbound message. The plugin bridge converts it into a denying
-    ``HookResult`` so the runtime's existing ``is_blocked`` enforcement skips
-    the action and surfaces ``reason``.
+    inbound message. It may also be raised from ``after_tool`` to block
+    *propagation* of a tool result (e.g. secret/PII detected) — the tool has
+    already run, but the output is suppressed before it reaches the model.
+    The plugin bridge converts it into a denying ``HookResult`` so the
+    runtime's existing ``is_blocked`` enforcement skips the action and
+    surfaces ``reason``.
     """
 
     def __init__(self, reason: str = "Blocked by guardrail plugin"):
@@ -177,7 +180,13 @@ class Plugin(ABC):
         return args
     
     def after_tool(self, tool_name: str, result: Any) -> Any:
-        """Called after tool execution. Can modify result."""
+        """Called after tool execution.
+
+        Return a modified ``result`` (rewrite/redact) to replace the effective
+        tool output before it reaches the model or a channel, a deny/block
+        decision (``PluginDecision.deny(reason)`` / a ``HookResult`` / raise
+        :class:`GuardrailBlocked`), or ``None`` for no-op.
+        """
         return result
 
     def before_tool_definitions(
@@ -201,6 +210,23 @@ class Plugin(ABC):
     def after_message(self, message: Dict[str, Any]) -> Dict[str, Any]:
         """Called after message is processed. Can modify message."""
         return message
+
+    def message_sent(self, message: Dict[str, Any]) -> None:
+        """Called after a reply is successfully delivered. Observe-only.
+
+        ``message`` carries the resolved delivery context
+        (``platform``/``sender_id``/``channel_id``/``channel_type``/
+        ``message_id``/``session_id`` alongside ``content``).
+        """
+        return None
+
+    def message_undelivered(self, message: Dict[str, Any]) -> None:
+        """Called when a reply is permanently undeliverable. Observe-only.
+
+        ``message`` carries the resolved delivery context plus ``error`` and
+        ``notice_delivered`` so a plugin can alert, escalate, or dead-letter.
+        """
+        return None
     
     def before_llm(
         self, messages: List[Dict], params: Dict[str, Any]
@@ -291,3 +317,25 @@ class FunctionPlugin(Plugin):
         if PluginHook.AFTER_AGENT in self._hooks:
             return self._hooks[PluginHook.AFTER_AGENT](response, context)
         return response
+
+    def before_message(
+        self, message: Dict[str, Any]
+    ) -> Union[Dict[str, Any], "PluginDecision", None]:
+        if PluginHook.MESSAGE_RECEIVED in self._hooks:
+            return self._hooks[PluginHook.MESSAGE_RECEIVED](message)
+        return message
+
+    def after_message(self, message: Dict[str, Any]) -> Dict[str, Any]:
+        if PluginHook.MESSAGE_SENDING in self._hooks:
+            return self._hooks[PluginHook.MESSAGE_SENDING](message)
+        return message
+
+    def message_sent(self, message: Dict[str, Any]) -> None:
+        if PluginHook.MESSAGE_SENT in self._hooks:
+            self._hooks[PluginHook.MESSAGE_SENT](message)
+        return None
+
+    def message_undelivered(self, message: Dict[str, Any]) -> None:
+        if PluginHook.MESSAGE_UNDELIVERED in self._hooks:
+            self._hooks[PluginHook.MESSAGE_UNDELIVERED](message)
+        return None

@@ -1,12 +1,13 @@
 # (c) 2021-2024 Martin Wendt; see https://github.com/mar10/nutree
 # Licensed under the MIT license: https://www.opensource.org/licenses/mit-license.php
-""" """
+
 # ruff: noqa: T201, T203 `print` found
-# pyright: reportOptionalMemberAccess=false
+# ty: ignore[unresolved-attribute]
 
 import re
 from pathlib import Path
 
+import pytest
 from nutree.typed_tree import ANY_KIND, TypedNode, TypedTree, _SystemRootTypedNode
 
 from . import fixture
@@ -103,7 +104,9 @@ class TestTypedTree:
         assert tree.count_descendants(leaves_only=True, kind="failure") == 1
         assert tree.system_root.count_descendants(kind="failure") == 2
 
-        assert len(list(tree.iter_by_type("cause"))) == 2
+        with pytest.deprecated_call():
+            assert len(list(tree.iter_by_type("cause"))) == 2
+
         assert len(list(tree.iterator(kind="cause"))) == 2
         assert len(list(tree.iterator())) == 8
 

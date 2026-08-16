@@ -21,6 +21,7 @@ from ..common import convert_float_to_int_or_str, streaming_response_iterator
 
 if TYPE_CHECKING:
     from ...types import (
+        AudioEmbedding,
         ChatCompletion,
         ChatCompletionChunk,
         Completion,
@@ -599,6 +600,7 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         prompt: str,
         negative_prompt: Optional[str] = None,
         n: int = 1,
+        video: Optional[Union[str, bytes]] = None,
         **kwargs,
     ) -> "VideoList":
         """
@@ -614,6 +616,8 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
             The prompt or prompts not to guide the image generation.
         n: `int`, defaults to 1
             The number of videos to generate per prompt. Must be between 1 and 10.
+        video: `Union[str, bytes]`, optional
+            The driving video for character animation models.
         Returns
         -------
         VideoList
@@ -631,6 +635,18 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         for key, value in params.items():
             files.append((key, (None, value)))
         files.append(("image", ("image", image, "application/octet-stream")))
+        if video is not None:
+            if isinstance(video, str):
+                with open(video, "rb") as f:
+                    video_data = f.read()
+            else:
+                video_data = video
+            files.append(
+                (
+                    "video",
+                    ("video", video_data, "application/octet-stream"),
+                )
+            )
         response = self.session.post(url, files=files, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
@@ -831,6 +847,23 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
 
 
 class RESTfulAudioModelHandle(RESTfulModelHandle):
+    def create_embedding(self, audio: bytes) -> "AudioEmbedding":
+        """Create a speaker embedding from encoded audio bytes."""
+        url = f"{self._base_url}/v1/audio/embeddings"
+        files = [("file", ("file", audio, "application/octet-stream"))]
+        response = self.session.post(
+            url,
+            data={"model": self._model_uid},
+            files=files,
+            headers=self.auth_headers,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                "Failed to create the audio embedding, "
+                f"detail: {_get_error_string(response)}"
+            )
+        return response.json()
+
     def transcriptions(
         self,
         audio: bytes,
@@ -1193,6 +1226,7 @@ class Client:
         request_limits: Optional[int] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
+        replica_config: Optional[List[Dict]] = None,
         model_path: Optional[str] = None,
         enable_thinking: Optional[bool] = None,
         enable_virtual_env: Optional[bool] = None,
@@ -1237,6 +1271,13 @@ class Client:
             Specify the worker ip where the model is located in a distributed scenario.
         gpu_idx: Optional[Union[int, List[int]]]
             Specify the GPU index where the model is located.
+        replica_config: Optional[List[Dict]]
+            Per-replica placement spec. Each item is ``{"replica_uid": str|None,
+            "devices": [{"worker_ip": "ip:port", "n_gpu": int|"auto",
+            "gpu_idx": [int]|None}]}``. When set, each replica is pinned to the
+            given worker/GPU. Do not combine it with worker_ip/n_gpu/gpu_idx.
+            An omitted replica_uid defaults to ``{model_uid}-{replica_index}``.
+            ``devices`` length must be 1 (no cross-worker sharding per replica).
         model_path: Optional[str]
             Model path, if gguf format, should be the file path, otherwise, should be directory of the model.
         enable_thinking: Optional[bool]
@@ -1280,6 +1321,7 @@ class Client:
             "request_limits": request_limits,
             "worker_ip": worker_ip,
             "gpu_idx": gpu_idx,
+            "replica_config": replica_config,
             "model_path": model_path,
             "enable_thinking": enable_thinking,
             "enable_virtual_env": enable_virtual_env,
@@ -1365,6 +1407,45 @@ class Client:
             raise RuntimeError(
                 f"Failed to terminate model, detail: {_get_error_string(response)}"
             )
+
+    def add_model_replica(
+        self,
+        model_uid: str,
+        replica_config: Optional[dict] = None,
+    ) -> dict:
+        """Add a new replica to a running model (scale-up).
+
+        Parameters
+        ----------
+        model_uid : str
+            The UID of the running model to extend.
+        replica_config : Optional[dict]
+            Optional single-device placement config, e.g.::
+
+                {
+                  "replica_uid": "my-replica-label",
+                  "devices": [
+                    {"worker_ip": "192.168.1.100:9999", "gpu_idx": [0, 1]}
+                  ]
+                }
+
+            Omit to let the supervisor auto-select a worker and GPU.
+
+        Returns
+        -------
+        dict
+            ``{"replica_id": int, "replica_model_uid": str, "worker_address": str}``
+        """
+        url = f"{self.base_url}/v1/models/{model_uid}/replicas"
+        payload: Dict[str, Any] = {}
+        if replica_config is not None:
+            payload["replica_config"] = replica_config
+        response = self.session.post(url, json=payload, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to add model replica, detail: {_get_error_string(response)}"
+            )
+        return response.json()
 
     def terminate_model_replica(self, model_uid: str, replica_id: int) -> int:
         """Terminate a specific replica of a running model."""

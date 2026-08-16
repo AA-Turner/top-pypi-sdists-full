@@ -395,3 +395,77 @@ def test_template_kinds_exceptions_win_over_the_rule(tmp_path, monkeypatch):
 
     assert kinds == {"ComponentName": "КомпонентИнтерфейса"}
     assert unmapped == []
+
+
+def test_a_generic_base_is_read_by_its_head():
+    """A base prints its argument in the link text (`Collection<ItemType>`), entity-escaped.
+
+    Reading the whole text as a name dropped such a base entirely: a collection kept `Object`
+    alone as its ancestor, and the result types of everything it inherits went with it.
+    """
+    page = (
+        "<article><h2>Иерархия типа</h2>"
+        "<p><em>Базовые типы:</em> "
+        '<a href="/x">Коллекция&lt;ТипЭлемента&gt;</a>, '
+        '<a href="/y">Обходимое&lt;ТипЭлемента&gt;</a>, '
+        '<a href="/z">Объект</a></p></article>'
+    )
+
+    assert _MODULE.page_bases(page) == ["Коллекция", "Обходимое", "Объект"]
+
+
+def test_the_type_parameters_are_read_from_the_page_header():
+    """A generic type names the result of its members BY THE PARAMETER, so the parameter list
+    is what turns such a result into a type."""
+    page = "<article><h1>Соответствие</h1>Стд::Коллекции::Соответствие&lt;ТипКлюча, ТипЗначения&gt;</article>"
+
+    assert _MODULE.page_type_params(page) == ["ТипКлюча", "ТипЗначения"]
+
+
+def test_a_plain_type_declares_no_parameters():
+    """Silence for a type that has none: an empty list, not a guess."""
+    page = "<article><h1>Объект</h1>Стд::Объект  Доступность: КлиентИСервер</article>"
+
+    assert _MODULE.page_type_params(page) == []
+
+
+def test_a_generic_method_keeps_its_signature_and_result():
+    """A generic method prints its parameters between the name and the parenthesis.
+
+    Demanding `name(` dropped the whole signature - and with it the result type of the method.
+    """
+    page = (
+        "<article><h2>Методы</h2><h3>Прочитать</h3>"
+        '<pre class="highlight"><code>Прочитать&lt;ТипОбъекта&gt;'
+        "(Источник: Строка, Тип: Тип&lt;ТипОбъекта&gt;): ТипОбъекта</code></pre></article>"
+    )
+
+    assert _MODULE.page_member_types(page)["Прочитать"] == "ТипОбъекта"
+    assert _MODULE.page_method_type_params(page) == {"Прочитать": ["ТипОбъекта"]}
+    assert _MODULE.page_member_signatures(page)["Прочитать"][0].startswith("Прочитать<ТипОбъекта>(")
+
+
+def test_a_deprecated_overload_does_not_take_the_result_of_the_current_one():
+    """A form kept for compatibility answers a result of its own, under a heading of its own.
+
+    Reading both made the two disagree and dropped the member altogether - the current form is
+    what the code writes today.
+    """
+    page = (
+        "<article><h2>Методы</h2><h3>Прочитать</h3>"
+        '<pre class="highlight"><code>Прочитать&lt;ТипОбъекта&gt;(Источник: Строка): ТипОбъекта</code></pre>'
+        "<h3>Прочитать</h3>"
+        '<pre class="highlight"><code>@Устарело\nПрочитать(Источник: Строка): Объект?</code></pre></article>'
+    )
+
+    assert _MODULE.page_member_types(page)["Прочитать"] == "ТипОбъекта"
+
+
+def test_a_member_with_only_deprecated_forms_keeps_its_result():
+    """Silence would be worse: a method the platform kept only in its old form still has a type."""
+    page = (
+        "<article><h2>Методы</h2><h3>Прочитать</h3>"
+        '<pre class="highlight"><code>@Устарело\nПрочитать(Источник: Строка): Объект?</code></pre></article>'
+    )
+
+    assert _MODULE.page_member_types(page)["Прочитать"] == "Объект?"

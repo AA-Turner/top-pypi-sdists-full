@@ -54,16 +54,21 @@ cdef extern from '<stdio.h>':
 cdef:
     const tdir_t TIFF_MAX_DIR_COUNT = 1048576  # private def in tiffiop.h
 
-    # index constants for the sizes[] geometry array
-    const int SZ_SAMPLEFORMAT = 0  # error payload on failure, 1 on success
-    const int SZ_PLANES = 1  # 1 for CONTIG, samplesperpixel for SEPARATE
-    const int SZ_DEPTH = 2  # imagedepth, usually 1
-    const int SZ_LENGTH = 3  # imagelength (rows)
-    const int SZ_WIDTH = 4  # imagewidth  (columns)
-    const int SZ_SAMPLES = 5  # samplesperpixel for CONTIG, 1 for SEPARATE
-    const int SZ_ITEMSIZE = 6  # itemsize of output container dtype in bytes
-    const int SZ_TRUESAMPLES = 7  # non-zero when asrgb forces RGBA
-    const int SZ_BPS = 8  # non-standard bps for packints unpacking; else 0
+
+ctypedef struct page_t:
+    ssize_t planes  # 1 for CONTIG, samplesperpixel for SEPARATE
+    ssize_t depth  # imagedepth, usually 1
+    ssize_t length  # imagelength (rows)
+    ssize_t width  # imagewidth  (columns)
+    ssize_t samples  # samplesperpixel for CONTIG, 1 for SEPARATE
+    ssize_t truesamples  # non-zero when asrgb forces RGBA
+    ssize_t itemsize  # output type itemsize in bytes; bitspersample on failure
+    int bitspersample  # non-standard bps for packints unpacking; else 0
+    int compression  # compression scheme
+    int status  # 1 on success; unsupported SAMPLEFORMAT_* value on failure
+    bint asrgb  # force RGBA using TIFFReadRGBAImageOriented
+    bint istiled
+    char[2] dtype
 
 
 class _TIFF:
@@ -491,7 +496,7 @@ def tiff_encode(
         src.dtype,
         photo_for_layout,
         bitspersample,
-        True if planarconfig_ == PLANARCONFIG_SEPARATE else None,
+        planarconfig_ == PLANARCONFIG_SEPARATE,
         None,  # layout.frames
         None,  # volumetric
         <int> extrasample_ if extrasample is not None else None,
@@ -570,13 +575,13 @@ def tiff_encode(
 
     if out is not None:
         buf = out
-        dstsize = buf.nbytes
-        memtif = memtif_open(<unsigned char*> &buf[0], dstsize, 0)
+        dstsize = buf.shape[0]
+        memtif = memtif_open(<unsigned char*> buf._data, dstsize, 0)
     elif dstsize > 0:
         out = _create_output(outtype, dstsize)
         buf = out
-        dstsize = buf.nbytes
-        memtif = memtif_open(<unsigned char*> &buf[0], dstsize, 0)
+        dstsize = buf.shape[0]
+        memtif = memtif_open(<unsigned char*> buf._data, dstsize, 0)
     else:
         out = None
         if compression_ == COMPRESSION_NONE:
@@ -629,7 +634,7 @@ def tiff_encode(
             if append_size > 0:
                 memcpy(
                     <void*> memtif.data,
-                    <const void*> &buf[0],
+                    <const void*> buf._data,
                     <size_t> append_size
                 )
                 memtif.flen = <toff_t> append_size
@@ -954,7 +959,7 @@ def tiff_encode(
                 if ret == 0:
                     raise TiffError(memtifobj)
 
-            memtif_len = memtif.flen
+            memtif_len = <ssize_t> memtif.flen
 
         if out is None:
             dstsize = memtif_len
@@ -1001,7 +1006,7 @@ def tiff_decode(
     """
     cdef:
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         uint8_t* outptr
         uint8_t* tile = NULL
         uint8_t* scanbuf = NULL
@@ -1011,20 +1016,14 @@ def tiff_decode(
         TIFF* tif = NULL
         TIFFOpenOptions* openoptions = NULL
         dirlist_t* dirlist = NULL
+        page_t page, page2
         int dirraise = 0
         tdir_t dirnum, dirstart, dirstop, dirstep
         int ret
-        int bps_
         uint32_t strip
         ssize_t i, size, sizeleft, outindex, imagesize, images
         ssize_t items_per_row, scansize
-        ssize_t[9] sizes
-        ssize_t[9] sizes2
-        char[2] dtype
-        char[2] dtype2
         bint rgb = asrgb
-        int isrgb, isrgb2, istiled, istiled2
-        uint16_t compression_ = 0
 
     if data is out:
         raise ValueError('cannot decode in-place')
@@ -1043,7 +1042,7 @@ def tiff_decode(
         dirlist = dirlist_new(1)
         dirlist_append(dirlist, dirnum)
     elif isinstance(index, (list, tuple, numpy.ndarray)):
-        if not 0 < len(index) < TIFF_MAX_DIR_COUNT:
+        if not 0 < len(index) < <ssize_t> TIFF_MAX_DIR_COUNT:
             raise ValueError('invalid index')
         try:
             dirnum = index[0]  # validate index[0] is non-negative integer
@@ -1067,7 +1066,7 @@ def tiff_decode(
     if dirlist == NULL:
         raise MemoryError('dirlist_new failed')
 
-    memtif = memtif_open(<unsigned char*> &src[0], srcsize, srcsize)
+    memtif = memtif_open(<unsigned char*> src._data, srcsize, srcsize)
     if memtif == NULL:
         raise MemoryError('memtif_open failed')
     memtif.warn = 1 if verbose else 0
@@ -1075,6 +1074,9 @@ def tiff_decode(
 
     try:
         with nogil:
+            memset(&page, 0, sizeof(page_t))
+            memset(&page2, 0, sizeof(page_t))
+
             openoptions = TIFFOpenOptionsAlloc()
             if openoptions == NULL:
                 raise MemoryError('TIFFOpenOptionsAlloc failed')
@@ -1111,18 +1113,17 @@ def tiff_decode(
             if ret == 0:
                 raise IndexError('directory out of range')
 
-            isrgb = rgb
-            ret = _tiff_decode_ifd(tif, &sizes[0], &dtype[0], &isrgb, &istiled)
-            TIFFGetFieldDefaulted(tif, TIFFTAG_COMPRESSION, &compression_)
+            page.asrgb = rgb
+            ret = _tiff_decode_ifd(tif, &page)
             if ret == 0:
                 raise TiffError(memtifobj)
             if ret == -1:
                 raise ValueError(
-                    f'sampleformat {int(sizes[SZ_SAMPLEFORMAT])} and '
-                    f'bitspersample {int(sizes[SZ_ITEMSIZE])} not supported'
+                    f'sampleformat {int(page.status)} and '
+                    f'bitspersample {int(page.itemsize)} not supported'
                 )
 
-            # if sizes[SZ_DEPTH] > 1:
+            # if page.depth > 1:
             #     raise NotImplementedError(f'libtiff does not support depth')
 
             if dirlist.size > 1 and dirlist.index == 1:
@@ -1138,10 +1139,8 @@ def tiff_decode(
                     ret = _tiff_set_directory(tif, dirnum)
                     if ret == 0:
                         break
-                    isrgb2 = rgb
-                    ret = _tiff_decode_ifd(
-                        tif, &sizes2[0], &dtype2[0], &isrgb2, &istiled2
-                    )
+                    page2.asrgb = rgb
+                    ret = _tiff_decode_ifd(tif, &page2)
                     if ret == 0:
                         if dirraise:
                             raise TiffError(memtifobj)
@@ -1152,16 +1151,17 @@ def tiff_decode(
 
                     if (
                         ret < 0
-                        or sizes[SZ_PLANES] != sizes2[SZ_PLANES]
-                        or sizes[SZ_DEPTH] != sizes2[SZ_DEPTH]
-                        or sizes[SZ_LENGTH] != sizes2[SZ_LENGTH]
-                        or sizes[SZ_WIDTH] != sizes2[SZ_WIDTH]
-                        or sizes[SZ_SAMPLES] != sizes2[SZ_SAMPLES]
-                        or sizes[SZ_ITEMSIZE] != sizes2[SZ_ITEMSIZE]
-                        or sizes[SZ_BPS] != sizes2[SZ_BPS]
-                        or dtype[0] != dtype2[0]
-                        or istiled != istiled2
-                        or isrgb != isrgb2
+                        or page.planes != page2.planes
+                        or page.depth != page2.depth
+                        or page.length != page2.length
+                        or page.width != page2.width
+                        or page.samples != page2.samples
+                        or page.itemsize != page2.itemsize
+                        or page.bitspersample != page2.bitspersample
+                        or page.compression != page2.compression
+                        or page.istiled != page2.istiled
+                        or page.asrgb != page2.asrgb
+                        or page.dtype[0] != page2.dtype[0]
                     ):
                         if dirraise:
                             raise ValueError(
@@ -1183,28 +1183,28 @@ def tiff_decode(
 
             # ssize_t overflow detected during _create_array() call below
             imagesize = (
-                sizes[SZ_PLANES]
-                * sizes[SZ_DEPTH]
-                * sizes[SZ_LENGTH]
-                * sizes[SZ_WIDTH]
-                * sizes[SZ_SAMPLES]
-                * sizes[SZ_ITEMSIZE]
+                page.planes
+                * page.depth
+                * page.length
+                * page.width
+                * page.samples
+                * page.itemsize
             )
 
         shape = (
             images,
-            int(sizes[SZ_PLANES]),
-            int(sizes[SZ_DEPTH]),
-            int(sizes[SZ_LENGTH]),
-            int(sizes[SZ_WIDTH]),
-            int(sizes[SZ_SAMPLES])
+            int(page.planes),
+            int(page.depth),
+            int(page.length),
+            int(page.width),
+            int(page.samples)
         )
         shapeout = tuple(
             s for i, s in enumerate(shape) if s > 1 or i in {3, 4}
         )
 
         out = _create_array(
-            out, shapeout, f'{dtype.decode()}{int(sizes[SZ_ITEMSIZE])}'
+            out, shapeout, f'{page.dtype.decode()}{int(page.itemsize)}'
         )
         out = out.reshape(shape)
         outptr = <uint8_t*> numpy.PyArray_DATA(out)
@@ -1212,7 +1212,7 @@ def tiff_decode(
         # out[:] = 0
 
         with nogil:
-            if isrgb:
+            if page.asrgb:
                 # read as RGB
                 for i in range(images):
                     ret = _tiff_set_directory(tif, dirlist.data[i])
@@ -1220,8 +1220,8 @@ def tiff_decode(
                         raise TiffError(memtifobj)
                     ret = TIFFReadRGBAImageOriented(
                         tif,
-                        <uint32_t> sizes[SZ_WIDTH],
-                        <uint32_t> sizes[SZ_LENGTH],
+                        <uint32_t> page.width,
+                        <uint32_t> page.length,
                         <uint32_t*> &outptr[i * imagesize],
                         ORIENTATION_TOPLEFT,
                         0
@@ -1229,14 +1229,24 @@ def tiff_decode(
                     if ret == 0:
                         raise TiffError(memtifobj)
 
-            elif istiled:
+            elif page.istiled:
                 # read tiled
+                if (
+                    page.compression == COMPRESSION_JPEG
+                    and TIFFSetField(
+                        tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RGB
+                    ) == 0
+                ):
+                    raise TiffError(memtifobj)
+
                 size = TIFFTileSize(tif)
+                if size == 0:
+                    raise ValueError('TIFFTileSize returned 0')
                 tile = <uint8_t*> malloc(size)
                 if tile == NULL:
                     raise MemoryError('failed to allocate tile buffer')
 
-                if sizes[SZ_BPS] == 0:
+                if page.bitspersample == 0:
                     # read tiled, except packed integers
                     for i in range(images):
                         ret = _tiff_set_directory(tif, dirlist.data[i])
@@ -1244,8 +1254,8 @@ def tiff_decode(
                             raise TiffError(memtifobj)
                         ret = _tiff_decode_tiled(
                             tif,
+                            &page,
                             &outptr[i * imagesize],
-                            sizes,
                             strides,
                             tile,
                             size
@@ -1261,9 +1271,8 @@ def tiff_decode(
 
                 else:
                     # read tiled packed integers
-                    bps_ = <int> sizes[SZ_BPS]
                     tile_unpacked = <uint8_t*> malloc(
-                        (size * 8 // bps_) * sizes[SZ_ITEMSIZE]
+                        (size * 8 // page.bitspersample) * page.itemsize
                     )
                     if tile_unpacked == NULL:
                         raise MemoryError(
@@ -1275,13 +1284,12 @@ def tiff_decode(
                             raise TiffError(memtifobj)
                         ret = _tiff_decode_tiled_packints(
                             tif,
+                            &page,
                             &outptr[i * imagesize],
-                            sizes,
                             strides,
                             tile,
                             tile_unpacked,
-                            size,
-                            bps_
+                            size
                         )
                         if ret == 0:
                             raise TiffError(memtifobj)
@@ -1290,7 +1298,7 @@ def tiff_decode(
                                 f'_tiff_decode_tiled_packints returned {ret}'
                             )
 
-            elif sizes[SZ_BPS] == 0:
+            elif page.bitspersample == 0:
                 # read striped, except packed integers
                 for i in range(images):
                     ret = _tiff_set_directory(tif, dirlist.data[i])
@@ -1298,6 +1306,13 @@ def tiff_decode(
                         raise TiffError(memtifobj)
                     if TIFFIsTiled(tif) != 0:
                         raise RuntimeError('not a strip image')
+                    if (
+                        page.compression == COMPRESSION_JPEG
+                        and TIFFSetField(
+                            tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RGB
+                        ) == 0
+                    ):
+                        raise TiffError(memtifobj)
                     outindex = i * imagesize
                     sizeleft = imagesize
                     for strip in range(TIFFNumberOfStrips(tif)):
@@ -1316,31 +1331,41 @@ def tiff_decode(
 
             else:
                 # read striped packed integers
-                bps_ = <int> sizes[SZ_BPS]
-                items_per_row = sizes[SZ_WIDTH] * sizes[SZ_SAMPLES]
-                scansize = TIFFScanlineSize(tif)
-                scanbuf = <uint8_t*> malloc(scansize)
+                if (
+                    page.compression == COMPRESSION_JPEG
+                    and TIFFSetField(
+                        tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RGB
+                    ) == 0
+                ):
+                    raise TiffError(memtifobj)
+
+                items_per_row = page.width * page.samples
+                scansize = (items_per_row * page.bitspersample + 7) // 8
+                size = TIFFStripSize(tif)
+                if size == 0:
+                    raise ValueError('TIFFTileSize returned 0')
+                scanbuf = <uint8_t*> calloc(size + 4, 1)
                 if scanbuf == NULL:
-                    raise MemoryError('failed to allocate scanline buffer')
+                    raise MemoryError('failed to allocate strip buffer')
                 for i in range(images):
                     ret = _tiff_set_directory(tif, dirlist.data[i])
                     if ret == 0:
                         raise TiffError(memtifobj)
-                    ret = _tiff_decode_scanlines_packints(
+                    ret = _tiff_decode_strips_packints(
                         tif,
+                        &page,
                         &outptr[i * imagesize],
                         scanbuf,
+                        size + 4,
                         scansize,
-                        sizes[SZ_PLANES],
-                        sizes[SZ_LENGTH],
                         items_per_row,
-                        sizes[SZ_ITEMSIZE],
-                        bps_
                     )
                     if ret == 0:
                         raise TiffError(memtifobj)
                     if ret < 0:
-                        raise TiffError(f'imcd_packints_decode returned {ret}')
+                        raise TiffError(
+                            f'_tiff_decode_strips_packints returned {ret}'
+                        )
 
     finally:
         free(tile)
@@ -1353,16 +1378,16 @@ def tiff_decode(
             TIFFOpenOptionsFree(openoptions)
         memtif_del(memtif)
 
-    if not rgb and isrgb and sizes[SZ_TRUESAMPLES] > 0:
+    if not rgb and page.asrgb and page.truesamples > 0:
         # discard Alpha channel if JPEG compression, YCBCR...
-        out = out[..., : sizes[SZ_TRUESAMPLES]]
+        out = out[..., : page.truesamples]
         shape = (
             images,
-            int(sizes[SZ_PLANES]),
-            int(sizes[SZ_DEPTH]),
-            int(sizes[SZ_LENGTH]),
-            int(sizes[SZ_WIDTH]),
-            int(sizes[SZ_TRUESAMPLES])
+            int(page.planes),
+            int(page.depth),
+            int(page.length),
+            int(page.width),
+            int(page.truesamples)
         )
         out = out.reshape(
             tuple(s for i, s in enumerate(shape) if s > 1 or i in {3, 4})
@@ -1583,10 +1608,7 @@ cdef int _tif_encode_tiled_packints(
 
 cdef int _tiff_decode_ifd(
     TIFF* tif,
-    ssize_t* sizes,
-    char* dtype,
-    int* asrgb,
-    int* istiled,
+    page_t* page
 ) noexcept nogil:
     """Get normalized image shape and dtype from current IFD tags."""
     cdef:
@@ -1632,120 +1654,124 @@ cdef int _tiff_decode_ifd(
     if ret == 0:
         return 0
 
+    page.compression = <ssize_t> compression
+
     if compression == COMPRESSION_JPEG:
-        asrgb[0] = 1
-        sizes[SZ_TRUESAMPLES] = <ssize_t> samplesperpixel
+        page.asrgb = 0
+        page.truesamples = 0
         ret = TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RGB)
         if ret == 0:
             return 0
     elif compression == COMPRESSION_OJPEG or photometric == PHOTOMETRIC_YCBCR:
-        asrgb[0] = 1
-        sizes[SZ_TRUESAMPLES] = <ssize_t> samplesperpixel
+        # let libtiff handle OJPEG and YCbCr -> RGB conversion
+        page.asrgb = 1
+        page.truesamples = <ssize_t> samplesperpixel
     elif photometric == PHOTOMETRIC_SEPARATED:
-        asrgb[0] = 1
-        sizes[SZ_TRUESAMPLES] = 3  # CMYK -> RGB
+        # let libtiff handle CMYK -> RGB conversion
+        page.asrgb = 1
+        page.truesamples = 3
     else:
-        sizes[SZ_TRUESAMPLES] = 0
+        page.truesamples = 0
 
-    if asrgb[0] != 0:
-        istiled[0] = 0  # don't care
+    if page.asrgb != 0:
+        page.istiled = 0  # don't care
     else:
-        istiled[0] = TIFFIsTiled(tif)
+        page.istiled = TIFFIsTiled(tif)
 
-    sizes[SZ_SAMPLEFORMAT] = 1
-    sizes[SZ_LENGTH] = <ssize_t> imagelength
-    sizes[SZ_WIDTH] = <ssize_t> imagewidth
-    if asrgb[0]:
-        sizes[SZ_PLANES] = 1
-        sizes[SZ_DEPTH] = 1
-        sizes[SZ_SAMPLES] = 4
+    page.status = 1
+    page.length = <ssize_t> imagelength
+    page.width = <ssize_t> imagewidth
+    if page.asrgb:
+        page.planes = 1
+        page.depth = 1
+        page.samples = 4
     elif planarconfig == PLANARCONFIG_CONTIG:
-        sizes[SZ_PLANES] = 1
-        sizes[SZ_DEPTH] = <ssize_t> imagedepth
-        sizes[SZ_SAMPLES] = <ssize_t> samplesperpixel
+        page.planes = 1
+        page.depth = <ssize_t> imagedepth
+        page.samples = <ssize_t> samplesperpixel
     else:
-        sizes[SZ_PLANES] = <ssize_t> samplesperpixel
-        sizes[SZ_DEPTH] = <ssize_t> imagedepth
-        sizes[SZ_SAMPLES] = 1
+        page.planes = <ssize_t> samplesperpixel
+        page.depth = <ssize_t> imagedepth
+        page.samples = 1
 
-    dtype[1] = 0
-    if asrgb[0]:
-        dtype[0] = b'u'
+    page.dtype[1] = 0
+    if page.asrgb:
+        page.dtype[0] = b'u'
     elif photometric == PHOTOMETRIC_LOGLUV:
         # return LogLuv as float32
-        dtype[0] = b'f'
-        sizes[SZ_SAMPLEFORMAT] = <ssize_t> SAMPLEFORMAT_IEEEFP
+        page.dtype[0] = b'f'
+        page.status = <int> SAMPLEFORMAT_IEEEFP
         bitspersample = 32
         ret = TIFFSetField(tif, TIFFTAG_SGILOGDATAFMT, SGILOGDATAFMT_FLOAT)
         if ret == 0:
             return 0
     elif sampleformat == SAMPLEFORMAT_UINT:
-        dtype[0] = b'u'
+        page.dtype[0] = b'u'
     elif sampleformat == SAMPLEFORMAT_INT:
-        dtype[0] = b'i'
+        page.dtype[0] = b'i'
     elif sampleformat == SAMPLEFORMAT_IEEEFP:
-        dtype[0] = b'f'
+        page.dtype[0] = b'f'
         if (
             bitspersample != 16
             # and bitspersample != 24
             and bitspersample != 32
             and bitspersample != 64
         ):
-            sizes[SZ_SAMPLEFORMAT] = <ssize_t> sampleformat
-            sizes[SZ_ITEMSIZE] = <ssize_t> bitspersample
+            page.status = <int> sampleformat
+            page.itemsize = <ssize_t> bitspersample
             return -1
     elif sampleformat == SAMPLEFORMAT_COMPLEXIEEEFP:
-        dtype[0] = b'c'
+        page.dtype[0] = b'c'
         if (
             bitspersample != 32
             and bitspersample != 64
             and bitspersample != 128
         ):
-            sizes[SZ_SAMPLEFORMAT] = <ssize_t> sampleformat
-            sizes[SZ_ITEMSIZE] = <ssize_t> bitspersample
+            page.status = <int> sampleformat
+            page.itemsize = <ssize_t> bitspersample
             return -1
     else:
         # sampleformat == SAMPLEFORMAT_VOID
         # sampleformat == SAMPLEFORMAT_COMPLEXINT
-        sizes[SZ_SAMPLEFORMAT] = <ssize_t> sampleformat
-        sizes[SZ_ITEMSIZE] = <ssize_t> bitspersample
+        page.status = <int> sampleformat
+        page.itemsize = <ssize_t> bitspersample
         return -1
 
-    sizes[SZ_BPS] = 0
-    if asrgb[0]:
-        sizes[SZ_ITEMSIZE] = 1
+    page.bitspersample = 0
+    if page.asrgb:
+        page.itemsize = 1
     elif bitspersample == 8:
-        sizes[SZ_ITEMSIZE] = 1
+        page.itemsize = 1
     elif bitspersample == 16:
-        sizes[SZ_ITEMSIZE] = 2
+        page.itemsize = 2
     elif bitspersample == 32:
-        sizes[SZ_ITEMSIZE] = 4
+        page.itemsize = 4
     elif bitspersample == 64:
-        sizes[SZ_ITEMSIZE] = 8
+        page.itemsize = 8
     elif bitspersample == 128:
-        sizes[SZ_ITEMSIZE] = 16
-    elif dtype[0] == b'u' or dtype[0] == b'i':
+        page.itemsize = 16
+    elif page.dtype[0] == b'u' or page.dtype[0] == b'i':
         # non-standard bit depths: 1-7, 9-15, 17-31
-        if bitspersample == 1 and dtype[0] == b'u':
-            dtype[0] = b'b'  # return 1-bit uint as bool
-            sizes[SZ_ITEMSIZE] = 1
+        if bitspersample == 1 and page.dtype[0] == b'u':
+            page.dtype[0] = b'b'  # return 1-bit uint as bool
+            page.itemsize = 1
         elif bitspersample <= 8:
-            sizes[SZ_ITEMSIZE] = 1
+            page.itemsize = 1
         elif bitspersample <= 16:
-            sizes[SZ_ITEMSIZE] = 2
+            page.itemsize = 2
         elif bitspersample <= 32:
-            sizes[SZ_ITEMSIZE] = 4
+            page.itemsize = 4
         else:
-            sizes[SZ_SAMPLEFORMAT] = <ssize_t> sampleformat
-            sizes[SZ_ITEMSIZE] = <ssize_t> bitspersample
+            page.status = <int> sampleformat
+            page.itemsize = <ssize_t> bitspersample
             return -1
-        sizes[SZ_BPS] = <ssize_t> bitspersample
-    # elif dtype[0] == b'f' and bitspersample == 24:
-    #     sizes[SZ_ITEMSIZE] = 4
-    #     sizes[SZ_BPS] = 24
+        page.bitspersample = <ssize_t> bitspersample
+    # elif page.dtype[0] == b'f' and bitspersample == 24:
+    #     page.itemsize = 4
+    #     page.bitspersample = 24
     else:
-        sizes[SZ_SAMPLEFORMAT] = <ssize_t> sampleformat
-        sizes[SZ_ITEMSIZE] = <ssize_t> bitspersample
+        page.status = <int> sampleformat
+        page.itemsize = <ssize_t> bitspersample
         return -1
 
     return 1
@@ -1753,16 +1779,15 @@ cdef int _tiff_decode_ifd(
 
 cdef int _tiff_decode_tiled(
     TIFF* tif,
+    page_t* page,
     uint8_t* dst,
-    ssize_t* sizes,
     numpy.npy_intp* strides,
     uint8_t* tile,
     ssize_t size,
 ) noexcept nogil:
     """Decode tiled image. Return 1 on success."""
     cdef:
-        ssize_t i, j, h, d
-        ssize_t imageplane, imagedepth, imagelength, imagewidth, samplesize
+        ssize_t i, j, h, d, samplesize
         ssize_t tiledepth, tilelength, tilewidth, tilesize, tileindex
         ssize_t tileddepth, tiledlength, tiledwidth
         ssize_t sizeleft
@@ -1771,7 +1796,100 @@ cdef int _tiff_decode_tiled(
         uint32_t value
         int ret
 
-    if TIFFIsTiled(tif) == 0:
+    if (
+        page.compression == COMPRESSION_JPEG
+        and TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RGB) == 0
+    ):
+        return 0
+
+    if TIFFTileSize(tif) != size:
+        return 0
+
+    ret = TIFFGetFieldDefaulted(tif, TIFFTAG_TILEWIDTH, &value)
+    if ret == 0:
+        return 0
+    tilewidth = <ssize_t> value
+
+    ret = TIFFGetFieldDefaulted(tif, TIFFTAG_TILELENGTH, &value)
+    if ret == 0:
+        return 0
+    tilelength = <ssize_t> value
+
+    ret = TIFFGetFieldDefaulted(tif, TIFFTAG_TILEDEPTH, &value)
+    if ret == 0 or value == 0:
+        tiledepth = 1
+    else:
+        tiledepth = <ssize_t> value
+    samplesize = page.samples * page.itemsize
+    sizeleft = page.planes * page.depth * page.length * page.width * samplesize
+    tilesize = tiledepth * tilelength * tilewidth * samplesize
+    tiledwidth = (page.width + tilewidth - 1) // tilewidth
+    tiledlength = (page.length + tilelength - 1) // tilelength
+    tileddepth = (page.depth + tiledepth - 1) // tiledepth
+    sp = strides[1]
+    sd = strides[2]
+    sl = strides[3]
+    sw = strides[4]
+
+    if size != tilesize:
+        # raise TiffError(f'TIFFTileSize {size} != {tilesize}')
+        return -1
+
+    for tileindex in range(<ssize_t> TIFFNumberOfTiles(tif)):
+        size = TIFFReadEncodedTile(
+            tif, <uint32_t> tileindex, <void*> tile, tilesize
+        )
+        if size < 0:
+            return 0
+        if size != tilesize:
+            # raise TiffError(f'TIFFReadEncodedTile {size} != {tilesize}')
+            return -2
+        tp = tileindex // (tiledwidth * tiledlength * tileddepth)
+        td = (tileindex // (tiledwidth * tiledlength)) % tileddepth * tiledepth
+        tl = (tileindex // tiledwidth) % tiledlength * tilelength
+        tw = tileindex % tiledwidth * tilewidth
+        size = min(tilewidth, page.width - tw) * samplesize
+
+        for d in range(min(tiledepth, page.depth - td)):
+            for h in range(min(tilelength, page.length - tl)):
+                sizeleft -= size
+                if sizeleft < 0:
+                    return -2
+                i = tp * sp + (td + d) * sd + (tl + h) * sl + tw * sw
+                j = (d * tilelength + h) * tilewidth * samplesize
+                # TODO: check out of bounds writes?
+                memcpy(<void*> &dst[i], <const void*> &tile[j], size)
+    return 1
+
+
+cdef int _tiff_decode_tiled_packints(
+    TIFF* tif,
+    page_t* page,
+    uint8_t* dst,
+    numpy.npy_intp* strides,
+    uint8_t* tile_packed,
+    uint8_t* tile_unpacked,
+    const ssize_t tile_packed_size,
+) noexcept nogil:
+    """Decode tiled non-standard bitspersample image."""
+    cdef:
+        ssize_t imagedepth, imagelength, imagewidth, samplesize, itemsize
+        ssize_t tiledepth, tilelength, tilewidth
+        ssize_t tileddepth, tiledlength, tiledwidth
+        ssize_t tp, td, tl, tw, tileindex
+        ssize_t d, h, i, row_packed_bytes, copy_bytes
+        ssize_t sp, sd, sl, sw
+        uint32_t value
+        tmsize_t size
+        ssize_t ret
+
+    if (
+        page.compression == COMPRESSION_JPEG
+        and TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RGB) == 0
+    ):
+        return 0
+
+    if TIFFTileSize(tif) != tile_packed_size:
         return 0
 
     ret = TIFFGetFieldDefaulted(tif, TIFFTAG_TILEWIDTH, &value)
@@ -1790,156 +1908,102 @@ cdef int _tiff_decode_tiled(
     else:
         tiledepth = <ssize_t> value
 
-    imageplane = sizes[SZ_PLANES]
-    imagedepth = sizes[SZ_DEPTH]
-    imagelength = sizes[SZ_LENGTH]
-    imagewidth = sizes[SZ_WIDTH]
-    samplesize = sizes[SZ_SAMPLES] * sizes[SZ_ITEMSIZE]
-    sizeleft = imageplane * imagedepth * imagelength * imagewidth * samplesize
+    imagedepth = page.depth
+    imagelength = page.length
+    imagewidth = page.width
+    itemsize = page.itemsize
+    samplesize = page.samples * itemsize
+    row_packed_bytes = (tilewidth * page.samples * page.bitspersample + 7) // 8
+    tiledwidth = (imagewidth + tilewidth - 1) // tilewidth
+    tiledlength = (imagelength + tilelength - 1) // tilelength
+    tileddepth = (imagedepth + tiledepth - 1) // tiledepth
     sp = strides[1]
     sd = strides[2]
     sl = strides[3]
     sw = strides[4]
-    tilesize = tiledepth * tilelength * tilewidth * samplesize
-    tiledwidth = (imagewidth + tilewidth - 1) // tilewidth
-    tiledlength = (imagelength + tilelength - 1) // tilelength
-    tileddepth = (imagedepth + tiledepth - 1) // tiledepth
 
-    if size != tilesize:
-        # raise TiffError(f'TIFFTileSize {size} != {tilesize}')
+    if tile_packed_size != row_packed_bytes * tiledepth * tilelength:
         return -1
 
-    for tileindex in range(TIFFNumberOfTiles(tif)):
-        size = TIFFReadEncodedTile(
-            tif, <uint32_t> tileindex, <void*> tile, tilesize
-        )
-        if size < 0:
-            return 0
-        if size != tilesize:
-            # raise TiffError(f'TIFFReadEncodedTile {size} != {tilesize}')
-            return -1
-        tp = tileindex // (tiledwidth * tiledlength * tileddepth)
-        td = (tileindex // (tiledwidth * tiledlength)) % tileddepth * tiledepth
-        tl = (tileindex // tiledwidth) % tiledlength * tilelength
-        tw = tileindex % tiledwidth * tilewidth
-        size = min(tilewidth, imagewidth - tw) * samplesize
-
-        for d in range(min(tiledepth, imagedepth - td)):
-            for h in range(min(tilelength, imagelength - tl)):
-                sizeleft -= size
-                if sizeleft < 0:
-                    return -2
-                i = tp * sp + (td + d) * sd + (tl + h) * sl + tw * sw
-                j = (d * tilelength + h) * tilewidth * samplesize
-                # TODO: check out of bounds writes?
-                memcpy(<void*> &dst[i], <const void*> &tile[j], size)
-    return 1
-
-
-cdef int _tiff_decode_scanlines_packints(
-    TIFF* tif,
-    uint8_t* dst,
-    uint8_t* scanbuf,
-    const ssize_t scansize,
-    const ssize_t planes,
-    const ssize_t length,
-    const ssize_t items_per_row,
-    const ssize_t itemsize,
-    const int bps,
-) noexcept nogil:
-    """Decode non-standard bitspersample strip image row by row."""
-    cdef:
-        ssize_t p, y
-        ssize_t ret
-
-    for p in range(planes):
-        for y in range(length):
-            if TIFFReadScanline(
-                tif, <void*> scanbuf, <uint32_t> y, <uint16_t> p
-            ) < 0:
-                return 0
-            ret = imcd_packints_decode(
-                scanbuf, scansize, dst, items_per_row, bps
-            )
-            if ret < 0:
-                return <int> ret
-            dst += items_per_row * itemsize
-    return 1
-
-
-cdef int _tiff_decode_tiled_packints(
-    TIFF* tif,
-    uint8_t* dst,
-    ssize_t* sizes,
-    numpy.npy_intp* strides,
-    uint8_t* tile_packed,
-    uint8_t* tile_unpacked,
-    const ssize_t tile_packed_size,
-    const int bps,
-) noexcept nogil:
-    """Decode tiled non-standard bitspersample image."""
-    cdef:
-        ssize_t imagelength, imagewidth, samplesize, itemsize
-        ssize_t tilelength, tilewidth
-        ssize_t tiledlength, tiledwidth
-        ssize_t tp, tl, tw, tileindex
-        ssize_t h, i, row_packed_bytes, copy_bytes
-        ssize_t sp, sl, sw
-        uint32_t value
-        tmsize_t size
-        ssize_t ret
-
-    if TIFFIsTiled(tif) == 0:
-        return 0
-
-    ret = TIFFGetFieldDefaulted(tif, TIFFTAG_TILEWIDTH, &value)
-    if ret == 0:
-        return 0
-    tilewidth = <ssize_t> value
-
-    ret = TIFFGetFieldDefaulted(tif, TIFFTAG_TILELENGTH, &value)
-    if ret == 0:
-        return 0
-    tilelength = <ssize_t> value
-
-    imagelength = sizes[SZ_LENGTH]
-    imagewidth = sizes[SZ_WIDTH]
-    itemsize = sizes[SZ_ITEMSIZE]
-    samplesize = sizes[SZ_SAMPLES] * itemsize
-    row_packed_bytes = (tilewidth * sizes[SZ_SAMPLES] * bps + 7) // 8
-    tiledwidth = (imagewidth + tilewidth - 1) // tilewidth
-    tiledlength = (imagelength + tilelength - 1) // tilelength
-    sp = strides[1]
-    sl = strides[3]
-    sw = strides[4]
-
-    for tileindex in range(TIFFNumberOfTiles(tif)):
+    for tileindex in range(<ssize_t> TIFFNumberOfTiles(tif)):
         size = TIFFReadEncodedTile(
             tif, <uint32_t> tileindex, <void*> tile_packed, tile_packed_size
         )
         if size < 0:
             return 0
-        tp = tileindex // (tiledwidth * tiledlength)
+        tp = tileindex // (tiledwidth * tiledlength * tileddepth)
+        td = (tileindex // (tiledwidth * tiledlength)) % tileddepth * tiledepth
         tl = (tileindex // tiledwidth) % tiledlength * tilelength
         tw = tileindex % tiledwidth * tilewidth
         copy_bytes = min(tilewidth, imagewidth - tw) * samplesize
 
-        for h in range(min(tilelength, imagelength - tl)):
+        for d in range(min(tiledepth, imagedepth - td)):
+            for h in range(min(tilelength, imagelength - tl)):
+                ret = imcd_packints_decode(
+                    tile_packed + (d * tilelength + h) * row_packed_bytes,
+                    row_packed_bytes,
+                    tile_unpacked,
+                    tilewidth * page.samples,
+                    page.bitspersample
+                )
+                if ret < 0:
+                    return <int> ret
+                i = tp * sp + (td + d) * sd + (tl + h) * sl + tw * sw
+                memcpy(
+                    <void*> &dst[i],
+                    <const void*> tile_unpacked,
+                    copy_bytes
+                )
+    return 1
+
+
+cdef int _tiff_decode_strips_packints(
+    TIFF* tif,
+    page_t* page,
+    uint8_t* dst,
+    uint8_t* strip_buf,
+    const ssize_t strip_buf_size,
+    const ssize_t packedrowsize,
+    const ssize_t items_per_row,
+) noexcept nogil:
+    """Decode non-standard bitspersample strip image."""
+    cdef:
+        ssize_t strip, nstrips, size, actual_rows, r, ret
+        ssize_t rows_remaining = page.planes * page.depth * page.length
+
+    if (
+        page.compression == COMPRESSION_JPEG
+        and TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RGB) == 0
+    ):
+        return 0
+
+    if TIFFStripSize(tif) + 4 != strip_buf_size:
+        return 0
+
+    nstrips = TIFFNumberOfStrips(tif)
+    for strip in range(nstrips):
+        if rows_remaining <= 0:
+            break
+        size = TIFFReadEncodedStrip(
+            tif, <uint32_t> strip, <void*> strip_buf, strip_buf_size
+        )
+        if size < 0:
+            return 0
+        actual_rows = size // packedrowsize
+        if actual_rows > rows_remaining:
+            actual_rows = rows_remaining
+        for r in range(actual_rows):
             ret = imcd_packints_decode(
-                tile_packed + h * row_packed_bytes,
-                row_packed_bytes,
-                tile_unpacked,
-                tilewidth * sizes[SZ_SAMPLES],
-                bps
+                strip_buf + r * packedrowsize,
+                packedrowsize,
+                dst,
+                items_per_row,
+                page.bitspersample
             )
             if ret < 0:
                 return <int> ret
-            i = tp * sp + (tl + h) * sl + tw * sw
-            memcpy(
-                <void*> &dst[i],
-                <const void*> tile_unpacked,
-                copy_bytes
-            )
+            dst += items_per_row * page.itemsize
+        rows_remaining -= actual_rows
     return 1
 
 
@@ -1986,7 +2050,7 @@ cdef int dirlist_append(dirlist_t* dirlist, tdir_t ifd) noexcept nogil:
         return -1  # list full
     if dirlist.index == dirlist.size:
         newsize = max(16, <ssize_t> dirlist.size * 2)
-        if newsize > TIFF_MAX_DIR_COUNT:
+        if newsize > <ssize_t> TIFF_MAX_DIR_COUNT:
             newsize = TIFF_MAX_DIR_COUNT
         tmp = <tdir_t*> realloc(dirlist.data, newsize * sizeof(tdir_t))
         if tmp == NULL:

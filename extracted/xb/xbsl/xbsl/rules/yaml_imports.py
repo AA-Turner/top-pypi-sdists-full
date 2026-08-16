@@ -1,6 +1,14 @@
-"""Tier D: cross-subsystem references - three rules over one placement model.
+"""Tier D: cross-subsystem references - five rules over one placement model.
 
-The third one, code/unused-import, is the mirror of the first: a module declares
+The platform asks for three things before an element of subsystem Б may be used in subsystem А
+(docs, "Модульная разработка"): the element is public, the consumer imports the namespace, and
+the consumer's subsystem declares Б in its `Использование`. One rule per condition per side:
+yaml/foreign-not-public for the first, yaml/missing-import and code/missing-import for the
+second (the yaml and the code of one element import separately), yaml/missing-subsystem-usage
+for the third. code/unused-import is the odd one out - it looks the other way, at an import
+nothing needs.
+
+code/unused-import is the mirror of code/missing-import: a module declares
 `импорт <Подсистема>` while nothing in its CODE resolves through it. The platform's own
 editor reports such imports, the linter did not, and they accumulate - a subsystem is
 imported "just in case", the code that needed it is rewritten, the line stays.
@@ -65,16 +73,21 @@ yaml/unknown-type, it does not run in single-file mode).
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
+from dataclasses import fields
 from functools import lru_cache
 from pathlib import Path
 
-from xbsl import dataset, i18n, terms
+from xbsl import dataset, i18n, parser as P, terms
 from xbsl.dataset import DatasetError
 from xbsl.diagnostics import Diagnostic, Severity
 from xbsl.engine import SourceFile, rule
-from xbsl.lexer import tokens
+from xbsl.lexer import linemap, tokens
+from xbsl.parser import parse
 from xbsl.rules import semantics
+from xbsl.rules.environment import _pair_stem
+from xbsl.rules.undefined_names import _IMPLICIT
 from xbsl.rules.yaml_schema import _HAVE_YAML, _parsed, object_kind, value_of
 from xbsl.rules.yaml_types import _parse_type_string, _type_values, _value_positions
 
@@ -90,6 +103,40 @@ MESSAGES = {
         "en": "The import of subsystem '{sub}' is unused: no element of it is mentioned in "
               "the module code. References of the PAIRED yaml are not covered by a module "
               "import - the yaml has an {n[Импорт]} section of its own. The line can go.",
+    },
+    "code/missing-import.title": {
+        "ru": "Нет импорта подсистемы в модуле",
+        "en": "Missing subsystem import in a module",
+    },
+    "code/missing-import.missing": {
+        "ru": "Тип '{name}' – из подсистемы '{sub}', а модуль её не импортирует: "
+              "компиляция упадёт на этой строке. Нужна строка импорта этой подсистемы "
+              "(секция Импорт парного yaml код не покрывает).",
+        "en": "Type '{name}' comes from subsystem '{sub}' which this module does not import: "
+              "compilation fails at this line. The module needs an import line of its own "
+              "(the {n[Импорт]} section of the paired yaml does not cover the code).",
+    },
+    "code/missing-import.chain": {
+        "ru": "Обращение '{name}' – к элементу подсистемы '{sub}', а модуль её не импортирует: "
+              "компиляция упадёт на этой строке. Нужна строка импорта этой подсистемы "
+              "(секция Импорт парного yaml код не покрывает).",
+        "en": "'{name}' reaches an element of subsystem '{sub}' which this module does not "
+              "import: compilation fails at this line. The module needs an import line of its "
+              "own (the {n[Импорт]} section of the paired yaml does not cover the code).",
+    },
+    "yaml/missing-subsystem-usage.title": {
+        "ru": "Подсистема импортируется, но не объявлена используемой",
+        "en": "A subsystem is imported but not declared as used",
+    },
+    "yaml/missing-subsystem-usage.missing": {
+        "ru": "Подсистему '{sub}' импортируют элементы и модули этой подсистемы "
+              "(файлов: {count}), а в её описании нет блока Использование с этой подсистемой – "
+              "применение проекта упадёт. Импорт даёт краткие имена, но саму подсистему "
+              "разрешает именно Использование.",
+        "en": "Subsystem '{sub}' is imported by elements and modules of this subsystem "
+              "({count} file(s)) while its description has no {n[Использование]} entry for it - "
+              "the project fails to apply. An import gives the short names, but it is "
+              "{n[Использование]} that permits the subsystem itself.",
     },
     "yaml/missing-import.title": {
         "ru": "Нет импорта подсистемы в yaml",
@@ -458,3 +505,306 @@ def unused_import(facts: dict[str, dict]) -> Iterable[Diagnostic]:
                 rel, line, col, "code/unused-import", Severity.WARNING,
                 i18n.t("code/unused-import.unused", sub=sub),
             )
+
+
+# --- code/missing-import ------------------------------------------------------------------
+
+
+def _missing_import_mapper(source: SourceFile) -> dict | None:
+    """The map phase: the placement slice as above, and from a module its imports and the
+    roots of the types it WRITES DOWN - a parameter, a variable, a return, `новый`, `как`,
+    `это`, generic arguments included.
+
+    Only written types are collected, and that narrowness is the rule (see the docstring of
+    `missing_code_import`). A type position is a place where the name can be nothing but a
+    type, which is what keeps the reading of a name free of guesswork.
+    """
+    if source.kind == "yaml":
+        if not _HAVE_YAML:
+            return None
+        if source.path.name in _SUBSYSTEM_FILES:
+            data, err = _parsed(source)
+            name = value_of(data, "Имя") if err is None and isinstance(data, dict) else None
+            return {
+                "k": "sub",
+                "dir": str(source.path.parent),
+                "name": name if isinstance(name, str) else source.path.parent.name,
+            }
+        data, err = _parsed(source)
+        if err is not None or not isinstance(data, dict) or not object_kind(data):
+            return None
+        nm = value_of(data, "Имя")
+        return {
+            "k": "el",
+            "path": str(source.path),
+            "stem": _pair_stem(source.rel),
+            "name": nm if isinstance(nm, str) else source.path.stem,
+            "vis": data.get("ОбластьВидимости"),
+            # The sections of the element are what the platform hands to its module by name -
+            # see the chain roots below.
+            "keys": sorted(k for k in data if isinstance(k, str)),
+        }
+    if source.kind != "xbsl":
+        return None
+    try:
+        local = sorted(semantics._file_local_types(source))
+    except DatasetError:
+        local = []  # no language data - the collision guard degrades to skipping nothing
+    module, errors = parse(source)
+    if errors:
+        # A module that does not parse has no reliable type positions; the syntax rules
+        # report it, and guessing over a broken tree would invent references.
+        return {"k": "mod", "path": str(source.path), "stem": _pair_stem(source.rel),
+                "imports": [], "cands": [], "local_types": local}
+    stdlib = semantics._stdlib_names()
+    lm = linemap(source)
+    toks = tokens(source)
+    imports = [
+        toks[i + 1].value
+        for i, tok in enumerate(toks)
+        if tok.kind == "KEYWORD" and tok.canonical == "IMPORT" and i + 1 < len(toks)
+        and toks[i + 1].kind == "IDENT"
+    ]
+    cands: list[tuple[str, str, int, int]] = []
+    for node in _nodes(module):
+        if not isinstance(node, P.TypeRef):
+            continue
+        for chain in _parse_type_string(getattr(node, "text", "") or "") or ():
+            if chain[0] in stdlib:
+                continue
+            line, col = lm.linecol(node.start)
+            cands.append((chain[0], ".".join(chain), line, col))
+    # The other shape: the root of a chain, `Модуль.Метод()`. A bare name is many things, so
+    # everything the module itself explains is taken off the table here, in the file that has
+    # the answer: names declared in the method, names the module declares, and the implicit
+    # names of the platform. The sections of the PAIRED yaml are subtracted in the reduce -
+    # they live in another file.
+    roots: list[tuple[str, str, int, int]] = []
+    declared_here = {
+        getattr(member, "name", "") for member in module.members
+        if isinstance(member, (P.ObjectField, P.Structure, P.Enum, P.Method))
+    }
+    for method in module.members:
+        if not isinstance(method, P.Method):
+            continue
+        env = _method_names(method)
+        for node in _nodes(method.body):
+            if not isinstance(node, P.Member) or not isinstance(node.obj, P.Name):
+                continue
+            name = node.obj.name
+            if name in env or name in declared_here or name in stdlib or name in _IMPLICIT:
+                continue
+            line, col = lm.linecol(node.obj.start)
+            roots.append((name, f"{name}.{node.name}", line, col))
+    return {"k": "mod", "path": str(source.path), "stem": _pair_stem(source.rel),
+            "imports": imports, "cands": cands, "roots": roots, "local_types": local}
+
+
+def _method_names(method: P.Method) -> set[str]:
+    """Names a method introduces itself: parameters, variables, loop and lambda names."""
+    names = {getattr(p, "name", "") for p in (getattr(method, "params", ()) or ())}
+    for node in _nodes(getattr(method, "body", None)):
+        if isinstance(node, P.VarDecl):
+            names.add(node.name)
+        elif isinstance(node, (P.ForEach, P.ForTo)):
+            names.add(getattr(node, "var", ""))
+        elif isinstance(node, P.Lambda):
+            names.update(getattr(p, "name", "") for p in (getattr(node, "params", ()) or ()))
+    return names
+
+
+def _nodes(node: object) -> Iterable[P.Node]:
+    """Every node of a tree, list fields included."""
+    if isinstance(node, (list, tuple)):
+        for item in node:
+            yield from _nodes(item)
+        return
+    if not isinstance(node, P.Node):
+        return
+    yield node
+    for f in fields(node):
+        yield from _nodes(getattr(node, f.name, None))
+
+
+@rule(
+    "code/missing-import", "code/missing-import.title", "D",
+    scope="project", severity=Severity.WARNING, mapper=_missing_import_mapper,
+)
+def missing_code_import(facts: dict[str, dict]) -> Iterable[Diagnostic]:
+    """A module names a type of ANOTHER subsystem without importing it - the compiler refuses.
+
+    The mirror of code/unused-import, and the mirror is where the care goes: there a name that
+    merely COINCIDES with an element of the imported subsystem keeps the import and costs
+    nothing, here the same coincidence would be a false report. So the two rules do not read
+    the module the same way. That one takes every identifier; this one takes only the roots of
+    types WRITTEN DOWN in a type position, where a name can be nothing else.
+
+    The root of a chain (`Модуль.Метод()`) is judged too, and everything that can explain such
+    a bare name is subtracted first: the names the method introduces (parameters, variables,
+    loop and lambda names), the names the module declares, the implicit names of the platform,
+    and the SECTIONS OF THE PAIRED YAML - a scheduled job reads its own parameters as
+    `Parameters`, and a project that happens to hold an element of that name elsewhere must not
+    turn that into a report. Each of those is a fact of the file at hand rather than an entry
+    in a list, which is what makes the subtraction safe to trust.
+
+    The narrowings of yaml/missing-import hold here too, for the same reasons: a stdlib name is
+    skipped (without an import the foreign namespace is not in scope and the name resolves to
+    the standard one), so is a type declared inside a module of the project, and so is a
+    non-public foreign element - that one is a visibility error rather than a missing import.
+    """
+    roots = {Path(f["dir"]): f["name"] for f in facts.values() if f["k"] == "sub"}
+    if not roots:
+        return  # no subsystem files - the project layout is unknown, nothing to judge
+    local_types: set[str] = set()
+    for fact in facts.values():
+        if fact["k"] == "mod":
+            local_types.update(fact["local_types"])
+    placement: dict[str, dict[str, object]] = {}
+    paired_keys: dict[str, set[str]] = {}
+    for fact in facts.values():
+        if fact["k"] != "el":
+            continue
+        paired_keys[fact["stem"]] = set(fact["keys"])
+        sub = _subsystem_of(Path(fact["path"]), roots)
+        if sub:
+            placement.setdefault(fact["name"], {})[sub] = fact["vis"]
+    for rel, fact in facts.items():
+        if fact["k"] != "mod":
+            continue
+        own_keys = paired_keys.get(fact["stem"], frozenset())
+        candidates_here = [(*c, "missing") for c in fact["cands"]] + [
+            (*c, "chain") for c in fact.get("roots", ()) if c[0] not in own_keys
+        ]
+        if not candidates_here:
+            continue
+        my_sub = _subsystem_of(Path(fact["path"]), roots)
+        if my_sub is None:
+            continue  # a module outside any subsystem needs no import
+        imports = set(fact["imports"])
+        reported: set[tuple[str, ...]] = set()
+        for root, chain_name, line, col, shape in candidates_here:
+            if root in local_types:
+                continue
+            owners = placement.get(root)
+            if not owners or my_sub in owners:
+                continue
+            candidates = tuple(sorted(
+                sub for sub, vis in owners.items() if vis in _public_scopes()
+            ))
+            if not candidates or imports.intersection(candidates):
+                continue
+            if candidates in reported:
+                continue
+            reported.add(candidates)
+            yield Diagnostic(
+                rel, line, col, "code/missing-import", Severity.WARNING,
+                i18n.t(f"code/missing-import.{shape}", name=chain_name,
+                       sub="/".join(candidates)),
+            )
+
+
+# --- yaml/missing-subsystem-usage -----------------------------------------------------------
+
+#: The key of the subsystem descriptor that permits another subsystem, both spellings.
+_USAGE_KEYS = ("Использование", "Usage")
+_USAGE_LINE_RE = re.compile(r"(?m)^[ \t]*(?:Использование|Usage):")
+
+
+def _usage_mapper(source: SourceFile) -> dict | None:
+    """The map phase: a subsystem descriptor contributes what it declares as used, an element
+    or a module - the subsystems it imports."""
+    if source.kind == "xbsl":
+        toks = tokens(source)
+        imports = [
+            toks[i + 1].value
+            for i, tok in enumerate(toks)
+            if tok.kind == "KEYWORD" and tok.canonical == "IMPORT" and i + 1 < len(toks)
+            and toks[i + 1].kind == "IDENT"
+        ]
+        if not imports:
+            return None
+        return {"k": "imp", "path": str(source.path), "imports": imports}
+    if source.kind != "yaml" or not _HAVE_YAML:
+        return None
+    data, err = _parsed(source)
+    if err is not None or not isinstance(data, dict):
+        return None
+    if source.path.name in _SUBSYSTEM_FILES:
+        name = value_of(data, "Имя")
+        used: list[str] = []
+        for key in _USAGE_KEYS:
+            raw = data.get(key)
+            if isinstance(raw, list):
+                used.extend(e for e in raw if isinstance(e, str))
+        match = _USAGE_LINE_RE.search(source.text)
+        line = linemap(source).linecol(match.start())[0] if match else 1
+        return {
+            "k": "sub",
+            "dir": str(source.path.parent),
+            "name": name if isinstance(name, str) else source.path.parent.name,
+            "used": used,
+            "line": line,
+        }
+    if not object_kind(data):
+        return None
+    raw = data.get("Импорт")
+    imports = [e for e in raw if isinstance(e, str)] if isinstance(raw, list) else []
+    if not imports:
+        return None
+    return {"k": "imp", "path": str(source.path), "imports": imports}
+
+
+@rule(
+    "yaml/missing-subsystem-usage", "yaml/missing-subsystem-usage.title", "D",
+    scope="project", severity=Severity.WARNING, mapper=_usage_mapper,
+)
+def missing_subsystem_usage(facts: dict[str, dict]) -> Iterable[Diagnostic]:
+    """The third condition of a reference across a subsystem boundary, and the last one the
+    linter did not check.
+
+    The platform asks for three things (docs, "Модульная разработка"): the supplier publishes
+    the element, the consumer imports the namespace - and the consumer's SUBSYSTEM declares the
+    supplier in its `Использование`. The documentation puts the import second and in brackets
+    ("или дополнительно импортируйте"): the usage is what permits the subsystem, the import
+    only adds the short names. Miss it and the project fails to apply, with the compiler naming
+    the description of the subsystem - a message that arrives at deploy time, which is exactly
+    where a linter is supposed to save the trip.
+
+    The evidence is the import itself, not a resolved reference: a file that writes
+    `импорт Б` states its intent outright, so the check is a cross-read of two declarations
+    rather than a guess about names. An import of something that is not a subsystem of this
+    project - a library, another project (`e1c::...`), a typo - is not this rule's case, the
+    same way code/unused-import leaves it alone.
+
+    One diagnostic per missing subsystem, on the DESCRIPTOR: that is the single line to add,
+    and reporting it once there beats repeating it at every importing file.
+    """
+    roots: dict[Path, str] = {}
+    used: dict[str, set[str]] = {}
+    where: dict[str, tuple[str, int]] = {}
+    for rel, fact in facts.items():
+        if fact["k"] != "sub":
+            continue
+        roots[Path(fact["dir"])] = fact["name"]
+        used[fact["name"]] = set(fact["used"])
+        where[fact["name"]] = (rel, fact["line"])
+    if not roots:
+        return  # no subsystem files - the project layout is unknown, nothing to judge
+    known = set(roots.values())
+    counts: dict[tuple[str, str], int] = {}
+    for fact in facts.values():
+        if fact["k"] != "imp":
+            continue
+        my_sub = _subsystem_of(Path(fact["path"]), roots)
+        if my_sub is None:
+            continue  # a file outside any subsystem imports on its own behalf
+        for name in fact["imports"]:
+            if name not in known or name == my_sub or name in used.get(my_sub, ()):
+                continue
+            counts[(my_sub, name)] = counts.get((my_sub, name), 0) + 1
+    for (my_sub, name), count in sorted(counts.items()):
+        rel, line = where[my_sub]
+        yield Diagnostic(
+            rel, line, 1, "yaml/missing-subsystem-usage", Severity.WARNING,
+            i18n.t("yaml/missing-subsystem-usage.missing", sub=name, count=count),
+        )

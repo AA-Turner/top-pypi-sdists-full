@@ -9,6 +9,7 @@ from chalk.utils.duration import CronTab, Duration
 
 if TYPE_CHECKING:
     from chalk.client.models import FeatureReference, ResourceRequests, UnloadResolvers
+    from chalk.queries.data_quality import CompiledCheck, DataQualityCheck, DataQualityStage
 
 
 class ScheduledQuery:
@@ -201,7 +202,103 @@ class ScheduledQuery:
 
         self.unload_resolvers = encode_unload_resolvers(unload_resolvers)
 
+        self.input_checks: tuple[CompiledCheck, ...] = ()
+        self.output_checks: tuple[CompiledCheck, ...] = ()
+
         CRON_QUERY_REGISTRY[name] = self
+
+    def checks_for_stage(self, stage: DataQualityStage) -> tuple[CompiledCheck, ...]:
+        """The checks attached at one stage."""
+        from chalk.queries.data_quality import DataQualityStage
+
+        return self.input_checks if stage is DataQualityStage.INPUT else self.output_checks
+
+    def with_checks(
+        self,
+        *,
+        input: Collection[str | DataQualityCheck] = (),  # noqa: A002 - the keyword names the stage
+        output: Collection[str | DataQualityCheck] = (),
+    ) -> ScheduledQuery:
+        """Attach data quality checks to this query, and return it so the call chains.
+
+        A check is SQL over the table being checked, built with one of the `Check`
+        constructors. The kind you pick decides what is reported as well as what can fail:
+
+        - `Check.sql_bool(expression, name=...)` asserts that a boolean holds.
+        - `Check.sql_bad_rows(where, name=...)` takes a predicate matching the rows that
+          should not exist. It fails when there are any, and reports how many there were.
+        - `Check.sql_metric(expression, name=..., min=..., max=...)` reports a number and
+          optionally bounds it. The number is recorded whether or not it is thresholded, so
+          it can be plotted and a bound chosen from the history.
+        - `Check.sql_distribution(expression, name=...)` reports an array as bucket counts.
+        - `Check.sql_raw(sql)` runs a query exactly as written, naming its own `_check` /
+          `_metric` / `_distribution` columns. A bare string is shorthand for this.
+
+        Every kind but `sql_raw` takes a fragment is formatted with the `SELECT` around it,
+        reading the stage's own table. Pass `from_sql=` to any of them to work over a
+        derived table instead -- a group-by, a join, or a query that finds the bad rows
+        itself.
+
+        Chalk sequences the checks between the step that produces the table and the step
+        that consumes it, which is what makes them gating: a failing `input` check stops the
+        query before it shards, and a failing `output` check stops the computed rows from
+        being written to the online and offline stores.
+
+        Parameters
+        ----------
+        input
+            Checks over the query's input -- its spine, however it was produced.
+        output
+            Checks over the query's computed output, before it is written to the stores.
+
+        Returns
+        -------
+        ScheduledQuery
+            This query, so `with_checks` can wrap the declaration in place.
+
+        Examples
+        --------
+        >>> from chalk.queries import Check, ScheduledQuery
+        >>> ScheduledQuery(
+        ...     name="ingest_users",
+        ...     schedule="@daily",
+        ...     output=[User],
+        ... ).with_checks(
+        ...     input=[
+        ...         Check.sql_metric("count(*)", min=1000, name="spine_rows"),
+        ...     ],
+        ...     output=[
+        ...         Check.sql_bad_rows('"user.email" IS NULL', name="missing_email"),
+        ...         Check.sql_metric(
+        ...             'count("user.email") * 1.0 / count(*)',
+        ...             min=0.9,
+        ...             name="email_coverage",
+        ...         ),
+        ...         Check.sql_bool(
+        ...             'max("user.age") < 120',
+        ...             name="ages_plausible",
+        ...             terminate_on_failure=False,
+        ...         ),
+        ...     ],
+        ... )
+
+        Notes
+        -----
+        Feature columns are dotted, so they must be quoted: `"user.email"`, not
+        `user.email`. Because Chalk supplies the table, an `input` check cannot accidentally
+        read `dqm.output`. `sql_raw` is the exception -- it writes its own `SELECT`, so it
+        must name `dqm.input` or `dqm.output` itself, with the `dqm.` qualifier, and it is
+        the only kind that can be attached to the wrong stage.
+
+        A check that evaluates to null counts as a failure, so a check that never really ran
+        cannot pass silently. Checks are gating by default: pass
+        `terminate_on_failure=False` to make one advisory while it is being rolled out, and
+        failures are still logged and reported while the run proceeds. Gating is per check,
+        so one advisory check does not make its neighbors advisory.
+        """
+        from chalk.queries.data_quality import attach_checks
+
+        return attach_checks(self, input=input, output=output)
 
 
 CRON_QUERY_REGISTRY: dict[str, ScheduledQuery] = {}

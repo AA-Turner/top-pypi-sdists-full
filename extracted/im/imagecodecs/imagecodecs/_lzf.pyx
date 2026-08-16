@@ -78,7 +78,7 @@ def lzf_encode(
     cdef:
         const uint8_t[::1] src = _readable_input(data)
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         unsigned int ret
         uint8_t* pdst
@@ -103,14 +103,14 @@ def lzf_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes - offset
+    dstsize = dst.shape[0] - offset
 
-    if dst.nbytes > INT32_MAX:
+    if dst.shape[0] > INT32_MAX:
         raise ValueError('output too large')
 
     with nogil:
         ret = lzf_compress(
-            <void*> &src[0],
+            <void*> src._data,
             <unsigned int> srcsize,
             <void*> &dst[offset],
             <unsigned int> dstsize
@@ -119,7 +119,7 @@ def lzf_encode(
         raise LzfError('lzf_compress returned 0')
 
     if header:
-        pdst = <uint8_t*> &dst[0]
+        pdst = <uint8_t*> dst._data
         pdst[0] = srcsize & 255
         pdst[1] = (srcsize >> 8) & 255
         pdst[2] = (srcsize >> 16) & 255
@@ -140,7 +140,7 @@ def lzf_decode(
     cdef:
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         unsigned int ret
         ssize_t offset = 4 if header else 0
@@ -169,9 +169,9 @@ def lzf_decode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
-    if dst.nbytes > INT32_MAX:
+    if dst.shape[0] > INT32_MAX:
         raise ValueError('output too large')
 
     with nogil:
@@ -179,7 +179,7 @@ def lzf_decode(
         ret = lzf_decompress(
             <void*> &src[offset],
             <unsigned int> (srcsize - offset),
-            <void*> &dst[0],
+            <void*> dst._data,
             <unsigned int> dstsize
         )
         if ret == 0:

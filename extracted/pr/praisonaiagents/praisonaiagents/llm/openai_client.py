@@ -6,7 +6,9 @@ supporting both synchronous and asynchronous operations.
 """
 
 import os
+import base64
 import logging
+import mimetypes
 from praisonaiagents._logging import get_logger
 import time
 import json
@@ -16,6 +18,9 @@ from typing import Any, Dict, List, Optional, Union, AsyncIterator, Iterator, Ca
 from pydantic import BaseModel
 from dataclasses import dataclass
 import inspect
+from pathlib import Path
+
+from ..errors import ToolExecutionError
 
 # Graceful "wrap-up" instruction injected when the step budget is nearly
 # exhausted, so the model produces a coherent final answer instead of being
@@ -25,6 +30,60 @@ _MAX_STEPS_WRAPUP_PROMPT = (
     "Stop calling tools now and provide your best final answer, summarising the "
     "work completed so far and clearly noting anything left incomplete."
 )
+
+
+def _durable_iteration_kwargs(execute_tool_fn: Callable, index: int) -> Dict[str, int]:
+    if getattr(execute_tool_fn, "_accepts_durable_iteration", False):
+        return {"_durable_iteration_index": index}
+    return {}
+
+
+def _handle_native_deferred_result(
+    tool_result: Any,
+    messages: List[Dict],
+    tool_call_id: Optional[str],
+    function_name: str,
+    history_sink: Optional[List[Dict]] = None,
+) -> Any:
+    """Register a directly-returned ``DeferredToolResult`` on the native path.
+
+    Parity with the LiteLLM loop (``llm.py:_register_deferred_if_any``): a tool
+    may return a ``DeferredToolResult`` to signal "started; will resolve later".
+    On the native OpenAI-SDK loop the value was previously stringified and the
+    handle lost, so the eventual background result was never re-injected. Here
+    we register the handle on the shared resolver so a later
+    ``resolve_deferred(handle_id, value)`` appends a follow-up tool message that
+    a subsequent turn will replay, and surface the ``note`` to the model now.
+
+    The re-injection target is ``history_sink`` when provided — this must be the
+    caller's *durable* conversation history (e.g. the agent's ``chat_history``),
+    since the background job typically completes after this native loop has
+    already returned and its per-call ``messages`` copy has been discarded. When
+    no durable sink is given we fall back to ``messages`` (correct only if the
+    handle resolves while the loop is still open), preserving prior behaviour.
+
+    Returns the value to record for this turn (the deferred ``note`` string when
+    deferred, otherwise the unchanged ``tool_result``). Never raises.
+    """
+    from ..tools.call_executor import DeferredToolResult
+    if not isinstance(tool_result, DeferredToolResult):
+        return tool_result
+    try:
+        from ..tools.call_executor import get_deferred_resolver
+        resolver = get_deferred_resolver()
+        sink = history_sink if history_sink is not None else messages
+
+        def _reinject(handle_id: str, value: Any, session_id: Optional[str]) -> None:
+            sink.append({
+                "role": "tool",
+                "tool_call_id": tool_call_id,
+                "content": f"[deferred:{function_name}] {value}",
+            })
+
+        resolver.register_if_absent(tool_result.handle_id, _reinject)
+    except Exception as e:  # noqa: BLE001 — registration must never break the turn
+        logging.debug("Native deferred registration skipped (non-fatal): %s", e)
+    return tool_result.note
 
 # Lazy imports for optional dependencies
 _openai_module = None
@@ -51,36 +110,9 @@ def _get_openai_classes():
     return openai.OpenAI, openai.AsyncOpenAI
 
 
-def _try_append_multimodal_tool_result(
-    messages, tool_result, tool_call_id, function_name=None, deferred_followups=None
-) -> bool:
-    """Append a multimodal (image/file) tool result if present.
-
-    The ``tool`` reply is appended in-place so all tool replies for the
-    assistant turn stay consecutive (provider contract). The media-bearing
-    ``user`` follow-up is collected into ``deferred_followups`` for the caller
-    to flush after the whole batch; if no collector is supplied it is appended
-    directly. External tool text parts are fenced via ``function_name``.
-
-    Returns True if the result was multimodal (caller should skip its default
-    text-only tool message); False otherwise for the unchanged path.
-    """
-    try:
-        from ..agent.tool_execution import build_tool_result_message_pair
-        pair = build_tool_result_message_pair(
-            tool_result, tool_call_id, function_name=function_name
-        )
-        if pair:
-            tool_message, followup_message = pair
-            messages.append(tool_message)
-            if deferred_followups is not None:
-                deferred_followups.append(followup_message)
-            else:
-                messages.append(followup_message)
-            return True
-    except Exception as e:
-        logging.debug(f"Multimodal tool result formatting skipped: {e}")
-    return False
+from ..agent.tool_execution import (
+    try_append_multimodal_tool_result as _try_append_multimodal_tool_result,
+)
 
 def _get_rich_console():
     """Lazy import rich Console."""
@@ -694,7 +726,11 @@ class OpenAIClient:
                         "output": msg.get("content", ""),
                     })
                 else:
-                    input_items.append(msg)
+                    item = dict(msg)
+                    item["content"] = self._build_responses_content(
+                        msg.get("content", "")
+                    )
+                    input_items.append(item)
 
         if instructions:
             params["instructions"] = instructions
@@ -727,6 +763,65 @@ class OpenAIClient:
             params["temperature"] = temperature
 
         return params
+
+    @staticmethod
+    def _normalise_responses_image_url(image_url: Any) -> str:
+        """Return an API-fetchable URL, encoding local image files as data URLs."""
+        if isinstance(image_url, dict):
+            image_url = image_url.get("url", "")
+        if not isinstance(image_url, str) or not image_url:
+            raise ValueError("Image content must include a non-empty URL or local path")
+        if image_url.startswith(("http://", "https://", "data:")):
+            return image_url
+
+        image_path = Path(image_url).expanduser()
+        if not image_path.is_file():
+            raise FileNotFoundError(
+                f"Local image file does not exist: {image_path}"
+            )
+        mime_type = mimetypes.guess_type(image_path.name)[0]
+        if not mime_type or not mime_type.startswith("image/"):
+            raise ValueError(f"Unsupported local image type: {image_path}")
+        encoded = base64.b64encode(image_path.read_bytes()).decode("ascii")
+        return f"data:{mime_type};base64,{encoded}"
+
+    @classmethod
+    def _build_responses_content(cls, content: Any) -> Any:
+        """Translate Chat Completions content parts to Responses API parts."""
+        if not isinstance(content, list):
+            return content
+
+        responses_content: List[Any] = []
+        for part in content:
+            if not isinstance(part, dict):
+                responses_content.append(part)
+                continue
+            part_type = part.get("type")
+            if part_type == "text":
+                responses_content.append({
+                    "type": "input_text",
+                    "text": part.get("text", ""),
+                })
+            elif part_type == "image_url":
+                image_item = {
+                    "type": "input_image",
+                    "image_url": cls._normalise_responses_image_url(
+                        part.get("image_url")
+                    ),
+                }
+                image_value = part.get("image_url")
+                if isinstance(image_value, dict) and image_value.get("detail"):
+                    image_item["detail"] = image_value["detail"]
+                responses_content.append(image_item)
+            elif part_type == "input_image":
+                item = dict(part)
+                item["image_url"] = cls._normalise_responses_image_url(
+                    part.get("image_url")
+                )
+                responses_content.append(item)
+            else:
+                responses_content.append(part)
+        return responses_content
 
     def _responses_to_chat_completion(self, response) -> ChatCompletion:
         """
@@ -909,6 +1004,8 @@ class OpenAIClient:
                         ))
                     
                     return final_response
+                except (FileNotFoundError, ValueError):
+                    raise
                 except Exception as e:
                     self.logger.warning(f"Responses API streaming failed, falling back: {e}")
                     # Fall through to Chat Completions streaming
@@ -1176,6 +1273,8 @@ class OpenAIClient:
                         ))
                     
                     return final_response
+                except (FileNotFoundError, ValueError):
+                    raise
                 except Exception as e:
                     self.logger.warning(f"Responses API async streaming failed, falling back: {e}")
                     # Fall through to Chat Completions streaming
@@ -1371,6 +1470,8 @@ class OpenAIClient:
                 )
                 raw = self.sync_client.responses.create(**resp_params)
                 return self._responses_to_chat_completion(raw)
+            except (FileNotFoundError, ValueError):
+                raise
             except Exception as e:
                 self.logger.warning(f"Responses API failed, falling back to Chat Completions: {e}")
                 # Fall through to Chat Completions
@@ -1430,6 +1531,8 @@ class OpenAIClient:
                 )
                 raw = await self.async_client.responses.create(**resp_params)
                 return self._responses_to_chat_completion(raw)
+            except (FileNotFoundError, ValueError):
+                raise
             except Exception as e:
                 self.logger.warning(f"Responses API failed, falling back to Chat Completions: {e}")
                 # Fall through to Chat Completions
@@ -1506,6 +1609,11 @@ class OpenAIClient:
         # path so /stop and live steering work on the OpenAI-native loop too.
         cancel_token = kwargs.pop("cancel_token", None)
         steering_drain = kwargs.pop("steering_drain", None)
+        # Durable sink for deferred tool re-injection: the caller's persistent
+        # conversation history (e.g. the agent's ``chat_history``). Background
+        # jobs usually complete after this loop returns, so late results must
+        # land in a list a subsequent turn replays — not the per-call copy below.
+        deferred_history_sink = kwargs.pop("deferred_history_sink", None)
 
         def _is_cancelled() -> bool:
             return cancel_token is not None and getattr(cancel_token, "is_set", lambda: False)()
@@ -1723,10 +1831,36 @@ class OpenAIClient:
                     # Always trigger callback for tool call tracking (even when verbose=False)
                     display_tool_call_fn = _get_display_tool_call()
                     
-                    # Execute the tool (pass tool_call_id for event correlation)
+                    # Execute the tool (pass tool_call_id for event correlation).
+                    # Capture failures and report them back to the model instead of
+                    # aborting the whole run (safe-by-default, matching the streaming
+                    # path chat_completion_with_tools_stream).
                     _tool_call_id = tool_call.id if hasattr(tool_call, 'id') else tool_call.get('id')
-                    tool_result = execute_tool_fn(function_name, arguments, tool_call_id=_tool_call_id)
-                    results_str = json.dumps(tool_result) if tool_result else "Function returned an empty output"
+                    try:
+                        tool_result = execute_tool_fn(
+                            function_name,
+                            arguments,
+                            tool_call_id=_tool_call_id,
+                            **_durable_iteration_kwargs(
+                                execute_tool_fn, iteration_count
+                            ),
+                        )
+                    except ToolExecutionError:
+                        raise
+                    except Exception as tool_error:
+                        logging.warning(f"Tool '{function_name}' failed: {tool_error}")
+                        tool_result = {"error": str(tool_error)}
+                    # Parity with the LiteLLM loop: register a deferred handle so
+                    # its eventual background value is re-injected, not lost.
+                    tool_result = _handle_native_deferred_result(
+                        tool_result, messages, _tool_call_id, function_name,
+                        history_sink=deferred_history_sink,
+                    )
+                    try:
+                        results_str = json.dumps(tool_result) if tool_result else "Function returned an empty output"
+                    except (TypeError, ValueError):
+                        tool_result = {"result": str(tool_result)}
+                        results_str = json.dumps(tool_result)
                     
                     # Trigger callback with structured parameters for status output
                     display_tool_call_fn(
@@ -1811,6 +1945,8 @@ class OpenAIClient:
         # path so /stop and live steering work on the OpenAI-native loop too.
         cancel_token = kwargs.pop("cancel_token", None)
         steering_drain = kwargs.pop("steering_drain", None)
+        # Durable sink for deferred tool re-injection (see sync counterpart).
+        deferred_history_sink = kwargs.pop("deferred_history_sink", None)
 
         def _is_cancelled() -> bool:
             return cancel_token is not None and getattr(cancel_token, "is_set", lambda: False)()
@@ -1993,24 +2129,55 @@ class OpenAIClient:
                     if verbose and console:
                         console.print(f"[dim]Arguments:[/dim] {arguments}")
                     
-                    # Execute the tool (async) - pass tool_call_id for event correlation
+                    # Execute the tool (async) - pass tool_call_id for event correlation.
+                    # Capture failures and report them back to the model instead of
+                    # aborting the whole run (safe-by-default, matching the streaming
+                    # path chat_completion_with_tools_stream).
                     _tool_call_id = tool_call.id if hasattr(tool_call, 'id') else tool_call.get('id')
-                    if asyncio.iscoroutinefunction(execute_tool_fn):
-                        tool_result = await execute_tool_fn(function_name, arguments, tool_call_id=_tool_call_id)
-                    else:
-                        # Run sync function in executor (preserve ContextVars e.g. SessionContext)
-                        loop = asyncio.get_running_loop()
-                        from ..trace.context_events import copy_context_to_callable
-                        tool_result = await loop.run_in_executor(
-                            None,
-                            copy_context_to_callable(
-                                lambda fn=function_name, args=arguments, tcid=_tool_call_id: execute_tool_fn(
-                                    fn, args, tool_call_id=tcid
-                                )
-                            ),
-                        )
-                    
-                    results_str = json.dumps(tool_result) if tool_result else "Function returned an empty output"
+                    try:
+                        if asyncio.iscoroutinefunction(execute_tool_fn):
+                            tool_result = await execute_tool_fn(
+                                function_name,
+                                arguments,
+                                tool_call_id=_tool_call_id,
+                                **_durable_iteration_kwargs(
+                                    execute_tool_fn, iteration_count
+                                ),
+                            )
+                        else:
+                            # Run sync function in executor (preserve ContextVars e.g. SessionContext)
+                            loop = asyncio.get_running_loop()
+                            from ..trace.context_events import copy_context_to_callable
+                            tool_result = await loop.run_in_executor(
+                                None,
+                                copy_context_to_callable(
+                                    lambda fn=function_name, args=arguments, tcid=_tool_call_id: execute_tool_fn(
+                                        fn,
+                                        args,
+                                        tool_call_id=tcid,
+                                        **_durable_iteration_kwargs(
+                                            execute_tool_fn, iteration_count
+                                        ),
+                                    )
+                                ),
+                            )
+                    except ToolExecutionError:
+                        raise
+                    except Exception as tool_error:
+                        logging.warning(f"Tool '{function_name}' failed: {tool_error}")
+                        tool_result = {"error": str(tool_error)}
+
+                    # Parity with the LiteLLM loop: register a deferred handle so
+                    # its eventual background value is re-injected, not lost.
+                    tool_result = _handle_native_deferred_result(
+                        tool_result, messages, _tool_call_id, function_name,
+                        history_sink=deferred_history_sink,
+                    )
+                    try:
+                        results_str = json.dumps(tool_result) if tool_result else "Function returned an empty output"
+                    except (TypeError, ValueError):
+                        tool_result = {"result": str(tool_result)}
+                        results_str = json.dumps(tool_result)
                     
                     # Trigger callback with result
                     display_tool_call_fn(f"Function {function_name} returned: {results_str[:200]}{'...' if len(results_str) > 200 else ''}", console=console if verbose else None)
@@ -2078,6 +2245,8 @@ class OpenAIClient:
         Yields:
             String chunks of the response as they are generated
         """
+        # Durable sink for deferred tool re-injection (see sync counterpart).
+        deferred_history_sink = kwargs.pop("deferred_history_sink", None)
         # Format tools for OpenAI API
         formatted_tools = self.format_tools(tools)
         
@@ -2207,8 +2376,23 @@ class OpenAIClient:
                         # Execute the tool with error handling (pass tool_call_id for event correlation)
                         _tool_call_id = tool_call.id if hasattr(tool_call, 'id') else tool_call.get('id')
                         try:
-                            tool_result = execute_tool_fn(function_name, arguments, tool_call_id=_tool_call_id)
+                            tool_result = execute_tool_fn(
+                                function_name,
+                                arguments,
+                                tool_call_id=_tool_call_id,
+                                **_durable_iteration_kwargs(
+                                    execute_tool_fn, iteration_count
+                                ),
+                            )
+                            # Parity with the LiteLLM loop: register a deferred
+                            # handle so its eventual value is re-injected.
+                            tool_result = _handle_native_deferred_result(
+                                tool_result, messages, _tool_call_id, function_name,
+                                history_sink=deferred_history_sink,
+                            )
                             results_str = json.dumps(tool_result) if tool_result else "Function returned an empty output"
+                        except ToolExecutionError:
+                            raise
                         except Exception as e:
                             results_str = f"Error executing function: {str(e)}"
                             if verbose:
@@ -2242,6 +2426,8 @@ class OpenAIClient:
                     # No tool calls, we're done
                     break
                     
+            except ToolExecutionError:
+                raise
             except Exception as e:
                 yield f"Error: {str(e)}"
                 break

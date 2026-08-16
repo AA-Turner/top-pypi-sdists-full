@@ -35,7 +35,7 @@ def _parse_payload(raw_data: str, token: str) -> str:
         logger.error(f"Lỗi giải mã dữ liệu config: {e}")
         return ""
 
-def load_config(name: str) -> Optional[Any]:
+def load_config(name: str, format: str = "auto") -> Optional[Any]:
     if name in _CONFIG_CACHE:
         return _CONFIG_CACHE[name]
     api_key = get_api_key()
@@ -62,13 +62,21 @@ def load_config(name: str) -> Optional[Any]:
             content = response.text
             if response.headers.get("X-Data-Format") == "buffer":
                 content = _parse_payload(content, api_key)
+            if format == "text":
+                _CONFIG_CACHE[name] = content
+                return content
             try:
                 data = json.loads(content)
                 _CONFIG_CACHE[name] = data
                 return data
             except json.JSONDecodeError as e:
-                logger.error(f"Lỗi parse JSON cho config '{name}': {e}")
-                return None
+                if format == "json":
+                    logger.error(f"Lỗi parse JSON cho config '{name}': {e}")
+                    return None
+                else:
+                    logger.debug(f"Config '{name}' không phải JSON, trả về nguyên bản (raw text).")
+                    _CONFIG_CACHE[name] = content
+                    return content
         elif response.status_code == 401:
             logger.warning(
                 "API key không hợp lệ hoặc hết hạn. "

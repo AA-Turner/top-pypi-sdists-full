@@ -403,7 +403,7 @@ def avif_encode(
             if layout.frames == 1:
                 flags = AVIF_ADD_IMAGE_FLAG_SINGLE
 
-            for i in range(layout.frames):
+            for _i in range(layout.frames):
 
                 res = avifImageRGBToYUV(image, &rgb)
                 if res != AVIF_RESULT_OK:
@@ -442,10 +442,10 @@ def avif_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
     if <size_t> dstsize < raw.size:
         raise ValueError('output too small')
-    memcpy(<void*> &dst[0], <const void*> raw.data, raw.size)
+    memcpy(<void*> dst._data, <const void*> raw.data, raw.size)
 
     rawsize = raw.size
     avifRWDataFree(&raw)
@@ -466,7 +466,7 @@ def avif_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t frameindex = -1 if index is None else index
         ssize_t samples, size, itemsize, i, imagecount
         bint monochrome = 0  # must be initialized
@@ -499,7 +499,7 @@ def avif_decode(
 
             res = avifDecoderSetIOMemory(
                 decoder,
-                <const uint8_t*> &src[0],
+                <const uint8_t*> src._data,
                 <size_t> srcsize
             )
             if res != AVIF_RESULT_OK:

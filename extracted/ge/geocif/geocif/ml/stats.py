@@ -189,6 +189,110 @@ def aggregate_yield_across_ps(yield_values, area_values, prod_values):
     return agg_yield, total_area, total_prod
 
 
+def _object_join_key(series):
+    """Column values as an object-dtype merge-key array whose semantics
+    reproduce the legacy elementwise ``==`` scans: numeric values match
+    across int/float dtypes (2019 == 2019.0 — Python hash/equality),
+    strings never match numbers, and missing values map to NaN. Callers
+    must drop NaN keys from the lookup (right) side, because pandas
+    merge pairs NaN with NaN while ``==`` never did.
+
+    Built via factorize so a multi-million-row pipeline frame only boxes
+    each distinct key value once.
+    """
+    codes, uniques = pd.factorize(series, use_na_sentinel=True)
+    uarr = np.asarray(uniques, dtype=object)
+    out = np.full(len(codes), np.nan, dtype=object)
+    seen = codes >= 0
+    out[seen] = uarr[codes[seen]]
+    return out
+
+
+def _norm_region_key(series):
+    """``_norm_region_series`` applied through factorize: each distinct
+    region name is normalized once instead of once per row (the pipeline
+    frame side of the yield join can hold millions of rows). NaN → NaN;
+    callers drop NaN group keys beforehand (mirroring the legacy groupby
+    ``dropna=True`` behavior), so NaN keys never reach the merge.
+    """
+    codes, uniques = pd.factorize(series, use_na_sentinel=True)
+    norm = _norm_region_series(pd.Series(np.asarray(uniques, dtype=object)))
+    narr = norm.to_numpy(dtype=object)
+    out = np.full(len(codes), np.nan, dtype=object)
+    seen = codes >= 0
+    out[seen] = narr[codes[seen]]
+    return out
+
+
+def _aggregate_ps_lookup(df_stats_subset):
+    """Vectorized twin of ``aggregate_yield_across_ps``: collapse
+    multi-production-system stats rows into ONE row per
+    (``__region``, ``__year``) key with identical semantics — zeros/±inf
+    → NaN hygiene, ``sum(skipna=True)`` totals (all-NaN group → 0 →
+    reported as NaN), and the same three-branch yield: area-weighted
+    stored-yield mean when any yield exists and total area > 0, else
+    production/area, else plain yield mean.
+
+    Args:
+        df_stats_subset: pre-filtered production-statistics rows carrying
+            ``__region``/``__year`` key columns plus ``yield``/``area``/
+            ``production``.
+
+    Returns:
+        DataFrame with columns ``__region``, ``__year``, ``__yld``,
+        ``__area``, ``__prod`` (one row per key; ``__area``/``__prod``
+        NaN unless the group total is > 0). Empty input → empty frame
+        with the same columns.
+    """
+    sub = df_stats_subset.reset_index(drop=True)
+    y = sub["yield"].replace([0, np.inf, -np.inf], np.nan)
+    a = sub["area"].replace([0, np.inf, -np.inf], np.nan)
+    p = sub["production"].replace([0, np.inf, -np.inf], np.nan)
+    tmp = pd.DataFrame(
+        {
+            "__region": sub["__region"],
+            "__year": sub["__year"],
+            "__y": y,
+            "__a": a,
+            "__p": p,
+            # Same product the legacy scalar path summed:
+            # (yield.fillna(0) * area.fillna(0)).sum()
+            "__wy": y.fillna(0) * a.fillna(0),
+        }
+    )
+    agg = (
+        tmp.groupby(["__region", "__year"], sort=False, dropna=False)
+        .agg(
+            __ta=("__a", "sum"),
+            __tp=("__p", "sum"),
+            __wys=("__wy", "sum"),
+            __ym=("__y", "mean"),
+            __yn=("__y", "count"),
+        )
+        .reset_index()
+    )
+    ta = agg["__ta"].to_numpy(dtype=float)
+    tp = agg["__tp"].to_numpy(dtype=float)
+    wys = agg["__wys"].to_numpy(dtype=float)
+    ym = agg["__ym"].to_numpy(dtype=float)
+    has_yield = agg["__yn"].to_numpy() > 0
+    with np.errstate(divide="ignore", invalid="ignore"):
+        yld = np.where(
+            (ta > 0) & has_yield,
+            wys / ta,
+            np.where((ta > 0) & (tp > 0), tp / ta, ym),
+        )
+    return pd.DataFrame(
+        {
+            "__region": agg["__region"],
+            "__year": agg["__year"],
+            "__yld": yld,
+            "__area": np.where(ta > 0, ta, np.nan),
+            "__prod": np.where(tp > 0, tp, np.nan),
+        }
+    )
+
+
 def get_yld_prd(df, name_crop, cntr, region, calendar_year, region_column="ADM1_NAME"):
     """
     Example input: ('United States of America', 'Wyoming', 2000)
@@ -537,80 +641,143 @@ def add_statistics(
         else:
             season_filters[None] = _resolve_season_filter(1)
 
-        groups = df.groupby(group_by)
+        # ------------------------------------------------------------------
+        # Vectorized join. Replaces the legacy per-(Region, Harvest Year
+        # [, Season]) process_group loop, which re-scanned (and re-lower-
+        # cased) the full production-statistics table once per group —
+        # ~53k times at US county scale. Semantics preserved exactly:
+        #   * rows whose group key contains NaN are dropped (the legacy
+        #     groupby used the dropna=True default); surviving rows keep
+        #     their input order (legacy emitted them sorted by group key —
+        #     the one deliberate difference, callers are order-agnostic);
+        #   * the stats table is filtered on the PS whitelist + product +
+        #     the per-Season season_name filter — deliberately NOT on
+        #     country, because the legacy per-group mask never filtered on
+        #     country either (admin names shared across countries pool);
+        #   * region matching is case-insensitive with underscores
+        #     normalized to spaces (shared _norm_region_* rule), NaN admin
+        #     names normalize to the string "nan" exactly as before;
+        #   * multi-PS rows collapse with aggregate_yield_across_ps logic
+        #     (see _aggregate_ps_lookup);
+        #   * a group "matched" when >=1 stats row survived the mask — the
+        #     yield/area/production columns are created only when at least
+        #     one group matched (threshold_optimizer relies on the columns
+        #     staying absent when nothing matched) and unmatched rows keep
+        #     any pre-existing values (NaN when the column is new);
+        #   * Malawi-Maize groups the primary season_name filter left
+        #     empty fall back to season_name == "Annual".
+        # ------------------------------------------------------------------
+        df = df.dropna(subset=group_by)
+        # (dropna also returns a fresh copy, so — like the legacy
+        # group.copy()+concat path — the caller's frame is never mutated.)
 
-        # Define processing for each group
-        def process_group(group, region, harvest_year, season=None):
-            season_filter = season_filters.get(season, season_filters.get(None, []))
-
-            # Case-insensitive region matching (normalize underscores to spaces
-            # because geoprepare extraction converts spaces to underscores) —
-            # same rule as regions_with_yields via the shared normalizers.
-            mask_region = _norm_region_series(df_fewsnet[admin_zone]) == _norm_region_name(region)
-            mask_yield = (
+        if len(df):
+            base_mask = (
                 df_fewsnet["crop_production_system"].isin(STANDARD_PRODUCTION_SYSTEMS)
-                & (df_fewsnet["harvest_year"] == harvest_year)
                 & (df_fewsnet["product"] == crop)
-                & df_fewsnet["season_name"].isin(season_filter)
             )
+            df_stats = df_fewsnet.loc[
+                base_mask,
+                [admin_zone, "harvest_year", "season_name",
+                 "yield", "area", "production"],
+            ].copy()
+            # Legacy `==` never matched NaN harvest_year; pandas merge
+            # WOULD pair NaN keys — drop them from the lookup side.
+            df_stats = df_stats[df_stats["harvest_year"].notna()]
+            df_stats["__region"] = _norm_region_series(
+                df_stats[admin_zone]
+            ).astype(object)
+            df_stats["__year"] = _object_join_key(df_stats["harvest_year"])
 
-            # Fetching values for each statistic
-            mask_combined = mask_yield & mask_region
-
-            yield_value = df_fewsnet.loc[mask_combined, "yield"]
-            area_value = df_fewsnet.loc[mask_combined, "area"]
-            prod_value = df_fewsnet.loc[mask_combined, "production"]
-
-            # Fallback to "Annual" for Malawi Maize when primary season has no data
-            if yield_value.empty and country == "Malawi" and crop == "Maize" and "Annual" in available_seasons and "Annual" not in season_filter:
-                mask_yield_annual = (
-                    df_fewsnet["crop_production_system"].isin(STANDARD_PRODUCTION_SYSTEMS)
-                    & (df_fewsnet["harvest_year"] == harvest_year)
-                    & (df_fewsnet["product"] == crop)
-                    & (df_fewsnet["season_name"] == "Annual")
+            # One aggregated lookup block per distinct Season number (each
+            # number can resolve to a different season_name filter); keys
+            # are unique within a block, and blocks are disambiguated by
+            # the __season tag, so the left-merge below can never fan out.
+            blocks = []
+            for s, season_filter in season_filters.items():
+                block = _aggregate_ps_lookup(
+                    df_stats[df_stats["season_name"].isin(season_filter)]
                 )
-                mask_combined = mask_yield_annual & mask_region
-                yield_value = df_fewsnet.loc[mask_combined, "yield"]
-                area_value = df_fewsnet.loc[mask_combined, "area"]
-                prod_value = df_fewsnet.loc[mask_combined, "production"]
+                if has_season:
+                    block["__season"] = s
+                blocks.append(block)
+            lookup = pd.concat(blocks, ignore_index=True)
 
-            # df.loc[bool_mask, "col"] always returns a Series here, but
-            # the pandas stubs union the return type with scalars — guard
-            # via len() with an explicit cast so static checkers and
-            # runtime agree.
-            yield_series = pd.Series(yield_value)
-            if len(yield_series) > 0:
-                # Area-weighted aggregation across PS — same logic used by
-                # production_analysis._common.load_filtered_hvstat, lifted
-                # to aggregate_yield_across_ps so both call sites share it.
-                agg_yield, total_area, total_prod = aggregate_yield_across_ps(
-                    yield_series,
-                    pd.Series(area_value),
-                    pd.Series(prod_value),
-                )
-                group.loc[:, target_col] = agg_yield
-                group.loc[:, "Area (ha)"] = total_area if total_area > 0 else np.nan
-                group.loc[:, "Production (tn)"] = (
-                    total_prod if total_prod > 0 else np.nan
-                )
-
-            return group
-
-        # Process each group with a progress bar
-        results = []
-        stats_desc = f"Adding yield/area/production stats ({label})" if label else "Adding yield/area/production stats"
-        for keys, group in _pbar(
-            groups, total=len(groups), desc=stats_desc, leave=False
-        ):
+            key_cols = ["__region", "__year"]
+            left = pd.DataFrame(
+                {
+                    "__region": _norm_region_key(df["Region"]),
+                    "__year": _object_join_key(df["Harvest Year"]),
+                }
+            )
             if has_season:
-                region, harvest_year, season = keys
-            else:
-                region, harvest_year = keys
-                season = None
-            processed_group = process_group(group.copy(), region, harvest_year, season)
-            results.append(processed_group)
+                key_cols.append("__season")
+                lookup["__season"] = lookup["__season"].astype(object)
+                left["__season"] = _object_join_key(df["Season"])
 
-        df = pd.concat(results)
+            merged = left.merge(
+                lookup, on=key_cols, how="left", indicator="__matched"
+            )
+            matched = (merged["__matched"] == "both").to_numpy()
+            yld = merged["__yld"].to_numpy(dtype=float)
+            area = merged["__area"].to_numpy(dtype=float)
+            prod = merged["__prod"].to_numpy(dtype=float)
+
+            # Fallback to "Annual" for Malawi Maize when the primary season
+            # has no data — second merge filling only rows the first left
+            # unmatched (and only for Season numbers whose filter does not
+            # already include "Annual", as before).
+            if (
+                country == "Malawi"
+                and crop == "Maize"
+                and "Annual" in available_seasons
+            ):
+                if has_season:
+                    fallback_ok = {
+                        s: "Annual" not in sf for s, sf in season_filters.items()
+                    }
+                    eligible = (
+                        df["Season"].map(fallback_ok).fillna(False)
+                        .to_numpy(dtype=bool)
+                    )
+                else:
+                    eligible = np.full(
+                        len(df), "Annual" not in season_filters[None]
+                    )
+                need = eligible & ~matched
+                if need.any():
+                    annual = _aggregate_ps_lookup(
+                        df_stats[df_stats["season_name"] == "Annual"]
+                    )
+                    m2 = left[["__region", "__year"]].merge(
+                        annual, on=["__region", "__year"],
+                        how="left", indicator="__matched",
+                    )
+                    take = (m2["__matched"] == "both").to_numpy() & need
+                    yld = np.where(take, m2["__yld"].to_numpy(dtype=float), yld)
+                    area = np.where(take, m2["__area"].to_numpy(dtype=float), area)
+                    prod = np.where(take, m2["__prod"].to_numpy(dtype=float), prod)
+                    matched = matched | take
+
+            if matched.any():
+                keep = ~pd.Series(matched)
+                for col, vals in (
+                    (target_col, yld),
+                    ("Area (ha)", area),
+                    ("Production (tn)", prod),
+                ):
+                    if col in df.columns:
+                        # Overwrite matched rows only — legacy wrote into
+                        # groups that found stats rows and left the rest
+                        # untouched. Positional (index-free) so duplicate
+                        # index labels can't fan out.
+                        df[col] = (
+                            pd.Series(df[col].to_numpy())
+                            .where(keep, pd.Series(vals))
+                            .to_numpy()
+                        )
+                    else:
+                        df[col] = np.where(matched, vals, np.nan)
 
     # Add columns for obj.stats_cols
     for col in ["Area"]:

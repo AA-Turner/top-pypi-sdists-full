@@ -265,6 +265,17 @@ def setup_agent_environment(project_root: str = ".") -> bool:
             except Exception as e:
                 logger.debug(f"Không thể tải nội dung hướng dẫn từ website: {e}")
                 instruction_content = _FALLBACK_INSTRUCTION
+        import re
+        if instruction_content:
+            yaml_match = re.search(r'^---\n(.*?)\n---\n*', instruction_content, flags=re.DOTALL)
+            if yaml_match:
+                yaml_content = yaml_match.group(1).strip()
+                yaml_inline = " | ".join([line.strip() for line in yaml_content.split('\n') if line.strip() and not line.startswith('description:')])
+                html_anchor = f"<!-- vnai-bootstrap | {yaml_inline} -->\n"
+                instruction_content = instruction_content[yaml_match.end():]
+                instruction_content = html_anchor + instruction_content
+            elif not instruction_content.startswith("<!-- vnai-bootstrap"):
+                instruction_content = "<!-- vnai-bootstrap | auto-generated -->\n" + instruction_content
         project_agents_md = Path(project_root) / "AGENTS.md"
         global_targets = [
             project_agents_md,
@@ -295,27 +306,23 @@ def setup_agent_environment(project_root: str = ".") -> bool:
                     logger.debug(f"File {target} có vẻ là JSON. Bỏ qua để tránh làm hỏng config.")
                     continue
                 import re
-                pattern = r'(?s)(?:---\n)?name: vnstock-bootstrap.*?\*\s*\(End of Bootstrap\. When in doubt, Route!\)\*(?:\s*---)?'
+                pattern = r'(?s)(?:---\n(?:(?!---).)*?name: vnstock-bootstrap(?:(?!---).)*?\n---\n*# Vnstock AI Agent.*?\*\s*\(End of Bootstrap\. When in doubt, Route!\)\*|<!-- vnai-bootstrap.*?>.*?\*\s*\(End of Bootstrap\. When in doubt, Route!\)\*|# Vnstock AI Agent.*?\*\s*\(End of Bootstrap\. When in doubt, Route!\)\*)'
                 matches = re.findall(pattern, content)
                 if len(matches) > 1:
                     logger.debug(f"Phát hiện nội dung bị lặp trong {target}, tiến hành dọn dẹp...")
                     cleaned_content = re.sub(pattern, '', content).strip()
-                    block_to_append = instruction_content.strip() if "name: vnstock-bootstrap" in instruction_content else matches[-1].strip()
+                    block_to_append = instruction_content.strip()
                     final_content = cleaned_content + ("\n\n" if cleaned_content else "") + block_to_append
-                    if not final_content.startswith('---') and "name: vnstock-bootstrap" in final_content:
-                        final_content = "---\n" + final_content
                     final_content = re.sub(r'\n{3,}', '\n\n', final_content)
                     with open(target, "w", encoding="utf-8") as f:
                         f.write(final_content + "\n")
                     success = True
                     continue
                 elif len(matches) == 1:
-                    if "name: vnstock-bootstrap" in instruction_content and matches[0].strip() != instruction_content.strip():
+                    if matches[0].strip() != instruction_content.strip() and not matches[0].strip().endswith(instruction_content.strip()):
                         logger.debug(f"Cập nhật nội dung mới cho {target}...")
                         cleaned_content = re.sub(pattern, '', content).strip()
                         final_content = cleaned_content + ("\n\n" if cleaned_content else "") + instruction_content.strip()
-                        if not final_content.startswith('---') and "name: vnstock-bootstrap" in final_content:
-                            final_content = "---\n" + final_content
                         final_content = re.sub(r'\n{3,}', '\n\n', final_content)
                         with open(target, "w", encoding="utf-8") as f:
                             f.write(final_content + "\n")
@@ -326,8 +333,7 @@ def setup_agent_environment(project_root: str = ".") -> bool:
                 markers = [
                     "# Vnstock Ecosystem Guidelines",
                     "# Vnstock Vibe Onboarding",
-                    "# Vnstock AI Agent",
-                    "vnstock-bootstrap"
+                    "# Vnstock AI Agent"
                 ]
                 if any(marker in content for marker in markers):
                     logger.debug(f"Rule Vnstock phiên bản cũ đã tồn tại trong {target}. Bỏ qua.")

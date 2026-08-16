@@ -31,20 +31,32 @@
 
 """Zarr version 3 codecs implemented using imagecodecs.
 
-ArrayArrayCodec:
-    Bitorder, Bitshuffle, Byteshuffle, Cms, Delta, Floatpred, Quantize, Xor
+ArrayArrayCodec (filters):
+    Bitorder, Cms, Delta, Quantize, Xor
 
-ArrayBytesCodec:
-    Apng, Avif, B2nd, Bfloat16, Bmp, Ccittfax3, Ccittfax4, Ccittrle, Dds,
-    Dicomrle, Eer, Exr, Float24, Gif, Hcomp, Heif, Htj2k, Jpeg, Jpeg2k,
-    Jpegls, Jpegxl, Jpegxr, Jpegxs, Lerc, Ljpeg, Meshopt, Packints, Pcx,
-    Pcodec, Pixarlog, Plio, Png, Qoi, Rcomp, Rgbe, Sperr, Spng, Sz3, Tga,
-    Tiff, Ultrahdr, Webp, Wic, Zfp
+ArrayBytesCodec (serializer):
 
-BytesBytesCodec:
-    Aec, Blosc, Blosc2, Brotli, Bz2, Checksum, Deflate, Isal, Lz4, Lz4f, Lz4h5,
-    Lzf, Lzfse, Lzham, Lzma, Lzo, Lzw, Openzl, Packbits, Pglz, Snappy, Szip,
-    Zlib, Zlibng, Zopfli, Zstd, Zstd1
+    Image formats:
+        Apng, Avif, Bmp, Dds, Exr, Gif, Heif, Htj2k, Jpeg, Jpeg2k, Jpegls,
+        Jpegxl, Jpegxr, Jpegxs, Ljpeg, Pcx, Png, Qoi, Rgbe, Spng, Tga, Tiff,
+        Ultrahdr, Webp, Wic
+
+    Image compressors:
+        Ccittfax3, Ccittfax4, Ccittrle, Dicomrle, Pixarlog
+
+    Scientific compressors:
+        B2nd, Eer, Hcomp, Lerc, Pcodec, Plio, Rcomp, Sperr, Sz3, Zfp
+
+    Shufflers:
+        Bitshuffle, Byteshuffle, Floatpred, Meshopt, Packints
+
+    Type conversions:
+        Bfloat16, Float24
+
+BytesBytesCodec (compressors):
+    Aec, Blosc, Blosc2, Brotli, Bz2, Checksum, Chunked, Deflate, Isal, Lz4,
+    Lz4f, Lz4h5, Lzf, Lzfse, Lzham, Lzma, Lzo, Lzw, Openzl, Packbits, Pglz,
+    Snappy, Szip, Zlib, Zlibng, Zopfli, Zstd, Zstd1
 
 """
 
@@ -68,6 +80,7 @@ __all__ = [
     'Ccittfax4',
     'Ccittrle',
     'Checksum',
+    'Chunked',
     'Cms',
     'Dds',
     'Deflate',
@@ -149,6 +162,7 @@ if TYPE_CHECKING:
     from collections.abc import Container
     from typing import Any, Self
 
+    from numpy.typing import NDArray
     from zarr.core.array_spec import ArraySpec
     from zarr.core.buffer import Buffer, NDBuffer
     from zarr.core.common import JSON
@@ -264,6 +278,9 @@ class Apng(ArrayBytesCodec):
     filter: str | None = None
     photometric: str | None = None
     delay: int | None = None
+    primaries: str | None = None
+    transfer: str | None = None
+    matrix: str | None = None
 
     def __init__(
         self,
@@ -273,6 +290,11 @@ class Apng(ArrayBytesCodec):
         filter: imagecodecs.APNG.FILTER | int | str | None = None,
         photometric: imagecodecs.APNG.COLOR_TYPE | int | str | None = None,
         delay: int | None = None,
+        primaries: imagecodecs.APNG.COLOR_PRIMARIES | int | str | None = None,
+        transfer: (
+            imagecodecs.APNG.TRANSFER_CHARACTERISTICS | int | str | None
+        ) = None,
+        matrix: imagecodecs.APNG.MATRIX_COEFFICIENTS | int | str | None = None,
     ) -> None:
         if not imagecodecs.APNG.available:
             msg = 'imagecodecs.APNG not available'
@@ -284,6 +306,11 @@ class Apng(ArrayBytesCodec):
             filter=_enum_name(filter, imagecodecs.APNG.FILTER),
             photometric=_enum_name(photometric, imagecodecs.APNG.COLOR_TYPE),
             delay=None if delay is None else int(delay),
+            primaries=_enum_name(primaries, imagecodecs.APNG.COLOR_PRIMARIES),
+            transfer=_enum_name(
+                transfer, imagecodecs.APNG.TRANSFER_CHARACTERISTICS
+            ),
+            matrix=_enum_name(matrix, imagecodecs.APNG.MATRIX_COEFFICIENTS),
         )
 
     @classmethod
@@ -292,7 +319,16 @@ class Apng(ArrayBytesCodec):
 
     def to_dict(self) -> dict[str, JSON]:
         cfg: dict[str, JSON] = {}
-        for key in ('level', 'strategy', 'filter', 'photometric', 'delay'):
+        for key in (
+            'level',
+            'strategy',
+            'filter',
+            'photometric',
+            'delay',
+            'primaries',
+            'transfer',
+            'matrix',
+        ):
             value = getattr(self, key)
             if value is not None:
                 cfg[key] = value
@@ -318,7 +354,7 @@ class Apng(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.apng_encode(
             arr,
             level=self.level,
@@ -326,6 +362,9 @@ class Apng(ArrayBytesCodec):
             filter=self.filter,
             photometric=self.photometric,
             delay=self.delay,
+            primaries=self.primaries,
+            transfer=self.transfer,
+            matrix=self.matrix,
         )
         return chunk_spec.prototype.buffer.from_bytes(encoded)
 
@@ -451,7 +490,7 @@ class Avif(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.avif_encode(
             arr,
             level=self.level,
@@ -715,10 +754,10 @@ class Bitorder(ArrayArrayCodec):
 
 
 @dataclass(frozen=True)
-class Bitshuffle(ArrayArrayCodec):
+class Bitshuffle(ArrayBytesCodec):
     """Bitshuffle codec for Zarr 3."""
 
-    is_fixed_size = True
+    is_fixed_size = False
 
     blocksize: int = 0
 
@@ -739,11 +778,11 @@ class Bitshuffle(ArrayArrayCodec):
         }
 
     def _decode_sync(
-        self, chunk_array: NDBuffer, chunk_spec: ArraySpec
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
     ) -> NDBuffer:
         dtype = chunk_spec.dtype.to_native_dtype()
         decoded = imagecodecs.bitshuffle_decode(
-            chunk_array.as_numpy_array(),
+            chunk_bytes.as_numpy_array(),
             itemsize=dtype.itemsize,
             blocksize=self.blocksize,
         )
@@ -752,13 +791,13 @@ class Bitshuffle(ArrayArrayCodec):
         )
 
     async def _decode_single(
-        self, chunk_array: NDBuffer, chunk_spec: ArraySpec
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
     ) -> NDBuffer:
-        return self._decode_sync(chunk_array, chunk_spec)
+        return self._decode_sync(chunk_bytes, chunk_spec)
 
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
-    ) -> NDBuffer | None:
+    ) -> Buffer | None:
         dtype = chunk_spec.dtype.to_native_dtype()
         encoded = imagecodecs.bitshuffle_encode(
             chunk_array.as_numpy_array(),
@@ -766,14 +805,14 @@ class Bitshuffle(ArrayArrayCodec):
             blocksize=self.blocksize,
         )
         if isinstance(encoded, numpy.ndarray):
-            return chunk_spec.prototype.nd_buffer.from_numpy_array(encoded)
-        return chunk_spec.prototype.nd_buffer.from_numpy_array(
-            numpy.frombuffer(encoded, dtype=numpy.uint8)
-        )
+            return chunk_spec.prototype.buffer.from_array_like(
+                encoded.ravel().view(numpy.uint8)
+            )
+        return chunk_spec.prototype.buffer.from_bytes(encoded)
 
     async def _encode_single(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
-    ) -> NDBuffer | None:
+    ) -> Buffer | None:
         return self._encode_sync(chunk_array, chunk_spec)
 
     def compute_encoded_size(
@@ -1043,7 +1082,7 @@ class Bmp(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.bmp_encode(arr, ppm=self.ppm)
         return chunk_spec.prototype.buffer.from_bytes(encoded)
 
@@ -1141,10 +1180,10 @@ class Brotli(BytesBytesCodec):
 
 
 @dataclass(frozen=True)
-class Byteshuffle(ArrayArrayCodec):
+class Byteshuffle(ArrayBytesCodec):
     """Byteshuffle codec for Zarr 3."""
 
-    is_fixed_size = True
+    is_fixed_size = False
 
     axis: int = -1
     dist: int = 1
@@ -1186,27 +1225,29 @@ class Byteshuffle(ArrayArrayCodec):
         }
 
     def _decode_sync(
-        self, chunk_array: NDBuffer, chunk_spec: ArraySpec
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
     ) -> NDBuffer:
+        dtype = chunk_spec.dtype.to_native_dtype()
+        data = (
+            chunk_bytes.as_numpy_array().view(dtype).reshape(chunk_spec.shape)
+        )
         decoded = imagecodecs.byteshuffle_decode(
-            chunk_array.as_numpy_array(),
+            data,
             axis=self.axis,
             dist=self.dist,
             delta=self.delta,
             reorder=self.reorder,
         )
-        return chunk_spec.prototype.nd_buffer.from_numpy_array(
-            decoded.reshape(chunk_spec.shape)
-        )
+        return chunk_spec.prototype.nd_buffer.from_numpy_array(decoded)
 
     async def _decode_single(
-        self, chunk_array: NDBuffer, chunk_spec: ArraySpec
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
     ) -> NDBuffer:
-        return self._decode_sync(chunk_array, chunk_spec)
+        return self._decode_sync(chunk_bytes, chunk_spec)
 
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
-    ) -> NDBuffer | None:
+    ) -> Buffer | None:
         encoded = imagecodecs.byteshuffle_encode(
             chunk_array.as_numpy_array(),
             axis=self.axis,
@@ -1214,11 +1255,13 @@ class Byteshuffle(ArrayArrayCodec):
             delta=self.delta,
             reorder=self.reorder,
         )
-        return chunk_spec.prototype.nd_buffer.from_numpy_array(encoded)
+        return chunk_spec.prototype.buffer.from_array_like(
+            encoded.ravel().view(numpy.uint8)
+        )
 
     async def _encode_single(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
-    ) -> NDBuffer | None:
+    ) -> Buffer | None:
         return self._encode_sync(chunk_array, chunk_spec)
 
     def compute_encoded_size(
@@ -1293,15 +1336,11 @@ class Ccittfax3(ArrayBytesCodec):
 
     is_fixed_size = False
 
-    height: int = 0
-    width: int = 0
     t4options: int = 0
 
     def __init__(
         self,
         *,
-        height: int = 0,
-        width: int = 0,
         t4options: int = 0,
     ) -> None:
         if not imagecodecs.CCITTFAX3.available:
@@ -1309,8 +1348,6 @@ class Ccittfax3(ArrayBytesCodec):
             raise ValueError(msg)
         _setattrs(
             self,
-            height=int(height),
-            width=int(width),
             t4options=int(t4options),
         )
 
@@ -1319,17 +1356,10 @@ class Ccittfax3(ArrayBytesCodec):
         return cls(**_parse_config(data, 'ccittfax3'))
 
     def to_dict(self) -> dict[str, JSON]:
-        cfg: dict[str, JSON] = {}
-        if self.height:
-            cfg['height'] = self.height
-        if self.width:
-            cfg['width'] = self.width
         if self.t4options:
-            cfg['t4options'] = self.t4options
-        if cfg:
             return {
                 'name': 'imagecodecs_ccittfax3',
-                'configuration': cfg,
+                'configuration': {'t4options': self.t4options},
             }
         return {'name': 'imagecodecs_ccittfax3'}
 
@@ -1338,8 +1368,8 @@ class Ccittfax3(ArrayBytesCodec):
     ) -> NDBuffer:
         decoded = imagecodecs.ccittfax3_decode(
             chunk_bytes.as_numpy_array(),
-            height=self.height,
-            width=self.width,
+            height=chunk_spec.shape[-2],
+            width=chunk_spec.shape[-1],
             t4options=self.t4options,
         )
         return chunk_spec.prototype.nd_buffer.from_numpy_array(
@@ -1377,39 +1407,17 @@ class Ccittfax4(ArrayBytesCodec):
 
     is_fixed_size = False
 
-    height: int = 0
-    width: int = 0
-
-    def __init__(
-        self,
-        *,
-        height: int = 0,
-        width: int = 0,
-    ) -> None:
+    def __init__(self) -> None:
         if not imagecodecs.CCITTFAX4.available:
             msg = 'imagecodecs.CCITTFAX4 not available'
             raise ValueError(msg)
-        _setattrs(
-            self,
-            height=int(height),
-            width=int(width),
-        )
 
     @classmethod
     def from_dict(cls, data: dict[str, JSON]) -> Self:
-        return cls(**_parse_config(data, 'ccittfax4'))
+        _parse_config(data, 'ccittfax4')
+        return cls()
 
     def to_dict(self) -> dict[str, JSON]:
-        cfg: dict[str, JSON] = {}
-        if self.height:
-            cfg['height'] = self.height
-        if self.width:
-            cfg['width'] = self.width
-        if cfg:
-            return {
-                'name': 'imagecodecs_ccittfax4',
-                'configuration': cfg,
-            }
         return {'name': 'imagecodecs_ccittfax4'}
 
     def _decode_sync(
@@ -1417,8 +1425,8 @@ class Ccittfax4(ArrayBytesCodec):
     ) -> NDBuffer:
         decoded = imagecodecs.ccittfax4_decode(
             chunk_bytes.as_numpy_array(),
-            height=self.height,
-            width=self.width,
+            height=chunk_spec.shape[-2],
+            width=chunk_spec.shape[-1],
         )
         return chunk_spec.prototype.nd_buffer.from_numpy_array(
             decoded.reshape(chunk_spec.shape)
@@ -1455,39 +1463,17 @@ class Ccittrle(ArrayBytesCodec):
 
     is_fixed_size = False
 
-    height: int = 0
-    width: int = 0
-
-    def __init__(
-        self,
-        *,
-        height: int = 0,
-        width: int = 0,
-    ) -> None:
+    def __init__(self) -> None:
         if not imagecodecs.CCITTRLE.available:
             msg = 'imagecodecs.CCITTRLE not available'
             raise ValueError(msg)
-        _setattrs(
-            self,
-            height=int(height),
-            width=int(width),
-        )
 
     @classmethod
     def from_dict(cls, data: dict[str, JSON]) -> Self:
-        return cls(**_parse_config(data, 'ccittrle'))
+        _parse_config(data, 'ccittrle')
+        return cls()
 
     def to_dict(self) -> dict[str, JSON]:
-        cfg: dict[str, JSON] = {}
-        if self.height:
-            cfg['height'] = self.height
-        if self.width:
-            cfg['width'] = self.width
-        if cfg:
-            return {
-                'name': 'imagecodecs_ccittrle',
-                'configuration': cfg,
-            }
         return {'name': 'imagecodecs_ccittrle'}
 
     def _decode_sync(
@@ -1495,8 +1481,8 @@ class Ccittrle(ArrayBytesCodec):
     ) -> NDBuffer:
         decoded = imagecodecs.ccittrle_decode(
             chunk_bytes.as_numpy_array(),
-            height=self.height,
-            width=self.width,
+            height=chunk_spec.shape[-2],
+            width=chunk_spec.shape[-1],
         )
         return chunk_spec.prototype.nd_buffer.from_numpy_array(
             decoded.reshape(chunk_spec.shape)
@@ -1695,6 +1681,103 @@ class Checksum(BytesBytesCodec):
         self, input_byte_length: int, chunk_spec: ArraySpec
     ) -> int:
         return input_byte_length + 4
+
+
+@dataclass(frozen=True)
+class Chunked(BytesBytesCodec):
+    """CHUNKED codec for Zarr 3."""
+
+    is_fixed_size = False
+
+    level: int | None = None
+    codec: str | None = None
+    chunksize: int | None = None
+    itemsize: int = 1
+    hilo: bool = False
+
+    def __init__(
+        self,
+        *,
+        level: int | None = None,
+        codec: imagecodecs.CHUNKED.CODEC | int | str | None = None,
+        chunksize: int | None = None,
+        itemsize: int = 1,
+        hilo: bool = False,
+    ) -> None:
+        if not imagecodecs.CHUNKED.available:
+            msg = 'imagecodecs.CHUNKED not available'
+            raise ValueError(msg)
+        _setattrs(
+            self,
+            level=None if level is None else int(level),
+            codec=_enum_name(codec, imagecodecs.CHUNKED.CODEC),
+            chunksize=None if chunksize is None else int(chunksize),
+            itemsize=int(itemsize),
+            hilo=bool(hilo),
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, JSON]) -> Self:
+        return cls(**_parse_config(data, 'chunked'))
+
+    def to_dict(self) -> dict[str, JSON]:
+        cfg: dict[str, JSON] = {}
+        if self.level is not None:
+            cfg['level'] = self.level
+        if self.codec is not None:
+            cfg['codec'] = self.codec
+        if self.chunksize is not None:
+            cfg['chunksize'] = self.chunksize
+        if self.itemsize != 1:
+            cfg['itemsize'] = self.itemsize
+        if self.hilo:
+            cfg['hilo'] = self.hilo
+        if cfg:
+            return {
+                'name': 'imagecodecs_chunked',
+                'configuration': cfg,
+            }
+        return {'name': 'imagecodecs_chunked'}
+
+    def _decode_sync(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> Buffer:
+        decoded = imagecodecs.chunked_decode(
+            chunk_bytes.as_numpy_array(), itemsize=self.itemsize
+        )
+        return chunk_spec.prototype.buffer.from_bytes(decoded)
+
+    async def _decode_single(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> Buffer:
+        return await asyncio.to_thread(
+            self._decode_sync, chunk_bytes, chunk_spec
+        )
+
+    def _encode_sync(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> Buffer | None:
+        encoded = imagecodecs.chunked_encode(
+            chunk_bytes.as_numpy_array(),
+            level=self.level,
+            codec=self.codec,
+            chunksize=self.chunksize,
+            itemsize=self.itemsize,
+            hilo=self.hilo,
+        )
+        return chunk_spec.prototype.buffer.from_bytes(encoded)
+
+    async def _encode_single(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> Buffer | None:
+        return await asyncio.to_thread(
+            self._encode_sync, chunk_bytes, chunk_spec
+        )
+
+    def compute_encoded_size(
+        self, input_byte_length: int, chunk_spec: ArraySpec
+    ) -> int:
+        raise NotImplementedError
 
 
 @dataclass(frozen=True)
@@ -2251,7 +2334,7 @@ class Exr(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array, planar=self.planar)
         encoded = imagecodecs.exr_encode(
             arr,
             level=self.level,
@@ -2355,10 +2438,10 @@ class Float24(ArrayBytesCodec):
 
 
 @dataclass(frozen=True)
-class Floatpred(ArrayArrayCodec):
+class Floatpred(ArrayBytesCodec):
     """Floating Point Predictor codec for Zarr 3."""
 
-    is_fixed_size = True
+    is_fixed_size = False
 
     axis: int = -1
     dist: int = 1
@@ -2389,33 +2472,35 @@ class Floatpred(ArrayArrayCodec):
         }
 
     def _decode_sync(
-        self, chunk_array: NDBuffer, chunk_spec: ArraySpec
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
     ) -> NDBuffer:
-        # floatpred needs typed array; use chunk_spec dtype
         dtype = chunk_spec.dtype.to_native_dtype()
-        arr = chunk_array.as_numpy_array()
-        arr = numpy.frombuffer(arr, dtype=dtype).reshape(chunk_spec.shape)
+        arr = (
+            chunk_bytes.as_numpy_array().view(dtype).reshape(chunk_spec.shape)
+        )
         decoded = imagecodecs.floatpred_decode(
             arr, axis=self.axis, dist=self.dist
         )
         return chunk_spec.prototype.nd_buffer.from_numpy_array(decoded)
 
     async def _decode_single(
-        self, chunk_array: NDBuffer, chunk_spec: ArraySpec
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
     ) -> NDBuffer:
-        return self._decode_sync(chunk_array, chunk_spec)
+        return self._decode_sync(chunk_bytes, chunk_spec)
 
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
-    ) -> NDBuffer | None:
+    ) -> Buffer | None:
         encoded = imagecodecs.floatpred_encode(
             chunk_array.as_numpy_array(), axis=self.axis, dist=self.dist
         )
-        return chunk_spec.prototype.nd_buffer.from_numpy_array(encoded)
+        return chunk_spec.prototype.buffer.from_array_like(
+            encoded.ravel().view(numpy.uint8)
+        )
 
     async def _encode_single(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
-    ) -> NDBuffer | None:
+    ) -> Buffer | None:
         return self._encode_sync(chunk_array, chunk_spec)
 
     def compute_encoded_size(
@@ -2463,7 +2548,7 @@ class Gif(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.gif_encode(arr)
         return chunk_spec.prototype.buffer.from_bytes(encoded)
 
@@ -2557,7 +2642,7 @@ class Heif(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.heif_encode(
             arr,
             level=self.level,
@@ -2779,7 +2864,7 @@ class Htj2k(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array, planar=self.planar)
         encoded = imagecodecs.htj2k_encode(
             arr,
             level=self.level,
@@ -3016,7 +3101,7 @@ class Jpeg(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.jpeg8_encode(
             arr,
             level=self.level,
@@ -3146,7 +3231,7 @@ class Jpeg2k(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array, planar=self.planar)
         encoded = imagecodecs.jpeg2k_encode(
             arr,
             level=self.level,
@@ -3220,7 +3305,7 @@ class Jpegls(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.jpegls_encode(arr, level=self.level)
         return chunk_spec.prototype.buffer.from_bytes(encoded)
 
@@ -3361,7 +3446,7 @@ class Jpegxl(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array, planar=self.planar)
         encoded = imagecodecs.jpegxl_encode(
             arr,
             level=self.level,
@@ -3465,7 +3550,7 @@ class Jpegxr(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.jpegxr_encode(
             arr,
             level=self.level,
@@ -3549,7 +3634,7 @@ class Jpegxs(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.jpegxs_encode(
             arr,
             config=self.config,
@@ -3640,7 +3725,7 @@ class Lerc(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array, planar=self.planar)
         encoded = imagecodecs.lerc_encode(
             arr,
             level=self.level,
@@ -3713,7 +3798,7 @@ class Ljpeg(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.ljpeg_encode(
             arr, bitspersample=self.bitspersample
         )
@@ -4476,24 +4561,16 @@ class Packbits(BytesBytesCodec):
 
     is_fixed_size = False
 
-    axis: int | None = None
-
-    def __init__(self, *, axis: int | None = None) -> None:
+    def __init__(self) -> None:
         if not imagecodecs.PACKBITS.available:
             msg = 'imagecodecs.PACKBITS not available'
             raise ValueError(msg)
-        _setattrs(self, axis=None if axis is None else int(axis))
 
     @classmethod
     def from_dict(cls, data: dict[str, JSON]) -> Self:
         return cls(**_parse_config(data, 'packbits'))
 
     def to_dict(self) -> dict[str, JSON]:
-        if self.axis is not None:
-            return {
-                'name': 'imagecodecs_packbits',
-                'configuration': {'axis': self.axis},
-            }
         return {'name': 'imagecodecs_packbits'}
 
     def _decode_sync(
@@ -4513,10 +4590,7 @@ class Packbits(BytesBytesCodec):
         self, chunk_bytes: Buffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
         data = chunk_bytes.as_numpy_array()
-        if self.axis is not None:
-            dtype = chunk_spec.dtype.to_native_dtype()
-            data = data.view(dtype).reshape(chunk_spec.shape)
-        encoded = imagecodecs.packbits_encode(data, axis=self.axis)
+        encoded = imagecodecs.packbits_encode(data)
         return chunk_spec.prototype.buffer.from_bytes(encoded)
 
     async def _encode_single(
@@ -4748,7 +4822,7 @@ class Pcx(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.pcx_encode(arr)
         return chunk_spec.prototype.buffer.from_bytes(encoded)
 
@@ -4917,7 +4991,7 @@ class Pixarlog(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.pixarlog_encode(
             arr, level=self.level, deflate=self.deflate
         )
@@ -5001,6 +5075,9 @@ class Png(ArrayBytesCodec):
     level: int | None = None
     strategy: str | None = None
     filter: str | None = None
+    primaries: str | None = None
+    transfer: str | None = None
+    matrix: str | None = None
 
     def __init__(
         self,
@@ -5008,6 +5085,11 @@ class Png(ArrayBytesCodec):
         level: int | None = None,
         strategy: imagecodecs.PNG.STRATEGY | int | str | None = None,
         filter: imagecodecs.PNG.FILTER | int | str | None = None,
+        primaries: imagecodecs.PNG.COLOR_PRIMARIES | int | str | None = None,
+        transfer: (
+            imagecodecs.PNG.TRANSFER_CHARACTERISTICS | int | str | None
+        ) = None,
+        matrix: imagecodecs.PNG.MATRIX_COEFFICIENTS | int | str | None = None,
     ) -> None:
         if not imagecodecs.PNG.available:
             msg = 'imagecodecs.PNG not available'
@@ -5017,6 +5099,11 @@ class Png(ArrayBytesCodec):
             level=None if level is None else int(level),
             strategy=_enum_name(strategy, imagecodecs.PNG.STRATEGY),
             filter=_enum_name(filter, imagecodecs.PNG.FILTER),
+            primaries=_enum_name(primaries, imagecodecs.PNG.COLOR_PRIMARIES),
+            transfer=_enum_name(
+                transfer, imagecodecs.PNG.TRANSFER_CHARACTERISTICS
+            ),
+            matrix=_enum_name(matrix, imagecodecs.PNG.MATRIX_COEFFICIENTS),
         )
 
     @classmethod
@@ -5025,7 +5112,14 @@ class Png(ArrayBytesCodec):
 
     def to_dict(self) -> dict[str, JSON]:
         cfg: dict[str, JSON] = {}
-        for key in ('level', 'strategy', 'filter'):
+        for key in (
+            'level',
+            'strategy',
+            'filter',
+            'primaries',
+            'transfer',
+            'matrix',
+        ):
             value = getattr(self, key)
             if value is not None:
                 cfg[key] = value
@@ -5051,12 +5145,15 @@ class Png(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.png_encode(
             arr,
             level=self.level,
             strategy=self.strategy,
             filter=self.filter,
+            primaries=self.primaries,
+            transfer=self.transfer,
+            matrix=self.matrix,
         )
         return chunk_spec.prototype.buffer.from_bytes(encoded)
 
@@ -5110,7 +5207,7 @@ class Qoi(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.qoi_encode(arr)
         return chunk_spec.prototype.buffer.from_bytes(encoded)
 
@@ -5336,7 +5433,7 @@ class Rgbe(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.rgbe_encode(
             arr, header=self.header, rle=self.rle
         )
@@ -5487,7 +5584,7 @@ class Sperr(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.sperr_encode(
             arr,
             level=self.level,
@@ -5555,7 +5652,7 @@ class Spng(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.spng_encode(arr, level=self.level)
         return chunk_spec.prototype.buffer.from_bytes(encoded)
 
@@ -5794,7 +5891,7 @@ class Tga(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.tga_encode(arr, rle=self.rle)
         return chunk_spec.prototype.buffer.from_bytes(encoded)
 
@@ -5940,7 +6037,7 @@ class Tiff(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array, planar=self.planarconfig == 'separate')
         encoded = imagecodecs.tiff_encode(
             arr,
             level=self.level,
@@ -6080,7 +6177,7 @@ class Ultrahdr(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.ultrahdr_encode(
             arr,
             scale=self.scale,
@@ -6192,7 +6289,7 @@ class Webp(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.webp_encode(
             arr,
             level=self.level,
@@ -6377,7 +6474,7 @@ class Wic(ArrayBytesCodec):
     def _encode_sync(
         self, chunk_array: NDBuffer, chunk_spec: ArraySpec
     ) -> Buffer | None:
-        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        arr = _squeeze(chunk_array)
         encoded = imagecodecs.wic_encode(
             arr, level=self.level, format=self.format
         )
@@ -6964,6 +7061,14 @@ def _parse_config(data: dict[str, JSON], name: str) -> Any:
         data, f'imagecodecs_{name}', require_configuration=False
     )
     return configuration if configuration is not None else {}
+
+
+def _squeeze(
+    chunk_array: NDBuffer, /, *, planar: bool | None = None
+) -> NDArray[Any]:
+    """Return array squeezed to 2D or 3D."""
+    arr = numpy.squeeze(chunk_array.as_numpy_array())
+    return numpy.atleast_3d(arr) if planar else numpy.atleast_2d(arr)
 
 
 def _enum_name(

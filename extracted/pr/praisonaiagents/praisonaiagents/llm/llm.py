@@ -22,10 +22,39 @@ from pydantic import BaseModel
 import time
 import json
 import xml.etree.ElementTree as ET
-from ..errors import AgentErrorKind, FailoverDecision, IdleTimeoutBreaker
+from ..errors import AgentErrorKind, FailoverDecision, IdleTimeoutBreaker, ToolExecutionError
 # Gap 2: Tool call execution imports
 from ..tools.call_executor import ToolCall, create_tool_call_executor
 from ..tools.schema import build_tool_definition
+
+
+def _durable_iteration_kwargs(execute_tool_fn: Callable, index: int) -> Dict[str, int]:
+    if getattr(execute_tool_fn, "_accepts_durable_iteration", False):
+        return {"_durable_iteration_index": index}
+    return {}
+
+
+async def _dispatch_async_tool(
+    execute_tool_fn: Callable,
+    function_name: str,
+    arguments: Dict[str, Any],
+    tool_call_id: Optional[str],
+    iteration_index: int,
+) -> Any:
+    """Run sync or async tool callbacks without blocking the event loop."""
+    call_kwargs = {
+        "tool_call_id": tool_call_id,
+        **_durable_iteration_kwargs(execute_tool_fn, iteration_index),
+    }
+    if inspect.iscoroutinefunction(execute_tool_fn):
+        result = execute_tool_fn(function_name, arguments, **call_kwargs)
+    else:
+        result = await asyncio.to_thread(
+            execute_tool_fn, function_name, arguments, **call_kwargs
+        )
+    if inspect.isawaitable(result):
+        return await result
+    return result
 # Display functions - lazy loaded to avoid importing rich at startup
 # These are only needed when output=verbose
 _display_module = None
@@ -1327,7 +1356,10 @@ Respond with ONLY a valid JSON tool call in this format:
             The completion response from litellm
         """
         import litellm
-        return self._call_with_retry(litellm.completion, **completion_params)
+        response = self._call_with_retry(litellm.completion, **completion_params)
+        if not completion_params.get("stream"):
+            self._track_token_usage(response, self.model)
+        return response
 
     async def _acompletion_with_retry(self, **completion_params):
         """Execute litellm.acompletion with automatic retry on rate limit errors.
@@ -1342,7 +1374,13 @@ Respond with ONLY a valid JSON tool call in this format:
             The completion response from litellm
         """
         import litellm
-        return await self._call_with_retry_async(litellm.acompletion, **completion_params)
+        response = await self._call_with_retry_async(
+            litellm.acompletion,
+            **completion_params,
+        )
+        if not completion_params.get("stream"):
+            self._track_token_usage(response, self.model)
+        return response
 
     def _supports_web_search(self) -> bool:
         """
@@ -1438,22 +1476,6 @@ Respond with ONLY a valid JSON tool call in this format:
             bool: True if this is a memory tool call
         """
         return function_name == "memory" and self._supports_claude_memory()
-
-    def _execute_memory_tool_call(self, arguments: Dict[str, Any]) -> str:
-        """
-        Execute a Claude Memory Tool call.
-        
-        Args:
-            arguments: The arguments from Claude's tool call
-            
-        Returns:
-            Result string from the memory operation
-        """
-        memory_tool = self._get_claude_memory_tool()
-        if not memory_tool:
-            return "Error: Memory tool not initialized"
-        
-        return memory_tool.process_tool_call(arguments)
 
     def _generate_ollama_tool_summary(self, tool_results: List[Any], response_text: str) -> Optional[str]:
         """
@@ -1596,22 +1618,10 @@ Respond with ONLY a valid JSON tool call in this format:
         Returns True if the result was multimodal (caller should skip its
         default text-only tool message), False otherwise (no regression).
         """
-        try:
-            from ..agent.tool_execution import build_tool_result_message_pair
-            pair = build_tool_result_message_pair(
-                tool_result, tool_call_id, function_name=function_name
-            )
-            if pair:
-                tool_message, followup_message = pair
-                messages.append(tool_message)
-                if deferred_followups is not None:
-                    deferred_followups.append(followup_message)
-                else:
-                    messages.append(followup_message)
-                return True
-        except Exception as e:
-            logging.debug(f"Multimodal tool result formatting skipped: {e}")
-        return False
+        from ..agent.tool_execution import try_append_multimodal_tool_result
+        return try_append_multimodal_tool_result(
+            messages, tool_result, tool_call_id, function_name, deferred_followups
+        )
 
     def _get_tool_names_for_prompt(self, formatted_tools: Optional[List]) -> str:
         """Extract tool names from formatted tools for prompts."""
@@ -2588,7 +2598,7 @@ Respond with ONLY a valid JSON tool call in this format:
                     )
 
             # Sequential tool calling loop - similar to agent.py
-            max_iterations = self.max_iter  # Use configurable iteration limit
+            max_iterations = kwargs.pop("max_iterations", self.max_iter)
             iteration_count = 0
             tool_call_count = 0  # Track total tool calls for guardrails
             final_response_text = ""
@@ -2645,7 +2655,11 @@ Respond with ONLY a valid JSON tool call in this format:
                             resp = self._call_responses_api(**responses_params)
                             response_text, tool_calls, _reasoning = self._extract_from_responses_output(resp)
 
-                            # Track token usage
+                            # Usage accounting is independent from metrics display.
+                            # Quiet/default agents must still update the public
+                            # token collector after a paid model call.
+                            self._track_token_usage(resp, self.model)
+
                             if self.metrics and hasattr(resp, 'usage') and resp.usage:
                                 usage = resp.usage
                                 tokens_in = getattr(usage, 'input_tokens', 0) or 0
@@ -2743,7 +2757,8 @@ Respond with ONLY a valid JSON tool call in this format:
                                     function_name=function_name,
                                     arguments=arguments,
                                     tool_call_id=tool_call_id,
-                                    is_ollama=is_ollama
+                                    is_ollama=is_ollama,
+                                    iteration_index=iteration_count,
                                 ))
                             
                             # Create appropriate executor based on parallel_tool_calls setting
@@ -2758,11 +2773,25 @@ Respond with ONLY a valid JSON tool call in this format:
                             tool_results = []
                             for tool_call_obj, tool_result_obj in zip(tool_calls_batch, tool_results_batch):
                                 if tool_result_obj.error is not None:
-                                    raise tool_result_obj.error
-                                # Register any deferred handle so its eventual
-                                # background result is re-injected, not lost.
-                                self._register_deferred_if_any(tool_result_obj)
-                                tool_result = tool_result_obj.result
+                                    # Report the failure back to the model instead of
+                                    # aborting the whole run (safe-by-default, matching
+                                    # the async path in execution_mixin.py).
+                                    logging.warning(f"Tool '{tool_result_obj.function_name}' failed: {tool_result_obj.error}")
+                                    tool_result = {"error": str(tool_result_obj.error)}
+                                else:
+                                    # Register any deferred handle so its eventual
+                                    # background result is re-injected, not lost.
+                                    self._register_deferred_if_any(tool_result_obj)
+                                    tool_result = tool_result_obj.result
+                                    # Guard against non-JSON-serializable results
+                                    # (datetime, set, bytes, custom objects) so a
+                                    # serialization failure doesn't abort the run.
+                                    if tool_result is not None:
+                                        try:
+                                            json.dumps(tool_result)
+                                        except (TypeError, ValueError):
+                                            logging.warning(f"Result of '{tool_result_obj.function_name}' not JSON serializable, converting to string")
+                                            tool_result = {"result": str(tool_result)}
                                 tool_results.append(tool_result)
                                 accumulated_tool_results.append(tool_result)
 
@@ -2798,7 +2827,7 @@ Respond with ONLY a valid JSON tool call in this format:
                                 })
 
                             # Safety: break after max_iter iterations
-                            if iteration_count >= self.max_iter:
+                            if iteration_count + 1 >= max_iterations:
                                 self._last_stop_reason = "max_steps"
                                 final_response_text = self._finalise_on_limit(
                                     messages, response_text, temperature=temperature,
@@ -2852,10 +2881,6 @@ Respond with ONLY a valid JSON tool call in this format:
                                 content=response_text,
                                 is_reasoning=False
                             ))
-                        
-                        # Track token usage
-                        if self.metrics:
-                            self._track_token_usage(final_response, self.model)
                         
                         # Trigger llm_end callback with metrics for debug output
                         llm_latency_ms = (time.time() - current_time) * 1000
@@ -3070,9 +3095,6 @@ Respond with ONLY a valid JSON tool call in this format:
                                             response_content = final_response["choices"][0]["message"].get("content")
                                             response_text = response_content if response_content is not None else ""
                                             
-                                            # Track token usage
-                                            if self.metrics:
-                                                self._track_token_usage(final_response, self.model)
                                         
                                         # Execute callbacks and display based on verbose setting
                                         if verbose and not interaction_displayed:
@@ -3262,9 +3284,6 @@ Respond with ONLY a valid JSON tool call in this format:
                                 response_content = final_response["choices"][0]["message"].get("content")
                                 response_text = response_content if response_content is not None else ""
                                 
-                                # Track token usage
-                                if self.metrics:
-                                    self._track_token_usage(final_response, self.model)
                             
                             # Execute callbacks and display based on verbose setting
                             if verbose and not interaction_displayed:
@@ -3524,8 +3543,33 @@ Respond with ONLY a valid JSON tool call in this format:
                                 arguments = self._validate_and_filter_ollama_arguments(function_name, arguments, tools)
 
                             logging.debug(f"[TOOL_EXEC_DEBUG] About to execute tool {function_name} with args: {arguments}")
-                            tool_result = execute_tool_fn(function_name, arguments, tool_call_id=tool_call_id)
+                            # Capture tool failures and report them back to the model
+                            # instead of aborting the whole run (safe-by-default,
+                            # matching the async path in execution_mixin.py).
+                            try:
+                                tool_result = execute_tool_fn(
+                                    function_name,
+                                    arguments,
+                                    tool_call_id=tool_call_id,
+                                    **_durable_iteration_kwargs(
+                                        execute_tool_fn, iteration_count
+                                    ),
+                                )
+                            except ToolExecutionError:
+                                raise
+                            except Exception as tool_error:
+                                logging.warning(f"Tool '{function_name}' failed: {tool_error}")
+                                tool_result = {"error": str(tool_error)}
                             tool_call_count += 1  # Increment tool call counter for guardrails
+                            # Guard against non-JSON-serializable results (datetime,
+                            # set, bytes, custom objects) so a serialization failure
+                            # doesn't abort the run downstream.
+                            if tool_result is not None:
+                                try:
+                                    json.dumps(tool_result)
+                                except (TypeError, ValueError):
+                                    logging.warning(f"Result of '{function_name}' not JSON serializable, converting to string")
+                                    tool_result = {"result": str(tool_result)}
                             logging.debug(f"[TOOL_EXEC_DEBUG] Tool execution result: {tool_result} (call #{tool_call_count})")
                             tool_results.append(tool_result)  # Store the result
                             accumulated_tool_results.append(tool_result)  # Accumulate across iterations
@@ -3632,7 +3676,7 @@ Respond with ONLY a valid JSON tool call in this format:
                             continue
                         
                         # Safety check: prevent infinite loops for any provider
-                        if iteration_count >= self.max_iter:
+                        if iteration_count + 1 >= max_iterations:
                             self._last_stop_reason = "max_steps"
                             final_response_text = self._finalise_on_limit(
                                 messages, response_text, temperature=temperature,
@@ -3669,7 +3713,7 @@ Respond with ONLY a valid JSON tool call in this format:
                         final_response_text = response_text.strip() if response_text else ""
                         break
                         
-                except LLMResponseError:
+                except (LLMResponseError, ToolExecutionError):
                     raise
                 except Exception as e:
                     logging.error(f"Error in LLM iteration {iteration_count}: {e}")
@@ -4237,7 +4281,8 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                 function_name=function_name,
                                 arguments=arguments, 
                                 tool_call_id=tool_call_id,
-                                is_ollama=is_ollama
+                                is_ollama=is_ollama,
+                                iteration_index=0,
                             ))
                         
                         # Create appropriate executor based on parallel_tool_calls setting
@@ -4497,7 +4542,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
             formatted_tools = self._format_tools_for_litellm(tools)
 
             # Initialize variables for iteration loop
-            max_iterations = self.max_iter  # Use configurable iteration limit
+            max_iterations = kwargs.pop("max_iterations", self.max_iter)
             iteration_count = 0
             tool_call_count = 0  # Track total tool calls for guardrails
             final_response_text = ""
@@ -4609,10 +4654,13 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                         for tool_call in tool_calls:
                             function_name, arguments, tool_call_id = self._extract_tool_call_info(tool_call)
                             logging.debug(f"[RESPONSES_API_ASYNC] Executing tool {function_name}")
-                            if asyncio.iscoroutinefunction(execute_tool_fn):
-                                tool_result = await execute_tool_fn(function_name, arguments, tool_call_id=tool_call_id)
-                            else:
-                                tool_result = execute_tool_fn(function_name, arguments, tool_call_id=tool_call_id)
+                            tool_result = await _dispatch_async_tool(
+                                execute_tool_fn,
+                                function_name,
+                                arguments,
+                                tool_call_id,
+                                iteration_count,
+                            )
                             tool_call_count += 1  # Increment tool call counter for guardrails
                             accumulated_tool_results.append(tool_result)
 
@@ -4634,7 +4682,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                 "content": content,
                             })
 
-                        if iteration_count >= self.max_iter:
+                        if iteration_count + 1 >= max_iterations:
                             self._last_stop_reason = "max_steps"
                             final_response_text = await self._finalise_on_limit_async(
                                 messages, response_text, temperature=temperature,
@@ -4858,7 +4906,13 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                         if is_ollama and tools:
                             arguments = self._validate_and_filter_ollama_arguments(function_name, arguments, tools)
 
-                        tool_result = await execute_tool_fn(function_name, arguments)
+                        tool_result = await _dispatch_async_tool(
+                            execute_tool_fn,
+                            function_name,
+                            arguments,
+                            tool_call_id,
+                            iteration_count,
+                        )
                         tool_call_count += 1  # Increment tool call counter for guardrails
                         tool_results.append(tool_result)  # Store the result
                         accumulated_tool_results.append(tool_result)  # Accumulate across iterations
@@ -5055,7 +5109,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                         continue
                     
                     # Safety check: prevent infinite loops for any provider
-                    if iteration_count >= self.max_iter:
+                    if iteration_count + 1 >= max_iterations:
                         self._last_stop_reason = "max_steps"
                         final_response_text = await self._finalise_on_limit_async(
                             messages, response_text, temperature=temperature,
@@ -5363,27 +5417,66 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                 litellm.callbacks.append(event)
         self._registered_callbacks = list(events)
 
-    def _track_token_usage(self, response: Dict[str, Any], model: str) -> Optional[TokenMetrics]:
+    def _track_token_usage(self, response: Any, model: str) -> Optional[TokenMetrics]:
         """Extract and track token usage from LLM response."""
         if not TokenMetrics or not get_token_collector:
             return None
-        
-        # Note: metrics check moved to call sites for performance
-        # This method should only be called when self.metrics=True
-        
+
         try:
-            usage = response.get("usage", {})
+            if isinstance(response, dict):
+                usage = response.get("usage", {})
+            else:
+                usage = getattr(response, "usage", None)
             if not usage:
                 return None
-            
+
+            def _usage_value(*names: str) -> int:
+                for name in names:
+                    if isinstance(usage, dict):
+                        value = usage.get(name)
+                    else:
+                        value = getattr(usage, name, None)
+                    if value is not None:
+                        return int(value or 0)
+                return 0
+
+            def _detail_value(detail_names: tuple[str, ...], name: str) -> int:
+                for detail_name in detail_names:
+                    details = (
+                        usage.get(detail_name)
+                        if isinstance(usage, dict)
+                        else getattr(usage, detail_name, None)
+                    )
+                    if details:
+                        value = (
+                            details.get(name)
+                            if isinstance(details, dict)
+                            else getattr(details, name, None)
+                        )
+                        if value is not None:
+                            return int(value or 0)
+                return 0
+
             # Extract token counts
             metrics = TokenMetrics(
-                input_tokens=usage.get("prompt_tokens", 0),
-                output_tokens=usage.get("completion_tokens", 0),
-                cached_tokens=usage.get("cached_tokens", 0),
-                reasoning_tokens=usage.get("reasoning_tokens", 0),
-                audio_input_tokens=usage.get("audio_input_tokens", 0),
-                audio_output_tokens=usage.get("audio_output_tokens", 0)
+                input_tokens=_usage_value("prompt_tokens", "input_tokens"),
+                output_tokens=_usage_value("completion_tokens", "output_tokens"),
+                cached_tokens=_usage_value("cached_tokens") or _detail_value(
+                    ("prompt_tokens_details", "input_tokens_details"),
+                    "cached_tokens",
+                ),
+                reasoning_tokens=_usage_value("reasoning_tokens") or _detail_value(
+                    ("completion_tokens_details", "output_tokens_details"),
+                    "reasoning_tokens",
+                ),
+                audio_input_tokens=_usage_value("audio_input_tokens") or _detail_value(
+                    ("prompt_tokens_details", "input_tokens_details"),
+                    "audio_tokens",
+                ),
+                audio_output_tokens=_usage_value("audio_output_tokens") or _detail_value(
+                    ("completion_tokens_details", "output_tokens_details"),
+                    "audio_tokens",
+                ),
             )
             
             # Store metrics
@@ -5477,6 +5570,8 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
         if self.timeout:
             params["timeout"] = self.timeout
         if self.max_tokens:
+            # Set max_tokens here; for reasoning models this is normalized to
+            # max_completion_tokens after per-call override_params are merged.
             params["max_tokens"] = self.max_tokens
         if self.top_p:
             params["top_p"] = self.top_p
@@ -5538,7 +5633,22 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
         ]
         for param in internal_params:
             params.pop(param, None)
-        
+
+        # Reasoning models (o1/o3/gpt-5.x) require max_completion_tokens and
+        # reject the legacy max_tokens parameter plus several sampling params.
+        # Normalize here (after override_params merge) so per-call overrides
+        # like max_tokens/temperature cannot reintroduce rejected params.
+        from .model_capabilities import is_reasoning_model
+        if is_reasoning_model(self.model):
+            # Map max_tokens -> max_completion_tokens unless the caller already
+            # provided max_completion_tokens explicitly (which takes precedence).
+            if 'max_tokens' in params:
+                params.setdefault('max_completion_tokens', params['max_tokens'])
+                params.pop('max_tokens', None)
+            for param in ('temperature', 'top_p', 'presence_penalty',
+                          'frequency_penalty', 'logit_bias'):
+                params.pop(param, None)
+
         if output_json or output_pydantic:
             from .model_capabilities import supports_structured_outputs
             schema_model = output_json or output_pydantic
@@ -5874,7 +5984,9 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
         Returns a ``ResponsesAPIResponse`` object.
         """
         import litellm
-        return await self._call_with_retry_async(litellm.aresponses, **params)
+        response = await self._call_with_retry_async(litellm.aresponses, **params)
+        self._track_token_usage(response, self.model)
+        return response
 
     def _extract_from_responses_output(self, response) -> tuple:
         """

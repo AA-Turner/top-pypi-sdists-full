@@ -1,7 +1,7 @@
 # imagecodecs/openjph.pxd
 # distutils: language = c++
 
-# Cython declarations for the `openjph 0.30.1` library.
+# Cython declarations for the `openjph 0.31.0` library.
 # https://github.com/aous72/OpenJPH
 
 from libc.stdint cimport (
@@ -184,22 +184,6 @@ cdef extern from 'openjph/ojph_params.h' nogil:
         ui32 get_recon_width(ui32 comp_num) const
         ui32 get_recon_height(ui32 comp_num) const
 
-    cdef cppclass param_coc:
-        param_coc(param_cod* p) except +
-
-        void set_num_decomposition(ui32 num_decompositions) except +
-        void set_block_dims(ui32 width, ui32 height) except +
-        void set_precinct_size(int num_levels, size* precinct_size) except +
-        void set_reversible(bool reversible) except +
-
-        ui32 get_num_decompositions() const
-        size get_block_dims() const
-        size get_log_block_dims() const
-        bool is_reversible() const
-        size get_precinct_size(ui32 level_num) const
-        size get_log_precinct_size(ui32 level_num) const
-        bool get_block_vertical_causality() const
-
     cdef cppclass param_cod:
         param_cod(param_cod* p) except +
 
@@ -210,7 +194,6 @@ cdef extern from 'openjph/ojph_params.h' nogil:
         void set_color_transform(bool color_transform) except +
         void set_reversible(bool reversible) except +
 
-        param_coc get_coc(ui32 component_idx) const
         ui32 get_num_decompositions() const
         size get_block_dims() const
         size get_log_block_dims() const
@@ -225,11 +208,52 @@ cdef extern from 'openjph/ojph_params.h' nogil:
         bool packets_use_eph() const
         bool get_block_vertical_causality() const
 
+        # COC marker segment interface
+        void set_num_decomposition(
+            ui32 comp_idx,
+            ui32 num_decompositions
+        ) except +
+
+        void set_block_dims(
+            ui32 comp_idx,
+            ui32 width,
+            ui32 height
+        ) except +
+
+        void set_precinct_size(
+            ui32 comp_idx,
+            int num_levels,
+            size* precinct_size
+        ) except +
+
+        void set_reversible(
+            ui32 comp_idx,
+            bool reversible
+        ) except +
+
+        ui32 get_num_decompositions(ui32 comp_idx) const
+        size get_block_dims(ui32 comp_idx) const
+        size get_log_block_dims(ui32 comp_idx) const
+        bool is_reversible(ui32 comp_idx) const
+        size get_precinct_size(ui32 comp_idx, ui32 level_num) const
+        size get_log_precinct_size(ui32 comp_idx, ui32 level_num) const
+        bool get_block_vertical_causality(ui32 comp_idx) const
+
     cdef cppclass param_qcd:
         param_qcd(param_qcd* p) except +
 
+        enum comp_type:
+            OJPH_COMP_Y
+            OJPH_COMP_CB
+            OJPH_COMP_CR
+            OJPH_COMP_UNDEFINED
+
+        comp_type ui8_2_comp_type(ui8 c)
+
         void set_irrev_quant(float delta) except +
+        void set_qfactor(ui8 qfactor) except +
         void set_irrev_quant(ui32 comp_idx, float delta) except +
+        void set_qfactor(ui32 comp_idx, comp_type ctype, ui8 qfactor) except +
 
     cdef cppclass param_nlt:
         enum special_comp_num:

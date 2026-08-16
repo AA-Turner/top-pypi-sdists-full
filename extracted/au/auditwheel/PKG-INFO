@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: auditwheel
-Version: 6.8.0
+Version: 6.8.1
 Summary: Cross-distribution Linux wheels
 Author-email: "Robert T. McGibbon" <rmcgibbo@gmail.com>
 License: MIT
@@ -67,7 +67,7 @@ Requirements
 ------------
 - OS: Linux (for Android wheels, macOS may also be used)
 - Python: 3.10+
-- `patchelf <https://github.com/NixOS/patchelf>`_: 0.14+
+- `patchelf <https://github.com/NixOS/patchelf>`_: 0.14.5+
 
 Only systems that use `ELF
 <https://en.wikipedia.org/wiki/Executable_and_Linkable_Format>`_-based linkage

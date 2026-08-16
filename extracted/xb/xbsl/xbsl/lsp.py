@@ -57,6 +57,7 @@ from xbsl.lsp_nav import (
 )
 from xbsl.rules._syntax import (
     chain_type_at,
+    enclosing_constructor,
     local_var_names,
     local_var_types,
     pair_yaml_names,
@@ -183,6 +184,9 @@ _SORT_REST = "1"
 #: Within the ordinary names, the ones written in the project's own language come first.
 _SORT_OWN_LANGUAGE = "0"
 _SORT_OTHER_LANGUAGE = "1"
+
+#: The name a form module reaches its components by; both spellings, as the parser does.
+COMPONENTS_ROOT = "Компоненты"
 
 _CYRILLIC = re.compile(r"[А-Яа-яЁё]")
 #: `ЯзыкРазработки` of Проект.yaml; the platform standard asks for Russian, so that is the
@@ -627,6 +631,32 @@ def _make_server() -> "LanguageServer":
         ]
         return result or None
 
+    def _own_module_returns(path) -> dict[str, str]:
+        """{method: return type} of the module the file holds - the target of a bare call."""
+        if STATE.lookup is None:
+            return {}
+        module = path.name[: -len(".xbsl")] if path.name.endswith(".xbsl") else path.stem
+        return {
+            m["name"]: (m.get("returns_written") or m["returns"])
+            for m in STATE.lookup.methods_by_module(module)
+            if m.get("returns")
+        }
+
+    def _own_type_properties(path) -> dict[str, str]:
+        """{property: its written type} of the type the module extends.
+
+        In `Товары.Объект.xbsl` a bare `Состав` is a member of `Товары.Объект`, not a variable:
+        the module extends that type, and its data is addressed by name. Without this a loop over
+        a tabular section of one's own object had no element type, and the dot after a bare
+        attribute name answered nothing.
+        """
+        if STATE.lookup is None:
+            return {}
+        stem = path.name[: -len(".xbsl")] if path.name.endswith(".xbsl") else path.stem
+        record = STATE.lookup.struct_by_name(stem)
+        types = (record or {}).get("property_types") or {}
+        return {str(name): str(written) for name, written in types.items() if written}
+
     def _inference_inputs() -> tuple[dict, dict, set]:
         """(stdlib members, return-type catalogue, static roots) for the type inference.
 
@@ -684,27 +714,54 @@ def _make_server() -> "LanguageServer":
         # returns feed the chain-type inference of variables and dotted calls - of the
         # platform and of the project's own modules alike.
         stdlib_members, returns, static_roots = _inference_inputs()
+        # The components of THIS form are a chain root of their own - `Components.Table.Source`
+        # is how a form module reaches its data - and the catalogue shape of a root
+        # ({owner: {member: result type}}) fits them exactly, with the component name as the
+        # member and its declared type as the result. Per file, because the set of components
+        # belongs to the form the file pairs with.
+        components = {
+            c["name"]: c["type"]
+            for c in lookup.components_by_form(path.stem)
+            if c.get("name") and c.get("type")
+        }
+        if components:
+            returns = {**returns, COMPONENTS_ROOT: components}
+            static_roots = static_roots | {COMPONENTS_ROOT}
         try:
             src = engine.load_text(path.name, doc.source)
             in_query = any(a <= offset < b for a, b in query_ranges(src))
             query_tables = query_aliases(src, offset) if in_query else {}
+            # The methods of THIS module: a call with no qualifier is how a module calls its
+            # own code, and it is the most common initializer there is.
+            own_returns = _own_module_returns(path)
+            # The written types of the locals travel along: a generic member names its result by
+            # the owner's type parameter, and only the arguments the code wrote resolve it.
+            var_written: dict[str, str] = {}
+            own_properties = _own_type_properties(path)
             local_vars = local_var_types(
                 src, offset, returns=returns, static_roots=static_roots,
+                own_returns=own_returns, written_out=var_written,
+                own_properties=own_properties,
             )
             query_rows = query_row_columns(src, offset)
             # `ЗапросКБД.Выполнить().` or `Список.НастройкиСервисов.` - the dot continues
             # a chain, the inferred chain type gives the members (the identifier-before-dot
             # path resolves one link only). Not inside Запрос{...}: there a dotted name is
             # a table reference and belongs to the query paths.
+            # `новый Тип(` around the cursor: there the author writes argument NAMES.
+            ctor_type = None if in_query else enclosing_constructor(src, offset)
             expr_type = None
             if not in_query and CHAIN_TAIL_RE.search(prefix):
                 expr_type = chain_type_at(
                     src, offset, var_types=local_vars,
                     returns=returns, static_roots=static_roots,
+                    own_returns=own_returns, var_written=var_written,
                 )
         except Exception:  # noqa: BLE001 - completion must not fail because of parsing
             in_query, query_tables, local_vars, query_rows = False, {}, {}, {}
-            expr_type = None
+            var_written = {}
+            expr_type = ctor_type = None
+        project_language = _project_language(str(STATE.root) if STATE.root else None)
         entries = resolve_completions(
             lookup,
             language_id=language_of(path),
@@ -720,11 +777,12 @@ def _make_server() -> "LanguageServer":
             query_tables=query_tables,
             query_rows=query_rows,
             expr_type=expr_type,
+            ctor_type=ctor_type,
             templates=STATE.templates,
+            project_language=project_language,
         )
         if entries is None:
             return None
-        project_language = _project_language(str(STATE.root) if STATE.root else None)
         items = [
             lsp.CompletionItem(
                 label=e["label"],

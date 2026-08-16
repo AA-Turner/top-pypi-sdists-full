@@ -137,6 +137,9 @@ def zfp_encode(
     if data is out:
         raise ValueError('cannot encode in-place')
 
+    if src.size == 0:
+        raise ValueError('src is empty')
+
     if src.dtype == numpy.int32:
         ztype = zfp_type_int32
     elif src.dtype == numpy.int64:
@@ -240,10 +243,10 @@ def zfp_encode(
             out = _create_output(outtype, dstsize)
 
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
 
         with nogil:
-            stream = stream_open(<void*> &dst[0], dstsize)
+            stream = stream_open(<void*> dst._data, dstsize)
             if stream == NULL:
                 raise ZfpError('stream_open failed')
 
@@ -303,7 +306,7 @@ def zfp_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         zfp_stream* zfp = NULL
         bitstream* stream = NULL
         zfp_field* field = NULL
@@ -319,6 +322,9 @@ def zfp_decode(
 
     if data is out:
         raise ValueError('cannot decode in-place')
+
+    if srcsize == 0:
+        raise ValueError('src is empty')
 
     if dtype is None:
         ztype = zfp_type_none
@@ -389,7 +395,7 @@ def zfp_decode(
         if field == NULL:
             raise ZfpError('zfp_field_alloc failed')
 
-        stream = stream_open(<void*> &src[0], <size_t> srcsize)
+        stream = stream_open(<void*> src._data, <size_t> srcsize)
         if stream == NULL:
             raise ZfpError('stream_open failed')
 

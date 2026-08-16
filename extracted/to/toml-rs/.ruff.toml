@@ -1,6 +1,8 @@
-target-version = "py310"
+target-version = "py311"
 
 line-length = 90
+
+output-prefer-rule-codes = true
 
 include = [
     ".github/actions/build-pgo-wheel/pgo.py",
@@ -18,7 +20,6 @@ include = [
 force-wrap-aliases = true
 combine-as-imports = true
 no-lines-before = ["local-folder"]
-extra-standard-library = ["tomllib"]
 
 [lint]
 preview = true
@@ -32,6 +33,7 @@ ignore = [
     "S311",    # Force `random` -> `secrets`
     "ANN401",  # Check `typing.Any`
     "SIM105",  # Force `try-except-pass` -> `contextlib.suppress`
+    "RUF105",  # Force `noqa: ...` -> `ruff: ignore[...]`
     #######
     "PLR6201", # Checks for membership tests on list and tuple literals.
     "PTH207",  # Force `glob` -> `Path.glob` or `Path.rglob`

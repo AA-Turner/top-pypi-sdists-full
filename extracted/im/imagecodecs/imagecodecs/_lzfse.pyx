@@ -79,7 +79,7 @@ def lzfse_encode(
     cdef:
         const uint8_t[::1] src = _readable_input(data)
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         size_t dst_size
 
@@ -99,13 +99,13 @@ def lzfse_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     with nogil:
         dst_size = lzfse_encode_buffer(
-            <uint8_t*> &dst[0],
+            <uint8_t*> dst._data,
             <size_t> dstsize,
-            <const uint8_t*> &src[0],
+            <const uint8_t*> src._data,
             <size_t> srcsize,
             NULL
         )
@@ -126,7 +126,7 @@ def lzfse_decode(
     cdef:
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         size_t dst_size
 
@@ -140,23 +140,23 @@ def lzfse_decode(
 
     if out is None:
         if dstsize < 0:
-            dstsize = _lzfse_decoded_size(<char*> &src[0], srcsize)
+            dstsize = _lzfse_decoded_size(<char*> src._data, srcsize)
             if dstsize < 0 or dstsize > INT32_MAX:
                 # arbitrary 2 GB limit
                 raise LzfseError(f'_lzfse_decoded_size {dstsize} out of bound')
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     if dstsize == 0 or srcsize == 12:
         return _return_output(out, dstsize, 0, outgiven)
 
     with nogil:
         dst_size = lzfse_decode_buffer(
-            <uint8_t*> &dst[0],
+            <uint8_t*> dst._data,
             <size_t> dstsize,
-            <const uint8_t*> &src[0],
+            <const uint8_t*> src._data,
             <size_t> srcsize,
             NULL
         )

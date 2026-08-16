@@ -29,6 +29,7 @@ ever grows a term it did not measure, it belongs in the deleted module.
 from __future__ import annotations
 
 from typing import Any, Dict, NamedTuple, Optional, Tuple
+from .hostfacts import cuda_ready
 
 
 #: One entry child's measured HOST high-water, keyed by (family, weight lane).
@@ -114,7 +115,7 @@ class DevicePeakKey(NamedTuple):
     card: str
     sm: str
     #: The SAME digest the cell key's toolchain axis uses
-    #: (``cell_key.toolchain_axis_digest``), so a banked row and the cell it
+    #: (``tcg.identity.toolchain_axis_digest``), so a banked row and the cell it
     #: was measured for agree about what "this toolchain" means.
     toolchain: str
     gen_worker: str
@@ -215,7 +216,7 @@ def adopt_watermark(device: Optional[int] = None) -> Tuple[int, int]:
     """``(allocated_now, peak_so_far)`` on this device, or ``(0, 0)``.
 
     The pair an adopt brackets itself with, and the instrument behind the
-    ``cell_adopt_budget`` row — the only answer anyone has to "where does a
+    ``compiled_graph_adopt_budget`` row — the only answer anyone has to "where does a
     loaded cell's device memory go". ``max_memory_allocated`` is
     process-monotone, so the caller takes ``peak_after - allocated_before``
     and never resets the counter, which other readers on this process share.
@@ -223,7 +224,7 @@ def adopt_watermark(device: Optional[int] = None) -> Tuple[int, int]:
     try:
         import torch
 
-        if not torch.cuda.is_available():
+        if not cuda_ready():
             return 0, 0
         dev = torch.cuda.current_device() if device is None else int(device)
         return (int(torch.cuda.memory_allocated(dev)),

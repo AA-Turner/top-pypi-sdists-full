@@ -177,15 +177,16 @@ class CheckAction(Action):
     new: Check | None = None
     table_ref: str | None = None
     check_ref: str | None = None
-    check_id: int | None = None
     # System checks are created by the server when a table is configured. They can
     # only be modified, never created or destroyed, so they take a different apply
-    # path. check_id cannot stand in for this flag: it is None at plan time for a
-    # table that is configured during the same apply.
+    # path. Ids cannot stand in for this flag: they are unresolvable at plan time
+    # for a table that is configured during the same apply, which is the case that
+    # matters. Every check-scoped action carries it so both the dependency graph
+    # and the executor can tell the two variants of one ref apart.
     is_system_check: bool = False
 
     def __str__(self) -> str:
-        return f"{self.verb} {self.check_ref or self.check_id} on {self.table_ref}"
+        return f"{self.verb} {self.check_ref} on {self.table_ref}"
 
     def diff(self, format: str = "yaml") -> str | None:
         if self.prev == self.new:
@@ -225,12 +226,10 @@ class LabelAction(Action):
     new: List[str] | None = None
     table_ref: str | None = None
     check_ref: str | None = None
-    check_id: int | None = None
+    is_system_check: bool = False
 
     def __str__(self) -> str:
-        return (
-            f"{self.verb} labels on {self.check_ref or self.check_id or self.table_ref}"
-        )
+        return f"{self.verb} labels on {self.check_ref or self.table_ref}"
 
 
 @dataclass
@@ -239,7 +238,9 @@ class NotificationChannelAction(Action):
     new: List[str] | None = None
     table_ref: str | None = None
     check_ref: str | None = None
-    check_id: int | None = None
+    is_system_check: bool = False
 
     def __str__(self) -> str:
-        return f"{self.verb} notification channels on {self.check_ref or self.check_id or self.table_ref}"
+        return (
+            f"{self.verb} notification channels on {self.check_ref or self.table_ref}"
+        )

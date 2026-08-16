@@ -44,6 +44,12 @@ from ._lazy_display import _get_console, _get_live, _get_display_functions
 
 # Lazy-loaded modules (populated on first use, protected by _lazy_import_lock)
 _lazy_import_lock = threading.Lock()
+
+# Serializes the check-and-enable of the mutually-exclusive process-global
+# output modes (editor/trace/status) so concurrently-constructed Agents cannot
+# both observe "no mode enabled" and clobber each other's callbacks. First
+# mode wins.
+_output_mode_lock = threading.Lock()
 _llm_module = None
 _hooks_module = None
 _stream_emitter_class = None
@@ -926,42 +932,75 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
             editor_output = False
             tool_output_limit = DEFAULT_TOOL_OUTPUT_LIMIT
         
-        # Enable editor output mode if configured (beginner-friendly, takes priority)
-        # Shows: Step 1: 📄 Creating file: path → ✓ Done
-        if editor_output:
+        # Output modes (editor/trace/status) register callbacks on the same
+        # process-wide, event-type-keyed registry in main.py, so they are
+        # mutually exclusive at the process level. If a *different* mode is
+        # already active (e.g. a prior Agent enabled it), we must not clobber
+        # its callbacks — that would silently route this agent's events through
+        # the other mode's sink (wrong formatting/redaction). First mode wins.
+        def _any_output_mode_enabled():
             try:
-                from ..output.editor import enable_editor_output, is_editor_output_enabled
-                if not is_editor_output_enabled():
-                    enable_editor_output(use_color=True)
+                from ..output.editor import is_editor_output_enabled
+                if is_editor_output_enabled():
+                    return True
             except ImportError:
-                pass  # Editor module not available
-        # Enable trace output mode if configured
-        # This provides timestamped inline status with duration
-        elif status_trace:
+                pass
             try:
-                from ..output.trace import enable_trace_output, is_trace_output_enabled
-                if not is_trace_output_enabled():
-                    enable_trace_output(use_color=True, show_timestamps=True)
+                from ..output.trace import is_trace_output_enabled
+                if is_trace_output_enabled():
+                    return True
             except ImportError:
-                pass  # Trace module not available
-        # Enable status output mode if configured (simple progress, no timestamps)
-        # This registers callbacks to capture tool calls and final output
-        elif actions_trace:
+                pass
             try:
-                from ..output.status import enable_status_output, is_status_output_enabled
-                if not is_status_output_enabled():
-                    output_format = "jsonl" if json_output else "text"
-                    # simple_output=True means status preset (no timestamps)
-                    # metrics=True means debug preset (show token/cost info)
-                    enable_status_output(
-                        redact=True,
-                        use_color=True,
-                        format=output_format,
-                        show_timestamps=not simple_output,
-                        show_metrics=metrics
-                    )
+                from ..output.status import is_status_output_enabled
+                if is_status_output_enabled():
+                    return True
             except ImportError:
-                pass  # Status module not available
+                pass
+            return False
+
+        # The check-and-enable below must be atomic across threads: two Agents
+        # constructed concurrently could otherwise both see "no mode enabled"
+        # and clobber each other's callbacks. Only take the lock when a mode is
+        # actually requested (the common silent path stays lock-free).
+        if editor_output or status_trace or actions_trace:
+            with _output_mode_lock:
+                # Enable editor output mode if configured (beginner-friendly, takes priority)
+                # Shows: Step 1: 📄 Creating file: path → ✓ Done
+                if editor_output:
+                    try:
+                        from ..output.editor import enable_editor_output, is_editor_output_enabled
+                        if not is_editor_output_enabled() and not _any_output_mode_enabled():
+                            enable_editor_output(use_color=True)
+                    except ImportError:
+                        pass  # Editor module not available
+                # Enable trace output mode if configured
+                # This provides timestamped inline status with duration
+                elif status_trace:
+                    try:
+                        from ..output.trace import enable_trace_output, is_trace_output_enabled
+                        if not is_trace_output_enabled() and not _any_output_mode_enabled():
+                            enable_trace_output(use_color=True, show_timestamps=True)
+                    except ImportError:
+                        pass  # Trace module not available
+                # Enable status output mode if configured (simple progress, no timestamps)
+                # This registers callbacks to capture tool calls and final output
+                elif actions_trace:
+                    try:
+                        from ..output.status import enable_status_output, is_status_output_enabled
+                        if not is_status_output_enabled() and not _any_output_mode_enabled():
+                            output_format = "jsonl" if json_output else "text"
+                            # simple_output=True means status preset (no timestamps)
+                            # metrics=True means debug preset (show token/cost info)
+                            enable_status_output(
+                                redact=True,
+                                use_color=True,
+                                format=output_format,
+                                show_timestamps=not simple_output,
+                                show_metrics=metrics
+                            )
+                    except ImportError:
+                        pass  # Status module not available
         
         # ─────────────────────────────────────────────────────────────────────
         # Resolve EXECUTION param - FAST PATH for common cases
@@ -1151,6 +1190,26 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                 default=None,
             )
         
+        # Persist the resolved memory config so clone_for_channel() can forward
+        # (and isolate) it per channel. Without this, clones would receive no
+        # memory config at all (getattr returned None).
+        #
+        # A live Memory/db() backend passed by the user is NOT reconstructable
+        # configuration - it is a single shared store. If we persisted it here,
+        # _isolated_memory_for_clone() would forward the same object by reference
+        # to every per-channel clone, leaking one user's memory into another.
+        # Leave _memory_config unset for live backends so the clone falls back to
+        # _memory_instance and rebuilds an isolated backend.
+        _is_live_backend = (
+            _memory_config is not None
+            and not isinstance(_memory_config, MemoryConfig)
+            and (
+                (hasattr(_memory_config, 'search') and hasattr(_memory_config, 'add'))
+                or hasattr(_memory_config, 'database_url')
+            )
+        )
+        self._memory_config = None if _is_live_backend else _memory_config
+
         # Extract values from resolved memory config
         if _memory_config is not None:
             if hasattr(_memory_config, 'database_url'):
@@ -1354,6 +1413,13 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                         'rerank': _knowledge_config.rerank,
                         'rerank_model': _knowledge_config.rerank_model,
                     }
+                # Forward embedder settings so they reach Knowledge (mem0).
+                # embedder is a provider shorthand (e.g. "gemini"); embedder_config
+                # is the full mem0 embedder dict. Only override when explicitly set.
+                if _knowledge_config.embedder and _knowledge_config.embedder != "openai":
+                    retrieval_config.setdefault('embedder_provider', _knowledge_config.embedder)
+                if _knowledge_config.embedder_config:
+                    retrieval_config.setdefault('embedder_config', _knowledge_config.embedder_config)
                 knowledge = _knowledge_config.sources if _knowledge_config.sources else None
             elif isinstance(_knowledge_config, list):
                 knowledge = _knowledge_config
@@ -1431,6 +1497,22 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         # ─────────────────────────────────────────────────────────────────────
         # Resolve GUARDRAILS param - FAST PATH
         # ─────────────────────────────────────────────────────────────────────
+        # Fail loud instead of silently ignoring policy-string guardrails. The
+        # documented `guardrails=["policy:strict", ...]` shorthand has no
+        # enforcement path wired up, so accepting it silently would run with zero
+        # enforcement — a "safe by default" violation. Checked before resolution
+        # so the clear message wins over the generic resolver's error. Direct
+        # users to the working `Agent(policy=PolicyEngine(...))` param.
+        if isinstance(guardrails, (list, tuple)):
+            from ..config.parse_utils import is_policy_string
+            _policy_strs = [g for g in guardrails if isinstance(g, str) and is_policy_string(g)]
+            if _policy_strs:
+                raise ValueError(
+                    f"Policy-string guardrails {_policy_strs} are not enforced. "
+                    "Use Agent(policy=PolicyEngine(...)) for tool policy enforcement, "
+                    "or pass a validator via guardrails=... / GuardrailConfig(validator=...)."
+                )
+
         # Fast path: None/False -> no guardrails (skip resolve() call)
         if guardrails is None or guardrails is False:
             _guardrails_config = None
@@ -1448,6 +1530,18 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                 config_class=GuardrailConfig,
             )
         
+        # Same fail-loud guard for GuardrailConfig.policy/.policies passed
+        # directly — those fields are never consumed downstream, so silently
+        # accepting them would also run with zero enforcement.
+        if isinstance(_guardrails_config, GuardrailConfig) and (
+            _guardrails_config.policy is not None or _guardrails_config.policies
+        ):
+            raise ValueError(
+                "GuardrailConfig.policy/.policies are not enforced. "
+                "Use Agent(policy=PolicyEngine(...)) for tool policy enforcement, "
+                "or pass a validator via GuardrailConfig(validator=...)."
+            )
+
         if _guardrails_config is not None:
             if callable(_guardrails_config) and not isinstance(_guardrails_config, type):
                 # Callable validator function
@@ -1672,6 +1766,20 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         self.base_url = base_url
         self.api_key = api_key
 
+        # Resolve Agent(retry=...) into LLM init kwargs so the custom-LLM path
+        # (any "provider/model", dict, or base_url config) honours it, instead of
+        # falling back to LLM's hardcoded max_retries=3. self._retry_config is
+        # normalized later (after these branches), so derive the values here from
+        # the raw `retry` argument to forward them into _llm_init_params.
+        _retry_init_params = {}
+        if isinstance(retry, RetryBackoffConfig):
+            _retry_init_params = {'max_retries': retry.max_retries}
+        elif isinstance(retry, dict):
+            _rc = RetryBackoffConfig(**retry)
+            _retry_init_params = {'max_retries': _rc.max_retries}
+        elif retry is False:
+            _retry_init_params = {'max_retries': 0}
+
         # Panel (multi-model) descriptor: "panel:<name>" or {"provider": "panel"}.
         # Resolved lazily into a PanelLLM; composes with the normal tool loop.
         # Detected inline (no heavy import) to keep Agent() construction lazy.
@@ -1713,6 +1821,8 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                     llm_config['auth'] = auth
                 llm_config['metrics'] = metrics
                 llm_config['max_iter'] = max_iter
+                if _retry_init_params and 'max_retries' not in llm_config:
+                    llm_config.update(_retry_init_params)
                 self._llm_init_params = llm_config
                 self.llm = llm.get('model', Agent._get_default_model())
             else:
@@ -1728,6 +1838,7 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                     'web_fetch': web_fetch,
                     'prompt_caching': prompt_caching,
                     'claude_memory': claude_memory,
+                    **_retry_init_params,
                 }
                 self.llm = model_name
             self._using_custom_llm = True
@@ -1740,6 +1851,8 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                 llm_config['auth'] = auth
             llm_config['metrics'] = metrics
             llm_config['max_iter'] = max_iter
+            if _retry_init_params and 'max_retries' not in llm_config:
+                llm_config.update(_retry_init_params)
             self._llm_init_params = llm_config
             self._using_custom_llm = True
             self.llm = llm_config.get('model', Agent._get_default_model())
@@ -1756,6 +1869,8 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
             llm_params['prompt_caching'] = prompt_caching
             llm_params['claude_memory'] = claude_memory
             llm_params['max_iter'] = max_iter
+            if _retry_init_params:
+                llm_params.update(_retry_init_params)
             self._llm_init_params = llm_params
             self._using_custom_llm = True
             self.llm = llm
@@ -1908,6 +2023,15 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
 Your Role: {self.role}\n
 Your Goal: {self.goal}
         """
+
+        # Per-invocation system-prompt append (never persisted). Sourced from the
+        # PRAISONAI_APPEND_SYSTEM_PROMPT env var so every construction path (CLI
+        # code/chat/run, YAML, Python) picks it up without a new constructor
+        # param. Appended at the END of the stable prompt to preserve the
+        # prompt-cache prefix (#2993). No-op when unset/empty.
+        _append_system_prompt = os.environ.get("PRAISONAI_APPEND_SYSTEM_PROMPT")
+        if _append_system_prompt and _append_system_prompt.strip():
+            self.system_prompt = f"{self.system_prompt}\n{_append_system_prompt.strip()}"
 
         # Lazy generate unique ID when needed
         self._agent_id = None
@@ -2323,6 +2447,40 @@ Your Goal: {self.goal}
         # Sandbox configuration - initialize SandboxMixin
         super().__init__(sandbox=sandbox)
 
+        # NOTE: `sandbox=` deliberately does NOT add code-execution tools.
+        #
+        # An earlier version auto-attached execute_python_code /
+        # execute_shell_command here. That was reverted: `sandbox=` is a
+        # RESTRICTION, and it must never grant a capability the caller did not
+        # ask for. Concretely, the injection
+        #   - escalated privilege: Agent(approval="read_only") exposes no tools,
+        #     but Agent(approval="read_only", sandbox=True) exposed two ungated
+        #     arbitrary-code-execution tools, since the injected names are not in
+        #     the approval registry's dangerous-tool presets; and
+        #   - advertised them to the model as "safely in sandbox" while the
+        #     default subprocess backend enforces none of its own SecurityPolicy
+        #     (network reachable despite allow_network=False; ~/.ssh readable
+        #     despite blocked_paths; `import subprocess` works despite
+        #     blocked_imports).
+        #
+        # `sandbox=` still configures isolation for the explicit, user-invoked
+        # agent.execute_code() / run_shell_command() APIs, which is what it has
+        # always meant. Giving the model a sandboxed execution tool should be an
+        # explicit act by the caller, the way MCP() is.
+
+        # A managed backend takes over the whole turn before any local execution,
+        # so a sandbox set alongside it silently does nothing. Say so.
+        if self.sandbox_config is not None and getattr(self, "backend", None) is not None:
+            import warnings
+
+            warnings.warn(
+                "Agent(sandbox=..., backend=...): the managed backend handles the "
+                "entire turn, so the sandbox= setting is ignored. Configure "
+                "isolation on the backend instead (e.g. LocalAgent(compute='docker')).",
+                FutureWarning,
+                stacklevel=2,
+            )
+
     @staticmethod
     def _resolve_tool_config(tool_config):
         """Resolve tool_config parameter with backward compatibility."""
@@ -2339,10 +2497,11 @@ Your Goal: {self.goal}
     def __deepcopy__(self, memo: dict) -> "Agent":
         """Custom deepcopy that creates fresh threading primitives.
 
-        threading.RLock (self.__cache_lock) and threading.Lock (self._cost_lock)
-        cannot be deep-copied on CPython < 3.13.  This hook deep-copies every
-        other attribute normally and replaces the locks with new instances so
-        that copy.deepcopy(agent) works in any Python version.
+        threading primitives cannot be deep-copied on all supported Python
+        versions, while copying an asyncio.Lock can preserve its locked/waiter
+        state. This hook replaces the Agent-owned locks directly, while
+        lock-bearing state wrappers provide their own deepcopy hooks, so the
+        clone receives independent state and fresh locks.
         """
         import copy
         cls = self.__class__
@@ -2353,9 +2512,52 @@ Your Goal: {self.goal}
                 object.__setattr__(result, k, threading.RLock())
             elif k == "_cost_lock":
                 object.__setattr__(result, k, threading.Lock())
+            elif k == "_approvals_lock":
+                object.__setattr__(result, k, asyncio.Lock())
             else:
                 object.__setattr__(result, k, copy.deepcopy(v, memo))
         return result
+
+    def _isolated_memory_for_clone(self):
+        """Resolve a memory backend for a channel clone without sharing one store.
+
+        MemoryConfig/db()/dict configs are re-resolved into a fresh backend per
+        Agent, so they are safe to forward as-is. A live Memory/FileMemory
+        instance, however, is stored by reference on ``_memory_instance``;
+        forwarding it would make every per-channel/per-user clone read and write
+        the same long-term store (leaking one user's history into another). Try
+        to re-instantiate a fresh backend from the instance's own config; if that
+        isn't possible, fall back to sharing (with a warning) so cloning never
+        hard-fails.
+        """
+        mem_cfg = getattr(self, '_memory_config', None)
+        # A stored MemoryConfig/db()/dict config is re-resolved per Agent - safe.
+        if mem_cfg is not None:
+            return mem_cfg
+
+        # No config object: the user passed a live memory backend instance, which
+        # was stored directly on _memory_instance. Rebuild a fresh, isolated one.
+        mem_inst = getattr(self, '_memory_instance', None)
+        if mem_inst is None:
+            return None
+        try:
+            import copy
+            return copy.deepcopy(mem_inst)
+        except Exception:
+            pass
+        # deepcopy failed (e.g. thread-locals/connections). Re-instantiate the same
+        # backend type from its stored config so each clone gets its own store.
+        try:
+            cfg = getattr(mem_inst, 'cfg', None)
+            if cfg is not None:
+                return type(mem_inst)(cfg)
+        except Exception:
+            pass
+        logging.warning(
+            "clone_for_channel: could not isolate the live memory backend; clones "
+            "will share it. Pass memory via MemoryConfig/db() for per-channel isolation."
+        )
+        return mem_inst
 
     def clone_for_channel(self) -> "Agent":
         """Return a fully independent copy of this agent for a gateway channel.
@@ -2387,15 +2589,24 @@ Your Goal: {self.goal}
             'api_key': getattr(self, 'api_key', None),
             'auth': getattr(self, 'auth', None),
             
-            # Shallow copy tools to avoid deepcopy issues with nested objects
-            'tools': list(self.tools) if self.tools else None,
+            # Shallow copy tools to avoid deepcopy issues with nested objects.
+            # Drop framework-generated sandbox tools: they close over the source
+            # agent, so the constructor must regenerate clone-bound replacements
+            # (see the sandbox wiring below). User tools with colliding names
+            # lack the tag and are preserved.
+            'tools': (
+                [t for t in self.tools if not getattr(t, "_praison_sandbox_tool", False)]
+                if self.tools else None
+            ),
             
             # Skip handoffs entirely - they shouldn't be shared across channels
             # and can contain nested Agent instances that cause RLock issues
             'handoffs': None,
             
             # Feature configurations - check for actual stored config objects
-            'memory': getattr(self, '_memory_config', None),
+            # Isolate a live Memory/FileMemory backend so per-channel clones
+            # don't share one store (would leak one user's history into another).
+            'memory': self._isolated_memory_for_clone(),
             'knowledge': getattr(self, '_knowledge_config', None), 
             'planning': getattr(self, '_planning_config', None),
             'reflection': getattr(self, '_reflection_config', None),
@@ -2437,7 +2648,10 @@ Your Goal: {self.goal}
             'interrupt_controller': None,  # Let new instance create its own
             
             # Sandbox config
-            'sandbox': getattr(self, '_sandbox_config', None),
+            # SandboxMixin stores this as `sandbox_config`; reading the
+            # underscore name (never assigned) made every clone silently drop
+            # its sandbox and run unisolated.
+            'sandbox': getattr(self, 'sandbox_config', None),
         }
         
         # Handle deprecated parameters for backward compatibility
@@ -2465,10 +2679,10 @@ Your Goal: {self.goal}
                     )
                     # For basic compatibility, include in clone_kwargs if not already set
                     if old_attr == 'allow_code_execution' and clone_kwargs['execution'] is None:
-                        from ..config.execution import ExecutionConfig
+                        from ..config.feature_configs import ExecutionConfig
                         clone_kwargs['execution'] = ExecutionConfig(code_execution=value)
                     elif old_attr == 'auto_save' and clone_kwargs['memory'] is None:
-                        from ..config.memory import MemoryConfig  
+                        from ..config.feature_configs import MemoryConfig
                         clone_kwargs['memory'] = MemoryConfig(auto_save=value)
         
         # Create new Agent instance
@@ -5623,6 +5837,15 @@ Answer:"""
                 except Exception:
                     pass
             self._guardrail_fn = LLMGuardrail(description=self.guardrail, llm=llm)
+            # A string guardrail is an output-quality validator. Although the
+            # resulting LLMGuardrail also exposes ``validate_input`` (via
+            # GuardrailProtocol), it must NOT be invoked as an input gate here:
+            # doing so would fire an extra, synchronous LLM call on every
+            # chat()/achat() (a hot-path regression, and blocking on the async
+            # event loop). Mark it so input validation skips it. Explicit
+            # GuardrailChain/GuardrailProtocol objects (passed as callables)
+            # remain the only deliberate input surface.
+            self._guardrail_fn._praison_output_only = True
         else:
             raise ValueError("Agent guardrail must be either a callable or a string description")
 
@@ -5674,7 +5897,7 @@ Answer:"""
             
             # Convert the result to a GuardrailResult
             return GuardrailResult.from_tuple(result)
-            
+
         except Exception as e:
             logging.error(f"Agent {self.name}: Error in guardrail validation: {e}")
             # On error, return failure
@@ -5683,6 +5906,33 @@ Answer:"""
                 result=None,
                 error=f"Agent guardrail validation error: {str(e)}"
             )
+
+    def _validate_input_with_guardrail(self, prompt):
+        """Validate the incoming prompt with the guardrail's input surface.
+
+        Only runs when the configured guardrail exposes a ``validate_input``
+        method (e.g. a ``GuardrailChain`` or an object implementing
+        ``GuardrailProtocol``). Plain callable guardrails and string (output-
+        quality) guardrails have no deliberate input surface and are skipped,
+        so behaviour is unchanged for them.
+
+        Returns (success, result, error). Fails closed on error.
+        """
+        fn = getattr(self, "_guardrail_fn", None)
+        if fn is None or not hasattr(fn, "validate_input"):
+            return True, prompt, None
+        # String guardrails are output-only validators; do not run them as an
+        # input gate (would add a synchronous LLM call to every chat/achat).
+        if getattr(fn, "_praison_output_only", False):
+            return True, prompt, None
+        try:
+            is_valid, result = fn.validate_input(prompt, agent_name=self.name)
+            if is_valid:
+                return True, (result if isinstance(result, str) else prompt), None
+            return False, None, (result if isinstance(result, str) else "Input blocked by guardrail")
+        except Exception as e:
+            logging.error(f"Agent {self.name}: Error in input guardrail validation: {e}")
+            return False, None, f"Input guardrail validation error: {str(e)}"
 
     def _validate_with_guardrail(self, response_text):
         """Validate response with guardrail. Returns (success, result, error)."""

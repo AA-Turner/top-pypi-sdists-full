@@ -242,22 +242,22 @@ cdef _delta(
 
     if out is None:
         if dstsize < 0:
-            dstsize = src.nbytes
+            dstsize = src.shape[0]
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
-    srcsize = src.nbytes
+    dstsize = dst.shape[0]
+    srcsize = src.shape[0]
     srcstride = 1
     dststride = 1
     itemsize = 1
 
     with nogil:
         ret = imcd_delta(
-            <void*> &src[0],
+            <void*> src._data,
             srcsize,
             srcstride,
-            <void*> &dst[0],
+            <void*> dst._data,
             dstsize,
             dststride,
             itemsize,
@@ -372,22 +372,22 @@ cdef _xor(
 
     if out is None:
         if dstsize < 0:
-            dstsize = src.nbytes
+            dstsize = src.shape[0]
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
-    srcsize = src.nbytes
+    dstsize = dst.shape[0]
+    srcsize = src.shape[0]
     srcstride = 1
     dststride = 1
     itemsize = 1
 
     with nogil:
         ret = imcd_xor(
-            <void*> &src[0],
+            <void*> src._data,
             srcsize,
             srcstride,
-            <void*> &dst[0],
+            <void*> dst._data,
             dstsize,
             dststride,
             itemsize,
@@ -705,14 +705,14 @@ def bitorder_encode(
     if data is out:
         # in-place
         src = _inplace_input(data)
-        srcsize = src.nbytes
+        srcsize = src.shape[0]
         with nogil:
             ret = imcd_bitorder(
-                <uint8_t*> &src[0],
+                <uint8_t*> src._data,
                 srcsize,
                 1,
                 1,
-                <uint8_t*> &src[0],
+                <uint8_t*> src._data,
                 srcsize,
                 1
             )
@@ -721,22 +721,22 @@ def bitorder_encode(
         return data
 
     src = _readable_input(data)
-    srcsize = src.nbytes
+    srcsize = src.shape[0]
     out, dstsize, outgiven, outtype = _parse_output(out)
     if out is None:
         if dstsize < 0:
             dstsize = srcsize
         out = _create_output(outtype, dstsize)
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     with nogil:
         ret = imcd_bitorder(
-            <uint8_t*> &src[0],
+            <uint8_t*> src._data,
             srcsize,
             1,
             1,
-            <uint8_t*> &dst[0],
+            <uint8_t*> dst._data,
             dstsize,
             1
         )
@@ -816,12 +816,12 @@ def packbits_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out  # must be contiguous bytes
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     if isarray and data.ndim > 1:
         srciter = numpy.PyArray_IterAllButAxis(data, &axis_)
         srcsize = data.shape[axis_] * data.itemsize
-        dstptr = &dst[0]
+        dstptr = <const uint8_t*> dst._data
         with nogil:
             while numpy.PyArray_ITER_NOTDONE(srciter):
                 srcptr = <uint8_t*> numpy.PyArray_ITER_DATA(srciter)
@@ -839,21 +839,21 @@ def packbits_encode(
                     break
                 numpy.PyArray_ITER_NEXT(srciter)
         if ret >= 0:
-            ret = dstptr - &dst[0]
+            ret = dstptr - <const uint8_t*> dst._data
     else:
         src = _readable_input(data)
-        srcsize = src.nbytes
+        srcsize = src.shape[0]
         with nogil:
             ret = imcd_packbits_encode(
-                &src[0],
+                <const uint8_t*> src._data,
                 srcsize,
-                <uint8_t*> &dst[0],
+                <uint8_t*> dst._data,
                 dstsize
             )
     if ret < 0:
         raise PackbitsError('imcd_packbits_encode', ret)
 
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
     del dst
     return _return_output(out, dstsize, ret, outgiven)
 
@@ -868,7 +868,7 @@ def packbits_decode(
     cdef:
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         ssize_t ret = 0
 
@@ -880,19 +880,21 @@ def packbits_decode(
     if out is None:
         if dstsize < 0:
             with nogil:
-                dstsize = imcd_packbits_decode_size(&src[0], srcsize)
+                dstsize = imcd_packbits_decode_size(
+                    <const uint8_t*> src._data, srcsize
+                )
             if dstsize < 0:
                 raise PackbitsError('imcd_packbits_decode_size', dstsize)
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     with nogil:
         ret = imcd_packbits_decode(
-            &src[0],
+            <const uint8_t*> src._data,
             srcsize,
-            <uint8_t*> &dst[0],
+            <uint8_t*> dst._data,
             dstsize,
             1
         )
@@ -922,15 +924,15 @@ def dicomrle_check(const uint8_t[::1] data, /):
         ssize_t segment
         dicomrle_header header
 
-    if data.nbytes < 64:
+    if data.shape[0] < 64:
         return False
-    memcpy(<void*> &header, <const void*> &data[0], 64)
+    memcpy(<void*> &header, <const void*> data._data, 64)
     if header.segments == 0 or header.segments > 15 or header.offset[0] != 64:
         return False
-    for segment in range(header.segments):
+    for segment in range(<ssize_t> header.segments):
         if (
             header.offset[segment] == 0
-            or header.offset[segment] >= data.nbytes
+            or <ssize_t> header.offset[segment] >= data.shape[0]
         ):
             return False
     return True
@@ -957,7 +959,7 @@ def dicomrle_decode(
     cdef:
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t itemsize, dstsize, decoded_size, size, ret, segment, offset
         bint byteswap = 0
         dicomrle_header header
@@ -968,7 +970,7 @@ def dicomrle_decode(
     if srcsize < 64:
         raise ValueError(f'invalid DICOM RLE size {srcsize} < 64')
 
-    memcpy(<void*> &header, <const void*> &src[0], 64)
+    memcpy(<void*> &header, <const void*> src._data, 64)
     if header.segments == 0 or header.segments > 15 or header.offset[0] != 64:
         raise ValueError(f'invalid DICOM RLE {header.segments=}')
 
@@ -984,8 +986,8 @@ def dicomrle_decode(
             with nogil:
                 dstsize = 0
                 segment = 0
-                while segment < header.segments:
-                    if header.segments == segment + 1:
+                while segment < <ssize_t> header.segments:
+                    if <ssize_t> header.segments == segment + 1:
                         size = srcsize - <ssize_t> header.offset[segment]
                     else:
                         size = (
@@ -1005,14 +1007,14 @@ def dicomrle_decode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     with nogil:
         decoded_size = 0
         offset = 0
         segment = 0
-        while segment < header.segments:
-            if header.segments == segment + 1:
+        while segment < <ssize_t> header.segments:
+            if <ssize_t> header.segments == segment + 1:
                 size = srcsize - <ssize_t> header.offset[segment]
             else:
                 size = (
@@ -1037,7 +1039,9 @@ def dicomrle_decode(
                 offset = decoded_size
 
         if byteswap:
-            imcd_swapbytes(<void*> &dst[0], decoded_size // itemsize, itemsize)
+            imcd_swapbytes(
+                <void*> dst._data, decoded_size // itemsize, itemsize
+            )
 
     del dst
     return _return_output(out, dstsize, decoded_size, outgiven)
@@ -1091,7 +1095,7 @@ def packints_encode(
             raise ValueError('runlen is not supported with bitorder')
 
         src = _readable_input(data)
-        srcsize = src.nbytes
+        srcsize = src.shape[0]
         items = srcsize // 2  # input is uint16 LE pairs
 
         if bitorder == '<':
@@ -1119,7 +1123,7 @@ def packints_encode(
                 dstsize = packed_size
             out = _create_output(outtype, dstsize)
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
 
         if packed_size == 0:
             del dst
@@ -1130,14 +1134,22 @@ def packints_encode(
         if bitorder == '<':
             with nogil:
                 ret = imcd_packints_encode_lsb(
-                    &src[0], srcsize, <uint8_t*> &dst[0], items, bitspersample
+                    <const uint8_t*> src._data,
+                    srcsize,
+                    <uint8_t*> dst._data,
+                    items,
+                    bitspersample
                 )
             if ret < 0:
                 raise PackintsError('imcd_packints_encode_lsb', ret)
         else:
             with nogil:
                 ret = imcd_packints_encode_msb(
-                    &src[0], srcsize, <uint8_t*> &dst[0], items, bitspersample
+                    <const uint8_t*> src._data,
+                    srcsize,
+                    <uint8_t*> dst._data,
+                    items,
+                    bitspersample
                 )
             if ret < 0:
                 raise PackintsError('imcd_packints_encode_msb', ret)
@@ -1176,7 +1188,7 @@ def packints_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     if packed_size == 0:
         del dst
@@ -1186,7 +1198,7 @@ def packints_encode(
         raise ValueError('output buffer too small')
 
     srcptr = <uint8_t*> numpy.PyArray_DATA(data)
-    dstptr = <uint8_t*> &dst[0]
+    dstptr = <uint8_t*> dst._data
     srcsize = runlen * itemsize
 
     with nogil:
@@ -1232,9 +1244,9 @@ def packints_decode(
     """
     cdef:
         const uint8_t[::1] src = data
-        uint8_t* srcptr = <uint8_t*> &src[0]
+        uint8_t* srcptr = <uint8_t*> src._data
         uint8_t* dstptr = NULL
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize = 0
         ssize_t items
         ssize_t rowsize, bytesize, itemsize, i
@@ -1442,18 +1454,18 @@ def float24_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
-    if dst.nbytes < srcsize * 3:
+    if dstsize < srcsize * 3:
         raise ValueError('output buffer too short')
 
     src = _readable_input(data)  # TODO: use numpy iterator?
 
     with nogil:
         ret = imcd_float24_encode(
-            &src[0],
+            <const uint8_t*> src._data,
             srcsize * 4,
-            <uint8_t*> &dst[0],
+            <uint8_t*> dst._data,
             boc == b'<',
             feround
         )
@@ -1475,9 +1487,9 @@ def float24_decode(
     """Return decoded FLOAT24 array."""
     cdef:
         const uint8_t[::1] src = data
-        const uint8_t* srcptr = &src[0]
+        const uint8_t* srcptr = <const uint8_t*> src._data
         uint8_t* dstptr = NULL
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t ret = 0
         char boc
 
@@ -1591,18 +1603,18 @@ def bfloat16_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
-    if dst.nbytes < srcsize * 2:
+    if dstsize < srcsize * 2:
         raise ValueError('output buffer too short')
 
     src = _readable_input(data)  # TODO: use numpy iterator?
 
     with nogil:
         ret = imcd_bfloat16_encode(
-            &src[0],
+            <const uint8_t*> src._data,
             srcsize * 4,
-            <uint8_t*> &dst[0],
+            <uint8_t*> dst._data,
             boc == b'<',
             feround
         )
@@ -1624,9 +1636,9 @@ def bfloat16_decode(
     """Return decoded BFLOAT16 array."""
     cdef:
         const uint8_t[::1] src = data
-        const uint8_t* srcptr = &src[0]
+        const uint8_t* srcptr = <const uint8_t*> src._data
         uint8_t* dstptr = NULL
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t ret = 0
         char boc
 
@@ -1702,7 +1714,7 @@ def eer_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t ret = 0
         ssize_t height = shape[0]
         ssize_t width = shape[1]
@@ -1743,7 +1755,7 @@ def eer_decode(
     if out.itemsize == 1:
         with nogil:
             ret = imcd_eer_decode(
-                &src[0],
+                <const uint8_t*> src._data,
                 srcsize,
                 dstptr,
                 height,
@@ -1758,7 +1770,7 @@ def eer_decode(
     else:
         with nogil:
             ret = imcd_eer_decode_u2(
-                &src[0],
+                <const uint8_t*> src._data,
                 srcsize,
                 <uint16_t*> dstptr,
                 height,
@@ -1796,9 +1808,9 @@ lzw_version = imcd_version
 
 def lzw_check(const uint8_t[::1] data, /):
     """Return whether data is LZW encoded or None if unknown."""
-    if data.nbytes < 1:
+    if data.shape[0] < 2:
         return False
-    return bool(imcd_lzw_check(&data[0], data.nbytes))
+    return bool(imcd_lzw_check(<const uint8_t*> data._data, data.shape[0]))
 
 
 def lzw_decode(
@@ -1811,7 +1823,7 @@ def lzw_decode(
     cdef:
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         ssize_t ret = 0
         imcd_lzw_handle_t* handle = NULL
@@ -1828,20 +1840,22 @@ def lzw_decode(
         if out is None:
             if dstsize < 0:
                 with nogil:
-                    dstsize = imcd_lzw_decode_size(handle, &src[0], srcsize)
+                    dstsize = imcd_lzw_decode_size(
+                        handle, <const uint8_t*> src._data, srcsize
+                    )
                 if dstsize < 0:
                     raise LzwError('imcd_lzw_decode_size', dstsize)
             out = _create_output(outtype, dstsize)
 
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
 
         with nogil:
             ret = imcd_lzw_decode(
                 handle,
-                &src[0],
+                <const uint8_t*> src._data,
                 srcsize,
-                <uint8_t*> &dst[0],
+                <uint8_t*> dst._data,
                 dstsize
             )
         if ret < 0:
@@ -1863,7 +1877,7 @@ def lzw_encode(
     cdef:
         const uint8_t[::1] src = _readable_input(data)
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         ssize_t ret = 0
 
@@ -1880,11 +1894,11 @@ def lzw_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     with nogil:
         ret = imcd_lzw_encode(
-            <const uint8_t*> &src[0], srcsize, <uint8_t*> &dst[0], dstsize
+            <const uint8_t*> src._data, srcsize, <uint8_t*> dst._data, dstsize
         )
     if ret < 0:
         raise LzwError('imcd_lzw_encode', ret)

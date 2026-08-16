@@ -103,7 +103,7 @@ def deflate_encode(
     cdef:
         const uint8_t[::1] src = _readable_input(data)
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         size_t srclen, dstlen
         libdeflate_compressor* compressor = NULL
@@ -141,7 +141,7 @@ def deflate_encode(
             out = _create_output(outtype, dstsize)
 
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
         dstlen = <size_t> dstsize
         srclen = <size_t> srcsize
 
@@ -149,9 +149,9 @@ def deflate_encode(
             if raw:
                 dstlen = libdeflate_deflate_compress(
                     compressor,
-                    <const void*> &src[0],
+                    <const void*> src._data,
                     srclen,
-                    <void*> &dst[0],
+                    <void*> dst._data,
                     dstlen
                 )
                 if dstlen == 0:
@@ -159,9 +159,9 @@ def deflate_encode(
             else:
                 dstlen = libdeflate_zlib_compress(
                     compressor,
-                    <const void*> &src[0],
+                    <const void*> src._data,
                     srclen,
-                    <void*> &dst[0],
+                    <void*> dst._data,
                     dstlen
                 )
                 if dstlen == 0:
@@ -189,7 +189,7 @@ def deflate_decode(
     cdef:
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         size_t srclen, dstlen
         size_t actual_out_nbytes_ret
@@ -214,7 +214,7 @@ def deflate_decode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
     dstlen = <size_t> dstsize
     srclen = <size_t> srcsize
 
@@ -227,9 +227,9 @@ def deflate_decode(
             if raw:
                 ret = libdeflate_deflate_decompress(
                     decompressor,
-                    <const void*> &src[0],
+                    <const void*> src._data,
                     srclen,
-                    <void*> &dst[0],
+                    <void*> dst._data,
                     dstlen,
                     &actual_out_nbytes_ret
                 )
@@ -238,9 +238,9 @@ def deflate_decode(
             else:
                 ret = libdeflate_zlib_decompress(
                     decompressor,
-                    <const void*> &src[0],
+                    <const void*> src._data,
                     srclen,
-                    <void*> &dst[0],
+                    <void*> dst._data,
                     dstlen,
                     &actual_out_nbytes_ret
                 )
@@ -288,7 +288,7 @@ def gzip_encode(
     cdef:
         const uint8_t[::1] src = _readable_input(data)
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         size_t srclen, dstlen
         libdeflate_compressor* compressor = NULL
@@ -315,16 +315,16 @@ def gzip_encode(
             out = _create_output(outtype, dstsize)
 
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
         dstlen = <size_t> dstsize
         srclen = <size_t> srcsize
 
         with nogil:
             dstlen = libdeflate_gzip_compress(
                 compressor,
-                <const void*> &src[0],
+                <const void*> src._data,
                 srclen,
-                <void*> &dst[0],
+                <void*> dst._data,
                 dstlen
             )
             if dstlen == 0:
@@ -352,7 +352,7 @@ def gzip_decode(
     cdef:
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         size_t srclen, dstlen
         size_t actual_out_nbytes_ret
@@ -380,7 +380,7 @@ def gzip_decode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
     dstlen = <size_t> dstsize
     srclen = <size_t> srcsize
 
@@ -392,9 +392,9 @@ def gzip_decode(
 
             ret = libdeflate_gzip_decompress(
                 decompressor,
-                <const void*> &src[0],
+                <const void*> src._data,
                 srclen,
-                <void*> &dst[0],
+                <void*> dst._data,
                 dstlen,
                 &actual_out_nbytes_ret
             )
@@ -419,11 +419,11 @@ def deflate_crc32(
     """Return CRC32 checksum of data."""
     cdef:
         const uint8_t[::1] src = _readable_input(data)
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         uint32_t crc = 0 if value is None else value
 
     with nogil:
-        crc = libdeflate_crc32(crc, <const void*> &src[0], srcsize)
+        crc = libdeflate_crc32(crc, <const void*> src._data, srcsize)
     return int(crc)
 
 
@@ -435,9 +435,9 @@ def deflate_adler32(
     """Return Adler-32 checksum of data."""
     cdef:
         const uint8_t[::1] src = _readable_input(data)
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         uint32_t adler = 1 if value is None else value
 
     with nogil:
-        adler = libdeflate_adler32(adler, <const void*> &src[0], srcsize)
+        adler = libdeflate_adler32(adler, <const void*> src._data, srcsize)
     return int(adler)

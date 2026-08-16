@@ -26,7 +26,7 @@ class UseNotebookTool(BaseTool):
 
     async def _start_kernel_local(self, kernel_manager: Any, path: str | None = None):
         # Start a new kernel using local API
-        kernel_id = await kernel_manager.start_kernel()
+        kernel_id = await kernel_manager.start_kernel(path=path)
         logger.info(f"Started kernel '{kernel_id}', waiting for it to be ready...")
 
         # CRITICAL: Wait for the kernel to actually start and be ready
@@ -256,7 +256,29 @@ class UseNotebookTool(BaseTool):
             else:
                 if notebook_manager.get_notebook_path(notebook_name) == notebook_path:
                     if notebook_name == notebook_manager.get_current_notebook():
-                        return f"Notebook '{notebook_name}' is already activated now. DO NOT REACTIVATE AGAIN."
+                        # Answer the question the caller is really asking —
+                        # "what is this notebook running on?" — instead of
+                        # only refusing. Agents that were told nothing here
+                        # went on to detach and reconnect just to find out.
+                        bound = notebook_manager.get_code_sandbox_id(notebook_name)
+                        state = (
+                            f"It runs on execution backend '{bound}'."
+                            if bound
+                            else "No execution backend is attached yet; the first execution attaches one"
+                            " (the active sandbox, if one is selected with 'use_sandbox')."
+                        )
+                        ignored = ""
+                        if kernel_id:
+                            ignored = (
+                                f" The kernel_id '{kernel_id}' you passed was not applied — a"
+                                " connected notebook keeps its backend. To run on a specific"
+                                " sandbox, select it with 'use_sandbox' instead; re-attaching"
+                                " is not required."
+                            )
+                        return (
+                            f"Notebook '{notebook_name}' is already connected — no need to"
+                            f" call use_notebook again. {state}{ignored}"
+                        )
                     else:
                         # the only correct case.
                         info_list.append(
@@ -331,7 +353,7 @@ class UseNotebookTool(BaseTool):
                 # "Timed out waiting for Jupyter Server" on a notebook that was
                 # perfectly reachable.
                 #
-                # `ensure_kernel_alive` attaches one on the first execution,
+                # `ensure_code_sandbox_alive` attaches one on the first execution,
                 # through whichever sandbox is configured — so the variant is
                 # honoured rather than assumed.
                 #
@@ -343,9 +365,9 @@ class UseNotebookTool(BaseTool):
                     # The operator asked for a sandbox up front, so start one.
                     # Through the shared factory, which consults the installed
                     # extensions first and so honours `--sandbox-variant`.
-                    from jupyter_mcp_server.utils import create_kernel
+                    from jupyter_mcp_server.utils import create_code_sandbox
 
-                    kernel = create_kernel(config, logger)
+                    kernel = create_code_sandbox(config, logger)
                     info_list.append(f"[INFO] Connected to kernel '{kernel.id}'.")
                 else:
                     kernel = None

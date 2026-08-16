@@ -242,12 +242,12 @@ def spng_encode(
             out = _create_output(outtype, dstsize)
 
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
         if <size_t> dstsize < output_size:
             raise RuntimeError('output too small')
 
         with nogil:
-            memcpy(<void*> &dst[0], <const void*> output, output_size)
+            memcpy(<void*> dst._data, <const void*> output, output_size)
 
     finally:
         if ctx != NULL:
@@ -274,7 +274,7 @@ def spng_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t itemsize
         size_t out_size
         int samples = 0
@@ -295,7 +295,7 @@ def spng_decode(
 
             err = spng_set_png_buffer(
                 ctx,
-                <const void*> &src[0],
+                <const void*> src._data,
                 <size_t> srcsize
             )
             if err != SPNG_OK:

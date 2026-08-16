@@ -216,9 +216,9 @@ def mozjpeg_encode(
 
     if out is not None:
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
         outsize = <unsigned long> dst.nbytes  # validates overflow
-        outbuffer = <unsigned char*> &dst[0]
+        outbuffer = <unsigned char*> dst._data
 
     with nogil:
         cinfo.err = jpeg_std_error(&err.pub)
@@ -282,7 +282,7 @@ def mozjpeg_encode(
         jpeg_finish_compress(&cinfo)
         jpeg_destroy_compress(&cinfo)
 
-    if out is None or outbuffer != <unsigned char*> &dst[0]:
+    if out is None or outbuffer != <unsigned char*> dst._data:
         # outbuffer was allocated in jpeg_mem_dest
         try:
             out = _create_output(
@@ -313,7 +313,7 @@ def mozjpeg_decode(
         const uint8_t[::1] src = data
         const uint8_t[::1] tables_
         unsigned long tablesize = 0
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         ssize_t rowstride
         my_error_mgr err
         jpeg_decompress_struct cinfo
@@ -346,7 +346,9 @@ def mozjpeg_decode(
 
     if tables is not None:
         tables_ = tables
-        tablesize = tables_.nbytes
+        tablesize = <unsigned long> tables_.shape[0]
+        if tables_.shape[0] > INT32_MAX:
+            raise ValueError(f'table size > {INT32_MAX}')
 
     if shape is not None and (shape[0] >= 65500 or shape[1] >= 65500):
         # enable decoding of large (JPEG_MAX_DIMENSION <= 2^20) JPEG
@@ -372,10 +374,14 @@ def mozjpeg_decode(
             cinfo.image_height = height
 
         if tablesize > 0:
-            jpeg_mem_src(&cinfo, &tables_[0], tablesize)
+            jpeg_mem_src(
+                &cinfo, <const unsigned char*> tables_._data, tablesize
+            )
             jpeg_read_header(&cinfo, 0)  # == JPEG_HEADER_TABLES_ONLY
 
-        jpeg_mem_src(&cinfo, &src[0], <unsigned long> srcsize)
+        jpeg_mem_src(
+            &cinfo, <const unsigned char*> src._data, <unsigned long> srcsize
+        )
         jpeg_read_header(&cinfo, 1)
 
         if jpeg_color_space != JCS_UNKNOWN:

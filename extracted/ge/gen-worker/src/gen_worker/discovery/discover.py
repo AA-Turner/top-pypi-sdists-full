@@ -19,7 +19,7 @@ from gen_worker.aot_preconditions import (
     declared_compile_families,
     static_mint_preconditions,
 )
-from gen_worker.api.binding import Binding
+from gen_worker.api.binding import Binding, wire_ref
 from gen_worker.api.slot import Slot
 from gen_worker.api.types import (
     Asset,
@@ -45,7 +45,6 @@ from gen_worker.discovery.heavy_deps import stub_missing_heavy_deps
 from gen_worker.discovery.names import slugify_name
 from gen_worker.discovery.project import load_project_config
 from gen_worker.discovery.walk import EndpointImportError, find_endpoints
-from gen_worker.models.refs import DEFAULT_REF_TAG
 from gen_worker.registry import extract_specs
 from .validation import validate_endpoint_lock
 import importlib.machinery
@@ -349,7 +348,7 @@ def _binding_to_manifest(binding: Binding, param_name: str = "") -> Dict[str, An
 
     Every binding is a fixed pick; the slot name is the dict key. Keys stay
     compatible with ``models.download.build_provider_index_from_manifest``
-    (``ref`` / ``provider`` / ``tag``).
+    (``ref`` / ``provider``).
     """
     out: Dict[str, Any] = {
         "kind": "fixed",
@@ -358,12 +357,10 @@ def _binding_to_manifest(binding: Binding, param_name: str = "") -> Dict[str, An
         "ref": binding.path,
     }
     if binding.source == "tensorhub":
-        # Normal form: the default tag is elided at the manifest boundary so
-        # hub-minted keep/routing refs stay byte-equal to worker-minted wire
-        # refs (Go folds a non-empty tag verbatim). An explicit 'latest' is
-        # stamped, never elided.
-        if binding.tag and binding.tag != DEFAULT_REF_TAG:
-            out["tag"] = binding.tag
+        # th#1987: the release rides the REF, in normal form — there is no
+        # side-channel key any more. The hub reads it with ParseCanonicalRef,
+        # so worker-minted and hub-minted refs stay byte-equal.
+        out["ref"] = str(wire_ref(binding))
         if binding.components:
             # The hub's desired-snapshot scoping reads this to resolve only the
             # named pipeline component subfolders instead of the whole repo.
@@ -402,10 +399,11 @@ def _stamp_family(binding_manifest: Dict[str, Any], family: str) -> None:
 
 def _model_ref_to_manifest(ref: Any) -> Dict[str, Any]:
     """``default_checkpoint`` ref shape used by the slots block:
-    ``{source, path, tag?, revision?, version?, components?}``."""
+    ``{source, path, revision?, version?, components?}``. The tensorhub
+    release rides ``path`` in normal form (th#1987)."""
     out: Dict[str, Any] = {"source": ref.source, "path": ref.path}
-    if ref.tag and ref.tag != DEFAULT_REF_TAG:
-        out["tag"] = ref.tag
+    if ref.source == "tensorhub":
+        out["path"] = str(wire_ref(ref))
     if ref.components:
         out["components"] = list(ref.components)
     if ref.source in ("huggingface", "modelscope") and ref.revision:
@@ -449,15 +447,28 @@ def _slot_to_manifest(
             {"name": part, "kind": kind}
             for part, kind in sorted(components.items())
         ]
-    # The per-component DEMAND. Absent means UNDECLARED — the hub's gate falls
-    # back to the image-wide decoder census for this slot, and never reads
-    # absence as "accepts everything". Handles only: the hub resolves each to
-    # its descriptor DIGEST at ingest, against its own registry, which is the
-    # only moment one wheel and one hub are both pinned.
+    # The per-component DEMAND. Handles only: the hub resolves each to its
+    # descriptor DIGEST at ingest, against its own registry, which is the only
+    # moment one wheel and one hub are both pinned. Absence is no longer a
+    # state an image can ship — `validate_endpoint_lock` refuses it (A19).
     if slot.layouts:
         out["layouts"] = {
             path: list(handles) for path, handles in slot.layouts.items()
         }
+    # The explicit third rung: this slot's bytes have no registered handle,
+    # and the REASON travels rather than being lost to an absent key.
+    if getattr(slot, "layouts_undeclarable", ""):
+        out["layouts_undeclarable"] = slot.layouts_undeclarable
+    # The REQUIREMENTS axis, keyed by the handle it guards. Only DECLARED
+    # axes are emitted: an undeclared floor must not arrive at the hub as a
+    # zero, which `contractspec.DecodeEntry.MinSM` reads as "no floor".
+    requirements = {
+        handle: row.manifest_row()
+        for handle, row in (getattr(slot, "layout_requirements", None) or {}).items()
+        if row.declared()
+    }
+    if requirements:
+        out["layout_requirements"] = requirements
     return out
 
 

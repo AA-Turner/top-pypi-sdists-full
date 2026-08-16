@@ -82,9 +82,10 @@ def wavpack_version():
 
 def wavpack_check(const uint8_t[::1] data, /):
     """Return whether data is WavPack encoded, or None if unknown."""
-    if data.nbytes < 4:
-        return False
-    return bytes(data[:4]) == b'wvpk'
+    cdef:
+        bytes sig = bytes(data[:4])
+
+    return sig == b'wvpk'
 
 
 def wavpack_encode(
@@ -106,7 +107,7 @@ def wavpack_encode(
     cdef:
         numpy.ndarray src = numpy.ascontiguousarray(data)
         const uint8_t[::1] dst  # must be const to write to bytes
-        const void* srcptr = src.data
+        const void* srcptr = <const void*> src.data
         ssize_t srcsize = <ssize_t> src.size
         ssize_t dstsize
         int itemsize = <int> src.itemsize
@@ -252,13 +253,13 @@ def wavpack_encode(
         if out is None:
             out = _create_output(outtype, wctx.size)
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
         if dstsize < <ssize_t> wctx.size:
             raise WavpackError(
                 'wavpack_encode',
                 f'output buffer too small: {dstsize} < {wctx.size}'
             )
-        memcpy(<void*> &dst[0], wctx.data, wctx.size)
+        memcpy(<void*> dst._data, wctx.data, wctx.size)
         del dst
 
     finally:
@@ -311,7 +312,7 @@ def wavpack_decode(
 
     if correction is not None:
         src_c = _readable_input(correction)
-        rctx_c.src = &src_c[0]
+        rctx_c.src = <const uint8_t*> src_c._data
         rctx_c.pos = 0
         rctx_c.size = <int64_t> src_c.shape[0]
         rctx_c.unget = -1
@@ -319,7 +320,7 @@ def wavpack_decode(
 
     try:
         with nogil:
-            rctx.src = &src[0]
+            rctx.src = <const uint8_t*> src._data
             rctx.pos = 0
             rctx.size = <int64_t> src.shape[0]
             rctx.unget = -1
@@ -442,7 +443,7 @@ def wavpack_info(data, /):
 
     try:
         with nogil:
-            rctx.src = &src[0]
+            rctx.src = <const uint8_t*> src._data
             rctx.pos = 0
             rctx.size = <int64_t> src.shape[0]
             rctx.unget = -1

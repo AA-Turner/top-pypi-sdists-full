@@ -115,7 +115,7 @@ def ccittrle_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         ssize_t ret = 0
 
@@ -127,7 +127,9 @@ def ccittrle_decode(
             raise ValueError('width required if out is not given')
         if height <= 0:
             with nogil:
-                dstsize = ccitt_rle_decode_size(&src[0], srcsize, width)
+                dstsize = ccitt_rle_decode_size(
+                    <const uint8_t*> src._data, srcsize, width
+                )
             if dstsize < 0:
                 raise CcittrleError('ccitt_rle_decode_size', dstsize)
             height = dstsize // width
@@ -144,7 +146,7 @@ def ccittrle_decode(
 
     with nogil:
         ret = ccitt_rle_decode(
-            &src[0],
+            <const uint8_t*> src._data,
             srcsize,
             <uint8_t*> dst.data,
             dstsize,
@@ -189,7 +191,7 @@ def ccittfax3_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         ssize_t ret = 0
 
@@ -202,7 +204,7 @@ def ccittfax3_decode(
         if height <= 0:
             with nogil:
                 dstsize = ccitt_fax3_decode_size(
-                    &src[0], srcsize, width, t4options
+                    <const uint8_t*> src._data, srcsize, width, t4options
                 )
             if dstsize < 0:
                 raise Ccittfax3Error('ccitt_fax3_decode_size', dstsize)
@@ -220,7 +222,7 @@ def ccittfax3_decode(
 
     with nogil:
         ret = ccitt_fax3_decode(
-            &src[0],
+            <const uint8_t*> src._data,
             srcsize,
             <uint8_t*> dst.data,
             dstsize,
@@ -265,7 +267,7 @@ def ccittfax4_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         ssize_t ret = 0
 
@@ -278,7 +280,7 @@ def ccittfax4_decode(
         if height <= 0:
             with nogil:
                 dstsize = ccitt_fax4_decode_size(
-                    &src[0], srcsize, width
+                    <const uint8_t*> src._data, srcsize, width
                 )
             if dstsize < 0:
                 raise Ccittfax4Error('ccitt_fax4_decode_size', dstsize)
@@ -296,7 +298,7 @@ def ccittfax4_decode(
 
     with nogil:
         ret = ccitt_fax4_decode(
-            &src[0],
+            <const uint8_t*> src._data,
             srcsize,
             <uint8_t*> dst.data,
             dstsize,

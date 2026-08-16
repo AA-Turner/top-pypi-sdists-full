@@ -24,6 +24,58 @@
   var OVERLAY_ID     = 'cm-hard-block-overlay';
   var STYLE_ID       = 'cm-hard-block-overlay-style';
 
+  // Plan picker state + copy.
+  //
+  // PRICES MIRROR THE CLOUD'S _SUB_PRICING TABLE (clawmetry-cloud
+  // routes/api.py) -- that table is the billing source of truth and what
+  // Stripe actually charges. These numbers are display-only; if they ever
+  // disagree, Stripe wins and the user sees the real amount on the checkout
+  // page. Keep them in this one place so a repricing is a single edit.
+  // ``was`` is the previous ladder's annual price, shown struck through on the
+  // annual tab exactly as /pricing does. It is the real prior price, not an
+  // invented anchor.
+  var PLAN_PRICES = {
+    starter: { month: 9,  year: 90,  was: 190 },
+    pro:     { month: 19, year: 190, was: 390 },
+  };
+  // Kept deliberately close to /pricing so the overlay and the public page
+  // make the same promise in the same words.
+  var PLAN_BLURB = {
+    starter: 'Every agent, every session, and every dollar in one dashboard.',
+    pro: 'The governance layer: gate tools before they fire, score runs with evals, catch runaway waste.',
+  };
+  var PLAN_FEATURES = {
+    starter: ['Unlimited channels + cloud sync', 'Approval queue'],
+    pro: ['Everything in Starter', 'Tool policy + evals + cost optimizer'],
+  };
+  var _selTier = 'starter';
+  var _selInterval = 'year';   // annual preselected: better retention + the device perk
+  // Filled from /api/entitlement (allowlisted, so it answers while blocked).
+  // Never hardcode a runtime count -- it has drifted every time it was.
+  var _paidRuntimeCount = 0;
+
+  function planPriceHtml() {
+    var p = PLAN_PRICES[_selTier] || PLAN_PRICES.starter;
+    var yearly = _selInterval === 'year';
+    var amt = yearly ? p.year : p.month;
+    var was = (yearly && p.was)
+      ? '<span class="cm-hbo-was">$' + p.was + '</span> ' : '';
+    return was + '$' + amt
+      + '<span class="cm-hbo-per"> / node / ' + (yearly ? 'year' : 'month') + '</span>';
+  }
+
+  function featsHtml() {
+    var rows = [runtimesLine()].concat(PLAN_FEATURES[_selTier] || PLAN_FEATURES.starter);
+    return rows.map(function (r) { return '<li>' + escapeHtml(r) + '</li>'; }).join('');
+  }
+
+  function runtimesLine() {
+    return _paidRuntimeCount
+      ? ('All ' + _paidRuntimeCount + ' runtimes (Claude Code, Codex, Cursor +'
+         + Math.max(0, _paidRuntimeCount - 3) + ')')
+      : 'Every supported runtime (Claude Code, Codex, Cursor, …)';
+  }
+
   function injectStyles() {
     if (document.getElementById(STYLE_ID)) return;
     var st = document.createElement('style');
@@ -33,41 +85,117 @@
       + '  position: fixed; inset: 0; z-index: 2147483647;'
       + '  background: rgba(15,17,20,0.92); backdrop-filter: blur(6px);'
       + '  -webkit-backdrop-filter: blur(6px);'
-      + '  display: flex; align-items: center; justify-content: center;'
-      + '  padding: 24px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;'
+      // align-items:center clips BOTH ends once the card is taller than the
+      // window, and a fixed inset:0 box does not scroll, so the overflow is
+      // unreachable rather than merely hidden. That took out the headline at
+      // the top and the "continue on free runtimes" escape at the bottom on a
+      // laptop-height desktop window. flex-start + overflow-y:auto lets a tall
+      // card scroll; the auto margins on the card keep it optically centred
+      // whenever it does fit.
+      + '  display: flex; align-items: flex-start; justify-content: center;'
+      + '  overflow-y: auto; overscroll-behavior: contain;'
+      + '  padding: 20px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;'
       + '}'
       + '#' + OVERLAY_ID + ' .cm-hbo-card {'
-      + '  max-width: 480px; width: 100%; background: #1a1d22;'
+      + '  max-width: 460px; width: 100%; background: #1a1d22;'
       + '  border: 1px solid #2a2f36; border-radius: 14px;'
       + '  box-shadow: 0 24px 60px rgba(0,0,0,0.55);'
-      + '  padding: 32px; color: #e8eaed;'
+      + '  padding: 22px 26px; color: #e8eaed;'
+      + '  margin: auto;'
       + '}'
       + '#' + OVERLAY_ID + ' .cm-hbo-eyebrow {'
-      + '  color: #ffb020; font-size: 12px; font-weight: 700;'
-      + '  text-transform: uppercase; letter-spacing: 1.4px;'
-      + '  margin: 0 0 10px 0;'
+      + '  color: #ffb020; font-size: 11px; font-weight: 700;'
+      + '  text-transform: uppercase; letter-spacing: 1.3px;'
+      + '  margin: 0 0 6px 0;'
       + '}'
       + '#' + OVERLAY_ID + ' h2 {'
-      + '  margin: 0 0 12px 0; font-size: 22px; line-height: 1.25;'
+      + '  margin: 0 0 8px 0; font-size: 19px; line-height: 1.25;'
       + '  color: #ffffff; font-weight: 700;'
       + '}'
       + '#' + OVERLAY_ID + ' p.cm-hbo-body {'
-      + '  margin: 0 0 22px 0; font-size: 14px; line-height: 1.55;'
+      + '  margin: 0 0 14px 0; font-size: 13px; line-height: 1.5;'
       + '  color: #b5b8be;'
       + '}'
       + '#' + OVERLAY_ID + ' .cm-hbo-cta {'
-      + '  display: block; width: 100%; padding: 13px 18px;'
+      + '  display: block; width: 100%; padding: 11px 18px;'
       + '  border-radius: 10px; border: 0; background: #ff9500;'
       + '  color: #1a1d22; font-size: 15px; font-weight: 700;'
       + '  cursor: pointer; text-align: center; text-decoration: none;'
-      + '  box-sizing: border-box; margin: 0 0 14px 0;'
+      + '  box-sizing: border-box; margin: 0 0 10px 0;'
       + '  transition: background 120ms ease;'
       + '}'
       + '#' + OVERLAY_ID + ' .cm-hbo-cta:hover { background: #ffa726; }'
+      // ── plan picker ──────────────────────────────────────────────────
+      + '#' + OVERLAY_ID + ' .cm-hbo-seg {'
+      + '  display: flex; gap: 4px; padding: 3px; margin: 0 0 10px 0;'
+      + '  background: #14171b; border: 1px solid #2a2f36; border-radius: 10px;'
+      + '}'
+      + '#' + OVERLAY_ID + ' .cm-hbo-seg button {'
+      + '  flex: 1; padding: 7px 10px; border: 0; border-radius: 7px;'
+      + '  background: transparent; color: #b5b8be; font-size: 13px;'
+      + '  font-weight: 600; cursor: pointer; font-family: inherit;'
+      + '}'
+      + '#' + OVERLAY_ID + ' .cm-hbo-seg button[aria-pressed="true"] {'
+      + '  background: #ff9500; color: #1a1d22;'
+      + '}'
+      + '#' + OVERLAY_ID + ' .cm-hbo-seg .cm-hbo-save {'
+      + '  font-weight: 400; opacity: 0.85; margin-left: 4px;'
+      + '}'
+      + '#' + OVERLAY_ID + ' .cm-hbo-tier {'
+      + '  display: flex; align-items: center; gap: 11px; width: 100%;'
+      + '  padding: 10px 13px; margin: 0 0 6px 0; text-align: left;'
+      + '  background: #14171b; border: 1px solid #2a2f36; border-radius: 10px;'
+      + '  color: #e8eaed; cursor: pointer; font-family: inherit;'
+      + '}'
+      + '#' + OVERLAY_ID + ' .cm-hbo-tier[aria-pressed="true"] {'
+      + '  border-color: #ff9500; background: #211a12;'
+      + '}'
+      + '#' + OVERLAY_ID + ' .cm-hbo-radio {'
+      + '  width: 16px; height: 16px; border-radius: 50%; flex: 0 0 auto;'
+      + '  border: 2px solid #4a4f57;'
+      + '}'
+      + '#' + OVERLAY_ID + ' .cm-hbo-tier[aria-pressed="true"] .cm-hbo-radio {'
+      + '  border-color: #ff9500; box-shadow: inset 0 0 0 3px #ff9500;'
+      + '}'
+      + '#' + OVERLAY_ID + ' .cm-hbo-tier-name {'
+      + '  font-size: 14px; font-weight: 700; color: #fff; display: block;'
+      + '}'
+      + '#' + OVERLAY_ID + ' .cm-hbo-tier-sub {'
+      + '  font-size: 12px; color: #9aa0a8; display: block; margin-top: 2px;'
+      + '}'
+      + '#' + OVERLAY_ID + ' .cm-hbo-feats {'
+      + '  margin: 9px 0 10px 0; padding: 0; list-style: none;'
+      + '  font-size: 12.5px; color: #b5b8be;'
+      + '}'
+      + '#' + OVERLAY_ID + ' .cm-hbo-feats li { margin: 0 0 4px 0; }'
+      + '#' + OVERLAY_ID + ' .cm-hbo-feats li::before {'
+      + '  content: "+"; color: #22c55e; font-weight: 700; margin-right: 8px;'
+      + '}'
+      + '#' + OVERLAY_ID + ' .cm-hbo-price {'
+      + '  text-align: center; margin: 0 0 10px 0;'
+      + '  font-size: 23px; font-weight: 700; color: #fff;'
+      + '}'
+      + '#' + OVERLAY_ID + ' .cm-hbo-device {'
+      + '  margin: 0 0 10px 0; padding: 9px 12px; border-radius: 9px;'
+      + '  border: 1px solid #33406b; background: #151a2b;'
+      + '  font-size: 12.5px; color: #b9c2dd; line-height: 1.45;'
+      + '}'
+      + '#' + OVERLAY_ID + ' .cm-hbo-device strong { color: #22c55e; }'
+      + '#' + OVERLAY_ID + ' .cm-hbo-was {'
+      + '  color: #6b7078; text-decoration: line-through;'
+      + '  font-size: 17px; font-weight: 600; margin-right: 4px;'
+      + '}'
+      + '#' + OVERLAY_ID + ' .cm-hbo-per {'
+      + '  font-size: 13px; font-weight: 500; color: #9aa0a8;'
+      + '}'
+      + '#' + OVERLAY_ID + ' .cm-hbo-price small {'
+      + '  display: block; margin-top: 4px; font-size: 12px;'
+      + '  font-weight: 500; color: #22c55e;'
+      + '}'
       + '#' + OVERLAY_ID + ' .cm-hbo-divider {'
       + '  display: flex; align-items: center; gap: 10px;'
       + '  color: #6b7078; font-size: 11px; text-transform: uppercase;'
-      + '  letter-spacing: 1.2px; margin: 18px 0;'
+      + '  letter-spacing: 1.2px; margin: 12px 0;'
       + '}'
       + '#' + OVERLAY_ID + ' .cm-hbo-divider::before,'
       + '#' + OVERLAY_ID + ' .cm-hbo-divider::after {'
@@ -75,24 +203,24 @@
       + '}'
       + '#' + OVERLAY_ID + ' label.cm-hbo-label {'
       + '  display: block; font-size: 12px; color: #b5b8be;'
-      + '  margin: 0 0 8px 0;'
+      + '  margin: 0 0 6px 0;'
       + '}'
       + '#' + OVERLAY_ID + ' textarea.cm-hbo-key {'
-      + '  width: 100%; min-height: 96px; padding: 10px 12px;'
+      + '  width: 100%; min-height: 52px; padding: 8px 11px;'
       + '  border-radius: 8px; border: 1px solid #2a2f36;'
       + '  background: #12141a; color: #e8eaed;'
       + '  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;'
       + '  font-size: 12px; box-sizing: border-box; resize: vertical;'
       + '}'
       + '#' + OVERLAY_ID + ' button.cm-hbo-activate {'
-      + '  margin-top: 10px; width: 100%; padding: 11px 14px;'
+      + '  margin-top: 8px; width: 100%; padding: 9px 14px;'
       + '  border-radius: 10px; border: 1px solid #2a2f36;'
       + '  background: transparent; color: #e8eaed;'
       + '  font-size: 14px; font-weight: 600; cursor: pointer;'
       + '}'
       + '#' + OVERLAY_ID + ' button.cm-hbo-activate:hover { border-color: #4a5058; }'
       + '#' + OVERLAY_ID + ' .cm-hbo-status {'
-      + '  min-height: 20px; margin-top: 12px; font-size: 12px;'
+      + '  min-height: 16px; margin-top: 9px; font-size: 11.5px;'
       + '  color: #b5b8be; text-align: center;'
       + '}'
       + '#' + OVERLAY_ID + ' .cm-hbo-status.err { color: #ff6b6b; }'
@@ -141,20 +269,45 @@
     var freeRuntimes = (state && Array.isArray(state.free_runtimes) && state.free_runtimes.length)
       ? state.free_runtimes
       : ['openclaw', 'nemoclaw'];
+    // nemoclaw is NVIDIA NemoClaw and it is FREE. nanoclaw is a different
+    // runtime entirely, and it is PAID (entitlements.PAID_RUNTIMES). This
+    // mapping said 'NanoClaw', so the one screen that tells a blocked user
+    // what they still get named a runtime they do NOT get and never named
+    // the one they do. Labels come from entitlements.RUNTIME_LABELS.
+    var RT_LABELS = { openclaw: 'OpenClaw', nemoclaw: 'NVIDIA NemoClaw' };
     var freeRuntimesLabel = freeRuntimes
-      .map(function (r) {
-        if (r === 'openclaw') return 'OpenClaw';
-        if (r === 'nemoclaw') return 'NanoClaw';
-        return r;
-      })
+      .map(function (r) { return RT_LABELS[r] || r; })
       .join(' + ');
     el.innerHTML = ''
       + '<div class="cm-hbo-card">'
       + '  <div class="cm-hbo-eyebrow">' + eyebrow + '</div>'
       + '  <h2 id="cm-hbo-title">' + escapeHtml(reason) + '</h2>'
       + '  <p class="cm-hbo-body">' + escapeHtml(subline) + '</p>'
+      + '  <div class="cm-hbo-seg" role="group" aria-label="Billing interval">'
+      + '    <button type="button" data-interval="month" aria-pressed="' + (_selInterval === 'month') + '">Monthly</button>'
+      + '    <button type="button" data-interval="year" aria-pressed="' + (_selInterval === 'year') + '">Annual<span class="cm-hbo-save">2 months free</span></button>'
+      + '  </div>'
+      + '  <button type="button" class="cm-hbo-tier" data-tier="starter" aria-pressed="' + (_selTier === 'starter') + '">'
+      + '    <span class="cm-hbo-radio"></span>'
+      + '    <span><span class="cm-hbo-tier-name">Starter</span>'
+      + '      <span class="cm-hbo-tier-sub">' + escapeHtml(PLAN_BLURB.starter) + '</span></span>'
+      + '  </button>'
+      + '  <button type="button" class="cm-hbo-tier" data-tier="pro" aria-pressed="' + (_selTier === 'pro') + '">'
+      + '    <span class="cm-hbo-radio"></span>'
+      + '    <span><span class="cm-hbo-tier-name">Pro</span>'
+      + '      <span class="cm-hbo-tier-sub">' + escapeHtml(PLAN_BLURB.pro) + '</span></span>'
+      + '  </button>'
+      + '  <ul class="cm-hbo-feats" id="cm-hbo-feats">' + featsHtml() + '</ul>'
+      // Annual-only perk. The cloud already collects a shipping address on
+      // annual checkouts for this (_annual_device_checkout_extras), and it
+      // ships on the first PAID invoice, so this is not a promise we invent
+      // here. Hidden on monthly.
+      + '  <div class="cm-hbo-device" id="cm-hbo-device" style="' + (_selInterval === 'year' ? '' : 'display:none;') + '">'
+      + '    Includes a free <strong>$149 desk device</strong>.'
+      + '  </div>'
+      + '  <div class="cm-hbo-price" id="cm-hbo-price">' + planPriceHtml() + '</div>'
       + '  <a class="cm-hbo-cta" href="' + escapeAttr(upgradeUrl) + '" target="_blank" rel="noopener">'
-      + '    Continue to payment  →'
+      + '    Continue to Stripe  →'
       + '  </a>'
       + '  <div class="cm-hbo-divider">or</div>'
       + '  <label class="cm-hbo-label" for="cm-hbo-key">Paste license key</label>'
@@ -191,6 +344,59 @@
     // upgrade page. The tab MUST be opened synchronously in the click
     // handler (popup blockers kill window.open from inside a fetch
     // callback) and is redirected once the URL arrives.
+    // Plan picker. Selection lives in module state (not the DOM) so a
+    // re-render from the background poll never silently resets the user's
+    // choice back to the default mid-checkout.
+    var priceEl = el.querySelector('#cm-hbo-price');
+    function repaintPicker() {
+      Array.prototype.forEach.call(
+        el.querySelectorAll('.cm-hbo-seg button'), function (b) {
+          b.setAttribute('aria-pressed', String(b.getAttribute('data-interval') === _selInterval));
+        });
+      Array.prototype.forEach.call(
+        el.querySelectorAll('.cm-hbo-tier'), function (b) {
+          b.setAttribute('aria-pressed', String(b.getAttribute('data-tier') === _selTier));
+        });
+      if (priceEl) priceEl.innerHTML = planPriceHtml();
+      var featsEl = el.querySelector('#cm-hbo-feats');
+      if (featsEl) featsEl.innerHTML = featsHtml();
+      var devEl = el.querySelector('#cm-hbo-device');
+      if (devEl) devEl.style.display = (_selInterval === 'year') ? '' : 'none';
+    }
+    Array.prototype.forEach.call(
+      el.querySelectorAll('.cm-hbo-seg button'), function (b) {
+        b.addEventListener('click', function () {
+          _selInterval = b.getAttribute('data-interval') === 'year' ? 'year' : 'month';
+          repaintPicker();
+        });
+      });
+    Array.prototype.forEach.call(
+      el.querySelectorAll('.cm-hbo-tier'), function (b) {
+        b.addEventListener('click', function () {
+          _selTier = b.getAttribute('data-tier') === 'pro' ? 'pro' : 'starter';
+          repaintPicker();
+        });
+      });
+
+    // Runtime count for the copy. /api/entitlement is allowlisted so it
+    // answers even while blocked; on failure we keep the countless wording
+    // rather than printing a number we cannot stand behind.
+    if (!_paidRuntimeCount) {
+      try {
+        fetch('/api/entitlement')
+          .then(function (r) { return r.json().catch(function () { return {}; }); })
+          .then(function (ent) {
+            var all = ent && ent.all_runtimes;
+            if (Array.isArray(all) && all.length) {
+              _paidRuntimeCount = all.length;
+              var fe = el.querySelector('#cm-hbo-feats');
+              if (fe) fe.innerHTML = featsHtml();
+            }
+          })
+          .catch(function () {});
+      } catch (e) { /* noop */ }
+    }
+
     var ctaEl = el.querySelector('.cm-hbo-cta');
     var statusElForCta = el.querySelector('.cm-hbo-status');
     ctaEl.addEventListener('click', function (ev) {
@@ -204,7 +410,14 @@
       }
       statusElForCta.className = 'cm-hbo-status';
       statusElForCta.textContent = 'Opening secure checkout…';
-      fetch('/api/trial/checkout', { method: 'POST' })
+      fetch('/api/trial/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tier: _selTier,
+          plan: _selInterval === 'year' ? 'yearly' : 'monthly',
+        }),
+      })
         .then(function (r) { return r.json().catch(function () { return {}; }); })
         .then(function (resp) {
           go(resp && resp.url ? resp.url : ctaEl.href);
@@ -218,7 +431,11 @@
         fetch('/api/paywall/event', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ event: 'hard_block_checkout_click' }),
+          body: JSON.stringify({
+            event: 'hard_block_checkout_click',
+            tier: _selTier,
+            interval: _selInterval,
+          }),
         }).catch(function () {});
       } catch (e) { /* noop */ }
     });
@@ -264,7 +481,10 @@
     });
 
     // Free-mode escape: expired-trial users can drop back to
-    // OpenClaw/NanoClaw-only mode instead of paying. Posts to the
+    // OpenClaw/NemoClaw-only mode instead of paying (entitlements.py's
+    // FREE_RUNTIMES = {openclaw, nemoclaw} — NOT nanoclaw, which is paid;
+    // this comment said NanoClaw and that is how the label above got it
+    // wrong too). Posts to the
     // continue-free endpoint (allowlisted), then reloads to a
     // free-runtime-scoped URL so the gate short-circuits and the overlay
     // stays down. Paid-runtime tabs on the free scope render a locked
@@ -2485,7 +2705,7 @@ async function _selfconfigRenderReader(filename, ts) {
     }
   }
 
-  _selfconfigMode = 'preview';
+  _selfconfigMode = 'code';
   _selfconfigUpdateModeButtons();
   if (bodyEl) bodyEl.style.display = 'block';
   if (editorBody) editorBody.style.display = 'none';
@@ -2513,12 +2733,11 @@ async function _selfconfigRenderReader(filename, ts) {
       } else if (!d.content || !d.content.trim()) {
         bodyEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:0;">' + t("app.this_file_is_empty", null, "This file is empty.") + '</div>';
       } else {
-        // Show raw markdown source, not rendered HTML — these files ARE the
-        // agent's source-of-truth and editing them has agent-behaviour
-        // consequences, so rendering bullets/headers obscures the actual
-        // bytes the agent reads. Same monospace style as the Edit textarea
-        // so Preview ↔ Edit looks consistent.
-        bodyEl.innerHTML = '<pre style="margin:0;font-family:\'JetBrains Mono\',\'SF Mono\',monospace;font-size:13px;line-height:1.55;white-space:pre-wrap;word-break:break-word;color:var(--text-primary);">' + escHtml(d.content) + '</pre>';
+        // Raw source by default, now with a line-number gutter — these files
+        // ARE the agent's source-of-truth and editing them has agent-behaviour
+        // consequences, so rendering bullets/headers obscures the actual bytes
+        // the agent reads. Rendered markdown is one click away (Preview).
+        bodyEl.innerHTML = _cmFvCodeHtml(d.content, true);
       }
     }
     _selfconfigUpdateStatusBar(filename, ts, d);
@@ -2534,7 +2753,8 @@ function _selfconfigUpdateStatusBar(filename, ts, d) {
   var updatedEl = document.getElementById('selfconfig-status-updated');
   if (fileEl) fileEl.textContent = filename || '—';
   if (modeEl) modeEl.textContent = (_selfconfigSelectedTs == null)
-    ? (_selfconfigMode === 'edit' ? 'Editing' : 'Preview')
+    ? (_selfconfigMode === 'edit' ? 'Editing'
+       : (_selfconfigMode === 'preview' ? 'Preview' : 'Source'))
     : 'History';
   if (sizeEl) {
     var src = d && typeof d.content === 'string' ? d.content : (_selfconfigOriginal || '');
@@ -2567,6 +2787,18 @@ function selfconfigSetMode(mode) {
   var bodyEl = document.getElementById('selfconfig-reader-body');
   var editorBody = document.getElementById('selfconfig-editor-body');
   var textarea = document.getElementById('selfconfig-editor-textarea');
+  // 'code' = raw source with line numbers (default), 'preview' = rendered
+  // markdown, 'edit' = the textarea. Re-render the read-only pane in place.
+  if (bodyEl && mode !== 'edit') {
+    var src = _selfconfigOriginal || '';
+    if (mode === 'preview') {
+      var split = _cmFvSplitFrontmatter(src);
+      bodyEl.innerHTML = '<div class="cm-fv-preview mem-prose" style="padding:0;">'
+        + _cmFvFrontmatterHtml(split.fm) + cmSafeMarkdown(split.body) + '</div>';
+    } else {
+      bodyEl.innerHTML = _cmFvCodeHtml(src, true);
+    }
+  }
   if (mode === 'edit') {
     if (bodyEl) bodyEl.style.display = 'none';
     if (editorBody) editorBody.style.display = 'flex';
@@ -2855,36 +3087,26 @@ async function openSkillBrowser(skillName) {
 async function loadSkillFile(skillName, filePath) {
   var contentEl = document.getElementById('skills-browser-content');
   if (!contentEl) return;
-  contentEl.innerHTML = '<div style="color:var(--text-muted);padding:20px;">' + t("app.loading", null, "Loading...") + '</div>';
+  cmFileViewerPlaceholder('skills-browser-content', t("app.loading", null, "Loading..."));
 
   try {
     var data = await fetch('/api/skills/' + encodeURIComponent(skillName) + '/file?path=' + encodeURIComponent(filePath)).then(function(r) { return r.json(); });
-    if (data.error) { contentEl.innerHTML = '<div style="color:var(--text-error);padding:20px;">' + escHtml(data.error) + '</div>'; return; }
+    if (data.error) { cmFileViewerPlaceholder('skills-browser-content', data.error, true); return; }
 
-    var header = '<div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:12px;">';
-    header += '<div style="font-size:13px;font-weight:600;color:var(--text-primary);">' + escHtml(filePath) + '</div>';
-    header += '<div style="font-size:11px;color:var(--text-muted);">' + escHtml(skillName) + ' &middot; ' + (data.language || 'text') + ' &middot; ' + data.size + ' bytes</div>';
-    header += '</div>';
-
-    var content = data.content || '';
-    if (data.language === 'markdown') {
-      // Simple markdown rendering
-      content = content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      content = content.replace(/^### (.+)$/gm, '<h3 style="margin:16px 0 8px;font-size:14px;color:var(--text-primary);">$1</h3>');
-      content = content.replace(/^## (.+)$/gm, '<h2 style="margin:20px 0 8px;font-size:16px;color:var(--text-primary);">$1</h2>');
-      content = content.replace(/^# (.+)$/gm, '<h1 style="margin:20px 0 8px;font-size:18px;color:var(--text-primary);">$1</h1>');
-      content = content.replace(/`([^`]+)`/g, '<code style="background:var(--bg-secondary);padding:1px 5px;border-radius:3px;font-size:12px;">$1</code>');
-      content = content.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-      content = content.replace(/^- (.+)$/gm, '<div style="padding-left:16px;">&bull; $1</div>');
-      content = content.replace(/^---$/gm, '<hr style="border:none;border-top:1px solid var(--border);margin:12px 0;">');
-      content = '<div style="font-size:13px;line-height:1.7;color:var(--text-secondary);">' + content + '</div>';
-    } else {
-      content = '<pre style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:12px 16px;font-size:12px;line-height:1.6;overflow-x:auto;color:var(--text-primary);white-space:pre-wrap;">' + escHtml(content) + '</pre>';
-    }
-
-    contentEl.innerHTML = header + content;
+    // Same viewer the runtime browser uses: raw source first, Preview toggle
+    // for markdown, copy + full screen. The old hand-rolled regex renderer
+    // mangled anything it didn't have a rule for.
+    var size = data.size || 0;
+    cmFileViewerOpen('skills-browser-content', {
+      name: filePath,
+      path: filePath,
+      content: data.content || '',
+      language: data.language || 'text',
+      meta: [skillName, (size >= 1024 ? (size / 1024).toFixed(1) + 'K' : size + 'B'), data.language || 'text']
+    });
+    _cmRtFitHeight();
   } catch(e) {
-    contentEl.innerHTML = '<div style="color:var(--text-error);padding:20px;">Error: ' + escHtml(String(e)) + '</div>';
+    cmFileViewerPlaceholder('skills-browser-content', 'Error: ' + String(e), true);
   }
 }
 
@@ -3560,6 +3782,120 @@ function _renderOutLoopSources() {
   }).catch(function(){});
 }
 
+// Status vocabulary. /api/subagents passes the daemon's own classification
+// through VERBATIM, so "in progress" arrives as either 'active' (the
+// age-derived buckets in routes/sessions.py) or 'running' (the daemon's or
+// the gateway registry's explicit label). Matching only the literal 'active'
+// is why 14 genuinely running sub-agents rendered as ✅ complete and the hero
+// said "idle" while five terminals worked (founder report 2026-08-15). Every
+// consumer goes through these helpers — never compare the raw string.
+function _cmIsWorkingStatus(s) {
+  s = String(s == null ? '' : s).trim().toLowerCase();
+  return s === 'active' || s === 'running';
+}
+function _cmIsLiveStatus(s) {
+  return _cmIsWorkingStatus(s) || String(s == null ? '' : s).trim().toLowerCase() === 'idle';
+}
+
+// ── Live sessions ─────────────────────────────────────────────────────────
+// The hero used to answer "is my agent alive?" with one node-wide boolean, so
+// a person driving five terminals read "It's idle right now" while all five
+// were mid-task. /api/live-sessions answers it by NAME instead: which sessions
+// are working, which are parked waiting for you, and how long since each moved.
+//
+// Perf (FLYWHEEL "performance is a feature"): ONE shared cache with a 10s TTL
+// and in-flight dedup, keyed by the runtime filter. The hero repaints far more
+// often than that (two 10s timers plus every subagent poll), and each repaint
+// must reuse the cache rather than issue its own fetch.
+var _CM_LIVE_TTL_MS = 10000;
+function _cmLoadLiveSessions(cb) {
+  var rt = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
+  var c = window._cmLive;
+  if (c && c.rt === rt && (Date.now() - c.ts) < _CM_LIVE_TTL_MS) { if (cb) cb(c); return; }
+  if (window._cmLiveWait) return;           // in-flight dedup
+  window._cmLiveWait = true;
+  var url = '/api/live-sessions' + (rt && rt !== 'all' ? '?runtime=' + encodeURIComponent(rt) : '');
+  fetchJsonWithTimeout(url, 6000).then(function (d) {
+    window._cmLive = {
+      rt: rt, ts: Date.now(),
+      sessions: (d && d.sessions) || [],
+      counts: (d && d.counts) || { working: 0, waiting: 0 },
+      // `available:false` means the daemon could not be reached — that is
+      // "we don't know", not "nothing is running", and the hero says so.
+      available: !(d && d.available === false)
+    };
+  }).catch(function () {
+    var old = window._cmLive || {};
+    window._cmLive = { rt: rt, ts: Date.now(), sessions: old.sessions || [],
+                       counts: old.counts || { working: 0, waiting: 0 }, available: false };
+  }).then(function () {
+    window._cmLiveWait = false;
+    if (cb) cb(window._cmLive);
+  });
+}
+
+// "4m" / "just now" — the age column reads as a live clock, so keep it terse
+// and monospaced at the call site.
+function _cmLiveAge(sec) {
+  if (sec == null) return '';
+  if (sec < 15) return 'just now';
+  if (sec < 60) return Math.round(sec) + 's ago';
+  return Math.round(sec / 60) + 'm ago';
+}
+
+// Jump straight from a live row into that session's transcript.
+function cmOpenLiveSession(sessionId) {
+  if (!sessionId) return;
+  if (typeof switchTab === 'function') switchTab('transcripts');
+  setTimeout(function () {
+    if (typeof viewTranscript === 'function') viewTranscript(sessionId);
+  }, 60);
+}
+
+// The signature element: one row per live session. State dot, the session's
+// own title (its name — the thing you actually recognise), the runtime it runs
+// on, and a right-aligned age column so "how long since each one moved" reads
+// as a single vertical scan. Rows are real buttons: keyboard reachable, with a
+// visible focus ring.
+function _cmLiveRowsHtml(live) {
+  var rows = (live && live.sessions) || [];
+  if (!rows.length) return '';
+  var SHOWN = 6;
+  var html = '<div style="margin:16px 0 4px;border-top:1px solid var(--border-primary);padding-top:14px;">';
+  var shown = rows.slice(0, SHOWN);
+  var sawWaiting = false;
+  shown.forEach(function (s) {
+    var working = s.state === 'working';
+    // A colour alone does not teach a first-timer what amber means, and the
+    // headline only ever names one of the two states. Label the boundary once,
+    // in words, the moment the quiet ones start (rows are sorted by age, so
+    // this fires exactly once).
+    if (!working && !sawWaiting) {
+      sawWaiting = true;
+      if (shown[0] && shown[0].state === 'working') {
+        html += '<div class="cm-live-group">Waiting on you</div>';
+      }
+    }
+    var col = working ? '#22c55e' : '#f59e0b';
+    var title = (s.title || '').trim() || 'Untitled session';
+    var rtLabel = (typeof _cmRuntimeLabel === 'function' && _cmRuntimeLabel(s.runtime)) || s.runtime || '';
+    html += '<button type="button" class="cm-live-row" onclick="cmOpenLiveSession(' + attrJsStr(s.session_id) + ')"'
+      + ' title="Open this session\'s transcript">'
+      + '<span class="cm-live-dot" style="background:' + col + ';' + (working ? '' : 'animation:none;') + '"></span>'
+      + '<span class="cm-live-title">' + escHtml(title) + '</span>'
+      + '<span class="cm-live-rt">' + escHtml(rtLabel) + '</span>'
+      + '<span class="cm-live-age">' + escHtml(_cmLiveAge(s.age_seconds)) + '</span>'
+      + '<span class="cm-live-arrow">→</span>'
+      + '</button>';
+  });
+  if (rows.length > SHOWN) {
+    html += '<div style="font-size:12px;color:var(--text-muted);padding:8px 10px 2px;">'
+      + (rows.length - SHOWN) + ' more. Open Sessions to see them all.</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
 // Alive-state truthfulness: /api/subagents only lists SPAWNED children, so a
 // node whose main terminal sessions are hard at work read "It's idle right
 // now" (founder report 2026-08-02). Complement it with per-runtime recency
@@ -3612,8 +3948,42 @@ function _renderOverviewHero() {
       });
     }
   } catch (_e_act) {}
+
+  // Named liveness. This is the primary answer to "is my agent alive?" — the
+  // recency signal above is the fallback for when the session list is not
+  // available (cloud, or the daemon briefly unreachable).
+  var _live = window._cmLive;
+  var _liveRt = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
+  if (!_live || _live.rt !== _liveRt || (Date.now() - _live.ts) >= _CM_LIVE_TTL_MS) {
+    _cmLoadLiveSessions(function () { try { _renderOverviewHero(); } catch (e) {} });
+  }
+  var _working = (_live && _live.counts && _live.counts.working) || 0;
+  var _waiting = (_live && _live.counts && _live.counts.waiting) || 0;
+  var _liveKnown = !!(_live && _live.available);
+  if (_working > 0) busy = true;
+
+  // Headline. Say the number and let it carry the news; fall back to the old
+  // single-boolean sentence only when the session list can't be read.
+  var headline;
+  if (_liveKnown && _working > 0) {
+    headline = _working === 1
+      ? 'It’s working right now.'
+      : _working + ' sessions are working right now.';
+  } else if (_liveKnown && _waiting > 0) {
+    headline = _waiting === 1
+      ? 'One session is waiting on you.'
+      : _waiting + ' sessions are waiting on you.';
+  } else if (!_liveKnown && busy) {
+    headline = 'It’s working right now.';
+  } else if (!_liveKnown) {
+    headline = 'Nothing to report yet.';
+  } else {
+    headline = 'It’s idle right now.';
+  }
+
+  var _liveRows = _liveKnown ? _cmLiveRowsHtml(_live) : '';
   var stateWord = busy ? 'working' : 'idle';
-  var dot = busy ? '#22c55e' : '#3b82f6';
+  var dot = busy ? '#22c55e' : (_liveKnown && _waiting > 0 ? '#f59e0b' : '#3b82f6');
   // When a runtime is selected, the hero must mirror the (runtime-scoped) stat
   // cards, not the node-wide overview. _cmRuntimeScope is set by loadMiniWidgets
   // from the v1 API (FLYWHEEL §1c); null = node-wide. Note: prefer the scoped
@@ -3623,8 +3993,14 @@ function _renderOverviewHero() {
   var cost = _scope ? ('$' + _scope.cost.toFixed(2)) : (_txt('cost-today') || '$0.00');
   var model = _scope ? (_txt('model-primary') || _scope.model || '—')
                      : (ov.model || _txt('model-primary') || 'your model');
+  // Node-wide, the chip is labelled "today" below, so it must BE today:
+  // ov.sessionCount is an all-time count with no date predicate and read 89
+  // on a day that had 16. Fall back to the all-time number only on a daemon
+  // too old to send sessionsToday, where the label is dropped instead.
+  var _todayKnown = (typeof ov.sessionsToday === 'number');
   var sessions = _scope ? _scope.sessions
-                        : ((typeof ov.sessionCount === 'number') ? ov.sessionCount : null);
+                        : (_todayKnown ? ov.sessionsToday
+                           : ((typeof ov.sessionCount === 'number') ? ov.sessionCount : null));
   var free = cost === '$0.00' || cost === '$0' ||
              /oauth/i.test((document.getElementById('cost-trend') || {}).textContent || '');
   var say = window._cmLastAgentSay;
@@ -3640,7 +4016,7 @@ function _renderOverviewHero() {
   // (matches the switcher), so don't append "today" — the runtime may have 0
   // sessions today but N on record, and "N sessions today" would be wrong while
   // "0 sessions today" reads as gone. For all-runtimes it stays the live "today".
-  if (sessions != null) stats.push('💬 <strong style="color:var(--text-primary);">' + sessions + (sessions === 1 ? ' session' : ' sessions') + '</strong>' + (_scope ? '' : ' today'));
+  if (sessions != null) stats.push('💬 <strong style="color:var(--text-primary);">' + sessions + (sessions === 1 ? ' session' : ' sessions') + '</strong>' + ((!_scope && _todayKnown) ? ' today' : ''));
   stats.push('💸 <strong style="color:var(--text-primary);">' + escHtml(cost) + '</strong>' + (free ? ' <span style="color:#22c55e;">free on your plan</span>' : ''));
   // Efficiency chip (design spec §1a): grade next to cost answers "what did it
   // cost me, and is that reasonable?" in one read. Renders only when the
@@ -3684,9 +4060,15 @@ function _renderOverviewHero() {
       + '<span style="font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);">' + t('overview.hero_eyebrow', null, 'Your agent') + '</span>'
     + '</div>'
     + '<div style="font-family:Georgia,\'Times New Roman\',serif;font-size:32px;line-height:1.15;font-weight:600;color:var(--text-primary);margin:10px 0 4px;">'
-      + (busy ? 'It’s working right now.' : 'It’s idle right now.') + '</div>'
-    + '<div style="font-size:15px;color:var(--text-secondary);margin-bottom:18px;">' + lastLine + '</div>'
-    + '<div style="display:flex;flex-wrap:wrap;gap:8px 24px;align-items:baseline;font-size:15px;color:var(--text-secondary);">'
+      + headline + '</div>'
+    // When the named rows render they ARE the story; a second "last thing it
+    // did" line underneath just competes with them.
+    + (_liveRows
+        ? ''
+        : '<div style="font-size:15px;color:var(--text-secondary);margin-bottom:18px;">' + lastLine + '</div>')
+    + _liveRows
+    + '<div style="display:flex;flex-wrap:wrap;gap:8px 24px;align-items:baseline;font-size:15px;color:var(--text-secondary);'
+      + (_liveRows ? 'margin-top:16px;' : '') + '">'
       + stats.map(function (s) { return '<span>' + s + '</span>'; }).join('') + '</div>';
   hero.style.display = '';
 
@@ -3858,7 +4240,11 @@ async function loadMiniWidgets(overview, usage) {
   // and it briefly read "0" on a slow/failed fetch. Set synchronously from the
   // value already in hand so the card is never blank and never contradicts the
   // hero. (Card relabeled "Sessions today" in overview.html.)
-  document.getElementById('hot-sessions-count').textContent = overview.sessionCount || 0;
+  // Same honesty fix as the hero chip: the card is LABELLED "Sessions today",
+  // so it must carry today's count, not the all-time sessionCount.
+  document.getElementById('hot-sessions-count').textContent =
+    (typeof overview.sessionsToday === 'number' ? overview.sessionsToday
+                                                : overview.sessionCount) || 0;
 
   // 📈 Runtime scope — when a runtime is selected, the Overview stat cards
   // (sessions / tokens / cost / model) must show ONLY that runtime's data
@@ -3937,7 +4323,10 @@ async function loadMiniWidgets(overview, usage) {
   // switcher) so "today" would be wrong; node-wide stays the live "today".
   try {
     var _slbl = document.getElementById('hot-sessions-label');
-    if (_slbl) _slbl.textContent = window._cmRuntimeScope
+    // A daemon too old to send sessionsToday falls back to the all-time
+    // count, so drop the "today" from the label rather than lie in it.
+    var _ovToday = window._cmOverview && typeof window._cmOverview.sessionsToday === 'number';
+    if (_slbl) _slbl.textContent = (window._cmRuntimeScope || !_ovToday)
       ? t('overview.sessions', null, 'Sessions')
       : t('overview.sessions_today', null, 'Sessions today');
   } catch (e) {}
@@ -4144,6 +4533,21 @@ async function loadQualityTab() {
     };
   }
   _qRenderCard(data);
+  if (data.store_available === false) {
+    // The collector isn't reachable from here (e.g. the hosted dashboard has
+    // no local store). Say that plainly instead of rendering "every run
+    // finished cleanly", which would be a wrong answer dressed as good news.
+    var pe = document.getElementById('q-patterns');
+    var re = document.getElementById('q-runs');
+    var msg = t('quality.store_unavailable', null,
+                'Nothing to show from here — this view reads your local run history.');
+    if (pe) pe.innerHTML = '<li class="q-empty" style="grid-column:1/-1;">' + escHtml(msg) + '</li>';
+    if (re) re.innerHTML = '<li class="q-empty">' + escHtml(msg) + '</li>';
+    var st = document.getElementById('q-status-line');
+    if (st) st.textContent = t('quality.status_local_only', null, 'Graded on your machine');
+    _qRenderFooter(data);
+    return;
+  }
   _qRenderPatterns(data);
   _qRenderRoughRuns(data);
   _qRenderStatusLine(data);
@@ -4205,8 +4609,7 @@ function _qRenderPatterns(data) {
     html += '<div class="count">' + escHtml(String(p.count || 0)) + '</div>';
     html += '<div class="what">' + escHtml(p.label || '') + '</div>';
     html += '<div class="cost' + (isCaught ? ' q-caught' : '') + '">' +
-            escHtml(p.cost_display || '$0.00') +
-            '<small>' + escHtml(p.avg_minutes || '—') + '</small></div>';
+            escHtml(p.cost_display || '$0.00') + '</div>';
     html += '</li>';
   });
   el.innerHTML = html;
@@ -4236,19 +4639,146 @@ function _qRenderRoughRuns(data) {
     var sid = String(r.session_id || '');
     var when = _qFmtWhen(r.when);
     var bid = 'q-b-' + i;
+    var eid = 'q-e-' + i;
+    // r.runtime comes from the session's own recorded runtime. The old field
+    // (agent_type) was stamped from a loop variable and read "openclaw" for
+    // every runtime — see the 2026-08-15 audit.
+    var rt = String(r.runtime || '');
     html += '<li>';
-    html += '<div class="when">' + escHtml(when) + (r.agent_type ? ' · ' + escHtml(r.agent_type) : '') + '</div>';
+    html += '<div class="when">' + escHtml(when) + (rt ? ' · ' + escHtml(_qRuntimeLabel(rt)) : '') + '</div>';
     html += '<div class="task">' + escHtml(r.title || sid || 'Untitled run') + '</div>';
     html += '<div class="story">' + escHtml(r.story || '') + '</div>';
     html += '<div class="row-actions">';
     html += '<button class="prevent" onclick="qOpenBuilder(\'' + escHtml(bid).replace(/\'/g, "\\'") + '\', \'' + escHtml(sid).replace(/\'/g, "\\'") + '\', \'' + escHtml(String(r.story || '')).replace(/\'/g, "\\'") + '\')">' +
             t('quality.prevent_this', null, 'Prevent this →') + '</button>';
+    if ((r.verdicts || []).length) {
+      html += '<button class="q-evidence-toggle" onclick="qToggleEvidence(\'' + eid + '\')">' +
+              t('quality.show_evidence', null, 'Why we flagged it') + '</button>';
+    }
     html += '<span class="cost-tag">' + escHtml(r.cost_display || '$0.00') + '</span>';
     html += '</div>';
+    html += '<div id="' + eid + '" class="q-evidence">' + _qEvidenceHtml(r) + '</div>';
     html += '<div id="' + bid + '" class="q-builder"></div>';
     html += '</li>';
   });
   el.innerHTML = html;
+}
+
+// Human-readable runtime name. Falls back to the raw id so a runtime we
+// haven't named still reads as itself rather than as something else.
+var _Q_RUNTIME_NAMES = {
+  claude_code: 'Claude Code', openclaw: 'OpenClaw', codex: 'Codex',
+  cursor: 'Cursor', aider: 'Aider', goose: 'Goose', opencode: 'opencode',
+  qwen_code: 'Qwen Code', copilot: 'Copilot', antigravity: 'Antigravity',
+  n8n: 'n8n', hermes: 'Hermes', picoclaw: 'PicoClaw', nanoclaw: 'NanoClaw',
+  nemoclaw: 'NemoClaw', grok: 'Grok', pi: 'Pi', deepagents: 'DeepAgents',
+  qm: 'QM', deepseek_harness: 'DeepSeek Harness'
+};
+function _qRuntimeLabel(id) {
+  return _Q_RUNTIME_NAMES[id] || id;
+}
+
+// The evidence panel. This is the product: a verdict the user cannot inspect
+// is a verdict they cannot trust, so every flagged run shows what fired, what
+// it measured, what it compared against, and the actual moments behind it.
+function _qEvidenceHtml(r) {
+  var vs = (r.verdicts || []);
+  if (!vs.length) return '';
+  var h = '';
+  vs.forEach(function(v) {
+    var ev = v.evidence || {};
+    var obs = ev.observed || {};
+    var th = ev.threshold || {};
+    var conf = Math.round((Number(v.confidence) || 0) * 100);
+    h += '<div class="q-ev-block">';
+    // Plain English, never the internal signal id. A person opening this has
+    // never heard of "no_forward_progress" and shouldn't have to.
+    h += '<div class="q-ev-head"><span class="q-ev-sig">' + escHtml(_qSignalLabel(ev.signal || v.verdict || '')) + '</span>' +
+         '<span class="q-ev-conf" title="' +
+         escHtml(t('quality.conf_help', null, 'Derived from how much evidence there is and how far past normal it sits.')) +
+         '">' + conf + '% ' + t('quality.confidence', null, 'confidence') + '</span></div>';
+
+    // What we measured vs what counts as normal HERE. Long values (file
+    // paths) get their own line so the counts stay scannable.
+    var obsBits = [], longBits = [];
+    Object.keys(obs).forEach(function(k) {
+      if (k === 'digest') return;
+      // Percentages must read as percentages. "failure rate 6" is a different
+      // claim from "failure rate 6%".
+      var val = String(obs[k]) + (k === 'pct' ? '%' : '');
+      var frag = '<span class="k">' + escHtml(_qPrettyKey(k)) + '</span> <b>' + escHtml(val) + '</b>';
+      (val.length > 34 ? longBits : obsBits).push(frag);
+    });
+    if (obsBits.length) h += '<div class="q-ev-obs">' + obsBits.join('<i>·</i>') + '</div>';
+    longBits.forEach(function(f) { h += '<div class="q-ev-obs long">' + f + '</div>'; });
+    if (th && (th.pct !== undefined || th.repeats !== undefined || th.edits !== undefined)) {
+      var lim, unit;
+      if (th.pct !== undefined) { lim = th.pct + '%'; unit = ''; }
+      else if (th.repeats !== undefined) { lim = th.repeats; unit = ' ' + t('quality.unit_repeats', null, 'identical calls'); }
+      else { lim = th.edits; unit = ' ' + t('quality.unit_edits', null, 'edits'); }
+      h += '<div class="q-ev-th">' +
+           t('quality.threshold_prefix', null, 'Flagged above') + ' <b>' + escHtml(String(lim) + unit) + '</b>' +
+           (th.source ? ' <span class="src">(' + escHtml(String(th.source)) + ')</span>' : '') +
+           '</div>';
+    }
+
+    // The actual moments. Without these the claim does not render at all.
+    var ex = (ev.exhibits || []);
+    if (ex.length) {
+      h += '<ul class="q-ev-list">';
+      ex.slice(0, 6).forEach(function(x) {
+        var when = x.ts ? _qFmtWhen(new Date(Number(x.ts) * 1000).toISOString()) : '';
+        // Some runtimes don't name the tool on a result event. Showing
+        // "(unnamed tool)" is noise where the error text is the real evidence,
+        // so only render a name when there is one.
+        var bits = [];
+        if (x.tool) bits.push('<span class="tl">' + escHtml(String(x.tool)) + '</span>');
+        if (x.file) bits.push('<span class="f">' + escHtml(String(x.file)) + '</span>');
+        if (x.error) bits.push('<span class="e">' + escHtml(String(x.error).replace(/\s+/g, ' ').slice(0, 120)) + '</span>');
+        else if (x.errored) bits.push('<span class="e">' + t('quality.failed', null, 'failed') + '</span>');
+        h += '<li><span class="ts">' + escHtml(when) + '</span>' + bits.join(' ') + '</li>';
+      });
+      h += '</ul>';
+      if (ev.exhibit_count > ex.slice(0, 6).length) {
+        h += '<div class="q-ev-more">' +
+             t('quality.and_more', null, 'and') + ' ' +
+             escHtml(String(ev.exhibit_count - Math.min(6, ex.length))) + ' ' +
+             t('quality.more_like_this', null, 'more like this') + '</div>';
+      }
+    }
+    h += '</div>';
+  });
+  return h;
+}
+
+// Internal signal id → the sentence a person reads. Kept beside _qPrettyKey
+// so any new signal has an obvious place to get its plain-English name.
+function _qSignalLabel(sig) {
+  var m = {
+    tool_error_rate:     t('quality.sig_tool_error_rate', null, 'Its tools kept failing'),
+    tool_thrash:         t('quality.sig_tool_thrash', null, 'Same call, over and over'),
+    no_forward_progress: t('quality.sig_no_progress', null, 'Edited without ever checking'),
+    hard_failure:        t('quality.sig_hard_failure', null, 'Ended on an error'),
+    tool_failures:       t('quality.sig_tool_error_rate', null, 'Its tools kept failing')
+  };
+  return m[sig] || String(sig || '').replace(/_/g, ' ');
+}
+
+function _qPrettyKey(k) {
+  var m = {
+    tool_results: 'tool calls', tool_errors: 'failed', pct: 'failure rate',
+    identical_calls: 'identical calls', failed: 'of them failed',
+    edits: 'edits', verifications_between: 'checks in between',
+    error_events: 'errors', failed_at_end: 'failed at the end',
+    tool: 'tool', file: 'file'
+  };
+  return m[k] || k.replace(/_/g, ' ');
+}
+
+function qToggleEvidence(eid) {
+  var el = document.getElementById(eid);
+  if (!el) return;
+  el.classList.toggle('open');
 }
 
 function _qFmtWhen(iso) {
@@ -4272,15 +4802,24 @@ function _qRenderStatusLine(data) {
   if (!el) return;
   var n = Number(data.graded_runs || 0);
   var total = Number(data.total_runs || 0);
+  var un = Number(data.unmeasured_runs || 0);
   if (n === 0 && total === 0) {
     el.textContent = t('quality.status_no_runs', null, 'No runs yet this week');
     return;
   }
-  el.textContent = data.judge_key_set
-    ? (t('quality.status_prefix_on', null, 'Grading on · ') + n + ' ' +
-       (n === 1 ? t('quality.run_singular', null, 'run graded') : t('quality.run_plural', null, 'runs graded')))
-    : (t('quality.status_prefix_off', null, 'Grading from signals · ') + n + ' ' +
-       (n === 1 ? t('quality.run_singular', null, 'run graded') : t('quality.run_plural', null, 'runs graded')));
+  // Say what was graded AND what was left out. A grade that quietly covers
+  // half the window reads as a grade over all of it.
+  var parts = [n + ' ' + (n === 1
+    ? t('quality.run_singular', null, 'run graded')
+    : t('quality.run_plural', null, 'runs graded'))];
+  if (un > 0) {
+    parts.push(un + ' ' + t('quality.too_thin', null, 'with too little activity to judge'));
+  }
+  if (data.benign_filter && data.benign_filter.label) {
+    parts.push(String(data.benign_filter.label));
+  }
+  el.textContent = t('quality.status_prefix_off', null, 'Grading from signals · ') +
+                   parts.join(' · ');
 }
 
 function _qRenderFooter(data) {
@@ -5227,10 +5766,10 @@ async function loadSubAgents() {
       previewHtml = '<div style="font-size:11px;color:#666;">No active tasks</div>';
     } else {
       // Show active ones first
-      var activeFirst = subagents.filter(function(a){return a.status==='active';}).concat(subagents.filter(function(a){return a.status!=='active';}));
+      var activeFirst = subagents.filter(function(a){return _cmIsWorkingStatus(a.status);}).concat(subagents.filter(function(a){return !_cmIsWorkingStatus(a.status);}));
       var topAgents = activeFirst.slice(0, 3);
       topAgents.forEach(function(agent) {
-        var icon = agent.status === 'active' ? '🔄' : agent.status === 'idle' ? '✅' : '⬜';
+        var icon = _cmIsWorkingStatus(agent.status) ? '🔄' : agent.status === 'idle' ? '✅' : '⬜';
         var name = cleanTaskName(agent.displayName);
         if (name.length > 40) name = name.substring(0, 37) + '…';
         previewHtml += '<div class="subagent-item">';
@@ -5328,7 +5867,7 @@ async function loadActiveTasks() {
     // Scope to the selected runtime (sub-agent sessionId prefix = runtime).
     var _atRt = (typeof _cmRuntimeFilter === 'function') ? _cmClientFilterRt(_cmRuntimeFilter()) : 'all';
     if (_atRt !== 'all') all = all.filter(function(a) { return _cmRuntimeOf(a) === _atRt; });
-    var live = all.filter(function(a) { return a.status === 'active' || a.status === 'idle'; });
+    var live = all.filter(function(a) { return _cmIsLiveStatus(a.status); });
     var recentFailed = all.filter(function(a) {
       return a.status === 'failed' && (now - (a.updatedAt || 0)) < RECENT_MS;
     });
@@ -5346,7 +5885,7 @@ async function loadActiveTasks() {
     var html = '';
     var badge = document.getElementById('overview-tasks-count-badge');
     if (badge) {
-      var liveCount = agents.filter(function(a) { return a.status === 'active' || a.status === 'idle'; }).length;
+      var liveCount = agents.filter(function(a) { return _cmIsLiveStatus(a.status); }).length;
       badge.textContent = liveCount > 0 ? (liveCount + ' active') : (agents.length + ' recent');
     }
 
@@ -5366,7 +5905,7 @@ async function loadActiveTasks() {
       var st = STATUS_STYLE[agent.status] || STATUS_STYLE.active;
 
       html += '<div class="task-card ' + st.cls + '" style="cursor:pointer;" onclick="openTaskModal(\'' + escHtml(agent.sessionId).replace(/'/g,"\\'") + '\',\'' + escHtml(taskName).replace(/'/g,"\\'") + '\',\'' + escHtml(agent.key || agent.sessionId).replace(/'/g,"\\'") + '\')">';
-      if (agent.status === 'active' || agent.status === 'idle') {
+      if (_cmIsLiveStatus(agent.status)) {
         html += '<div class="task-card-pulse active"></div>';
       }
       html += '<div class="task-card-header">';
@@ -11508,7 +12047,7 @@ async function loadSessions() {
     if (subagents.length > 0) {
       html += '<div style="margin-top:8px;margin-left:16px;border-left:2px solid var(--border-primary);padding-left:12px;">';
       subagents.forEach(function(sa) {
-        var statusIcon = sa.status === 'active' ? '🟢' : sa.status === 'idle' ? '🟡' : '⬜';
+        var statusIcon = _cmIsWorkingStatus(sa.status) ? '🟢' : sa.status === 'idle' ? '🟡' : '⬜';
         html += '<details style="margin-bottom:4px;">';
         html += '<summary style="cursor:pointer;font-size:13px;color:var(--text-secondary);padding:4px 0;">';
         html += statusIcon + ' <strong>' + escHtml(sa.displayName) + '</strong>';
@@ -11571,7 +12110,7 @@ async function loadSessions() {
       chainHtml += ' &bull; <span style="color:var(--text-success);">$' + chain.chain_cost_usd.toFixed(4) + '</span></span>';
       chainHtml += '</div>';
       chain.children.slice(0, 5).forEach(function(child, idx) {
-        var dot = child.status === 'active' ? '#16a34a' : child.status === 'idle' ? '#d97706' : '#6b7280';
+        var dot = _cmIsWorkingStatus(child.status) ? '#16a34a' : child.status === 'idle' ? '#d97706' : '#6b7280';
         chainHtml += '<div style="padding:6px 12px 6px 28px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border-secondary);font-size:12px;">';
         chainHtml += '<span style="width:7px;height:7px;border-radius:50%;background:' + dot + ';flex-shrink:0;"></span>';
         if (idx === 0) chainHtml += '<span style="color:var(--text-muted);font-size:10px;margin-right:-4px;">&#x2514;&#x2500;</span>';
@@ -14431,7 +14970,7 @@ async function loadSystemHealth() {
             chtml += '<span style="font-size:10px;color:var(--text-muted);white-space:nowrap;">' + chain.child_count + ' agents &bull; ' + chainTokStr + ' tok &bull; <span style="color:var(--text-success);">$' + chain.chain_cost_usd.toFixed(4) + '</span></span>';
             chtml += '</div>';
             chain.children.slice(0, 4).forEach(function(child) {
-              var dot = child.status === 'active' ? '#16a34a' : child.status === 'idle' ? '#d97706' : '#6b7280';
+              var dot = _cmIsWorkingStatus(child.status) ? '#16a34a' : child.status === 'idle' ? '#d97706' : '#6b7280';
               var tokStr = child.total_tokens >= 1000 ? (child.total_tokens/1000).toFixed(0)+'K' : child.total_tokens;
               chtml += '<div style="padding:4px 10px 4px 20px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border-secondary);font-size:11px;">';
               chtml += '<span style="width:6px;height:6px;border-radius:50%;background:' + dot + ';flex-shrink:0;"></span>';
@@ -17827,6 +18366,7 @@ async function viewTranscript(sessionId) {
       + '</div>';
     document.getElementById('transcript-meta').innerHTML = metaHtml;
     _loadAuthorityPanel(sessionId);
+    _loadReplayTree(sessionId);   // wire-up per #4814 — no-op until adapters land (#4815, #4816)
     // Build replay events array - include compaction markers as special events
     var events = [];
     var compactionIdx = 0;
@@ -17928,6 +18468,35 @@ async function _loadAuthorityPanel(sessionId) {
     body.innerHTML = html;
     panel.style.display = '';
   } catch(e) { /* non-critical — panel stays hidden on error */ }
+}
+
+// Runtime-aware replay tree wire-up (#4814) — called from viewTranscript.
+// Overlays the replay tree atop the flat renderer when replay_events exist.
+// No-op today (row_count always 0) until adapter mappers land in #4815/#4816.
+async function _loadReplayTree(sessionId) {
+  if (!window._cmReplayTree) return;
+  var viewer = document.getElementById('transcript-viewer');
+  if (!viewer) return;
+  var mount = document.getElementById('replay-tree-container');
+  if (!mount) {
+    mount = document.createElement('div');
+    mount.id = 'replay-tree-container';
+    var anchor = document.getElementById('transcript-messages');
+    if (anchor) viewer.insertBefore(mount, anchor);
+    else viewer.appendChild(mount);
+  } else {
+    mount.innerHTML = '';
+  }
+  try {
+    var tree = await window._cmReplayTree.fetchReplayTree(sessionId);
+    if (window._cmReplayTree.renderTree(tree, mount)) {
+      // Tree has rows — shadow the flat renderer.
+      var msgs = document.getElementById('transcript-messages');
+      var ctrl = document.getElementById('replay-controls');
+      if (msgs) msgs.style.display = 'none';
+      if (ctrl) ctrl.style.display = 'none';
+    }
+  } catch (e) { /* non-critical — flat renderer stays on any error */ }
 }
 
 function toggleMsg(idx) {
@@ -18197,6 +18766,9 @@ async function loadSubagents() {
       }
     });
     function statusDot(status) {
+      // 'running' is the daemon's own word for the same state as 'active';
+      // without this normalise it fell through to the grey "stale" dot.
+      if (_cmIsWorkingStatus(status)) status = 'active';
       var colors = { active: '#16a34a', idle: '#d97706', stale: '#6b7280', failed: '#ef4444', paused: '#7c3aed' };
       var glow = status === 'active' ? 'box-shadow:0 0 6px rgba(22,163,74,0.6);'
                : status === 'failed' ? 'box-shadow:0 0 6px rgba(239,68,68,0.5);'
@@ -21342,7 +21914,7 @@ function _ovTimeLabel(agent) {
   var sec = Math.floor(ms / 1000);
   var min = Math.floor(sec / 60);
   var hr = Math.floor(min / 60);
-  if (agent.status === 'active') {
+  if (_cmIsWorkingStatus(agent.status)) {
     if (min < 1) return 'Running (' + sec + 's)';
     if (min < 60) return 'Running (' + min + ' min)';
     return 'Running (' + hr + 'h ' + (min % 60) + 'm)';
@@ -21367,7 +21939,7 @@ function _ovTimeLabel(agent) {
 
 function _ovRenderCard(agent, idx) {
   var isRealFailure = agent.status === 'stale' && agent.abortedLastRun && (agent.outputTokens || 0) === 0;
-  var sc = agent.status === 'active' ? 'running' : isRealFailure ? 'failed' : 'complete';
+  var sc = _cmIsWorkingStatus(agent.status) ? 'running' : isRealFailure ? 'failed' : 'complete';
   var taskName = cleanTaskName(agent.displayName);
   var badge = detectProjectBadge(agent.displayName);
   var timeLabel = _ovTimeLabel(agent);
@@ -21437,7 +22009,7 @@ async function loadOverviewTasks() {
     var running = [], done = [], failed = [];
     agents.forEach(function(a) {
       var isRealFailure = a.status === 'stale' && a.abortedLastRun && (a.outputTokens || 0) === 0;
-      if (a.status === 'active') running.push(a);
+      if (_cmIsWorkingStatus(a.status)) running.push(a);
       else if (isRealFailure) failed.push(a);
       else done.push(a);
     });
@@ -23292,7 +23864,7 @@ function loadToolData(toolKey, comp, isRefresh) {
     // ─── SESSION MODAL ─────────────────────────────────
     if (toolKey === 'session') {
       var agents = data.subagents || [];
-      var active = agents.filter(function(a){return a.status==='active';}).length;
+      var active = agents.filter(function(a){return _cmIsWorkingStatus(a.status);}).length;
       var idle = agents.filter(function(a){return a.status==='idle';}).length;
       var stale = agents.filter(function(a){return a.status==='stale';}).length;
 
@@ -23307,8 +23879,8 @@ function loadToolData(toolKey, comp, isRefresh) {
         html += '<div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Sub-Agents</div>';
         html += '<div style="display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow-y:auto;">';
         agents.forEach(function(a) {
-          var dotColor = a.status==='active' ? '#22c55e' : a.status==='idle' ? '#f59e0b' : '#ef4444';
-          var dotShadow = a.status==='active' ? 'box-shadow:0 0 6px rgba(34,197,94,0.6);' : '';
+          var dotColor = _cmIsWorkingStatus(a.status) ? '#22c55e' : a.status==='idle' ? '#f59e0b' : '#ef4444';
+          var dotShadow = _cmIsWorkingStatus(a.status) ? 'box-shadow:0 0 6px rgba(34,197,94,0.6);' : '';
           html += '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--bg-secondary);border-radius:10px;border:1px solid var(--border-secondary);">';
           html += '<div style="width:10px;height:10px;border-radius:50%;background:'+dotColor+';margin-top:4px;flex-shrink:0;'+dotShadow+'"></div>';
           html += '<div style="flex:1;min-width:0;">';
@@ -25827,6 +26399,280 @@ async function checkLicenseExpiry() {
 }
 setTimeout(checkLicenseExpiry, 1200);
 // ─────────────────────────────────────────────────────────────────────────
+// cm-fileview — GitHub-style file viewer (Skills + Memory file browsers).
+//
+// Shows the file the way an editor would: raw source, monospace, line-number
+// gutter, nothing reflowed. Markdown files get a Preview toggle instead of
+// being rendered by default (auto-rendering turned YAML frontmatter into a
+// giant heading and hid the real file). Also: soft-wrap toggle, copy-whole-file
+// button, and a full-screen mode for long reads. All text is selectable; the
+// gutter is user-select:none so copying a range yields clean source.
+// ─────────────────────────────────────────────────────────────────────────
+
+var _cmFileViews = {};   // hostId -> {name, path, content, language, meta[], mode, wrap, fs}
+
+function _cmFvIsMarkdown(lang, name) {
+  if (lang && /^(markdown|md|mdx)$/i.test(lang)) return true;
+  return /\.(md|markdown|mdx)$/i.test(name || '');
+}
+
+// Split a leading YAML frontmatter block off a markdown file so Preview can
+// show it as metadata instead of letting `---` become an <hr> and the keys
+// become body prose.
+function _cmFvSplitFrontmatter(text) {
+  var m = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(\r?\n|$)/.exec(text || '');
+  if (!m) return { fm: '', body: text || '' };
+  return { fm: m[1], body: (text || '').slice(m[0].length) };
+}
+
+function _cmFvFrontmatterHtml(fm) {
+  if (!fm) return '';
+  var rows = fm.split(/\r?\n/).map(function(line) {
+    var kv = /^([A-Za-z0-9_.\-]+):[ \t]*(.*)$/.exec(line);
+    return kv ? '<b>' + escHtml(kv[1]) + ':</b> ' + escHtml(kv[2]) : escHtml(line);
+  });
+  return '<div class="cm-fv-fm">' + rows.join('<br>') + '</div>';
+}
+
+// One row per source line keeps numbers aligned even with soft-wrap on, and
+// makes a multi-line selection copy back with real newlines.
+function _cmFvCodeHtml(text, wrap) {
+  var src = String(text == null ? '' : text).replace(/\r\n?/g, '\n');
+  var lines = src.split('\n');
+  if (lines.length > 8000) {
+    // Very large file — skip the per-line DOM and fall back to one <pre>.
+    return '<pre class="cm-fv-plain">' + escHtml(src) + '</pre>';
+  }
+  var gutter = String(lines.length).length;
+  var rows = lines.map(function(line, i) {
+    return '<div class="cm-fv-row"><span class="cm-fv-ln">' + (i + 1) + '</span>'
+      + '<span class="cm-fv-lc">' + escHtml(line) + '</span></div>';
+  }).join('');
+  return '<div class="cm-fv-code' + (wrap ? ' cm-fv-wrap' : '')
+    + '" style="--cm-ln-w:' + gutter + 'ch;">' + rows + '</div>';
+}
+
+// Placeholder / loading / error states share the host so the panel never
+// collapses between files.
+function cmFileViewerPlaceholder(hostId, msg, isError) {
+  var host = document.getElementById(hostId);
+  if (!host) return;
+  host.classList.add('cm-fileview');
+  host.innerHTML = '<div class="cm-fv-empty"' + (isError ? ' style="color:#ef4444;"' : '') + '>'
+    + escHtml(msg) + '</div>';
+}
+
+// file: {name, path, content, language, meta:[strings]}
+function cmFileViewerOpen(hostId, file) {
+  var prev = _cmFileViews[hostId] || {};
+  var isMd = _cmFvIsMarkdown(file.language, file.name || file.path);
+  _cmFileViews[hostId] = {
+    name: file.name || file.path || '(file)',
+    path: file.path || file.name || '',
+    content: file.content == null ? '' : String(file.content),
+    language: file.language || 'text',
+    meta: file.meta || [],
+    // Remember the user's Code/Preview choice across files when it applies.
+    mode: (prev.mode === 'preview' && isMd) ? 'preview' : 'code',
+    wrap: !!prev.wrap,
+    fs: !!prev.fs
+  };
+  cmFileViewerRender(hostId);
+}
+
+function cmFileViewerRender(hostId) {
+  var host = document.getElementById(hostId);
+  var s = _cmFileViews[hostId];
+  if (!host || !s) return;
+  host.classList.add('cm-fileview');
+  if (s.fs) host.classList.add('cm-fileview-fs');
+  else host.classList.remove('cm-fileview-fs');
+
+  var isMd = _cmFvIsMarkdown(s.language, s.name);
+  if (!isMd && s.mode === 'preview') s.mode = 'code';
+  var hid = String(hostId).replace(/'/g, "\\'");
+
+  var meta = '<span class="cm-fv-name" title="' + escHtml(s.path) + '">' + escHtml(s.name) + '</span>';
+  (s.meta || []).forEach(function(bit) {
+    if (!bit) return;
+    meta += '<span style="opacity:0.45;">·</span><span>' + escHtml(bit) + '</span>';
+  });
+
+  var tools = '';
+  if (isMd) {
+    tools += '<span class="cm-fv-seg">'
+      + '<button class="cm-fv-btn' + (s.mode === 'code' ? ' active' : '') + '" '
+      + 'onclick="cmFvSetMode(\'' + hid + '\',\'code\')" title="Raw file source">Code</button>'
+      + '<button class="cm-fv-btn' + (s.mode === 'preview' ? ' active' : '') + '" '
+      + 'onclick="cmFvSetMode(\'' + hid + '\',\'preview\')" title="Rendered markdown">Preview</button>'
+      + '</span>';
+  }
+  if (s.mode === 'code') {
+    tools += '<button class="cm-fv-btn' + (s.wrap ? ' active' : '') + '" '
+      + 'onclick="cmFvToggleWrap(\'' + hid + '\')" title="Soft-wrap long lines">Wrap</button>';
+  }
+  tools += '<button class="cm-fv-btn" onclick="cmFvCopy(\'' + hid + '\',this)" '
+    + 'title="Copy the whole file">⧉ Copy</button>';
+  tools += '<button class="cm-fv-btn" onclick="cmFvToggleFullscreen(\'' + hid + '\')" title="'
+    + (s.fs ? 'Exit full screen (Esc)' : 'Full screen') + '">'
+    + (s.fs ? '✕ Exit full screen' : '⤡ Full screen') + '</button>';
+
+  var body;
+  if (s.mode === 'preview') {
+    var split = _cmFvSplitFrontmatter(s.content);
+    body = '<div class="cm-fv-preview mem-prose">' + _cmFvFrontmatterHtml(split.fm)
+      + cmSafeMarkdown(split.body) + '</div>';
+  } else {
+    body = _cmFvCodeHtml(s.content, s.wrap);
+  }
+
+  host.innerHTML =
+    '<div class="cm-fv-head"><div class="cm-fv-meta">' + meta + '</div>'
+    + '<div class="cm-fv-tools">' + tools + '</div></div>'
+    + '<div class="cm-fv-body">' + body + '</div>';
+}
+
+function cmFvSetMode(hostId, mode) {
+  var s = _cmFileViews[hostId];
+  if (!s) return;
+  s.mode = mode;
+  cmFileViewerRender(hostId);
+}
+
+function cmFvToggleWrap(hostId) {
+  var s = _cmFileViews[hostId];
+  if (!s) return;
+  s.wrap = !s.wrap;
+  cmFileViewerRender(hostId);
+}
+
+function _cmFvLegacyCopy(text) {
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch (e) { return false; }
+}
+
+function cmFvCopy(hostId, btn) {
+  var s = _cmFileViews[hostId];
+  if (!s) return;
+  var done = function(ok) {
+    if (!btn) return;
+    var old = btn.innerHTML;
+    btn.innerHTML = ok ? '✓ Copied' : 'Copy failed';
+    setTimeout(function() { btn.innerHTML = old; }, 1400);
+  };
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(s.content).then(
+        function() { done(true); },
+        function() { done(_cmFvLegacyCopy(s.content)); });
+      return;
+    }
+  } catch (e) {}
+  done(_cmFvLegacyCopy(s.content));
+}
+
+// Full screen moves the host to <body> rather than relying on position:fixed
+// inside the panel — an ancestor with a transform would otherwise trap it.
+function cmFvToggleFullscreen(hostId) {
+  var host = document.getElementById(hostId);
+  var s = _cmFileViews[hostId];
+  if (!host || !s) return;
+  s.fs = !s.fs;
+  if (s.fs) {
+    host._cmFvHome = host.parentNode;
+    host._cmFvNext = host.nextSibling;
+    document.body.appendChild(host);
+    document.body.style.overflow = 'hidden';
+  } else {
+    if (host._cmFvHome) {
+      host._cmFvHome.insertBefore(host, host._cmFvNext || null);
+      host._cmFvHome = null;
+      host._cmFvNext = null;
+    }
+    document.body.style.overflow = '';
+  }
+  cmFileViewerRender(hostId);
+  try { _cmRtFitHeight(); } catch (e) {}
+}
+
+// Same full-screen trick for panels that aren't cm-fileview hosts (the
+// OpenClaw Memory IDE surface, which keeps its own edit toolbar).
+var _cmFsPanels = [];
+
+function cmPanelToggleFullscreen(panel, btn) {
+  if (!panel) return;
+  var on = !panel.classList.contains('cm-panel-fs');
+  if (on) {
+    panel._cmFsHome = panel.parentNode;
+    panel._cmFsNext = panel.nextSibling;
+    panel._cmFsHeight = panel.style.height;
+    document.body.appendChild(panel);
+    panel.classList.add('cm-panel-fs');
+    document.body.style.overflow = 'hidden';
+    if (_cmFsPanels.indexOf(panel) === -1) _cmFsPanels.push(panel);
+  } else {
+    panel.classList.remove('cm-panel-fs');
+    if (panel._cmFsHome) {
+      panel._cmFsHome.insertBefore(panel, panel._cmFsNext || null);
+      panel._cmFsHome = null;
+      panel._cmFsNext = null;
+    }
+    panel.style.height = panel._cmFsHeight || '';
+    document.body.style.overflow = '';
+    _cmFsPanels = _cmFsPanels.filter(function(p) { return p !== panel; });
+  }
+  if (btn) {
+    var label = btn.querySelector('span');
+    if (label) label.textContent = on ? 'Exit full screen' : 'Full screen';
+  }
+}
+
+function memIdeToggleFullscreen(btn) {
+  cmPanelToggleFullscreen(document.querySelector('#memory-summary-view .mem-ide'), btn);
+}
+
+function memIdeCopy(btn) {
+  var text = _selfconfigOriginal || '';
+  var done = function(ok) {
+    if (!btn) return;
+    var old = btn.innerHTML;
+    btn.innerHTML = ok ? '✓ Copied' : 'Copy failed';
+    setTimeout(function() { btn.innerHTML = old; }, 1400);
+  };
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        function() { done(true); },
+        function() { done(_cmFvLegacyCopy(text)); });
+      return;
+    }
+  } catch (e) {}
+  done(_cmFvLegacyCopy(text));
+}
+
+// Esc leaves full screen from anywhere.
+(function _cmFvInstallEsc() {
+  if (window._cmFvEscInstalled) return;
+  window._cmFvEscInstalled = true;
+  document.addEventListener('keydown', function(ev) {
+    if (ev.key !== 'Escape') return;
+    Object.keys(_cmFileViews).forEach(function(hostId) {
+      if (_cmFileViews[hostId] && _cmFileViews[hostId].fs) cmFvToggleFullscreen(hostId);
+    });
+    _cmFsPanels.slice().forEach(function(panel) { cmPanelToggleFullscreen(panel, null); });
+  });
+})();
+
+// ─────────────────────────────────────────────────────────────────────────
 // Runtime Memory & Skills browser (multi-runtime file explorer).
 //
 // Each supported runtime stores its long-lived memory and its skills in
@@ -25955,6 +26801,11 @@ var _CM_RT_GENERIC_DIR = {
   skills: 1, memory: 1, plugins: 1, external_plugins: 1, marketplaces: 1,
   commands: 1, agents: 1, hooks: 1, '.claude': 1, '.agents': 1,
 };
+// The disambiguator is a PREFIX, never a replacement: dropping the filename
+// left rows in the live Memory tab reading "-Users-vivek--openclaw-workspace"
+// with no MEMORY.md anywhere on them, next to sibling rows that did show a
+// filename. Keep the base and lead with the folder that identifies it, so
+// every row still names a file.
 function _cmRtDisplayName(rel, fallback) {
   var segs = String(rel || '').split('/').filter(Boolean);
   if (!segs.length) return fallback || '(file)';
@@ -25962,7 +26813,7 @@ function _cmRtDisplayName(rel, fallback) {
   if (!_CM_RT_GENERIC_FILE[base]) return base;
   var parts = segs.slice(0, -1).filter(function(s) { return !_CM_RT_GENERIC_DIR[s]; });
   if (!parts.length) return base;
-  return parts.slice(-2).join('/');
+  return parts.slice(-1)[0] + '/' + base;
 }
 
 async function cmRuntimeMountBrowser(container, runtimeId, tab) {
@@ -26110,16 +26961,14 @@ async function cmRuntimeMountBrowser(container, runtimeId, tab) {
   }).join('');
 
   container.innerHTML =
-    '<div style="display:flex;height:calc(100vh - 260px);min-height:420px;background:var(--bg-primary);border:1px solid var(--border-primary);border-radius:8px;overflow:hidden;">'
+    '<div class="cm-rt-panel" style="display:flex;height:calc(100vh - 260px);min-height:420px;background:var(--bg-primary);border:1px solid var(--border-primary);border-radius:8px;overflow:hidden;">'
     + '<div id="cm-rt-tree-' + tab + '" style="width:320px;min-width:260px;flex-shrink:0;background:var(--bg-secondary);border-right:1px solid var(--border-primary);overflow-y:auto;padding:8px 0;">'
     + '<div style="padding:8px 10px 10px;font-size:11px;color:var(--text-muted);border-bottom:1px solid var(--border-primary);margin-bottom:8px;">'
     + escHtml(payload.label || scopeLabel) + ' · ' + catWord + ' — ' + totalFiles + ' file' + (totalFiles === 1 ? '' : 's') + ' across ' + groups.length + ' location' + (groups.length === 1 ? '' : 's')
     + '</div>' + treeHtml + '</div>'
-    + '<div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">'
-    + '<div id="cm-rt-file-header-' + tab + '" style="padding:8px 14px;background:var(--bg-secondary);border-bottom:1px solid var(--border-primary);font-family:\'JetBrains Mono\',\'SF Mono\',monospace;font-size:12px;color:var(--text-secondary);min-height:32px;display:flex;align-items:center;gap:10px;">Select a file</div>'
-    + '<div id="cm-rt-file-body-' + tab + '" style="flex:1;overflow:auto;padding:16px 22px;background:var(--bg-primary);font-family:\'JetBrains Mono\',\'SF Mono\',monospace;font-size:12.5px;line-height:1.6;color:var(--text-primary);white-space:pre-wrap;word-break:break-word;">'
-    + '<div style="color:var(--text-muted);font-family:inherit;">Pick a file on the left to view its contents.</div>'
-    + '</div></div></div>';
+    + '<div id="cm-rt-view-' + tab + '" class="cm-fileview">'
+    + '<div class="cm-fv-empty">Pick a file on the left to view its contents.</div>'
+    + '</div></div>';
 
   // Stash the payload on the container so cmRuntimeOpenFile can look up
   // (root, path) by (gi, fi) without another fetch.
@@ -26135,7 +26984,33 @@ async function cmRuntimeMountBrowser(container, runtimeId, tab) {
     label: payload.label,
     groups: groups,
   };
+  _cmRtFitHeight();
 }
+
+// Grow the browser panels into whatever vertical room is actually left below
+// them. The fixed `calc(100vh - 260px)` guessed wrong the moment a banner
+// appeared (dead space under the panel, or a panel running off-screen), so
+// measure the panel's real top instead. Re-measured on resize.
+function _cmRtFitHeight() {
+  try {
+    document.querySelectorAll('.cm-rt-panel').forEach(function(panel) {
+      if (!panel.offsetParent) return;              // hidden tab — skip
+      var top = panel.getBoundingClientRect().top;
+      if (top <= 0) return;
+      panel.style.height = Math.max(380, Math.round(window.innerHeight - top - 18)) + 'px';
+    });
+  } catch (e) {}
+}
+
+(function _cmRtInstallResizeFit() {
+  if (window._cmRtFitInstalled) return;
+  window._cmRtFitInstalled = true;
+  var timer = null;
+  window.addEventListener('resize', function() {
+    clearTimeout(timer);
+    timer = setTimeout(_cmRtFitHeight, 80);
+  });
+})();
 
 async function cmRuntimeOpenFile(clickEl, gi, fi) {
   var container = clickEl.closest('.runtime-file-browser');
@@ -26158,10 +27033,8 @@ async function cmRuntimeOpenFile(clickEl, gi, fi) {
   clickEl.style.background = 'rgba(99,102,241,0.15)';
   clickEl.style.color = '#a5b4fc';
 
-  var header = document.getElementById('cm-rt-file-header-' + tab);
-  var body = document.getElementById('cm-rt-file-body-' + tab);
-  if (header) header.innerHTML = escHtml(group.root + '/' + (file.path || ''));
-  if (body) body.innerHTML = '<div style="color:var(--text-muted);">Loading…</div>';
+  var hostId = 'cm-rt-view-' + tab;
+  cmFileViewerPlaceholder(hostId, 'Loading ' + (file.path || group.label || 'file') + '…');
 
   try {
     var d;
@@ -26181,28 +27054,19 @@ async function cmRuntimeOpenFile(clickEl, gi, fi) {
     var content = d.content || '';
     var sizeStr = (d.size >= 1024 ? (d.size / 1024).toFixed(1) + 'K' : d.size + 'B');
     var mstr = d.mtime ? new Date(d.mtime * 1000).toLocaleString() : '';
-    if (header) header.innerHTML =
-      '<span style="color:var(--text-primary);font-weight:600;">' + escHtml((file.path || group.label || '')) + '</span>'
-      + '<span style="opacity:0.6;">·</span><span>' + escHtml(sizeStr) + '</span>'
-      + (mstr ? '<span style="opacity:0.6;">·</span><span>' + escHtml(mstr) + '</span>' : '')
-      + '<span style="opacity:0.6;">·</span><span>' + escHtml(d.language || 'text') + '</span>';
-    if (body) {
-      // Render markdown as preview when we have it (matches Memory tab UX),
-      // otherwise show raw content. cmSafeMarkdown is defined earlier in
-      // app.js and sanitizes output.
-      if ((d.language || '') === 'markdown' && typeof cmSafeMarkdown === 'function') {
-        body.style.whiteSpace = 'normal';
-        body.style.fontFamily = '';
-        body.innerHTML = cmSafeMarkdown(content);
-      } else {
-        body.style.whiteSpace = 'pre-wrap';
-        body.style.fontFamily = "'JetBrains Mono','SF Mono',monospace";
-        body.textContent = content;
-      }
-    }
+    // Raw source by default — auto-rendering markdown reflowed the file into
+    // prose (YAML frontmatter became a giant heading) and there was no way
+    // back to what the file actually says. Preview is one click away.
+    cmFileViewerOpen(hostId, {
+      name: file.path || group.label || '',
+      path: group.root + '/' + (file.path || ''),
+      content: content,
+      language: d.language || 'text',
+      meta: [sizeStr, mstr, d.language || 'text']
+    });
   } catch (e) {
-    if (body) body.innerHTML = '<div style="color:#ef4444;">Failed to load: '
-      + escHtml(String(e && e.message || e)) + '</div>';
+    cmFileViewerPlaceholder(hostId, 'Failed to load: '
+      + String(e && e.message || e), true);
   }
 }
 

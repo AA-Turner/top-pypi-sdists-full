@@ -43,12 +43,18 @@ from pathlib import Path
 
 from xbsl import __version__
 from xbsl import parser as P
-from xbsl import terms
+from xbsl import dataset, metamodel, terms
 from xbsl.dataset import PLACEHOLDER
 from xbsl.engine import SourceFile, find_sources, load
-from xbsl.lexer import linemap, tokens
+from xbsl.lexer import Token, linemap, tokens
 from xbsl.parser import parse
-from xbsl.rules._syntax import _skip_balanced, _type_head, code_tokens, signatures
+from xbsl.rules._syntax import (
+    _skip_balanced,
+    _type_head,
+    code_tokens,
+    signatures,
+    type_expr,
+)
 from xbsl.rules.semantics import (
     _file_local_type_decls,
     _manager_member_types,
@@ -152,6 +158,7 @@ def _dictionary_methods(s: SourceFile, name: str, path: str) -> list[dict]:
                 # generated method, and inventing them would put a made-up name in the hover.
                 "params": ", ".join(["Строка"] * arity),
                 "returns": "Строка",
+                "returns_written": "Строка",
                 "doc": value,
             })
     return out
@@ -252,20 +259,31 @@ _COMMENT_MARK_RE = re.compile(r"^\s*(?://+|/\*+|\*+/?)|\*+/\s*$")
 _BANNER_RE = re.compile(r"^[-=*#~]{2,}.*[-=*#~]{2,}$|^[-=*#~\s]+$")
 
 
-def _signature_info(s: SourceFile) -> dict[tuple[str, int], tuple[str, str]]:
-    """(return type head, parameter list as written) per (method name, declaration line).
+def _signature_info(s: SourceFile) -> dict[tuple[str, int], tuple[str, str, str]]:
+    """(return type head, return type as written, parameter list) per (method, declaration line).
 
     The return type is what lets the editor type `val X = Module.Method(...)`: the catalogue
     of stdlib member types has nothing to say about a project method, so its return type has
     to come from the project index. The head is nominal (`Array<String>` -> `Array`), like
-    every other inferred type. The parameter list is kept verbatim (defaults included) - the
-    hover shows the call the way the module declares it.
+    every other inferred type - it is the key a member lookup needs.
+
+    The WRITTEN form is kept beside it, and the difference is the nullable marker: a head says
+    `UserId` where the module declares `UserId?`, so every value coming out of the project
+    looked non-empty. Judging a non-null operator or a comparison with the empty value is
+    exactly a question about that marker, and the head cannot answer it - the platform
+    catalogue keeps the written form for the same reason.
+
+    The parameter list is kept verbatim (defaults included) - the hover shows the call the way
+    the module declares it.
     """
-    out: dict[tuple[str, int], tuple[str, str]] = {}
+    out: dict[tuple[str, int], tuple[str, str, str]] = {}
     toks = code_tokens(s)
     n = len(toks)
     for sig in signatures(toks):
-        head = _type_head(toks, sig.return_type_start) if sig.return_type_start is not None else None
+        head = written = None
+        if sig.return_type_start is not None:
+            head = _type_head(toks, sig.return_type_start)
+            written = _type_written(s, toks, sig.return_type_start)
         params = ""
         i = next(
             (k for k in range(n) if toks[k].start >= sig.name.end
@@ -276,8 +294,16 @@ def _signature_info(s: SourceFile) -> dict[tuple[str, int], tuple[str, str]]:
             end = _skip_balanced(toks, i, "(", ")")
             if 0 < end <= n:
                 params = _WS_RE.sub(" ", s.text[toks[i].start:toks[end - 1].end]).strip()
-        out[(sig.name.value, sig.name.line)] = (head or "", params)
+        out[(sig.name.value, sig.name.line)] = (head or "", written or "", params)
     return out
+
+
+def _type_written(s: SourceFile, toks: list[Token], start: int) -> str | None:
+    """The type expression exactly as the source spells it, `UserId?` and all."""
+    te = type_expr(toks, start)
+    if te is None or te.end <= start:
+        return None
+    return _WS_RE.sub("", s.text[toks[start].start:toks[te.end - 1].end]).strip() or None
 
 
 def _doc_above(toks: list, i: int, annotations: list[str]) -> str:
@@ -330,13 +356,15 @@ def _method_decls(s: SourceFile) -> list[dict]:
             j += 1
         if j < n and toks[j].kind == "IDENT":
             annotations = _annotations_before(toks, i)
-            returns, params = sigs.get((toks[j].value, toks[j].line), ("", ""))
+            returns, returns_written, params = sigs.get(
+                (toks[j].value, toks[j].line), ("", "", ""))
             decls.append({
                 "name": toks[j].value,
                 "line": toks[j].line,
                 "annotations": annotations,
                 "params": params,
                 "returns": returns,
+                "returns_written": returns_written,
                 "doc": _doc_above(toks, i, annotations),
             })
     return decls
@@ -450,6 +478,11 @@ _METADATA_MEMBER_SECTIONS: dict[str, tuple[str, tuple[str, ...]]] = {
     # the kind's own methods alone - the parameters, which is what the code actually reads, were
     # missing.
     "ПараметрыРаботыКлиента": ("Параметры", (PLACEHOLDER, PLACEHOLDER + ".Параметры")),
+    # An interface component names its own data in Properties, and a VALUE of that type - the
+    # form a constructor call returns - carries them (docs topics/component-properties). Without
+    # this a variable holding a form offered nothing after the dot: neither its own properties,
+    # nor the methods of its module, nor the members of the platform type it inherits.
+    "КомпонентИнтерфейса": ("Свойства", (PLACEHOLDER,)),
 }
 
 #: The fallback for `generated_returns` when the data carries no manager_member_types section:
@@ -465,6 +498,82 @@ _METADATA_MEMBER_SECTIONS: dict[str, tuple[str, tuple[str, ...]]] = {
 _GENERATED_RETURNS: dict[str, dict[str, str]] = {
     "НаборКонстант": {"Получить": "{}.Запись"},
 }
+
+
+def _tabular_items(s: SourceFile, data: dict, kind: str) -> list[dict]:
+    """Tabular sections with the attributes each one holds.
+
+    A tabular section is a TYPE of its own (`Catalog.Lines`), and its attributes are
+    what the dot after a row offers - the plain name-and-line record could not answer that.
+    """
+    items = _named_items(s, data, "ТабличныеЧасти", kind)
+    described = value_of(data, "ТабличныеЧасти", kind)
+    by_name: dict[str, list[str]] = {}
+    if isinstance(described, list):
+        for part in described:
+            if not isinstance(part, dict):
+                continue
+            part_name = part.get("Имя") or part.get("Name")
+            rows = value_of(part, "Реквизиты", kind)
+            if not isinstance(part_name, str) or not isinstance(rows, list):
+                continue
+            names = [
+                str(r.get("Имя") or r.get("Name")) for r in rows
+                if isinstance(r, dict) and (r.get("Имя") or r.get("Name"))
+            ]
+            if names:
+                by_name[part_name] = sorted(names)
+    for item in items:
+        fields = by_name.get(item.get("name", ""))
+        if fields:
+            item["attributes"] = fields
+    return items
+
+
+def _typed_items(s: SourceFile, data: dict, key: str, kind: str) -> list[dict]:
+    """Named items of a section with the type each one declares.
+
+    The type is what a chain over the member needs: `Goods.Object.Price` answers `Number` only
+    when the attribute carries its declared type into the index.
+    """
+    items = _named_items(s, data, key, kind)
+    described = value_of(data, key, kind)
+    by_name: dict[str, str] = {}
+    if isinstance(described, list):
+        for entry in described:
+            if not isinstance(entry, dict):
+                continue
+            name = entry.get("Имя") or entry.get("Name")
+            written = entry.get("Тип") or entry.get("Type")
+            if isinstance(name, str) and isinstance(written, str):
+                by_name[name] = written
+    for item in items:
+        written = by_name.get(item.get("name", ""))
+        if written:
+            item["type"] = written
+    return items
+
+
+def _kind_facet_members() -> dict[str, dict[str, dict[str, list[str]]]]:
+    """{kind: {facet: members}} - what the catalogue gives the types a KIND generates.
+
+    The pages describe them by kind (`Справочник.Ссылка`, `Документ.Объект`), while the code
+    names them by the object (`Catalog.Reference`). The join happens per project object; here
+    only the kind side is collected, once per process.
+    """
+    catalog = dataset.load_json("stdlib.json")
+    facets = {**(catalog.get("facet_members") or {}), **(catalog.get("type_members") or {})}
+    out: dict[str, dict[str, dict[str, list[str]]]] = {}
+    for name, members in facets.items():
+        kind, _, facet = name.partition(".")
+        if not facet or "." in facet or not metamodel.canonical_kind(kind):
+            continue
+        out.setdefault(metamodel.canonical_kind(kind), {})[facet] = {
+            "properties": list(members.get("properties") or ()),
+            "methods": list(members.get("methods") or ()),
+            "returns": dict((catalog.get("member_types") or {}).get(name) or {}),
+        }
+    return out
 
 
 def _with_object_name(spelling: str, name: str) -> str:
@@ -513,6 +622,23 @@ def _field_types(members) -> dict[str, str]:
         if isinstance(text, str) and text.strip():
             out[f.name] = text.strip()
     return out
+
+
+def _inherited_type(data: dict, kind: str) -> str | None:
+    """The platform type an element extends (`Наследует.Тип` of a component), without arguments.
+
+    A form is a value of a PROJECT type whose members are its own; everything else it answers to
+    - `OpenInModalWindow`, `Close`, the layout properties - belongs to the platform type
+    it inherits, and only the base names it.
+    """
+    inherits = value_of(data, "Наследует", kind)
+    if not isinstance(inherits, dict):
+        return None
+    base = value_of(inherits, "Тип", kind)
+    if not isinstance(base, str) or not base.strip():
+        return None
+    head = base.split("<", 1)[0].strip()
+    return head or None
 
 
 def _metadata_members(data: dict, kind: str) -> tuple[list[str], dict[str, str]]:
@@ -667,7 +793,7 @@ def build_index(root: Path) -> dict:
     # {type name: (element kind, member names)} of the types DESCRIBED IN METADATA - collected
     # here, where the parsed yaml is at hand, and joined to struct_members once the module
     # methods are known.
-    metadata_types: dict[str, tuple[str, list[str]]] = {}
+    metadata_types: dict[str, tuple[str, list[str], dict[str, str], str | None]] = {}
     if _HAVE_YAML:
         for s in yaml_sources:
             data, err = _parsed(s)
@@ -682,8 +808,8 @@ def build_index(root: Path) -> dict:
                 "kind": kind,
                 "path": rel(s.path),
                 "line": _top_name_line(s, name),
-                "tabular": _named_items(s, data, "ТабличныеЧасти", kind),
-                "attributes": _named_items(s, data, "Реквизиты", kind),
+                "tabular": _tabular_items(s, data, kind),
+                "attributes": _typed_items(s, data, "Реквизиты", kind),
                 # Register fields live in their own sections - the query completion
                 # needs them next to the attributes.
                 "dimensions": _named_items(s, data, "Измерения", kind),
@@ -711,9 +837,10 @@ def build_index(root: Path) -> dict:
                 entry["values"] = _named_items(s, data, "Элементы")
             if kind in _METADATA_MEMBER_SECTIONS:
                 members, member_types = _metadata_members(data, kind)
+                inherited = _inherited_type(data, kind)
                 for pattern in _METADATA_MEMBER_SECTIONS[kind][1]:
                     for spelling in _generated_type_spellings(pattern, name, kind):
-                        metadata_types[spelling] = (kind, members, member_types)
+                        metadata_types[spelling] = (kind, members, member_types, inherited)
             objects.append(entry)
             if kind == "КомпонентИнтерфейса":
                 components.extend(_form_components(s, data, name, entry["path"]))
@@ -733,6 +860,7 @@ def build_index(root: Path) -> dict:
                 "annotations": decl["annotations"],
                 "params": decl["params"],
                 "returns": decl["returns"],
+                "returns_written": decl["returns_written"],
                 "doc": decl["doc"],
             })
 
@@ -746,8 +874,10 @@ def build_index(root: Path) -> dict:
     module_method_names: dict[str, set[str]] = defaultdict(set)
     for m in methods:
         module_method_names[m["module"]].add(m["name"])
-    for type_name, (kind, member_names, member_types) in metadata_types.items():
+    for type_name, (kind, member_names, member_types, inherited) in metadata_types.items():
         record: dict = {"properties": member_names, "kind": kind}
+        if inherited:
+            record["base"] = inherited
         if member_types:
             record["property_types"] = member_types
         own_methods = module_method_names.get(type_name)
@@ -777,6 +907,59 @@ def build_index(root: Path) -> dict:
                 member: _with_object_name(result, o["name"])
                 for member, result in table.items()
             }
+
+    # The types an OBJECT of the project generates carry its own data: `Catalog.Object` holds
+    # the attributes and the tabular sections written in its yaml, `Catalog.Reference` what the
+    # kind gives a reference, and a tabular section is a type of its own with its attributes.
+    # The catalogue describes these by KIND (`Справочник.Ссылка`), and their members are joined
+    # with the object's own here - without this a variable holding an object answered nothing.
+    kind_facets = _kind_facet_members()
+    facet_returns: dict[str, dict[str, str]] = {}
+    for o in objects:
+        own_attrs = [a["name"] for a in o.get("attributes") or []]
+        # The TYPE of each own member, so a chain over it goes on: an attribute answers what its
+        # yaml declares, a tabular section answers an array of its own row type.
+        own_types = {
+            a["name"]: a["type"] for a in o.get("attributes") or [] if a.get("type")
+        }
+        own_types.update({
+            x["name"]: f"Массив<{o['name']}.{x['name']}>" for x in o.get("tabular") or []
+        })
+        tabular = [x["name"] for x in o.get("tabular") or []]
+        registers = [x["name"] for x in (o.get("dimensions") or []) + (o.get("resources") or [])]
+        by_facet = kind_facets.get(o["kind"]) or {}
+        for facet, members in by_facet.items():
+            name = f"{o['name']}.{facet}"
+            if name in struct_members:
+                continue
+            props = sorted(set(members.get("properties") or ()) | set(
+                own_attrs + tabular + registers if facet in ("Объект", "Данные", "Запись") else []
+            ))
+            facet_methods = sorted(set(members.get("methods") or ()))
+            record: dict = {"properties": props, "kind": o["kind"]}
+            if own_types and facet in ("Объект", "Данные", "Запись"):
+                record["property_types"] = dict(sorted(own_types.items()))
+            if facet_methods:
+                record["methods"] = facet_methods
+            struct_members[name] = record
+            # What a member of such a type ANSWERS, with the object's own name put in: the
+            # catalogue spells it by kind (`Справочник.Ссылка.ЗагрузитьОбъект: Справочник.Объект?`),
+            # and a chain over the call needs the concrete name to go on.
+            answers = {
+                member: result.replace(o["kind"], o["name"], 1)
+                for member, result in (members.get("returns") or {}).items()
+                if result
+            }
+            if answers:
+                facet_returns[name] = answers
+        for part in o.get("tabular") or []:
+            name = f"{o['name']}.{part['name']}"
+            rows = part.get("attributes") or []
+            if name not in struct_members and rows:
+                struct_members[name] = {"properties": list(rows), "kind": o["kind"]}
+
+    for type_name, answers in facet_returns.items():
+        generated_returns[type_name] = {**generated_returns.get(type_name, {}), **answers}
 
     # Usages (for "find usages"): names of objects, components and methods encountered as a
     # call/member/chain root in modules, plus methods in yaml handlers. Resolving a concrete

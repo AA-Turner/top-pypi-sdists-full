@@ -89,13 +89,13 @@ class PcxError(RuntimeError):
 
 def pcx_version():
     """Return PCX codec version string."""
-    return 'pcx 2026.5.10'
+    return 'pcx 2026.6.18'
 
 
 def pcx_check(const uint8_t[::1] data, /):
     """Return whether data is PCX or DCX encoded or None if unknown."""
     cdef:
-        ssize_t srcsize = data.nbytes
+        ssize_t srcsize = data.shape[0]
 
     if srcsize < 128:
         return False
@@ -194,8 +194,8 @@ def pcx_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstptr = <uint8_t*> &dst[0]
-    dstsize = dst.nbytes
+    dstptr = <uint8_t*> dst._data
+    dstsize = dst.shape[0]
 
     with nogil:
         if layout.frames > 1:
@@ -281,10 +281,10 @@ def pcx_decode(
     """
     cdef:
         const uint8_t[::1] src = data
-        const uint8_t* srcptr = <const uint8_t*> &src[0]
+        const uint8_t* srcptr = <const uint8_t*> src._data
         numpy.ndarray dst
         uint8_t* dstptr
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t sidx, pi, nframes, page_size
         ssize_t pcx_end, ref_width, ref_height, ref_samples
         ssize_t[1024] page_offsets
@@ -659,7 +659,7 @@ cdef void _pcx_decode_page(
 ) noexcept nogil:
     """Decode single PCX page into dst buffer."""
     cdef:
-        ssize_t sidx, i, j, k, plane, row_offset, rle_count
+        ssize_t sidx, i, j, plane, row_offset, rle_count
         ssize_t scanline_len, byte_idx, bit_shift, pal_idx
         ssize_t pixels_per_byte, pixel_in_byte, bit
         uint8_t rle_byte, val
@@ -699,7 +699,7 @@ cdef void _pcx_decode_page(
                     rle_count = 1
                     val = src[sidx]
                     sidx += 1
-                for k in range(rle_count):
+                for _k in range(rle_count):
                     if j >= scanline_len:
                         break
                     rowbuf[j] = val
@@ -752,7 +752,7 @@ cdef void _pcx_decode_page(
                     val = src[sidx]
                     sidx += 1
 
-                for k in range(rle_count):
+                for _k in range(rle_count):
                     if j >= page.bytes_per_line:
                         break
                     for pixel_in_byte in range(pixels_per_byte):
@@ -807,7 +807,7 @@ cdef void _pcx_decode_page(
                     val = src[sidx]
                     sidx += 1
 
-                for k in range(rle_count):
+                for _k in range(rle_count):
                     if j >= page.bytes_per_line:
                         break
                     for bit in range(8):
@@ -839,7 +839,7 @@ cdef void _pcx_decode_page(
                     val = src[sidx]
                     sidx += 1
 
-                for k in range(rle_count):
+                for _k in range(rle_count):
                     if j >= page.bytes_per_line:
                         break
                     if j < page.width:

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: cognee
-Version: 1.4.2
+Version: 1.5.0
 Summary: Cognee - is a library for enriching LLM context with a semantic layer for better understanding and reasoning.
 Project-URL: Homepage, https://www.cognee.ai
 Project-URL: Repository, https://github.com/topoteretes/cognee
@@ -33,7 +33,8 @@ Requires-Dist: filetype<2.0.0,>=1.2.0
 Requires-Dist: gunicorn<24,>=20.1.0
 Requires-Dist: instructor<1.15.3,>=1.9.1
 Requires-Dist: jinja2<4,>=3.1.3
-Requires-Dist: ladybug<=0.18.2,>=0.16.0
+Requires-Dist: ladybug<0.18,>=0.17.0; sys_platform == 'darwin' and ('Darwin Kernel Version 22.' in platform_version or 'Darwin Kernel Version 23.' in platform_version)
+Requires-Dist: ladybug==0.19.0; sys_platform != 'darwin' or ('Darwin Kernel Version 22.' not in platform_version and 'Darwin Kernel Version 23.' not in platform_version)
 Requires-Dist: lancedb<1.0.0,>=0.24.3
 Requires-Dist: langdetect>=1.0.9
 Requires-Dist: limits<5,>=4.4.1
@@ -72,8 +73,6 @@ Requires-Dist: baml-py==0.206.0; extra == 'baml'
 Provides-Extra: codegraph
 Requires-Dist: fastembed<=0.8.0; (python_version < '3.14') and extra == 'codegraph'
 Requires-Dist: transformers<5,>=4.46.3; extra == 'codegraph'
-Requires-Dist: tree-sitter-python<0.24,>=0.23.6; extra == 'codegraph'
-Requires-Dist: tree-sitter<0.25,>=0.24.0; extra == 'codegraph'
 Provides-Extra: debug
 Requires-Dist: debugpy<2.0.0,>=1.8.9; extra == 'debug'
 Provides-Extra: deepeval
@@ -95,13 +94,14 @@ Requires-Dist: pytest<8,>=7.4.0; extra == 'dev'
 Requires-Dist: ruff<=0.16.0,>=0.9.2; extra == 'dev'
 Requires-Dist: tweepy<5.0.0,>=4.14.0; extra == 'dev'
 Requires-Dist: ty<0.1.0,>=0.0.31; extra == 'dev'
-Provides-Extra: distributed
-Requires-Dist: modal<2.0.0,>=1.0.5; extra == 'distributed'
 Provides-Extra: dlt
 Requires-Dist: dlt[sqlalchemy]<2,>=1.9.0; extra == 'dlt'
+Requires-Dist: pandas<3.0.0,>=2.2.2; extra == 'dlt'
 Provides-Extra: docling
-Requires-Dist: docling>=2.54; extra == 'docling'
-Requires-Dist: transformers>=4.55; extra == 'docling'
+Requires-Dist: docling-slim[convert-core,format-email,format-html,format-latex,format-markdown,format-office,format-pdf]<3,>=2.115; extra == 'docling'
+Provides-Extra: docling-full
+Requires-Dist: docling<3,>=2.115; extra == 'docling-full'
+Requires-Dist: transformers>=4.55; extra == 'docling-full'
 Provides-Extra: docs
 Requires-Dist: lxml<5,>=4.9.3; (python_version < '3.13') and extra == 'docs'
 Requires-Dist: lxml<6,>=5; (python_version >= '3.13' and python_version < '3.14') and extra == 'docs'
@@ -119,6 +119,12 @@ Provides-Extra: fastembed
 Requires-Dist: fastembed<=0.8.0; extra == 'fastembed'
 Requires-Dist: onnxruntime<=1.23.2; (python_version < '3.14') and extra == 'fastembed'
 Requires-Dist: onnxruntime>=1.24.1; (python_version >= '3.14') and extra == 'fastembed'
+Provides-Extra: gmail
+Requires-Dist: dlt[sqlalchemy]<2,>=1.9.0; extra == 'gmail'
+Requires-Dist: google-api-python-client<3,>=2.100.0; extra == 'gmail'
+Requires-Dist: google-auth-oauthlib<2,>=1.1.0; extra == 'gmail'
+Requires-Dist: google-auth<3,>=2.23.0; extra == 'gmail'
+Requires-Dist: pandas<3.0.0,>=2.2.2; extra == 'gmail'
 Provides-Extra: graphiti
 Requires-Dist: graphiti-core>=0.28.0; extra == 'graphiti'
 Provides-Extra: groq
@@ -154,6 +160,8 @@ Requires-Dist: pgvector<0.4,>=0.3.5; extra == 'postgres-binary'
 Requires-Dist: psycopg2-binary<3.0.0,>=2.9.10; extra == 'postgres-binary'
 Provides-Extra: posthog
 Requires-Dist: posthog<4,>=3.5.0; extra == 'posthog'
+Provides-Extra: rapidocr
+Requires-Dist: rapidocr-onnxruntime<2,>=1.3.0; extra == 'rapidocr'
 Provides-Extra: redis
 Requires-Dist: redis<6.0.0,>=5.0.3; extra == 'redis'
 Provides-Extra: scraping
@@ -199,7 +207,7 @@ Description-Content-Type: text/markdown
 
 
   [![GitHub forks](https://img.shields.io/github/forks/topoteretes/cognee.svg?style=social&label=Fork&maxAge=2592000)](https://GitHub.com/topoteretes/cognee/network/)
-  [![GitHub stars](https://img.shields.io/github/stars/topoteretes/cognee.svg?style=social&label=Star&maxAge=2592000)](https://GitHub.com/topoteretes/cognee/stargazers/)
+  [![GitHub stars](https://img.shields.io/github/stars/topoteretes/cognee.svg?style=social&label=Star&maxAge=2592000)](https://github.com/topoteretes/cognee)
   [![GitHub commits](https://badgen.net/github/commits/topoteretes/cognee)](https://GitHub.com/topoteretes/cognee/commit/)
   [![GitHub tag](https://badgen.net/github/tag/topoteretes/cognee)](https://github.com/topoteretes/cognee/tags/)
   [![Downloads](https://static.pepy.tech/badge/cognee)](https://pepy.tech/project/cognee)
@@ -357,11 +365,32 @@ cognee-cli -ui
 > Docker Desktop, Colima, or any OCI-compatible runtime with a working `docker` CLI is
 > required. See [Docker & Colima Setup](docs/docker-colima-setup.md) for details.
 
+### Performance tuning
+
+Cognee's defaults favor memory quality over raw latency. Two knobs matter:
+
+- **`AUTO_FEEDBACK=false`** removes the one LLM call cognee makes after each answered
+  query to self-tune its memory. Reads get faster and cheaper; session memory itself
+  keeps working. Turn it back on when you want memory that improves from conversation
+  signals.
+- **`CACHING=false`** disables session memory entirely — `remember(session_id=...)`
+  stops working and `recall()` loses conversation context. Only set this if you don't
+  use session memory at all. **If you're benchmarking cognee, leave it on** — turning
+  it off benchmarks cognee with its memory layer removed.
+
+A third flag, `DATASET_QUEUE_ENABLED=false`, removes the per-process concurrency guard
+on datasets; it saves a little latency but risks file-lock leaks and resource
+exhaustion when multiple datasets run in parallel — leave it on for servers.
+
 ## Run with Docker
 
 Prefer containers? Cognee publishes prebuilt images to Docker Hub on every push to `main`:
 [`cognee/cognee`](https://hub.docker.com/r/cognee/cognee) (the API server) and
 [`cognee/cognee-mcp`](https://hub.docker.com/r/cognee/cognee-mcp) (the MCP server).
+
+> **Just want to try it?** Follow the
+> [minimal docker-compose try-out](docs/minimal-docker-compose.md) — a single
+> copy-pasteable compose file that runs the prebuilt image, no clone or build needed.
 
 ### Option A — Docker Compose (build from source)
 
@@ -552,6 +581,25 @@ Use [Cognee Cloud](https://www.cognee.ai) for a fully managed experience, or sel
 | **Islo** | Isolated cloud sandboxes (SDK) | See `distributed/deploy/islo_sandbox.py` |
 
 See the [`distributed/`](distributed/) folder for deploy scripts, worker configurations, and additional details.
+
+### Multi-tenant deployments
+
+With `ENABLE_BACKEND_ACCESS_CONTROL=true` (the default), each user+dataset combination
+gets its own isolated graph and vector databases. Not every backend supports this:
+
+| Layer | Isolation supported | Not supported |
+|---|---|---|
+| Graph | Ladybug/Kuzu (default), Neo4j*, Postgres (demo), Turso | Neptune, remote Ladybug |
+| Vector | LanceDB (default), PGVector, Turso | Neptune Analytics, community adapters |
+| Relational | — | SQLite/Postgres is always one shared database (users, permissions, registry) |
+
+\* Neo4j isolation creates one database per dataset inside your DBMS, which requires an
+edition with multi-database support (Enterprise or Aura).
+
+Both your graph **and** vector backends must support isolation — if either doesn't,
+cognee raises an error naming the unsupported backend rather than silently falling
+back to shared databases. To run an unsupported backend, deploy
+single-tenant with `ENABLE_BACKEND_ACCESS_CONTROL=false`.
 
 ## Use Cognee in Other Languages
 

@@ -117,7 +117,11 @@ class AgentScheduler(_BaseAgentScheduler):
         self._timeout_executor: Optional[ThreadPoolExecutor] = None
         self._timeout_executor_lock = threading.Lock()
         self._leaked_workers = 0
-        self._max_leaked_workers = 4
+        # Pool size and leak threshold are distinct: recycle once *half* the
+        # workers have leaked (mirroring AgentsGenerator), not only when the
+        # whole pool is dead.
+        self._pool_workers = 4
+        self._max_leaked_workers = max(1, self._pool_workers // 2)
 
     def _get_timeout_executor(self) -> ThreadPoolExecutor:
         """Lazily create/reuse this scheduler's bounded timeout pool.
@@ -135,7 +139,7 @@ class AgentScheduler(_BaseAgentScheduler):
                 self._leaked_workers = 0
             if self._timeout_executor is None:
                 self._timeout_executor = ThreadPoolExecutor(
-                    max_workers=self._max_leaked_workers,
+                    max_workers=self._pool_workers,
                     thread_name_prefix=f"praisonai-scheduler-{id(self):x}",
                 )
             return self._timeout_executor
@@ -146,12 +150,18 @@ class AgentScheduler(_BaseAgentScheduler):
             if self._timeout_executor is not None:
                 self._timeout_executor.shutdown(wait=False, cancel_futures=True)
                 self._timeout_executor = None
+            # Reset leak accounting with the pool: the stale count belongs to the
+            # discarded executor. Leaving it non-zero would make the *next* pool
+            # (e.g. after a restart) get recycled on its first use — needless
+            # churn against a fresh, un-leaked executor.
+            self._leaked_workers = 0
         
     def start(
         self,
         schedule_expr: str,
         max_retries: int = 3,
-        run_immediately: bool = False
+        run_immediately: bool = False,
+        timezone: Optional[str] = None,
     ) -> bool:
         """
         Start scheduled agent execution.
@@ -173,7 +183,9 @@ class AgentScheduler(_BaseAgentScheduler):
             # once-only catch-up across downtime); plain intervals are unchanged.
             self._load_persisted_last_run()
             ticker = ScheduleTicker(
-                schedule_expr, last_run_at=getattr(self, "_last_run_at", None)
+                schedule_expr,
+                last_run_at=getattr(self, "_last_run_at", None),
+                timezone=timezone,
             )
             self.is_running = True
             self._stop_event.clear()
@@ -230,10 +242,16 @@ class AgentScheduler(_BaseAgentScheduler):
             
         logger.debug("Stopping agent scheduler...")
         self._stop_event.set()
-        
-        if self._thread and self._thread.is_alive():
+
+        # Never join our own thread: the budget-brake path signals stop from
+        # inside _run_schedule, and CPython raises "cannot join current thread".
+        if (
+            self._thread
+            and self._thread.is_alive()
+            and self._thread is not threading.current_thread()
+        ):
             self._thread.join(timeout=10)
-            
+
         self.is_running = False
         # Release the owned timeout pool so idle daemons don't retain workers.
         self.close()
@@ -264,12 +282,23 @@ class AgentScheduler(_BaseAgentScheduler):
         during downtime); for a plain interval it sleeps the fixed interval —
         preserving the previous behaviour.
         """
+        try:
+            self._run_schedule_loop(ticker, max_retries)
+        finally:
+            # The thread is ending (budget brake, stop event, or error). Do the
+            # teardown here — never call self.stop() from this thread, which
+            # would self-join and raise "cannot join current thread".
+            self.is_running = False
+            self.close()
+
+    def _run_schedule_loop(self, ticker: "ScheduleTicker", max_retries: int):
         while not self._stop_event.is_set():
             # Check budget limit
             if self._budget_exceeded():
                 logger.warning(f"Budget limit reached: ${self._total_cost:.4f} >= ${self.max_cost}")
                 logger.warning("Stopping scheduler to prevent additional costs")
-                self.stop()
+                # Signal only; teardown happens in _run_schedule's finally.
+                self._stop_event.set()
                 break
 
             # For cron, sleep until the next wall-clock slot *before* running
@@ -496,7 +525,12 @@ class AgentScheduler(_BaseAgentScheduler):
         max_retries = schedule_config.get('max_retries', 3)
         run_immediately = schedule_config.get('run_immediately', False)
         
-        return self.start(interval, max_retries, run_immediately)
+        return self.start(
+            interval,
+            max_retries,
+            run_immediately,
+            timezone=schedule_config.get('tz'),
+        )
 
 
     @classmethod

@@ -116,7 +116,7 @@ def zlibng_encode(
     cdef:
         const uint8_t[::1] src = _readable_input(data)
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         size_t srclen, dstlen
         int32_t ret
@@ -136,15 +136,15 @@ def zlibng_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
     dstlen = <size_t> dstsize
     srclen = <size_t> srcsize
 
     with nogil:
         ret = zng_compress2(
-            <uint8_t*> &dst[0],
+            <uint8_t*> dst._data,
             &dstlen,
-            &src[0],
+            <const uint8_t*> src._data,
             srclen,
             compresslevel
         )
@@ -182,15 +182,15 @@ def zlibng_decode(
 
     src = data
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
     dstlen = <size_t> dstsize
-    srclen = <size_t> src.nbytes
+    srclen = <size_t> src.shape[0]
 
     with nogil:
         ret = zng_uncompress2(
-            <uint8_t*> &dst[0],
+            <uint8_t*> dst._data,
             &dstlen,
-            &src[0],
+            <const uint8_t*> src._data,
             &srclen
         )
     if ret != Z_OK:
@@ -205,14 +205,14 @@ def _zlibng_decode(const uint8_t[::1] src, outtype):
     cdef:
         output_t* output = NULL
         zng_stream stream
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         size_t incsize = _align_size_t(srcsize // 2)
         size_t size, left
         int32_t ret
 
     try:
         with nogil:
-            stream.next_in = <const uint8_t*> &src[0]
+            stream.next_in = <const uint8_t*> src._data
             stream.avail_in = 0
             stream.zalloc = NULL
             stream.zfree = NULL
@@ -289,12 +289,12 @@ def zlibng_crc32(
     """Return CRC32 checksum of data."""
     cdef:
         const uint8_t[::1] src = _readable_input(data)
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         uint32_t crc = 0 if value is None else value
 
     with nogil:
         # crc = zng_crc32_z(crc, NULL, 0)
-        crc = zng_crc32_z(crc, <const uint8_t*> &src[0], srcsize)
+        crc = zng_crc32_z(crc, <const uint8_t*> src._data, srcsize)
     return int(crc) & 0xffffffff
 
 
@@ -306,12 +306,12 @@ def zlibng_adler32(
     """Return Adler-32 checksum of data."""
     cdef:
         const uint8_t[::1] src = _readable_input(data)
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         uint32_t adler = 1 if value is None else value
 
     with nogil:
         # adler = zng_adler32_z(adler, NULL, 0)
-        adler = zng_adler32_z(adler, <const uint8_t*> &src[0], srcsize)
+        adler = zng_adler32_z(adler, <const uint8_t*> src._data, srcsize)
     return int(adler) & 0xffffffff
 
 

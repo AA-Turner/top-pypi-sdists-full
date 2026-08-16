@@ -54,6 +54,33 @@ _BINARY_REQUEST_CACHE_FIELDS = (
     "install_args",
     "packages",
 )
+_BINARY_REQUEST_PATH_FIELDS = frozenset({"abspath", "bin_dir", "install_root"})
+_OPERATIONAL_ABXPKG_ENV_KEYS = frozenset(
+    {
+        "ABXPKG_BINPROVIDERS",
+        "ABXPKG_DEBUG",
+        "ABXPKG_DRY_RUN",
+        "ABXPKG_LIB_DIR",
+        "ABXPKG_NO_CACHE",
+        "ABXPKG_TMP_CACHE_DIR",
+    },
+)
+
+
+def abxpkg_cache_env(env: Mapping[str, str]) -> dict[str, str]:
+    """Project environment variables that can change binary resolution."""
+    return {
+        key: value
+        for key, value in sorted(env.items())
+        if key.startswith("ABXPKG_") and key not in _OPERATIONAL_ABXPKG_ENV_KEYS
+    }
+
+
+def _canonical_request_path(value: object) -> object:
+    if not isinstance(value, (str, os.PathLike)):
+        return value
+    path = os.path.expanduser(os.fspath(value))
+    return os.path.realpath(path) if os.path.isabs(path) else path
 
 
 def binary_request_cache_key(
@@ -80,25 +107,39 @@ def binary_request_cache_key(
         for field in _BINARY_REQUEST_CACHE_FIELDS
         if field != "binproviders"
     }
+    raw_name = payload["name"]
+    if isinstance(raw_name, (str, os.PathLike)) and os.path.isabs(
+        os.path.expanduser(os.fspath(raw_name)),
+    ):
+        payload["name"] = _canonical_request_path(raw_name)
+    for field in _BINARY_REQUEST_PATH_FIELDS:
+        payload[field] = _canonical_request_path(payload[field])
     min_release_age = payload["min_release_age"]
     if isinstance(min_release_age, (int, float)):
         payload["min_release_age"] = float(min_release_age)
+    raw_overrides = payload["overrides"]
+    if isinstance(raw_overrides, Mapping):
+        payload["overrides"] = {
+            provider_name: {
+                key: _canonical_request_path(value)
+                if key in _BINARY_REQUEST_PATH_FIELDS
+                else float(value)
+                if key == "min_release_age" and isinstance(value, (int, float))
+                else value
+                for key, value in provider_overrides.items()
+            }
+            if isinstance(provider_overrides, Mapping)
+            else provider_overrides
+            for provider_name, provider_overrides in raw_overrides.items()
+        }
+    if payload["overrides"] == {}:
+        payload["overrides"] = None
     payload["dry_run"] = bool(payload["dry_run"])
     payload["no_cache"] = bool(payload["no_cache"])
     payload["binproviders"] = provider_names
-    payload["abxpkg_env"] = {
-        key: value
-        for key, value in sorted(
-            (env if env is not None else os.environ).items(),
-        )
-        if key.startswith("ABXPKG_")
-        and key
-        not in {
-            "ABXPKG_BINPROVIDERS",
-            "ABXPKG_LIB_DIR",
-            "ABXPKG_TMP_CACHE_DIR",
-        }
-    }
+    payload["abxpkg_env"] = abxpkg_cache_env(
+        env if env is not None else os.environ,
+    )
     canonical = json.dumps(payload, default=str, separators=(",", ":"), sort_keys=True)
     return hashlib.sha256(canonical.encode()).hexdigest()
 
@@ -520,77 +561,82 @@ def _cached_records(
     provider_names: list[str],
     binary_name: str,
     install_roots: dict[str, str] | None = None,
+    *,
+    require_executable: bool = True,
 ):
     for provider_name in provider_names:
-        provider_root = (install_roots or {}).get(provider_name)
-        derived_env_path = os.path.join(
-            provider_root or os.path.join(lib_dir, provider_name),
-            "derived.env",
+        default_root = os.path.join(lib_dir, provider_name)
+        provider_roots = dict.fromkeys(
+            filter(None, ((install_roots or {}).get(provider_name), default_root)),
         )
-        try:
-            fd = os.open(
-                derived_env_path,
-                os.O_RDONLY
-                | getattr(os, "O_NOFOLLOW", 0)
-                | getattr(os, "O_NONBLOCK", 0),
-            )
-        except OSError:
-            continue
-        try:
-            before = os.fstat(fd)
-            if (
-                not stat.S_ISREG(before.st_mode)
-                or before.st_uid != os.geteuid()
-                or before.st_mode & 0o022
-            ):
+        for provider_root in provider_roots:
+            derived_env_path = os.path.join(provider_root, "derived.env")
+            try:
+                fd = os.open(
+                    derived_env_path,
+                    os.O_RDONLY
+                    | getattr(os, "O_NOFOLLOW", 0)
+                    | getattr(os, "O_NONBLOCK", 0),
+                )
+            except OSError:
                 continue
-            with os.fdopen(fd, encoding="utf-8") as cache_file:
-                fd = -1
-                contents = cache_file.read()
-                after = os.fstat(cache_file.fileno())
-            stable_fields = (
-                "st_dev",
-                "st_ino",
-                "st_size",
-                "st_mtime_ns",
-                "st_ctime_ns",
-                "st_uid",
-                "st_mode",
-            )
-            if any(
-                getattr(before, field) != getattr(after, field)
-                for field in stable_fields
-            ):
+            try:
+                before = os.fstat(fd)
+                if (
+                    not stat.S_ISREG(before.st_mode)
+                    or before.st_uid != os.geteuid()
+                    or before.st_mode & 0o022
+                ):
+                    continue
+                with os.fdopen(fd, encoding="utf-8") as cache_file:
+                    fd = -1
+                    contents = cache_file.read()
+                    after = os.fstat(cache_file.fileno())
+                stable_fields = (
+                    "st_dev",
+                    "st_ino",
+                    "st_size",
+                    "st_mtime_ns",
+                    "st_ctime_ns",
+                    "st_uid",
+                    "st_mode",
+                )
+                if any(
+                    getattr(before, field) != getattr(after, field)
+                    for field in stable_fields
+                ):
+                    continue
+                cache = load_derived_cache_text(contents)
+            except OSError:
                 continue
-            cache = load_derived_cache_text(contents)
-        except OSError:
-            continue
-        finally:
-            if fd >= 0:
-                os.close(fd)
-        for record in cache.values():
-            raw_fingerprints = (
-                record.get("fingerprint") if isinstance(record, dict) else None
-            )
-            record_abspath = record.get("abspath") if isinstance(record, dict) else None
-            primary_fingerprint = (
-                raw_fingerprints[0]
-                if isinstance(raw_fingerprints, list) and raw_fingerprints
-                else None
-            )
-            if (
-                isinstance(record, dict)
-                and record.get("provider_name") == provider_name
-                and record.get("bin_name") == binary_name
-                and isinstance(record_abspath, str)
-                and os.path.isabs(record_abspath)
-                and os.access(record_abspath, os.X_OK)
-                and isinstance(primary_fingerprint, dict)
-                and os.path.realpath(record_abspath)
-                == cast(dict[str, object], primary_fingerprint).get("path")
-                and _fingerprints_match(raw_fingerprints)
-            ):
-                yield record
+            finally:
+                if fd >= 0:
+                    os.close(fd)
+            for record in cache.values():
+                raw_fingerprints = (
+                    record.get("fingerprint") if isinstance(record, dict) else None
+                )
+                record_abspath = (
+                    record.get("abspath") if isinstance(record, dict) else None
+                )
+                primary_fingerprint = (
+                    raw_fingerprints[0]
+                    if isinstance(raw_fingerprints, list) and raw_fingerprints
+                    else None
+                )
+                if (
+                    isinstance(record, dict)
+                    and record.get("provider_name") == provider_name
+                    and record.get("bin_name") == binary_name
+                    and isinstance(record_abspath, str)
+                    and os.path.isabs(record_abspath)
+                    and (not require_executable or os.access(record_abspath, os.X_OK))
+                    and isinstance(primary_fingerprint, dict)
+                    and os.path.realpath(record_abspath)
+                    == cast(dict[str, object], primary_fingerprint).get("path")
+                    and _fingerprints_match(raw_fingerprints)
+                ):
+                    yield record
 
 
 def _find_executable(name: str, path: str) -> str | None:
@@ -616,6 +662,8 @@ def _validated_cached_plan(
     run_context: str,
     *,
     base_env: Mapping[str, str] | None = None,
+    ignored_env_base_keys: Iterable[str] = (),
+    require_executable: bool = True,
 ) -> tuple[str, dict[str, str]] | None:
     if os.getuid() != os.geteuid() or not isinstance(raw_plan, dict):
         return None
@@ -636,7 +684,7 @@ def _validated_cached_plan(
     if (
         not isinstance(exec_abspath, str)
         or not os.path.isabs(exec_abspath)
-        or not os.access(exec_abspath, os.X_OK)
+        or (require_executable and not os.access(exec_abspath, os.X_OK))
         or not isinstance(is_script, bool)
         or not isinstance(env, dict)
         or not isinstance(env_base, dict)
@@ -660,15 +708,18 @@ def _validated_cached_plan(
     typed_env = cast(dict[str, str], env)
     typed_env_base = cast(dict[str, str | None], env_base)
     typed_cache_context_env = cast(dict[str, str | None], cache_context_env)
+    ignored_env_keys = frozenset(ignored_env_base_keys)
     current_env = os.environ if base_env is None else base_env
     if any(
-        current_env.get(key) != value for key, value in typed_cache_context_env.items()
+        current_env.get(key) != value
+        for key, value in typed_cache_context_env.items()
+        if not (is_script and key in typed_env)
     ):
         return None
     if any(
         current_env.get(key) != value
         for key, value in typed_env_base.items()
-        if not (is_script and key in typed_env)
+        if key not in ignored_env_keys and not (is_script and key in typed_env)
     ):
         return None
     final_env = dict(current_env)
@@ -699,7 +750,8 @@ def _validated_cached_plan(
         resolved_ambient = (
             os.path.realpath(current_ambient) if current_ambient is not None else None
         )
-        if resolved_ambient != ambient_abspath:
+        projected_ambient = is_script and resolved_ambient == os.path.realpath(abspath)
+        if resolved_ambient != ambient_abspath and not projected_ambient:
             return None
     return exec_abspath, final_env
 
@@ -710,6 +762,7 @@ def _load_cached_request_projection(
     provider_names: list[str],
     *,
     base_env: Mapping[str, str] | None = None,
+    ignored_env_base_keys: Iterable[str] = (),
 ) -> tuple[dict[str, object], dict[str, object], str, dict[str, str]] | None:
     current_env = os.environ if base_env is None else base_env
     request_key = binary_request_cache_key(
@@ -738,11 +791,14 @@ def _load_cached_request_projection(
 
     for provider_name in provider_names:
         matches = []
+        # Dependency requests may resolve non-executable artifacts such as
+        # browser extension metadata or importable module entrypoints.
         for record in _cached_records(
             lib_dir,
             [provider_name],
             str(request["name"]),
             install_roots,
+            require_executable=False,
         ):
             raw_projections = record.get("request_exec_projections")
             projection = (
@@ -750,32 +806,34 @@ def _load_cached_request_projection(
                 if isinstance(raw_projections, dict)
                 else None
             )
-            if isinstance(projection, dict):
-                matches.append((record, cast(dict[str, object], projection)))
+            if not isinstance(projection, dict):
+                continue
+            typed_projection = cast(dict[str, object], projection)
+            if typed_projection.get("version") != 1 or any(
+                not isinstance(typed_projection.get(key), list)
+                or any(
+                    not isinstance(layer, dict)
+                    for layer in cast(list[object], typed_projection.get(key))
+                )
+                for key in ("provider_layers", "target_layers")
+            ):
+                continue
+            if not typed_projection.get("provider_layers"):
+                continue
+            validated = _validated_cached_plan(
+                typed_projection.get("validation"),
+                request_key,
+                base_env=current_env,
+                ignored_env_base_keys=ignored_env_base_keys,
+                require_executable=False,
+            )
+            if validated is not None:
+                matches.append((record, typed_projection, *validated))
         if len(matches) > 1:
             return None
         if not matches:
             continue
-        record, projection = matches[0]
-        if projection.get("version") != 1 or any(
-            not isinstance(projection.get(key), list)
-            or any(
-                not isinstance(layer, dict)
-                for layer in cast(list[object], projection.get(key))
-            )
-            for key in ("provider_layers", "target_layers")
-        ):
-            return None
-        if not projection.get("provider_layers"):
-            return None
-        validated = _validated_cached_plan(
-            projection.get("validation"),
-            request_key,
-            base_env=current_env,
-        )
-        if validated is None:
-            return None
-        return record, projection, *validated
+        return matches[0]
     return None
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: nextcloud-mcp-server
-Version: 0.173.1
+Version: 0.175.0
 Summary: Model Context Protocol (MCP) server for Nextcloud integration - enables AI assistants to interact with Nextcloud data
 Keywords: nextcloud,mcp,model-context-protocol,llm,ai,claude,webdav,caldav,carddav
 Author: Chris Coutinho
@@ -156,7 +156,7 @@ For Kubernetes, see [cbcoutinho/helm-charts](https://github.com/cbcoutinho/helm-
 | **Notes** | 7 | Full CRUD, keyword search, semantic search |
 | **Calendar** | 20+ | Events, todos (tasks), recurring events, attendees, availability |
 | **Contacts** | 8 | Full CardDAV support, address books |
-| **Files (WebDAV)** | 12 | Filesystem access, OCR/document processing |
+| **Files (WebDAV)** | 14 | Filesystem access, OCR/document processing, file comments |
 | **Deck** | 15 | Boards, stacks, cards, labels, assignments |
 | **Cookbook** | 13 | Recipe management, URL import (schema.org) |
 | **Tables** | 5 | Row operations on Nextcloud Tables |

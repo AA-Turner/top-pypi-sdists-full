@@ -315,7 +315,18 @@ def _deps_from_config_specs(
                     )
                     if template_match:
                         expanded = dict(expanded)
-                        expanded["_abxpkg_env_key"] = template_match.group(1)
+                        env_key = template_match.group(1)
+                        expanded["_abxpkg_env_key"] = env_key
+                        prop = (
+                            properties.get(env_key)
+                            if isinstance(properties, dict)
+                            else None
+                        )
+                        if isinstance(prop, dict) and isinstance(
+                            prop.get("default"),
+                            str,
+                        ):
+                            expanded["_abxpkg_declared_name"] = prop["default"]
                 deps.append(expanded)
     return deps
 
@@ -390,33 +401,30 @@ def warm_run_context(options: Any) -> str | None:
         ),
     ):
         return None
+    from .config import abxpkg_cache_env
+
     return json.dumps(
         {
             "lib_dir": str(options.lib_dir),
             "provider_names": list(options.provider_names),
-            "abxpkg_env": {
-                key: value
-                for key, value in sorted(os.environ.items())
-                if key.startswith("ABXPKG_")
-                and key not in {"ABXPKG_LIB_DIR", "ABXPKG_BINPROVIDERS"}
-            },
+            "abxpkg_env": abxpkg_cache_env(os.environ),
         },
         separators=(",", ":"),
         sort_keys=True,
     )
 
 
-def _parse_warm_run_argv(
+def _parse_warm_argv(
     argv: list[str],
-) -> tuple[str | None, str | None, str, list[str]] | None:
+) -> tuple[str, str | None, str | None, str, list[str]] | None:
     lib_dir: str | None = None
     provider_names: str | None = None
-    command_seen = False
+    command: str | None = None
     i = 0
     while i < len(argv):
         token = argv[i]
-        if not command_seen and token in {"run", "exec"}:
-            command_seen = True
+        if command is None and token in {"load", "run", "exec"}:
+            command = token
             i += 1
             continue
         if token.startswith("--lib") or token.startswith("--binproviders"):
@@ -431,16 +439,16 @@ def _parse_warm_run_argv(
             else:
                 provider_names = value
             continue
-        if token.startswith("-") or not command_seen:
+        if token.startswith("-") or command is None:
             return None
-        return lib_dir, provider_names, token, argv[i + 1 :]
+        return command, lib_dir, provider_names, token, argv[i + 1 :]
     return None
 
 
 def _script_request(
     dependency: object,
     default_provider_names: list[str],
-) -> tuple[dict[str, object], list[str], str | None] | None:
+) -> tuple[dict[str, object], list[str], str | None, str | None] | None:
     request = {"name": dependency} if isinstance(dependency, str) else None
     if isinstance(dependency, dict):
         typed_dependency = cast(dict[str, object], dependency)
@@ -470,17 +478,70 @@ def _script_request(
     request = dict(request)
     request["binproviders"] = provider_names
     env_key = request.pop("_abxpkg_env_key", None)
-    return request, provider_names, str(env_key) if env_key else None
+    declared_name = request.pop("_abxpkg_declared_name", None)
+    return (
+        request,
+        provider_names,
+        str(env_key) if env_key else None,
+        str(declared_name) if declared_name else None,
+    )
 
 
 def _cached_request_projection(
     lib_dir: str | os.PathLike[str],
     request: dict[str, object],
     provider_names: list[str],
+    *,
+    ignored_env_base_keys: tuple[str, ...] = (),
 ) -> tuple[dict[str, object], dict[str, object], str, dict[str, str]] | None:
     from .config import _load_cached_request_projection
 
-    return _load_cached_request_projection(lib_dir, request, provider_names)
+    return _load_cached_request_projection(
+        lib_dir,
+        request,
+        provider_names,
+        ignored_env_base_keys=ignored_env_base_keys,
+    )
+
+
+def _cached_script_request_projection(
+    lib_dir: str | os.PathLike[str],
+    request: dict[str, object],
+    provider_names: list[str],
+    env_key: str | None,
+    declared_name: str | None,
+) -> tuple[dict[str, object], dict[str, object], str, dict[str, str]] | None:
+    resolved = _cached_request_projection(
+        lib_dir,
+        request,
+        provider_names,
+        ignored_env_base_keys=(env_key,) if env_key else (),
+    )
+    requested_name = request.get("name")
+    if (
+        resolved is not None
+        or declared_name is None
+        or not isinstance(requested_name, str)
+        or not os.path.isabs(requested_name)
+    ):
+        return resolved
+
+    declared_request = {**request, "name": declared_name}
+    resolved = _cached_request_projection(
+        lib_dir,
+        declared_request,
+        provider_names,
+        ignored_env_base_keys=(env_key,) if env_key else (),
+    )
+    if resolved is None:
+        return None
+    record = resolved[0]
+    resolved_abspath = record.get("abspath")
+    if not isinstance(resolved_abspath, str) or os.path.realpath(
+        resolved_abspath,
+    ) != os.path.realpath(requested_name):
+        return None
+    return resolved
 
 
 def _cached_records(
@@ -511,6 +572,7 @@ def _exec_cached_script_requests(
     }
     target_provider_names = provider_names
     target_env_key: str | None = None
+    target_declared_name: str | None = None
     target_declaration_seen = False
 
     for dependency in dependencies:
@@ -520,8 +582,8 @@ def _exec_cached_script_requests(
             return None
         if parsed is None:
             continue
-        request, dependency_provider_names, env_key = parsed
-        if request["name"] == binary_name:
+        request, dependency_provider_names, env_key, declared_name = parsed
+        if request["name"] == binary_name or declared_name == binary_name:
             if target_declaration_seen:
                 return None
             target_declaration_seen = True
@@ -531,25 +593,32 @@ def _exec_cached_script_requests(
                 target_request["binproviders"] = provider_names
             else:
                 target_provider_names = dependency_provider_names
+            target_declared_name = declared_name
             continue
-        resolved = _cached_request_projection(
+        resolved = _cached_script_request_projection(
             lib_dir,
             request,
             dependency_provider_names,
+            env_key,
+            declared_name,
         )
         if resolved is None:
             return None
         record, projection, _exec_abspath, _validation_env = resolved
         resolved_dependencies.append((record, projection, env_key))
 
-    target = _cached_request_projection(
+    target = _cached_script_request_projection(
         lib_dir,
         target_request,
         target_provider_names,
+        target_env_key,
+        target_declared_name,
     )
     if target is None:
         return None
     target_record, target_projection, exec_abspath, target_validation_env = target
+    if not os.access(exec_abspath, os.X_OK):
+        return None
 
     from .config import build_exec_env
 
@@ -671,14 +740,16 @@ def _format_cached_load(record: dict[str, object]) -> str | None:
 
 
 def _load_cached(argv: list[str]) -> int | None:
-    if len(argv) != 2 or argv[0] != "load" or argv[1].startswith("-"):
+    parsed = _parse_warm_argv(argv)
+    if parsed is None:
         return None
-    binary_name = argv[1]
-    if os.path.isabs(binary_name):
+    command, raw_lib_dir, raw_names, binary_name, binary_args = parsed
+    if command != "load" or binary_args or os.path.isabs(binary_name):
         return None
 
-    lib_dir = _resolve_lib_dir(None)
-    raw_names = os.environ.get("ABXPKG_BINPROVIDERS")
+    lib_dir = _resolve_lib_dir(raw_lib_dir)
+    if raw_names is None:
+        raw_names = os.environ.get("ABXPKG_BINPROVIDERS")
     if raw_names is None:
         import abxpkg as package
 
@@ -820,10 +891,12 @@ def _run_cached(argv: list[str]) -> int | None:
             script_args=script_args,
         )
 
-    parsed = _parse_warm_run_argv(argv)
+    parsed = _parse_warm_argv(argv)
     if parsed is None:
         return None
-    raw_lib_dir, raw_provider_names, binary_name, binary_args = parsed
+    command, raw_lib_dir, raw_provider_names, binary_name, binary_args = parsed
+    if command not in {"run", "exec"}:
+        return None
     lib_dir = _resolve_lib_dir(raw_lib_dir)
 
     raw_names = raw_provider_names

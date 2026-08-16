@@ -223,6 +223,11 @@ class TimeBenchmark(Benchmark):
         if isolate and number == 0:
             number = 1
         if isolate and number > 1:
+            print(
+                f"asv: {self.name}: setup hooks re-run between the "
+                f"{number} individually timed calls of each sample",
+                file=sys.stderr,
+            )
             timer = self._get_interleaved_timer(*param)
         else:
             timer = self._get_timer(*param)

@@ -103,7 +103,7 @@ def _get_random_ssl_context(*, verify: bool | str) -> ssl.SSLContext:
     ssl_context = ssl.create_default_context(cafile=verify if isinstance(verify, str) else None)
     shuffled_ciphers = random.sample(DEFAULT_CIPHERS[9:], len(DEFAULT_CIPHERS) - 9)
     ssl_context.set_ciphers(":".join(DEFAULT_CIPHERS[:9] + shuffled_ciphers))
-    commands: list[None | Callable[[ssl.SSLContext], None]] = [
+    commands: list[Callable[[ssl.SSLContext], None] | None] = [
         None,
         lambda context: setattr(context, "maximum_version", ssl.TLSVersion.TLSv1_2),
         lambda context: setattr(context, "minimum_version", ssl.TLSVersion.TLSv1_3),

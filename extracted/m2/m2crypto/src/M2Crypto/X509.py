@@ -9,18 +9,19 @@ Author: Heikki Toivonen
 
 import binascii
 import logging
-
-from M2Crypto import ASN1, BIO, Err, EVP, m2, types as C
 from typing import (
+    Any,
     Callable,
+    Iterable,
+    Iterator,
     List,
     Optional,
     Union,
-    Iterator,
-    Any,
     overload,
-    Iterable,
 )
+
+from M2Crypto import ASN1, BIO, EVP, Err, m2
+from M2Crypto import types as C
 
 FORMAT_DER = 0
 FORMAT_PEM = 1
@@ -113,6 +114,62 @@ class X509_Extension(object):
         return (buf.read_all() or b"").decode()
 
 
+class AuthorityKeyIdentifier(object):
+    """
+    Structured AuthorityKeyIdentifier extension builder.
+
+    This currently supports the common keyIdentifier-only form. The key
+    identifier may be passed as raw bytes, plain hex, colon-separated hex, or
+    a string prefixed with ``keyid:``.
+    """
+
+    def __init__(self, key_identifier: Union[bytes, str]) -> None:
+        self.key_identifier = self._coerce_key_identifier(key_identifier)
+
+    @staticmethod
+    def _coerce_key_identifier(key_identifier: Union[bytes, str]) -> bytes:
+        if isinstance(key_identifier, bytes):
+            if not key_identifier:
+                raise X509Error(
+                    "AuthorityKeyIdentifier key_identifier must not be empty"
+                )
+            return key_identifier
+
+        if isinstance(key_identifier, str):
+            value = key_identifier
+            if value.startswith("keyid:"):
+                value = value[len("keyid:") :]
+            value = value.replace(":", "")
+            try:
+                keyid = binascii.unhexlify(value)
+            except (binascii.Error, ValueError) as exc:
+                raise X509Error(
+                    "AuthorityKeyIdentifier key_identifier must be bytes, plain hex, "
+                    "or colon-separated hex"
+                ) from exc
+            if not keyid:
+                raise X509Error(
+                    "AuthorityKeyIdentifier key_identifier must not be empty"
+                )
+            return keyid
+
+        raise TypeError("key_identifier must be bytes or str")
+
+    def as_extension(self, critical: int = 0, _pyfree: int = 1) -> X509_Extension:
+        """
+        Create an authorityKeyIdentifier X509 extension.
+
+        :param critical: Set to 1 to mark the extension critical.
+        :param _pyfree: Internal flag.
+        """
+        x509_ext_ptr = m2.x509v3_authority_key_identifier(self.key_identifier)
+        if x509_ext_ptr is None:
+            raise X509Error("Cannot create authorityKeyIdentifier extension")
+        x509_ext = X509_Extension(x509_ext_ptr, _pyfree)
+        x509_ext.set_critical(critical)
+        return x509_ext
+
+
 def new_extension(
     name: str,
     value: str,
@@ -162,24 +219,9 @@ def new_extension(
             "Cannot create 'subjectKeyIdentifier:hash' without a public key (pkey) context."
         )
 
-    # Enhanced handling for authorityKeyIdentifier extension
-    if name == "authorityKeyIdentifier":
-        # authorityKeyIdentifier requires issuer context which we don't have
-        # Provide a helpful error message instead of the cryptic OpenSSL error
-        if value.startswith("keyid:"):
-            m2.x509v3_ctx_free(ctx)
-            raise X509Error(
-                "Cannot create 'authorityKeyIdentifier' with keyid without issuer certificate context. "
-                "This extension requires the issuer certificate to be set in the X509V3_CTX. "
-                "For testing purposes, consider using other extensions like 'basicConstraints' or "
-                "'subjectAltName' that don't require issuer context."
-            )
-        elif value.startswith("issuer"):
-            m2.x509v3_ctx_free(ctx)
-            raise X509Error(
-                "Cannot create 'authorityKeyIdentifier' with issuer without issuer certificate context. "
-                "This extension requires the issuer certificate to be set in the X509V3_CTX."
-            )
+    if name == "authorityKeyIdentifier" and value.startswith("keyid:"):
+        m2.x509v3_ctx_free(ctx)
+        return AuthorityKeyIdentifier(value).as_extension(critical, _pyfree)
 
     # Pre-process hex strings to remove colons for better compatibility
     # This helps with extensions like subjectKeyIdentifier when provided as hex
@@ -194,7 +236,8 @@ def new_extension(
     x509_ext_ptr = m2.x509v3_ext_conf(None, ctx, name, str(processed_value))
     if x509_ext_ptr is None:
         raise X509Error(
-            "Cannot create X509_Extension with name '%s' and value '%s'" % (name, processed_value)
+            "Cannot create X509_Extension with name '%s' and value '%s'"
+            % (name, processed_value)
         )
     x509_ext = X509_Extension(x509_ext_ptr, _pyfree)
     x509_ext.set_critical(critical)
@@ -325,7 +368,7 @@ class X509_Name_Entry(object):
 
     def create_by_txt(
         self, field: str, type: int, entry: bytes, length: int
-    ) -> C.X509_NAME_ENTRY:
+    ) -> "X509_Name_Entry":
         """
         Creates and returns a new X509_NAME_ENTRY object.
         Note: This is a factory method that uses an existing instance's
@@ -333,9 +376,10 @@ class X509_Name_Entry(object):
         class method for clarity. The corrected implementation below makes it work
         as written.
         """
-        return m2.x509_name_entry_create_by_txt(
+        x509_name_entry = m2.x509_name_entry_create_by_txt(
             self.x509_name_entry, field, type, entry, length
         )
+        return X509_Name_Entry(x509_name_entry, _pyfree=1)
 
 
 class X509_Name(object):
@@ -1300,7 +1344,7 @@ class X509_Store(object):
         return ret
 
 
-def load_crl_string(crl_string: Union[str, bytes]) -> 'CRL':
+def load_crl_string(crl_string: Union[str, bytes]) -> "CRL":
     """
     Load CRL from a string.
 
@@ -1311,7 +1355,7 @@ def load_crl_string(crl_string: Union[str, bytes]) -> 'CRL':
     @return: M2Crypto.X509.CRL object.
     """
     if isinstance(crl_string, str):
-        crl_string = crl_string.encode('utf-8')
+        crl_string = crl_string.encode("utf-8")
     bio = BIO.MemoryBuffer(crl_string)
     cptr = m2.x509_crl_read_pem(bio._ptr())
     if cptr is None:

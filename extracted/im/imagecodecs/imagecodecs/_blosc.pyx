@@ -118,7 +118,7 @@ def blosc_encode(
             src = view.tobytes()  # copy non-contiguous
         ctypesize = view.itemsize
 
-    srcsize = src.nbytes
+    srcsize = src.shape[0]
 
     if srcsize > INT32_MAX - BLOSC_MAX_OVERHEAD:
         raise ValueError('data size larger than 2 GB')
@@ -167,7 +167,7 @@ def blosc_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     with nogil:
         if numinternalthreads == 0:
@@ -178,8 +178,8 @@ def blosc_encode(
             doshuffle,
             ctypesize,
             <size_t> srcsize,
-            <const void*> &src[0],
-            <void*> &dst[0],
+            <const void*> src._data,
+            <void*> dst._data,
             <size_t> dstsize,
             <const char*> compname,
             cblocksize,
@@ -211,7 +211,7 @@ def blosc_decode(
     if data is out:
         raise ValueError('cannot decode in-place')
 
-    if src.nbytes > INT32_MAX:
+    if src.shape[0] > INT32_MAX:
         raise ValueError('data size larger than 2 GB')
 
     out, dstsize, outgiven, outtype = _parse_output(out)
@@ -219,7 +219,7 @@ def blosc_decode(
     if out is None:
         if dstsize < 0:
             blosc_cbuffer_sizes(
-                <const void*> &src[0],
+                <const void*> src._data,
                 &nbytes,
                 &cbytes,
                 &blocksize
@@ -232,7 +232,7 @@ def blosc_decode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
     if dstsize > INT32_MAX:
         raise ValueError('output size larger than 2 GB')
 
@@ -241,8 +241,8 @@ def blosc_decode(
             numinternalthreads = blosc_get_nthreads()
 
         ret = blosc_decompress_ctx(
-            <const void*> &src[0],
-            <void*> &dst[0],
+            <const void*> src._data,
+            <void*> dst._data,
             dstsize,
             numinternalthreads
         )

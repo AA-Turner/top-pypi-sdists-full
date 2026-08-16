@@ -78,14 +78,14 @@ def jpegls_check(const uint8_t[::1] data, /):
     cdef:
         bytes sig
 
-    if data.nbytes < 4:
+    if data.shape[0] < 4:
         return False
     sig = bytes(data[:4])
     if sig[:2] != b'\xFF\xD8':
         return False
     if sig[2:4] == b'\xFF\xF7':  # SOI + SOF55
         return True
-    if sig[2:4] == b'\xFF\xE8' and data.nbytes >= 12:  # SOI + APP8 (SPIFF)
+    if sig[2:4] == b'\xFF\xE8' and data.shape[0] >= 12:  # SOI + APP8 (SPIFF)
         return bytes(data[6:12]) == b'SPIFF\x00'
     return None
 
@@ -142,11 +142,11 @@ def jpegls_encode(
 
     if out is not None:
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
     elif dstsize > 0:
         out = _create_output(outtype, dstsize)
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
 
     # memset(
     #     <void*> &preset_coding_parameters,
@@ -239,11 +239,11 @@ def jpegls_encode(
                 with gil:
                     out = _create_output(outtype, dstsize)
                     dst = out
-                    dstsize = dst.nbytes
+                    dstsize = dst.shape[0]
 
             ret = charls_jpegls_encoder_set_destination_buffer(
                 encoder,
-                <void*> &dst[0],
+                <void*> dst._data,
                 <size_t> dstsize
             )
             if ret:
@@ -300,7 +300,7 @@ def jpegls_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         ssize_t itemsize = 0
         charls_jpegls_errc ret
@@ -321,7 +321,7 @@ def jpegls_decode(
 
             ret = charls_jpegls_decoder_set_source_buffer(
                 decoder,
-                <void*> &src[0],
+                <void*> src._data,
                 <size_t> srcsize
             )
             if ret:

@@ -84,7 +84,7 @@ def pglz_encode(
     cdef:
         const uint8_t[::1] src = _readable_input(data)
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         int32 ret
         uint8_t* pdst
@@ -121,9 +121,9 @@ def pglz_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes - offset
+    dstsize = dst.shape[0] - offset
 
-    if dst.nbytes > INT32_MAX:
+    if dst.shape[0] > INT32_MAX:
         raise ValueError('output too large')
 
     if dstsize < PGLZ_MAX_OUTPUT(srcsize):
@@ -132,14 +132,14 @@ def pglz_encode(
     with nogil:
         with global_lock:
             ret = pglz_compress(
-                <const char*> &src[0],
+                <const char*> src._data,
                 <int32> srcsize,
                 <char*> &dst[offset],
                 pglz_strategy
             )
 
     if header:
-        pdst = <uint8_t*> &dst[0]
+        pdst = <uint8_t*> dst._data
         pdst[0] = srcsize & 255
         pdst[1] = (srcsize >> 8) & 255
         pdst[2] = (srcsize >> 16) & 255
@@ -148,7 +148,7 @@ def pglz_encode(
             # copy uncompressed
             if srcsize > dstsize:
                 raise ValueError('output too small')
-            memcpy(<void*> &dst[offset], <const void*> &src[0], srcsize)
+            memcpy(<void*> &dst[offset], <const void*> src._data, srcsize)
             ret = <int32> srcsize
     elif ret < 0:
         raise PglzError(f'pglz_compress returned {ret}')
@@ -170,7 +170,7 @@ def pglz_decode(
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
         ssize_t dstsize
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t rawsize = 0
         int32 ret
         bint check_complete = bool(checkcomplete)  # allow partial results
@@ -199,9 +199,9 @@ def pglz_decode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
-    if dst.nbytes > INT32_MAX:
+    if dstsize > INT32_MAX:
         raise ValueError('output too large')
 
     if header and srcsize == offset + rawsize:
@@ -209,7 +209,7 @@ def pglz_decode(
         if rawsize > dstsize:
             raise ValueError('output too small')
         with nogil:
-            memcpy(<void*> &dst[0], <const void*> &src[offset], rawsize)
+            memcpy(<void*> dst._data, <const void*> &src[offset], rawsize)
         ret = <int32> rawsize
 
     else:
@@ -218,7 +218,7 @@ def pglz_decode(
             ret = pglz_decompress(
                 <const char*> &src[offset],
                 <int32> (srcsize - offset),
-                <char*> &dst[0],
+                <char*> dst._data,
                 <int32> dstsize,
                 check_complete
             )

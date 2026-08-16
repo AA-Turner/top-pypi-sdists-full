@@ -199,7 +199,8 @@ def test_meta_and_schema(project):
         assert "\\" not in obj["path"]  # paths are POSIX, relative to meta.root
     for m in idx["methods"]:
         assert set(m) == {
-            "module", "name", "path", "line", "annotations", "params", "returns", "doc",
+            "module", "name", "path", "line", "annotations", "params", "returns",
+            "returns_written", "doc",
         }
     for c in idx["components"]:
         assert set(c) == {"form", "name", "type", "path", "line"}
@@ -212,7 +213,9 @@ def test_object_tabular_and_local_types(project):
     assert obj["kind"] == "Справочник"
     assert obj["path"] == "Основное/Товары.yaml"
     assert obj["line"] == 3  # the line of the Имя key
-    assert obj["tabular"] == [{"name": "Состав", "line": 10}]
+    # A tabular section carries the attributes it holds: it is a TYPE of its own, and they are
+    # what the dot after a row offers.
+    assert obj["tabular"] == [{"name": "Состав", "line": 10, "attributes": ["Наименование"]}]
     assert obj["local_types"] == [
         {"name": "Сводка", "path": "Основное/Товары.xbsl", "line": 4},
     ]
@@ -479,7 +482,7 @@ def test_family_offers_the_catalogue_not_the_safety_net(project):
     dictionary = next(o for o in idx["objects"] if o["name"] == "Словарь")
 
     assert "Ссылка" in catalog["family"]           # the catalogue knows the kind
-    assert "ПараметрыЗаполнения" not in catalog["family"]  # net only, no page names it
+    assert "НастройкиЗаполнения" not in catalog["family"]  # net only, no page names it
     # A kind that generates no types at all: an empty list, not somebody else's names.
     assert dictionary["family"] == []
     assert dictionary["manager"] == {}
@@ -557,10 +560,10 @@ def test_a_generated_type_answers_to_either_spelling(tmp_path):
     The name is looked up as the code writes it, and which spelling that is depends on the
     language of the project - so both are registered, whichever language the element uses.
     """
-    (tmp_path / "Параметры.yaml").write_text("\n".join([
+    (tmp_path / "Настройки.yaml").write_text("\n".join([
         "ВидЭлемента: ПараметрыРаботыКлиента",
         "Ид: 3a1c5e7f-9b0d-4a2c-8e6f-1b3d5f7a9c0e",
-        "Имя: Параметры",
+        "Имя: Настройки",
         "Параметры:",
         "    -",
         "        Имя: АдресСервиса",
@@ -570,5 +573,61 @@ def test_a_generated_type_answers_to_either_spelling(tmp_path):
 
     members = build_index(tmp_path)["struct_members"]
 
-    assert members["Параметры.Параметры"]["properties"] == ["АдресСервиса"]
-    assert members["Параметры.Parameters"] == members["Параметры.Параметры"]
+    assert members["Настройки.Параметры"]["properties"] == ["АдресСервиса"]
+    assert members["Настройки.Parameters"] == members["Настройки.Параметры"]
+
+
+def test_an_interface_component_describes_the_type_of_its_value(tmp_path):
+    """A component names its own data in Properties, and a value of that type carries them.
+
+    A variable holding a form used to offer nothing after the dot - neither its own properties
+    nor the platform type it extends, which is where `OpenInModalWindow` lives.
+    """
+    (tmp_path / "ФормаЗаявки.yaml").write_text("\n".join([
+        "ВидЭлемента: КомпонентИнтерфейса",
+        "Ид: 8c2e4a6b-0d1f-4a3c-9e5b-7d8f0a1c2e3b",
+        "Имя: ФормаЗаявки",
+        "Наследует:",
+        "    Тип: Форма",
+        "Свойства:",
+        "    -",
+        "        Имя: Комментарий",
+        "        Тип: Строка",
+        "",
+    ]), encoding="utf-8")
+    (tmp_path / "ФормаЗаявки.xbsl").write_text("метод Проверить(): Булево\n    возврат Истина\n;\n",
+                                               encoding="utf-8")
+
+    record = build_index(tmp_path)["struct_members"]["ФормаЗаявки"]
+
+    assert record["properties"] == ["Комментарий"]
+    assert record["methods"] == ["Проверить"]
+    # The platform type it extends - the completion adds its members to the component's own.
+    assert record["base"] == "Форма"
+
+
+def test_the_types_an_object_generates_carry_its_data(project):
+    """`Товары.Объект` holds the attributes and the tabular sections written in the yaml, and
+    `Товары.Ссылка` what the kind gives a reference - the catalogue describes those by KIND.
+
+    A variable holding an object used to answer nothing after the dot: the index knew the object
+    and the family of names it generates, but not the members of any of them.
+    """
+    idx = build_index(project)["struct_members"]
+
+    assert "Наименование" in idx["Товары.Объект"]["properties"]
+    assert "Состав" in idx["Товары.Объект"]["properties"]      # the tabular section is a property too
+    assert idx["Товары.Состав"]["properties"] == ["Наименование"]
+    assert "Ид" in idx["Товары.Ссылка"]["properties"]
+    assert "ЗагрузитьОбъект" in idx["Товары.Ссылка"]["methods"]
+
+
+def test_the_object_type_carries_the_types_of_its_members(project):
+    """A member answers what its yaml declares, and a tabular section an array of its row type.
+
+    Without the types a chain over an attribute of one's own object stopped at the first link.
+    """
+    record = build_index(project)["struct_members"]["Товары.Объект"]
+
+    assert record["property_types"]["Состав"] == "Массив<Товары.Состав>"
+    assert record["property_types"]["Наименование"] == "Строка"

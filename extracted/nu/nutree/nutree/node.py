@@ -3,16 +3,11 @@
 """
 Declare the :class:`~nutree.node.Node` class.
 """
-# Mypy reports some errors that are not reported by pyright, and there is no
-# way to suppress them with `type: ignore`, because then pyright will report
-# an 'Unnecessary "# type: ignore" comment'. For now, we disable the errors
-# globally for mypy:
-
-# mypy: disable-error-code="truthy-function, arg-type"
 
 from __future__ import annotations
 
 import re
+import warnings
 from collections.abc import Iterable, Iterator
 from operator import attrgetter
 from pathlib import Path
@@ -44,10 +39,10 @@ from nutree.common import (
     CONNECTORS,
     DataIdType,
     DeserializeMapperType,
+    DotMapperCallbackType,
     FlatJsonDictType,
     IterMethod,
     KeyMapType,
-    MapperCallbackType,
     MatchArgumentType,
     PredicateCallbackType,
     ReprArgType,
@@ -60,7 +55,7 @@ from nutree.common import (
     UniqueConstraintError,
     ValueDictMapType,
     ValueMapType,
-    call_mapper,
+    call_dot_mapper,
     call_predicate,
     call_traversal_cb,
 )
@@ -74,33 +69,24 @@ TNode = TypeVar("TNode", bound="Node", default="Node[TData]")
 # ------------------------------------------------------------------------------
 # - Node
 # ------------------------------------------------------------------------------
+
+
 class Node(Generic[TData]):
     """
-    A Node represents a single element in the tree.
-    It is a shallow wrapper around a user data instance, that adds navigation,
-    modification, and other functionality.
+    Wrapper around one data object in a :class:`~nutree.tree.Tree`.
 
-    Node objects are rarely created using this contructor, but indirectly by
-    invoking helper methods like :meth:`~nutree.node.Node.add_child`, etc.
+    A node adds navigation, modification, metadata, traversal, and serialization
+    helpers to the wrapped object. Nodes are normally created indirectly through
+    :meth:`~nutree.tree.Tree.add` or :meth:`add_child`.
 
-    `data`
-        is the arbitrary object that this node will hold.
-    `parent`
-        is the parent :meth:`~nutree.node.Node` instance. This node will
-        also inherit the tree reference from it.
-    `data_id`
-        is an optional integer or string that will be used as ID
-        (instead of calculating ``hash(data)``).
-        A tree may contain more than one node with the same data and data_id.
-        In this case we call the nodes 'clones'.
-    `node_id`
-        is an optional integer, that is used as unique ID for this node.
-        Even 'clones' must have unique node IDs. The default is calculated as
-        `id(self)`.
-    `meta`
-        is an optional dictionary. See also :meth:`~nutree.node.Node.get_meta`,
-        :meth:`~nutree.node.Node.set_meta`, :meth:`~nutree.node.Node.update_meta`,
-        and :meth:`~nutree.node.Node.clear_meta`.
+    Args:
+        data: Arbitrary object wrapped by this node.
+        parent: Parent node. The new node inherits its tree from the parent.
+        data_id: Optional ID used instead of ``hash(data)``. Multiple nodes may
+            share a data ID; these nodes are called clones.
+        node_id: Optional unique node ID. The default is ``id(self)``.
+        meta: Optional metadata dictionary. See :meth:`get_meta`,
+            :meth:`set_meta`, :meth:`update_meta`, and :meth:`clear_meta`.
 
     """
 
@@ -130,7 +116,7 @@ class Node(Generic[TData]):
         parent: Self,
         data_id: DataIdType | None = None,
         node_id: int | None = None,
-        meta: dict | None = None,
+        meta: dict[str, Any] | None = None,
     ):
         self._data: TData = data
         self._parent: Self = parent
@@ -149,9 +135,9 @@ class Node(Generic[TData]):
         else:
             self._node_id = int(node_id)
 
-        self._meta = meta
+        self._meta: dict[str, Any] | None = meta
 
-        tree._register(self)  # type: ignore
+        tree._register(self)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}<{self.name!r}, data_id={self.data_id}>"
@@ -180,12 +166,31 @@ class Node(Generic[TData]):
         # Allow calling simple methods from within TEMPLATE.format(),
         # e.g. `"{node.path()}"`:
         if name.endswith("()"):
+            warnings.warn(
+                f"Calling method '{name}()' via __getattr__ is deprecated since v1.2.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             return getattr(self, name[:-2])()
         raise AttributeError(repr(name))
 
-    # Do not define __len__: we don't want leaf nodes to evaluate as falsy
-    # def __len__(self) -> int:
-    #     raise NotImplementedError("Use `len(node.data)` or `len(node._children)`.")
+    def __bool__(self) -> bool:
+        """Always return true, even for leaf nodes.
+
+        Explicitly defined to always return True, because the default behavior
+        would be to return False for empty containers, but leaf nodes should not
+        be considered falsy.
+        """
+        return True
+
+    def __len__(self) -> int:
+        """Return number of direct children (0 for leaves).
+
+        This allows to use ``len(node)`` syntax.
+        Note that a Node object still evaluates as truthy even if it has no children.
+        Use :meth:`count_descendants` to get the total number of descendants.
+        """
+        return len(self.children)
 
     @property
     def name(self) -> str:
@@ -204,9 +209,9 @@ class Node(Generic[TData]):
 
     @property
     def parent(self) -> Self | None:
-        """Return parent node or None for toplevel nodes.
+        """Return the parent node, or ``None`` for top-level nodes.
 
-        See also :meth:`~nutree.node.Node.up`.
+        See :meth:`up` when the system root node is needed.
         """
         p = self._parent
         return p if p._parent else None
@@ -215,7 +220,7 @@ class Node(Generic[TData]):
         """Return ancestor node.
 
         Unlike :meth:`~nutree.node.Node.parent`, this method returns the
-        system root node for toplevel nodes.
+        system root node for top-level nodes.
 
         One use case is method chaining when creating trees::
 
@@ -255,7 +260,7 @@ class Node(Generic[TData]):
         return self._node_id
 
     @property
-    def meta(self) -> dict | None:
+    def meta(self) -> dict[str, Any] | None:
         """Return the node's metadata dictionary or None if empty.
 
         See also :meth:`get_meta`, :meth:`set_meta`, :meth:`update_meta`,
@@ -263,12 +268,12 @@ class Node(Generic[TData]):
         """
         return self._meta
 
-    def get_meta(self, key: str, default=None) -> Any:
+    def get_meta(self, key: str, default: Any = None) -> Any:
         """Return metadata value."""
         m = self._meta
         return default if m is None else m.get(key, default)
 
-    def set_meta(self, key: str, value) -> None:
+    def set_meta(self, key: str, value: Any) -> None:
         """Set metadata value (pass value `None` to remove)."""
         if value is None:
             self.clear_meta(key)
@@ -289,7 +294,7 @@ class Node(Generic[TData]):
                 self._meta = None
         return
 
-    def update_meta(self, values: dict, *, replace: bool = False) -> None:
+    def update_meta(self, values: dict[str, Any], *, replace: bool = False) -> None:
         """Add `values` dict to current metadata.
 
         If `replace` is true, previous metatdata will be cleared.
@@ -303,18 +308,18 @@ class Node(Generic[TData]):
         """Set `self.data` to a new string (assuming plain string node)."""
         if isinstance(self._data, str):
             return self.set_data(new_name)
-        raise ValueError("Can only rename plain string nodes")
+        raise TypeError("Can only rename plain string nodes")
 
     def set_data(
         self,
-        data,
+        data: Any,
         *,
         data_id: DataIdType | None = None,
         with_clones: bool | None = None,
     ) -> None:
         """Change node's `data` and/or `data_id` and update bookkeeping."""
         return self.tree._set_data(
-            self,  # type: ignore
+            self,
             data,
             data_id=data_id,
             with_clones=with_clones,
@@ -412,7 +417,7 @@ class Node(Generic[TData]):
         """Last direct child node or None if no children exist."""
         return self._children[-1] if self._children else None
 
-    def get_siblings(self, *, add_self=False) -> list[Self]:
+    def get_siblings(self, *, add_self: bool = False) -> list[Self]:
         """Return a list of all sibling entries of self (excluding self) if any."""
         if add_self:
             return self._parent._children  # type: ignore
@@ -423,24 +428,24 @@ class Node(Generic[TData]):
         return self._parent._children[0]  # type: ignore
 
     def prev_sibling(self) -> Self | None:
-        """Predecessor or None, if node is first sibling."""
+        """Return the previous sibling, or ``None`` if this is the first."""
         if self.is_first_sibling():
             return None
         idx = self._parent._children.index(self)  # type: ignore
         return self._parent._children[idx - 1]  # type: ignore
 
     def next_sibling(self) -> Self | None:
-        """Return successor or None, if node is last sibling."""
+        """Return the next sibling, or ``None`` if this is the last."""
         if self.is_last_sibling():
             return None
         idx = self._parent._children.index(self)  # type: ignore
         return self._parent._children[idx + 1]  # type: ignore
 
     def last_sibling(self) -> Self:
-        """Return last node, that share own parent (may be `self`)."""
+        """Return the last node sharing this node's parent."""
         return self._parent._children[-1]  # type: ignore
 
-    def get_clones(self, *, add_self=False) -> list[Self]:
+    def get_clones(self, *, add_self: bool = False) -> list[Self]:
         """Return a list of all nodes that reference the same data if any."""
         clones = cast(list[Self], self._tree._nodes_by_data_id[self._data_id])
         if add_self:
@@ -448,11 +453,14 @@ class Node(Generic[TData]):
         return [n for n in clones if n is not self]
 
     def depth(self) -> int:
-        """Return the distance to the root node (1 for toplevel nodes)."""
+        """Return the distance to the system root (1 for top-level nodes)."""
         return self.calc_depth()
 
-    def count_descendants(self, *, leaves_only=False) -> int:
-        """Return number of descendant nodes, not counting self."""
+    def count_descendants(self, *, leaves_only: bool = False) -> int:
+        """Count descendants, excluding this node.
+
+        If ``leaves_only`` is true, count only descendants without children.
+        """
         all = not leaves_only
         i = 0
         for node in self.iterator():
@@ -461,7 +469,7 @@ class Node(Generic[TData]):
         return i
 
     def calc_depth(self) -> int:
-        """Return the distance to the root node (1 for toplevel nodes)."""
+        """Return the distance to the system root (1 for top-level nodes)."""
         depth = 0
         pe = self._parent
         while pe is not None:
@@ -492,20 +500,19 @@ class Node(Generic[TData]):
     # --------------------------------------------------------------------------
 
     def is_system_root(self) -> bool:
-        """Return true if this node is the invisible system root
-        :class:`~nutree.tree._SystemRootNode`."""
+        """Return whether this node is the invisible system root."""
         return self._parent is None
 
     def is_top(self) -> bool:
-        """Return true if this node has no parent."""
+        """Return whether this node is a top-level node."""
         return self._parent._parent is None
 
     def is_leaf(self) -> bool:
-        """Return true if this node is an end node, i.e. has no children."""
+        """Return whether this node has no children."""
         return not self._children
 
     def is_clone(self) -> bool:
-        """Return true if this node's data is referenced at least one more time."""
+        """Return whether another node references the same data ID."""
         return bool(len(self._tree._nodes_by_data_id.get(self._data_id)) > 1)  # type: ignore
 
     def is_first_sibling(self) -> bool:
@@ -523,14 +530,14 @@ class Node(Generic[TData]):
         return bool(self._children)
 
     def get_top(self) -> Self:
-        """Return toplevel ancestor (may be self)."""
+        """Return the top-level ancestor, which may be this node."""
         root = self
         while root._parent._parent:
             root = root._parent
         return root
 
     def is_descendant_of(self, other: Self) -> bool:
-        """Return true if this node is direct or indirect child of `other`."""
+        """Return whether this node is a direct or indirect child of ``other``."""
         parent = self._parent
         while parent is not None and parent._parent is not None:
             if parent is other:
@@ -539,11 +546,11 @@ class Node(Generic[TData]):
         return False
 
     def is_ancestor_of(self, other: Self) -> bool:
-        """Return true if this node is a parent, grandparent, ... of `other`."""
+        """Return whether this node is a parent or other ancestor of ``other``."""
         return other.is_descendant_of(self)
 
     def get_common_ancestor(self, other: Self) -> Self | None:
-        """Return the nearest node that contains `self` and `other` (may be None)."""
+        """Return the nearest common ancestor, or ``None`` for separate trees."""
         if self._tree is other._tree:
             other_parent_set = {
                 n._node_id for n in other.get_parent_list(add_self=True)
@@ -553,16 +560,38 @@ class Node(Generic[TData]):
                     return parent
         return None
 
-    def get_parent_list(self, *, add_self=False, bottom_up=False) -> list[Self]:
-        """Return ordered list of all parent nodes."""
+    def get_parent_list(
+        self, *, add_self: bool = False, bottom_up: bool = False
+    ) -> list[Self]:
+        """Return an ordered list of all parent nodes (top-down by default)."""
         res = []
         parent = self if add_self else self._parent
         while parent is not None and parent._parent is not None:
             res.append(parent)
             parent = parent._parent
         if not bottom_up:
+            # Note: it is more efficient to reverse the list than to append
+            # in reverse order!
             res.reverse()
         return res
+
+    def parent_iterator(self, *, add_self=False, bottom_up=True) -> Iterator[Self]:
+        """Generator that walks the parent chain bottom-up.
+
+        Note: top-down requires to convert to a list and revert anyway,
+        so it can also be implemented as
+        ```py
+        for p in self.get_parent_list(add_self=add_self, bottom_up=False):
+        ```
+        """
+        if not bottom_up:
+            yield from self.get_parent_list(add_self=add_self, bottom_up=False)
+            return
+        # Bottom-up iteration:
+        parent = self if add_self else self._parent
+        while parent is not None and parent._parent is not None:
+            yield parent
+            parent = parent._parent
 
     def get_path(
         self, *, add_self: bool = True, separator: str = "/", repr: str = "{node.name}"
@@ -580,7 +609,7 @@ class Node(Generic[TData]):
         before: Self | bool | int | None = None,
         deep: bool | None = None,
         data_id: DataIdType | None = None,
-        node_id=None,
+        node_id: int | None = None,
     ) -> Self:
         """Append or insert a new subnode or branch as child.
 
@@ -589,7 +618,7 @@ class Node(Generic[TData]):
         object. |br|
         If `deep` is true, the children are copied recursively.
 
-        If `child` is a :class:`~nutree.tree.Tree`, all of its topnodes are
+        If `child` is a :class:`~nutree.tree.Tree`, all of its top-level nodes are
         added recursively (unless `deep` is false).
 
         If `child` is neither a :class:`~nutree.node.Node` nor a
@@ -654,28 +683,27 @@ class Node(Generic[TData]):
                 raise ValueError("Cannot set ID for deep copies.")
 
             source_node = cast(Self, child)
-            if source_node._tree is self._tree:
-                if source_node._parent is self:
-                    raise UniqueConstraintError(
-                        f"Cannot add a copy of {source_node} as child of {self}, "
-                        "because it would create a 2nd instance in the same parent."
-                    )
-            else:
-                pass
+            if (
+                self._tree.check_dag
+                and source_node._parent is self
+                and source_node._tree is self._tree
+            ):
+                raise UniqueConstraintError(
+                    f"Cannot add a copy of {source_node} as child of {self}, "
+                    "because it would create a 2nd instance in the same parent."
+                )
 
             if data_id and data_id != source_node._data_id:
                 raise UniqueConstraintError(f"data_id conflict: {source_node}")
 
             new_node = factory(
-                source_node.data,  # type: ignore
-                parent=self,  # type: ignore
+                source_node.data,
+                parent=self,
                 data_id=data_id,
                 node_id=node_id,
-            )
+            )  # type: ignore
         else:
             new_node = factory(child, parent=self, data_id=data_id, node_id=node_id)  # type: ignore
-
-        new_node = cast(Self, new_node)
 
         if before is True:
             before = 0  # prepend
@@ -709,10 +737,10 @@ class Node(Generic[TData]):
         self,
         child: Self | Tree | TData,
         *,
-        deep=None,
+        deep: bool | None = None,
         data_id: DataIdType | None = None,
-        node_id=None,
-    ):
+        node_id: int | None = None,
+    ) -> Self:
         """Append a new subnode.
 
         This is a shortcut for :meth:`add_child` with ``before=None``.
@@ -725,10 +753,10 @@ class Node(Generic[TData]):
         self,
         child: Self | Tree | TData,
         *,
-        deep=None,
+        deep: bool | None = None,
         data_id: DataIdType | None = None,
-        node_id=None,
-    ):
+        node_id: int | None = None,
+    ) -> Self:
         """Prepend a new subnode.
 
         This is a shortcut for :meth:`add_child` with ``before=True``.
@@ -745,9 +773,9 @@ class Node(Generic[TData]):
         self,
         child: Self | Tree | TData,
         *,
-        deep=None,
+        deep: bool | None = None,
         data_id: DataIdType | None = None,
-        node_id=None,
+        node_id: int | None = None,
     ) -> Self:
         """Add a new node before `self`.
 
@@ -761,9 +789,9 @@ class Node(Generic[TData]):
         self,
         child: Self | Tree | TData,
         *,
-        deep=None,
+        deep: bool | None = None,
         data_id: DataIdType | None = None,
-        node_id=None,
+        node_id: int | None = None,
     ) -> Self:
         """Add a new node after `self`.
 
@@ -779,7 +807,7 @@ class Node(Generic[TData]):
         new_parent: Self | Tree[TData, Self],
         *,
         before: Self | bool | int | None = None,
-    ):
+    ) -> None:
         """Move this node to another parent.
 
         By default, the node is appended to existing children.
@@ -804,7 +832,7 @@ class Node(Generic[TData]):
         if before is True:
             before = 0  # prepend
 
-        target_siblings = new_parent._children
+        target_siblings = cast(list[Self] | None, new_parent._children)
         if target_siblings is None:
             assert before in (None, True, False, 0), before
             new_parent._children = [self]
@@ -819,7 +847,7 @@ class Node(Generic[TData]):
 
         return
 
-    def remove(self, *, keep_children=False, with_clones=False) -> None:
+    def remove(self, *, keep_children: bool = False, with_clones: bool = False) -> None:
         """Remove this node.
 
         If `keep_children` is true, all children will be moved one level up,
@@ -844,18 +872,18 @@ class Node(Generic[TData]):
         if not pc:  # store None instead of `[]`
             pc = self._parent._children = None
 
-        self._tree._unregister(self)  # type: ignore
+        self._tree._unregister(self)
 
     def remove_children(self) -> None:
         """Remove all children of this node, making it a leaf node."""
         _unregister = self._tree._unregister
         for n in self._iter_post():
-            _unregister(n)  # type: ignore
+            _unregister(n)
         self._children = None
         return
 
     def copy(
-        self, *, add_self=True, predicate: PredicateCallbackType | None = None
+        self, *, add_self: bool = True, predicate: PredicateCallbackType | None = None
     ) -> Tree[TData, Self]:
         """Return a new :class:`~nutree.tree.Tree` instance from this branch.
 
@@ -873,7 +901,7 @@ class Node(Generic[TData]):
         self,
         target: Self | Tree[TData, Self],
         *,
-        add_self=True,
+        add_self: bool = True,
         before: Self | bool | int | None = None,
         deep: bool = False,
     ) -> Self:
@@ -892,7 +920,7 @@ class Node(Generic[TData]):
         res: Self = self
         if add_self:
             res = target.add_child(self, before=before, deep=deep)
-            return cast(Self, res)  # if target is Tree, type is not inferred?
+            return res  # if target is Tree, type is not inferred?
 
         assert before is None
         if not self._children:
@@ -947,7 +975,6 @@ class Node(Generic[TData]):
         def _visit(other: Self) -> None:
             """Return True if any descendant returned True."""
 
-            # print("_visit", parent_stack, other)
             for n in other.children:
                 parent_stack.append((False, n))
 
@@ -970,7 +997,7 @@ class Node(Generic[TData]):
                     p = _create_parents()
                     p._add_from(n)
                 else:
-                    raise ValueError(f"Invalid predicate return value: {res}")
+                    raise TypeError(f"Invalid predicate return value type: {res}")
 
                 parent_stack.pop()
             return
@@ -987,7 +1014,7 @@ class Node(Generic[TData]):
         See also :ref:`iteration-callbacks`.
         """
         if not predicate:
-            raise ValueError("Predicate is required (use copy() instead)")
+            raise TypeError("Predicate is required (use copy() instead)")
         return self.copy(add_self=True, predicate=predicate)
 
     def filter(self, predicate: PredicateCallbackType) -> None:
@@ -996,7 +1023,7 @@ class Node(Generic[TData]):
         See also :ref:`iteration-callbacks`.
         """
         if not predicate:
-            raise ValueError("Predicate is required (use copy() instead)")
+            raise TypeError("Predicate is required (use copy() instead)")
 
         def _visit(parent: Self) -> bool:
             """Return True if any descendant returned True."""
@@ -1038,9 +1065,15 @@ class Node(Generic[TData]):
         return
 
     def from_dict(
-        self, obj: list[dict], *, mapper: DeserializeMapperType | None = None
+        self, obj: list[dict[str, Any]], *, mapper: DeserializeMapperType | None = None
     ) -> None:
-        """Append copies of all source children to self."""
+        """Append nodes described by nested dictionaries to this node.
+
+        Each dictionary must contain ``data`` unless ``mapper`` is provided.
+        The optional mapper converts a serialized dictionary into a data object
+        and may also provide a custom ``data_id``. Nested ``children`` entries
+        are loaded recursively. See :meth:`to_dict` and :ref:`serialize`.
+        """
         # TODO:
         # if mapper is None:
         #     mapper = self._tree.DEFAULT_DESERIALZATION_MAPPER
@@ -1049,7 +1082,7 @@ class Node(Generic[TData]):
             if mapper:
                 # mapper may add item['data_id']
                 # data = mapper(parent=self, item=item)
-                data_obj = call_mapper(mapper, self, item)
+                data_obj = call_dot_mapper(mapper, self, item)
             else:
                 data_obj = item["data"]
 
@@ -1061,7 +1094,7 @@ class Node(Generic[TData]):
                 child.from_dict(child_items, mapper=mapper)
         return
 
-    def _visit_pre(self, callback, memo) -> None:
+    def _visit_pre(self, callback: TraversalCallbackType, memo: Any) -> None:
         """Depth-first, pre-order traversal."""
         # Call callback and skip children if SkipBranch was returned.
         # Also a StopTraversal(value) exception may be raised.
@@ -1074,7 +1107,7 @@ class Node(Generic[TData]):
                 c._visit_pre(callback, memo)
         return
 
-    def _visit_post(self, callback, memo) -> None:
+    def _visit_post(self, callback: TraversalCallbackType, memo: Any) -> None:
         """Depth-first, post-order traversal."""
         # Callback may raise StopTraversal (also if callback returns false)
         # but SkipBranch is not supported with post-order traversal
@@ -1083,7 +1116,7 @@ class Node(Generic[TData]):
                 c._visit_post(callback, memo)
         call_traversal_cb(callback, self, memo)
 
-    def _visit_level(self, callback, memo) -> None:
+    def _visit_level(self, callback: TraversalCallbackType, memo: Any) -> None:
         """Breadth-first (aka level-order) traversal."""
         # Note that this is non-recursive.
         children = self._children
@@ -1101,34 +1134,30 @@ class Node(Generic[TData]):
         self,
         callback: TraversalCallbackType,
         *,
-        add_self=False,
+        add_self: bool = False,
         method: IterMethod = IterMethod.PRE_ORDER,
         memo: Any | None = None,
     ) -> None | Any:
-        """Call `callback(node, memo)` for all subnodes.
+        """Call ``callback(node, memo)`` for all descendants.
 
         The callback may return :class:`SkipBranch` (or an instance
         thereof) to omit child nodes but continue traversal otherwise.
         Raising `SkipBranch` has the same effect.
 
-        The callback may return ``False`` or :class:`StopIteration` to immediately
-        interrupt traversal.
-        Raising `StopTraversal(value)` has the same effect but also allows to
-        specify a return value for the visit method. |br|
-        See also :ref:`iteration-callbacks`.
+        The callback may return ``False`` to stop traversal immediately.
+        Raising :class:`StopTraversal` also stops traversal and can provide a
+        return value for this method. See :ref:`iteration-callbacks`.
 
         Args:
             callback (function(node, memo)):
-                Callback ``function(node, memo)``
+                Callback with signature ``function(node, memo)``.
             add_self (bool):
-                If true, this node will also be visited (typically as first call).
+                If true, visit this node as well as its descendants.
             method (IterMethod):
-                Traversal method, defaults to pre-order, depth-first search.
+                Traversal order; defaults to pre-order depth-first search.
             memo (Any):
-                This value will be passed to all calls and may be useful to
-                implement caching or collect and return traversal results.
-                If no `memo` argument is passed, an empty dict is created at
-                start, which has a life-span of the traversal only.
+                Value passed to every callback. If omitted, a temporary empty
+                dictionary is created for the traversal.
         """
         try:
             handler = getattr(self.__class__, f"_visit_{method.value}")
@@ -1179,7 +1208,9 @@ class Node(Generic[TData]):
             yield c
         return
 
-    def _iter_level(self, *, revert=False, toggle=False) -> Iterator[Self]:
+    def _iter_level(
+        self, *, revert: bool = False, toggle: bool = False
+    ) -> Iterator[Self]:
         """Breadth-first (aka level-order) traversal."""
         children = self._children
         while children:
@@ -1213,9 +1244,13 @@ class Node(Generic[TData]):
         return self._iter_level(revert=True, toggle=True)
 
     def iterator(
-        self, method: IterMethod = IterMethod.PRE_ORDER, *, add_self=False
+        self, method: IterMethod = IterMethod.PRE_ORDER, *, add_self: bool = False
     ) -> Iterator[Self]:
-        """Generator that walks the hierarchy."""
+        """Iterate descendants in the requested traversal order.
+
+        Set ``add_self`` to include this node in the result. See
+        :class:`~nutree.common.IterMethod` for the supported orders.
+        """
         try:
             handler = getattr(self, f"_iter_{method.value}")
         except AttributeError:
@@ -1239,7 +1274,7 @@ class Node(Generic[TData]):
         match: MatchArgumentType,
         *,
         max_results: int | None = None,
-        add_self=False,
+        add_self: bool = False,
     ) -> Iterator[Self]:
         if callable(match):
             cb_match = match
@@ -1255,7 +1290,7 @@ class Node(Generic[TData]):
 
         count = 0
         for node in self.iterator(add_self=add_self):
-            if not cb_match(node):
+            if not cast(PredicateCallbackType, cb_match)(node):
                 continue
             count += 1
             yield node
@@ -1265,11 +1300,11 @@ class Node(Generic[TData]):
 
     def find_all(
         self,
-        data=None,
+        data: Any = None,
         *,
         match: MatchArgumentType | None = None,
         data_id: DataIdType | None = None,
-        add_self=False,
+        add_self: bool = False,
         max_results: int | None = None,
     ) -> list[Self]:
         """Return a list of matching nodes (list may be empty).
@@ -1290,7 +1325,7 @@ class Node(Generic[TData]):
 
     def find_first(
         self,
-        data=None,
+        data: Any = None,
         *,
         match: MatchArgumentType | None = None,
         data_id: DataIdType | None = None,
@@ -1306,9 +1341,13 @@ class Node(Generic[TData]):
     find = find_first
 
     def sort_children(
-        self, *, key: SortKeyType | None = None, reverse=False, deep=False
+        self,
+        *,
+        key: SortKeyType | None = None,
+        reverse: bool = False,
+        deep: bool = False,
     ) -> None:
-        """Sort child nodes.
+        """Sort child nodes in-place (optionally recursively).
 
         `key` defaults to ``attrgetter("name")``, so children are sorted by
         their string representation.
@@ -1324,7 +1363,7 @@ class Node(Generic[TData]):
                 c.sort_children(key=key, reverse=reverse, deep=True)
         return
 
-    def _get_prefix(self, style, lstrip) -> str:
+    def _get_prefix(self, style: tuple[str, ...] | list[str], lstrip: int) -> str:
         if len(style) == 4:
             s0, s1, s2, s3 = style
             s4 = s2
@@ -1334,9 +1373,9 @@ class Node(Generic[TData]):
         else:
             raise ValueError(f"Invalid style {style!r}")
 
-        def _is_last(p) -> bool:
+        def _is_last(p: Self) -> bool:
             # Don't use `is_last_sibling()` which is overloaded by TypedNode
-            return p is p._parent._children[-1]
+            return p is p._parent._children[-1]  # ty: ignore[not-subscriptable]
 
         parts = []
         depth = 0
@@ -1364,7 +1403,11 @@ class Node(Generic[TData]):
         return "".join(parts)
 
     def _render_lines(
-        self, *, repr: ReprArgType | None = None, style=None, add_self=True
+        self,
+        *,
+        repr: ReprArgType | None = None,
+        style: str | list[str] | tuple[str, ...] | None = None,
+        add_self: bool = True,
     ) -> Iterator[str]:
         if not isinstance(style, (list, tuple)):
             try:
@@ -1392,7 +1435,7 @@ class Node(Generic[TData]):
             prefix = n._get_prefix(style, lstrip)
 
             if callable(repr):
-                s = repr(n)
+                s = cast(str, repr(n))  # ty: ignore[call-top-callable]
             else:
                 s = repr.format(node=n)
 
@@ -1404,8 +1447,8 @@ class Node(Generic[TData]):
         self,
         *,
         repr: ReprArgType | None = None,
-        style: str | None = None,
-        add_self=True,
+        style: str | list[str] | tuple[str, ...] | None = None,
+        add_self: bool = True,
     ) -> Iterator[str]:
         """This variant of :meth:`format` returns a line generator."""
         if style == "list":
@@ -1413,7 +1456,7 @@ class Node(Generic[TData]):
                 repr = self.DEFAULT_RENDER_REPR
             for n in self.iterator(add_self=add_self):
                 if callable(repr):
-                    yield repr(n)
+                    yield cast(str, repr(n))  # ty: ignore[call-top-callable]
                 else:
                     yield repr.format(node=n)
             return
@@ -1423,8 +1466,8 @@ class Node(Generic[TData]):
         self,
         *,
         repr: ReprArgType | None = None,
-        style: str | None = None,
-        add_self=True,
+        style: str | list[str] | tuple[str, ...] | None = None,
+        add_self: bool = True,
         join: str = "\n",
     ) -> str:
         r"""Return a pretty string representation of the node hierarchy.
@@ -1453,17 +1496,15 @@ class Node(Generic[TData]):
         iter_lines = self.format_iter(repr=repr, style=style, add_self=add_self)
         return join.join(iter_lines)
 
-    def to_dict(self, *, mapper: SerializeMapperType | None = None) -> dict:
+    def to_dict(self, *, mapper: SerializeMapperType | None = None) -> dict[str, Any]:
         """Return a nested dict of this node and its children."""
-        res: dict = {
+        res: dict[str, Any] = {
             "data": str(self.data),
         }
         # Add custom data_id if not calculated to the hash by default.
         if self._data_id != hash(self._data):
             res["data_id"] = self._data_id
-        res = call_mapper(mapper, self, res)
-        # if mapper:
-        #     res = mapper(self, res)
+        res = call_dot_mapper(mapper, self, res)
         if self._children:
             res["children"] = cl = []
             for n in self._children:
@@ -1472,7 +1513,10 @@ class Node(Generic[TData]):
 
     @classmethod
     def _compress_entry(
-        cls, data: dict | str, key_map: KeyMapType, value_map: ValueDictMapType
+        cls,
+        data: dict[str, Any] | str,
+        key_map: KeyMapType,
+        value_map: ValueDictMapType,
     ) -> None:
         if isinstance(data, str):
             return
@@ -1581,7 +1625,7 @@ class Node(Generic[TData]):
 
             # Let caller serialize custom data objects
             if mapper and isinstance(data, dict):
-                data = call_mapper(mapper, node, data)
+                data = call_dot_mapper(mapper, node, data)
 
             # Compress data if requested
             if key_map or value_map:
@@ -1593,13 +1637,13 @@ class Node(Generic[TData]):
     def to_dot(
         self,
         *,
-        add_self=False,
-        unique_nodes=True,
-        graph_attrs: dict | None = None,
-        node_attrs: dict | None = None,
-        edge_attrs: dict | None = None,
-        node_mapper: MapperCallbackType | None = None,
-        edge_mapper: MapperCallbackType | None = None,
+        add_self: bool = False,
+        unique_nodes: bool = True,
+        graph_attrs: dict[str, Any] | None = None,
+        node_attrs: dict[str, Any] | None = None,
+        edge_attrs: dict[str, Any] | None = None,
+        node_mapper: DotMapperCallbackType | None = None,
+        edge_mapper: DotMapperCallbackType | None = None,
     ) -> Iterator[str]:
         """Generate a DOT formatted graph representation.
 
@@ -1619,7 +1663,7 @@ class Node(Generic[TData]):
 
     def to_rdf_graph(
         self, *, add_self: bool = True, node_mapper: RDFMapperCallbackType | None = None
-    ):
+    ) -> Any:
         """Return an instance of ``rdflib.Graph``.
 
         See :ref:`graphs` for details.
@@ -1634,7 +1678,7 @@ class Node(Generic[TData]):
         direction: MermaidDirectionType = "TD",
         title: str | bool | None = True,
         format: MermaidFormatType | None = None,
-        mmdc_options: dict | None = None,
+        mmdc_options: dict[str, Any] | None = None,
         add_self: bool = True,
         unique_nodes: bool = True,
         headers: Iterable[str] | None = None,
@@ -1644,7 +1688,7 @@ class Node(Generic[TData]):
     ) -> None:
         """Serialize a Mermaid flowchart representation.
 
-        Optionally convert to a Graphviz display formats.
+        ``format`` optionally renders the flowchart using Mermaid CLI.
         See :ref:`graphs` for details.
         """
         return node_to_mermaid_flowchart(

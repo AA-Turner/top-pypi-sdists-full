@@ -8,7 +8,11 @@ from typing import List
 
 from ...client import Client
 from .api import APIDriver
-from .errors import ConflictingTableFilters, handle_state_errors
+from .errors import (
+    ConflictingTableFilters,
+    UnsatisfiableDependencies,
+    handle_state_errors,
+)
 from .file import FileDriver
 from .filters import TableFilters
 from .models import (
@@ -19,7 +23,7 @@ from .models import (
     State,
     TableConfigAction,
 )
-from .plan import Plan, ResourceKey, build_plan
+from .plan import Plan, ResourceKey, build_plan, describe_resource
 
 
 class StateMachine:
@@ -95,6 +99,7 @@ class StateMachine:
         dryrun: bool = False,
         noninteractive: bool = False,
         destroy: bool = False,
+        strict: bool = True,
     ) -> None:
         input_file = self._get_file_driver(filename)
         input_file.load_file(filename)
@@ -110,17 +115,35 @@ class StateMachine:
         if not actions:
             print("No changes detected")
             return
-        plan = build_plan(actions)
+        plan = build_plan(actions, is_satisfied=api_state.is_resource_present)
         diff_format = "shacl" if filename.endswith(".ttl") else "yaml"
         self._display_diff(plan.actions, diff_format)
         print(f"Total changes count: {len(plan)}")
+        # Before writing anything: these changes cannot succeed, so under --strict
+        # this exits without touching the server rather than failing partway.
+        self._report_unsatisfiable(plan, strict)
         if dryrun:
             return
         if not noninteractive:
             self._prompt_continue()
-        self._apply_plan(plan, api_state)
+        if self._apply_plan(plan, api_state):
+            # A non-zero status is the only signal a CI gate wrapping `apply` gets.
+            sys.exit(1)
 
-    def _apply_plan(self, plan: Plan, api_state: APIDriver) -> None:
+    def _report_unsatisfiable(self, plan: Plan, strict: bool) -> None:
+        if not plan.unsatisfiable:
+            return
+        for node, missing in plan.unsatisfiable:
+            print(
+                f"{'Error' if strict else 'Warning'}: cannot apply "
+                f'"{node.action}" because {describe_resource(missing)} does not'
+                " exist and this plan does not create it",
+                file=sys.stderr,
+            )
+        if strict:
+            raise UnsatisfiableDependencies(len(plan.unsatisfiable))
+
+    def _apply_plan(self, plan: Plan, api_state: APIDriver) -> int:
         errors = 0
         skipped: dict[ResourceKey, str] = {}
         for i, node in enumerate(plan):
@@ -145,6 +168,7 @@ class StateMachine:
             print(f"Total errors count: {errors}")
         if skipped:
             print(f"Total skipped count: {len(skipped)}")
+        return errors
 
     def _prompt_continue(self) -> None:
         print()
@@ -274,15 +298,11 @@ class StateMachine:
                     )
 
             # Consider system checks
-            api_state = APIDriver(self.client)
             for check_ref in sorted(
                 from_table.system_checks.keys() | to_table.system_checks.keys()
             ):
                 from_check = from_table.system_checks.get(check_ref)
                 to_check = to_table.system_checks.get(check_ref)
-
-                # Get the identifier of this check
-                check_id = api_state.get_system_check_id(table_ref, check_ref)
 
                 if comparison_from_check := from_check:
                     comparison_from_check = copy(from_check)
@@ -337,7 +357,6 @@ class StateMachine:
                             new=comparison_to_check,
                             table_ref=table_ref,
                             check_ref=check_ref,
-                            check_id=check_id,
                             is_system_check=True,
                         )
                     )
@@ -353,7 +372,7 @@ class StateMachine:
                             new=to_check.labels,
                             table_ref=table_ref,
                             check_ref=check_ref,
-                            check_id=check_id,
+                            is_system_check=True,
                         )
                     )
 
@@ -371,7 +390,7 @@ class StateMachine:
                             new=to_check.notification_channels,
                             table_ref=table_ref,
                             check_ref=check_ref,
-                            check_id=check_id,
+                            is_system_check=True,
                         )
                     )
 

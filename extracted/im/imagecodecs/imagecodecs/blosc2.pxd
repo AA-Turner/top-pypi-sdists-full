@@ -1,6 +1,6 @@
 # imagecodecs/blosc2.pxd
 
-# Cython declarations for the `c-blosc2 3.1.0` library.
+# Cython declarations for the `c-blosc2 3.3.1` library.
 # https://github.com/Blosc/c-blosc2
 
 from libc.stdint cimport int8_t, int16_t, int32_t, int64_t, uint8_t, uint16_t
@@ -206,6 +206,7 @@ cdef extern from 'blosc2.h' nogil:
     int BLOSC2_ERROR_METALAYER_NOT_FOUND
     int BLOSC2_ERROR_MAX_BUFSIZE_EXCEEDED
     int BLOSC2_ERROR_TUNER
+    int BLOSC2_ERROR_LOCK
 
     const char* blosc2_error_string(
         int error_code
@@ -642,6 +643,16 @@ cdef extern from 'blosc2.h' nogil:
         int32_t destsize
     )
 
+    int blosc2_getitem_bytes_ctx(
+        blosc2_context* context,
+        const void* src,
+        int32_t srcsize,
+        int32_t start,
+        int32_t nbytes,
+        void* dest,
+        int32_t destsize
+    )
+
     int BLOSC2_MAX_METALAYERS
     int BLOSC2_METALAYER_NAME_MAXLEN
 
@@ -722,6 +733,7 @@ cdef extern from 'blosc2.h' nogil:
         int8_t ndim
         int64_t* blockshape
         bool view
+        int64_t change_tick
 
     blosc2_schunk* blosc2_schunk_new(
         blosc2_storage* storage
@@ -741,6 +753,18 @@ cdef extern from 'blosc2.h' nogil:
     void blosc2_schunk_avoid_cframe_free(
         blosc2_schunk* schunk,
         bool avoid_cframe_free
+    )
+
+    int blosc2_schunk_lock(
+        blosc2_schunk *schunk
+    )
+
+    int blosc2_schunk_unlock(
+        blosc2_schunk *schunk
+    )
+
+    int blosc2_schunk_refresh(
+        blosc2_schunk *schunk
     )
 
     blosc2_schunk* blosc2_schunk_open(
@@ -1151,6 +1175,7 @@ cdef extern from 'b2nd.h' nogil:
         int64_t[16] chunk_array_strides  # B2ND_MAX_DIM
         char* dtype
         int8_t dtype_format
+        int64_t last_tick
 
     b2nd_context_t* b2nd_create_ctx(
         const blosc2_storage* b2_storage,
@@ -1326,6 +1351,10 @@ cdef extern from 'b2nd.h' nogil:
         b2nd_array_t* array,
         const int64_t* new_shape,
         const int64_t* start
+    )
+
+    int b2nd_refresh(
+        b2nd_array_t *array
     )
 
     int b2nd_insert(

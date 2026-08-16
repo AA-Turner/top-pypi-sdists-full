@@ -251,7 +251,11 @@ def query_row_columns(source: SourceFile, offset: int) -> dict[str, list[str]]:
     ranges = query_ranges(source)
 
     results: dict[str, list[str]] = {}
-    for d in declarations(code):
+    above_cursor: dict[str, list[str]] = {}
+    # `исп` declares a variable like `знч` does, and a query result is the everyday thing it
+    # holds (the selection is disposed at the end of the block). Without it the columns bound
+    # to nothing and the loop variable was completed with nothing.
+    for d in declarations(code, keywords=DECL_KEYWORDS + ("USE",)):
         if d.value_start is None or d.value_start >= len(code):
             continue
         value = code[d.value_start]
@@ -264,8 +268,13 @@ def query_row_columns(source: SourceFile, offset: int) -> dict[str, list[str]]:
         if columns:
             for tok in d.names:
                 results[tok.value] = columns
+                if d.keyword.start < offset:
+                    above_cursor[tok.value] = columns
 
-    out: dict[str, list[str]] = {}
+    # The RESULT itself answers by column too: the code reads a single-row query straight off
+    # the variable (`возврат Выборка.Ссылка`), and only the loop variable used to be completed.
+    # Declared BELOW the cursor it means nothing yet - the same rule the loops follow.
+    out: dict[str, list[str]] = dict(above_cursor)
     for i, t in enumerate(code[:-3]):
         if not (t.kind == "KEYWORD" and t.canonical == "FOR" and t.start < offset):
             continue
@@ -746,6 +755,83 @@ def _skip_balanced(toks: list[Token], i: int, open_op: str, close_op: str) -> in
     return n
 
 
+#: The type a plain literal has, by the kind of its token. A string is by far the commonest
+#: initializer of a local, and until this was read `знч Ключ = ""` left the variable untyped -
+#: the dot after it offered nothing at all.
+_LITERAL_TYPES = {"STRING": "Строка", "NUMBER": "Число"}
+_LITERAL_KEYWORDS = {"TRUE": "Булево", "FALSE": "Булево"}
+
+
+def _literal_type(toks: list[Token], i: int) -> str | None:
+    """The type of a literal at `i`, when the expression IS that literal.
+
+    Only a lone literal answers: an expression that goes on (`"а" + Х`, `1 + Ф()`) is an
+    operation, and its result is not the literal's type to claim. The end of the expression is
+    a line break or a closer - the same boundary the rest of the walk uses.
+    """
+    t = toks[i]
+    name = _LITERAL_TYPES.get(t.kind)
+    if name is None and t.kind == "KEYWORD":
+        name = _LITERAL_KEYWORDS.get(t.canonical or "")
+    if name is None:
+        return None
+    nxt = _skip_comments(toks, i + 1)
+    if nxt < len(toks):
+        after = toks[nxt]
+        goes_on = after.line == t.end_line and not (
+            after.kind == "OP" and after.value in (")", "]", "}", ",", ";")
+        )
+        if goes_on:
+            return None
+    return name
+
+
+#: How the code names a type as a VALUE: `Тип<Массив<Карточка>>` - the argument that fixes the
+#: result of a generic method (`СериализацияJson.ПрочитатьОбъект(Текст, Тип<...>)`).
+_TYPE_VALUE_NAMES = ("Тип", "Type")
+
+
+def _type_argument(toks: list[Token], open_paren: int) -> str | None:
+    """The type written inside a `Тип<...>` argument of the call opening at `open_paren`.
+
+    A generic method names its result by a parameter of its own, and the call is what fixes it:
+    the argument is the type itself. Only the arguments of THIS call are read - a nested call
+    keeps its own.
+    """
+    n = len(toks)
+    depth = 0
+    i = open_paren
+    while i < n:
+        tok = toks[i]
+        if tok.kind == "OP" and tok.value == "(":
+            depth += 1
+        elif tok.kind == "OP" and tok.value == ")":
+            depth -= 1
+            if depth == 0:
+                return None
+        # `Type` is a KEYWORD of the language, not an identifier - both spellings of it.
+        elif depth == 1 and tok.value in _TYPE_VALUE_NAMES:
+            j = i + 1
+            if j < n and toks[j].kind == "OP" and toks[j].value == "<":
+                inner, level, j = "", 0, j
+                while j < n:
+                    cur = toks[j]
+                    if cur.kind == "OP" and cur.value == "<":
+                        level += 1
+                        if level == 1:
+                            j += 1
+                            continue
+                    elif cur.kind == "OP" and cur.value == ">":
+                        level -= 1
+                        if level == 0:
+                            return inner.strip() or None
+                    inner += cur.value
+                    j += 1
+                return None
+        i += 1
+    return None
+
+
 def chain_type(
     toks: list[Token],
     start: int,
@@ -753,6 +839,8 @@ def chain_type(
     returns: dict | None,
     stop_offset: int | None = None,
     written: bool = False,
+    own_returns: dict[str, str] | None = None,
+    resolve_written=None,
 ) -> str | None:
     """The type of a call chain `Корень.Метод(...).Метод2(...)` starting at `start`.
 
@@ -774,6 +862,13 @@ def chain_type(
     t = toks[i]
     current: str | None = None
     last_written: str | None = None
+    # The WRITTEN type of the current link: a generic member names its result by the owner's
+    # type parameter (`Массив.Первый(): ТипЭлемента`), and only the arguments the code wrote
+    # turn that name into a type.
+    current_written: str | None = None
+    literal = _literal_type(toks, i)
+    if literal is not None:
+        return literal
     if t.kind == "KEYWORD" and t.canonical == "QUERY":
         # A query literal constructs a typed query (docs topics/query-literal).
         current = "ТипизированныйЗапрос"
@@ -789,31 +884,82 @@ def chain_type(
         # past the type expression (dots inside generics are not chain links),
         # then past the constructor parentheses
         j = te.end
+        last_written = current_written = "".join(tok.value for tok in te.toks) or None
         i = _skip_balanced(toks, j, "(", ")") if (
             j < n and toks[j].kind == "OP" and toks[j].value == "("
         ) else j
     elif t.kind == "IDENT":
-        current = resolve_root(t.value)
-        if current is None:
-            return None
-        i += 1
+        # A call with no qualifier is a method of the module itself - the everyday way a module
+        # calls its own code, and the commonest start of a chain there is. It outranks a static
+        # root of the same name: a type is used as `Тип.Член`, never as `Тип(...)`, so the
+        # parenthesis settles which of the two the code means. A method whose name repeats a
+        # platform type is ordinary (`Implementation`), and reading it as the type answered a type
+        # nothing here returns.
+        j = _skip_comments(toks, i + 1)
+        called = j < n and toks[j].kind == "OP" and toks[j].value == "("
+        raw = (own_returns or {}).get(t.value) if called else None
+        if raw:
+            current = dataset.member_type_head(raw)
+            last_written = current_written = raw
+            i = _skip_balanced(toks, j, "(", ")")
+        else:
+            current = resolve_root(t.value)
+            consumed = i + 1
+            if current is None:
+                # A FACET is named by TWO segments (`Сущность.Право`, `Пользователи.Объект`) and
+                # the catalogue keys it that way: the first segment alone is a namespace, not a
+                # type, so resolving it apart answered nothing and the chain died at its root.
+                dot = _skip_comments(toks, i + 1)
+                tail = _skip_comments(toks, dot + 1) if dot < n else n
+                if (dot < n and toks[dot].kind == "OP" and toks[dot].value == "."
+                        and tail < n and toks[tail].kind == "IDENT"):
+                    current = resolve_root(f"{t.value}.{toks[tail].value}")
+                    consumed = tail + 1
+            if current is None:
+                return None
+            if resolve_written is not None:
+                current_written = resolve_written(t.value)
+            i = consumed
     else:
         return None
     # the member links: .Имя(...) or .Имя - the catalog (`returns`) maps both a method
     # and a property to its result type. The catalog may keep the FULL docs spelling
     # (М<Т>, Тип?); the chain works in nominal heads - both as the lookup key and as the
     # inferred type - so data of any vintage answers the same.
-    while i < n and toks[i].kind == "OP" and toks[i].value == ".":
+    while i < n:
+        # A non-null operator between links (`Разбор.file!.info`) asserts the value is there and
+        # changes nothing else: the chain used to stop at it and answer the type BEFORE it.
+        # `!=` is a single token, so a lone `!` here is unambiguous.
+        if toks[i].kind == "OP" and toks[i].value == "!":
+            i += 1
+            continue
+        if not (toks[i].kind == "OP" and toks[i].value == "."):
+            break
         if stop_offset is not None and toks[i].start >= stop_offset:
             break
         j = _skip_comments(toks, i + 1)
         if j >= n or toks[j].kind != "IDENT":
             break
         raw = (returns or {}).get(current, {}).get(toks[j].value)
+        if raw:
+            raw = dataset.substitute_params(raw, current, current_written)
+            # A result named by a parameter of the METHOD is fixed by the call itself: the code
+            # passes the type as a value (`ПрочитатьОбъект(Текст, Тип<Массив<Карточка>>)`).
+            method_params = dataset.method_type_params(current, toks[j].value)
+            if method_params and dataset.member_type_head(raw) in method_params:
+                k_open = _skip_comments(toks, j + 1)
+                if k_open < n and toks[k_open].kind == "OP" and toks[k_open].value == "(":
+                    written_arg = _type_argument(toks, k_open)
+                    if written_arg:
+                        raw = raw.replace(dataset.member_type_head(raw), written_arg, 1)
+                if dataset.member_type_head(raw) in method_params:
+                    # The call passed no type: the parameter names nothing, and answering with
+                    # its name would offer the members of a type that does not exist.
+                    return None
         current = dataset.member_type_head(raw) if raw else None
         if current is None:
             return None
-        last_written = raw
+        last_written = current_written = raw
         k = _skip_comments(toks, j + 1)
         if k < n and toks[k].kind == "OP" and toks[k].value == "(":
             i = _skip_balanced(toks, k, "(", ")")
@@ -825,10 +971,56 @@ def chain_type(
 def _constructed_type(
     toks: list[Token], start: int,
     resolve_root=None, returns: dict | None = None,
+    own_returns: dict[str, str] | None = None,
+    written: bool = False,
+    resolve_written=None,
 ) -> str | None:
     """The type of an initializer: `новый Массив<Строка>()`, `Запрос{...}` or a call
-    chain over a known root (`КлиентHttp.СБазовымUrl(...)`), or None."""
-    return chain_type(toks, start, resolve_root or (lambda _name: None), returns)
+    chain over a known root (`КлиентHttp.СБазовымUrl(...)`) or over a method of the module
+    itself (`ЗаписатьЧтение(...)`), or None."""
+    return chain_type(toks, start, resolve_root or (lambda _name: None), returns,
+                      own_returns=own_returns, written=written,
+                      resolve_written=resolve_written)
+
+
+def enclosing_constructor(source: SourceFile, offset: int) -> str | None:
+    """The type whose constructor call encloses `offset`, or None.
+
+    `новый Тип(Имя = ...|` is where the author writes the NAMES of what the type carries, and
+    the names are the one thing an editor can supply there. The walk goes back over tokens
+    counting parentheses, so a multi-line call and nested calls read alike.
+    """
+    toks = code_tokens(source)
+    idx = -1
+    for k, tok in enumerate(toks):
+        if tok.start < offset:
+            idx = k
+        else:
+            break
+    depth = 0
+    j = idx
+    while j >= 0:
+        tok = toks[j]
+        if tok.kind == "OP" and tok.value == ")":
+            depth += 1
+        elif tok.kind == "OP" and tok.value == "(":
+            if depth == 0:
+                break
+            depth -= 1
+        j -= 1
+    if j < 0:
+        return None
+    # `новый <тип>(`: the type expression sits between the keyword and the parenthesis.
+    k = j - 1
+    while k >= 0 and not (toks[k].kind == "KEYWORD" and toks[k].canonical == "NEW"):
+        if toks[k].kind not in ("IDENT",) and not (
+            toks[k].kind == "OP" and toks[k].value in (".", "<", ">", ",", "?")
+        ):
+            return None
+        k -= 1
+    if k < 0:
+        return None
+    return _type_head(toks, k + 1)
 
 
 def chain_type_at(
@@ -836,6 +1028,8 @@ def chain_type_at(
     var_types: dict | None = None,
     returns: dict | None = None,
     static_roots=None,
+    own_returns: dict[str, str] | None = None,
+    var_written: dict[str, str] | None = None,
 ) -> str | None:
     """The type of the call chain to the LEFT of the dot at `offset` (the cursor sits
     right after the dot, possibly with a partially typed name): the completion context
@@ -897,7 +1091,8 @@ def chain_type_at(
             return name
         return None
 
-    return chain_type(toks, root_i, resolve_root, returns, stop_offset=stop)
+    return chain_type(toks, root_i, resolve_root, returns, stop_offset=stop,
+                      own_returns=own_returns, resolve_written=(var_written or {}).get)
 
 
 def local_var_names(source: SourceFile, offset: int) -> set[str]:
@@ -935,6 +1130,9 @@ def local_var_names(source: SourceFile, offset: int) -> set[str]:
 def local_var_types(
     source: SourceFile, offset: int,
     returns: dict | None = None, static_roots=None,
+    own_returns: dict[str, str] | None = None,
+    written_out: dict[str, str] | None = None,
+    own_properties: dict[str, str] | None = None,
 ) -> dict[str, str]:
     """Variable name -> type head for the names visible at `offset`.
 
@@ -981,6 +1179,19 @@ def local_var_types(
             full = _type_written(toks, p.type_start)
             if full:
                 written_types[p.name.value] = full
+    # The members of the type the module EXTENDS are addressed by bare name (`для Стр из Состав`
+    # in a module of `Товары.Объект`), so they take part in the inference like variables - before
+    # the loops, which may walk over one of them. A declaration of the same name shadows them and
+    # overwrites the entry below.
+    for prop, prop_written in (own_properties or {}).items():
+        out.setdefault(prop, dataset.member_type_head(prop_written))
+        written_types.setdefault(prop, prop_written)
+
+    # The loop variables FIRST: a declaration inside a loop leans on the variable the loop
+    # introduced (`исп Поток = Страница.Загрузить()...`), and typing the declarations first left
+    # such a chain rootless. The pass runs again below, for a loop whose source is declared above.
+    _add_loop_var_types(toks, start, offset, out, resolve_root, returns, written_types,
+                        own_returns)
     for d in declarations(toks, keywords=DECL_KEYWORDS + ("USE",)):
         if not start <= d.keyword.start < offset:
             continue
@@ -991,14 +1202,29 @@ def local_var_types(
                 for tok in d.names:
                     written_types[tok.value] = full
         elif d.value_start is not None:
-            name = _constructed_type(toks, d.value_start, resolve_root, returns)
+            name = _constructed_type(toks, d.value_start, resolve_root, returns,
+                                     own_returns=own_returns,
+                                     resolve_written=written_types.get)
+            # The WRITTEN type of the initializer too: a for-each over this variable takes its
+            # element out of the generic argument, and the nominal head has dropped it.
+            full = _constructed_type(toks, d.value_start, resolve_root, returns,
+                                     own_returns=own_returns, written=True,
+                                     resolve_written=written_types.get)
+            if full:
+                for tok in d.names:
+                    written_types[tok.value] = full
         else:
             continue
         if not name:
             continue
         for tok in d.names:
             out[tok.value] = name
-    _add_loop_var_types(toks, start, offset, out, resolve_root, returns, written_types)
+    _add_loop_var_types(toks, start, offset, out, resolve_root, returns, written_types,
+                        own_returns)
+    # The written types travel out for the caller that continues the inference (the completion
+    # walks a chain from a variable, and a generic member needs the arguments, not the head).
+    if written_out is not None:
+        written_out.update(written_types)
     return out
 
 
@@ -1021,6 +1247,7 @@ def element_type(written: str | None) -> str | None:
 def _add_loop_var_types(
     toks: list[Token], start: int, offset: int, out: dict[str, str], resolve_root, returns,
     written_types: dict[str, str] | None = None,
+    own_returns: dict[str, str] | None = None,
 ) -> None:
     """Type the variable of a `для X из <коллекция>` loop by the element type of the collection.
 
@@ -1047,7 +1274,9 @@ def _add_loop_var_types(
             if bare:
                 collection = written_types.get(nxt.value)
         if collection is None:
-            collection = chain_type(toks, i + 3, resolve_root, returns, written=True)
+            collection = chain_type(toks, i + 3, resolve_root, returns, written=True,
+                                    own_returns=own_returns,
+                                    resolve_written=(written_types or {}).get)
         element = element_type(collection)
         if element:
             out[name.value] = element

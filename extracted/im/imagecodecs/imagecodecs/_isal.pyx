@@ -122,7 +122,7 @@ def isal_encode(
     cdef:
         const uint8_t[::1] src = _readable_input(data)
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         uint8_t* level_buf = NULL
         uint32_t level_buf_size = 0
@@ -153,7 +153,7 @@ def isal_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     try:
         with nogil:
@@ -170,9 +170,9 @@ def isal_encode(
                     raise MemoryError('failed to allocate ISA-L level buffer')
 
             isal_deflate_stateless_init(&stream)
-            stream.next_in = <uint8_t*> &src[0]
+            stream.next_in = <uint8_t*> src._data
             stream.avail_in = <uint32_t> srcsize
-            stream.next_out = <uint8_t*> &dst[0]
+            stream.next_out = <uint8_t*> dst._data
             stream.avail_out = <uint32_t> dstsize
             stream.end_of_stream = 1
             stream.flush = NO_FLUSH
@@ -208,7 +208,7 @@ def isal_decode(
     cdef:
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         inflate_state state
         int crc_flag = ISAL_ZLIB
@@ -242,14 +242,14 @@ def isal_decode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     with nogil:
         isal_inflate_init(&state)
         state.crc_flag = crc_flag
-        state.next_in = <uint8_t*> &src[0]
+        state.next_in = <uint8_t*> src._data
         state.avail_in = <uint32_t> srcsize
-        state.next_out = <uint8_t*> &dst[0]
+        state.next_out = <uint8_t*> dst._data
         state.avail_out = <uint32_t> dstsize
         ret = isal_inflate_stateless(&state)
 
@@ -270,11 +270,11 @@ def isal_crc32(
     """Return CRC32 (gzip/zlib reflected) checksum of data."""
     cdef:
         const uint8_t[::1] src = _readable_input(data)
-        uint64_t srcsize = <uint64_t> src.nbytes
+        uint64_t srcsize = <uint64_t> src.shape[0]
         uint32_t crc = 0 if value is None else value
 
     with nogil:
-        crc = crc32_gzip_refl(crc, <const unsigned char*> &src[0], srcsize)
+        crc = crc32_gzip_refl(crc, <const unsigned char*> src._data, srcsize)
     return int(crc)
 
 
@@ -286,12 +286,12 @@ def isal_crc32c(
     """Return CRC32C (Castagnoli/iSCSI) checksum of data."""
     cdef:
         const uint8_t[::1] src = _readable_input(data)
-        int srcsize = <int> src.nbytes
+        int srcsize = <int> src.shape[0]
         unsigned int crc = 0 if value is None else value
 
     with nogil:
         crc = crc32_iscsi(
-            <unsigned char*> &src[0], srcsize, crc
+            <unsigned char*> src._data, srcsize, crc
         )
     return int(crc)
 
@@ -304,11 +304,13 @@ def isal_adler32(
     """Return Adler-32 checksum of data."""
     cdef:
         const uint8_t[::1] src = _readable_input(data)
-        uint64_t srcsize = <uint64_t> src.nbytes
+        uint64_t srcsize = <uint64_t> src.shape[0]
         uint32_t adler = 1 if value is None else value
 
     with nogil:
-        adler = isal_adler32_c(adler, <const unsigned char*> &src[0], srcsize)
+        adler = isal_adler32_c(
+            adler, <const unsigned char*> src._data, srcsize
+        )
     return int(adler)
 
 
@@ -319,7 +321,7 @@ def _isal_decode(const uint8_t[::1] src, outtype, int crc_flag):
     cdef:
         output_t* output = NULL
         inflate_state state
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         size_t incsize = _align_size_t(srcsize // 2)
         size_t size, left
         int ret = ISAL_DECOMP_OK
@@ -328,7 +330,7 @@ def _isal_decode(const uint8_t[::1] src, outtype, int crc_flag):
         with nogil:
             isal_inflate_init(&state)
             state.crc_flag = crc_flag
-            state.next_in = <uint8_t*> &src[0]
+            state.next_in = <uint8_t*> src._data
             state.avail_in = 0
 
             if incsize > 268435456:  # 256 MB
@@ -370,6 +372,14 @@ def _isal_decode(const uint8_t[::1] src, outtype, int crc_flag):
                     left -= state.avail_out
 
                 ret = isal_inflate(&state)
+
+                if (
+                    ret == ISAL_DECOMP_OK
+                    and state.avail_in == 0
+                    and size == 0
+                    and state.block_state != ISAL_BLOCK_FINISH
+                ):
+                    raise IsalError('isal_inflate', 'truncated input')
 
                 if state.block_state == ISAL_BLOCK_FINISH:
                     break

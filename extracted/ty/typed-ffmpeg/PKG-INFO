@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typed-ffmpeg
-Version: 4.3
+Version: 4.4
 Summary: Modern Python & TypeScript FFmpeg wrappers with comprehensive typing (latest version)
 Author-email: lucemia <lucemia@gmail.com>
 License-Expression: MIT
@@ -18,13 +18,13 @@ Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Multimedia :: Sound/Audio
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: typed-ffmpeg-v8<5.0,>=4.3
+Requires-Dist: typed-ffmpeg-v9<5.0,>=4.4
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0; extra == "dev"
-Requires-Dist: pytest-cov>=4.0; extra == "dev"
-Requires-Dist: ruff==0.12.2; extra == "dev"
+Requires-Dist: pytest-cov>=7.1.0; extra == "dev"
+Requires-Dist: ruff==0.16.2; extra == "dev"
 Provides-Extra: parse
-Requires-Dist: ffmpeg-data-v8; extra == "parse"
+Requires-Dist: ffmpeg-data-v9; extra == "parse"
 
 # typed-ffmpeg
 
@@ -36,7 +36,7 @@ Modern Python FFmpeg wrappers with comprehensive typing.
 pip install typed-ffmpeg
 ```
 
-This meta-package installs the latest version of typed-ffmpeg (currently v8).
+This meta-package installs the latest version of typed-ffmpeg (currently v9).
 
 ## Usage
 

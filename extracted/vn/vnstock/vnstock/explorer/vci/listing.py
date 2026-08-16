@@ -353,8 +353,8 @@ class Listing:
         if query:
             query = query.upper()
             df = df[
-                df["symbol"].str.contains(query)
-                | df["organ_name"].str.upper().str.contains(query)
+                df["symbol"].astype(str).str.contains(query)
+                | df["organ_name"].astype(str).str.upper().str.contains(query)
             ]
         df.source = "VCI"
         return df

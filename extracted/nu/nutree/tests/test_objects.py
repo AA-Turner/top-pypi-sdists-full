@@ -1,9 +1,10 @@
 # (c) 2021-2024 Martin Wendt; see https://github.com/mar10/nutree
 # Licensed under the MIT license: https://www.opensource.org/licenses/mit-license.php
-""" """
+
 # ruff: noqa: T201, T203 `print` found
-# pyright: reportOptionalMemberAccess=false
-# mypy: disable-error-code="annotation-unchecked"
+# ty: ignore[unresolved-attribute, missing-type-argument]
+
+""" """
 
 import pytest
 from nutree import Tree
@@ -50,7 +51,7 @@ class TestObjects:
         assert n.name == repr(n.data)
         assert n.name == "Item<'Let It Be', 12.34$>"
 
-        assert tree.find(match=".*Let It Be.*").data is let_it_be
+        assert tree.find_first(match=".*Let It Be.*").data is let_it_be
 
         pony = Item("Dig A Pony", 0.99, 0)
         n.add(pony)
@@ -60,21 +61,21 @@ class TestObjects:
 
         print(tree.format(repr="{node.data}"))
 
-        n = tree.find(pony)
+        n = tree.find_first(pony)
         assert n.data is pony
 
-        n = tree.find(get_back)
+        n = tree.find_first(get_back)
         assert n is None
-        n = tree.find(data_id="123-000")
+        n = tree.find_first(data_id="123-000")
         assert n is None
-        n = tree.find(data_id="123-456")
+        n = tree.find_first(data_id="123-456")
         assert n.data is get_back
         assert "Get Back" not in tree
         # FIXME: this should work
         # assert get_back in tree
         # assert "123-456" in tree
 
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             n.rename("foo")
         assert tree._self_check()
 
@@ -115,7 +116,7 @@ class TestObjects:
 
         # forward-attributes are readonly
         with pytest.raises(AttributeError):
-            let_it_be_node.price = 9.99  # type: ignore
+            let_it_be_node.price = 9.99
 
 
 class TestDictWrapper:
@@ -137,16 +138,16 @@ class TestDictWrapper:
         with pytest.raises(TypeError):
             _ = DictWrapper("foo", d)  # type: ignore
 
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             _ = DictWrapper(d, foo="bar")
 
         dw = DictWrapper(d)
         assert dw._dict is d, "dict should be stored as reference"
 
         with pytest.raises(AttributeError):
-            _ = dw.a  # type: ignore
+            _ = dw.a
         with pytest.raises(AttributeError):
-            _ = dw.foo  # type: ignore
+            _ = dw.foo
 
         assert dw["a"] == 1, "DictWrapper should support item read access"
         with pytest.raises(KeyError):
@@ -212,17 +213,17 @@ class TestDictWrapper:
 
         with pytest.raises(AttributeError):
             # should not support attribute access via data
-            _ = node.data.a  # type: ignore
+            _ = node.data.a
 
         with pytest.raises(AttributeError):
             # should not allow access to non-existing attributes
-            _ = node.data.foo  # type: ignore
+            _ = node.data.foo
 
         assert node.data["a"] == 1, "should support item access via data"
 
         with pytest.raises(AttributeError, match="object has no attribute 'a'"):
             # Forwarding is read-only
-            _ = node.data.a = 99  # type: ignore
+            _ = node.data.a = 99
 
         # Index access is writable
         node.data["a"] = 99
@@ -276,7 +277,7 @@ class TestDictWrapper:
 
         # Frozen dataclasses are immutable
         with pytest.raises(FrozenInstanceError):
-            item.count += 1  # type: ignore
+            item.count += 1
 
         # We can also add by passing the data_id as keyword argument:
         _ = tree.add(item, data_id="123-456")

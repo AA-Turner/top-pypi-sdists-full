@@ -105,7 +105,7 @@ def bitshuffle_encode(
         elem_size = <size_t> data.itemsize
         with nogil:
             ret = bshuf_bitshuffle(
-                <void*> &src[0],
+                <void*> src._data,
                 <void*> ndarr.data,
                 <size_t> srcsize,
                 elem_size,
@@ -115,7 +115,7 @@ def bitshuffle_encode(
             raise BitshuffleError('bshuf_bitshuffle', ret)
         return out
 
-    srcsize = src.nbytes
+    srcsize = src.shape[0]
     elem_size = itemsize
 
     if elem_size < 1:
@@ -132,15 +132,15 @@ def bitshuffle_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     if dstsize < srcsize:
         raise RuntimeError('output too small')
 
     with nogil:
         ret = bshuf_bitshuffle(
-            <void*> &src[0],
-            <void*> &dst[0],
+            <void*> src._data,
+            <void*> dst._data,
             srcsize // elem_size,
             elem_size,
             block_size
@@ -181,7 +181,7 @@ def bitshuffle_decode(
         elem_size = <size_t> data.itemsize
         with nogil:
             ret = bshuf_bitunshuffle(
-                <void*> &src[0],
+                <void*> src._data,
                 <void*> ndarr.data,
                 <size_t> srcsize,
                 elem_size,
@@ -191,7 +191,7 @@ def bitshuffle_decode(
             raise BitshuffleError('bshuf_bitunshuffle', ret)
         return out
 
-    srcsize = src.nbytes
+    srcsize = src.shape[0]
     elem_size = itemsize
 
     if elem_size < 1:
@@ -208,15 +208,15 @@ def bitshuffle_decode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     if dstsize < srcsize:
         raise RuntimeError('output too small')
 
     with nogil:
         ret = bshuf_bitunshuffle(
-            <void*> &src[0],
-            <void*> &dst[0],
+            <void*> src._data,
+            <void*> dst._data,
             srcsize // elem_size,
             elem_size,
             block_size

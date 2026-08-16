@@ -60,9 +60,8 @@ import msgspec
 from . import activity as activity_mod
 from . import artifact_meta
 from . import boot_phases
-from . import cell_key as cell_key_mod
+from . import graph_facts
 from . import compile_posture
-from . import kernel_path
 from . import mint_workers
 from . import progress as progress_mod
 from .api.export_contract import (
@@ -215,6 +214,93 @@ def assert_family_mintable(family: str) -> None:
     blocked = open_blockers(decl)
     if blocked:
         raise DeclaredBlockerRefusal(blocker_refusal(family, blocked))
+
+
+def rule_on_boot_memo(
+    task: MintTask, cfg: Any, result: Any, *, declared: int,
+) -> str:
+    """THE honesty gate (pgw#1271): what the boot memo answered, against what
+    this mint TRACED. Returns the disagreement, or ``""``.
+
+    ``boot_key``'s memo path SKIPS THE TRACES and re-folds stored blocks into
+    the ``graph`` axis of every ``cg-key-v1`` this pod goes on to publish — so
+    the memo is a key generator, and the only thing standing between a stale
+    memo and a wrong published key is a comparison against a freshly traced
+    truth. ``boot_key.assert_memo_honest`` is that comparison. It had **zero
+    src/ callers**: it was written, documented as the thing that makes the memo
+    safe to have at all, exported, tested — and never invoked on a fleet pod.
+
+    THIS is the moment, and there is only one: a mint is the single point in a
+    pod's life where it holds a traced class set for the same closure the boot
+    memoized. So the call sits at the seal/publish seam, before the artifacts
+    ship — and the offending memo entry is invalidated by the callee, so the
+    next boot re-traces instead of re-reading a hash proven wrong.
+
+    Two things are deliberately NOT ruled on, because ruling on them would
+    manufacture disagreements:
+
+    * a PARTIAL class set. Coverage accretes (pgw#1176), so a mint that packed
+      fewer classes than the declaration has cannot distinguish "the memo holds
+      a class we did not trace" from "we have not traced it yet", and
+      ``assert_memo_honest``'s set check would fire on every partial mint.
+    * a mint whose entries carry no keying block — nothing to compare.
+
+    Returns the reason rather than raising: a dishonest memo has already cost
+    what it can cost (the entry is invalidated, the next boot re-traces), and
+    the artifacts in hand were traced by THIS process and are correct. Killing
+    a finished mint over it would turn a self-healing fault into a lost pod.
+    """
+    from . import boot_key
+
+    memo_dir = getattr(task.pending, "cache_dir", None)
+    if not memo_dir:
+        return ""
+    entries = tuple(getattr(result, "entries", ()) or ())
+    if declared <= 0 or len(entries) != int(declared):
+        return ""
+    blocks: Dict[str, Dict[str, Any]] = {}
+    for row in entries:
+        block = dict(getattr(row, "metadata", None) or {}).get(
+            graph_facts.TCG_GRAPH_CLASS_BLOCK)
+        if not isinstance(block, Mapping):
+            return ""
+        blocks[str(row.entry)] = dict(block)
+    if len(blocks) != len(entries):
+        return ""
+    digest = boot_key.closure_digest(
+        str(getattr(cfg, "family", "") or ""),
+        cfg_spec(cfg),
+        function=str(task.function or ""),
+        slots=dict(task.slots),
+    )
+    return boot_key.assert_memo_honest(Path(memo_dir), digest, blocks)
+
+
+def _rule_on_boot_memo(
+    task: MintTask, cfg: Any, result: Any, *, declared: int, family: str,
+) -> None:
+    """Run :func:`rule_on_boot_memo` and report it as a TYPED event.
+
+    Never raises: an unrulable memo is silence, and a dishonest one is a
+    countable wire fact. A log line would be neither — a hub-spawned pod's
+    stdout goes nowhere (pgw#760).
+    """
+    try:
+        reason = rule_on_boot_memo(task, cfg, result, declared=declared)
+    except Exception as exc:  # noqa: BLE001 — never die with the mint
+        activity_mod.emit_event(
+            activity_mod.KIND_BOOT_MEMO,
+            f"family={family}: the boot-key memo could not be ruled on "
+            f"({type(exc).__name__}: {exc}); this mint's keys are the TRACED "
+            f"ones and are unaffected",
+            phase="memo_unrulable")
+        return
+    if not reason:
+        return
+    logger.error("mint-supervisor: %s", reason)
+    activity_mod.emit_event(
+        activity_mod.KIND_BOOT_MEMO, f"family={family}: {reason}",
+        phase="memo_dishonest")
 
 
 #: The mint's evidence counter, in the `family:name` shape every other counter
@@ -508,8 +594,8 @@ def held_graph_classes(out_dir: Path) -> List[Any]:
     for path in sorted(out_dir.glob("*.tar.gz")):
         try:
             meta = dict(artifact_meta.read_metadata(path))
-            name = str(meta[cell_key_mod.ENTRY_BLOCK_KEY]["name"])
-            key = str(meta.get("cell_key") or "")
+            name = str(meta[graph_facts.TCG_GRAPH_CLASS_BLOCK]["name"])
+            key = str(meta.get("compiled_graph_key") or "")
         except Exception:  # noqa: BLE001 — see the docstring
             logger.warning(
                 "mint-supervisor: %s is not a readable compiled graph; this "
@@ -587,18 +673,7 @@ async def supervise(
         modules=tuple(task.modules),
         cfg=cfg_spec(cfg),
         slots=dict(task.slots),
-        # pgw#947, re-based on the reroute: the mint child used to A/B the
-        # kernel lanes by loading one full pipeline per candidate on an empty
-        # card. A SERVING parent has neither an empty card nor the right to
-        # take one, and it does not need the probe — the lane this pod SERVES
-        # on is a fact it already holds first-hand, and it is the lane the
-        # artifact must be stamped with. Recorded as a typed UNMEASURED
-        # verdict with its reason rather than as an absence.
-        execution_lane=kernel_path.unmeasured(
-            task.execution_lane,
-            "supervised mint: the serving parent states the lane it is "
-            "already serving on rather than benchmarking a second pipeline "
-            "onto the card it is resident on"),
+        posture=task.posture,
         out_dir=str(out_dir),
     )
 
@@ -698,6 +773,12 @@ async def supervise(
 
         if not last:
             act.phase(activity_mod.PHASE_SEAL_PUBLISH)
+            # THE honesty gate. This is the one moment a pod holds a freshly
+            # TRACED class set for the closure its boot may have answered from
+            # a memo — and the memo produced the `graph` axis of the key these
+            # artifacts are about to be published under.
+            _rule_on_boot_memo(
+                task, cfg, result, declared=declared, family=family)
             # pgw#1176/pgw#1183: one artifact per graph class; the adopt
             # stages each durable, verifies, arms and stores it in turn, and a
             # class that refuses costs itself.

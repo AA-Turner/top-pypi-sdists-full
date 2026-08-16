@@ -349,7 +349,9 @@ class Finance:
         collected_periods = set()
         page = 1
 
-        request_page_size = 4
+        # NOTE: KBS API has a bug where page_size > 1 returns duplicated IDs and mixed up data values.
+        # We MUST use page_size = 1 to guarantee data integrity, even if it requires more API calls.
+        request_page_size = 1
 
         while len(collected_periods) < effective_limit:
             data = self._fetch_financial_data(
@@ -377,8 +379,12 @@ class Finance:
             # Filter out periods we already have
             actual_new_periods = [p for p in new_periods if p not in collected_periods]
             if not actual_new_periods:
-                # If we got data but no new periods, it's likely we've looped or reached end
-                break
+                # If we got data but no new periods (e.g. duplicate period on a new page),
+                # just skip this page and continue fetching.
+                page += 1
+                if page > 100:
+                    break
+                continue
 
             # If some periods are repeats, we only keep the new ones in this DF
             if len(actual_new_periods) < len(new_periods):
@@ -394,7 +400,7 @@ class Finance:
             collected_periods.update(actual_new_periods)
 
             page += 1
-            if page > 20:
+            if page > 100:
                 break
 
         if not dfs:

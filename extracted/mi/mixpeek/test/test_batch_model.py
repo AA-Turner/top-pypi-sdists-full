@@ -172,6 +172,8 @@ class TestBatchModel(unittest.TestCase):
                             }, 
                         performance = { }, 
                         ray_job_id = '', 
+                        ray_job_started_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        ray_job_completed_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         requires_gpu = True, 
                         worker_groups = [
                             ''

@@ -87,7 +87,6 @@ from .tifffile import (
     enumarg,
     imread,
     jpeg_decode_colorspace,
-    logger,
     product,
 )
 
@@ -2044,22 +2043,13 @@ def _write_fsspec_v3_metadata(
                     'configuration': {'endian': 'little'},
                 }
             codecs: list[dict[str, Any]] = []
+            floatpred = False
             if keyframe.predictor > 1:
-                # array-array filter codec
                 if keyframe.predictor in {2, 34892, 34893}:
                     filter_id = 'imagecodecs_delta'
                 else:
                     filter_id = 'imagecodecs_floatpred'
-                    if tiff_byteorder == '>':
-                        # TODO: floatpred encoding is endian-neutral
-                        # and incoming bytes/arrays must not be byte-swapped.
-                        # Hence zarr >= 3.3 is not compatible with this.
-                        # Proper fix is to make imagecodecs_floatpred an
-                        # ArrayBytesCodec
-                        logger().warning(
-                            'fsspec stores using big-endian floatpred are '
-                            'incompatible with zarr>=3.3.'
-                        )
+                    floatpred = True
 
                 if keyframe.predictor <= 3:
                     dist = 1
@@ -2081,8 +2071,9 @@ def _write_fsspec_v3_metadata(
                     }
                 )
             if codec_id is None:
-                # no compression: just bytes array-bytes codec
-                codecs.append(bytes_codec)
+                if not floatpred:
+                    # no compression: just bytes array-bytes codec
+                    codecs.append(bytes_codec)
             elif codec_id in array_byte_codecs:
                 # array-bytes codec: handles array-bytes directly
                 if codec_id == 'imagecodecs_jpeg':
@@ -2160,8 +2151,9 @@ def _write_fsspec_v3_metadata(
                 else:
                     codecs.append({'name': codec_id})
             else:
-                # bytes-bytes codec: needs bytes array-bytes first
-                codecs.append(bytes_codec)
+                if not floatpred:
+                    # bytes-bytes codec: needs bytes array-bytes first
+                    codecs.append(bytes_codec)
                 codecs.append({'name': codec_id})
 
             refzarr[groupname + levelstr + 'zarr.json'] = _json_dumps(

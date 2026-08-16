@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 2.19.1
+Version: 2.19.3
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Nouamane Tazi <nouamane@huggingface.co>, Nils Reimers <info@nils-reimers.de>
 Maintainer-email: Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Roman Solomatin <risolomatin@gmail.com>, Isaac Chung <chungisaac1217@gmail.com>
@@ -96,6 +96,8 @@ Requires-Dist: soundfile>=0.13.1; extra == "msclap"
 Provides-Extra: bm25s
 Requires-Dist: bm25s>=0.2.6; extra == "bm25s"
 Requires-Dist: PyStemmer>=2.2.0.3; extra == "bm25s"
+Provides-Extra: boto3
+Requires-Dist: boto3>=1.34.0; extra == "boto3"
 Provides-Extra: gritlm
 Requires-Dist: gritlm>=1.0.2; extra == "gritlm"
 Provides-Extra: xformers

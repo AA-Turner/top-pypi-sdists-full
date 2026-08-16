@@ -146,7 +146,7 @@ def gif_encode(
         memgif.owner = 0
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     cmap = _create_array(colormap, (256, 3), numpy.uint8)
     if colormap is None:
@@ -157,7 +157,7 @@ def gif_encode(
 
     try:
         with nogil:
-            memgif.data = <GifByteType*> &dst[0]
+            memgif.data = <GifByteType*> dst._data
             memgif.size = dstsize
             memgif.offset = 0
 
@@ -220,7 +220,7 @@ def gif_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         GifFileType* gif
         SavedImage* image
         GifImageDesc* descr
@@ -230,7 +230,7 @@ def gif_decode(
         memgif_t memgif
         int ret, err = 0
         int colorcount, transparent, disposal
-        ssize_t i, j, k, m, w, h, previous
+        ssize_t i, j, k, m, h, previous
         ssize_t imagesize, rowsize, imagecount, width, height, samples
         uint8_t[4] background
         uint8_t* palptr
@@ -246,7 +246,7 @@ def gif_decode(
     try:
         with nogil:
             # open image and determie size
-            memgif.data = <GifByteType*> &src[0]
+            memgif.data = <GifByteType*> src._data
             memgif.size = srcsize
             memgif.offset = 0
             memgif.owner = 0
@@ -319,7 +319,7 @@ def gif_decode(
 
         out = _create_array(out, shape, numpy.uint8, strides=None, zero=rgb==0)
         dst = out
-        dstptr = <uint8_t*> &dst.data[0]
+        dstptr = <uint8_t*> dst.data
 
         with nogil:
             if rgb:
@@ -347,7 +347,7 @@ def gif_decode(
                     if i == 0 or imagesize == 0 or previous_is_background:
                         # initialize frame to background
                         k = i * imagesize
-                        for j in range(height * width):
+                        for _j in range(height * width):
                             dstptr[k] = background[0]
                             k += 1
                             dstptr[k] = background[1]
@@ -374,7 +374,7 @@ def gif_decode(
                                 rowsize * (descr.Top + h) +
                                 samples * descr.Left
                             )
-                            for w in range(descr.Width):
+                            for _w in range(descr.Width):
                                 dstptr[k] = background[0]
                                 k += 1
                                 dstptr[k] = background[1]
@@ -449,7 +449,7 @@ def gif_decode(
                             rowsize * (descr.Top + h) +
                             samples * descr.Left
                         )
-                        for w in range(descr.Width):
+                        for _w in range(descr.Width):
                             m = <int> srcptr[j]
                             j += 1
                             if m >= colorcount:
@@ -476,7 +476,7 @@ def gif_decode(
                 j = 0
                 for h in range(descr.Height):
                     k = rowsize * (descr.Top + h) + samples * descr.Left
-                    for w in range(descr.Width):
+                    for _w in range(descr.Width):
                         dstptr[k] = srcptr[j]
                         k += 1
                         j += 1
@@ -494,7 +494,7 @@ def gif_decode(
                             + rowsize * (descr.Top + h)
                             + samples * descr.Left
                         )
-                        for w in range(descr.Width):
+                        for _w in range(descr.Width):
                             dstptr[k] = srcptr[j]
                             k += 1
                             j += 1

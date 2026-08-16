@@ -20,6 +20,7 @@ from ...models import Device, DeviceRuntimeState
 from ...models.boards import normalize_platform
 from ..atomic_io import read_text_with_stat
 from ..mac_addresses import derive_interface_macs
+from ..migrations import has_pending_migrations
 from ..storage_path import resolve_storage_path
 from ..validated_config_cache import find_validated_cache, parse_validated_cache
 from ._mqtt_block import build_mqtt_extract
@@ -355,6 +356,8 @@ def load_device_from_storage(
         has_pending_changes=has_pending,
         pending_changes_via_hash=pending_via_hash,
         update_available=update_available,
+        # Raw main-file text on purpose — same scope as the editor's migrate nudge.
+        migration_available=has_pending_migrations(yaml_content),
         # ``uses_mqtt`` keeps its prior shape — the resolved config
         # wins, raw-text fills in mid-edit, and we don't have a
         # ``loaded_integrations`` entry that maps cleanly to "uses

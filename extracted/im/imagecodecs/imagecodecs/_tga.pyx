@@ -52,17 +52,17 @@ class TgaError(RuntimeError):
 
 def tga_version():
     """Return tga codec version string."""
-    return 'tga 2026.5.10'
+    return 'tga 2026.6.18'
 
 
 def tga_check(const uint8_t[::1] data, /):
     """Return whether data is TGA encoded or None if unknown."""
-    if data.nbytes < 18:
+    if data.shape[0] < 18:
         return False
     # TGA 2.0: last 18 bytes are signature "TRUEVISION-XFILE.\0"
-    if data.nbytes >= 44:
+    if data.shape[0] >= 44:
         if bytes(
-            data[data.nbytes - 18:data.nbytes]
+            data[data.shape[0] - 18:data.shape[0]]
         ) == b'TRUEVISION-XFILE.\x00':
             return True
     # heuristic: validate header fields for TGA 1.0 files
@@ -151,8 +151,8 @@ def tga_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstptr = <uint8_t*> &dst[0]
-    dstsize = dst.nbytes
+    dstptr = <uint8_t*> dst._data
+    dstsize = dst.shape[0]
 
     if rle_:
         # exact RLE size is not known upfront; require room for header+footer
@@ -536,7 +536,7 @@ def tga_decode(
         const uint8_t* src_base
         const uint8_t* pline
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t height, width, samples
         ssize_t i, j, k, dstindex, row, file_row
         ssize_t pixel_offset, pixel_total, pixel_size
@@ -554,7 +554,7 @@ def tga_decode(
     if srcsize < 18:
         raise TgaError(f'invalid TGA size {srcsize} < 18')
 
-    memcpy(<void*> &header, <const void*> &src[0], sizeof(tga_header_t))
+    memcpy(<void*> &header, <const void*> src._data, sizeof(tga_header_t))
 
     # validate header
     if header.colormap_type > 1:
@@ -672,7 +672,7 @@ def tga_decode(
     dst = out
     dstptr = <uint8_t*> dst.data
 
-    src_base = &src[0]
+    src_base = <const uint8_t*> src._data
 
     with nogil:
         if has_rle:
@@ -688,7 +688,7 @@ def tga_decode(
                     # RLE packet: repeat next pixel rle_count times
                     if i + pixel_size > srclimit:
                         break
-                    for j in range(rle_count):
+                    for _j in range(rle_count):
                         if rle_total >= height * width:
                             break
                         for k in range(pixel_size):
@@ -697,7 +697,7 @@ def tga_decode(
                     i += pixel_size
                 else:
                     # raw packet: rle_count literal pixels follow
-                    for j in range(rle_count):
+                    for _j in range(rle_count):
                         if (
                             rle_total >= height * width
                             or i + pixel_size > srclimit

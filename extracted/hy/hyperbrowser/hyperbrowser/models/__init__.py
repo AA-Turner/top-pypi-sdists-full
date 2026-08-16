@@ -134,6 +134,7 @@ from .agents.cua import (
     StartCuaTaskParams,
     StartCuaTaskResponse,
     CuaApiKeys,
+    CuaBaseUrls,
     CuaTaskStatus,
 )
 from .agents.hyper_agent import (
@@ -311,6 +312,7 @@ from .sandbox import (
     SandboxImageSummary,
     SandboxSnapshotStatus,
     SandboxSnapshotDeleteResult,
+    SandboxImageDeleteResult,
     SandboxSnapshotListResponse,
     SandboxSnapshotSummary,
     SandboxSnapshotListParams,
@@ -492,6 +494,7 @@ __all__ = [
     "GeminiComputerUseApiKeys",
     "GrokComputerUseApiKeys",
     "CuaApiKeys",
+    "CuaBaseUrls",
     "HyperAgentApiKeys",
     "GrokComputerUseLlm",
     "GrokReasoningEffort",
@@ -610,6 +613,7 @@ __all__ = [
     "SandboxImageSummary",
     "SandboxSnapshotStatus",
     "SandboxSnapshotDeleteResult",
+    "SandboxImageDeleteResult",
     "SandboxSnapshotListResponse",
     "SandboxSnapshotSummary",
     "SandboxSnapshotListParams",

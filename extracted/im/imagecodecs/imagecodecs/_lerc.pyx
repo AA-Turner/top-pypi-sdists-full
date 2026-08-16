@@ -197,7 +197,7 @@ def lerc_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
     blobSize = <unsigned int> dstsize
 
     with nogil:
@@ -212,7 +212,7 @@ def lerc_encode(
             nMasks,
             pValidBytes,
             maxZErr,
-            <unsigned char*> &dst[0],
+            <unsigned char*> dst._data,
             blobSize,
             &nBytesWritten
         )
@@ -280,10 +280,10 @@ def lerc_decode(
     ):
         src = zlib_decode(data)
 
-    srcsize = src.nbytes
+    srcsize = src.shape[0]
 
     ret = lerc_getBlobInfo(
-        <const unsigned char*> &src[0],
+        <const unsigned char*> src._data,
         <unsigned int> srcsize,
         &infoArray[0],
         &dataRangeArray[0],
@@ -353,7 +353,7 @@ def lerc_decode(
 
     with nogil:
         ret = lerc_decode_c(
-            <const unsigned char*> &src[0],
+            <const unsigned char*> src._data,
             blobSize,
             nMasks,
             pValidBytes,

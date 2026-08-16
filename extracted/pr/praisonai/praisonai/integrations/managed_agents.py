@@ -1087,15 +1087,15 @@ def ManagedAgent(
     - provider="anthropic" → HostedAgent(provider="anthropic", ...)
     - provider in {"openai","gemini","ollama","local"} → LocalAgent(...)
       (DeprecationWarning: "use LocalAgent directly; put LLM name in model=")
-    - provider in {"e2b","modal","flyio","daytona","docker"} → raise ValueError
-      ("Cloud compute belongs on LocalAgent(compute=...). Hosted runtimes for
-       these providers are not yet available.")
+    - provider in {"e2b","modal","flyio","daytona","docker","tenki"} → emits a
+      DeprecationWarning and delegates to LocalManagedAgent(compute=<provider>).
+      (It does NOT raise; prefer LocalAgent(compute="...") directly.)
     
     Returns:
-        An instance satisfying ``ManagedBackendProtocol``.
-        
-    Raises:
-        ValueError: For compute-provider names that should use LocalAgent(compute=).
+        An instance satisfying ``ManagedBackendProtocol``. Compute-provider
+        names ({"e2b","modal","flyio","daytona","docker","tenki"}) do NOT
+        raise — they emit a ``DeprecationWarning`` and delegate to
+        ``LocalManagedAgent(compute=<provider>)``.
     """
     # Track if provider was auto-detected to avoid spurious deprecation warnings
     auto_detected = provider is None
@@ -1111,7 +1111,7 @@ def ManagedAgent(
         return AnthropicManagedAgent(provider=provider, **kwargs)
     
     # Compute provider names - maintain backward compatibility by passing to LocalManagedAgent
-    elif provider in {"e2b", "modal", "flyio", "daytona", "docker"}:
+    elif provider in {"e2b", "modal", "flyio", "daytona", "docker", "tenki"}:
         warnings.warn(
             f"ManagedAgent(provider='{provider}') for compute providers is deprecated. "
             f"Use LocalAgent(compute='{provider}', config=LocalAgentConfig(...)) instead.",

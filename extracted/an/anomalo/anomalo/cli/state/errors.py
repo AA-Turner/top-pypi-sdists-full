@@ -51,6 +51,33 @@ class UnknownTableLabels(StateMachineError):
         return f"No such table {noun}: {names}"
 
 
+class UnsatisfiableDependencies(StateMachineError):
+    def __init__(self, count: int):
+        self.count = count
+
+    def __str__(self) -> str:
+        # This package ships standalone and cannot import Django's `pluralize`.
+        changes = "change" if self.count == 1 else "changes"
+        return (
+            f"{self.count} {changes} cannot be applied because the state they need"
+            " does not exist. Fix the configuration, or pass --nostrict to attempt"
+            " them anyway."
+        )
+
+
+class ClobberingWrite(StateMachineError):
+    def __init__(self, later: str, earlier: str):
+        self.later = later
+        self.earlier = earlier
+
+    def __str__(self) -> str:
+        return (
+            f'"{self.later}" overwrites every field of the same server object that'
+            f' "{self.earlier}" writes, so applying them in this order would'
+            " silently discard the earlier change"
+        )
+
+
 class TableRefError(StateMachineError):
     def __init__(self, table_ref: str):
         self.table_ref = table_ref

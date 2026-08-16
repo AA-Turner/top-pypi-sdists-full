@@ -99,7 +99,7 @@ def brotli_encode(
     cdef:
         const uint8_t[::1] src = _readable_input(data)
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         size_t encoded_size
         BROTLI_BOOL ret = BROTLI_FALSE
@@ -134,7 +134,7 @@ def brotli_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
     encoded_size = <size_t> dstsize
 
     with nogil:
@@ -143,9 +143,9 @@ def brotli_encode(
             lgwin_,
             mode_,
             <size_t> srcsize,
-            <const uint8_t*> &src[0],
+            <const uint8_t*> src._data,
             &encoded_size,
-            <uint8_t*> &dst[0]
+            <uint8_t*> dst._data
         )
     if ret != BROTLI_TRUE:
         raise BrotliError('BrotliEncoderCompress', bool(ret))
@@ -165,7 +165,7 @@ def brotli_decode(
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
         ssize_t dstsize
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         size_t decoded_size
         BrotliDecoderResult ret
 
@@ -181,15 +181,15 @@ def brotli_decode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
     decoded_size = <size_t> dstsize
 
     with nogil:
         ret = BrotliDecoderDecompress(
             <size_t> srcsize,
-            <const uint8_t*> &src[0],
+            <const uint8_t*> src._data,
             &decoded_size,
-            <uint8_t*> &dst[0]
+            <uint8_t*> dst._data
         )
     if ret != BROTLI_DECODER_RESULT_SUCCESS:
         raise BrotliError('BrotliDecoderDecompress', ret)
@@ -204,7 +204,7 @@ cdef _brotli_decode(const uint8_t[::1] src, outtype):
         output_t* output = NULL
         uint8_t* next_in = NULL
         uint8_t* next_out = NULL
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         size_t available_in, available_out, incsize
         BrotliDecoderState* state = NULL
         BrotliDecoderResult ret = BROTLI_DECODER_RESULT_NEEDS_MORE_OUTPUT
@@ -219,7 +219,7 @@ cdef _brotli_decode(const uint8_t[::1] src, outtype):
             if output == NULL:
                 raise MemoryError('output_new failed')
 
-            next_in = <uint8_t*> &src[0]
+            next_in = <uint8_t*> src._data
             available_in = srcsize
             next_out = output.data
             available_out = output.size

@@ -131,19 +131,19 @@ def zlib_encode(
     if out is None:
         if dstsize < 0:
             # TODO: use streaming APIs
-            dstsize = _compress_bound(src.nbytes)
+            dstsize = _compress_bound(src.shape[0])
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
     dstlen = <unsigned long> dst.nbytes  # validates overflow
     srclen = <unsigned long> src.nbytes  # validates overflow
 
     with nogil:
         ret = compress2(
-            <Bytef*> &dst[0],
+            <Bytef*> dst._data,
             &dstlen,
-            &src[0],
+            <const Bytef*> src._data,
             srclen,
             compresslevel
         )
@@ -181,16 +181,16 @@ def zlib_decode(
 
     src = data
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
     dstlen = <unsigned long> dst.nbytes  # validates overflow
     srclen = <unsigned long> src.nbytes  # validates overflow
 
     with nogil:
         # uncompress2 is not available on manylinux
         ret = uncompress(
-            <Bytef*> &dst[0],
+            <Bytef*> dst._data,
             &dstlen,
-            &src[0],
+            <const Bytef*> src._data,
             srclen
         )
     if ret != Z_OK:
@@ -205,14 +205,14 @@ def _zlib_decode(const uint8_t[::1] src, outtype):
     cdef:
         output_t* output = NULL
         z_stream stream
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         size_t incsize = _align_size_t(srcsize // 2)
         size_t size, left
         int ret
 
     try:
         with nogil:
-            stream.next_in = <Bytef*> &src[0]  # <z_const Bytef*>
+            stream.next_in = <Bytef*> src._data  # <z_const Bytef*>
             stream.avail_in = 0
             stream.zalloc = NULL
             stream.zfree = NULL
@@ -297,12 +297,12 @@ def zlib_crc32(
     """Return CRC32 checksum of data."""
     cdef:
         const uint8_t[::1] src = _readable_input(data)
-        uInt srcsize = <uInt> src.nbytes
+        uInt srcsize = <uInt> src.shape[0]
         uLong crc = 0 if value is None else value
 
     with nogil:
         # crc = crc32(crc, NULL, 0)
-        crc = crc32(crc, <const Bytef*> &src[0], srcsize)
+        crc = crc32(crc, <const Bytef*> src._data, srcsize)
     return int(crc)
 
 
@@ -314,12 +314,12 @@ def zlib_adler32(
     """Return Adler-32 checksum of data."""
     cdef:
         const uint8_t[::1] src = _readable_input(data)
-        uInt srcsize = <uInt> src.nbytes
+        uInt srcsize = <uInt> src.shape[0]
         uLong adler = 1 if value is None else value
 
     with nogil:
         # adler = adler32(adler, NULL, 0)
-        adler = adler32(adler, <const Bytef*> &src[0], srcsize)
+        adler = adler32(adler, <const Bytef*> src._data, srcsize)
     return int(adler)
 
 

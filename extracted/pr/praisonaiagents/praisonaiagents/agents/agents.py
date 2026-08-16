@@ -660,6 +660,12 @@ class AgentTeam(SpawnAnnounceProtocol):
         reflection: Optional[Any] = None,  # Union[bool, ReflectionConfig] - self-reflection
         caching: Optional[Any] = None,  # Union[bool, CachingConfig] - caching
         learn: Optional[Any] = None,  # Union[bool, LearnConfig] - continuous learning
+        # Union[str, ComputeProviderProtocol] - where every agent's shell/file
+        # tools run: "docker", "e2b", "modal", "daytona", "flyio", "tenki",
+        # "local". The team shares ONE sandbox and /workspace, so files written
+        # by one agent are visible to the others. Orchestration stays local.
+        # Pass a configured provider instance to customise resources.
+        run_on: Optional[Any] = None,
     ):
         """
         Initialize AgentManager with consolidated feature parameters.
@@ -890,7 +896,9 @@ class AgentTeam(SpawnAnnounceProtocol):
         self.process = process
         self.stream = _stream
         self.name = name
-        
+        # Remote execution: one shared sandbox for every agent on this team.
+        self.run_on = run_on
+
         # Callbacks for workflow execution
         self.on_task_start = _on_task_start
         self.on_task_complete = _on_task_complete
@@ -1112,16 +1120,10 @@ class AgentTeam(SpawnAnnounceProtocol):
         return None
 
     def clean_json_output(self, output: str) -> str:
-        # NOTE: This method is duplicated in chat_mixin.ChatMixin.clean_json_output.
-        # Keep both implementations in sync when modifying either.
-        cleaned = output.strip()
-        if cleaned.startswith("```json"):
-            cleaned = cleaned[len("```json"):].strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned[len("```"):].strip()
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3].strip()
-        return cleaned
+        """Clean JSON output while preserving the legacy team method."""
+        from ..main import clean_triple_backticks
+
+        return clean_triple_backticks(output)
 
     @property
     def context_manager(self):
@@ -1461,7 +1463,25 @@ class AgentTeam(SpawnAnnounceProtocol):
                 if async_tasks_to_run:
                     await self._gather_with_isolation(async_tasks_to_run)
                     async_tasks_to_run = []
-            
+
+            def _deps_failed(task_id):
+                """Re-check dependency failure at consumption time.
+
+                asequential() runs this check inside the generator, but async
+                tasks are buffered and drained later, so an upstream async task
+                may not have failed yet when the generator yielded the dependent.
+                Re-checking here — after pending async tasks are flushed — makes
+                the failure cascade fire for the async_execution path too.
+                """
+                task = self.tasks[task_id]
+                if getattr(task, 'context', None):
+                    return any(
+                        self.tasks[dep.id].status == "failed"
+                        for dep in task.context
+                        if hasattr(dep, 'id') and dep.id in self.tasks
+                    )
+                return False
+
             async for task_id in process.asequential():
                 if self.tasks[task_id].async_execution:
                     # Collect async tasks to run in parallel
@@ -1469,6 +1489,11 @@ class AgentTeam(SpawnAnnounceProtocol):
                 else:
                     # Before running a sync task, execute all pending async tasks
                     await flush_async_tasks()
+                    # A just-flushed async prerequisite may now be failed; skip
+                    # the dependent so we don't run it with missing upstream context.
+                    if _deps_failed(task_id):
+                        self.tasks[task_id].status = "failed"
+                        continue
                     # Run sync task in an executor to avoid blocking the event loop
                     # Use copy_context_to_callable to propagate contextvars (needed for trace emission)
                     from ..trace.context_events import copy_context_to_callable
@@ -1484,17 +1509,27 @@ class AgentTeam(SpawnAnnounceProtocol):
             # in the return path would surface the Manager's own generic answer
             # instead of the final delegated task's result.
             self._last_real_task_id = self._last_hierarchical_task_id()
-            async for task_id in process.ahierarchical():
-                if isinstance(task_id, Task):
-                    task_id = self.add_task(task_id)
-                if self.tasks[task_id].async_execution:
-                    await self.arun_task(task_id)
-                else:
-                    # Run sync task in an executor to avoid blocking the event loop
-                    # Use copy_context_to_callable to propagate contextvars (needed for trace emission)
-                    from ..trace.context_events import copy_context_to_callable
-                    loop = asyncio.get_running_loop()
-                    await loop.run_in_executor(None, copy_context_to_callable(lambda tid=task_id: self.run_task(tid)))
+            # Drive the generator manually so the real id assigned to the yielded
+            # synthetic manager_task is sent back via .asend(). A plain `async for`
+            # only calls __anext__() (i.e. asend(None)), leaving manager_task_id
+            # permanently None and defeating the generator's self-delegation guard.
+            gen = process.ahierarchical()
+            try:
+                task_id = await gen.__anext__()
+                while True:
+                    if isinstance(task_id, Task):
+                        task_id = self.add_task(task_id)
+                    if self.tasks[task_id].async_execution:
+                        await self.arun_task(task_id)
+                    else:
+                        # Run sync task in an executor to avoid blocking the event loop
+                        # Use copy_context_to_callable to propagate contextvars (needed for trace emission)
+                        from ..trace.context_events import copy_context_to_callable
+                        loop = asyncio.get_running_loop()
+                        await loop.run_in_executor(None, copy_context_to_callable(lambda tid=task_id: self.run_task(tid)))
+                    task_id = await gen.asend(task_id)
+            except StopAsyncIteration:
+                pass
 
     async def astart(self, content=None, return_dict=False, **kwargs):
         """Async version of start method.
@@ -1685,10 +1720,20 @@ class AgentTeam(SpawnAnnounceProtocol):
             # synthetic manager_task is injected so the return path doesn't
             # surface the Manager's own generic output.
             self._last_real_task_id = self._last_hierarchical_task_id()
-            for task_id in process.hierarchical():
-                if isinstance(task_id, Task):
-                    task_id = self.add_task(task_id)
-                self.run_task(task_id)
+            # Drive the generator manually so the real id assigned to the yielded
+            # synthetic manager_task is sent back via .send(). A plain `for` only
+            # calls __next__() (i.e. send(None)), leaving manager_task_id
+            # permanently None and defeating the generator's self-delegation guard.
+            gen = process.hierarchical()
+            try:
+                task_id = next(gen)
+                while True:
+                    if isinstance(task_id, Task):
+                        task_id = self.add_task(task_id)
+                    self.run_task(task_id)
+                    task_id = gen.send(task_id)
+            except StopIteration:
+                pass
 
     def get_task_status(self, task_id):
         if task_id in self.tasks:
@@ -1738,6 +1783,21 @@ class AgentTeam(SpawnAnnounceProtocol):
             result = agents.start(output="silent")
             ```
         """
+        # Remote execution: provision ONE sandbox shared by every agent on the
+        # team, and tear it down even if execution raises. Re-enters start()
+        # with run_on cleared so the wrapper applies exactly once.
+        if getattr(self, "run_on", None) is not None:
+            from ..managed.shared_compute import SharedCompute
+
+            run_on, self.run_on = self.run_on, None
+            try:
+                with SharedCompute(run_on) as shared:
+                    shared.attach(list(self.agents or []))
+                    return self.start(content=content, return_dict=return_dict,
+                                      output=output, **kwargs)
+            finally:
+                self.run_on = run_on
+
         # Track execution via telemetry
         if hasattr(self, '_telemetry') and self._telemetry:
             self._telemetry.track_agent_execution(self.name, success=True)

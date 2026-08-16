@@ -4,7 +4,7 @@ import sys
 from collections import defaultdict
 from collections.abc import Sequence
 from contextlib import suppress
-from functools import cached_property, lru_cache
+from functools import cached_property
 from time import sleep
 from typing import Any, List
 
@@ -27,6 +27,7 @@ from .models import (
     State,
     TableConfigAction,
 )
+from .plan import ResourceKey
 
 
 def _normalize_time_columns_for_pull(time_columns):
@@ -64,6 +65,12 @@ class APIDriver:
     def __init__(self, client: Client):
         self.client = client
         self.state = State()
+        # Server reads, cached per table ref so a write can invalidate just the
+        # table it wrote. These were `lru_cache` on the methods, which keys on
+        # `self` — so `cache_clear()` wiped every table of every driver in the
+        # process, and the cache kept drivers alive for the life of the process.
+        self._table_cache: dict[str, dict[str, Any]] = {}
+        self._checks_cache: dict[str, List[dict[str, Any]]] = {}
 
     def load_table(self, table_ref: str) -> None:
         if self.state.tables[table_ref].config:
@@ -164,21 +171,24 @@ class APIDriver:
             self.load_system_checks(table_ref)
 
     def apply_action(self, action: Action) -> None:
+        self._dispatch_action(action)
+        # Any write can change the table's configuration or its set of checks, and
+        # a later action in the same apply has to see it. Invalidating here — once,
+        # in the one place that knows a write happened — is what removes the class
+        # of bug where a new dispatch branch forgets its own cache_clear().
+        if action.table_ref:
+            self._invalidate_table(action.table_ref)
+
+    def _dispatch_action(self, action: Action) -> None:
         if isinstance(action, TableConfigAction):
             if action.new:
                 self.client.configure_table(
                     table_id=self._table_id(action.table_ref), **action.new
                 )
-                self._table_raw.cache_clear()  # pragma: no cover
-                self._checks_for_table.cache_clear()  # pragma: no cover
         elif isinstance(action, CheckAction):
             if action.new and action.is_system_check:
-                # Resolve the id now rather than trusting the plan-time one: the
-                # server creates a table's system checks as a side effect of
-                # configuring it, so nothing was resolvable while planning for a
-                # table configured during this same apply. Falling through to
-                # create_check here is what the API rejects with "'DataFreshness'
-                # is not a valid check type".
+                # Falling through to create_check when the id is missing is what
+                # the API rejects with "'DataFreshness' is not a valid check type".
                 check_id = self._resolve_check_id(action)
                 if not check_id:
                     print(
@@ -203,9 +213,7 @@ class APIDriver:
                     action.new.check_type,
                     **params,
                 )
-                # Clear the cache so subsequent actions can find the newly created check
-                self._checks_for_table.cache_clear()
-            elif not action.check_id:  # System checks cannot be destroyed
+            elif not action.is_system_check:  # System checks cannot be destroyed
                 self.client.delete_check(
                     self._table_id(action.table_ref),
                     # Current check ID for this check
@@ -242,7 +250,7 @@ class APIDriver:
                         )
 
             table_id = self._table_id(action.table_ref)
-            if action.check_id or action.check_ref:
+            if action.check_ref:
                 check_id = self._resolve_check_id(action)
                 if not check_id:
                     print(
@@ -283,7 +291,7 @@ class APIDriver:
 
             notification_channel_ids = [channel["id"] for channel in valid_channels]
 
-            if (action.check_id or action.check_ref) and action.table_ref:
+            if action.check_ref and action.table_ref:
                 check_id = self._resolve_check_id(action)
                 if not check_id:
                     print(
@@ -306,24 +314,49 @@ class APIDriver:
                     table_id=self._table_id(action.table_ref),
                     notification_channel_ids=notification_channel_ids,
                 )
-                self._table_raw.cache_clear()
 
-    def _resolve_check_id(self, action: Action) -> int | None:
-        """Resolve a check's id at apply time, preferring live server state.
+    def is_resource_present(self, key: ResourceKey) -> bool:
+        """Whether the server already holds the state a `ResourceKey` names.
 
-        Checks created earlier in the same apply are invisible to the planner, so a
-        plan-time id is only ever a shortcut — fall back to a fresh lookup of user
-        checks and then system checks.
+        The planner calls this only for prerequisites a plan does not itself create,
+        so the cost is one (cached) lookup per prerequisite that would otherwise
+        have been assumed to exist.
         """
+        if key[0] not in ("check", "system_check"):
+            return True  # pragma: no cover - only check keys are prerequisites
+        table_ref, check_ref = key[1], key[2]
+        # Either variant counts. `_resolve_check_id` falls back across both, so
+        # anything the executor could resolve must not be called unsatisfiable.
         return (
-            action.check_id
-            or self._checks_for_table_by_ref(action.table_ref)
-            .get(action.check_ref, {})
-            .get("check_id")
-            or self.get_system_check_id(action.table_ref, action.check_ref)
+            self._checks_for_table_by_ref(table_ref).get(check_ref) is not None
+            or self.get_system_check_id(table_ref, check_ref) is not None
         )
 
-    def get_system_check_id(self, table_ref: str, check_ref: List[str]) -> int | None:
+    def _resolve_check_id(
+        self, action: CheckAction | LabelAction | NotificationChannelAction
+    ) -> int | None:
+        """Resolve a check's id from live server state, never from the plan.
+
+        Ids are unresolvable while planning for anything created during the same
+        apply — the server materializes a table's system checks as a side effect of
+        configuring it — so every id comes from a fresh (cached) lookup here.
+
+        The variant the action targets decides which namespace is searched first.
+        System and user checks share a ref namespace, so searching user checks
+        first would resolve a system-check action to a colliding user check. The
+        other namespace stays as a fallback for refs the file classified wrongly.
+        """
+        user_check_id = (
+            self._checks_for_table_by_ref(action.table_ref)
+            .get(action.check_ref, {})
+            .get("check_id")
+        )
+        system_check_id = self.get_system_check_id(action.table_ref, action.check_ref)
+        if action.is_system_check:
+            return system_check_id or user_check_id
+        return user_check_id or system_check_id
+
+    def get_system_check_id(self, table_ref: str, check_ref: str) -> int | None:
         raw_check = self._checks_for_table_by_ref(table_ref, system=True).get(check_ref)
         if not raw_check:
             return None
@@ -448,9 +481,13 @@ class APIDriver:
     def _table_id(self, table_ref: str) -> int:
         return self._table_raw(table_ref)["id"]
 
-    @lru_cache(maxsize=None)
-    @retry_requests
     def _table_raw(self, table_ref: str) -> dict[str, Any]:
+        if table_ref not in self._table_cache:
+            self._table_cache[table_ref] = self._fetch_table_raw(table_ref)
+        return self._table_cache[table_ref]
+
+    @retry_requests
+    def _fetch_table_raw(self, table_ref: str) -> dict[str, Any]:
         warehouse_name, table_name = self._table_ref_parts(table_ref)
         try:
             return self.client.get_table_information(
@@ -495,12 +532,21 @@ class APIDriver:
             if not check["ref"]
         }
 
-    @lru_cache(maxsize=None)
-    @retry_requests
     def _checks_for_table(self, table_ref: str) -> List[dict[str, Any]]:
+        if table_ref not in self._checks_cache:
+            self._checks_cache[table_ref] = self._fetch_checks_for_table(table_ref)
+        return self._checks_cache[table_ref]
+
+    @retry_requests
+    def _fetch_checks_for_table(self, table_ref: str) -> List[dict[str, Any]]:
         return self.client.get_checks_for_table(
             table_id=self._table_id(table_ref), exclude_disabled=False
         )["checks"]
+
+    def _invalidate_table(self, table_ref: str) -> None:
+        """Forget cached server state for one table, after writing to it."""
+        self._table_cache.pop(table_ref, None)
+        self._checks_cache.pop(table_ref, None)
 
     @cached_property
     @retry_requests

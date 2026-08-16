@@ -31,6 +31,7 @@ import logging
 import os
 import sys
 import threading
+import time
 from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
@@ -40,7 +41,6 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from esphome.util import SerialPort
 
-from esphome_device_builder.controllers import config as config_module
 from esphome_device_builder.controllers.config import (
     _APP_DESC_MAGIC,
     _APP_DESC_SIZE,
@@ -51,12 +51,10 @@ from esphome_device_builder.controllers.config import (
     _chip_family_to_descriptor,
     _classify_esptool_failure,
     _is_valid_port_name,
-    _load_metadata,
     _parse_chip_family_line,
     _parse_project_name,
     _read_descriptor_file,
     _run_esptool,
-    _save_metadata,
     clear_volatile_device_metadata,
     delete_label_cascade,
     effective_remote_build_settings,
@@ -66,7 +64,6 @@ from esphome_device_builder.controllers.config import (
     labels_transaction,
     load_labels,
     load_remote_build_settings,
-    metadata_transaction,
     remote_build_settings_transaction,
     remove_device_metadata,
     save_labels,
@@ -76,7 +73,14 @@ from esphome_device_builder.controllers.config import (
 )
 from esphome_device_builder.controllers.config._preferences_store import PreferencesStore
 from esphome_device_builder.controllers.config.chip_detect import _CHIP_FAMILY_MAP
+from esphome_device_builder.helpers import metadata_sidecar
 from esphome_device_builder.helpers.api import CommandError
+from esphome_device_builder.helpers.metadata_sidecar import (
+    _load_metadata,
+    _load_metadata_guarded,
+    _save_metadata,
+    metadata_transaction,
+)
 from esphome_device_builder.helpers.secrets_state import read_secrets_yaml
 from esphome_device_builder.models import (
     DEFAULT_CLEANUP_TTL_SECONDS,
@@ -139,7 +143,7 @@ def test_metadata_transaction_serialises_across_flocks(
     """Cross-process flock serialises peers RMW-ing disjoint keys."""
     # Bypass _METADATA_LOCK so the two threads race directly at
     # the flock — the same path two real processes would hit.
-    monkeypatch.setattr(config_module.metadata, "_METADATA_LOCK", nullcontext())
+    monkeypatch.setattr(metadata_sidecar, "_METADATA_LOCK", nullcontext())
 
     thread_a_in_block = threading.Event()
     release_a = threading.Event()
@@ -191,7 +195,7 @@ def test_metadata_transaction_rejects_non_regular_lock_file(
     # Real block/char devices need root + a special FS; flip
     # ``S_ISREG`` in the module so a normal regular-file open
     # takes the rejection branch as if it had hit one.
-    monkeypatch.setattr(config_module.metadata.stat, "S_ISREG", lambda _mode: False)
+    monkeypatch.setattr(metadata_sidecar.stat, "S_ISREG", lambda _mode: False)
 
     with pytest.raises(OSError, match="is not a regular file"), metadata_transaction(tmp_path):
         pass
@@ -221,16 +225,184 @@ def test_load_metadata_returns_empty_when_missing(tmp_path: Path) -> None:
     assert _load_metadata(tmp_path) == {}
 
 
-def test_load_metadata_returns_empty_on_invalid_json(tmp_path: Path) -> None:
-    """A corrupted JSON file falls back to empty rather than raising.
+def test_load_metadata_quarantines_invalid_json(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Corrupt JSON under ``quarantine=True`` warns and moves the file to ``.corrupt``."""
+    metadata_path = tmp_path / ".device-builder.json"
+    metadata_path.write_bytes(b'{"truncated":')
 
-    A user (or a botched migration) leaving truncated JSON on
-    disk shouldn't crash the dashboard at startup — every reader
-    would suddenly see ``JSONDecodeError`` from a path called
-    deep inside the executor.
-    """
+    with caplog.at_level(logging.WARNING):
+        assert _load_metadata_guarded(tmp_path, quarantine=True) == ({}, True)
+
+    assert not metadata_path.exists()
+    assert (tmp_path / ".device-builder.json.corrupt").read_bytes() == b'{"truncated":'
+    assert "unparsable" in caplog.text
+
+
+def test_load_metadata_lock_free_read_never_quarantines(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The default lock-free read warns but leaves the corrupt file in place."""
+    metadata_path = tmp_path / ".device-builder.json"
+    metadata_path.write_bytes(b'{"truncated":')
+
+    with caplog.at_level(logging.WARNING):
+        assert _load_metadata(tmp_path) == {}
+
+    assert metadata_path.read_bytes() == b'{"truncated":'
+    assert not (tmp_path / ".device-builder.json.corrupt").exists()
+    assert "unparsable" in caplog.text
+
+
+def test_load_metadata_non_dict_sidecar_quarantines(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Valid JSON that isn't an object takes the same quarantine path."""
+    metadata_path = tmp_path / ".device-builder.json"
+    metadata_path.write_bytes(b"[]")
+
+    with caplog.at_level(logging.WARNING):
+        assert _load_metadata_guarded(tmp_path, quarantine=True) == ({}, True)
+
+    assert not metadata_path.exists()
+    assert (tmp_path / ".device-builder.json.corrupt").read_bytes() == b"[]"
+    assert "not an object" in caplog.text
+
+
+def test_load_metadata_missing_file_stays_silent(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The fresh-install fast path logs nothing."""
+    with caplog.at_level(logging.WARNING):
+        assert _load_metadata(tmp_path) == {}
+    assert not caplog.text
+
+
+def test_load_metadata_never_clobbers_earlier_corrupt_copy(tmp_path: Path) -> None:
+    """A second incident lands beside the first ``.corrupt``, not over it."""
+    corrupt_path = tmp_path / ".device-builder.json.corrupt"
+    corrupt_path.write_bytes(b'{"kitchen.yaml": {"friendly_name": "Kit')
+    (tmp_path / ".device-builder.json").write_bytes(b"{}trailing")
+
+    assert _load_metadata_guarded(tmp_path, quarantine=True) == ({}, True)
+
+    assert corrupt_path.read_bytes() == b'{"kitchen.yaml": {"friendly_name": "Kit'
+    siblings = list(tmp_path.glob(".device-builder.json.corrupt.*"))
+    assert len(siblings) == 1
+    assert siblings[0].read_bytes() == b"{}trailing"
+
+
+def test_load_metadata_race_already_moved_stays_quiet(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Another process winning the side-rename is not a rename failure."""
     (tmp_path / ".device-builder.json").write_bytes(b'{"truncated":')
-    assert _load_metadata(tmp_path) == {}
+    monkeypatch.setattr(Path, "replace", MagicMock(side_effect=FileNotFoundError))
+
+    with caplog.at_level(logging.WARNING):
+        assert _load_metadata_guarded(tmp_path, quarantine=True) == ({}, True)
+    assert "Could not move" not in caplog.text
+
+
+def test_quarantine_prunes_oldest_timestamped_siblings(tmp_path: Path) -> None:
+    """Repeat incidents keep the original ``.corrupt`` plus the newest three siblings."""
+    (tmp_path / ".device-builder.json.corrupt").write_bytes(b"original")
+    for ts in range(1, 5):
+        (tmp_path / f".device-builder.json.corrupt.{ts}").write_bytes(b"old")
+    (tmp_path / ".device-builder.json").write_bytes(b'{"truncated":')
+
+    assert _load_metadata_guarded(tmp_path, quarantine=True) == ({}, True)
+
+    assert (tmp_path / ".device-builder.json.corrupt").read_bytes() == b"original"
+    siblings = list(tmp_path.glob(".device-builder.json.corrupt.*"))
+    assert len(siblings) == 3
+    assert not (tmp_path / ".device-builder.json.corrupt.1").exists()
+    assert not (tmp_path / ".device-builder.json.corrupt.2").exists()
+    assert (tmp_path / ".device-builder.json.corrupt.4").exists()
+
+
+def test_quarantine_survives_backwards_clock(tmp_path: Path) -> None:
+    """A fresh copy stamped below its siblings is never pruned."""
+    future = time.time_ns() + 10**15
+    for offset in range(3):
+        (tmp_path / f".device-builder.json.corrupt.{future + offset}").write_bytes(b"old")
+    (tmp_path / ".device-builder.json.corrupt").write_bytes(b"original")
+    (tmp_path / ".device-builder.json").write_bytes(b'{"truncated":')
+
+    assert _load_metadata_guarded(tmp_path, quarantine=True) == ({}, True)
+
+    contents = {p.read_bytes() for p in tmp_path.glob(".device-builder.json.corrupt.*")}
+    assert b'{"truncated":' in contents
+
+
+def test_quarantine_prune_failure_is_logged_not_raised(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """An unlink failure during pruning leaves a trace instead of raising."""
+    for ts in range(1, 6):
+        (tmp_path / f".device-builder.json.corrupt.{ts}").write_bytes(b"old")
+    (tmp_path / ".device-builder.json.corrupt").write_bytes(b"original")
+    (tmp_path / ".device-builder.json").write_bytes(b'{"truncated":')
+    monkeypatch.setattr(Path, "unlink", MagicMock(side_effect=OSError("busy")))
+
+    with caplog.at_level(logging.DEBUG):
+        assert _load_metadata_guarded(tmp_path, quarantine=True) == ({}, True)
+    assert "Could not prune corrupt sidecar copy" in caplog.text
+
+
+def test_quarantine_ignores_non_decimal_corrupt_suffixes(tmp_path: Path) -> None:
+    """A stray ``.corrupt.²`` file neither raises nor is pruned."""
+    stray = tmp_path / ".device-builder.json.corrupt.²"
+    stray.write_bytes(b"stray")
+    (tmp_path / ".device-builder.json.corrupt").write_bytes(b"original")
+    (tmp_path / ".device-builder.json").write_bytes(b'{"truncated":')
+
+    assert _load_metadata_guarded(tmp_path, quarantine=True) == ({}, True)
+
+    assert stray.read_bytes() == b"stray"
+
+
+def test_metadata_transaction_raises_when_quarantine_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A write-back never lands on top of corrupt bytes that couldn't be moved aside."""
+    metadata_path = tmp_path / ".device-builder.json"
+    metadata_path.write_bytes(b'{"truncated":')
+    monkeypatch.setattr(Path, "replace", MagicMock(side_effect=OSError("denied")))
+
+    with (
+        pytest.raises(OSError, match="could not be quarantined"),
+        metadata_transaction(tmp_path) as data,
+    ):
+        data["office.yaml"] = {"board_id": "esp32"}
+
+    assert metadata_path.read_bytes() == b'{"truncated":'
+
+
+def test_load_metadata_survives_failed_side_rename(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A failed side-rename still returns empty instead of raising."""
+    (tmp_path / ".device-builder.json").write_bytes(b'{"truncated":')
+    monkeypatch.setattr(Path, "replace", MagicMock(side_effect=OSError("denied")))
+
+    with caplog.at_level(logging.WARNING):
+        assert _load_metadata_guarded(tmp_path, quarantine=True) == ({}, False)
+    assert "Could not move corrupt metadata sidecar aside" in caplog.text
+
+
+def test_metadata_transaction_after_corruption_preserves_corrupt_copy(tmp_path: Path) -> None:
+    """A write-back after corruption starts fresh; the corrupt bytes survive aside."""
+    metadata_path = tmp_path / ".device-builder.json"
+    metadata_path.write_bytes(b'{"kitchen.yaml": {"friendly_name": "Kit')
+
+    with metadata_transaction(tmp_path) as data:
+        data["office.yaml"] = {"board_id": "esp32"}
+
+    assert json.loads(metadata_path.read_bytes()) == {"office.yaml": {"board_id": "esp32"}}
+    corrupt = (tmp_path / ".device-builder.json.corrupt").read_bytes()
+    assert corrupt == b'{"kitchen.yaml": {"friendly_name": "Kit'
 
 
 def test_save_metadata_uses_atomic_replace(tmp_path: Path) -> None:
@@ -1513,7 +1685,7 @@ def test_read_descriptor_file_returns_none_on_oserror(tmp_path: Path) -> None:
 async def test_run_esptool_calls_run_subprocess_capture_with_resolved_cmd(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``_run_esptool`` resolves the CLI via ``_find_esptool_cmd`` and forwards args.
+    """``_run_esptool`` resolves the CLI via ``find_esptool_cmd`` and forwards args.
 
     Mocks ``run_subprocess_capture`` (the underlying one-shot helper) and
     asserts the full argv shape — sibling-script first slot, then the
@@ -2202,7 +2374,7 @@ def test_metadata_transaction_persists_without_fcntl(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The no-fcntl degraded path (Windows / no fcntl) still round-trips the write."""
-    monkeypatch.setattr(config_module.metadata, "_HAS_FCNTL", False)
+    monkeypatch.setattr(metadata_sidecar, "_HAS_FCNTL", False)
 
     with metadata_transaction(tmp_path) as data:
         data["kitchen.yaml"] = {"board_id": "esp32"}
@@ -2240,7 +2412,7 @@ def test_metadata_transaction_no_fcntl_skips_unchanged_write(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The degraded path applies the same no-op write suppression."""
-    monkeypatch.setattr(config_module.metadata, "_HAS_FCNTL", False)
+    monkeypatch.setattr(metadata_sidecar, "_HAS_FCNTL", False)
     with metadata_transaction(tmp_path) as data:
         data["kitchen.yaml"] = {"board_id": "esp32"}
     sidecar = tmp_path / ".device-builder.json"

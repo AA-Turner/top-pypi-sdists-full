@@ -116,3 +116,4 @@ cdef:
     const imagecaps_t IC_SZ8 = <imagecaps_t>(1 << 24)
     const imagecaps_t IC_SZ16 = <imagecaps_t>(1 << 25)
     const imagecaps_t IC_BPS = <imagecaps_t>(1 << 26)
+    const imagecaps_t IC_EMPTY = <imagecaps_t>(1 << 27)

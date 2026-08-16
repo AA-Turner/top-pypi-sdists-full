@@ -404,6 +404,7 @@ class IC(enum.IntFlag):
     SZ8 = IC_SZ8  # 8-byte item size supported
     SZ16 = IC_SZ16  # 16-byte item size supported
     BPS = IC_BPS  # custom bits-per-sample supported
+    EMPTY = IC_EMPTY  # empty input supported
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -636,7 +637,12 @@ cdef int _image_layout(
     if ndim == 0:
         raise ValueError('cannot encode 0-dimensional array')
 
-    elif ndim == 1:
+    if caps != 0 and not (caps & IC_EMPTY):
+        for i in range(ndim):
+            if shape[i] <= 0:
+                raise ValueError('shape has non-positive dimension')
+
+    if ndim == 1:
         width_ = shape[0]
         if photo_hint != IC_PHOTO_UNSPECIFIED:
             photo_ = photo_hint

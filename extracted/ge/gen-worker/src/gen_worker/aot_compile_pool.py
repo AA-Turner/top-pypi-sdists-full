@@ -63,23 +63,29 @@ import signal
 import subprocess
 import sys
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple)
 
 import msgspec
 
-from . import aot_compile_spans, aot_device_lock, aot_resume, env_seal
-from . import compile_posture, kernel_path
+from torch_compiled_graphs.spans import check as check_spans
+
+from . import aot_device_lock, env_seal
+from . import compile_posture
 from .child_contract import CompileSpec, MintSlot
 from .compile_posture import (
     USER_MACHINE_RSS_RESERVE_BYTES, CompilePosture)
-from .postmortem import cpu_quota_cores
+from . import hostfacts
+from .hostfacts import cuda_ready
+from .models.memory import probe_host_ram
 from .stall import SilenceWindow
 import hashlib
 
 logger = logging.getLogger(__name__)
+
+_GIB = 1024 ** 3
 
 ENTRY_CHILD_MODULE = "gen_worker.aot_compile_child"
 
@@ -90,10 +96,13 @@ ENTRY_REPORT_NAME = "report.json"
 #: ``-m gen_worker.aot_compile_child`` to mean THIS gen_worker.
 PACKAGE_ROOT = str(Path(__file__).resolve().parent.parent)
 
-#: The three modules that define the parent/child contract: the child's own
-#: entrypoint, this module (the job/report structs) and the span partition.
-_CONTRACT_MODULES = (
-    "aot_compile_child.py", "aot_compile_pool.py", "aot_compile_spans.py")
+#: The two LOCAL modules that define the parent/child contract: the child's own
+#: entrypoint and this module (the job/report structs). The span partition left
+#: for ``torch_compiled_graphs.spans`` (pgw#1270) and is pinned by the wheel
+#: rather than digested here — the stray-tree hazard pgw#840 guards against is a
+#: second ``gen_worker`` on the path, not a second TCG; the report carries
+#: ``spans_v`` for the partition's own shape.
+_CONTRACT_MODULES = ("aot_compile_child.py", "aot_compile_pool.py")
 
 
 def _code_digest() -> str:
@@ -344,114 +353,52 @@ class PoolWidth:
         return out
 
 
-def _read_int(path: Path) -> Optional[int]:
-    try:
-        raw = path.read_text().strip()
-    except OSError:
-        return None
-    if raw == "max":
-        return None
-    try:
-        value = int(raw)
-    except ValueError:
-        return None
-    # A cgroup v1 "unlimited" is a huge sentinel, not a limit.
-    return value if 0 <= value < (1 << 62) else None
-
-
-def _cgroup_reclaimable_bytes(stat: Path) -> int:
-    """File pages this cgroup is charged for that the kernel will hand back
-    under pressure — page cache, and reclaimable slab.
-
-    pgw#842: ``memory.current`` counts page cache. A mint reads GBs (weights,
-    the toolchain the seal hashes, every staged program) and every one of
-    those pages inflates ``current`` until something needs the memory. Sizing
-    a pool on ``max - current`` therefore shrinks the pool in proportion to
-    how much I/O the pod has already done — a bound that moves with history
-    instead of with the box. Subtracting what is reclaimable is the same
-    working-set definition every container runtime uses.
-    """
-    total = 0
-    try:
-        lines = stat.read_text().splitlines()
-    except OSError:
-        return 0
-    wanted = {
-        "inactive_file", "slab_reclaimable",          # cgroup v2
-        "total_inactive_file", "total_slab_reclaimable",  # cgroup v1
-    }
-    for line in lines:
-        parts = line.split()
-        if len(parts) == 2 and parts[0] in wanted:
-            try:
-                total += int(parts[1])
-            except ValueError:
-                continue
-    return total
-
-
 def memory_facts(
     *,
-    meminfo: Path = Path("/proc/meminfo"),
+    meminfo: Optional[Path] = None,
     cgroup_root: Path = Path("/sys/fs/cgroup"),
+    proc_self_cgroup: Path = Path("/proc/self/cgroup"),
 ) -> MemoryFacts:
-    """Host RAM this process may actually take, cgroup-aware.
+    """Host RAM this pool may take — a PROJECTION of ``probe_host_ram``.
 
-    ``MemAvailable`` is the host's answer and a container's limit is not; the
-    narrower of the two is the only honest one — the same rule
-    ``effective_cpu_count`` applies to cores. Both readings are kept, so the
-    telemetry can say WHICH one bounded the pool.
+    pgw#897: this used to be a second host-RAM probe with its own
+    ``/proc/meminfo`` parse and its own, narrower, "reclaimable" definition
+    (``inactive_file + slab_reclaimable``, missing the ACTIVE file LRU that
+    ``models/memory`` documents as the dominant term for a pod that just
+    downloaded its weights) and NO sibling divisor — so on a split pod the
+    compile pool sized itself against the whole container while the host-move
+    guard sized against 1/G of it. Two components allocating from the same RAM
+    with denominators that differed by the split degree.
 
-    The paths are arguments so a test can drive this function against a real
-    (synthetic) cgroup tree instead of re-implementing its arithmetic.
+    The paths stay arguments so a test can drive the real arithmetic against a
+    synthetic cgroup tree instead of re-implementing it.
     """
-    host = 0
-    try:
-        for line in meminfo.read_text().splitlines():
-            if line.startswith("MemAvailable:"):
-                host = int(line.split()[1]) * 1024
-                break
-    except (OSError, ValueError, IndexError):
-        host = 0
-    cgroup = -1
-    reclaimable = 0
-    for limit_name, usage_name, stat_name in (
-        ("memory.max", "memory.current", "memory.stat"),
-        ("memory/memory.limit_in_bytes", "memory/memory.usage_in_bytes",
-         "memory/memory.stat"),
-    ):
-        limit = _read_int(cgroup_root / limit_name)
-        used = _read_int(cgroup_root / usage_name)
-        if limit is None or used is None or limit <= 0:
-            continue
-        reclaimable = _cgroup_reclaimable_bytes(cgroup_root / stat_name)
-        working_set = max(0, used - reclaimable)
-        cgroup = max(0, limit - working_set)
-        break
-    if host > 0 and cgroup >= 0:
-        basis = "cgroup" if cgroup < host else "meminfo"
-        return MemoryFacts(min(host, cgroup), basis, host, cgroup, reclaimable)
-    if cgroup >= 0:
-        return MemoryFacts(cgroup, "cgroup", host, cgroup, reclaimable)
-    if host > 0:
-        return MemoryFacts(host, "meminfo", host, -1, 0)
-    return MemoryFacts(0, "unreadable", 0, -1, 0)
+    ram = probe_host_ram(
+        root=cgroup_root, proc_self_cgroup=proc_self_cgroup, meminfo=meminfo)
+    host = int(ram.meminfo_available_gb * _GIB)
+    reclaimable = int(ram.reclaimable_file_gb * _GIB)
+    cgroup = (
+        -1 if ram.cgroup_limit_gb is None
+        else int(ram.available_gb * _GIB) if ram.source == "cgroup"
+        else int(ram.cgroup_limit_gb * _GIB)
+    )
+    if host <= 0 and cgroup < 0:
+        return MemoryFacts(0, "unreadable", 0, -1, 0)
+    return MemoryFacts(
+        int(ram.available_gb * _GIB), ram.source, host, cgroup, reclaimable)
 
 
 def cpu_facts() -> CpuFacts:
-    """The pod's honest core count, and which of the three readings it is."""
-    os_count = os.cpu_count() or 1
-    try:
-        affinity = len(os.sched_getaffinity(0))
-    except (AttributeError, OSError):
-        affinity = os_count
-    quota = cpu_quota_cores()
-    quota_cores = float(quota) if quota is not None else -1.0
-    candidates = [(os_count, "cpu_count"), (affinity, "affinity")]
-    if quota is not None:
-        candidates.append((max(1, int(quota + 0.5)), "quota"))
-    vcpus, basis = min(candidates)
-    return CpuFacts(max(1, vcpus), basis, os_count, affinity, quota_cores)
+    """The pod's honest core count — a PROJECTION of ``hostfacts.cpu_allowance``.
+
+    pgw#897: this was the THIRD independent ``min()`` over the same three
+    candidates, and the second to round the quota half-up. A 2.5-core pod sized
+    its compile width at 3.
+    """
+    allowance = hostfacts.cpu_allowance()
+    return CpuFacts(
+        allowance.whole_cores, allowance.basis,
+        allowance.os_count, allowance.affinity, allowance.quota_cores)
 
 
 def _has_card() -> bool:
@@ -464,12 +411,14 @@ def _has_card() -> bool:
     it needs presence and never size. Unreadable counts as present: refusing
     to widen is the conservative answer for a lock question.
     """
+    # `cuda_ready()` answers False for BOTH "no card" and "torch will not
+    # import"; for a LOCK bound the second must read as PRESENT, so it is
+    # stated here rather than inherited from the predicate.
     try:
-        import torch
-
-        return bool(torch.cuda.is_available())
+        import torch  # noqa: F401 — an unimportable torch is not an absent card
     except Exception:  # noqa: BLE001
         return True
+    return bool(cuda_ready())
 
 
 def entry_workers(
@@ -656,7 +605,7 @@ class EntryJob(msgspec.Struct, frozen=True, kw_only=True):
     Three fields died with the round trip and are not coming back, because the
     thing they repaired is not happening: ``program`` (the staged file),
     ``symbol_values`` and ``symbol_labels`` (pgw#998 — the ShapeEnv values
-    ``torch.export``'s save/load loses). See ``aot_compile_spans`` for the
+    ``torch.export``'s save/load loses). See ``torch_compiled_graphs.spans`` for the
     matching hole in the span partition.
     """
 
@@ -666,10 +615,9 @@ class EntryJob(msgspec.Struct, frozen=True, kw_only=True):
     modules: Tuple[str, ...] = ()
     cfg: CompileSpec = msgspec.field(default_factory=CompileSpec)
     slots: Dict[str, MintSlot] = {}
-    #: pgw#947's measured serving-kernel lane, stamped into every artifact this
-    #: child packs. The parent measures it (only the loader can swap the
-    #: linears) and the child cannot re-derive it, so it crosses.
-    execution_lane: Optional[kernel_path.Verdict] = None
+    #: The parent states whose machine this is. The child installs the same
+    #: posture before any compile so local work is niced and pod work is not.
+    posture: CompilePosture = compile_posture.FLEET
 
     #: WHICH classes. ``rows[i::K]`` over ``aot_mint.declared_class_rows`` —
     #: by INDEX and never by name, because the adapter fork is decided by the
@@ -694,7 +642,6 @@ class EntryJob(msgspec.Struct, frozen=True, kw_only=True):
     out_dir: str = ""
     work: str = ""
     report: str = ""
-    inductor_configs: Dict[str, Any] = {}
     cache_dir: str = ""
     device_lock: str = ""
 
@@ -912,15 +859,6 @@ class PoolLedger:
     #: which is the pass every CHILD used to pay.
     seal_seed_s: float = 0.0
     entries: int = 0
-    #: pgw#848 item 5: the resume bank's own row (``resume_root``, ``resumed``,
-    #: ``resume_cold``, ``resume_refused`` by reason, ``resume_admit_s``).
-    #: Empty on every mint that runs without a bank, so a pod with no resume
-    #: root reads exactly as it did before. It rides the LEDGER rather than a
-    #: second event because "N of 36 entries were recovered" is the first thing
-    #: that explains a pool wall, and a reader who has to join two rows to
-    #: learn it will price a resumed mint as a fast compile.
-    resume: Dict[str, Any] = field(default_factory=dict)
-
     @property
     def idle_s(self) -> float:
         return round(
@@ -949,7 +887,6 @@ class PoolLedger:
             "pool_entries": int(self.entries),
             "pool_workers": int(self.workers),
             "pool_workers_initial": int(self.workers_initial),
-            **dict(self.resume),
         }
 
 
@@ -1221,7 +1158,6 @@ class EntryCompilePool:
         workdir: Path,
         *,
         width: PoolWidth,
-        inductor_configs: Optional[Mapping[str, Any]] = None,
         cache_dir: str = "",
         python: str = "",
         entry_silence_window_s: float = _ENTRY_SILENCE_WINDOW_S,
@@ -1237,28 +1173,12 @@ class EntryCompilePool:
         #: happens only when they actually moved.
         self._emitted_width_facts: Optional[Dict[str, Any]] = None
         self._emit_width("construction")
-        self.inductor_configs = dict(inductor_configs or {})
-        # pgw#848 item 5, NARROWED by pgw#1215 to the one half that survives
-        # the keystone: the bank is opened for its CACHE DIRECTORY and its
-        # ledger row, never for file admission any more. Admission was
-        # `bank.admit(entry, program)` — it re-derived the graph hash from the
-        # ExportedProgram THIS attempt exported, and the parent no longer
-        # exports anything, so the identity it compared against cannot be
-        # computed here. What survives is strictly the better half: the
-        # inductor cache stays scoped to the MINT rather than the attempt, so
-        # a killed mint's next attempt still hits torch's own FX graph cache.
-        # ⚠️ OWED (step 3/4): re-home file-level resume at the graph-class
-        # artifact, which is where pgw#1176 already made durability live.
-        self.bank = aot_resume.open_bank(
-            inductor_configs=self.inductor_configs)
-        # The inductor cache follows the bank when there is one. A per-attempt
-        # cache dir is why a killed mint got not even a cache hit on retry;
-        # inductor's key is the graph, not the process (measured — see this
-        # module's header), so widening the scope from one attempt to one mint
-        # cannot change what is produced.
+        # TCG's canonical CAS owns completed-class reuse. A killed class is the
+        # sole allowed loss in flight; the next attempt gets this pool's
+        # explicit cache directory or fresh scratch and never consults the
+        # deleted ExportedProgram resume bank.
         self.cache_dir = str(
             cache_dir
-            or (self.bank.cache_dir if self.bank is not None else "")
             or (self.workdir / "inductor-cache"))
         # pgw#809: ONE lock file for the whole pool. Every entry child routes
         # its inductor GPU benchmarks through it, so no two entries ever time
@@ -1349,7 +1269,6 @@ class EntryCompilePool:
             out_dir=str(template.out_dir or (self.workdir / "artifacts")),
             work=str(slot / "work"),
             report=str(slot / ENTRY_REPORT_NAME),
-            inductor_configs=dict(self.inductor_configs),
             cache_dir=self.cache_dir,
             device_lock=str(self.device_lock_path),
         )
@@ -1576,18 +1495,6 @@ class EntryCompilePool:
                 + f"but every child reported {want} declared — "
                 f"rows[i::{width}] did not partition the declaration and this "
                 f"cell would be short")
-
-    def _refresh_resume_facts(self) -> None:
-        """Keep the LIVE ledger carrying the bank's row.
-
-        pgw#848 refreshes `progress.pool_ledger` on every completed entry, so
-        the phase snapshot an abandoned mint leaves behind already carries K
-        and its binding. The resume row belongs in the same place for the same
-        reason: an abandoned attempt's most useful fact is how much of it the
-        NEXT one will not have to repeat.
-        """
-        if self.bank is not None:
-            self.ledger.resume = self.bank.facts()
 
     def _seed_seal_memo(self) -> None:
         """pgw#832: write the parent's toolchain digests where every entry
@@ -1849,7 +1756,6 @@ class EntryCompilePool:
                 "aot-pool: %s packed %d graph class(es) in %.1fs spans=%s",
                 row.entry, len(report.classes), elapsed,
                 self.entry_phases[row.entry])
-            self._refresh_resume_facts()
             return list(report.classes)
         # pgw#1215: a share that REFUSED at class k still packed k-1
         # artifacts, and they are on disk. Their measurement is banked before
@@ -1996,7 +1902,7 @@ class EntryCompilePool:
             spans["compile_s"] - spans["child_boot_s"]
             - float(spans.get("child_wall_s", 0.0))
             - spans["reap_lag_s"], 3)
-        violations = aot_compile_spans.check(spans)
+        violations = check_spans(spans)
         if violations:
             # Named, loud, and non-fatal: an attribution defect must never
             # fail a mint, and must never be silent either (pgw#824's class).
@@ -2005,7 +1911,7 @@ class EntryCompilePool:
                 row.entry, "; ".join(violations))
         spans["child_interp_s"] = spans.get("child_interp_s", 0.0)
         # Parent-side work for THIS entry. Prefixed, and listed in
-        # `aot_compile_spans.SUBSPANS`, because it is not inside `compile_s`:
+        # `torch_compiled_graphs.spans.SUBSPANS`, because it is not inside `compile_s`:
         # staging overlaps other children, so summing it into the compile
         # total would invent seconds nobody spent compiling. Its idle FRACTION
         # is `ledger.idle_staging_s`, which is a pool number, not an entry one.

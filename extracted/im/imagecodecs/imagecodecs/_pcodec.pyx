@@ -117,7 +117,7 @@ def pcodec_encode(
         out = _create_output(outtype, <ssize_t> bound)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     config.compression_level = _default_value(level, 8, 0, 12)
     config.max_page_n = 0 if pagesize is None else <size_t> pagesize
@@ -128,7 +128,7 @@ def pcodec_encode(
             <size_t> src.size,
             pcotype,
             &config,
-            <void*> &dst[0],
+            <void*> dst._data,
             <size_t> dstsize,
             &n_written,
         )
@@ -182,10 +182,10 @@ def pcodec_decode(
 
     with nogil:
         ret = pco_standalone_simple_decompress_into(
-            <const void*> &src[0],
+            <const void*> src._data,
             src_len,
             pcotype,
-            <void*> &dst.data[0],
+            <void*> dst.data,
             <size_t> dst.size,
             &n_written,
         )

@@ -84,7 +84,7 @@ def zopfli_encode(
     cdef:
         const uint8_t[::1] src = _readable_input(data)
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         size_t outsize = 0
         ZopfliOptions options
@@ -116,7 +116,7 @@ def zopfli_encode(
         ZopfliCompress(
             &options,
             format_,
-            <const unsigned char*> &src[0],
+            <const unsigned char*> src._data,
             <size_t> srcsize,
             &buffer,
             &outsize
@@ -132,10 +132,10 @@ def zopfli_encode(
             out = _create_output(outtype, dstsize, <const char*> buffer)
         else:
             dst = out
-            dstsize = dst.nbytes
+            dstsize = dst.shape[0]
             if dstsize < <ssize_t> outsize:
                 raise RuntimeError('output too small')
-            memcpy(<void*> &dst[0], <const void*> buffer, outsize)
+            memcpy(<void*> dst._data, <const void*> buffer, outsize)
             del dst
     finally:
         free(buffer)

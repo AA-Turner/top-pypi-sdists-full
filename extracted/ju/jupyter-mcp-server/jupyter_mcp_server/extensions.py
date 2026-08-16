@@ -55,7 +55,7 @@ class JupyterMCPExtension:
         Called once during server startup, after the core tools are registered.
         """
 
-    def create_kernel(self, config: Any, logger: logging.Logger) -> Optional[Any]:
+    def create_code_sandbox(self, config: Any, logger: logging.Logger) -> Optional[Any]:
         """Optionally build a kernel for the current configuration.
 
         Return a kernel-like object (exposing the ``JupyterKernelClient`` interface) to
@@ -183,14 +183,31 @@ class ExtensionManager:
                 logger.exception("Reactor platform failed to stop")
         self._started = False
 
-    def create_kernel(self, config: Any, log: logging.Logger) -> Optional[Any]:
-        """Ask extensions to build a kernel; return the first non-None result."""
+    def create_code_sandbox(self, config: Any, log: logging.Logger) -> Optional[Any]:
+        """Ask extensions to build a code sandbox; return the first non-None result."""
         self.discover()
         for name, extension in self._extensions.items():
-            kernel = extension.create_kernel(config, log)
-            if kernel is not None:
-                logger.debug("Extension '%s' provided a kernel", name)
-                return kernel
+            if hasattr(extension, "create_kernel") and (
+                type(extension).create_code_sandbox
+                is JupyterMCPExtension.create_code_sandbox
+            ):
+                # An extension built before the factory hook was renamed: its
+                # `create_kernel` would never be called and execution would
+                # silently fall back to a Jupyter kernel that is not there.
+                # Say it, loudly — this is a version mismatch, not a choice.
+                log.warning(
+                    "Extension '%s' defines the legacy 'create_kernel' hook but "
+                    "not 'create_code_sandbox'; it is outdated for this "
+                    "jupyter-mcp-server and its sandboxes will not be used. "
+                    "Upgrade the extension package.",
+                    name,
+                )
+            code_sandbox = extension.create_code_sandbox(config, log)
+            if code_sandbox is not None:
+                # The caller's logger, as for the warning above: one method,
+                # one logging configuration.
+                log.debug("Extension '%s' provided a code sandbox", name)
+                return code_sandbox
         return None
 
     async def intercept_execute_code(

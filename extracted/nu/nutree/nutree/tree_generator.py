@@ -7,11 +7,10 @@ See :ref:`randomize` for details.
 from __future__ import annotations
 
 import random
-import sys
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Union
+from typing import Any
 
 from nutree.common import DictWrapper
 from nutree.node import Node
@@ -93,7 +92,7 @@ class RangeRandomizer(Randomizer):
         self.none_value = none_value
         assert self.max > self.min
 
-    def generate(self) -> Union[float, int, Any, None]:
+    def generate(self) -> float | int | Any | None:
         if self._skip_value():
             return self.none_value
         if self.is_float:
@@ -124,7 +123,7 @@ class DateRangeRandomizer(Randomizer):
         min_dt: date,
         max_dt: date | int,
         *,
-        as_js_stamp=True,
+        as_js_stamp: bool = True,
         probability: float = 1.0,
     ) -> None:
         super().__init__(probability=probability)
@@ -147,7 +146,7 @@ class DateRangeRandomizer(Randomizer):
         self.max = max_dt
         self.as_js_stamp = as_js_stamp
 
-    def generate(self) -> Union[date, float, None]:
+    def generate(self) -> date | float | None:
         # print(self.min, self.max, self.delta_days, self.probability)
         if self._skip_value():
             return None
@@ -197,22 +196,19 @@ class SampleRandomizer(Randomizer):
     """
 
     def __init__(
-        self, sample_list: Sequence, *, counts=None, probability: float = 1.0
+        self,
+        sample_list: Sequence[Any],
+        *,
+        counts: Iterable[int] | None = None,
+        probability: float = 1.0,
     ) -> None:
         super().__init__(probability=probability)
         self.sample_list = sample_list
-        # TODO: remove this when support for Python 3.8 is removed
-        if sys.version_info < (3, 9) and counts:  # pragma: no cover
-            raise RuntimeError("counts argument requires Python 3.9 or later.")
-
         self.counts = counts
 
-    def generate(self) -> Any:
+    def generate(self) -> Any | None:
         if self._skip_value():
             return
-        # TODO: remove this when support for Python 3.8 is removed
-        if sys.version_info < (3, 9) and not self.counts:  # pragma: no cover
-            return random.sample(self.sample_list, 1)[0]
         return random.sample(self.sample_list, 1, counts=self.counts)[0]
 
 
@@ -232,7 +228,7 @@ class TextRandomizer(Randomizer):
     text values.
 
     Args:
-        template (str | list): A template string or list of strings.
+        template (str | list[str]): A template string or list of strings.
         probability (float, optional): The probability of generating a value.
             Defaults to 1.0.
     """
@@ -246,7 +242,7 @@ class TextRandomizer(Randomizer):
     def generate(self) -> Any:
         if self._skip_value():
             return
-        return fab.get_quote(self.template)  # type: ignore[reportOptionalMemberAccess]
+        return fab.get_quote(self.template)  # ty: ignore[unresolved-attribute]
 
 
 class BlindTextRandomizer(Randomizer):
@@ -272,11 +268,11 @@ class BlindTextRandomizer(Randomizer):
     def __init__(
         self,
         *,
-        sentence_count: int | tuple = (2, 6),
+        sentence_count: int | tuple[int, int] = (2, 6),
         dialect: str = "ipsum",
         entropy: int = 2,
         keep_first: bool = False,
-        words_per_sentence: int | tuple = (3, 15),
+        words_per_sentence: int | tuple[int, int] = (3, 15),
         probability: float = 1.0,
     ) -> None:
         super().__init__(probability=probability)
@@ -292,7 +288,7 @@ class BlindTextRandomizer(Randomizer):
     def generate(self) -> Any:
         if self._skip_value():
             return
-        return fab.get_lorem_paragraph(  # type: ignore[reportOptionalMemberAccess]
+        return fab.get_lorem_paragraph(  # ty: ignore[unresolved-attribute]
             sentence_count=self.sentence_count,
             dialect=self.dialect,
             entropy=self.entropy,
@@ -307,7 +303,9 @@ def _resolve_random(val: Any) -> Any:
     return val
 
 
-def _resolve_random_dict(d: dict, *, macros: dict | None = None) -> None:
+def _resolve_random_dict(
+    d: dict[str, Any], *, macros: dict[str, Any] | None = None
+) -> None:
     remove = []
     for key in d.keys():
         val = d[key]
@@ -332,8 +330,10 @@ def _resolve_random_dict(d: dict, *, macros: dict | None = None) -> None:
 # ------------------------------------------------------------------------------
 
 
-def _merge_specs(node_type: str, spec: dict, types: dict) -> dict:
-    res: dict = types.get("*", {}).copy()
+def _merge_specs(
+    node_type: str, spec: dict[str, Any], types: dict[str, Any]
+) -> dict[str, Any]:
+    res: dict[str, Any] = types.get("*", {}).copy()
     res.update(types.get(node_type, {}))
     res.update(spec)
     return res
@@ -343,10 +343,10 @@ def _make_tree(
     *,
     parent_node: Node,
     parent_type: str,
-    types: dict,
-    relations: dict,
+    types: dict[str, Any],
+    relations: dict[str, Any],
     prefix: str,
-):
+) -> None:
     child_specs = relations[parent_type]
 
     for node_type, spec in child_specs.items():
@@ -388,7 +388,9 @@ def _make_tree(
     return
 
 
-def build_random_tree(*, tree_class: type[Tree[Any, Any]], structure_def: dict) -> Tree:
+def build_random_tree(
+    *, tree_class: type[Tree[Any, Any]], structure_def: dict[str, Any]
+) -> Tree:
     """
     Return a nutree.TypedTree with random data from a specification.
     See :ref:`randomize` for details.

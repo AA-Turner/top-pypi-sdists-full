@@ -199,7 +199,7 @@ def jpegxr_encode(
             raise MemoryError('failed to allocate output buffer')
     else:
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
 
     try:
         with nogil:
@@ -213,7 +213,7 @@ def jpegxr_encode(
                 raise JpegxrError('PixelFormatLookup', err)
 
             if outbuffer == NULL:
-                err = CreateWS_Memory(&stream, <void*> &dst[0], dstsize)
+                err = CreateWS_Memory(&stream, <void*> dst._data, dstsize)
                 if err:
                     raise JpegxrError('CreateWS_Memory', err)
                 stream.Write = WriteWS_Memory
@@ -319,7 +319,7 @@ def jpegxr_decode(
         U32 stride
         ERR err
         U8 alpha
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t samples
         int typenum
         bint fp2int_ = fp2int
@@ -330,7 +330,7 @@ def jpegxr_decode(
     try:
         with nogil:
             err = PKCodecFactory_CreateDecoderFromBytes(
-                <void*> &src[0],
+                <void*> src._data,
                 srcsize,
                 &decoder
             )

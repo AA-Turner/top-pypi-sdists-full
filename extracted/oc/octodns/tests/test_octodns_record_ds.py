@@ -13,7 +13,7 @@ from octodns.record.ds import (
     DsValueRfcValidator,
 )
 from octodns.record.exception import ValidationError
-from octodns.record.rr import RrParseError
+from octodns.record.rr import RdataParseError
 from octodns.zone import Zone
 
 
@@ -105,23 +105,23 @@ class TestRecordDs(TestCase):
             self.assertTrue(a < b)
 
         # empty string won't parse
-        with self.assertRaises(RrParseError):
+        with self.assertRaises(RdataParseError):
             DsValue.parse_rdata_text('')
 
         # single word won't parse
-        with self.assertRaises(RrParseError):
+        with self.assertRaises(RdataParseError):
             DsValue.parse_rdata_text('nope')
 
         # 2nd word won't parse
-        with self.assertRaises(RrParseError):
+        with self.assertRaises(RdataParseError):
             DsValue.parse_rdata_text('0 1')
 
         # 3rd word won't parse
-        with self.assertRaises(RrParseError):
+        with self.assertRaises(RdataParseError):
             DsValue.parse_rdata_text('0 1 2')
 
         # 5th word won't parse
-        with self.assertRaises(RrParseError):
+        with self.assertRaises(RdataParseError):
             DsValue.parse_rdata_text('0 1 2 key blah')
 
         # things ints, will parse
@@ -886,3 +886,37 @@ class TestDsValue(TestCase):
         got = value.template({'needle': 42})
         self.assertIsNot(value, got)
         self.assertEqual('abcd42ef0123456', got.digest)
+
+    def test_hash(self):
+        a = DsValue(
+            {
+                'key_tag': 0,
+                'algorithm': 1,
+                'digest_type': 2,
+                'digest': 'abcdef0123456',
+            }
+        )
+        same = DsValue(
+            {
+                'key_tag': 0,
+                'algorithm': 1,
+                'digest_type': 2,
+                'digest': 'abcdef0123456',
+            }
+        )
+        different = DsValue(
+            {
+                'key_tag': 1,
+                'algorithm': 1,
+                'digest_type': 2,
+                'digest': 'abcdef0123456',
+            }
+        )
+
+        self.assertEqual(hash(a), hash(same))
+        self.assertNotEqual(hash(a), hash(different))
+
+        values = {a, same, different}
+        self.assertEqual(2, len(values))
+        self.assertIn(a, values)
+        self.assertIn(different, values)

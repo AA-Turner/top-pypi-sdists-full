@@ -18,6 +18,7 @@
 #ifdef _WIN32
     #include <windows.h>
     #include <wchar.h>
+    #include <process.h> /* _getpid */
 #else
     #include <unistd.h>
     #include <signal.h>  /* raise */
@@ -43,7 +44,10 @@
 
 #if defined(__APPLE__)
     #include <mach-o/dyld.h>  /* _NSGetExecutablePath() */
+    #include <libproc.h> /* proc_pidpath() */
 #endif
+
+#include <sys/stat.h>  /* stat() */
 
 /* PyInstaller headers. */
 #include "pyi_main.h"
@@ -54,6 +58,7 @@
 #include "pyi_launch.h"
 #include "pyi_splash.h"
 #include "pyi_apple_events.h"
+#include "pyi_security.h"
 
 
 /* Global PYI_CONTEXT structure used for bookkeeping of state variables.
@@ -120,6 +125,23 @@ pyi_main(struct PYI_CONTEXT *pyi_ctx)
         return -1;
     }
     PYI_DEBUG("LOADER: executable file: %s\n", pyi_ctx->executable_filename);
+
+    /* Check if executable set setuid bit set (POSIX platforms only). */
+#if !defined(_WIN32) && !defined(__APPLE__)
+    if (1) {
+        struct stat executable_stat;
+
+        if (stat(pyi_ctx->executable_filename, &executable_stat) < 0) {
+            PYI_ERROR("Security validation failure: could not stat() the executable!\n");
+            return -1;
+        }
+        pyi_ctx->has_setuid = (executable_stat.st_mode & S_ISUID) == S_ISUID;
+
+        if (pyi_ctx->has_setuid) {
+            PYI_DEBUG("SECURITY: executable has setuid bit set.\n");
+        }
+    }
+#endif
 
     /* Resolve main PKG archive - embedded or side-loaded. */
     if (_pyi_main_resolve_pkg_archive(pyi_ctx) < 0) {
@@ -291,6 +313,14 @@ pyi_main(struct PYI_CONTEXT *pyi_ctx)
              * splash-screen-enabled onefile application after restart.
              * Applicable only to POSIX systems other than macOS and Cygwin. */
             if (pyi_ctx->is_onefile) {
+                /* Check that build has splash screen enabled; otherwise,
+                 * we might be dealing with a spoofed environment that is
+                 * trying to trick us into executing this particular
+                 * codepath... */
+                if (!pyi_ctx->has_splash) {
+                    PYI_ERROR("Security validation failure: unexpected process level!\n");
+                    return -1;
+                }
                 pyi_ctx->process_level = PYI_PROCESS_LEVEL_PARENT;
             } else {
                 pyi_ctx->process_level = PYI_PROCESS_LEVEL_MAIN;
@@ -381,6 +411,7 @@ pyi_main(struct PYI_CONTEXT *pyi_ctx)
      * and based on that, determine the application's top-level directory. */
     if (pyi_ctx->is_onefile) {
         bool create_temp_dir;
+        bool is_parent = true;
 
         if (pyi_ctx->process_level == PYI_PROCESS_LEVEL_PARENT_NEEDS_RESTART) {
             /* POSIX build with splash screen enabled; before restart. */
@@ -401,6 +432,7 @@ pyi_main(struct PYI_CONTEXT *pyi_ctx)
                 "main application process" : "spawned subprocess"
             );
             create_temp_dir = false; /* inherit */
+            is_parent = false; /* child process */
         }
 
         if (create_temp_dir) {
@@ -456,6 +488,48 @@ pyi_main(struct PYI_CONTEXT *pyi_ctx)
             }
 
             free(env_var_value);
+
+            /* Perform additional security verification to prevent an attacker
+             * from tricking us into using an arbitrary _PYI_APPLICATION_HOME_DIR
+             * via spoofed _PYI_ARCHIVE_FILE and _PYI_PARENT_PROCESS_LEVEL.
+             * See: https://github.com/pyinstaller/pyinstaller/security/advisories/GHSA-9fxf-4qw3-ghmr */
+            if (is_parent) {
+                /* This codepath should be reached only in onefile POSIX
+                 * builds with splash screen, where the parent process
+                 * needs to set LD_LIBRARY_PATH and restart itself before
+                 * running splash screen. In this case, we cannot verify
+                 * the parent process, but we can verify the inherited
+                 * top-level application directory; specifically, its
+                 * name should start with _MEI and should include the
+                 * PID of *this* process. If setuid bit is set on the
+                 * executable, also check owner/permissions on the directory. */
+#if defined(_WIN32)
+                unsigned int prefix_pid = _getpid();
+#else
+                unsigned int prefix_pid = getpid();
+#endif
+                if (pyi_security_verify_application_home_dir(pyi_ctx, prefix_pid) < 0) {
+                    return -1;
+                }
+            } else {
+                /* This is supposed to be a onefile child process; therefore,
+                 * its parent should be a valid onefile process, and should
+                 * be using the same executable... */
+                if (pyi_security_verify_parent_proces(pyi_ctx) < 0) {
+                    return -1;
+                }
+                /* Verify the name of the application's home directory.
+                 * Its name should start with _MEI prefix; for now, skip
+                 * the PID part of the check (by passing 0), as that
+                 * would require us to find the parent onefile process
+                 * (which might be more than one level up the ancestry
+                 * tree for worker sub-processes). On POSIX, if setuid
+                 * bit is set on the executable, also check owner/permissions
+                 * on the directory. */
+                if (pyi_security_verify_application_home_dir(pyi_ctx, 0) < 0) {
+                    return -1;
+                }
+            }
         }
     } else {
         char executable_dir[PYI_PATH_MAX];
@@ -485,6 +559,13 @@ pyi_main(struct PYI_CONTEXT *pyi_ctx)
             } else {
                 snprintf(pyi_ctx->application_home_dir, PYI_PATH_MAX, "%s", executable_dir);
             }
+        }
+
+        /* On POSIX platforms, if setuid bit is set on the executable,
+         * check owner/permissions on the top-level application's directory
+         * to ensure its contents are accessible only to the effective user. */
+        if (pyi_security_verify_application_home_dir(pyi_ctx, 0) < 0) {
+            return -1;
         }
     }
 
@@ -1159,7 +1240,7 @@ int pyi_main_onefile_parent_cleanup(struct PYI_CONTEXT *pyi_ctx)
 /**********************************************************************\
  *                     Executable file resolution                     *
 \**********************************************************************/
-#ifdef _WIN32
+#if defined(_WIN32)
 
 static int
 _pyi_resolve_executable_win32(char *executable_filename)
@@ -1207,7 +1288,7 @@ _pyi_resolve_executable_win32(char *executable_filename)
     return 0;
 }
 
-#elif __APPLE__
+#elif defined(__APPLE__)
 
 static int
 _pyi_resolve_executable_macos(char *executable_filename)
@@ -1297,36 +1378,45 @@ _pyi_find_progam_in_search_path(const char *name, char *result_path)
 static int
 _pyi_resolve_executable_posix(const char *argv0, char *executable_filename, char *loader_filename)
 {
-    /* On Linux, Cygwin, FreeBSD, and Solaris, we try /proc entry first.
-     * The entry points at "true" file location, i.e., fully canonicalized
-     * and with all symbolic links resolved. */
-    ssize_t name_len = -1;
-
-#if defined(__linux__) || defined(__CYGWIN__)
-    name_len = readlink("/proc/self/exe", executable_filename, PYI_PATH_MAX - 1);  /* Linux, Cygwin */
+    /* On supported platforms, we try the /proc entry first.
+     * On some platforms, the entry points at "true" file location,
+     * i.e., canonical and with all symbolic links resolved; on others
+     * (e.g., NetBSD), the entry is neither canonical nor fully resolved.
+     * So to be safe, always pass the symlink to realpath() for full
+     * resolution. */
+#if defined(__linux__) || defined(__CYGWIN__) || defined(__NetBSD__)
+    const char *proc_path = "/proc/self/exe";
 #elif defined(__FreeBSD__)
-    name_len = readlink("/proc/curproc/file", executable_filename, PYI_PATH_MAX - 1);  /* FreeBSD */
+    const char *proc_path = "/proc/curproc/file";
 #elif defined(__sun)
-    name_len = readlink("/proc/self/path/a.out", executable_filename, PYI_PATH_MAX - 1);  /* Solaris */
+    const char *proc_path = "/proc/self/path/a.out";
+#else
+    const char *proc_path = NULL; /* Unsupported */
 #endif
 
-    if (name_len != -1) {
-        /* Output is not yet NULL-terminated, so we need to do it using returned byte count. */
-        executable_filename[name_len] = 0;
+    if (proc_path) {
+        PYI_DEBUG("LOADER: trying to resolve executable file via /proc entry...\n");
+        if (realpath(proc_path, executable_filename) == NULL) {
+            executable_filename[0] = 0;
+        }
+    } else {
+        PYI_DEBUG("LOADER: executable resolution via /proc entry is not supported...\n");
+        executable_filename[0] = 0;
     }
 
     /* On linux, we might have been launched using custom ld.so dynamic loader.
      * In that case, /proc/self/exe points to the ld.so executable, and we need
      * to ignore it. */
 #if defined(__linux__)
-    if (name_len != -1 && _pyi_is_ld_linux_so(executable_filename) == true) {
+    if (executable_filename[0] != 0 && _pyi_is_ld_linux_so(executable_filename) == true) {
         PYI_DEBUG("LOADER: resolved executable file %s is ld.so dynamic linker/loader - storing its name.\n", executable_filename);
         strncpy(loader_filename, executable_filename, PYI_PATH_MAX); /* both buffers are guaranteed to be PYI_PATH_MAX-sized */
-        name_len = -1;
+        executable_filename[0] = 0;
     }
 #endif
 
-    if (name_len != -1) {
+    if (executable_filename[0] != 0) {
+        PYI_DEBUG("LOADER: executable file resolved via /proc entry\n");
         return 0;
     }
 
@@ -1368,6 +1458,35 @@ _pyi_resolve_executable_posix(const char *argv0, char *executable_filename, char
     return 0;
 }
 
+#if defined(__CYGWIN__)
+
+static int
+_pyi_resolve_executable_cygwin(const char *argv0, char *executable_filename, char *loader_filename)
+{
+    size_t len;
+
+    /* Resolve using POSIX helper */
+    if (_pyi_resolve_executable_posix(argv0, executable_filename, loader_filename) < 0) {
+        return -1;
+    }
+
+    /* Depending on invocation, the executable might be resolved with or
+     * without the .exe suffix. Several places expect the executable name
+     * to be without suffix, so remove it as necessary. */
+    len = strlen(executable_filename);
+    if (len >= 5) {
+        char *suffix_ptr = executable_filename + len - 4;
+        if (strcasecmp(suffix_ptr, ".exe") == 0) {
+            PYI_DEBUG("LOADER: removing .exe suffix from executable name\n");
+            *suffix_ptr = 0;
+        }
+    }
+
+    return 0;
+}
+
+#endif /* defined(__CYGWIN__) */
+
 #endif
 
 
@@ -1375,10 +1494,12 @@ static int
 _pyi_main_resolve_executable(struct PYI_CONTEXT *pyi_ctx)
 {
     /* Resolve using OS-specific implementation */
-#ifdef _WIN32
+#if defined(_WIN32)
     return _pyi_resolve_executable_win32(pyi_ctx->executable_filename);
-#elif __APPLE__
+#elif defined(__APPLE__)
     return _pyi_resolve_executable_macos(pyi_ctx->executable_filename);
+#elif defined(__CYGWIN__)
+    return _pyi_resolve_executable_cygwin(pyi_ctx->argv[0], pyi_ctx->executable_filename, pyi_ctx->dynamic_loader_filename);
 #else
     return _pyi_resolve_executable_posix(pyi_ctx->argv[0], pyi_ctx->executable_filename, pyi_ctx->dynamic_loader_filename);
 #endif

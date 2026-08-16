@@ -12,7 +12,8 @@ class EngineError(Exception):
     """Engine-related errors."""
 
 
-m2.engine_init_error(EngineError)
+if m2.is_engine_available:
+    m2.engine_init_error(EngineError)
 
 
 class Engine(object):
@@ -76,7 +77,6 @@ class Engine(object):
             # Never raise from __exit__
             pass
 
-
     @staticmethod
     def m2_engine_free(obj: C.ENGINE) -> None:
         """
@@ -97,12 +97,12 @@ class Engine(object):
         Best-effort cleanup only; errors are intentionally ignored.
         """
         try:
-            if getattr(self, '_initialized', False):
+            if getattr(self, "_initialized", False):
                 m2.engine_finish(self._ptr)
         except Exception:
             pass
         try:
-            if getattr(self, '_pyfree', 0) and self._ptr:
+            if getattr(self, "_pyfree", 0) and self._ptr:
                 m2.engine_free(self._ptr)
         except Exception:
             pass
@@ -174,7 +174,7 @@ class Engine(object):
         """
         return m2.engine_get_id(self._ptr)
 
-    def set_default(self, methods: int = m2.ENGINE_METHOD_ALL) -> int:
+    def set_default(self, methods: int = -1) -> int:
         """
         Set this engine as the default for specified cryptographic methods.
 
@@ -182,10 +182,17 @@ class Engine(object):
         cryptographic operations in the current process may use this engine
         for the selected methods.
 
+        A value of -1 selects all engine methods when the ENGINE API is
+        available.
+
         :param methods: Bitwise OR of method flags (e.g., m2.ENGINE_METHOD_RSA,
                        m2.ENGINE_METHOD_DSA, m2.ENGINE_METHOD_ALL).
         :return: 0 on error, non-zero on success.
         """
+        if methods == -1:
+            if not m2.is_engine_available:
+                raise EngineError("ENGINE API is not available")
+            methods = m2.ENGINE_METHOD_ALL
         return m2.engine_set_default(self._ptr, methods)
 
     def _engine_load_key(

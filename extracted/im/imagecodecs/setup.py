@@ -1,5 +1,9 @@
 # imagecodecs/setup.py
 
+# Copyright (c) Christoph Gohlke
+# SPDX-License-Identifier: BSD-3-Clause
+# See LICENSE file in the project root for details.
+
 """Imagecodecs package Setuptools script."""
 
 import contextlib
@@ -18,9 +22,10 @@ buildnumber = ''  # e.g. 'pre1' or 'post1'
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEBUG = bool(os.environ.get('CG_DEBUG', ''))
-LIMITED_API = os.environ.get('CG_LIMITED_API', '1').lower() in ('1', 'true')
+LIMITED_API = os.environ.get('CG_LIMITED_API', '1').lower() in {'1', 'true'}
+GIL_DISABLED = bool(sysconfig.get_config_var('Py_GIL_DISABLED'))
 
-if LIMITED_API and not sysconfig.get_config_var('Py_GIL_DISABLED'):
+if LIMITED_API and not GIL_DISABLED:
     py_limited_api = True
     define_macros = [
         ('Py_LIMITED_API', 0x030C0000),
@@ -134,7 +139,7 @@ OPTIONS: dict[str, Any] = {
     'define_macros': [
         *define_macros,
         # ('CYTHON_TRACE_NOGIL', '1'),
-        ('NPY_NO_DEPRECATED_API', 'NPY_2_0_API_VERSION'),
+        ('NPY_NO_DEPRECATED_API', 'NPY_2_1_API_VERSION'),
         *([('WIN32', 1)] if sys.platform == 'win32' else []),
     ],
     'py_limited_api': py_limited_api,
@@ -179,17 +184,22 @@ EXTENSIONS: dict[str, dict[str, Any]] = {
         sources=['3rdparty/ccitt/ccitt.c'],
         include_dirs=['3rdparty/ccitt'],
     ),
+    'cfitsio': ext(
+        sources=[
+            '3rdparty/cfitsio/hcompress.c',
+            '3rdparty/cfitsio/pliocomp.c',
+            '3rdparty/cfitsio/ricecomp.c',
+        ],
+        include_dirs=['3rdparty/cfitsio'],
+    ),
     'cms': ext(libraries=['lcms2']),
+    'czi': ext(libraries=['lz4', 'zstd']),
     'deflate': ext(libraries=['deflate']),
     'exr': ext(libraries=['OpenEXRCore-3_4']),
     'gif': ext(libraries=['gif']),
     'h5checksum': ext(
         sources=['3rdparty/hdf5/h5checksum.c'],
         include_dirs=['3rdparty/hdf5'],
-    ),
-    'hcomp': ext(
-        sources=['3rdparty/cfitsio/hcompress.c'],
-        include_dirs=['3rdparty/cfitsio'],
     ),
     'heif': ext(libraries=['heif']),
     'htj2k': ext(libraries=['openjph']),
@@ -221,7 +231,6 @@ EXTENSIONS: dict[str, dict[str, Any]] = {
         sources=['3rdparty/liblj92/lj92.c'], include_dirs=['3rdparty/liblj92']
     ),
     'lz4': ext(libraries=['lz4']),
-    'lz4f': ext(libraries=['lz4']),
     'lzf': ext(
         sources=['3rdparty/liblzf/lzf_c.c', '3rdparty/liblzf/lzf_d.c'],
         include_dirs=['3rdparty/liblzf'],
@@ -245,10 +254,6 @@ EXTENSIONS: dict[str, dict[str, Any]] = {
         include_dirs=['3rdparty/pixarlog'],
         libraries=['z'],
     ),
-    'plio': ext(
-        sources=['3rdparty/cfitsio/pliocomp.c'],
-        include_dirs=['3rdparty/cfitsio'],
-    ),
     'png': ext(libraries=['png']),
     'qoi': ext(
         include_dirs=['3rdparty/qoi'],
@@ -261,10 +266,6 @@ EXTENSIONS: dict[str, dict[str, Any]] = {
     'rgbe': ext(
         sources=['3rdparty/rgbe/rgbe.c', 'imagecodecs/imcd.c'],
         include_dirs=['3rdparty/rgbe'],
-    ),
-    'rcomp': ext(
-        sources=['3rdparty/cfitsio/ricecomp.c'],
-        include_dirs=['3rdparty/cfitsio'],
     ),
     'snappy': ext(libraries=['snappy']),
     'sperr': ext(libraries=['SPERR']),
@@ -292,7 +293,32 @@ EXTENSIONS: dict[str, dict[str, Any]] = {
     'zlibng': ext(libraries=['z-ng']),
     'zopfli': ext(libraries=['zopfli']),
     'zstd': ext(libraries=['zstd']),
-    'zstd1': ext(libraries=['zstd']),
+}
+
+EXTENSIONS_CORE = {
+    # these extensions are required by core dependent libraries:
+    # tifffile, liffile, czifile, sdtfile, roifile, psdtags
+    'shared',
+    'imcd',
+    'bmp',
+    'ccitt',
+    'cms',
+    'czi',
+    'deflate',
+    'jpeg2k',
+    'jpeg8',
+    # 'jpegxl',  # requires v0.10
+    'jpegxr',
+    'lerc',
+    'ljpeg',
+    'lz4',
+    'lzma',
+    'pixarlog',
+    'png',
+    'tiff',
+    'webp',
+    'zlib',
+    'zstd',
 }
 
 
@@ -301,10 +327,9 @@ def customize_build_default(
 ) -> None:
     """Customize default, minimal build.
 
-    Only build extensions required by core dependent libraries
-    (tifffile, liffile, and czifile).
+    Only build extensions required by core dependent libraries.
 
-    Works on Ubuntu 24.04
+    Works on Ubuntu 26.04 LTS
 
     """
     del options['shared_utility_qualified_name']
@@ -318,33 +343,13 @@ def customize_build_default(
     )
     extensions['jpegxr']['include_dirs'].append('/usr/include/jxrlib')
 
-    if not os.environ.get('IMAGECODECS_JPEG8_LEGACY', ''):
-        # use libjpeg-turbo 3 by default
-        extensions['jpeg8']['sources'] = []
+    # Ubuntu still using libjpeg-turbo 2
+    # if not os.environ.get('IMAGECODECS_JPEG8_LEGACY', ''):
+    #     # use libjpeg-turbo 3 by default
+    #     extensions['jpeg8']['sources'] = []
 
-    # these extensions are required by core dependent libraries
-    keep = {
-        'shared',
-        'imcd',
-        'bmp',
-        'cms',
-        'deflate',
-        'jpeg2k',
-        'jpeg8',
-        # 'jpegxl',  # requires v0.10
-        'jpegxr',
-        'lerc',  # requires v4
-        'lz4',
-        'lzma',
-        'png',
-        'tiff',  # requires v4.6
-        'webp',
-        'zlib',
-        'zstd',
-        'zstd1',
-    }
     for name in tuple(extensions.keys()):
-        if name not in keep:
+        if name not in EXTENSIONS_CORE:
             extensions.pop(name, None)
 
 
@@ -382,6 +387,7 @@ def customize_build_cgohlke(
         extensions.pop('heif', None)
         extensions.pop('isal', None)
         extensions.pop('jetraw', None)
+        extensions.pop('jpegxs', None)
         extensions.pop('openzl', None)
         extensions.pop('sperr', None)
         for dll in dlls:
@@ -466,11 +472,10 @@ def customize_build_cgohlke(
     extensions['apng']['libraries'] = ['png', 'zlibstatic-ng-compat']
 
     extensions['lzham']['libraries'] = ['lzhamlib', 'lzhamcomp', 'lzhamdecomp']
-
     extensions['deflate']['libraries'] = ['deflatestatic']
     extensions['zlibng']['libraries'] = ['zlibstatic-ng']
     extensions['zstd']['libraries'] = ['zstd_static']
-    extensions['zstd1']['libraries'] = ['zstd_static']
+    extensions['czi']['libraries'] = ['lz4', 'zstd_static']
     extensions['lerc']['define_macros'].append(('LERC_STATIC', 1))
     extensions['jpegls']['define_macros'].append(('CHARLS_STATIC', 1))
     extensions['jpeg2k']['define_macros'].append(('OPJ_STATIC', 1))
@@ -552,6 +557,55 @@ def customize_build_cgohlke(
         ]
 
 
+def customize_build_pyodide(
+    extensions: dict[str, Any],
+    options: dict[str, Any],
+) -> None:
+    """Customize build for Pyodide environment.
+
+    Only build extensions required by core dependent libraries.
+
+    """
+    # os.environ.setdefault('SETUPTOOLS_EXT_SUFFIX', '.abi3.so')
+
+    del options['shared_utility_qualified_name']
+
+    for name in tuple(extensions.keys()):
+        if name not in EXTENSIONS_CORE:
+            extensions.pop(name, None)
+
+    # use libjpeg-turbo 3 by default
+    extensions['jpeg8']['sources'] = []
+
+    options['library_dirs'] = [
+        x
+        for x in os.environ.get(
+            'LD_LIBRARY_PATH', os.environ.get('LIBRARY_PATH', '')
+        ).split(':')
+        if x
+    ]
+
+    base_path = os.environ.get(
+        'BASE_PATH', os.path.dirname(os.path.abspath(__file__))
+    )
+    include_base_path = os.path.join(
+        base_path, 'build_utils', 'libs_build', 'include'
+    )
+
+    options['include_dirs'].append(include_base_path)
+    for el in os.listdir(include_base_path):
+        path_to_dir = os.path.join(include_base_path, el)
+        if os.path.isdir(path_to_dir):
+            options['include_dirs'].append(path_to_dir)
+
+    options['library_dirs'].append(
+        os.path.join(base_path, 'build_utils', 'libs_build', 'lib')
+    )
+
+    # pywasmcross renames -lpng to -lpng-legacysjlj; use png16 to bypass that
+    extensions['png']['libraries'] = ['png16']
+
+
 def customize_build_cibuildwheel(
     extensions: dict[str, Any],
     options: dict[str, Any],
@@ -586,6 +640,8 @@ def customize_build_cibuildwheel(
         # if platform.machine() == 'x86_64':
         #     extensions.pop('htj2k', None)  # requires aligned_alloc, C++ 14
         extensions.pop('lzham', None)
+        # reserve space so delocate/install_name_tool can rewrite dylib paths
+        options['extra_link_args'].append('-headerpad_max_install_names')
 
     if not os.environ.get('SKIP_OMP', ''):
         if sys.platform == 'darwin':
@@ -719,7 +775,6 @@ def customize_build_macports(
         'jpegxr',
         'jpegxs',
         'lerc',
-        'lz4f',
         'lzfse',
         'lzham',
         'lzo',
@@ -763,7 +818,6 @@ def customize_build_mingw(
     for ext in (
         'brunsli',
         'heif',
-        'isal',
         'jetraw',
         'jpegxs',
         'lzfse',
@@ -818,7 +872,9 @@ if 'sdist' not in sys.argv:
     try:
         from imagecodecs_distributor_setup import customize_build
     except ImportError:
-        if os.environ.get('COMPUTERNAME', '').startswith('CG-'):
+        if os.environ.get('PYODIDE', ''):
+            customize_build = customize_build_pyodide
+        elif os.environ.get('COMPUTERNAME', '').startswith('CG-'):
             customize_build = customize_build_cgohlke
         elif os.environ.get('IMAGECODECS_CIBW', ''):
             customize_build = customize_build_cibuildwheel
@@ -900,6 +956,10 @@ EXT_MODULES = cythonize(
     },
 )
 
+package_data = ['*.pyi', 'py.typed']
+if not os.environ.get('PYODIDE', ''):
+    package_data.append('licenses/*')
+
 setup(
     name='imagecodecs',
     version=version,
@@ -913,7 +973,7 @@ setup(
     project_urls={
         'Bug Tracker': 'https://github.com/cgohlke/imagecodecs/issues',
         'Source Code': 'https://github.com/cgohlke/imagecodecs',
-        # 'Documentation': 'https://',
+        # 'Documentation': 'https://www.cgohlke.com/docs/imagecodecs/',
     },
     python_requires='>=3.12',
     install_requires=['numpy>=2.1'],
@@ -924,7 +984,6 @@ setup(
             'pytest-run-parallel',
             'tifffile',
             'czifile',
-            'liffile',
             'backports.zstd',
             'blosc',
             'blosc2',
@@ -941,12 +1000,14 @@ setup(
             # 'bz2',
             # 'zfpy',
             # 'liffile',
+            # 'roifile',
+            # 'sdtfile',
             # 'deflate',
             # 'pytinyexr',
         ],
     },
     packages=['imagecodecs'],
-    package_data={'imagecodecs': ['*.pyi', 'py.typed', 'licenses/*']},
+    package_data={'imagecodecs': package_data},
     entry_points={
         'console_scripts': ['imagecodecs=imagecodecs.__main__:main']
     },

@@ -467,12 +467,16 @@ def from_bytes(
             early_stop_count = max_chunk_gave_up
             lazy_str_hard_failure = True
 
-        # We might want to check the sequence again with the whole content
-        # Only if initial MD tests passes
+        mean_mess_ratio: float = sum(md_ratios) / len(md_ratios) if md_ratios else 0.0
+
+        # We might want to check the sequence again with the whole content,
+        # but only if initial MD tests passed.
         if (
             not lazy_str_hard_failure
             and is_too_large_sequence
             and not is_multi_byte_decoder
+            and mean_mess_ratio < threshold
+            and early_stop_count < max_chunk_gave_up
         ):
             try:
                 sequences[int(50e3) :].decode(encoding_iana, errors="strict")
@@ -486,7 +490,6 @@ def from_bytes(
                 tested_but_hard_failure.append(encoding_iana)
                 continue
 
-        mean_mess_ratio: float = sum(md_ratios) / len(md_ratios) if md_ratios else 0.0
         if mean_mess_ratio >= threshold or early_stop_count >= max_chunk_gave_up:
             tested_but_soft_failure.append(encoding_iana)
             if encoding_iana in IANA_SUPPORTED_SIMILAR:

@@ -226,7 +226,7 @@ class Report:
     #: id, or the issue that owns the gap. Prose belongs in `arm_detail`.
     blocker: str
     arm_detail: str
-    cell_key: str
+    compiled_graph_key: str
     bar: Bar
     pod: str
     sm: str
@@ -277,7 +277,7 @@ class Report:
             f'commit = "{_toml_str(self.commit)}"',
             f'pod = "{_toml_str(self.pod)}"',
             f'sm = "{_toml_str(self.sm)}"',
-            f'cell = "{_toml_str(self.cell_key)}"',
+            f'cell = "{_toml_str(self.compiled_graph_key)}"',
             f"n = {len(self.compiled.samples)}",
             f"cosine = {cosine if cosine is not None else 0.0:.6f}",
             f"eager_median_ms = {self.eager.median:.1f}",
@@ -502,13 +502,21 @@ def read_parity(subject: _Subject, declaration: Any,
     """The mint-parent gate's verdict — read, or (on an ADOPT) taken.
 
     A cell this process MINTED was already gated strictly on the way to
-    publication, so its report (``minted``) is simply read back — an armed cell
-    that had failed that gate would not be armed. A cell that came out of this
-    machine's store was gated at ITS mint and adoption runs no quality gate, so
-    there is no verdict to read and this run takes one through the SAME function
-    the mint uses. Never a comparison re-implemented here.
+    publication, so its report (``minted``) is read back — but READ, never
+    ASSUMED. Until pgw#1271 the mint branch set ``passed = True`` from the mere
+    EXISTENCE of a report: a report's presence was scored as its verdict, so an
+    armed cell whose worst axis is a degraded comparison reported PASS with the
+    failing cosine printed beside it. The verdict now comes from the same place
+    the mint's own gate takes it — ``report.comparison().healthy`` — and is
+    cross-checked against what the pipeline actually SERVES: an entry the arm
+    de-armed is a class this cell does not deliver, whatever its cosine says.
+
+    A cell that came out of this machine's store was gated at ITS mint and
+    adoption runs no quality gate, so there is no verdict to read and this run
+    takes one through the SAME function the mint uses. Never a comparison
+    re-implemented here.
     """
-    from . import numerics_probe
+    from . import aot_serve, numerics_probe
     from .models import provision
 
     pipe = subject.armed_pipeline()
@@ -516,20 +524,38 @@ def read_parity(subject: _Subject, declaration: Any,
         return Parity(False, None, "?", "nothing armed")
     report = minted
     if report is None:
-        passed = provision.gate_cell_numerics(pipe, declaration, strict=True)
+        taken = provision.gate_cell_numerics(pipe, declaration, strict=True)
         report = numerics_probe.last_report()
         detail = "taken by this run through the mint's own gate (adopted cell)"
     else:
-        passed = True
+        taken = None
         detail = "the mint-parent gate's own verdict (pgw#1141)"
     if report is None:
         return Parity(False, None, "?",
                       "the gate ran and produced no report — refusing to call "
                       "an unmeasurable cell healthy (pgw#868)")
     comparison = report.comparison()
+    if comparison is None:
+        return Parity(False, None, report.threshold_source,
+                      f"{detail}; the report names no comparison — "
+                      f"{report.context()[:300]}")
+    # `measured` is both clauses of pgw#868: every declared axis produced a
+    # comparison, and none errored. An unmeasured axis is absent evidence, and
+    # absent evidence is never a pass.
+    passed = bool(comparison.healthy) and bool(report.measured)
+    if taken is not None:
+        passed = passed and bool(taken)
+    de_armed = sorted(
+        name for name, row in aot_serve.entry_states(pipe).items()
+        if str(row.get("state") or "") != "armed")
+    if de_armed:
+        passed = False
+        detail += (f"; {len(de_armed)} entr{'y' if len(de_armed) == 1 else 'ies'} "
+                   f"NOT armed on the pipeline this verdict describes "
+                   f"({de_armed[:5]})")
     return Parity(
-        passed=bool(passed),
-        cosine=None if comparison is None else float(comparison.cosine),
+        passed=passed,
+        cosine=float(comparison.cosine),
         floor_source=report.threshold_source,
         detail=f"{detail}; {report.context()[:400]}")
 
@@ -616,7 +642,7 @@ def run(args: argparse.Namespace) -> Tuple[int, Report]:
     parity: Optional[Parity] = None
     compiled: Optional[Leg] = None
     eager: Optional[Leg] = None
-    cell_key = ""
+    compiled_graph_key = ""
     try:
         if arm == ARM_BLOCKED:
             eager = measure_leg(subject, ARM_EAGER_ARM, bar.stage, n)
@@ -638,12 +664,13 @@ def run(args: argparse.Namespace) -> Tuple[int, Report]:
                     "compare — the reason is on the activity wire "
                     "(self_mint_skipped / self_mint_abort)")
             else:
-                cell_key = str(aot_serve.armed_metadata(pipe).get("cell_key")
-                               or "")
+                compiled_graph_key = str(
+                    aot_serve.armed_metadata(pipe).get("compiled_graph_key")
+                    or "")
                 fresh = numerics_probe.last_report()
                 minted = fresh if fresh is not before else None
                 arm = ARM_MINTED if minted is not None else ARM_ADOPTED
-                arm_detail = f"cell {cell_key or '?'}"
+                arm_detail = f"cell {compiled_graph_key or '?'}"
                 parity = read_parity(subject, declaration, minted)
             # The in-process order (the author's pod may have no hub) is what
             # makes the SAME process, weights and pipeline answer eager.
@@ -658,7 +685,7 @@ def run(args: argparse.Namespace) -> Tuple[int, Report]:
 
     report = Report(
         family=family, arm=arm, blocker=blocker, arm_detail=arm_detail,
-        cell_key=cell_key, bar=bar, pod=str(env.get("device") or ""),
+        compiled_graph_key=compiled_graph_key, bar=bar, pod=str(env.get("device") or ""),
         sm=_sm(env), commit=commit,
         date=datetime.datetime.now(datetime.timezone.utc).date().isoformat(),
         parity=parity, compiled=compiled, eager=eager)

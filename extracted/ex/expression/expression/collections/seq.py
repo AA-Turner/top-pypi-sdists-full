@@ -109,6 +109,14 @@ class Seq(Iterable[_TSource], PipeMixin):
         xs = pipe(self, choose(chooser))
         return Seq(xs)
 
+    def concat(self: Seq[Seq[_TResult]]) -> Seq[_TResult]:
+        """Concatenate sequences.
+
+        Combines the given variable number of enumerations and/or
+        enumeration-of-enumerations as a single concatenated enumeration.
+        """
+        return Seq(concat(*self))
+
     def collect(self, mapping: Callable[[_TSource], Seq[_TResult]]) -> Seq[_TResult]:
         """Collect items from the sequence.
 
@@ -123,8 +131,7 @@ class Seq(Iterable[_TSource], PipeMixin):
             A sequence comprising the concatenated values from the mapping
             function.
         """
-        xs = pipe(self, collect(mapping))
-        return Seq(xs)
+        return self.map(mapping).concat()
 
     @staticmethod
     def delay(generator: Callable[[], Iterable[_TSource]]) -> Iterable[_TSource]:
@@ -142,7 +149,7 @@ class Seq(Iterable[_TSource], PipeMixin):
         return delay(generator)
 
     @staticmethod
-    def empty() -> Seq[Any]:
+    def empty() -> Seq[_TSource]:
         """Returns empty sequence."""
         return Seq()
 
@@ -363,7 +370,8 @@ class Seq(Iterable[_TSource], PipeMixin):
 
     def __iter__(self) -> Iterator[_TSource]:
         """Return iterator for sequence."""
-        return builtins.iter(self._value)
+        # Make sure we return a proper generator that can handle send, throw, and close
+        return (x for x in self._value)
 
     def __repr__(self) -> str:
         result = "["
@@ -397,7 +405,8 @@ class SeqGen(Iterable[_TSource]):
 
     def __iter__(self) -> Iterator[_TSource]:
         xs = self.gen()
-        return builtins.iter(xs)
+        # Make sure we return a proper generator that can handle send, throw, and close
+        return (x for x in xs)
 
 
 def append(

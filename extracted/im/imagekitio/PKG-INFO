@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: imagekitio
-Version: 5.8.0
+Version: 5.9.0
 Summary: The official Python library for the ImageKit API
 Project-URL: Homepage, https://github.com/imagekit-developer/imagekit-python
 Project-URL: Repository, https://github.com/imagekit-developer/imagekit-python
@@ -42,38 +42,38 @@ Description-Content-Type: text/markdown
 
 The ImageKit Python SDK provides convenient access to the ImageKit REST API from any Python 3.9+ application. It offers powerful tools for URL generation and transformation, signed URLs for secure content delivery, webhook verification, file uploads, and more. The library includes type definitions for all request params and response fields, and offers both synchronous and asynchronous clients powered by [httpx](https://github.com/encode/httpx).
 
-The REST API documentation can be found on [imagekit.io](https://imagekit.io/docs/api-reference). The full API of this library can be found in [api.md](https://github.com/imagekit-developer/imagekit-python/tree/master/api.md).
+The REST API documentation can be found on [imagekit.io](https://imagekit.io/docs/api-reference). The full API of this library can be found in [api.md](https://github.com/imagekit-developer/imagekit-python/tree/main/api.md).
 
 ## Table of Contents
 
-- [Installation](https://github.com/imagekit-developer/imagekit-python/tree/master/#installation)
-- [Requirements](https://github.com/imagekit-developer/imagekit-python/tree/master/#requirements)
-- [Usage](https://github.com/imagekit-developer/imagekit-python/tree/master/#usage)
-  - [Using types](https://github.com/imagekit-developer/imagekit-python/tree/master/#using-types)
-  - [Nested params](https://github.com/imagekit-developer/imagekit-python/tree/master/#nested-params)
-  - [Async usage](https://github.com/imagekit-developer/imagekit-python/tree/master/#async-usage)
-- [URL generation](https://github.com/imagekit-developer/imagekit-python/tree/master/#url-generation)
-  - [Basic URL generation](https://github.com/imagekit-developer/imagekit-python/tree/master/#basic-url-generation)
-  - [URL generation with transformations](https://github.com/imagekit-developer/imagekit-python/tree/master/#url-generation-with-transformations)
-  - [URL generation with image overlay](https://github.com/imagekit-developer/imagekit-python/tree/master/#url-generation-with-image-overlay)
-  - [URL generation with text overlay](https://github.com/imagekit-developer/imagekit-python/tree/master/#url-generation-with-text-overlay)
-  - [URL generation with multiple overlays](https://github.com/imagekit-developer/imagekit-python/tree/master/#url-generation-with-multiple-overlays)
-  - [Signed URLs for secure delivery](https://github.com/imagekit-developer/imagekit-python/tree/master/#signed-urls-for-secure-delivery)
-  - [Using Raw transformations for undocumented features](https://github.com/imagekit-developer/imagekit-python/tree/master/#using-raw-transformations-for-undocumented-features)
-- [Authentication parameters for client-side uploads](https://github.com/imagekit-developer/imagekit-python/tree/master/#authentication-parameters-for-client-side-uploads)
-- [Webhook verification](https://github.com/imagekit-developer/imagekit-python/tree/master/#webhook-verification)
-- [Advanced Usage](https://github.com/imagekit-developer/imagekit-python/tree/master/#advanced-usage)
-  - [File uploads](https://github.com/imagekit-developer/imagekit-python/tree/master/#file-uploads)
-  - [Handling errors](https://github.com/imagekit-developer/imagekit-python/tree/master/#handling-errors)
-  - [Retries](https://github.com/imagekit-developer/imagekit-python/tree/master/#retries)
-  - [Timeouts](https://github.com/imagekit-developer/imagekit-python/tree/master/#timeouts)
-  - [Logging](https://github.com/imagekit-developer/imagekit-python/tree/master/#logging)
-  - [Accessing raw response data](https://github.com/imagekit-developer/imagekit-python/tree/master/#accessing-raw-response-data-eg-headers)
-  - [Making custom/undocumented requests](https://github.com/imagekit-developer/imagekit-python/tree/master/#making-customundocumented-requests)
-  - [Configuring the HTTP client](https://github.com/imagekit-developer/imagekit-python/tree/master/#configuring-the-http-client)
-  - [Managing HTTP resources](https://github.com/imagekit-developer/imagekit-python/tree/master/#managing-http-resources)
-- [Versioning](https://github.com/imagekit-developer/imagekit-python/tree/master/#versioning)
-- [Contributing](https://github.com/imagekit-developer/imagekit-python/tree/master/#contributing)
+- [Installation](https://github.com/imagekit-developer/imagekit-python/tree/main/#installation)
+- [Requirements](https://github.com/imagekit-developer/imagekit-python/tree/main/#requirements)
+- [Usage](https://github.com/imagekit-developer/imagekit-python/tree/main/#usage)
+  - [Using types](https://github.com/imagekit-developer/imagekit-python/tree/main/#using-types)
+  - [Nested params](https://github.com/imagekit-developer/imagekit-python/tree/main/#nested-params)
+  - [Async usage](https://github.com/imagekit-developer/imagekit-python/tree/main/#async-usage)
+- [URL generation](https://github.com/imagekit-developer/imagekit-python/tree/main/#url-generation)
+  - [Basic URL generation](https://github.com/imagekit-developer/imagekit-python/tree/main/#basic-url-generation)
+  - [URL generation with transformations](https://github.com/imagekit-developer/imagekit-python/tree/main/#url-generation-with-transformations)
+  - [URL generation with image overlay](https://github.com/imagekit-developer/imagekit-python/tree/main/#url-generation-with-image-overlay)
+  - [URL generation with text overlay](https://github.com/imagekit-developer/imagekit-python/tree/main/#url-generation-with-text-overlay)
+  - [URL generation with multiple overlays](https://github.com/imagekit-developer/imagekit-python/tree/main/#url-generation-with-multiple-overlays)
+  - [Signed URLs for secure delivery](https://github.com/imagekit-developer/imagekit-python/tree/main/#signed-urls-for-secure-delivery)
+  - [Using Raw transformations for undocumented features](https://github.com/imagekit-developer/imagekit-python/tree/main/#using-raw-transformations-for-undocumented-features)
+- [Authentication parameters for client-side uploads](https://github.com/imagekit-developer/imagekit-python/tree/main/#authentication-parameters-for-client-side-uploads)
+- [Webhook verification](https://github.com/imagekit-developer/imagekit-python/tree/main/#webhook-verification)
+- [Advanced Usage](https://github.com/imagekit-developer/imagekit-python/tree/main/#advanced-usage)
+  - [File uploads](https://github.com/imagekit-developer/imagekit-python/tree/main/#file-uploads)
+  - [Handling errors](https://github.com/imagekit-developer/imagekit-python/tree/main/#handling-errors)
+  - [Retries](https://github.com/imagekit-developer/imagekit-python/tree/main/#retries)
+  - [Timeouts](https://github.com/imagekit-developer/imagekit-python/tree/main/#timeouts)
+  - [Logging](https://github.com/imagekit-developer/imagekit-python/tree/main/#logging)
+  - [Accessing raw response data](https://github.com/imagekit-developer/imagekit-python/tree/main/#accessing-raw-response-data-eg-headers)
+  - [Making custom/undocumented requests](https://github.com/imagekit-developer/imagekit-python/tree/main/#making-customundocumented-requests)
+  - [Configuring the HTTP client](https://github.com/imagekit-developer/imagekit-python/tree/main/#configuring-the-http-client)
+  - [Managing HTTP resources](https://github.com/imagekit-developer/imagekit-python/tree/main/#managing-http-resources)
+- [Versioning](https://github.com/imagekit-developer/imagekit-python/tree/main/#versioning)
+- [Contributing](https://github.com/imagekit-developer/imagekit-python/tree/main/#contributing)
 
 ## Installation
 
@@ -84,7 +84,7 @@ pip install imagekitio
 
 ## Usage
 
-The full API of this library can be found in [api.md](https://github.com/imagekit-developer/imagekit-python/tree/master/api.md).
+The full API of this library can be found in [api.md](https://github.com/imagekit-developer/imagekit-python/tree/main/api.md).
 
 ```python
 import os
@@ -710,7 +710,7 @@ client.with_options(timeout=5.0).files.upload(
 
 On timeout, an `APITimeoutError` is thrown.
 
-Note that requests that time out are [retried twice by default](https://github.com/imagekit-developer/imagekit-python/tree/master/#retries).
+Note that requests that time out are [retried twice by default](https://github.com/imagekit-developer/imagekit-python/tree/main/#retries).
 
 ### Logging
 
@@ -759,9 +759,9 @@ file = response.parse()  # get the object that `files.upload()` would have retur
 print(file.file_id)
 ```
 
-These methods return an [`APIResponse`](https://github.com/imagekit-developer/imagekit-python/tree/master/src/imagekitio/_response.py) object.
+These methods return an [`APIResponse`](https://github.com/imagekit-developer/imagekit-python/tree/main/src/imagekitio/_response.py) object.
 
-The async client returns an [`AsyncAPIResponse`](https://github.com/imagekit-developer/imagekit-python/tree/master/src/imagekitio/_response.py) with the same structure, the only difference being `await`able methods for reading the response content.
+The async client returns an [`AsyncAPIResponse`](https://github.com/imagekit-developer/imagekit-python/tree/main/src/imagekitio/_response.py) with the same structure, the only difference being `await`able methods for reading the response content.
 
 #### `.with_streaming_response`
 
@@ -891,4 +891,4 @@ Python 3.9 or higher.
 
 ## Contributing
 
-See [the contributing documentation](https://github.com/imagekit-developer/imagekit-python/tree/master/./CONTRIBUTING.md).
+See [the contributing documentation](https://github.com/imagekit-developer/imagekit-python/tree/main/./CONTRIBUTING.md).

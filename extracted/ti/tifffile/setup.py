@@ -1,5 +1,9 @@
 # tifffile/setup.py
 
+# Copyright (c) Christoph Gohlke
+# SPDX-License-Identifier: BSD-3-Clause
+# See LICENSE file in the project root for details.
+
 """Tifffile package Setuptools script."""
 
 import re
@@ -102,18 +106,18 @@ setup(
     python_requires='>=3.12',
     install_requires=[
         'numpy>=2.1',
-        # 'imagecodecs>=2026.5.10',
+        # 'imagecodecs>=2026.8.16',
     ],
     extras_require={
-        'codecs': ['imagecodecs>=2026.5.10'],
+        'codecs': ['imagecodecs>=2026.8.16'],
         'xml': ['lxml'],
-        'zarr': ['zarr>=3.2.0', 'fsspec', 'kerchunk'],
+        'zarr': ['zarr>=3.3.0', 'fsspec', 'kerchunk'],
         'plot': ['matplotlib'],
         'all': [
-            'imagecodecs>=2026.5.10',
+            'imagecodecs>=2026.8.16',
             'matplotlib',
             'lxml',
-            'zarr>=3.2.0',
+            'zarr>=3.3.0',
             'xarray',
             'fsspec',
             'kerchunk',
@@ -134,7 +138,7 @@ setup(
             'requests',
             'roifile',
             'xarray',
-            'zarr>=3.2.0',
+            'zarr',
         ],
     },
     entry_points={

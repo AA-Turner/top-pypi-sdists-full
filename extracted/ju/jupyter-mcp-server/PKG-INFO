@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: jupyter_mcp_server
-Version: 1.3.8
+Version: 1.4.3
 Project-URL: Home, https://github.com/datalayer/jupyter-mcp-server
 Author-email: Datalayer <info@datalayer.io>
 License: BSD 3-Clause License
@@ -40,7 +40,7 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
-Requires-Dist: code-sandboxes>=1.0.3
+Requires-Dist: code-sandboxes>=1.0.7
 Requires-Dist: datalayer-reactor>=0.1.2
 Requires-Dist: fastapi
 Requires-Dist: jupyter-collaboration>=5
@@ -121,6 +121,7 @@ Description-Content-Type: text/markdown
 **`https://mcp.datalayer.run/mcp`** — one endpoint for every agent and every notebook.
 Sign in from your browser, approve what the agent may do, and your work keeps running
 on the server after the agent disconnects.
+
 → [**Hosted Jupyter MCP Server**](https://jupyter-mcp-server.datalayer.tech/hosted)
 
 [![Claude Code plugin](https://img.shields.io/badge/%F0%9F%A4%96%20Claude%20Code-plugin%20available-8E44AD?style=for-the-badge&labelColor=5B2C6F)](https://github.com/datalayer/jupyter-mcp-server/tree/main/ext/claude-plugin)
@@ -148,6 +149,20 @@ working on your data when your laptop does not.
 
 ---
 
+[![New: OAuth 2.1](https://img.shields.io/badge/%F0%9F%94%90%20New-OAuth%202.1%20sign--in-2E86C1?style=for-the-badge&labelColor=1B4F72)](https://jupyter-mcp-server.datalayer.tech/security/oauth)
+
+**No token to copy and paste.** An agent that meets this server unauthenticated is told
+where to authenticate, opens your browser, and you sign in to Datalayer as yourself. The
+agent never sees your password — it receives a token scoped to what you approved, and you
+can disconnect one agent without touching the others.
+
+What each agent may do is two separate decisions: the **scopes** you approve
+(`notebooks:read`, `notebooks:write`, `code:execute`, `data:read`) say what kind of
+operation it may perform, and your own Datalayer permissions still say which notebooks it
+may touch. An agent can never reach a notebook you cannot.
+
+Personal access tokens keep working, and remain the simpler path for a CLI or a script.
+→ [**OAuth and identity**](https://jupyter-mcp-server.datalayer.tech/security/oauth)
 
 [![Renamed in v1.3.2](https://img.shields.io/badge/%F0%9F%94%84%20Renamed%20in-v1.3.2-D35400?style=for-the-badge&labelColor=7E3F14)](https://github.com/datalayer/jupyter-mcp-server/releases#release-v1.3.2)
 

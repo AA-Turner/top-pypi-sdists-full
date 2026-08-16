@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 from typing import Any, Optional, Sequence
 
+from xbsl import terms
 from xbsl.templates import (
     CODE_CONTEXTS,
     OBJECT_FULL_NAME_VAR,
@@ -139,7 +140,14 @@ class IndexLookup:
                 for key in keys:
                     cached[key] = {**cached.get(key, {}), **types}
             for module, methods in self._module_methods.items():
-                by_name = {m["name"]: m["returns"] for m in methods if m.get("returns")}
+                # The WRITTEN form when the index has it: the head says `UserId` where the
+                # module declares `UserId?`, and a caller judging the empty value needs the
+                # marker. The platform catalogue keeps the written form for the same reason,
+                # and every consumer takes the head itself when a lookup key is what it wants.
+                by_name = {
+                    m["name"]: (m.get("returns_written") or m["returns"])
+                    for m in methods if m.get("returns")
+                }
                 if by_name:
                     cached[module] = {**cached.get(module, {}), **by_name}
             self._method_returns = cached
@@ -374,6 +382,69 @@ def _project_type_entries(lookup: IndexLookup, type_name: str) -> Optional[list[
     return entries or None
 
 
+#: The text after the last opening parenthesis or comma - one argument of the call.
+_ARGUMENT_TAIL_RE = re.compile(r"[(,]\s*([^(,]*)$")
+
+
+def _at_argument_name(line_prefix: str) -> bool:
+    """Is the cursor where the NAME of a named argument goes?
+
+    After `=` the author writes the value, and the members of the type have no business there;
+    a dot means a member of something else. Everything else inside the call is the name itself,
+    whole or partial - including a fresh line of a multi-line call, where the argument starts at
+    the indent and there is no parenthesis or comma on the line at all.
+    """
+    m = _ARGUMENT_TAIL_RE.search(line_prefix)
+    tail = m.group(1) if m else line_prefix
+    return (
+        "=" not in tail and "." not in tail
+        and re.fullmatch(rf"\s*(?:{IDENT})?\s*", tail) is not None
+    )
+
+
+def _constructor_argument_entries(lookup: IndexLookup, type_name: str) -> list[dict]:
+    """The names a constructor of a project type takes: what the type carries."""
+    struct = lookup.struct_by_name(type_name)
+    if not struct:
+        return []
+    types = struct.get("property_types") or {}
+    return [
+        {
+            "label": str(x),
+            "kind": "field",
+            "detail": str(types.get(x) or "поле"),
+            "snippet": f"{x} = $0",
+        }
+        for x in struct.get("properties") or []
+    ]
+
+
+def _facet_entries(stdlib_members: Optional[dict], namespace: str) -> list[dict]:
+    """The facet names that may follow a namespace: `Сущность.` -> Ключ, Объект, Право..."""
+    prefix = f"{namespace}."
+    seen = sorted({
+        name[len(prefix):] for name in (stdlib_members or {})
+        if name.startswith(prefix) and "." not in name[len(prefix):]
+    })
+    return [{"label": name, "kind": "type", "detail": "тип платформы"} for name in seen]
+
+
+def _inherited_entries(
+    lookup: IndexLookup, type_name: str, stdlib_members: Optional[dict],
+    language: str = "ru",
+) -> list[dict]:
+    """Members a project type gets from the platform type it extends.
+
+    A form is a value of a project type, yet almost everything the code calls on it -
+    `OpenInModalWindow`, `Close`, the layout properties - comes from the platform type in
+    its `Inherits`. Its own members come first: they are what the author wrote.
+    """
+    struct = lookup.struct_by_name(type_name)
+    base = (struct or {}).get("base")
+    members = (stdlib_members or {}).get(base) if isinstance(base, str) else None
+    return _stdlib_entries(members, language) if members else []
+
+
 #: Buckets of the `manager` field of an index object, with what a completion item says about
 #: each: the label detail, and whether the item inserts a call's parentheses.
 _MANAGER_BUCKETS = (
@@ -526,20 +597,39 @@ def _query_field_entries(
     return entries
 
 
-def _stdlib_entries(members) -> list[dict]:
+def _spelling(name: str, language: str) -> str:
+    """The member name in the language the project is written in.
+
+    The catalogue keys TYPES under both spellings but holds the members of each under their
+    Russian names only - the distribution documents them in Russian, and that is where the
+    catalogue comes from. An English project therefore used to be offered a Russian member
+    list after every dot. The compiler dictionary (`terms_full.json`) carries the pair for
+    each such name, so the label is translated at the last step, where the reader is known;
+    a name the dictionary does not know stays as it is rather than being invented.
+    """
+    if language != "en":
+        return name
+    return terms.common_english(name) or name
+
+
+def _stdlib_entries(members, language: str = "ru") -> list[dict]:
     """Members of a stdlib type: properties and methods apart (methods get their own kind and insert parentheses).
 
     The dataset provides {"properties": [...], "methods": [...]}; the former flat list of
     names (properties and methods mixed) is understood for compatibility with old data.
     """
     if not isinstance(members, dict):
-        return [{"label": str(x), "kind": "field", "detail": "член"} for x in members or []]
+        return [
+            {"label": _spelling(str(x), language), "kind": "field", "detail": "член"}
+            for x in members or []
+        ]
     entries = [
-        {"label": str(x), "kind": "field", "detail": "свойство"}
+        {"label": _spelling(str(x), language), "kind": "field", "detail": "свойство"}
         for x in members.get("properties") or []
     ]
     entries += [
-        {"label": str(x), "kind": "method", "detail": "метод", "snippet": f"{x}($0)"}
+        {"label": (name := _spelling(str(x), language)), "kind": "method",
+         "detail": "метод", "snippet": f"{name}($0)"}
         for x in members.get("methods") or []
     ]
     return entries
@@ -602,23 +692,43 @@ def resolve_completions(
     query_tables: Optional[dict] = None,
     query_rows: Optional[dict] = None,
     expr_type: Optional[str] = None,
+    ctor_type: Optional[str] = None,
     stdlib_names: Optional[Any] = None,
     templates: Optional[Sequence["Template"]] = None,
+    project_language: str = "ru",
 ) -> Optional[list[dict]]:
     """Completion items [{label, kind, detail}] for the context, or None if it is unknown."""
     # A dot that continues a chain - after a call (`ЗапросКБД.Выполнить().`) or a property
     # link (`Список.НастройкиСервисов.`): the caller inferred the chain type (expr_type),
     # the identifier-before-dot paths below cannot see past the first link.
+    # Inside `новый Тип(` the author writes the NAMES of what the type carries, and those names
+    # are the one thing an editor can supply there. Before the chain paths: a name is being typed,
+    # not a member of something.
+    if ctor_type and _at_argument_name(line_prefix):
+        named = _constructor_argument_entries(lookup, ctor_type)
+        if named:
+            return named
+    m = _match_end(line_prefix, rf"Компоненты\.({IDENT})\.(?:{IDENT})?")
+    if m:
+        # The methods of the component's own module come first - they are what the form's
+        # author wrote - and after them the members of the TYPE the component has. Only the
+        # module half used to answer, so a component without a module of its own (the usual
+        # case: a group, a table, an input) left the dot silent, though the yaml states its
+        # type and the catalogue describes that type in full.
+        entries = [_method_entry(x) for x in lookup.methods_by_module(m.group(1))]
+        component = lookup.component(file_stem, m.group(1))
+        of_type = (stdlib_members or {}).get((component or {}).get("type", ""))
+        if of_type:
+            entries += _stdlib_entries(of_type, project_language)
+        return entries or None
     if expr_type and CHAIN_TAIL_RE.search(line_prefix):
         members = (stdlib_members or {}).get(expr_type)
         if members:
-            return _stdlib_entries(members)
+            return _stdlib_entries(members, project_language)
         project = _project_type_entries(lookup, expr_type)
         if project:
-            return project
-    m = _match_end(line_prefix, rf"Компоненты\.({IDENT})\.(?:{IDENT})?")
-    if m:
-        return [_method_entry(x) for x in lookup.methods_by_module(m.group(1))]
+            return project + _inherited_entries(
+                lookup, expr_type, stdlib_members, project_language)
     m = _match_end(line_prefix, rf"Компоненты\.(?:{IDENT})?")
     if m:
         return [
@@ -654,7 +764,7 @@ def resolve_completions(
             var_type = local_vars[token]
             members = (stdlib_members or {}).get(var_type)
             if members:
-                return _stdlib_entries(members)
+                return _stdlib_entries(members, project_language)
             return _project_type_entries(lookup, var_type)
         entries = _object_member_entries(lookup, token)
         if entries is not None:
@@ -662,7 +772,12 @@ def resolve_completions(
         # Not a project object and not a variable - so a stdlib type or a global (КонтекстДоступа.):
         # members come from the linter dataset's type_members, keyed there under both name forms.
         members = (stdlib_members or {}).get(token)
-        return _stdlib_entries(members) if members else None
+        if members:
+            return _stdlib_entries(members, project_language)
+        # A NAMESPACE of facets (`Сущность.Право`, `Сущность.Объект`): the catalogue keys such a
+        # type by both segments, and the first one alone is not a type at all - the dot after it
+        # used to answer nothing, though the names that may follow are known exactly.
+        return _facet_entries(stdlib_members, token) or None
     if language_id == "yaml" and _YAML_TYPE_RE.search(line_prefix):
         return _yaml_type_entries(lookup, stdlib_names or stdlib_members) or None
     # A bare name (no dot before it): the top-level scope - code templates, visible variables,

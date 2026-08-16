@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xgboost-cpu
-Version: 3.4.0
+Version: 3.4.1
 Summary: XGBoost Python Package
 Author-Email: Hyunsu Cho <chohyu01@cs.washington.edu>, Jiaming Yuan <jm.yuan@outlook.com>
 License-Expression: Apache-2.0

@@ -39,6 +39,7 @@
 
 include '_shared.pxi'
 
+from libcpp cimport bool as cppbool
 from openjph cimport *
 
 set_message_level(OJPH_MSG_NO_MSG)
@@ -85,6 +86,7 @@ def htj2k_check(const uint8_t[::1] data, /):
     """Return whether data is HTJ2K encoded or None if unknown."""
     cdef:
         bytes sig = bytes(data[:12])
+
     # TODO: is there a more specific JPH signature?
     return (
         sig == b'\x00\x00\x00\x0c\x6a\x50\x20\x20\x0d\x0a\x87\x0a'  # JP2
@@ -96,7 +98,7 @@ def htj2k_check(const uint8_t[::1] data, /):
 def htj2k_encode(
     data,
     /,
-    level=None,  # quantization_step
+    level=None,  # maps to qstep [0.0-1.0) or qfactor [1-100]
     *,
     rgb=None,  # set color transform for non-planar
     planar=None,
@@ -110,7 +112,14 @@ def htj2k_encode(
     profile=None,  # 'IMF' or 'BROADCAST'
     out=None,
 ):
-    """Return HTJ2K encoded image."""
+    """Return HTJ2K encoded image.
+
+    Experimental: float32 input is accepted but its bits are encoded as
+    signed 32-bit integers with an NLT type 3 marker. Lossless roundtrip
+    requires reversible=True. Lossy encoding is possible but quantization
+    errors in bit-pattern space translate to large errors in float values.
+
+    """
     cdef:
         numpy.ndarray src = numpy.ascontiguousarray(data)
         const uint8_t[::1] dst  # must be const to write to bytes
@@ -123,8 +132,10 @@ def htj2k_encode(
         ui32 bitdepth = src.itemsize * 8
         ui32 tile_w, tile_h, c
         ui32 decompositions = 0 if resolutions is None else resolutions
-        float quantization_step = _default_value(level, 0.0, 0.0, 1.0)
+        ui8 qfactor = 0
+        float qstep = 0.0
         bint is_signed = src.dtype.kind == 'i'
+        bint is_float = src.dtype.kind == 'f'
         bint is_reversible = reversible
         bint tlm_needed = tlm
         bint at_resolutions = False
@@ -152,6 +163,7 @@ def htj2k_encode(
     _image_layout(
         IC_UINT
         | IC_SINT
+        | IC_FLOAT  # limited support
         | IC_SZ1
         | IC_SZ2
         | IC_SZ4
@@ -172,6 +184,11 @@ def htj2k_encode(
         &layout,
     )
 
+    if is_float:
+        if itemsize != 4:
+            raise ValueError('only float32 is supported')
+        is_signed = True  # float32 bits are encoded as signed 32-bit integers
+
     if tile is None:
         tile_w = 0
         tile_h = 0
@@ -185,12 +202,21 @@ def htj2k_encode(
         at_resolutions = tilepart & 1  # HTJ2K.TILEPART.RESOLUTIONS
         at_components = tilepart & 2  # HTJ2K.TILEPART.COMPONENTS
 
-    if quantization_step < 0.00001:
-        quantization_step = 0.0
-    if reversible is None:
-        is_reversible = quantization_step <= 0.0
+    if level is not None:
+        if level < 1.0:
+            qstep = _default_value(level, 0.0, 0.0, 1.0)
+        else:
+            qfactor = _default_value(level, 0, 1, 100)
 
-    if layout.samples > 1 and not layout.planar:
+    if qstep < 0.00001:
+        qstep = 0.0
+    if reversible is None:
+        is_reversible = qstep == 0.0 and qfactor == 0
+    if is_float and not is_reversible and qstep <= 0.0:
+        # minimum step for irreversible float32
+        qstep = 1.0 / 16384.0
+
+    if layout.samples > 1 and not layout.planar and not is_float:
         if (
             rgb or
             (rgb is None and (layout.samples == 3 or layout.samples == 4))
@@ -225,7 +251,7 @@ def htj2k_encode(
             if tile_w != 0 and tile_h != 0:
                 cs.access_siz().set_tile_size(size(tile_w, tile_h))
             cs.access_siz().set_num_components(<ui32> layout.samples)
-            for c in range(layout.samples):
+            for c in range(<ui32> layout.samples):
                 cs.access_siz().set_component(
                     c, point(1, 1), bitdepth, is_signed
                 )
@@ -254,8 +280,16 @@ def htj2k_encode(
                 cs.access_cod().set_color_transform(True)
             if prog_order_str != NULL:
                 cs.access_cod().set_progression_order(prog_order_str)
-            if not is_reversible and quantization_step > 0.0:
-                cs.access_qcd().set_irrev_quant(quantization_step)
+            if not is_reversible:
+                if qfactor > 0:
+                    cs.access_qcd().set_qfactor(qfactor)
+                elif qstep > 0.0:
+                    cs.access_qcd().set_irrev_quant(qstep)
+            if is_float:
+                cs.access_nlt().set_nonlinear_transform(
+                    <ui32> 65535,  # ALL_COMPS
+                    <ui8> 3  # OJPH_NLT_BINARY_COMPLEMENT_NLT
+                )
 
             cs.write_headers(file, NULL, 0)
 
@@ -297,25 +331,33 @@ def htj2k_encode(
                         layout.samples,
                         layout.planar,
                     )
+            elif is_float:
+                ret = _copy_to_codestream(
+                    <float*> src.data,
+                    cs,
+                    layout.height,
+                    layout.width,
+                    layout.samples,
+                    layout.planar,
+                )
+            elif is_signed:
+                ret = _copy_to_codestream(
+                    <int32_t*> src.data,
+                    cs,
+                    layout.height,
+                    layout.width,
+                    layout.samples,
+                    layout.planar,
+                )
             else:
-                if is_signed:
-                    ret = _copy_to_codestream(
-                        <int32_t*> src.data,
-                        cs,
-                        layout.height,
-                        layout.width,
-                        layout.samples,
-                        layout.planar,
-                    )
-                else:
-                    ret = _copy_to_codestream(
-                        <uint32_t*> src.data,
-                        cs,
-                        layout.height,
-                        layout.width,
-                        layout.samples,
-                        layout.planar,
-                    )
+                ret = _copy_to_codestream(
+                    <uint32_t*> src.data,
+                    cs,
+                    layout.height,
+                    layout.width,
+                    layout.samples,
+                    layout.planar,
+                )
             if ret != 0:
                 raise Htj2kError(f'_copy_to_codestream() returned {ret}')
 
@@ -328,10 +370,10 @@ def htj2k_encode(
         if out is None:
             out = _create_output(outtype, out_len)
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
         if dstsize < <ssize_t> out_len:
             raise ValueError('output too small')
-        memcpy(<void*> &dst[0], <const void*> file.get_data(), out_len)
+        memcpy(<void*> dst._data, <const void*> file.get_data(), out_len)
 
         file.close()
 
@@ -358,11 +400,17 @@ def htj2k_decode(
     resilient=False,
     out=None,
 ):
-    """Return decoded HTJ2K image."""
+    """Return decoded HTJ2K image.
+
+    Images are returned as float32 if they were encoded with a nonlinear
+    transform. Otherwise, the dtype is determined by the bit depth and
+    signedness of the encoded image.
+
+    """
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         codestream* cs = NULL
         mem_infile* file = NULL
         ui32 skipped_res_for_data = 0
@@ -371,6 +419,10 @@ def htj2k_decode(
         ssize_t height, width, samples, itemsize
         bint is_rgb, is_signed, is_planar, to_planar
         bint is_resilient = resilient
+        bint is_float = False
+        cppbool signed_nlt = 0
+        ui8 nl_type = 0
+        ui8 bd_nlt = 0
         int ret
 
     if data is out:
@@ -385,7 +437,7 @@ def htj2k_decode(
     try:
         with nogil:
             file = new mem_infile()
-            file.open(<ui8*> &src[0], <size_t> srcsize)
+            file.open(<ui8*> src._data, <size_t> srcsize)
 
             cs = new codestream()
             if is_resilient:
@@ -405,10 +457,14 @@ def htj2k_decode(
             is_signed = cs.access_siz().is_signed(0)
             is_rgb = cs.access_cod().is_using_color_transform()
             is_planar = cs.is_planar()
+            if cs.access_nlt().get_nonlinear_transform(
+                0, bd_nlt, signed_nlt, nl_type
+            ):
+                is_float = nl_type == <ui8> 3  # OJPH_NLT_BINARY_COMPLEMENT_NLT
 
             # TODO: is this necessary/correct?
             # TODO: find dtype compatible with all components?
-            for c in range(samples):
+            for c in range(<ui32> samples):
                 if (
                     bit_depth != cs.access_siz().get_bit_depth(c)
                     or is_signed != <bint> cs.access_siz().is_signed(c)
@@ -444,7 +500,12 @@ def htj2k_decode(
             itemsize = 2
         else:
             itemsize = 4
-        dtype = f'i{itemsize}' if is_signed else f'u{itemsize}'
+        if is_float:
+            dtype = f'f{itemsize}'
+        elif is_signed:
+            dtype = f'i{itemsize}'
+        else:
+            dtype = f'u{itemsize}'
 
         out = _create_array(out, shape, dtype, None, True)
         dst = out
@@ -492,27 +553,36 @@ def htj2k_decode(
                         is_planar,
                         to_planar,
                     )
+            elif is_float:
+                ret = _copy_from_codestream(
+                    <float*> dst.data,
+                    cs,
+                    height,
+                    width,
+                    samples,
+                    is_planar,
+                    to_planar,
+                )
+            elif is_signed:
+                ret = _copy_from_codestream(
+                    <int32_t*> dst.data,
+                    cs,
+                    height,
+                    width,
+                    samples,
+                    is_planar,
+                    to_planar,
+                )
             else:
-                if is_signed:
-                    ret = _copy_from_codestream(
-                        <int32_t*> dst.data,
-                        cs,
-                        height,
-                        width,
-                        samples,
-                        is_planar,
-                        to_planar,
-                    )
-                else:
-                    ret = _copy_from_codestream(
-                        <uint32_t*> dst.data,
-                        cs,
-                        height,
-                        width,
-                        samples,
-                        is_planar,
-                        to_planar,
-                    )
+                ret = _copy_from_codestream(
+                    <uint32_t*> dst.data,
+                    cs,
+                    height,
+                    width,
+                    samples,
+                    is_planar,
+                    to_planar,
+                )
             if ret != 0:
                 raise Htj2kError(f'_copy_from_codestream returned {ret}')
             cs.close()
@@ -537,6 +607,7 @@ ctypedef fused data_t:
     uint16_t
     int32_t
     uint32_t
+    float
 
 
 cdef int _copy_to_codestream(
@@ -550,7 +621,7 @@ cdef int _copy_to_codestream(
     """Copy buffer to ojph codestream."""
     cdef:
         line_buf* line = NULL
-        ssize_t i, j
+        ssize_t j
         ui32 c = 0
 
     line = cs.exchange(NULL, c)
@@ -558,17 +629,23 @@ cdef int _copy_to_codestream(
         return -1
 
     if is_planar or samples == 1:
-        for c in range(samples):
-            for i in range(height):
+        for c in range(<ui32> samples):
+            for _i in range(height):
                 for j in range(_min(width, line.size)):
-                    line.i32[j] = <si32> src[j]
+                    if data_t is float:
+                        memcpy(&line.i32[j], &src[j], 4)
+                    else:
+                        line.i32[j] = <si32> src[j]
                 line = cs.exchange(line, c)
                 src += width
     else:
-        for i in range(height):
-            for c in range(samples):
+        for _i in range(height):
+            for c in range(<ui32> samples):
                 for j in range(_min(width, line.size)):
-                    line.i32[j] = <si32> src[j * samples + c]
+                    if data_t is float:
+                        memcpy(&line.i32[j], &src[j * samples + c], 4)
+                    else:
+                        line.i32[j] = <si32> src[j * samples + c]
                 line = cs.exchange(line, c)
             src += width * samples
 
@@ -591,48 +668,63 @@ cdef int _copy_from_codestream(
         ui32 c = 0
 
     if samples == 1:
-        for i in range(height):
+        for _i in range(height):
             line = cs.pull(c)
             # if not line.flags & flags:  # or c >= samples
             #     return -1
             for j in range(_min(width, line.size)):
-                dst[j] = <data_t> line.i32[j]
+                if data_t is float:
+                    memcpy(&dst[j], &line.i32[j], 4)
+                else:
+                    dst[j] = <data_t> line.i32[j]
             dst += width
 
     elif is_planar and to_planar:
-        for c in range(samples):
-            for i in range(height):
+        for c in range(<ui32> samples):
+            for _i in range(height):
                 line = cs.pull(c)
                 for j in range(_min(width, line.size)):
-                    dst[j] = <data_t> line.i32[j]
+                    if data_t is float:
+                        memcpy(&dst[j], &line.i32[j], 4)
+                    else:
+                        dst[j] = <data_t> line.i32[j]
                 dst += width
 
     elif is_planar and not to_planar:
         stride = width * samples
-        for c in range(samples):
+        for c in range(<ui32> samples):
             for i in range(height):
                 line = cs.pull(c)
                 row_base = i * stride + c
                 for j in range(_min(width, line.size)):
-                    dst[row_base + j * samples] = <data_t> line.i32[j]
+                    if data_t is float:
+                        memcpy(&dst[row_base + j * samples], &line.i32[j], 4)
+                    else:
+                        dst[row_base + j * samples] = <data_t> line.i32[j]
 
     elif not is_planar and not to_planar:
         stride = width * samples
-        for i in range(height):
-            for c in range(samples):
+        for _i in range(height):
+            for c in range(<ui32> samples):
                 line = cs.pull(c)
                 for j in range(_min(width, line.size)):
-                    dst[j * samples + c] = <data_t> line.i32[j]
+                    if data_t is float:
+                        memcpy(&dst[j * samples + c], &line.i32[j], 4)
+                    else:
+                        dst[j * samples + c] = <data_t> line.i32[j]
             dst += stride
 
     elif not is_planar and to_planar:
         stride = height * width
         for i in range(height):
-            for c in range(samples):
+            for c in range(<ui32> samples):
                 line = cs.pull(c)
                 row_base = c * stride + i * width
                 for j in range(_min(width, line.size)):
-                    dst[row_base + j] = <data_t> line.i32[j]
+                    if data_t is float:
+                        memcpy(&dst[row_base + j], &line.i32[j], 4)
+                    else:
+                        dst[row_base + j] = <data_t> line.i32[j]
 
     return 0
 

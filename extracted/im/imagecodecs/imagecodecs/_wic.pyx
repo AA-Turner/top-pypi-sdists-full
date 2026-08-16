@@ -99,14 +99,14 @@ def wic_version():
 def wic_check(const uint8_t[::1] data, /):
     """Return whether data is WIC-decodable, or None if unknown."""
     cdef:
-        ssize_t srcsize = data.nbytes
+        ssize_t srcsize = data.shape[0]
         int32_t ret
 
     if srcsize < 4:
         return False
 
     with nogil:
-        ret = wic_check_impl(&data[0], <size_t> srcsize)
+        ret = wic_check_impl(<const uint8_t*> data._data, <size_t> srcsize)
 
     return bool(ret > 0)
 
@@ -167,7 +167,8 @@ def wic_encode(data, /, level=None, *, format=None, out=None):
             raise WicError(
                 f'wic_encode failed (HRESULT 0x{<uint32_t> hr:08X})'
             )
-        out = _create_output(out, <ssize_t> dstsize, <const char*> dst)
+        out, _outsize, _outgiven, outtype = _parse_output(out)
+        out = _create_output(outtype, <ssize_t> dstsize, <const char*> dst)
     finally:
         if dst != NULL:
             wic_encode_free(dst)
@@ -179,7 +180,7 @@ def wic_decode(data, /, index=0, *, out=None):
     """Return decoded image from WIC-supported format."""
     cdef:
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         uint32_t width = 0
         uint32_t height = 0
         uint32_t components = 0
@@ -195,8 +196,13 @@ def wic_decode(data, /, index=0, *, out=None):
 
     with nogil:
         hr = wic_get_info(
-            &src[0], <size_t> srcsize,
-            &width, &height, &components, &bpc, &frame_count,
+            <const uint8_t*> src._data,
+            <size_t> srcsize,
+            &width,
+            &height,
+            &components,
+            &bpc,
+            &frame_count,
         )
 
     if hr != 0:
@@ -223,9 +229,12 @@ def wic_decode(data, /, index=0, *, out=None):
 
     with nogil:
         hr = wic_copy_pixels(
-            &src[0], <size_t> srcsize,
+            <const uint8_t*> src._data,
+            <size_t> srcsize,
             frame_idx,
-            <uint8_t*> dst.data, dst_stride, <size_t> dst_stride * height,
+            <uint8_t*> dst.data,
+            dst_stride,
+            <size_t> dst_stride * height,
         )
 
     if hr != 0:

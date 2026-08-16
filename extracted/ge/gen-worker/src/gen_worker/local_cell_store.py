@@ -8,7 +8,7 @@ subsequent run of that code reuses the same compiled cell — same ck1 key
 derivation, same memo shortcut, fully offline-capable."*
 
 ONE IDENTITY, TWO STORES. A cell stored here is addressed by exactly the
-key the hub store addresses it by — ``cell_key.from_exported_artifact_metadata``
+key the hub store addresses it by — ``tcg.identity.from_artifact_metadata``
 stamped on the bytes (pgw#1059's four axes: graph x envelope x sm x
 toolchain). The hub store and this one differ in their SINK, never in their
 addressing, so a cell that later becomes publishable needs no re-keying and a
@@ -26,7 +26,7 @@ test_aot_local_mint_pgw1096.py`` pins that structurally, the way
 
 WHO DECIDES a machine is untrusted: **the hub, and only the hub**. There is no
 worker-side self-declaration and no env flag — §1.18/§4.28. The class is
-LEARNED from the hub's own typed publish refusal (``cell_publish_untrusted_tier``,
+LEARNED from the hub's own typed publish refusal (``compiled_graph_publish_untrusted_tier``,
 403, ``tensorhub internal/orchestrator/http/worker_cell_publish.go``) and
 persisted here so the next boot does not have to pay a mint to rediscover it.
 Before this module existed that refusal was terminal in the worst way: th#1643
@@ -55,10 +55,9 @@ LAYOUT (one directory per cell, so a cell and the facts about it move as a
 unit and a partial write leaves nothing admissible)::
 
     <root>/aot-cells/<ck1-…>/cell.tar.gz   the packed artifact
-    <root>/aot-cells/<ck1-…>/record.json   {cell_key, content_digest, family, …}
+    <root>/aot-cells/<ck1-…>/record.json   {compiled_graph_key, content_digest, family, …}
     <root>/aot-cells/.memo/<arm1-…>.json   the MEMO: pre-trace identity -> ck1 key
     <root>/trust-class.json                the learned trust class
-    <root>/.mint-resume/…                  aot_resume's crash-only bank (pgw#848)
 
 THE MEMO, and why a content-addressed store needs one. The ck1 key's ``graph``
 axis is the traced-graph digest, which does not exist until an export
@@ -92,7 +91,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from . import cell_key
+from torch_compiled_graphs import is_compiled_graph_key
+from torch_compiled_graphs.identity import KEY_SCHEME
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +137,7 @@ KIND = "aot-inductor"
 #: not recognize is left unlearned rather than guessed at, because guessing
 #: "untrusted" from an unrelated failure would make a transient hub error
 #: permanently change how this pod behaves.
-UNTRUSTED_REFUSAL_CODE = "cell_publish_untrusted_tier"
+UNTRUSTED_REFUSAL_CODE = "compiled_graph_publish_untrusted_tier"
 
 TRUST_UNTRUSTED = "untrusted"
 
@@ -169,12 +169,8 @@ SINK_REFUSED = "refused"
 def store_root() -> Path:
     """The local store root: the stated env path, else the cozy cache dir.
 
-    Moved here from ``local_cells`` by pgw#1096 with its value UNCHANGED —
-    same env name, same default — so ``aot_resume``'s crash-only bank and
-    cozy-local's ``cozy cells`` CLI keep resolving to the identical
-    directory. That move is what makes ``local_cells.py`` deletable by
-    pgw#1086 wave 1 (pgw#1092 §4 landmine 1: the production resume bank was
-    routed through a module the JIT demolition deletes).
+    Moved here from ``local_cells`` by pgw#1096 with its value unchanged so
+    cozy-local's ``cozy cells`` CLI keeps resolving to the same directory.
     """
     env = os.environ.get(ENV_STORE_DIR, "").strip()
     if env:
@@ -193,9 +189,9 @@ def cell_dir(key: str, root: Optional[Path] = None) -> Path:
     store addressed by a key-shaped string it did not verify is a store whose
     layout depends on what a caller happened to pass.
     """
-    if not cell_key.is_key(key):
+    if not is_compiled_graph_key(key):
         raise ValueError(
-            f"the local cell store addresses {cell_key.KEY_SCHEME} keys only; "
+            f"the local cell store addresses {KEY_SCHEME} keys only; "
             f"{key!r} is not one")
     return cells_root(root) / key
 
@@ -250,7 +246,7 @@ def store(
     record — which carries the digest every later lookup is checked against —
     is written LAST, so a crash mid-store leaves a directory with no record
     and the next lookup treats it as absent rather than as a short cell. Same
-    ordering rule ``aot_resume`` banks entries under, for the same reason.
+    ordering rule every crash-safe artifact publication uses.
 
     ``verdict`` defaults to :data:`VERDICT_ADMITTED` — "the caller vouches for
     these bytes", which is what every route that finds an already-proven cell
@@ -277,7 +273,7 @@ def store(
             verdict=str(verdict), sink=str(sink),
         )
         _write_json_atomic(target_dir / RECORD_NAME, {
-            "cell_key": record.key,
+            "compiled_graph_key": record.key,
             "content_digest": record.content_digest,
             "family": record.family,
             "arm_token": record.arm_token,
@@ -290,7 +286,7 @@ def store(
         if arm_token:
             _write_json_atomic(
                 memo_path(arm_token, root),
-                {"cell_key": key, "noted_at": record.stored_at})
+                {"compiled_graph_key": key, "noted_at": record.stored_at})
         logger.info(
             "local-cell-store: stored %s (%s, %.1f MB) — this machine reuses "
             "it on every later boot with the same key, offline",
@@ -358,8 +354,8 @@ def lookup(key: str, root: Optional[Path] = None) -> Optional[LocalCell]:
 
     The recorded ``content_digest`` is RECOMPUTED over the bytes on disk, so a
     truncated, half-written or edited artifact refuses here instead of being
-    handed to the arm — the ``aot_resume`` rule (*"a bank cannot vouch for
-    itself"*) applied to the store. A refusing entry is dropped, which turns a
+    handed to the arm: persisted bytes cannot vouch for themselves. A refusing
+    entry is dropped, which turns a
     corrupted cell into exactly one honest re-mint.
 
     pgw#1183: a cell whose verdict is not :data:`VERDICT_ADMITTED` is absent
@@ -416,7 +412,7 @@ def note_memo(
     try:
         _write_json_atomic(
             memo_path(arm_token, root),
-            {"cell_key": key, "noted_at": time.time()})
+            {"compiled_graph_key": key, "noted_at": time.time()})
         return True
     except Exception as exc:  # noqa: BLE001 — a shortcut is never load-bearing
         logger.debug(
@@ -480,7 +476,7 @@ def lookup_for_arm(
         return None
     if memo is None:
         return None
-    key = str(memo.get("cell_key") or "")
+    key = str(memo.get("compiled_graph_key") or "")
     if not key:
         return None
     return lookup(key, root)
@@ -515,7 +511,7 @@ def stored_cells(root: Optional[Path] = None) -> List[LocalCell]:
         if record is None or not artifact.is_file():
             continue
         out.append(_cell_of(
-            str(record.get("cell_key") or entry.name), record, artifact,
+            str(record.get("compiled_graph_key") or entry.name), record, artifact,
             str(record.get("content_digest") or "")))
     return out
 

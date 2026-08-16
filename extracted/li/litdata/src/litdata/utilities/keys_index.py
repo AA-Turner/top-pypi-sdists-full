@@ -103,8 +103,8 @@ def normalize_key(key: Any) -> str | int:
         return key
     if isinstance(key, str):
         return key
-    if isinstance(key, bytes):
-        return key.decode("utf-8")
+    if isinstance(key, (bytes, bytearray, memoryview)):
+        return bytes(key).decode("utf-8")
     try:
         import numpy as np
 
@@ -711,10 +711,12 @@ def merge_rank_key_files(
     for filename in sorted(files, key=_natural_key):
         filepath = os.path.join(cache_dir, filename)
         df = pl.read_parquet(filepath)
+        os.remove(filepath)
+        if df.height == 0:
+            continue
         df = df.with_columns((pl.col("index") + global_base).alias("index"))
         global_base += df.height
         frames.append(df.select(["key", "index"]))
-        os.remove(filepath)
 
     merged = pl.concat(frames) if frames else pl.DataFrame({"key": [], "index": []})
     keys = merged["key"].to_list() if merged.height else []

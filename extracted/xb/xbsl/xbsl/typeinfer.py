@@ -23,7 +23,7 @@ the empty value is impossible for a type that has none.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from xbsl import dataset
 from xbsl import parser as P
@@ -32,14 +32,20 @@ from xbsl import parser as P
 _NOMINAL_RE = re.compile(r"[А-Яа-яЁёA-Za-z0-9_]+(?:\.[А-Яа-яЁёA-Za-z0-9_]+)?")
 
 #: The type a literal names, by the lexer's own kind. The empty value is a type of its own in the
-#: platform, and it is exactly what makes an expression nullable.
+#: platform, and it is exactly what makes an expression nullable. The catalog keys types by both
+#: spellings, so the Russian name answers for an English source as it does everywhere else here.
 _LITERAL_TYPES = {
     "STRING": "Строка",
     "NUMBER": "Число",
     "TRUE": "Булево",
     "FALSE": "Булево",
+    "QUERY": "Запрос",
+    "PATTERN": "Образец",
 }
 _UNDEFINED_KIND = "UNDEFINED"
+#: A resolvable literal (`Ресурс{...}`) is not named by its kind: the identifier that OPENS it is
+#: the type, and the lexer keeps it in the literal's own text.
+_RESOLVABLE_KIND = "RESOLVABLE"
 
 #: The head type of a collection literal - the arguments type the members, they do not name them.
 _COLLECTION_TYPES = {"array": "Массив", "map": "Соответствие", "set": "Множество"}
@@ -67,13 +73,20 @@ dataset.register_reset(_reset)
 
 @dataclass(frozen=True)
 class Inferred:
-    """A type the module could name: the nominal name plus whether the empty value belongs to it."""
+    """A type the module could name: the nominal name plus whether the empty value belongs to it.
+
+    `args` carries the arguments of a generic as they were WRITTEN (`Array<String>` -> `String`),
+    because the element of a loop is not in the head alone. It stays out of the comparison on
+    purpose: the answer of this module is the nominal type, and a caller that already asks
+    `== Inferred("Массив")` must not start missing a typed array over a detail it never named.
+    """
 
     name: str
     nullable: bool = False
+    args: tuple[str, ...] = field(default=(), compare=False)
 
     def without_null(self) -> "Inferred":
-        return self if not self.nullable else Inferred(self.name, False)
+        return self if not self.nullable else Inferred(self.name, False, self.args)
 
 
 @dataclass
@@ -99,51 +112,139 @@ class TypeEnv:
 
 def method_env(method: object, *, type_names: bool = False,
                returns: dict[str, Inferred] | None = None,
-               this_type: Inferred | None = None) -> TypeEnv:
+               this_type: Inferred | None = None,
+               own_properties: dict[str, str] | None = None,
+               at: int | None = None) -> TypeEnv:
     """The environment of one method: every declared name, typed where the source says so.
 
     Collecting this in one place is what keeps the type-name shortcut honest. A name DECLARED in
     the method is never a type, even when the catalog knows a type of that name and even when the
     declaration says nothing about its type: a live module holds `пер Список = ...`, and reading
     that name as the stdlib type answered "not nullable" for a value that plainly is.
+
+    `at` is the offset of the place being judged, and with it the names are read the way the
+    platform scopes them (docs, "Область видимости имен"): a declaration is visible from where
+    it stands to the end of ITS BLOCK, blocks nest, and the innermost declaration wins. Without
+    `at` the whole method is one bag of names, which is enough for a caller that asks about the
+    method as a whole and wrong for one that asks about a place: a live module declares one
+    name in two loops of a 160-line method, and the type of the first loop used to answer for
+    the second - where the collection is a UNION and the cast is obligatory.
+
+    `own_properties` is what the module's own type carries - the attributes of the PAIRED
+    yaml, `{name: type as written}`. A form module reads them by a bare name, and without them
+    such a name falls through to the type-name shortcut: an attribute spelled like the stdlib
+    `File` type, declared in the yaml as a nullable binary-object reference, was read as that
+    type - never empty - and the non-null operator the code needs looked redundant. They sit
+    in the method scope, so any local declaration of the same name wins over them.
+
+    `shadowed` stays method-wide either way. It answers "is this name a variable here at all",
+    and a name that any block of the method declares must not be read as a stdlib type
+    elsewhere in it - being generous there would reintroduce the very guess the set prevents.
     """
     import dataclasses
 
     variables: dict[str, Inferred] = {}
     declared: set[str] = set()
     env = TypeEnv(variables, returns=returns, this_type=this_type, type_names=False)
+    # (block start, block end, position, name) -> type; filtered by `at` at the end.
+    scoped: list[tuple[int, int, int, str, Inferred]] = []
+    method_span = (int(getattr(method, "start", 0)), int(getattr(method, "end", 0)))
 
-    def remember(name: str, tref: object, init: object = None) -> None:
+    def remember(name: str, tref: object, init: object = None,
+                 block: tuple[int, int] | None = None, pos: int | None = None) -> None:
         declared.add(name)
         got = nominal(getattr(tref, "text", None))
         if got is None and init is not None:
             got = expression_type(init, env)
+        if got is None:
+            return
+        variables[name] = got
+        span = block or method_span
+        scoped.append((span[0], span[1], pos if pos is not None else span[0], name, got))
+
+    for name, written in (own_properties or {}).items():
+        got = nominal(written)
         if got is not None:
             variables[name] = got
+            scoped.append((method_span[0], method_span[1], method_span[0], name, got))
+            declared.add(name)
 
     for param in getattr(method, "params", ()) or ():
         remember(getattr(param, "name", ""), getattr(param, "type", None))
 
-    def walk(node: object) -> None:
+    def walk(node: object, block: tuple[int, int]) -> None:
         if isinstance(node, (list, tuple)):
+            # A list of statements IS a block: that is what `если`, `для` and `область` open,
+            # and its span is the span of the statements it holds.
+            inner = _statement_block(node) or block
             for item in node:
-                walk(item)
+                walk(item, inner)
             return
         if not isinstance(node, P.Node):
             return
         if isinstance(node, P.VarDecl):
-            remember(node.name, getattr(node, "type", None), getattr(node, "init", None))
-        elif isinstance(node, (P.ForEach, P.ForTo)):
-            declared.add(getattr(node, "var", ""))
+            remember(node.name, getattr(node, "type", None), getattr(node, "init", None),
+                     block, int(getattr(node, "start", block[0])))
+        elif isinstance(node, P.ForEach):
+            # The loop names its variable without a type: it is one ELEMENT of the collection,
+            # and the collection is typed by what stands to the left of this loop. The variable
+            # lives in the loop, so its block is the loop node, not the block around it.
+            name = getattr(node, "var", "")
+            declared.add(name)
+            element = _element_type(expression_type(getattr(node, "source", None), env))
+            if element is not None:
+                variables[name] = element
+                span = (int(getattr(node, "start", block[0])), int(getattr(node, "end", block[1])))
+                scoped.append((span[0], span[1], span[0], name, element))
+        elif isinstance(node, P.ForTo):
+            # `для Х = А по Б [шаг С]` counts, and the platform counts with numbers.
+            name = getattr(node, "var", "")
+            declared.add(name)
+            counter = Inferred(_LITERAL_TYPES["NUMBER"])
+            variables[name] = counter
+            span = (int(getattr(node, "start", block[0])), int(getattr(node, "end", block[1])))
+            scoped.append((span[0], span[1], span[0], name, counter))
         elif isinstance(node, P.Lambda):
             for param in getattr(node, "params", ()) or ():
                 declared.add(getattr(param, "name", ""))
         for f in dataclasses.fields(node):
-            walk(getattr(node, f.name, None))
+            walk(getattr(node, f.name, None), block)
 
-    walk(getattr(method, "body", None))
+    walk(getattr(method, "body", None), method_span)
+    if at is not None:
+        # The innermost block that holds the place wins, and among its declarations the last
+        # one standing BEFORE the place: that is the platform rule read literally.
+        visible: dict[str, tuple[int, int, Inferred]] = {}
+        for start, end, pos, name, got in scoped:
+            if not (start <= at <= end and pos <= at):
+                continue
+            best = visible.get(name)
+            if best is None or (start, pos) >= (best[0], best[1]):
+                visible[name] = (start, pos, got)
+        variables = {name: got for name, (_s, _p, got) in visible.items()}
     return TypeEnv(variables, returns=returns, this_type=this_type,
                    type_names=type_names, shadowed=frozenset(declared) - set(variables))
+
+
+def _statement_block(items: object) -> tuple[int, int] | None:
+    """The span of a list of statements, or None when the list holds something else."""
+    stmts = [x for x in (items or ()) if isinstance(x, P.Stmt)]
+    if not stmts:
+        return None
+    return int(getattr(stmts[0], "start", 0)), int(getattr(stmts[-1], "end", 0))
+
+
+def _element_type(collection: Inferred | None) -> Inferred | None:
+    """One element of a collection: `Array<String>` -> `String`.
+
+    Answered only for a collection written with a SINGLE argument, which is what an array, a set
+    and a readable sequence are. A map has two, and its element is neither of them - the platform
+    hands out `KeyAndValue<KeyType,ValueType>` - but nothing in the data pairs a two-argument
+    collection with that type, and pairing them by name here would be a guess. So: silence.
+    """
+    if collection is None or len(collection.args) != 1:
+        return None
+    return nominal(collection.args[0])
 
 
 def nominal(text: str | None) -> Inferred | None:
@@ -162,11 +263,38 @@ def nominal(text: str | None) -> Inferred | None:
         stripped = stripped[:-1].strip()
     if _NOMINAL_RE.fullmatch(stripped):
         return Inferred(stripped, nullable)
-    # A generic counts by its HEAD: the arguments type the members, they do not name them.
+    # A generic counts by its HEAD: the arguments type the members, they do not name them. They
+    # are carried along all the same - the element of a loop over the collection is one of them.
     head = stripped.split("<", 1)[0].strip()
     if stripped.endswith(">") and _NOMINAL_RE.fullmatch(head):
-        return Inferred(head, nullable)
+        return Inferred(head, nullable, _type_arguments(stripped))
     return None
+
+
+def _type_arguments(text: str) -> tuple[str, ...]:
+    """The arguments of `Голова<А, Б>` as written, split at the TOP level only.
+
+    An argument is itself a type and may be generic, so a comma inside its own angle brackets
+    belongs to it: `Массив<Соответствие<Строка, Число>>` has ONE argument, not two.
+    """
+    inner = text[text.index("<") + 1 : -1]
+    args: list[str] = []
+    current: list[str] = []
+    depth = 0
+    for char in inner:
+        if char == "<":
+            depth += 1
+        elif char == ">":
+            depth -= 1
+        elif char == "," and depth == 0:
+            args.append("".join(current).strip())
+            current = []
+            continue
+        current.append(char)
+    tail = "".join(current).strip()
+    if tail:
+        args.append(tail)
+    return tuple(arg for arg in args if arg)
 
 
 def is_type_name(name: str) -> bool:
@@ -218,6 +346,11 @@ def expression_type(node: object, env: TypeEnv) -> Inferred | None:
         kind = str(getattr(node, "kind", ""))
         if kind == _UNDEFINED_KIND:
             return Inferred("Неопределено", True)
+        if kind == _RESOLVABLE_KIND:
+            # The opening identifier is the type only if the catalog knows it as one: the shape
+            # `Имя{...}` is open, and a name the data is silent about is no answer.
+            opener = str(getattr(node, "text", ""))
+            return Inferred(opener) if opener and is_type_name(opener) else None
         name = _LITERAL_TYPES.get(kind)
         return Inferred(name) if name else None
     if isinstance(node, P.ArrayLit):
@@ -233,12 +366,18 @@ def expression_type(node: object, env: TypeEnv) -> Inferred | None:
         inner = expression_type(getattr(node, "operand", None), env)
         return inner.without_null() if inner else None
     if isinstance(node, P.Coalesce):
-        # `А ?? Б` answers Б when А is empty, so the result cannot be empty when Б is not.
+        # `А ?? Б` answers Б when А is empty and А otherwise, so the two sides must agree for
+        # the whole to have a name: the value is of one type or the other, and naming it by the
+        # right-hand side alone is a guess the code then acts on. It stayed unnoticed while the
+        # left side was rarely typed - `(Параметры.ПолучитьПараметр("К") ?? "") как Строка` read
+        # as a String cast over a String, that is as a redundant cast, though the parameter is
+        # of no such type and the cast is exactly what makes the value one.
+        # Only the emptiness is settled here: `Б` non-empty makes the whole non-empty.
         left = expression_type(getattr(node, "left", None), env)
         right = expression_type(getattr(node, "right", None), env)
         if left is not None and right is not None and left.name == right.name:
             return Inferred(left.name, left.nullable and right.nullable)
-        return right.without_null() if right is not None and left is not None else None
+        return None
     if isinstance(node, P.Member):
         return _member_expression_type(node, env)
     if isinstance(node, P.Call):

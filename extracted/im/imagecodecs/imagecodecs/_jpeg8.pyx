@@ -94,6 +94,7 @@ def jpeg8_check(const uint8_t[::1] data, /):
     """Return whether data is JPEG encoded image or None if unknown."""
     cdef:
         bytes sig = bytes(data[:10])
+
     return (
         sig[:4] == b'\xFF\xD8\xFF\xDB'
         or sig[:4] == b'\xFF\xD8\xFF\xEE'
@@ -237,9 +238,9 @@ def jpeg8_encode(
 
     if out is not None:
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
         outsize = <unsigned long> dst.nbytes  # validates overflow
-        outbuffer = <unsigned char*> &dst[0]
+        outbuffer = <unsigned char*> dst._data
 
     with nogil:
         cinfo.err = jpeg_std_error(&err.pub)
@@ -310,7 +311,7 @@ def jpeg8_encode(
         jpeg_finish_compress(&cinfo)
         jpeg_destroy_compress(&cinfo)
 
-    if out is None or outbuffer != <unsigned char*> &dst[0]:
+    if out is None or outbuffer != <unsigned char*> dst._data:
         # outbuffer was allocated in jpeg_mem_dest
         try:
             out = _create_output(
@@ -341,7 +342,7 @@ def jpeg8_decode(
         const uint8_t[::1] src = data
         const uint8_t[::1] tables_
         unsigned long tablesize = 0
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         ssize_t rowstride
         my_error_mgr err
         jpeg_decompress_struct cinfo
@@ -376,7 +377,9 @@ def jpeg8_decode(
 
     if tables is not None:
         tables_ = tables
-        tablesize = tables_.nbytes
+        tablesize = <unsigned long> tables_.shape[0]
+        if tables_.shape[0] > INT32_MAX:
+            raise ValueError(f'table size > {INT32_MAX}')
 
     if shape is not None and (shape[0] >= 65500 or shape[1] >= 65500):
         # enable decoding of large (JPEG_MAX_DIMENSION <= 2^20) JPEG
@@ -402,10 +405,14 @@ def jpeg8_decode(
             cinfo.image_height = height
 
         if tablesize > 0:
-            jpeg_mem_src(&cinfo, &tables_[0], tablesize)
+            jpeg_mem_src(
+                &cinfo, <const unsigned char*> tables_._data, tablesize
+            )
             jpeg_read_header(&cinfo, 0)  # == JPEG_HEADER_TABLES_ONLY
 
-        jpeg_mem_src(&cinfo, &src[0], <unsigned long> srcsize)
+        jpeg_mem_src(
+            &cinfo, <const unsigned char*> src._data, <unsigned long> srcsize
+        )
         jpeg_read_header(&cinfo, 1)
 
         if jpeg_color_space != JCS_UNKNOWN:
@@ -539,7 +546,6 @@ cdef bint _check_range(numpy.ndarray data, uint16_t upper=4095):
         uint8_t* srcptr = NULL
         ssize_t srcsize = 0
         ssize_t srcstride = 0
-        ssize_t i
         int axis = -1
         bint ret = True
 
@@ -550,7 +556,7 @@ cdef bint _check_range(numpy.ndarray data, uint16_t upper=4095):
     with nogil:
         while ret and numpy.PyArray_ITER_NOTDONE(srciter):
             srcptr = <uint8_t*> numpy.PyArray_ITER_DATA(srciter)
-            for i in range(srcsize):
+            for _i in range(srcsize):
                 if (<uint16_t*> srcptr)[0] > upper:
                     ret = False
                     break

@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: copilotkit
-Version: 0.1.94
+Version: 0.1.95
 Summary: CopilotKit python SDK
 License: MIT
 Keywords: copilot,copilotkit,langgraph,langchain,ai,langsmith,langserve
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: crewai
-Requires-Dist: ag-ui-langgraph[fastapi] (>=0.0.38)
+Requires-Dist: ag-ui-langgraph[fastapi] (>=0.0.42)
 Requires-Dist: ag-ui-protocol (>=0.1.15)
 Requires-Dist: crewai (>=0.118.0) ; (python_version >= "3.10" and python_version < "3.14") and (extra == "crewai")
 Requires-Dist: fastapi (>=0.115.0,<1.0.0)

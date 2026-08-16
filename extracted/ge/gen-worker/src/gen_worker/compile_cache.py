@@ -83,8 +83,10 @@ from typing import (
 
 import sys
 
+from torch_compiled_graphs import is_compiled_graph_key
+
 from . import (
-    cell_key, dist_records, env_seal, guard_closure, hot_swap,
+    dist_records, env_seal, graph_facts, guard_closure, hot_swap,
     serve_posture, settings_authority,
 )
 from .api.errors import FatalError, RetryableError
@@ -95,6 +97,7 @@ from .models.refs import parse_model_ref
 from .models.w8a8_lora import RANK_BUCKETS
 from .models import execution_lanes as lanespec
 from .models import loading as _loading
+from .hostfacts import cuda_ready
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +155,7 @@ def _cell_ref_identity(ref: str) -> str:
     """Process-registry identity for one cell ref (pgw#672 / th#1166).
 
     The SAME cell can be named in two forms — the mint path's
-    ``system_repo(family)#<key>`` vs the store's delivered ref (tag/digest
+    ``system_repo(family)#<key>`` vs the store's delivered ref (release/digest
     decorated). Exact-string matching between those forms manufactured
     false negatives in the pgw#637 escape. A key-flavored ref collapses to
     its (family, key); anything else keeps its literal string."""
@@ -162,12 +165,12 @@ def _cell_ref_identity(ref: str) -> str:
     family, flavor = parse_cell_ref(ref)
     if family and flavor:
 
-        if cell_key.is_key(flavor):
+        if is_compiled_graph_key(flavor):
             return f"{family}#{flavor}"
     return ref
 
 
-def record_cell_proven(ref: str) -> None:
+def record_compiled_graph_proven(ref: str) -> None:
     """Mark one cell identity as served-and-proven in this process."""
     identity = _cell_ref_identity(ref)
     if not identity:
@@ -176,13 +179,13 @@ def record_cell_proven(ref: str) -> None:
         _PROVEN_CELLS.add(identity)
 
 
-def cell_proven_in_process(ref: str) -> bool:
+def compiled_graph_proven_in_process(ref: str) -> bool:
     identity = _cell_ref_identity(ref)
     with _PROVEN_CELLS_LOCK:
         return bool(identity) and identity in _PROVEN_CELLS
 
 
-def record_cell_quarantined(ref: str) -> None:
+def record_compiled_graph_quarantined(ref: str) -> None:
     """Mark one cell identity as proof-failed in this process (pgw#672)."""
     identity = _cell_ref_identity(ref)
     if not identity:
@@ -192,7 +195,7 @@ def record_cell_quarantined(ref: str) -> None:
         _PROVEN_CELLS.discard(identity)
 
 
-def cell_quarantined_in_process(ref: str) -> bool:
+def compiled_graph_quarantined_in_process(ref: str) -> bool:
     identity = _cell_ref_identity(ref)
     with _PROVEN_CELLS_LOCK:
         return bool(identity) and identity in _QUARANTINED_CELLS
@@ -634,12 +637,12 @@ def _record_guard_miss(
 # Key
 # ---------------------------------------------------------------------------
 
-#: The axes :func:`verify` refuses on — the runtime facts a seeded FX cache
-#: is genuinely pinned to. ``sku`` left in the pgw#691/ck3 collapse (see
-#: :func:`verify`) and must never return; ``sm`` is the GPU identity. The
-#: exported lane declares the same shape as ``aot_serve.IDENTITY_AXES``.
-IDENTITY_AXES: Tuple[str, ...] = ("torch", "triton", "sm", "cuda",
-                                  "image_digest")
+# pgw#1281: no axis tuple lives here. The one that did named `verify()` (gone
+# with the pgw#1035 dead-code wave) and claimed parity with
+# `aot_serve.IDENTITY_AXES`, which was never true — 5 entries against 3, and
+# pgw#1034 had already ruled the two sets deliberately different. The cell key's
+# axes are `graph_facts.KEY_AXES`; this module's job is `runtime_key()`,
+# the ONE probe that states them.
 
 
 def sku_slug(gpu_name: str) -> str:
@@ -671,7 +674,7 @@ def runtime_key() -> Dict[str, str]:
 
         key["torch"] = str(torch.__version__)
         key["cuda"] = str(torch.version.cuda or "")
-        if torch.cuda.is_available():
+        if cuda_ready():
             key["sku"] = sku_slug(torch.cuda.get_device_name(0))
             major, minor = torch.cuda.get_device_capability(0)
             key["sm"] = f"sm_{major}{minor}"
@@ -690,6 +693,44 @@ def runtime_key() -> Dict[str, str]:
     except Exception:
         logger.debug("compile-cache: triton version unavailable", exc_info=True)
     return key
+
+
+def compile_target_block() -> str:
+    """Why a mint on this host would not produce a CUDA-serving artifact —
+    ``""`` when it would. THE deterministic environment decline (pgw#985).
+
+    ``sm`` is one of the three ``cg-key-v1`` axes. A host with no card can still
+    compile: TCG's other target is ``cpu``, which it resolves to ``cpu-<isa>``
+    and keys honestly. That is exactly the danger. The artifact is TRUE and
+    unadoptable — no GPU pod computes a ``cpu-avx512`` key — so a mint pod
+    bought to serve CUDA that takes the CPU lane burns its whole mint and the
+    family re-mints on the next boot, forever, with nothing anywhere saying why.
+
+    Deterministic for the life of the process, and for the life of the POD: a
+    second pod is the same host answering the same way. So callers refuse
+    TYPED (``PreflightRefused`` -> ``EXIT_REFUSED``, ``retryable=False``),
+    which is what stops the orchestrator buying another one.
+
+    Side-effect free and it only NAMES, exactly like :func:`arming_block` — the
+    raise belongs to the child that has a report to write, and the ORDER of that
+    raise is the caller's business (``mint_child`` asks last, so the specific
+    wiring refusals win). The three-valued :func:`hostfacts.cuda_state` is used
+    rather than the capability predicate because this sentence is REPORTED to
+    the fleet, and "this host has no card" and "this host's card would not
+    answer" are different pod verdicts.
+    """
+    if str(runtime_key().get("sm") or "").strip():
+        return ""
+    from . import hostfacts
+
+    state = hostfacts.cuda_state()
+    evidence = f" ({state.probe_class}: {state.detail})" if state.detail else ""
+    return (
+        f"this host states no `sm`, and `sm` is one of the three cg-key-v1 "
+        f"axes — accelerator={state.state}{evidence}. It could still compile "
+        f"the CPU lane, and that artifact would be keyed truthfully and "
+        f"adopted by nothing: a mint bought to serve CUDA would burn itself "
+        f"and the family would re-mint forever.")
 
 
 def _lib_versions() -> Dict[str, str]:
@@ -746,7 +787,7 @@ def execution_lane_label(weight_lane: str, lora_bucket: int = 0) -> str:
     string already carries wins — it is what was actually traced.
 
     pgw#1040: this body existed twice, byte for byte, as
-    ``cell_key._canonical_execution_lane`` and
+    ``graph_facts``'s canonical execution lane and
     ``aot_contract.ExportSpec.execution_lane_label``; both were folded here.
     Since pgw#1059 the lane is store METADATA + discovery scoping, never a
     key axis — but the one-derivation rule stands for the same reason: a
@@ -822,7 +863,7 @@ def system_repo(family: str) -> str:
 
 def parse_cell_ref(ref: str) -> Tuple[str, str]:
     """(family, flavor) from a system cell ref
-    (``root/family-<f>[:tag][@digest][#<flavor>]``) via the ONE ref
+    (``root/family-<f>[@release|@digest][#<flavor>]``) via the ONE ref
     grammar (gw#492); ('', '') when the ref is not a system-family ref."""
 
     try:
@@ -895,9 +936,12 @@ def declared_compile_facts(cfg: Any, *, lora_bucket_override: Optional[int] = No
 # sound in the first place.
 
 _CLOSURE_ENTRYPOINTS = (
+    "gen_worker.aot_mint",
+    "gen_worker.boot_trace_child",
+    "gen_worker.api.export_contract",
     "gen_worker.compile_cache",
     "gen_worker.guard_closure",
-    "gen_worker.cell_key",
+    "gen_worker.graph_facts",
     "gen_worker.env_seal",
     "gen_worker.models.loading",
     "gen_worker.models.provision",
@@ -1002,11 +1046,11 @@ def toolchain_digest() -> Tuple[Tuple[str, str], ...]:
     ``transformers`` / ``peft`` rode this axis until 2026-08-11 and were
     evicted because their whole effect on a cell arrives through the traced
     graph, which the ``graph`` axis hashes node-for-node since pgw#1031 —
-    see ``cell_key``'s module docstring for the channel-by-channel argument
+    see ``torch_compiled_graphs.identity``'s membership rules for the channel-by-channel argument
     and for the two fences (B1 code-only + the pgw#1097 folding fence;
     ``env_seal.assert_seal_unchanged``) that close the routes around it.
     Folded here, every model-library patch release re-keyed every cell in
-    the fleet for a graph that had not moved. ``cell_key.toolchain_facts``
+    the fleet for a graph that had not moved. ``tcg.identity.toolchain_axis_digest``
     is the READER of the same membership, and the pair is what keeps one
     axis one derivation. Their versions stay RECORDED for forensics
     (:func:`_lib_versions`, ``artifact_metadata``'s ``libs`` block) — an
@@ -1178,7 +1222,7 @@ def _semantic_cache_tag(pipeline: Any, cfg: Any) -> str:
         str(SEMANTIC_TAG_FORMAT), "inductor",
         str(getattr(cfg, "family", "") or ""), execution_lane,
         "regional" if bool(getattr(cfg, "regional", False)) else "whole",
-        cell_key.facts_digest(declared_compile_facts(cfg)),
+        graph_facts.facts_digest(declared_compile_facts(cfg)),
     ))
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
@@ -1433,7 +1477,7 @@ def fx_cache_failure_report() -> str:
     tar walk could only ever yield nothing, and the arithmetic did not degrade
     gracefully — it INVERTED. `fresh = live_keys - seeded` became EVERY live
     key, so **B1 was named on every boot with any FX entry at all**, while B2
-    was structurally unreportable and `cell_keys=0` (*"unreadable"*) was the
+    was structurally unreportable and `compiled_graph_keys=0` (*"unreadable"*) was the
     normal case. Measured on the real function: handed an exported cell — what
     the caller passes today — the output was byte-identical to passing
     ``None``, which is the shortest proof the argument carried no information.
@@ -1493,7 +1537,7 @@ class CellSelectionBugError(RuntimeError):
     for: the artifact's axes describe exactly the key this runtime computed
     for itself, so any arm failure is by construction a bug in the one
     shared selection/parity brain — never a compatibility outcome. Callers
-    must surface it as the ``cell_selection_bug`` event class (loud, wire-
+    must surface it as the ``compiled_graph_selection_bug`` event class (loud, wire-
     visible), never as a silent eager fallback."""
 
     def __init__(self, detail: str) -> None:
@@ -1684,10 +1728,10 @@ def arming_block(
         return ("the hub-resolved execution lane is operator-pinned to +eager "
                 "(pgw#714 kill switch)")
     try:
-        import torch
+        import torch  # noqa: F401 — the import IS the probe here
     except Exception as exc:  # noqa: BLE001 — a torchless process is eager
         return f"torch is not importable ({type(exc).__name__}: {exc})"
-    if not torch.cuda.is_available():
+    if not cuda_ready():
         return "torch reports no CUDA device in this process"
     if cache_ready:
         return ""
@@ -2902,29 +2946,6 @@ def enable(pipeline: Any, cfg: Any) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def resolve_pipeline_class(name: str) -> Any:
-    """Resolve a serving pipeline class name for a mint (gw#586).
-
-    The traced FX graphs depend on the pipeline's CALL path, not just the
-    module tree — an unknown name must refuse loudly, because a silent
-    generic-load fallback would trace the wrong call and publish a cell no
-    serving lookup can ever hit.
-    """
-    import diffusers
-
-    cleaned = str(name or "").strip()
-    if not cleaned:
-        raise RuntimeError("pipeline_class must be a non-empty class name")
-    cls = getattr(diffusers, cleaned, None)
-    if cls is None or not callable(getattr(cls, "from_pretrained", None)):
-        raise RuntimeError(
-            f"pipeline_class {cleaned!r} is not a loadable diffusers "
-            "pipeline class in this producer image; a generic-load fallback "
-            "would trace the wrong call path (gw#586), so the mint refuses"
-        )
-    return cls
-
-
 def emit_jit_compile_event(
     timings: Mapping[str, float],
     *,
@@ -3050,6 +3071,7 @@ __all__ = [
     "apply",
     "apply_lora_execution_lane",
     "arming_block",
+    "compile_target_block",
     "resolve_targets",
     "arm_jit_intake",
     "cell_base_execution_lane",
@@ -3076,12 +3098,11 @@ __all__ = [
     "is_compile_armed",
     "execution_lane_bucket",
     "execution_lane_token",
-    "resolve_pipeline_class",
     "runtime_key",
-    "record_cell_proven",
-    "record_cell_quarantined",
-    "cell_proven_in_process",
-    "cell_quarantined_in_process",
+    "record_compiled_graph_proven",
+    "record_compiled_graph_quarantined",
+    "compiled_graph_proven_in_process",
+    "compiled_graph_quarantined_in_process",
     "reset_target_code",
     "set_guard_failure_callback",
     "sku_slug",

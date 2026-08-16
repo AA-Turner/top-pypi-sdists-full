@@ -95,9 +95,9 @@ def heif_check(const uint8_t[::1] data, /):
     cdef:
         heif_filetype_result result
 
-    if data.nbytes < 12:
+    if data.shape[0] < 12:
         return False
-    result = heif_check_filetype(<const uint8_t*> &data[0], 12)
+    result = heif_check_filetype(<const uint8_t*> data._data, 12)
     if result == heif_filetype_no:
         return False
     if result == heif_filetype_yes_unsupported:
@@ -203,13 +203,13 @@ def heif_encode(
 
     if out is not None:
         dst = out
-        dstsize = dst.nbytes
-        compressed = output_new(<uint8_t*> &dst[0], dstsize)
+        dstsize = dst.shape[0]
+        compressed = output_new(<uint8_t*> dst._data, dstsize)
     elif dstsize > 0:
         out = _create_output(outtype, dstsize)
         dst = out
-        dstsize = dst.nbytes
-        compressed = output_new(<uint8_t*> &dst[0], dstsize)
+        dstsize = dst.shape[0]
+        compressed = output_new(<uint8_t*> dst._data, dstsize)
     else:
         compressed = output_new(
             NULL,
@@ -293,7 +293,7 @@ def heif_encode(
                 chroma = heif_chroma_interleaved_RRGGBBAA_LE
 
             srcindex = 0
-            for imageindex in range(layout.frames):
+            for _imageindex in range(layout.frames):
 
                 err = heif_image_create(
                     <int> layout.width,
@@ -345,7 +345,7 @@ def heif_encode(
                         #    TODO: handle planar input
 
                         if itemsize == 1:
-                            for row in range(layout.height):
+                            for _row in range(layout.height):
                                 for col in range(layout.width):
                                     yptr[col] = srcptr[srcindex]
                                     srcindex += 1
@@ -355,7 +355,7 @@ def heif_encode(
                                 aptr += astride
                         else:
                             src2ptr = <uint16_t*> srcptr
-                            for row in range(layout.height):
+                            for _row in range(layout.height):
                                 y2ptr = <uint16_t*> yptr
                                 a2ptr = <uint16_t*> aptr
                                 for col in range(layout.width):
@@ -367,7 +367,7 @@ def heif_encode(
                                 aptr += astride
 
                     else:
-                        for row in range(layout.height):
+                        for _row in range(layout.height):
                             memcpy(
                                 <void*> yptr,
                                 <const void*> srcptr,
@@ -400,7 +400,7 @@ def heif_encode(
                         raise HeifError('heif_image_get_plane', b'NULL')
 
                     # assert stride >= <int> rowsize:
-                    for row in range(layout.height):
+                    for _row in range(layout.height):
                         memcpy(
                             <void*> dstptr, <const void*> srcptr, rowsize
                         )
@@ -477,10 +477,10 @@ def heif_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t imageindex = -1 if index is None else index
         ssize_t height, width, samples, imagecount
-        ssize_t col, row, rowsize, srcindex, dstindex
+        ssize_t rowsize, srcindex, dstindex
         int stride, itemsize, bps
         uint8_t* srcptr = NULL
         uint8_t* dstptr = NULL
@@ -515,7 +515,7 @@ def heif_decode(
 
             err = heif_context_read_from_memory_without_copy(
                 context,
-                <const void*> &src[0],
+                <const void*> src._data,
                 <size_t> srcsize,
                 <const heif_reading_options*> NULL
             )
@@ -661,9 +661,9 @@ def heif_decode(
                     hasalpha = samples == 2
                     dstindex = 0
                     if itemsize == 1:
-                        for row in range(height):
+                        for _row in range(height):
                             srcindex = 0
-                            for col in range(width):
+                            for _col in range(width):
                                 dstptr[dstindex] = srcptr[srcindex]
                                 srcindex += 3
                                 dstindex += 1
@@ -675,10 +675,10 @@ def heif_decode(
                     else:
                         dst2ptr = <uint16_t*> dstptr
                         dstindex = 0
-                        for row in range(height):
+                        for _row in range(height):
                             src2ptr = <uint16_t*> srcptr
                             srcindex = 0
-                            for col in range(width):
+                            for _col in range(width):
                                 dst2ptr[dstindex] = src2ptr[srcindex]
                                 srcindex += 3
                                 dstindex += 1
@@ -691,7 +691,7 @@ def heif_decode(
 
                 else:
                     # RGBA
-                    for row in range(height):
+                    for _row in range(height):
                         memcpy(
                             <void*> dstptr,
                             <const void*> srcptr,

@@ -63,9 +63,13 @@ class JPEGXS:
         HIGH_444_12 = XS_PROFILE_HIGH_444_12
         HIGH_4444_12 = XS_PROFILE_HIGH_4444_12
         MLS_12 = XS_PROFILE_MLS_12
+        MLS_16 = XS_PROFILE_MLS_16
         LIGHT_BAYER = XS_PROFILE_LIGHT_BAYER
         MAIN_BAYER = XS_PROFILE_MAIN_BAYER
         HIGH_BAYER = XS_PROFILE_HIGH_BAYER
+        CHIGH_444_12 = XS_PROFILE_CHIGH_444_12
+        TDC_444_12 = XS_PROFILE_TDC_444_12
+        TDC_MLS_444_12 = XS_PROFILE_TDC_MLS_444_12
 
     class LEVEL(enum.IntEnum):
         """JPEGXS levels."""
@@ -110,7 +114,9 @@ def jpegxs_version():
 
 def jpegxs_check(const uint8_t[::1] data, /):
     """Return whether data is JPEGXS encoded image or None if unknown."""
-    sig = bytes(data[:12])
+    cdef:
+        bytes sig = bytes(data[:12])
+
     return (
         sig == b'\x00\x00\x00\x0C\x4A\x58\x53\x20\x0D\x0A\x87\x0A'  # image
         or sig[:4] == b'\xFF\x10\xFF\x50'  # codestream or video
@@ -168,12 +174,12 @@ def jpegxs_encode(
 
     xs_image.height = <int> layout.height
     xs_image.width = <int> layout.width
-    xs_image.ncomps = <int> layout.samples
+    xs_image.ncomps = <int8_t> layout.samples
 
     if bitspersample is None:
-        xs_image.depth = layout.bitspersample
+        xs_image.depth = <int8_t> layout.bitspersample
     elif 8 <= bitspersample <= 16:
-        xs_image.depth = bitspersample
+        xs_image.depth = <int8_t> bitspersample
     else:
         raise ValueError(f'{bitspersample=} not supported')
 
@@ -254,13 +260,14 @@ def jpegxs_encode(
             out = _create_output(outtype, dstsize)
 
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
 
         with nogil:
             ret = xs_enc_image(
                 ctx,
+                0,
                 &xs_image,
-                <uint8_t*> &dst[0],
+                <uint8_t*> dst._data,
                 <size_t> dstsize,
                 &bitstream_buf_size
             )
@@ -288,7 +295,7 @@ def jpegxs_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        size_t srcsize = src.nbytes
+        size_t srcsize = src.shape[0]
         ssize_t s, i, j, itemsize
         uint8_t* dst8 = NULL
         uint16_t* dst16 = NULL
@@ -309,7 +316,7 @@ def jpegxs_decode(
     try:
         with nogil:
             ret = xs_dec_probe(
-                <uint8_t*> &src[0], srcsize, &xs_config, &xs_image
+                <uint8_t*> src._data, srcsize, &xs_config, &xs_image
             )
             if not ret:
                 raise JpegxsError('xs_dec_probe failed')
@@ -322,7 +329,9 @@ def jpegxs_decode(
             if ctx == NULL:
                 raise JpegxsError('xs_dec_init failed')
 
-            ret = xs_dec_bitstream(ctx, <void*> &src[0], srcsize, &xs_image)
+            ret = xs_dec_bitstream(
+                ctx, 0, <uint8_t*> src._data, srcsize, &xs_image
+            )
             if not ret:
                 raise JpegxsError('xs_dec_bitstream failed')
 

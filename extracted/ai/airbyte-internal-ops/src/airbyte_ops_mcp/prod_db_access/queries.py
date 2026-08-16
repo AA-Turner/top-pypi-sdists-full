@@ -607,6 +607,7 @@ def query_version_actor_health(
     is_destination: bool,
     days: int = 7,
     *,
+    connector_definition_id: str,
     gsm_client: secretmanager.SecretManagerServiceClient | None = None,
 ) -> list[dict[str, Any]]:
     """Aggregate per-actor sync health for a specific connector version.
@@ -622,6 +623,7 @@ def query_version_actor_health(
         connector_version_id: Connector version UUID to summarize.
         is_destination: `True` for destination connectors, `False` for source.
         days: Number of days to look back (default: 7).
+        connector_definition_id: Connector definition UUID to scope the query.
         gsm_client: GCP Secret Manager client. If `None`, a new client is created.
     """
     cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
@@ -635,6 +637,7 @@ def query_version_actor_health(
         query,
         parameters={
             "actor_definition_version_id": connector_version_id,
+            "actor_definition_id": connector_definition_id,
             "cutoff_date": cutoff_date,
         },
         query_name=query_name,

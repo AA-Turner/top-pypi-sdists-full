@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: gen-worker
-Version: 0.116.0
+Version: 0.118.0
 Summary: A library used to build custom functions in Cozy Creator's serverless function platform.
 Project-URL: Homepage, https://github.com/cozy-creator/python-gen-worker
 Project-URL: Repository, https://github.com/cozy-creator/python-gen-worker
@@ -29,6 +29,7 @@ Requires-Dist: psutil>=7.0.0
 Requires-Dist: pyyaml>=6.0.0
 Requires-Dist: requests>=2.32.0
 Requires-Dist: tomli-w>=1.0.0
+Requires-Dist: torch-compiled-graphs<0.5,>=0.4
 Provides-Extra: audio
 Requires-Dist: numpy>=1.24; extra == 'audio'
 Requires-Dist: soundfile>=0.12; extra == 'audio'
@@ -150,7 +151,7 @@ in a `ctx.for_request` view over shared weights — never assigned onto the
 instance.
 
 Bindings: `HF(id, revision=, dtype=, subfolder=, files=, storage_dtype=)`,
-`Hub(ref, tag=, storage_dtype=)`, `Civitai(id, version=)`, `ModelScope(id, ...)`.
+`Hub(ref, release=, storage_dtype=)`, `Civitai(id, version=)`, `ModelScope(id, ...)`.
 The slot name comes from the `models={}` key or the `setup()` parameter —
 never a constructor argument. `storage_dtype="fp8"` keeps denoiser weights in
 fp8-E4M3 storage with per-layer upcast to the compute `dtype` (half the VRAM

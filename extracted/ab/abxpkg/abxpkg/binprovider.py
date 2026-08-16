@@ -1076,6 +1076,7 @@ class BinProvider(BaseModel):
                 for key in (
                     "exec_plan",
                     "script_exec_plans",
+                    "request_exec_projections",
                 )
                 if key in cached_record
             }
@@ -1444,9 +1445,6 @@ class BinProvider(BaseModel):
         extra_fingerprint_paths: Iterable[Path] = (),
         resolution_binaries: Iterable[tuple[str, HostBinPath, "BinProvider"]] = (),
     ) -> dict[str, object] | None:
-        if not exec_provider.supports_cached_exec():
-            return None
-
         resolved_runtime_providers = list(
             runtime_providers or exec_provider.exec_env_providers(),
         )
@@ -1475,7 +1473,7 @@ class BinProvider(BaseModel):
             for key, value in final_env.items()
             if key in managed_env_keys or resolved_base_env.get(key) != value
         }
-        env_input_keys = {"PATH", "NODE_PATH", "PYTHONPATH", *env}
+        env_input_keys = set(env)
         env_input_keys.add(f"{str(bin_name).upper().replace('-', '_')}_BINARY")
         env_input_keys.update(self.CACHE_ENV_ALIASES.get(str(bin_name), ()))
         env_input_keys.update(managed_env_keys)

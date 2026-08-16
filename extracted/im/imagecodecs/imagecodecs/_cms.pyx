@@ -361,7 +361,7 @@ def cms_transform(
         cmsHPROFILE hOutProfile = NULL
         cmsHTRANSFORM hTransform = NULL
         cmsUInt32Number numpixels
-        ssize_t i, nframes, src_frame_stride, dst_frame_stride
+        ssize_t nframes, src_frame_stride, dst_frame_stride
         char* src_ptr
         char* dst_ptr
 
@@ -480,7 +480,7 @@ def cms_transform(
                 # iterate over leading dimensions one frame (H x W) at a time
                 src_ptr = src.data
                 dst_ptr = dst.data
-                for i in range(nframes):
+                for _i in range(nframes):
                     cmsDoTransform(
                         hTransform,
                         <const void*> src_ptr,

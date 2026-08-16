@@ -1,4 +1,4 @@
-from jambo.exceptions import InternalAssertionException
+from jambo.exceptions import InternalAssertionException, InvalidSchemaException
 from jambo.parser._type_parser import GenericTypeParser
 from jambo.types.json_schema_type import JSONSchema
 from jambo.types.type_parser_options import TypeParserOptions
@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, create_model
 from pydantic.fields import FieldInfo
 from typing_extensions import Unpack
 
+import re
 import warnings
 
 
@@ -14,6 +15,8 @@ class ObjectTypeParser(GenericTypeParser):
     mapped_type = object
 
     json_schema_type = "type:object"
+
+    _valid_name_pattern = re.compile(r"^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*$")
 
     def from_properties_impl(
         self, name: str, properties: JSONSchema, **kwargs: Unpack[TypeParserOptions]
@@ -59,6 +62,12 @@ class ObjectTypeParser(GenericTypeParser):
         :param required_keys: List of required keys in the schema.
         :return: A Pydantic model class.
         """
+        if not cls._valid_name_pattern.match(name):
+            raise InvalidSchemaException(
+                f"Invalid name '{name}' for the schema. Object titles and property names"
+                " must use alphanumeric characters, hyphens and underscores only."
+            )
+
         ref_cache = kwargs.get("ref_cache")
         if ref_cache is None:
             raise InternalAssertionException(

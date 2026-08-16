@@ -646,11 +646,15 @@ class Benchmark:
     @staticmethod
     def _is_parameter_free_setup(setup):
         """
-        True if ``setup`` can be called with no positional arguments.
+        True if ``setup`` is a module-level hook callable with no arguments.
 
-        Used so module-level ``setup(*args, **kwargs)`` runs before
-        ``setup_cache`` while class ``setup(self, n)`` waits for ``do_setup``.
+        Module-level ``setup(*args, **kwargs)`` (pandas seed, asv#1592) runs
+        before ``setup_cache``. Bound class ``setup(self)`` and
+        ``setup(self, n)`` wait for ``do_setup``: ``inspect.signature`` omits
+        ``self`` on bound methods, so ``bind()`` alone would mis-fire.
         """
+        if inspect.ismethod(setup):
+            return False
         try:
             inspect.signature(setup).bind()
         except TypeError:

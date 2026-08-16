@@ -101,11 +101,11 @@ def meshopt_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     with nogil:
         ret = meshopt_encodeVertexBufferLevel(
-            <unsigned char*> &dst[0],
+            <unsigned char*> dst._data,
             <size_t> dstsize,
             <const void*> src.data,
             vertex_count,
@@ -134,7 +134,7 @@ def meshopt_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         size_t vertex_count, vertex_size
         int ret
 
@@ -159,7 +159,7 @@ def meshopt_decode(
             <void*> dst.data,
             vertex_count,
             vertex_size,
-            <const unsigned char*> &src[0],
+            <const unsigned char*> src._data,
             <size_t> srcsize
         )
 

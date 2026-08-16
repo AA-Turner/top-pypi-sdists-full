@@ -106,9 +106,9 @@ def ultrahdr_version():
 
 def ultrahdr_check(const uint8_t[::1] data, /):
     """Return whether data is ULTRAHDR encoded or None if unknown."""
-    if data.nbytes < 12:
+    if data.shape[0] < 12:
         return False
-    return bool(is_uhdr_image(<void*> &data[0], <int> data.nbytes))
+    return bool(is_uhdr_image(<void*> data._data, <int> data.shape[0]))
 
 
 def ultrahdr_encode(
@@ -356,13 +356,13 @@ def ultrahdr_encode(
             )
         else:
             dst = out
-            dstsize = dst.nbytes
+            dstsize = dst.shape[0]
             if dstsize < <ssize_t> compressed_image.data_sz:
                 raise ValueError(
                     f'output too small {dstsize} < {compressed_image.data_sz}'
                 )
             memcpy(
-                <void*> &dst[0],
+                <void*> dst._data,
                 <const void*> compressed_image.data,
                 compressed_image.data_sz
             )
@@ -414,6 +414,9 @@ def ultrahdr_decode(
     if data is out:
         raise ValueError('cannot decode in-place')
 
+    if src.shape[0] == 0:
+        raise ValueError('src is empty')
+
     if dtype is None:
         dtype = numpy.float16
     dtype = numpy.dtype(dtype)
@@ -436,9 +439,9 @@ def ultrahdr_decode(
         otf = transfer
 
     memset(<void*> &compressed_image, 0, sizeof(uhdr_compressed_image_t))
-    compressed_image.data = <void*> &src[0]
-    compressed_image.data_sz = <size_t> src.nbytes
-    compressed_image.capacity = <size_t> src.nbytes
+    compressed_image.data = <void*> src._data
+    compressed_image.data_sz = <size_t> src.shape[0]
+    compressed_image.capacity = <size_t> src.shape[0]
     compressed_image.cg = UHDR_CG_UNSPECIFIED
     compressed_image.ct = UHDR_CT_UNSPECIFIED
     compressed_image.range = UHDR_CR_UNSPECIFIED
@@ -585,11 +588,11 @@ cdef inline void _uhdr_unpack_rgba1010102(
 ) noexcept nogil:
     """Unpack UHDR_IMG_FMT_32bppRGBA1010102 to uint16."""
     cdef:
-        ssize_t i, j, k
+        ssize_t i, k
         uint32_t rgba
 
     k = 0
-    for j in range(height):
+    for _j in range(height):
         for i in range(width):
             rgba = src[i]
             # 10 bit red

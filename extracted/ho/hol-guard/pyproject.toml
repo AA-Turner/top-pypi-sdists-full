@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hol-guard"
-version = "2.2.88"
+version = "2.2.96"
 description = "Open-source antivirus and runtime protection for AI agents, tools, MCP servers, plugins, skills, and package installs."
 readme = "README.md"
 license = "Apache-2.0"
@@ -108,6 +108,8 @@ plugin-guard = "codex_plugin_scanner.cli:main"
 
 [project.urls]
 Homepage = "https://hol.org/guard"
+Security = "https://hol.org/guard/security"
+"Security Policy" = "https://github.com/hashgraph-online/hol-guard/blob/main/SECURITY.md"
 Documentation = "https://github.com/hashgraph-online/hol-guard/tree/main/docs/guard"
 Repository = "https://github.com/hashgraph-online/hol-guard"
 Issues = "https://github.com/hashgraph-online/hol-guard/issues"

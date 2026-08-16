@@ -39,7 +39,6 @@ class Quote(BaseAdapter):
         q = Quote(source="vci", symbol="VCI", random_agent=False, show_log=True)
         df = q.history(start_date="2024-01-01", end_date="2024-04-18", resolution=TimeResolutions.DAILY)
         df2 = q.intraday(page_size=100)
-        depth = q.price_depth()
     """
 
     def __init__(
@@ -187,34 +186,6 @@ class Quote(BaseAdapter):
         params.update(kwargs)
 
         return self._delegate_to_provider(M.INTRADAY, symbol, **params)
-
-    @optimize_execution("API")
-    @retry(
-        stop=stop_after_attempt(Config.RETRIES),
-        wait=wait_exponential(
-            multiplier=Config.BACKOFF_MULTIPLIER,
-            min=Config.BACKOFF_MIN,
-            max=Config.BACKOFF_MAX,
-        ),
-    )
-    @dynamic_method
-    def price_depth(self, symbol: Optional[str] = None, **kwargs: Any) -> pd.DataFrame:
-        """
-        Load price depth (order book) data for the symbol.
-        Tải dữ liệu độ sâu giá (sổ lệnh) cho mã chứng khoán.
-
-        Args:
-            symbol (str, optional): Stock symbol. Mã chứng khoán.
-
-        Returns:
-            pandas.DataFrame: Price depth data. Dữ liệu độ sâu giá.
-
-        Examples:
-            >>> quote = Quote(symbol="VCI", source="vci")
-            >>> df = quote.price_depth()
-            >>> df = quote.price_depth(symbol="FPT")
-        """
-        return self._delegate_to_provider(M.PRICE_DEPTH, symbol, **kwargs)
 
     def _delegate_to_provider(
         self, method_name: str, symbol: Optional[str] = None, **kwargs: Any

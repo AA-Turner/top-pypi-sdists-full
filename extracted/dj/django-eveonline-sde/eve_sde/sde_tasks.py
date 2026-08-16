@@ -20,12 +20,27 @@ from eve_sde.models.industry import (
 from eve_sde.models.lore import Archetype
 from eve_sde.models.map import (
     Constellation,
+    Landmark,
     Moon,
     NPCStation,
     Planet,
+    PlanetResource,
     Region,
     SolarSystem,
+    Star,
     Stargate,
+    StarResource,
+)
+from eve_sde.models.misc import (
+    AccountingEntryType,
+    CorporationRole,
+    CorporationRoleGroup,
+    CorporationRoleGroupMembership,
+    MetenoxMoonDrill,
+    NotificationType,
+    SkillPlan,
+    SkillPlanMilestone,
+    SkillPlanSkillRequirement,
 )
 from eve_sde.models.sovereignty import SovereigntyUpgrade
 from eve_sde.models.types import (
@@ -40,6 +55,10 @@ from eve_sde.models.types import (
     ItemTypeMaterials,
     TypeDogma,
     TypeEffect,
+    TypeList,
+    TypeListCategory,
+    TypeListGroup,
+    TypeListType,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,6 +71,10 @@ SDE_PARTS_TO_UPDATE = [
     ItemMarketGroup,
     ItemType,  # Requires: ItemGroup and ItemMarketGroup
     ItemTypeMaterials,
+    TypeList,
+    TypeListType,  # Requires: TypeList, ItemType
+    TypeListGroup,  # Requires: TypeList, ItemGroup
+    TypeListCategory,  # Requires: TypeList, ItemCategory
     BlueprintActivity,
     BlueprintActivityProduct,
     BlueprintActivityMaterial,
@@ -65,17 +88,31 @@ SDE_PARTS_TO_UPDATE = [
     Region,
     Constellation,
     SolarSystem,
+    Star,  # Requires: SolarSystem, ItemType
     #  System stuffs
     NPCStation,  # Requires: SolarSystem, ItemType
     SovereigntyUpgrade,  # Requires: ItemType
     Stargate,
     Planet,
+    PlanetResource,  # Requires: Planet, ItemType
+    StarResource,  # Requires: Star, ItemType
     Moon,
+    Landmark,  # Requires: SolarSystem
     # Lore / reference
     Archetype,
     # Freelance Jobs
     FreelanceJobSchema,
     FreelanceJobSchemaParameter,  # Requires: FreelanceJobSchema
+    # Misc
+    AccountingEntryType,
+    NotificationType,
+    CorporationRoleGroup,
+    CorporationRole,
+    CorporationRoleGroupMembership,  # Requires: CorporationRole, CorporationRoleGroup
+    MetenoxMoonDrill,  # Requires: ItemType
+    SkillPlan,
+    SkillPlanMilestone,  # Requires: SkillPlan, ItemType
+    SkillPlanSkillRequirement,  # Requires: SkillPlan, ItemType
 ]
 
 SDE_URL = "https://developers.eveonline.com/static-data/eve-online-static-data-latest-jsonl.zip"

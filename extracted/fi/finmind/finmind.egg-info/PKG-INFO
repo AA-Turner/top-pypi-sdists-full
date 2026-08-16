@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: finmind
-Version: 2.0.7
+Version: 2.0.8
 Summary: financial mining
 Author-email: linsam <finmind.tw@gmail.com>
 License:                                  Apache License
@@ -215,6 +215,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -223,7 +225,7 @@ Requires-Dist: numpy<3.0.0,>=1.19.5
 Requires-Dist: requests<3.0.0,>=2.23.0
 Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: ta<1.0.0,>=0.11.0
-Requires-Dist: lxml<5.0.0,>=4.6.3
+Requires-Dist: lxml<7.0.0,>=4.6.3
 Requires-Dist: pyecharts<2.0.0,>=1.9.0
 Requires-Dist: ipython<8.0.0,>=7.16.1
 Requires-Dist: loguru<1.0.0,>=0.5.3

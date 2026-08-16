@@ -6,6 +6,8 @@
 
 // Solve problem from a given workspace and measure setup and solve time
 void daqp_solve(DAQPResult *res, DAQPWorkspace *work){
+    // Put back an elimination that a previous solve retrieved
+    if((res->exitflag = daqp_eq_reinstall(work)) < 0) return;
 #ifdef PROFILING
     DAQPtimer timer;
     tic(&timer);
@@ -14,7 +16,7 @@ void daqp_solve(DAQPResult *res, DAQPWorkspace *work){
     if(work->sing_ind != DAQP_UNCONSTRAINED_OPTIMAL){
         // Select algorithm
         if(work->n_prox==0){
-            if(work->avi == NULL){
+            if(work->avi == NULL || work->avi->is_symmetric){
                 if(work->bnb != NULL)
                     res->exitflag = daqp_bnb(work);
                 else if(work->nh > 1)
@@ -28,7 +30,10 @@ void daqp_solve(DAQPResult *res, DAQPWorkspace *work){
             }
         }
         else{//Prox
-            res->exitflag = daqp_prox(work);
+            if(work->bnb != NULL)
+                res->exitflag = DAQP_EXIT_NONCONVEX;
+            else
+                res->exitflag = daqp_prox(work);
         }
     }
     else{// Unconstrained optimum
@@ -58,7 +63,9 @@ void daqp_quadprog(DAQPResult *res, DAQPProblem* qp, DAQPSettings *settings){
 
     DAQPWorkspace work;
     work.settings = settings;
-    setup_flag = setup_daqp_main(qp,&work,&(res->setup_time),1);
+    const int init_mask =
+        DAQP_UPDATE_unconstrained | DAQP_UPDATE_eliminate;
+    setup_flag = setup_daqp_main(qp,&work,&(res->setup_time),init_mask);
     res->exitflag = setup_flag;
 
     if(setup_flag >= 0){
@@ -78,11 +85,11 @@ void daqp_avi(DAQPResult *res, DAQPProblem* problem, DAQPSettings *settings){
 
 // Setup workspace and transform QP to LDP
 int setup_daqp(DAQPProblem* qp, DAQPWorkspace *work, c_float* setup_time){
-    return setup_daqp_main(qp,work,setup_time,0);//
+    return setup_daqp_main(qp,work,setup_time,0);
 }
 
 // Internal function for setting workspace and transform QP to LDP
-int setup_daqp_main(DAQPProblem* qp, DAQPWorkspace *work, c_float* setup_time, int check_unc){
+int setup_daqp_main(DAQPProblem* qp, DAQPWorkspace *work, c_float* setup_time, int init_mask){
     int errorflag;
     int own_settings=1;
     (void)setup_time; // avoids warning when compiling without profiling
@@ -135,7 +142,7 @@ int setup_daqp_main(DAQPProblem* qp, DAQPWorkspace *work, c_float* setup_time, i
         return errorflag;
     }
 
-    errorflag = setup_daqp_ldp(work,qp,check_unc);
+    errorflag = setup_daqp_ldp(work,qp,init_mask);
     if(errorflag < 0){
         if(own_settings==0) work->settings = NULL;
         free_daqp_workspace(work);
@@ -152,9 +159,10 @@ int setup_daqp_main(DAQPProblem* qp, DAQPWorkspace *work, c_float* setup_time, i
 }
 
 //  Setup LDP from QP
-int setup_daqp_ldp(DAQPWorkspace *work, DAQPProblem *qp, const int check_unc){
+int setup_daqp_ldp(DAQPWorkspace *work, DAQPProblem *qp, const int init_mask){
     // Always update M, d and sense
-    int update_mask = DAQP_UPDATE_M+DAQP_UPDATE_d+DAQP_UPDATE_sense;
+    int update_mask =
+        init_mask | DAQP_UPDATE_M | DAQP_UPDATE_d | DAQP_UPDATE_sense;
     int error_flag;
     int alloc_R=0, alloc_v=0;
 
@@ -162,12 +170,12 @@ int setup_daqp_ldp(DAQPWorkspace *work, DAQPProblem *qp, const int check_unc){
     // Only allocate Rinv if H is not NULL
     if(qp->H!=NULL){
         alloc_R = 1;
-        update_mask+=DAQP_UPDATE_Rinv;
+        update_mask |= DAQP_UPDATE_Rinv;
     }
     // Only allocate v if f is not NULL (QP linear term or LP objective).
     if(qp->f!=NULL){
         alloc_v = 1;
-        update_mask+=DAQP_UPDATE_v;
+        update_mask |= DAQP_UPDATE_v;
     }
 
     // For LPs (no Hessian), mark all directions as needing proximal regularisation.
@@ -179,9 +187,7 @@ int setup_daqp_ldp(DAQPWorkspace *work, DAQPProblem *qp, const int check_unc){
     allocate_daqp_ldp(work, qp->n, qp->m, qp->ms, alloc_R, alloc_v);
 
     // Update hierarchy if hqp
-    if(qp->nh > 1) update_mask += DAQP_UPDATE_hierarchy;
-
-    if(check_unc) update_mask += DAQP_UPDATE_unconstrained;
+    if(qp->nh > 1) update_mask |= DAQP_UPDATE_hierarchy;
 
     // Form LDP
     error_flag = daqp_update_ldp(update_mask, work, qp);
@@ -189,6 +195,14 @@ int setup_daqp_ldp(DAQPWorkspace *work, DAQPProblem *qp, const int check_unc){
         free_daqp_ldp(work);
         return error_flag;
     }
+
+    /*
+     * A singular quadratic needs v for the proximal linear term even when
+     * the original problem has no f. Allocate it only after factorization
+     * has identified that need, keeping the positive-definite path unchanged.
+     */
+    if(work->n_prox > 0 && work->v == NULL && qp->H != NULL)
+        work->v = calloc(work->n, sizeof(c_float));
 
     return 1;
 }
@@ -228,6 +242,7 @@ int setup_daqp_bnb(DAQPWorkspace* work, int* sense, int nb, int ns){
 // Free data for LDP
 void free_daqp_ldp(DAQPWorkspace *work){
     if(work->sense==NULL) return; // Already freed
+    free_daqp_eq(work); // Restores the full LDP before it is freed
     free(work->sense);
     if(work->Rinv != NULL){
         free(work->Rinv);
@@ -241,6 +256,7 @@ void free_daqp_ldp(DAQPWorkspace *work){
     if(work->scaling != NULL){
         free(work->scaling);
         free(work->M);
+        free(work->Mu);
         free(work->dupper);
         free(work->dlower);
     }
@@ -283,6 +299,7 @@ void allocate_daqp_workspace(DAQPWorkspace *work, int n, int ns){
     work->RinvD = NULL;
     work->v = NULL;
     work->scaling = NULL;
+    work->Mu = NULL;
 
     work->lam = malloc((n+1)*sizeof(c_float));
     work->lam_star = malloc((n+1)*sizeof(c_float));
@@ -315,6 +332,7 @@ void allocate_daqp_workspace(DAQPWorkspace *work, int n, int ns){
     work->nh = 0;
     work->break_points = NULL;
     work->avi = NULL;
+    work->eq = NULL;
     work->timer = NULL;
 
     reset_daqp_workspace(work);
@@ -326,6 +344,7 @@ void allocate_daqp_ldp(DAQPWorkspace *work, int n, int m, int ms, int alloc_R, i
     work->scaling= malloc(m*sizeof(c_float));
     for(i =0; i < ms; i++) work->scaling[i] =1;
     work->M = malloc(n*(m-ms)*sizeof(c_float));
+    work->Mu = m > ms ? malloc((m-ms)*sizeof(c_float)) : NULL;
     work->dupper = malloc(m*sizeof(c_float));
     work->dlower = malloc(m*sizeof(c_float));
     work->sense = malloc(m*sizeof(int));
@@ -350,6 +369,11 @@ void allocate_daqp_ldp(DAQPWorkspace *work, int n, int m, int ms, int alloc_R, i
 #endif
 }
 void allocate_daqp_avi(DAQPAVI* avi, const int n){
+    avi->is_symmetric = 0;
+    avi->retry_rho_needed = 0;
+    avi->rho = 0.0;
+
+
     // Allocate matrices
     avi->Hsym = malloc(n*n*sizeof(c_float));
     avi->Hs_rho = malloc(n*n*sizeof(c_float));
@@ -432,7 +456,9 @@ void daqp_extract_result(DAQPResult* res, DAQPWorkspace* work){
     // Extract primal solution
     for(i=0;i<work->n;i++) res->x[i] = work->x[i];
 
-    // Extract dual solution
+    // Extract dual solution for ordinary QPs. Hierarchical QPs populate the
+    // output duals in daqp_hiqp(), where they represent the soft-level
+    // penalties used by the public interfaces.
     if(res->lam != NULL && work->nh < 2){
         for(i=0;i<work->m;i++)
             res->lam[i] = 0;
@@ -441,15 +467,12 @@ void daqp_extract_result(DAQPResult* res, DAQPWorkspace* work){
     }
 
     // Shift back function value
-    if(work->v != NULL && work->avi == NULL && (work->Rinv != NULL || work->RinvD != NULL)){ // QP
+    if(work->v != NULL &&
+            (work->avi == NULL || work->avi->is_symmetric) &&
+            (work->Rinv != NULL || work->RinvD != NULL)){ // QP or symmetric AVI
         res->fval = work->fval;
         for(i=0;i<work->n;i++) res->fval-=work->v[i]*work->v[i];
         res->fval *=0.5;
-        if(work->n_prox > 0)
-            for(i=0;i<work->n;i++) // remove proximal bias: at fixed point x≈x_old so
-                // true_fval = perturbed_fval + 0.5*eps*||x_mask||^2
-                if(work->prox_mask == NULL || work->prox_mask[i])
-                    res->fval+= 0.5*work->settings->eps_prox*work->x[i]*work->x[i];
     }
     else if(work->qp != NULL && work->qp->f != NULL ){ // LP
         res->fval = 0;
@@ -460,6 +483,17 @@ void daqp_extract_result(DAQPResult* res, DAQPWorkspace* work){
     res->soft_slack = work->soft_slack;
     res->iter = work->iterations;
     res->nodes = (work->bnb == NULL) ? 1 : work->bnb->nodecount;
+
+    // Expand a reduced equality-eliminated result and restore the full LDP.
+    daqp_eq_retrieve(res,work);
+}
+
+void daqp_extract_active_duals(DAQPResult* res, DAQPWorkspace* work){
+    int i;
+    if(res->lam == NULL) return;
+    for(i=0;i<work->m;i++) res->lam[i] = 0;
+    for(i=0;i<work->n_active;i++)
+        res->lam[work->WS[i]] = work->lam_star[i];
 }
 
 void daqp_default_settings(DAQPSettings* settings){
@@ -560,7 +594,7 @@ void daqp_primal_init_active(DAQPProblem* qp, c_float* x){
     // General constraints
     for(i=qp->ms, disp=0; i < qp->m; i++, disp+=qp->n){
         if(qp->sense[i] & DAQP_IMMUTABLE) continue;
-        Ax = daqp_dot(x,qp->A+disp,qp->n);
+        Ax = daqp_dot_inline(x,qp->A+disp,qp->n);
         slack = Ax - qp->bupper[i];
         if (slack < tol && slack > -tol){
             qp->sense[i] |= DAQP_ACTIVE;

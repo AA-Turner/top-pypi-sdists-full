@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xknx
-Version: 3.19.0
+Version: 3.20.0
 Summary: An Asynchronous Library for the KNX protocol. Documentation: https://xknx.io/
 Author-email: Julius Mittenzwei <julius@mittenzwei.com>, Matthias Alphart <farmio@alphart.net>, Marvin Wichmann <me@marvin-wichmann.de>
 License-Expression: MIT

@@ -1,10 +1,9 @@
 import atexit
+from datetime import datetime
 import os
 import sys
 import tempfile
 import time
-
-from datetime import datetime
 from typing import Dict, List, Optional
 
 from clipped.utils.env import get_run_env
@@ -17,7 +16,6 @@ from clipped.utils.paths import (
     get_path_extension,
     set_permissions,
 )
-
 from polyaxon import settings
 from polyaxon._client.decorators import client_handler
 from polyaxon._connections import CONNECTION_CONFIG, V1Connection
@@ -41,8 +39,8 @@ from traceml.processors import events_processors
 from traceml.processors.logs_processor import end_log_processor, start_log_processor
 from traceml.serialization.writer import (
     EventFileWriter,
-    ResourceFileWriter,
     LogsFileWriter,
+    ResourceFileWriter,
 )
 
 
@@ -66,14 +64,14 @@ class Run(RunClient):
         run_data: V1Run.
         status: str.
         namespace: str.
-        client: [PolyaxonClient](/docs/core/python-library/polyaxon-client/)
+        client: [PolyaxonClient](/docs/references/python-library/polyaxon-client/)
 
     Args:
         owner: str, optional,
              the owner is the username or the organization name owning this project.
         project: str, optional, project name owning the run(s).
         run_uuid: str, optional, run uuid.
-        client: [PolyaxonClient](/docs/core/python-library/polyaxon-client/), optional,
+        client: [PolyaxonClient](/docs/references/python-library/polyaxon-client/), optional,
              an instance of a configured client, if not passed,
              a new instance will be created based on the available environment.
         track_code: bool, optional, default True, to track code version.

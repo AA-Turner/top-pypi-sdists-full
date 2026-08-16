@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abnf
-Version: 2.8.1
+Version: 2.8.2
 Summary: Parsers for ABNF grammars.
 Author-email: Charles Yeomans <charles@declaresub.com>
 Project-URL: Homepage, https://github.com/declaresub/abnf
@@ -37,7 +37,7 @@ Requires-Dist: setuptools==83.0.0; extra == "dev"
 Requires-Dist: tox==4.58.0; extra == "dev"
 Requires-Dist: setuptools_scm==10.2.1; extra == "dev"
 Provides-Extra: rust
-Requires-Dist: abnf-rust<3,>=2.7; extra == "rust"
+Requires-Dist: abnf-rust<3,>=2.8.1; extra == "rust"
 Provides-Extra: docs
 Requires-Dist: sphinx==8.1.3; extra == "docs"
 Requires-Dist: myst-parser==4.0.1; extra == "docs"

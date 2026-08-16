@@ -143,7 +143,9 @@ def jpegxl_version():
 def jpegxl_check(const uint8_t[::1] data, /):
     """Return whether data is JPEGXL encoded image or None if unknown."""
     cdef:
-        JxlSignature sig = JxlSignatureCheck(&data[0], min(data.nbytes, 16))
+        JxlSignature sig = JxlSignatureCheck(
+            <const uint8_t*> data._data, min(data.shape[0], 16)
+        )
 
     return sig != JXL_SIG_NOT_ENOUGH_BYTES and sig != JXL_SIG_INVALID
 
@@ -231,6 +233,13 @@ def jpegxl_encode(
     elif distance is not None and lossless is None:
         option_lossless = JXL_FALSE
 
+    if option_distance == 0.0 and option_lossless == JXL_FALSE:
+        # distance=0.0 means lossless
+        # JxlEncoderSetFrameDistance(0.0) internally calls
+        # JxlEncoderSetFrameLossless(JXL_TRUE) which in libjxl 0.12
+        # requires uses_original_profile=true be set
+        option_lossless = JXL_TRUE
+
     src = numpy.ascontiguousarray(data)
     dtype = src.dtype
     srcsize = <size_t> src.nbytes
@@ -279,13 +288,13 @@ def jpegxl_encode(
 
     if out is not None:
         dst = out
-        dstsize = dst.nbytes
-        output = output_new(<uint8_t*> &dst[0], dstsize)
+        dstsize = dst.shape[0]
+        output = output_new(<uint8_t*> dst._data, dstsize)
     elif dstsize > 0:
         out = _create_output(outtype, dstsize)
         dst = out
-        dstsize = dst.nbytes
-        output = output_new(<uint8_t*> &dst[0], dstsize)
+        dstsize = dst.shape[0]
+        output = output_new(<uint8_t*> dst._data, dstsize)
     else:
         output = output_new(
             NULL,
@@ -631,7 +640,7 @@ def jpegxl_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         size_t dstsize = 0
         size_t samples = 0
         size_t frames = 0
@@ -648,7 +657,7 @@ def jpegxl_decode(
         JxlBitDepth bit_depth
         size_t num_threads = _default_threads(numthreads)
         size_t channel_index
-        bint keep_orientation = bool(keeporientation)
+        bint keep_orientation = bool(keeporientation)  # None -> False
         bint is_planar = False
 
     if data is out:
@@ -656,7 +665,7 @@ def jpegxl_decode(
 
     # TODO: decode from ISOBMFF container ("box")
 
-    signature = JxlSignatureCheck(&src[0], srcsize)
+    signature = JxlSignatureCheck(<const uint8_t*> src._data, srcsize)
     if signature != JXL_SIG_CODESTREAM and signature != JXL_SIG_CONTAINER:
         raise ValueError('not a JPEG XL codestream')
 
@@ -693,7 +702,9 @@ def jpegxl_decode(
                 if status != JXL_DEC_SUCCESS:
                     raise JpegxlError('JxlDecoderSetParallelRunner', status)
 
-            status = JxlDecoderSetInput(decoder, &src[0], srcsize)
+            status = JxlDecoderSetInput(
+                decoder, <const uint8_t*> src._data, srcsize
+            )
             if status != JXL_DEC_SUCCESS:
                 raise JpegxlError('JxlDecoderSetInput', status)
             # JxlDecoderCloseInput(decoder)
@@ -707,7 +718,9 @@ def jpegxl_decode(
                 frames = _jpegxl_framecount(decoder)
                 if frames < 1:
                     raise RuntimeError('could not determine frame count')
-                status = JxlDecoderSetInput(decoder, &src[0], srcsize)
+                status = JxlDecoderSetInput(
+                    decoder, <const uint8_t*> src._data, srcsize
+                )
                 if status != JXL_DEC_SUCCESS:
                     raise JpegxlError('JxlDecoderSetInput', status)
                 # JxlDecoderCloseInput(decoder)
@@ -942,7 +955,7 @@ def jpegxl_encode_jpeg(
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
         ssize_t dstsize
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         size_t avail_out = 0
         uint8_t* next_out = NULL
         output_t* output = NULL
@@ -960,13 +973,13 @@ def jpegxl_encode_jpeg(
 
     if out is not None:
         dst = out
-        dstsize = dst.nbytes
-        output = output_new(<uint8_t*> &dst[0], dstsize)
+        dstsize = dst.shape[0]
+        output = output_new(<uint8_t*> dst._data, dstsize)
     elif dstsize > 0:
         out = _create_output(outtype, dstsize)
         dst = out
-        dstsize = dst.nbytes
-        output = output_new(<uint8_t*> &dst[0], dstsize)
+        dstsize = dst.shape[0]
+        output = output_new(<uint8_t*> dst._data, dstsize)
     else:
         output = output_new(NULL, max(<size_t> 32768, _align_size_t(srcsize)))
     if output == NULL:
@@ -1010,7 +1023,7 @@ def jpegxl_encode_jpeg(
 
             status = JxlEncoderAddJPEGFrame(
                 frame_settings,
-                <const uint8_t*> &src[0],
+                <const uint8_t*> src._data,
                 srcsize
             )
             if status != JXL_ENC_SUCCESS:
@@ -1078,7 +1091,7 @@ def jpegxl_decode_jpeg(
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
         ssize_t dstsize
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         output_t* output = NULL
         void* runner = NULL
         JxlDecoder* decoder = NULL
@@ -1089,7 +1102,7 @@ def jpegxl_decode_jpeg(
     if data is out:
         raise ValueError('cannot decode in-place')
 
-    signature = JxlSignatureCheck(&src[0], srcsize)
+    signature = JxlSignatureCheck(<const uint8_t*> src._data, srcsize)
     if signature != JXL_SIG_CODESTREAM and signature != JXL_SIG_CONTAINER:
         raise ValueError('not a JPEG XL codestream')
 
@@ -1097,13 +1110,13 @@ def jpegxl_decode_jpeg(
 
     if out is not None:
         dst = out
-        dstsize = dst.nbytes
-        output = output_new(<uint8_t*> &dst[0], dstsize)
+        dstsize = dst.shape[0]
+        output = output_new(<uint8_t*> dst._data, dstsize)
     elif dstsize > 0:
         out = _create_output(outtype, dstsize)
         dst = out
-        dstsize = dst.nbytes
-        output = output_new(<uint8_t*> &dst[0], dstsize)
+        dstsize = dst.shape[0]
+        output = output_new(<uint8_t*> dst._data, dstsize)
     else:
         output = output_new(NULL, _align_size_t(srcsize * 3) // 2 + 1024)
     if output == NULL:
@@ -1128,7 +1141,9 @@ def jpegxl_decode_jpeg(
                 if status != JXL_DEC_SUCCESS:
                     raise JpegxlError('JxlDecoderSetParallelRunner', status)
 
-            status = JxlDecoderSetInput(decoder, &src[0], srcsize)
+            status = JxlDecoderSetInput(
+                decoder, <const uint8_t*> src._data, srcsize
+            )
             if status != JXL_DEC_SUCCESS:
                 raise JpegxlError('JxlDecoderSetInput', status)
             # JxlDecoderCloseInput(decoder)

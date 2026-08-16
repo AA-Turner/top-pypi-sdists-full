@@ -1,9 +1,8 @@
 # (c) 2021-2024 Martin Wendt; see https://github.com/mar10/nutree
 # Licensed under the MIT license: https://www.opensource.org/licenses/mit-license.php
-""" """
+
 # ruff: noqa: T201, T203 `print` found
-# pyright: reportOptionalMemberAccess=false
-# mypy: disable-error-code="attr-defined"
+# ty: ignore[unresolved-attribute, missing-type-argument]
 
 from __future__ import annotations
 
@@ -73,7 +72,7 @@ class TestSerialize:
         assert tree.first_child() is not tree_2.first_child()
         assert tree.first_child() == tree_2.first_child()
 
-        a11 = tree_2.find("a11")
+        a11 = tree_2.find_first("a11")
         assert a11
         assert a11.is_clone(), "Restored clone"
         assert len(tree_2.find_all("a11")) == 2
@@ -252,11 +251,11 @@ class TestSerialize:
         #       so that `tree.first_child() == tree_2.first_child()`
         # assert tree.first_child() == tree_2.first_child()
 
-        alice_2 = tree_2.find(match=".*Alice.*")
+        alice_2 = tree_2.find_first(match=".*Alice.*")
         assert alice_2
         assert alice_2.data.guid == "{123-456}"
 
-        charleen_2 = tree_2.find(match=".*Charleen.*")
+        charleen_2 = tree_2.find_first(match=".*Charleen.*")
         assert charleen_2
         assert charleen_2.is_clone(), "Restored clone"
         # assert len(tree_2.find_all("Charleen")) == 2
@@ -303,7 +302,7 @@ class TestSerialize:
         assert tree.first_child(kind=ANY_KIND) is not tree_2.first_child(kind=ANY_KIND)
         assert tree.first_child(kind=ANY_KIND) == tree_2.first_child(kind=ANY_KIND)
 
-        fail1 = tree_2.find("fail1")
+        fail1 = tree_2.find_first("fail1")
         assert fail1
         assert fail1.is_clone(), "Restored clone"
         assert len(tree_2.find_all("fail1")) == 2
@@ -451,11 +450,11 @@ class TestSerialize:
         #       so that `tree.first_child() == tree_2.first_child()`
         # assert tree.first_child() == tree_2.first_child()
 
-        alice_2 = tree_2.find(match=".*Alice.*")
+        alice_2 = tree_2.find_first(match=".*Alice.*")
         assert alice_2
         assert alice_2.data.guid == "{123-456}"
 
-        charleen_2 = tree_2.find(match=".*Charleen.*")
+        charleen_2 = tree_2.find_first(match=".*Charleen.*")
         assert charleen_2
         assert charleen_2.is_clone(), "Restored clone"
         # assert len(tree_2.find_all("Charleen")) == 2
@@ -567,11 +566,11 @@ class TestSerialize:
         #       so that `tree.first_child() == tree_2.first_child()`
         # assert tree.first_child() == tree_2.first_child()
 
-        alice_2 = tree_2.find(match=".*Alice.*")
+        alice_2 = tree_2.find_first(match=".*Alice.*")
         assert alice_2
         assert alice_2.data.guid == "{123-456}"
 
-        charleen_2 = tree_2.find(match=".*Charleen.*")
+        charleen_2 = tree_2.find_first(match=".*Charleen.*")
         assert charleen_2
         assert charleen_2.is_clone(), "Restored clone"
         # assert len(tree_2.find_all("Charleen")) == 2

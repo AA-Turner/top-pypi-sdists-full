@@ -29,7 +29,8 @@ from typing import Any, Awaitable, Callable, Dict, List, Mapping, Optional, Tupl
 import msgspec
 
 from . import activity as activity_mod
-from . import aot_declaration, aot_identity, aot_mint
+from . import adopt_fit
+from . import aot_declaration, aot_identity
 from . import boot_adopt
 from . import boot_phases as boot_mod
 from . import cell_adopt
@@ -37,7 +38,6 @@ from . import dispatch
 from . import handler_proof
 from .procsplit import broker as procsplit_broker
 from . import cpu_budget
-from . import kernel_path
 from . import measured_posture as posture_mod
 from . import mint_workers
 from . import settings_authority
@@ -49,18 +49,16 @@ from . import worker_credential
 from . import worker_goals
 from .api.binding import (
     ModelRef,
-    binding_wire_refs,
-    component_overrides,
     wire_ref,
 )
 from .hubio.client import HubPublishError
 from .hub_error import HubApiError
-from . import cell_key
+from . import graph_facts
 from .child_contract import MintSlot, slot_subjects
+from .wire_snapshots import index_snapshots
 from .api.errors import (
     ArtifactTransferError,
     CanceledError,
-    ComponentSubstitutionError,
     EndpointSetupFailed,
     GpuSlotUnreachable,
     IllegalCombination,
@@ -153,7 +151,7 @@ from .utils import lora as lora_util
 import errno as _errno
 import inspect as _inspect
 import struct as _struct
-from .models.refs import DEFAULT_REF_TAG, parse_model_ref
+from .models.refs import parse_model_ref
 from . import compile_cache
 from .models.loading import (
     is_modular_pipeline_class,
@@ -162,6 +160,7 @@ from .models.loading import (
 from .compile_cache import CompiledExecutionLaneUnavailableError
 from .preload import Preloader
 from .api.binding import rebind_pick
+from . import hostfacts
 from .models.hub_policy import TensorhubWorkerCapabilities
 from .models.serve_fit import (RUN_FP8_STORAGE,
                                    RUN_OFFLOAD, plan_serve)
@@ -174,9 +173,9 @@ from . import warmup as warmup_mod
 from .api.decorators import ATTR as _DECL_ATTR
 from . import compile_cache as _cc_execution_lane
 from .parallel import ContextParallelUnavailable
-from .parallel import GroupPlan
+from .parallel import BootPlan, GroupPlan
 from .parallel.cp import w8a8_gemm_mode
-from .parallel.runtime import BootPlan, SequenceRuntime, arm_sequence_gate
+from .parallel.runtime import SequenceRuntime, arm_sequence_gate
 from .runtimes.server import RUNTIME_FACTORIES
 from .models.loading import composition_compute_dtype
 from .runtimes.server import ServerHandle
@@ -187,6 +186,7 @@ from . import aot_serve, numerics_ladder, shape_growth
 from . import fleet_cells as fleet_cells_mod
 from . import hot_swap
 from . import mint_supervisor
+from .hostfacts import cuda_ready
 
 _CONTEXT_BY_KIND: Dict[str, type] = {
     "inference": RequestContext,
@@ -409,7 +409,7 @@ def _hub_binding_for_wire_ref(ref: str) -> ModelRef:
     """A tensorhub-source binding for a hub-named wire ref (pgw#532).
 
     ``RunJob.models`` / desired-instance refs name hub-CAS repos in the canonical
-    ``owner/repo[:tag][@digest]`` grammar; this mints the binding the
+    ``owner/repo[@release|@digest]`` grammar; this mints the binding the
     executor materializes them through (``ensure_local`` then follows the
     tensorhub lane: orchestrator snapshots or the th#763 missing_snapshot
     re-mint — never an upstream self-fetch). Raises ``ValueError`` when
@@ -423,7 +423,7 @@ def _hub_binding_for_wire_ref(ref: str) -> ModelRef:
     return ModelRef(
         source="tensorhub",
         path=f"{th.owner}/{th.repo}",
-        tag=th.tag or DEFAULT_REF_TAG,
+        release=th.release,
     )
 
 
@@ -454,15 +454,11 @@ def _exported_arm(pipeline: Any, ref: str = "") -> bool:
 
 
 def _alias_binding_matches(alias: "EndpointSpec", slot_key: str, ref: str) -> bool:
-    """Does ``alias`` hold this load-time binding fact? ``slot_key`` is a
-    slot name or ``<slot>.<component>`` override key (pgw#617)."""
-    base, _, comp = slot_key.partition(".")
-    binding = alias.models.get(base)
+    """Does ``alias`` hold this load-time binding fact?"""
+    binding = alias.models.get(slot_key)
     if binding is None:
         return False
-    if not comp:
-        return wire_ref(binding).strip() == ref
-    return (comp, ref) in component_overrides(binding)
+    return wire_ref(binding).strip() == ref
 
 
 def _map_exception(exc: BaseException) -> Tuple["pb.JobStatus", str]:
@@ -548,7 +544,7 @@ def _typed_setup_fault(
     * an exception that already maps to a non-FATAL status — a warm-phase OOM
       is still an OOM, and re-typing it would fatal a job a bigger card serves;
     * anything already a ``WorkerError`` — those carry their own origin claim
-      (``ModelSlotIdentityError``, ``ComponentSubstitutionError``, ... are
+      (``ModelSlotIdentityError``, ... are
       exactly the labels the hub routes on), and wrapping would erase it.
     """
     if phase not in _WORKER_OWNED_SETUP_PHASES:
@@ -1195,7 +1191,7 @@ def _mint_origin(bg: "_BackgroundMint", spec: EndpointSpec) -> str:
     slot-resolution errors it may raise. The delegated child's twin is
     ``mint_child.mint_identity``; both exist because ``ValueError: slot
     'pipeline': no resolved model ref`` named a symptom and no mint."""
-    keys = sorted({str(getattr(p, "cell_key", "")) for p in bg.pendings.values()})
+    keys = sorted({str(getattr(p, "compiled_graph_key", "")) for p in bg.pendings.values()})
     return (
         f"in-process mint fn={spec.name!r} "
         f"key={(keys[0] if len(keys) == 1 else keys) or '(none)'!r}")
@@ -1355,6 +1351,11 @@ class _Job:
     # contaminates every compiled-vs-eager latency comparison with eager data.
     served_eager_fallback: bool = False
     fallback_reason: str = ""
+    # pgw#888: the dispatch fence runs TWICE for one job (at intake, and again
+    # as the last execution fence before the GPU turn), so a degrade that
+    # persists across both would confess twice and double every hub-side count
+    # of it. One request, one confession.
+    pinned_cell_degrade_reported: bool = False
     # pgw#789: (steps, width, height) of the EXECUTED payload, defaults
     # applied — the axes latency is a function of. Stamped beside `lane`,
     # where the resolved payload is in scope; 0 means "not applicable"
@@ -1821,7 +1822,7 @@ class Executor:
         # failures (owned by _mark_setup_failed) survive re-gates.
         self._gate_owned: set = set()
         # Last hardware probe, so resolutions can re-run the gates.
-        self._last_gpu_info: Optional[Dict[str, Any]] = None
+        self._last_gpu_info: Optional[hostfacts.HostFacts] = None
         # th#683 P3: how each serveable function will run on the actual card
         # (native / emergency / offload / cpu) + honest-guidance advisory.
         self.serve_plans: Dict[str, "ServePlan"] = {}
@@ -2169,7 +2170,7 @@ class Executor:
 
     # ---- availability ----------------------------------------------------
 
-    def gate_functions(self, gpu_info: Dict[str, Any]) -> None:
+    def gate_functions(self, facts: hostfacts.HostFacts) -> None:
         """Run hardware gates; populate self.unavailable + self.serve_plans.
 
         th#683 P3, as th#1867 left it — the worker NEVER refuses a function
@@ -2190,12 +2191,12 @@ class Executor:
         # Idempotent re-gate (gw#494): drop only the marks THIS gate made
         # last time; setup failures and other owners survive. Remember the
         # probe so apply_model_resolutions can re-run us.
-        self._last_gpu_info = dict(gpu_info)
+        self._last_gpu_info = facts
         for fn in self._gate_owned:
             self.unavailable.pop(fn, None)
         self._gate_owned = set()
 
-        total_vram_gb = float(gpu_info.get("gpu_total_mem") or 0) / (1024 ** 3)
+        total_vram_gb = float(facts.vram_total_bytes) / (1024 ** 3)
         # pgw#940: no substitution. `or gpu_total_mem` treated a legitimate 0
         # as "absent" and replaced it with the largest plausible number — and
         # `gpu_free_mem` is genuinely 0 on a SATURATED card, which is exactly
@@ -2207,13 +2208,13 @@ class Executor:
         # wraps its whole CUDA probe in `except Exception: pass`, so "the
         # probe raised" arrives here indistinguishable from "the card is
         # full" — both are non-permissive now, which is the point.
-        free_vram_gb = float(gpu_info.get("gpu_free_mem") or 0) / (1024 ** 3)
-        detected_sm = str(gpu_info.get("gpu_sm") or "")
-        libs = {str(x) for x in (gpu_info.get("installed_libs") or [])}
+        free_vram_gb = float(facts.vram_free_bytes) / (1024 ** 3)
+        detected_sm = facts.gpu_sm
+        libs = set(facts.installed_libs)
         caps = TensorhubWorkerCapabilities(
-            cuda_version=str(gpu_info.get("cuda_version") or ""),
+            cuda_version=facts.cuda_version,
             gpu_sm=int(detected_sm) if detected_sm.isdigit() else 0,
-            torch_version=str(gpu_info.get("torch_version") or ""),
+            torch_version=facts.torch_version,
             installed_libs=list(libs),
         )
         # pgw#676: per-pod native-crash streaks (SIGSEGV & friends recorded
@@ -2630,7 +2631,7 @@ class Executor:
             target.active_compile_ref = ""
             target.active_compile_snapshot_digest = ""
 
-        compile_cache.record_cell_quarantined(failed_ref)
+        compile_cache.record_compiled_graph_quarantined(failed_ref)
         logger.warning(
             "compile target %s runtime guard tripped; compiled proof revoked, "
             "serving degrades to explicit eager: %s",
@@ -2676,6 +2677,9 @@ class Executor:
                 # Never erase a hardware/setup disable or another target's
                 # ownership merely because this target also named the alias.
                 continue
+            # pgw#1278: kept spelling. `FnUnavailable.reason` is a CLOSED
+            # vocabulary enumerated in the proto, so this token moves with the
+            # proto lane, not with the route/event rename.
             self.unavailable[name] = (
                 "compile_cell_failed", sanitized, {},
             )
@@ -3429,6 +3433,26 @@ class Executor:
         worker-session address, not a durable model identity; vacate/reload,
         mutable-tag republish, or an alias/model mismatch must requeue rather
         than execute on a merely same-family pipeline.
+
+        pgw#888 (Paul, 2026-08-15): *"a worker should serve-eager if
+        compilation doesn't work … although it should loudly report when it's
+        performing in a degraded mode."* So this fence now answers TWO
+        questions that it used to fold into one refusal:
+
+        - **Is this the right model?** — incarnation, lane, function and every
+          model binding. A mismatch is a different object, there is nothing
+          correct to serve, and it still requeues.
+        - **Is the pinned COMPILED GRAPH still what this pod serves?** — the
+          cell ref/digest half. A cell that de-armed for cause (§4.31), was
+          revoked, or was replaced by a newer one is a SPEED fact, not a
+          correctness one: the pipeline, its weights and its lane are exactly
+          what the hub picked. Refusing there is what burned 11 real requests
+          through five retries each. It now serves and confesses.
+
+        The mandatory-quantized carve-out stands: `w8a8`/`w4a4` is a lane the
+        author declared serves only from a cell, so a dispatch that cannot
+        name one is still refused rather than answered with numerics the
+        endpoint never sanctioned.
         """
         setup_slots = self._setup_slots(spec)
         want_execution_lane = self._mandatory_execution_lane_of_bound(
@@ -3480,14 +3504,13 @@ class Executor:
                 "required_compile_function_mismatch: target does not serve "
                 f"{spec.name!r}"
             )
-        if (
-            target_active[0] != identity[1]
-            or target_active[1] != identity[2]
-            or target_active[2] != identity[3]
-        ):
+        if target_active[2] != identity[3]:
+            # The EXECUTION CONTRACT, not the cell. A changed contract digest
+            # means the target's call ingress is not the one the hub validated
+            # this dispatch against, so serving it would run a different
+            # function signature — an identity fault, not a degrade.
             raise RetryableError(
-                "required_compile_identity_mismatch: active cell or execution "
-                "contract changed"
+                "required_compile_contract_mismatch: execution contract changed"
             )
 
         expected: List[Tuple[str, str, str]] = []
@@ -3511,6 +3534,75 @@ class Executor:
             raise RetryableError(
                 "required_compile_binding_mismatch: selected target holds a "
                 "different model ref or snapshot digest"
+            )
+
+        # LAST, and only once every identity fence above has passed: this is
+        # the right pipeline, holding the right models, on the right lane —
+        # and the compiled graph the hub pinned is not the one it serves.
+        if target_active[0] != identity[1] or target_active[1] != identity[2]:
+            if want_execution_lane:
+                raise RetryableError(
+                    f"required_compile_identity_mismatch: {want_execution_lane.upper()} "
+                    "dispatch pinned a compile cell this target no longer "
+                    "serves, and the lane is declared mandatory — eager would "
+                    "serve numerics this endpoint never sanctioned"
+                )
+            self._report_pinned_cell_unavailable(spec, run, identity, target_active)
+
+    def _report_pinned_cell_unavailable(
+        self,
+        spec: EndpointSpec,
+        run: pb.RunJob,
+        identity: Tuple[str, str, str, str],
+        active: Tuple[str, str, str],
+    ) -> None:
+        """pgw#888: SERVE this request, and say loudly that it is degraded.
+
+        A log line is not reporting — a hub-spawned worker exposes no stdout
+        (pgw#760) — so the confession is a typed `serve_degrade` event naming
+        the degraded mode, the compiled-graph key that failed to be here, and
+        the cause. The hub banks it in `worker_activity_events`, which is what
+        lets the fleet's republish/re-mint machinery fix the root cause while
+        users keep getting outputs.
+
+        Two distinguishable degrades share this exit, and conflating them
+        would be the exact `serving_mode` contamination pgw#764 exists to
+        prevent: nothing armed means this request really is served EAGER and
+        the latency sample must be subtractable; a DIFFERENT armed cell still
+        serves compiled, and `serving_mode` reports the cell it actually used.
+        """
+        job = self.jobs.get((run.request_id, int(run.attempt)))
+        if job is not None:
+            if job.pinned_cell_degrade_reported:
+                return  # the intake fence already confessed this one
+            job.pinned_cell_degrade_reported = True
+        served_eager = not active[0]
+        detail = (
+            f"fn={spec.name} request={run.request_id or '<unknown>'} "
+            f"attempt={int(run.attempt)} "
+            f"pinned_cell={identity[1]} pinned_digest={identity[2][:16]} "
+            f"active_cell={active[0] or '<none>'} "
+            f"active_digest={active[1][:16] or '<none>'} "
+            f"cause=the pinned compiled graph is not armed on this target "
+            f"(de-armed for cause, revoked, or superseded); serving "
+            f"{'eager' if served_eager else 'the armed cell'} instead of "
+            f"refusing (pgw#888)"
+        )
+        logger.warning(
+            "serving request %s DEGRADED: the hub pinned compile cell %s and "
+            "this target serves %s — answering it anyway",
+            run.request_id or "<unknown>", identity[1], active[0] or "eager",
+        )
+        activity_mod.emit_event(
+            activity_mod.KIND_SERVE_DEGRADE,
+            detail,
+            phase=serving_mode_mod.FALLBACK_PINNED_CELL_UNAVAILABLE,
+            compiled_graph_key=identity[1],
+        )
+        if served_eager:
+            self._mark_request_eager_fallback(
+                run.request_id,
+                serving_mode_mod.FALLBACK_PINNED_CELL_UNAVAILABLE,
             )
 
     def in_flight_keys(self) -> List[Tuple[str, int]]:
@@ -3769,20 +3861,6 @@ class Executor:
         run_refs = {
             slot: so.ref for slot, so in slots.items() if slot and so.ref
         }
-        # pgw#617 hierarchical bindings: per-component substitutions ride the
-        # dispatch binding and become part of the derived spec's identity —
-        # a component-only rebind derives a NEW instance (reload), a flat
-        # binding (empty map) is byte-identical to the pre-#617 path.
-        run_comps: Dict[str, Dict[str, str]] = {}
-        for slot, so in slots.items():
-            if not so.components:
-                continue
-            if slot not in spec.slots:
-                logger.warning(
-                    "component substitutions on %s slot %r ignored: not a "
-                    "declared Slot", spec.name, slot)
-                continue
-            run_comps[slot] = dict(so.components)
         effective = dict(spec.models)
         for slot, decl in spec.slots.items():
             if decl.optional and not run_refs.get(slot, ""):
@@ -3795,20 +3873,7 @@ class Executor:
                 # the parameter's own default.
                 effective.pop(slot, None)
                 continue
-            binding = self._bound_slot(spec, slot, run_refs.get(slot, ""))
-            slot_comps = run_comps.get(slot) or {}
-            if slot_comps:
-                for comp, comp_ref in slot_comps.items():
-                    try:
-                        self._hub_binding(comp_ref)
-                    except ValueError:
-                        raise ComponentSubstitutionError(
-                            spec.name, slot, comp,
-                            detail=f"override ref {comp_ref!r} is not a "
-                                   "tensorhub-CAS ref") from None
-                binding = msgspec.structs.replace(
-                    binding, component_overrides=tuple(sorted(slot_comps.items())))
-            effective[slot] = binding
+            effective[slot] = self._bound_slot(spec, slot, run_refs.get(slot, ""))
         if effective == spec.models:
             return spec
         return dc_replace(spec, models=effective)
@@ -4187,16 +4252,7 @@ class Executor:
                 f"{sorted(spec.models)!r}); got {sorted(bindings)!r}"
             )
 
-        orders = {
-            m.slot: dispatch.SlotOrder(
-                ref=m.ref,
-                components=tuple(sorted(
-                    (str(k).strip(), str(v).strip())
-                    for k, v in m.components.items()
-                    if str(k).strip() and str(v).strip())),
-            )
-            for m in remapped
-        }
+        orders = {m.slot: dispatch.SlotOrder(ref=m.ref) for m in remapped}
         effective = self._dispatched_spec(spec, orders)
         mismatched = {
             slot: wire_ref(effective.models[slot])
@@ -4225,7 +4281,7 @@ class Executor:
         return list(dict.fromkeys(
             [
                 r for s in slots
-                for r in binding_wire_refs(spec.models[s])
+                for r in [wire_ref(spec.models[s])]
                 if r not in execution_lane_refs
             ]
             + shared_ids
@@ -4355,8 +4411,8 @@ class Executor:
         async with self._setup_singleflight(spec, rec) as intent_id:
             if rec.ready and not rec.stale:
                 setup_refs = [
-                    r for slot in self._setup_slots(spec)
-                    for r in binding_wire_refs(spec.models[slot])
+                    wire_ref(spec.models[slot])
+                    for slot in self._setup_slots(spec)
                 ]
                 for ref in setup_refs:
                     wanted = self.store.snapshot_digest(
@@ -4692,17 +4748,15 @@ class Executor:
     def _warm_contract_key(self, spec: EndpointSpec) -> Any:
         """The identity under which warm RUNS are shared across checkpoint
         instances (pgw#654 warm-tax fix): the class plus every per-slot fact
-        that selects graphs or kernels — precision lane (storage_dtype /
-        dtype) and component overrides — and NEVER the
-        checkpoint ref itself. Two fine-tunes of one family land on the same
-        key by construction; a lane rebind or a component substitution
-        derives a different one."""
+        that selects graphs or kernels — the precision lane (storage_dtype /
+        dtype) — and NEVER the checkpoint ref itself. Two fine-tunes of one
+        family land on the same key by construction; a lane rebind derives a
+        different one."""
         rows = tuple(
             (
                 slot,
                 getattr(b, "storage_dtype", "") or "",
                 getattr(b, "dtype", "") or "",
-                component_overrides(b),
             )
             for slot, b in sorted(spec.models.items())
         )
@@ -4806,7 +4860,7 @@ class Executor:
         skip_ok = (
             allow_contract_skip
             and not cold_proof_ids
-            and all(compile_cache.cell_proven_in_process(r) for r in armed_refs)
+            and all(compile_cache.compiled_graph_proven_in_process(r) for r in armed_refs)
         )
         run_jobs, warm_mode = warmup_mod.select_runs(
             jobs,
@@ -4919,7 +4973,7 @@ class Executor:
                             f"boot warm plan cut short: {evidence.aborted}",
                             phase="warmup_oom",
                         )
-                    if torch is not None and torch.cuda.is_available():
+                    if torch is not None and cuda_ready():
                         torch.cuda.empty_cache()
                     return False
             evidence.count += 1
@@ -5080,19 +5134,24 @@ class Executor:
         inflight_token = postmortem.note_inflight(
             "warmup", spec.name, request_id=str(ctx.request_id or ""))
         try:
-            if spec.is_async_gen:
-                async for _ in bound(**call_kwargs):
-                    pass
-            elif spec.is_async:
-                await bound(**call_kwargs)
-            else:
-                def _consume() -> None:
-                    out = bound(**call_kwargs)
-                    if spec.output_mode == "stream":
-                        for _ in out:
-                            pass
+            # pgw#1265: mint seeds and the boot warm forward go through here
+            # and nowhere else, so this is what gives the adopt's headroom
+            # verdict a measurement on a pod that has not served a tenant
+            # request yet — which is every pod that mints at boot.
+            with adopt_fit.forward_watermark():
+                if spec.is_async_gen:
+                    async for _ in bound(**call_kwargs):
+                        pass
+                elif spec.is_async:
+                    await bound(**call_kwargs)
+                else:
+                    def _consume() -> None:
+                        out = bound(**call_kwargs)
+                        if spec.output_mode == "stream":
+                            for _ in out:
+                                pass
 
-                await _to_thread_complete(_consume)
+                    await _to_thread_complete(_consume)
             # pgw#1199: THE proof, recorded where it already happens. This call
             # is the endpoint's own handler, running on the RESIDENT pipeline
             # with real checkpoint values, and every warm path in this process
@@ -5148,7 +5207,7 @@ class Executor:
         gated: List[str] = []
         for name, spec in self.specs.items():
             bound = any(
-                ref in binding_wire_refs(binding)
+                ref == wire_ref(binding)
                 for slot, binding in spec.models.items()
                 if slot not in spec.slots
             )
@@ -5271,14 +5330,10 @@ class Executor:
             slot: wire_ref(spec.models[slot]) for slot in setup_slots
         }
         slot_identities: Dict[str, _ResidencyIdentity] = {}
-        # pgw#974: ONE resolution per slot — the binding, the tree its bytes
-        # were materialized into, and the pgw#617 component overrides that
-        # complete the composition. Written by a single statement per slot, so
-        # the three cannot drift apart or arrive without one another; the
-        # plain-path and plain-override views the local loaders take are
-        # DERIVED from it below, never maintained beside it.
+        # pgw#974: ONE resolution per slot — the binding and the tree its
+        # bytes were materialized into. Written by a single statement per
+        # slot, so the two cannot drift apart or arrive without one another.
         resolved_slots: Dict[str, MintSlot] = {}
-        override_digests: Dict[str, str] = {}
         self._intent_transition(
             intent_id,
             pb.LIFECYCLE_INTENT_STATUS_RUNNING,
@@ -5291,29 +5346,10 @@ class Executor:
             materialized = await self.store._materialize_local(
                 ref, snap, binding=binding)
             slot_identities[slot] = materialized.identity
-            comps: Dict[str, str] = {}
-            for comp, comp_ref in component_overrides(binding):
-                try:
-                    comp_binding = self._hub_binding(comp_ref)
-                except ValueError:
-                    raise ComponentSubstitutionError(
-                        spec.name, slot, comp,
-                        detail=f"override ref {comp_ref!r} is not a "
-                               "tensorhub-CAS ref") from None
-                comp_mat = await self.store._materialize_local(
-                    comp_ref, (snapshots or {}).get(comp_ref),
-                    binding=comp_binding)
-                comps[comp] = str(comp_mat.path)
-                if comp_mat.identity[0]:
-                    override_digests[comp_ref] = comp_mat.identity[0]
             resolved_slots[slot] = MintSlot(
-                ref=binding, path=str(materialized.path),
-                component_paths=comps)
+                ref=binding, path=str(materialized.path))
         paths: Dict[str, str] = {
             slot: res.path for slot, res in resolved_slots.items()}
-        component_paths: Dict[str, Dict[str, str]] = {
-            slot: dict(res.component_paths)
-            for slot, res in resolved_slots.items() if res.component_paths}
         topology_eager = self._eager_only_reason()
         # pgw#1142 / §4.32 item 4. The order joins the topology reason for
         # every "do not go looking for a cell" decision below — this is the
@@ -5420,18 +5456,6 @@ class Executor:
                 eager_only,
                 family=str(getattr(spec.compile, "family", "") or ""),
                 function=str(spec.name or ""))
-        # pgw#947: the serving-kernel lane comes from the CELL, and it has to
-        # be pinned BEFORE setup() — the linears are swapped at model load, so
-        # a verdict read afterwards would arrive one whole pipeline too late.
-        # No cell (eager boot, self-minting boot, pre-pgw#947 cell) is the
-        # declared conservative default WITH a typed reason; there is no SM
-        # allowlist and no per-boot probe to fall back on any more.
-        # The verdict is EVIDENCE, not an instruction: cells are keyed on SM
-        # and the lane is not a key axis, so a 96 GB card's winner can reach a
-        # 32 GB card of the same SM. adopt() re-applies the fit constraint
-        # against THIS device before pinning.
-        kernel_path.adopt_from_artifact(
-            compile_artifact, source=f"{spec.name} boot")
         # Loads serialize: concurrent setups would cross-contaminate each
         # other's allocator deltas and place_pipeline's free-VRAM reads.
         async with self._intent_lock(
@@ -5450,48 +5474,22 @@ class Executor:
             # VRAM make-room may demote the old pipeline into host RAM. Admit
             # the incoming load only AFTER that transition so the probe sees
             # the actual post-demotion pressure (pgw#541).
-            await self._ensure_host_ram_for(
-                spec, paths, component_paths=component_paths)
+            await self._ensure_host_ram_for(spec, paths)
             instance = spec.cls()
             # Stamp provisional ownership BEFORE tenant setup/warmup. The
             # record is not advertised until rec.ready becomes true, but an
             # exception or cancellation can now tear down the exact instance
             # and exact resolved refs instead of losing them in stack locals.
             rec.instance = instance
-            rec.held_refs = sorted(
-                set(slot_refs.values()) | set(override_digests)
-                | {
-                    comp_ref
-                    for slot in setup_slots
-                    for _, comp_ref in component_overrides(spec.models[slot])
-                }
-            )
+            rec.held_refs = sorted(set(slot_refs.values()))
             rec.held_snapshot_digests = {
                 slot_refs[slot]: identity[0]
                 for slot, identity in slot_identities.items()
                 if slot in slot_refs and identity[0]
             }
-            rec.held_snapshot_digests.update(override_digests)
-            # Override triples key as "<slot>.<component>" — part of the
-            # composition's identity (compile-cell applicability, pgw#617).
             rec.held_bindings = sorted(
-                [
-                    (
-                        slot,
-                        ref,
-                        rec.held_snapshot_digests.get(ref, ""),
-                    )
-                    for slot, ref in slot_refs.items()
-                ]
-                + [
-                    (
-                        f"{slot}.{comp}",
-                        comp_ref,
-                        rec.held_snapshot_digests.get(comp_ref, ""),
-                    )
-                    for slot in setup_slots
-                    for comp, comp_ref in component_overrides(spec.models[slot])
-                ]
+                (slot, ref, rec.held_snapshot_digests.get(ref, ""))
+                for slot, ref in slot_refs.items()
             )
             setup = getattr(instance, "setup", None)
             inj = _InjectionResult(kwargs={}, loaded={})
@@ -5505,7 +5503,6 @@ class Executor:
                     compile_selection=compile_selection,
                     snapshots=snapshots,
                     slot_identities=slot_identities,
-                    component_paths=component_paths,
                     arm=arm, boot_local_key=boot_local_key)
                 rec.shared_keys.extend(inj.shared_keys)
                 # pgw#517: a self-loading (str/Path-slot) endpoint builds its
@@ -5936,7 +5933,7 @@ class Executor:
                                 function_proofs[id(pipe)] = {spec.name}
                             proved_sel = inj.active_compile_artifacts.get(id(pipe))
                             if proved_sel is not None:
-                                compile_cache.record_cell_proven(proved_sel.ref)
+                                compile_cache.record_compiled_graph_proven(proved_sel.ref)
                             continue
                         # pgw#1141 / §4.31 + §4.32: an adopted cell arms BEFORE
                         # setup, so no dispatch can have landed by now, and
@@ -5972,12 +5969,12 @@ class Executor:
                             function_proofs[id(pipe)] = {spec.name}
                         proved_sel = inj.active_compile_artifacts.get(id(pipe))
                         if proved_sel is not None:
-                            compile_cache.record_cell_proven(proved_sel.ref)
+                            compile_cache.record_compiled_graph_proven(proved_sel.ref)
                     elif (
                         pipe_misses <= 0
                         and (inmem_sel := inj.active_compile_artifacts.get(
                             id(pipe))) is not None
-                        and compile_cache.cell_proven_in_process(inmem_sel.ref)
+                        and compile_cache.compiled_graph_proven_in_process(inmem_sel.ref)
                         and compile_cache.has_inmemory_compiled_code(pipe)
                     ):
                         # pgw#637: calls>0 with ZERO counter movement against
@@ -6027,7 +6024,7 @@ class Executor:
                     if not reason:
                         return
                     activity_mod.emit_event(
-                        activity_mod.KIND_CELL_NUMERICS,
+                        activity_mod.KIND_COMPILED_GRAPH_NUMERICS,
                         f"{spec.name}: the exported cell on slots "
                         f"{sorted(candidate.slots)} took no warm dispatch — "
                         f"{reason}. It STAYS ARMED and serves; a "
@@ -6118,11 +6115,11 @@ class Executor:
                         failed_sel = inj.active_compile_artifacts.pop(
                             id(pipe), None)
                         if failed_sel is not None:
-                            compile_cache.record_cell_quarantined(
+                            compile_cache.record_compiled_graph_quarantined(
                                 failed_sel.ref)
                         failed_pending = inj.pending_self_mints.get(id(pipe))
                         if failed_pending is not None:
-                            compile_cache.record_cell_quarantined(
+                            compile_cache.record_compiled_graph_quarantined(
                                 str(failed_pending.ref))
                         self._abandon_pending_mint(inj, pipe)
                     # gw#611: `calls` discriminates the failure classes on the
@@ -6179,7 +6176,7 @@ class Executor:
                     if quant_execution_lane:
                         # pgw#672 posture change: a failed serve/finalize
                         # proof on a mandatory (w8a8/w4a4) lane used to raise
-                        # here -> cell_quarantined -> every declared function
+                        # here -> compiled_graph_quarantined -> every declared function
                         # disabled -> pod retired -> the replacement re-mints
                         # the same key (5 cycles / 4 dead workers on the L4
                         # burst). A broken optimization must never kill a
@@ -6583,7 +6580,7 @@ class Executor:
                 cid for k in rec.shared_keys
                 if (cid := k.cache_id()) not in refs
             )
-        cuda_host = torch is not None and torch.cuda.is_available()
+        cuda_host = torch is not None and cuda_ready()
         if any(res.tier(r) is residency_mod.Tier.RAM for r in refs):
             async with self._load_lock:
                 for ref in refs:
@@ -6854,7 +6851,6 @@ class Executor:
         self,
         spec: EndpointSpec,
         paths: Dict[str, str],
-        component_paths: Optional[Dict[str, Dict[str, str]]] = None,
     ) -> None:
         """Owner-aware host-RAM admission (gw#407/pgw#541). ``from_pretrained``
         stages the full weight set in host RAM before placement; loading into
@@ -6895,15 +6891,6 @@ class Executor:
         for slot, p in paths.items():
             if slot in slots:
                 slot_bytes = await asyncio.to_thread(disk_gc.tree_bytes, Path(p))
-                # pgw#1041: a pgw#617/th#980 component override stages its
-                # OWN materialized tree alongside the (narrowed) base — the
-                # slot's true staging requirement is their sum. ie#615:
-                # counting only the base under-admitted by the override's
-                # 27.6 GB.
-                comp_paths = dict((component_paths or {}).get(slot) or {})
-                for comp_path in comp_paths.values():
-                    slot_bytes += await asyncio.to_thread(
-                        disk_gc.tree_bytes, Path(comp_path))
                 ref = wire_ref(spec.models[slot])
                 if is_modular_pipeline_class(slots[slot]):
                     # pgw#1063: the discount below is the loader's promise
@@ -6916,7 +6903,6 @@ class Executor:
                     plan = await asyncio.to_thread(
                         functools.partial(
                             plan_streamed_hydration, Path(p),
-                            component_trees=comp_paths,
                             placement_mode=self._placement_mode(spec, ref)),
                     )
                     if plan.engaged:
@@ -7088,7 +7074,7 @@ class Executor:
         if needed <= 0:
             return
         # CPU-only workers do not have a VRAM tier to admit against.
-        if torch is None or not torch.cuda.is_available():
+        if torch is None or not cuda_ready():
             return
         # This job's own reservations are the demand being satisfied here —
         # exclude them from the outstanding-claim accounting (pgw#641 Stage 2).
@@ -7286,7 +7272,6 @@ class Executor:
         compile_selection: Optional[_CompileArtifactSelection] = None,
         snapshots: Optional[Dict[WireRef, pb.Snapshot]] = None,
         slot_identities: Optional[Dict[str, _ResidencyIdentity]] = None,
-        component_paths: Optional[Dict[str, Dict[str, str]]] = None,
         arm: Optional[_ArmOrder] = None,
         boot_local_key: str = "",
     ) -> "_InjectionResult":
@@ -7326,17 +7311,6 @@ class Executor:
         try:
             for slot, path in paths.items():
                 ann = hints.get(slot)
-                overrides = dict((component_paths or {}).get(slot) or {})
-                if overrides and not (
-                    isinstance(ann, type)
-                    and callable(getattr(ann, "from_pretrained", None))
-                ):
-                    # pgw#617: substitution requires a worker-loaded pipeline
-                    # slot; a self-loading str/Path slot never sees components.
-                    raise ComponentSubstitutionError(
-                        spec.name, slot, sorted(overrides)[0],
-                        detail="slot is not worker-loaded (no pipeline-class "
-                               "annotation); components cannot substitute")
                 if ann is None or ann is str:
                     kwargs[slot] = path
                 elif ann is Path:
@@ -7361,42 +7335,6 @@ class Executor:
                         slot_share = {}
                     res = self.store.residency
                     injected: Dict[str, Any] = {}
-                    override_trees: Dict[str, str] = {}
-                    if overrides:
-                        # pgw#617 load-then-substitute: each override component
-                        # loads from its OWN materialized tree and rides the
-                        # same from_pretrained components= injection as gw#479
-                        # shared modules. Unknown names refuse typed at setup.
-                        # pgw#1036: a MODULAR slot's overrides ride the
-                        # hydration guard's spec routing instead — the
-                        # components= kwarg is what ModularPipeline.__init__
-                        # silently discards.
-                        valid = self._model_index_components(path)
-                        unknown = sorted(set(overrides) - valid)
-                        if unknown:
-                            raise ComponentSubstitutionError(
-                                spec.name, slot, unknown[0],
-                                detail=f"base composition {ref!r} declares "
-                                       f"components {sorted(valid)}")
-                        for comp in overrides:
-                            # An overridden component never rides the shared
-                            # cache: its bytes differ from the base's.
-                            slot_share.pop(comp, None)
-                        from .models.loading import (
-                            is_modular_pipeline_class,
-                            load_component_override,
-                        )
-
-                        if is_modular_pipeline_class(ann):
-                            override_trees = {
-                                comp: str(p) for comp, p in overrides.items()}
-                        else:
-                            for comp, comp_path in sorted(overrides.items()):
-                                injected[comp] = await _to_thread_complete(
-                                    load_component_override, path, comp,
-                                    comp_path,
-                                    dtype=str(
-                                        getattr(binding, "dtype", "") or ""))
                     if slot_share:
                         valid = self._model_index_components(path)
                         for comp, key in list(slot_share.items()):
@@ -7422,7 +7360,6 @@ class Executor:
                         sl = await _to_thread_complete(
                             provision.load_slot, ann, path, binding=binding,
                             slot=slot, ref=ref, mode=mode, components=injected,
-                            component_trees=override_trees or None,
                             force_storage_dtype=(
                                 "fp8" if slot in force_fp8_slots else ""),
                         )
@@ -7447,7 +7384,6 @@ class Executor:
                         sl = await _to_thread_complete(
                             provision.load_slot, ann, path, binding=binding,
                             slot=slot, ref=ref, mode=mode, components=injected,
-                            component_trees=override_trees or None,
                             force_storage_dtype=(
                                 "fp8" if slot in force_fp8_slots else ""),
                         )
@@ -7532,7 +7468,7 @@ class Executor:
                         # one pending, one child and one memo row.
                         if binding is not None:
                             fleet_cells.stamp_arm_subject(
-                                pipe, slot, binding_wire_refs(binding),
+                                pipe, slot, [wire_ref(binding)],
                                 (slot_identities or {}).get(slot, ("", 0))[0],
                             )
                         exec_execution_lane, lane_pinned = (
@@ -7562,7 +7498,7 @@ class Executor:
                             # Mandatory (w8a8/w4a4) lane: self-mint also hit a
                             # genuine impossibility (no CUDA/toolchain/target).
                             # When this refusal was chained from a caught
-                            # cell_selection_bug (th#1031), report it — the
+                            # compiled_graph_selection_bug (th#1031), report it — the
                             # lane refusal must not silently swallow the
                             # loud invariant event.
                             bug = exc.__cause__
@@ -7885,7 +7821,7 @@ class Executor:
                 # the one that must confess if it does not.
                 continue
             family = str(getattr(pending, "family", "") or "")
-            key = str(getattr(pending, "cell_key", "") or "")
+            key = str(getattr(pending, "compiled_graph_key", "") or "")
             logger.error(
                 "%s: SELF_MINT_UNRESOLVED family=%s key=%s — the boot opened "
                 "a mint capture and reached readiness without packing, "
@@ -8165,27 +8101,90 @@ class Executor:
         rec.eager_posture = ""
         for pid, outcome in finalized.items():
             pipe = bg.pipes[pid]
-            for target in rec.compile_targets.values():
-                if target.pipeline is not pipe:
-                    continue
-                with target.state_lock:
-                    target.active_compile_ref = str(outcome.ref)
-                    target.active_compile_snapshot_digest = str(
-                        outcome.snapshot_digest)
-                    target.active_self_mint = True
-                # pgw#686: the mint stamped the pipe's lane; re-advertise so
-                # the target's lane/bucket/contract descriptors match what it
-                # now serves.
-                self._refresh_compile_target(target)
-                if not self._bind_compile_guard(rec, target):
+            # pgw#1265: THE FLIP IS CHECKED BEFORE IT HAPPENS. Between the arm
+            # (where `arm_aot` took the same verdict) and here sit the publish
+            # and whatever a sibling instance did to the card meanwhile, so the
+            # question is asked again about the state that actually exists at
+            # the flip. The advertisement is a claim that this pipe SERVES
+            # compiled; making it on a card that can no longer fit a forward is
+            # how a mint's last step became a SIGSEGV and then a crash-loop the
+            # hub read as demand (th#1959).
+            device = mint_workers.device_of(pipe)
+            no_room = adopt_fit.refusal(
+                f"advertising the compiled graphs for {bg.spec.name}", device)
+            if no_room:
+                self._abandon_advertisement(rec, pipe, outcome, no_room)
+                continue
+            armed_here = False
+            # pgw#1262's marker, one question over: binding the guard and
+            # flipping the router touch the live compiled objects, so a signal
+            # death here is a compile's, not the tenant's.
+            with postmortem.compile_inflight(f"advertise:{bg.spec.name}"):
+                for target in rec.compile_targets.values():
+                    if target.pipeline is not pipe:
+                        continue
                     with target.state_lock:
-                        target.active_compile_ref = ""
-                        target.active_compile_snapshot_digest = ""
-                    logger.warning(
-                        "compile target %s has no runtime guard revocation "
-                        "signal; advertising eager", target.incarnation_id)
-                    continue
-            hot_swap.enable(pipe)
+                        target.active_compile_ref = str(outcome.ref)
+                        target.active_compile_snapshot_digest = str(
+                            outcome.snapshot_digest)
+                        target.active_self_mint = True
+                    # pgw#686: the mint stamped the pipe's lane; re-advertise so
+                    # the target's lane/bucket/contract descriptors match what it
+                    # now serves.
+                    self._refresh_compile_target(target)
+                    if not self._bind_compile_guard(rec, target):
+                        with target.state_lock:
+                            target.active_compile_ref = ""
+                            target.active_compile_snapshot_digest = ""
+                        logger.warning(
+                            "compile target %s has no runtime guard revocation "
+                            "signal; advertising eager", target.incarnation_id)
+                        continue
+                    armed_here = True
+                # pgw#1265: eager-while-compiling is turned on for a pipe that
+                # ADVERTISES something. Unconditional, it enabled concurrent
+                # routing on a pipe whose every target had just been rolled
+                # back to eager for want of a revocation signal.
+                if armed_here:
+                    hot_swap.enable(pipe)
+
+    def _abandon_advertisement(
+        self, rec: "_ClassRecord", pipe: Any, outcome: Any, detail: str,
+    ) -> None:
+        """pgw#1265: refuse the flip and GIVE THE ARM BACK.
+
+        Invariants 2 and 3 at the wire seam. Nothing is advertised, so no
+        capability projection claims a compiled tier; the armed entries are
+        de-armed and their runners released, so the residency floor this adopt
+        raised comes back down; and the de-arm is sticky for the boot, so the
+        next request cannot walk into the same refusal. The worker serves
+        eager and stays alive — which is the whole difference between a
+        degraded pod and `ComputeProcessDied`.
+
+        The artifact is not condemned and stays PUBLISHED: it was minted and
+        parity-gated by this process, and a card that is full at this instant
+        says nothing about it.
+        """
+        for target in rec.compile_targets.values():
+            if target.pipeline is not pipe:
+                continue
+            with target.state_lock:
+                target.active_compile_ref = ""
+                target.active_compile_snapshot_digest = ""
+                target.active_self_mint = False
+        for entry in list(aot_serve.entry_states(pipe)):
+            try:
+                aot_serve.disarm_entry(pipe, entry, adopt_fit.REASON)
+            except Exception:  # noqa: BLE001 — the refusal survives its cleanup
+                logger.warning(
+                    "adopt-fit: de-arming %r at the advertisement failed",
+                    entry, exc_info=True)
+        flush_memory()
+        logger.warning("adopt-fit: %s", detail)
+        activity_mod.emit_event(
+            "adopt_headroom_refused", detail, phase=adopt_fit.REASON,
+            compiled_graph_key=str(getattr(outcome, "ref", "") or ""),
+        )
 
     async def _supervise_mint(
         self, rec: _ClassRecord, bg: "_BackgroundMint", act: Any,
@@ -8312,7 +8311,7 @@ class Executor:
                     f"compiled (pgw#1113)",
                     phase="unarmed_obligation_holder",
                 )
-            compile_cache.record_cell_proven(str(minted.ref))
+            compile_cache.record_compiled_graph_proven(str(minted.ref))
 
         if not finalized:
             raise RuntimeError(
@@ -8356,13 +8355,13 @@ class Executor:
         bug_digest = (
             compile_selection.snapshot_digest
             if compile_selection is not None else "")
-        logger.error("cell_selection_bug on %s (%s): %s", spec.name, bug_ref, exc)
+        logger.error("compiled_graph_selection_bug on %s (%s): %s", spec.name, bug_ref, exc)
         await self._send(pb.WorkerMessage(
             model_event=self.store.model_event(
                 bug_ref,
                 pb.MODEL_STATE_FAILED,
                 identity=((bug_digest, 0) if bug_digest else None),
-                error=f"cell_selection_bug: {str(exc)[:300]}",
+                error=f"compiled_graph_selection_bug: {str(exc)[:300]}",
             )
         ))
 
@@ -8376,7 +8375,7 @@ class Executor:
         derivation" — which is a true statement that names nothing: no family,
         no gate, no event, and a caller unable to tell it from a pod that asked
         the hub and was told no. Three real pods on 0.103.0 called
-        ``/v1/worker/cells/resolve`` ZERO times and no artifact anywhere said
+        ``/v1/worker/compiled-graphs/resolve`` ZERO times and no artifact anywhere said
         which of these gates did it. Each one now names itself and emits.
 
         None of them is fatal, and none of them is new behaviour: every non-hit
@@ -8389,7 +8388,9 @@ class Executor:
         # could raise out of here (and, uncaught, failed the whole model setup)
         # is retired; a blocked family carries its refusal as
         # `Compile.blockers` and the mint gate reads it.
-        decl = aot_mint.export_declaration(family)
+        from .api.export_contract import export_declaration
+
+        decl = export_declaration(family)
         if decl is None:
             return (boot_adopt.refused(
                 "no_export_declaration",
@@ -8414,7 +8415,7 @@ class Executor:
         # fired, and the pod fell straight through to self-mint — the whole reuse
         # circle stayed open. The seam being up (`broker.active()`) is the child's
         # honest "there is somebody to ask": the resolve is a parent-mediated
-        # action (`cells.resolve`), so the parent supplies base_url + bearer and
+        # action (`compiled_graphs.resolve`), so the parent supplies base_url + bearer and
         # ignores what the child passes. Mirrors `fleet_cells.CellPublisher`'s
         # own readiness (base_url AND (local bearer OR broker.active())).
         hub_absent = ""
@@ -8430,9 +8431,9 @@ class Executor:
         # to ask. The gate survives in its honest form — refuse only when BOTH
         # answerers are absent — and `attempt` decides the rest, after the
         # local store has been asked.
-        if boot_adopt.no_cell_source(hub_absent):
+        if boot_adopt.no_compiled_graph_source(hub_absent):
             return (boot_adopt.refused(
-                "no_cell_source",
+                "no_compiled_graph_source",
                 f"{hub_absent}, and this machine's own cell store is empty",
                 family=family, function=fn),)
         work_root = Path(
@@ -8444,7 +8445,6 @@ class Executor:
             cfg=cfg,
             slots=slots,
             declared_hint=declared_hint,
-            envelope=fleet_cells.declared_envelope_block(cfg),
             work_root=work_root,
             # The memo lives beside the cell cache and OUTLIVES one boot on a
             # pod with a volume — which is the whole point (§4.28's
@@ -8465,7 +8465,7 @@ class Executor:
     ) -> "fleet_cells.ArmOutcome":
         """Arm the best available compiled path for a freshly loaded pipeline.
 
-        gw#587: delivered cell first — a th#1031 ``cell_selection_bug``
+        gw#587: delivered cell first — a th#1031 ``compiled_graph_selection_bug``
         (self-requested cell fails contract_drift) is reported loudly but no
         longer fatal: this falls through to SELF-MINT exactly like an
         ordinary miss. The boot warmup compiles the real serving graphs
@@ -8534,8 +8534,8 @@ class Executor:
                             phase=str(getattr(extra_exc, "reason", "")
                                       or "arm_failed"),
                             family=str(getattr(cfg, "family", "") or ""),
-                            cell_key=str(
-                                getattr(extra_expected, "cell_key", "") or ""),
+                            compiled_graph_key=str(
+                                getattr(extra_expected, "compiled_graph_key", "") or ""),
                         )
                 return outcome
             except fleet_cells.OrderedArmError as exc:
@@ -8569,7 +8569,7 @@ class Executor:
                     return outcome
                 return dc_replace(
                     outcome,
-                    eager_reason=cell_adopt.EagerPhase.ADOPTED_CELL_REFUSED)
+                    eager_reason=cell_adopt.EagerPhase.ADOPTED_COMPILED_GRAPH_REFUSED)
         return fleet_cells.enable_compiled(
             pipe, cfg, self.store._cache_dir, artifact,
             publisher=self._cell_publisher(),
@@ -8584,7 +8584,7 @@ class Executor:
     def _arming_enable(
         self, pipe: Any, cfg: Any, cache_dir: Optional[Path],
         artifact: Optional[Path],
-        subject: Tuple[cell_key.SlotSubject, ...] = (),
+        subject: Tuple[graph_facts.SlotSubject, ...] = (),
     ) -> "fleet_cells.ArmOutcome":
         """ArmingScope adapter: a self-loaded pipeline's ``arm_compile()``
         gets the same fleet policy (delivered cell first, self-mint on miss)
@@ -8670,7 +8670,7 @@ class Executor:
                 #
                 # `ModelEvent` is keyed by ref and genuinely cannot carry
                 # this, so the miss goes out on the channel that CAN: the
-                # typed activity event, whose family/cell_key/graph_class
+                # typed activity event, whose family/compiled_graph_key/graph_class
                 # fields (proto 18-20) land in the hub's own columns.
                 activity_mod.emit_event(
                     "aot_entry_missed",
@@ -8678,9 +8678,9 @@ class Executor:
                     f"it ({adoption.reason or 'no_cell'}"
                     f"{': ' + adoption.detail if adoption.detail else ''}); "
                     f"the class serves EAGER and is queued to compile",
-                    phase=adoption.reason or "no_cell",
+                    phase=adoption.reason or "no_compiled_graph",
                     family=str(getattr(inj, "family", "") or ""),
-                    cell_key=adoption.cell_key,
+                    compiled_graph_key=adoption.compiled_graph_key,
                     graph_class=adoption.entry,
                 )
                 continue
@@ -8893,13 +8893,8 @@ class Executor:
         for b in run.models:
             if not b.slot:
                 continue
-            comps = tuple(sorted(
-                (str(k).strip(), str(v).strip())
-                for k, v in b.components.items()
-                if str(k).strip() and str(v).strip()))
             slots[b.slot] = dispatch.SlotOrder(
                 ref=str(b.ref or "").strip(),
-                components=comps,
                 inference_defaults=str(b.inference_defaults or ""),
                 objective=str(b.objective or ""),
                 distilled=bool(b.distilled),
@@ -8940,7 +8935,7 @@ class Executor:
             group=group,
             slots=slots,
             adapters=adapters,
-            snapshots=dict(run.snapshots) if run.snapshots else {},
+            snapshots=index_snapshots(run.snapshots, run.models),
             input_manifest=manifest_from_run_job(run.input_assets),
             # Positional call through the LIVE method (tests and tooling
             # observe/replace `_validate_required_compile` by name).
@@ -9566,6 +9561,14 @@ class Executor:
             dest_repo = _producer_destination_repo(payload, destination_info)
             if dest_repo:
                 execution_hints["destination_repo"] = dest_repo
+            # th#1987: a repo-CAS publish must name the release it attaches to,
+            # and the caller states it in the reserved `destination` struct the
+            # hub already validates (parseDestinationRelease). Carried beside
+            # destination_repo so `ctx.save_checkpoint` has it without reaching
+            # back into the payload.
+            dest_release = str(destination_info.get("release") or "").strip()
+            if dest_release:
+                execution_hints["destination_release"] = dest_release
             job_id = _capability_job_id(order.capability_token)
             producer_kwargs = dict(
                 source_info=source_info,
@@ -9842,7 +9845,7 @@ class Executor:
                     # this job exclusively owns gpu_index (jobs serialize under
                     # _gpu_semaphore) — peak_vram_bytes then measures THIS
                     # job's peak, not the process-lifetime high-water mark.
-                    if torch is not None and torch.cuda.is_available():
+                    if torch is not None and cuda_ready():
                         try:
                             torch.cuda.reset_peak_memory_stats(gpu_index)
                         except Exception:
@@ -10631,7 +10634,11 @@ class Executor:
         # interval runtime_ms measures).
         ctx._stages.handler_open()
         try:
-            with _HandlerEvidence(owner):
+            # pgw#1265: the tenant forward is where "what does one forward cost
+            # this card" is MEASURED. The adopt's headroom verdict has no other
+            # source of truth — and this is the same forward, on the same card,
+            # that a raised residency floor would have to make room for.
+            with adopt_fit.forward_watermark(gpu_index), _HandlerEvidence(owner):
                 while True:
                     try:
                         return await asyncio.wait_for(
@@ -10662,7 +10669,7 @@ class Executor:
     def _call_sync(
         job: _Job, bound: Callable[..., Any], call_kwargs: Dict[str, Any], gpu_index: int,
     ) -> Any:
-        if torch is not None and torch.cuda.is_available():
+        if torch is not None and cuda_ready():
             try:
                 torch.cuda.set_device(gpu_index)
             except Exception:
@@ -10797,7 +10804,7 @@ class Executor:
         gpu_index: int,
         loop: asyncio.AbstractEventLoop,
     ) -> Optional[StreamResult]:
-        if torch is not None and torch.cuda.is_available():
+        if torch is not None and cuda_ready():
             try:
                 torch.cuda.set_device(gpu_index)
             except Exception:
@@ -10857,7 +10864,7 @@ class Executor:
     def _peak_vram_bytes(gpu_index: int) -> int:
         """This job's CUDA peak-allocator high-water mark (reset when it took
         the GPU). 0 without torch/CUDA."""
-        if torch is not None and torch.cuda.is_available():
+        if torch is not None and cuda_ready():
             try:
                 return int(torch.cuda.max_memory_allocated(gpu_index))
             except Exception:

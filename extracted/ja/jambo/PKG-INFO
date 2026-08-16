@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: jambo
-Version: 0.1.7
+Version: 0.2.0
 Summary: Jambo - JSON Schema to Pydantic Converter
 Project-URL: homepage, https://github.com/HideyoshiNakazone/jambo
 Project-URL: repository, https://github.com/HideyoshiNakazone/jambo.git

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: backports.zstd
-Version: 1.6.0
+Version: 1.7.0
 Summary: Backport of compression.zstd
 Author-email: Rogdham <contact@rogdham.net>
 License-Expression: PSF-2.0

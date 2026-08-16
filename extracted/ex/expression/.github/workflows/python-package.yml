@@ -1,0 +1,52 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Python package
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Code checks
+        run: uv run pre-commit run --all-files --show-diff-on-failure
+
+      - name: Check README modifications
+        run: |
+          # Get the list of changed files in the last commit
+          CHANGED_FILES=$(git diff --name-only HEAD^)
+
+          # Check if README.md was modified but README.py wasn't
+          if echo "$CHANGED_FILES" | grep -q "README.md" && ! echo "$CHANGED_FILES" | grep -q "README.py"; then
+            echo "ERROR: README.md was modified directly"
+            echo "Please make all documentation updates in README.py instead"
+            exit 1
+          fi
+
+      - name: Test with pytest
+        run: uv run pytest

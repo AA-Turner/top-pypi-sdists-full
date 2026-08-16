@@ -176,11 +176,11 @@ def sz3_encode(
             out = _create_output(outtype, outSize)
 
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
         if dstsize < <ssize_t> outSize:
             raise ValueError('output too small')
 
-        memcpy(<void*> &dst[0], <const void*> buffer, <size_t> outSize)
+        memcpy(<void*> dst._data, <const void*> buffer, <size_t> outSize)
     finally:
         free(buffer)
 
@@ -202,7 +202,7 @@ def sz3_decode(
         numpy.ndarray dst
         void* buffer = NULL
         size_t r1, r2, r3, r4, r5
-        size_t byteLength = <size_t> src.nbytes
+        size_t byteLength = <size_t> src.shape[0]
         ssize_t ndim = len(shape)
         int dataType
 
@@ -262,7 +262,7 @@ def sz3_decode(
     with nogil:
         buffer = SZ_decompress(
             dataType,
-            <unsigned char*> &src[0],
+            <unsigned char*> src._data,
             byteLength,
             r5,
             r4,

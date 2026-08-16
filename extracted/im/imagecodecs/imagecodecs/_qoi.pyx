@@ -133,12 +133,12 @@ def qoi_encode(
         if out is None:
             out = _create_output(outtype, out_len)
         dst = out
-        dstsize = dst.nbytes
+        dstsize = dst.shape[0]
         if dstsize < <ssize_t> out_len:
             raise ValueError('output too small')
 
         with nogil:
-            memcpy(<void*> &dst[0], <const void*> buffer, <size_t> out_len)
+            memcpy(<void*> dst._data, <const void*> buffer, <size_t> out_len)
     finally:
         free(buffer)
 
@@ -156,7 +156,7 @@ def qoi_decode(
     cdef:
         numpy.ndarray dst
         const uint8_t[::1] src = data
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstbytes
         void* buffer = NULL
         qoi.qoi_desc desc
@@ -169,7 +169,7 @@ def qoi_decode(
 
     with nogil:
         buffer = qoi.qoi_decode(
-            <const void*> &src[0],
+            <const void*> src._data,
             <int> srcsize,
             &desc,
             0

@@ -1,6 +1,6 @@
 [project]
 name = "typed-ffmpeg"
-version = "4.3"
+version = "4.4"
 description = "Modern Python & TypeScript FFmpeg wrappers with comprehensive typing (latest version)"
 authors = [
     {name = "lucemia", email = "lucemia@gmail.com"}
@@ -30,24 +30,24 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio",
 ]
 
-# Meta-package: no source code, just depends on typed-ffmpeg-v8
+# Meta-package: no source code, just depends on typed-ffmpeg-v9
 # which provides `import ffmpeg` directly.
 dependencies = [
-    "typed-ffmpeg-v8>=4.3,<5.0",
+    "typed-ffmpeg-v9>=4.4,<5.0",
 ]
 
 [tool.uv.sources]
-typed-ffmpeg-v8 = { workspace = true }
-ffmpeg-data-v8 = { workspace = true }
+typed-ffmpeg-v9 = { workspace = true }
+ffmpeg-data-v9 = { workspace = true }
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
-    "pytest-cov>=4.0",
-    "ruff==0.12.2",
+    "pytest-cov>=7.1.0",
+    "ruff==0.16.2",
 ]
-parse = ["ffmpeg-data-v8"]
+parse = ["ffmpeg-data-v9"]
 
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=84.0.0"]
 build-backend = "setuptools.build_meta"

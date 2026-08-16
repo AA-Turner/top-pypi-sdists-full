@@ -74,8 +74,8 @@ class ExrError(RuntimeError):
         elif isinstance(err, str):
             msg = err
         else:
-            errstr = exr_get_error_code_as_string(err).decode()
-            msg = f'{errstr} ({err})'
+            errstr = exr_get_default_error_message(err).decode()
+            msg = f'{errstr!r} ({err})'
         msg = f'{func} returned {msg}'
         super().__init__(msg)
 
@@ -185,7 +185,7 @@ def exr_encode(
         src.dtype,
         None,  # photometric
         None,  # bitspersample
-        planar if planar is not None else False,
+        planar,
         frames if frames is not None else False,
         None,  # volumetric
         None,  # extrasample
@@ -278,7 +278,7 @@ def exr_encode(
 
             wstream.capacity = 1048576
             wstream.size = 0
-            wstream.data = <uint8_t*> malloc(wstream.capacity)
+            wstream.data = <uint8_t*> malloc(<size_t> wstream.capacity)
             if wstream.data == NULL:
                 raise MemoryError('failed to allocate write buffer')
 
@@ -288,6 +288,7 @@ def exr_encode(
             cinit.write_fn = _exr_write_func
             cinit.size_fn = _exr_write_size_func
             cinit.destroy_fn = _exr_write_destroy_func
+            cinit.error_handler_fn = _exr_error_handler_func
             cinit.zip_level = -2
             cinit.dwa_quality = -1.0
 
@@ -472,10 +473,10 @@ def exr_encode(
             out = _create_output(outtype, dstsize)
 
         dst = out
-        if <uint64_t> dst.shape[0] < wstream.size:
+        if <uint64_t> dst.size < wstream.size:
             raise ValueError('output buffer too small')
 
-        memcpy(<void*> &dst[0], wstream.data, wstream.size)
+        memcpy(<void*> dst._data, wstream.data, <size_t> wstream.size)
         return _return_output(out, dstsize, <ssize_t> wstream.size, outgiven)
 
     finally:
@@ -543,11 +544,11 @@ def exr_decode(
     if data is out:
         raise ValueError('cannot decode in-place')
 
-    if src.shape[0] == 0:
+    if src.size == 0:
         raise ValueError('src is empty')
 
-    rstream.data = &src[0]
-    rstream.size = <uint64_t> src.shape[0]
+    rstream.data = <const uint8_t*> src._data
+    rstream.size = <uint64_t> src.size
 
     if index is not None:
         part_start = <int> index
@@ -564,6 +565,7 @@ def exr_decode(
             cinit.user_data = &rstream
             cinit.read_fn = _exr_read_func
             cinit.size_fn = _exr_read_size_func
+            cinit.error_handler_fn = _exr_error_handler_func
             cinit.zip_level = -2
             cinit.dwa_quality = -1.0
 
@@ -1113,7 +1115,7 @@ cdef int64_t _exr_read_func(
         if offset >= stream.size:
             return 0
         sz = stream.size - offset
-    memcpy(buffer, stream.data + offset, sz)
+    memcpy(buffer, stream.data + offset, <size_t> sz)
     return <int64_t> sz
 
 
@@ -1147,13 +1149,13 @@ cdef int64_t _exr_write_func(
         new_capacity = stream.capacity * 2
         if new_capacity < needed:
             new_capacity = needed
-        new_data = <uint8_t*> realloc(stream.data, new_capacity)
+        new_data = <uint8_t*> realloc(stream.data, <size_t> new_capacity)
         if new_data == NULL:
             return -1
         stream.data = new_data
         stream.capacity = new_capacity
 
-    memcpy(stream.data + offset, buffer, sz)
+    memcpy(stream.data + offset, buffer, <size_t> sz)
     if needed > stream.size:
         stream.size = needed
     return <int64_t> sz
@@ -1176,4 +1178,13 @@ cdef void _exr_write_destroy_func(
     int failed
 ) noexcept nogil:
     """Destroy callback for write stream. Does not free data."""
+    pass
+
+
+cdef void _exr_error_handler_func(
+    exr_const_context_t ctxt,
+    exr_result_t code,
+    const char* msg
+) noexcept nogil:
+    """Error callback for EXR context."""
     pass

@@ -9,7 +9,7 @@ the only argument.
 from __future__ import annotations
 
 import builtins
-from collections.abc import Callable, Generator, Iterable
+from collections.abc import Awaitable, Callable, Generator, Iterable
 from typing import TYPE_CHECKING, Any, Literal, TypeGuard, TypeVar, cast, get_args, get_origin
 
 from typing_extensions import TypeVarTuple, Unpack
@@ -42,6 +42,7 @@ _P = TypeVarTuple("_P")
 @tagged_union(frozen=True, order=True)
 class Option(
     Iterable[_TSourceOut],
+    Awaitable[_TSourceOut],
     PipeMixin,
 ):
     """Option class."""
@@ -106,6 +107,18 @@ class Option(
         match self, other:
             case Option(tag="some", some=some), Option(tag="some", some=other_value):
                 return Some(mapper(some, other_value))
+            case _:
+                return Nothing
+
+    def apply(self, function: Option[Callable[[_TSourceOut], _TResult]]) -> Option[_TResult]:
+        """Apply a function in an Option to this Option's value.
+
+        Returns `Some` when both Options are `Some`; otherwise returns
+        `Nothing`.
+        """
+        match function:
+            case Option(tag="some", some=mapper):
+                return self.map(mapper)
             case _:
                 return Nothing
 
@@ -177,8 +190,8 @@ class Option(
     def to_list(self) -> list[_TSourceOut]:
         """Convert option to list."""
         match self:
-            case Option(tag="some", some=some):
-                return [some]
+            case Option(tag="some", some=value):
+                return [value]
             case _:
                 return []
 
@@ -188,8 +201,8 @@ class Option(
         from expression.collections.seq import Seq
 
         match self:
-            case Option(tag="some", some=some):
-                return Seq[_TSourceOut].of(some)
+            case Option(tag="some", some=value):
+                return Seq[_TSourceOut].of(value)
             case _:
                 return Seq()
 
@@ -295,6 +308,16 @@ class Option(
 
     def __repr__(self) -> str:
         return self.__str__()
+
+    def __await__(self) -> Generator[_TSourceOut, _TSourceOut, _TSourceOut]:
+        """Make Option awaitable by delegating to __iter__."""
+        match self:
+            case Option(tag="some", some=value):
+                return value
+            case _:
+                raise EffectError(self)
+
+        yield None
 
     @classmethod
     def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler) -> CoreSchema:
@@ -434,6 +457,18 @@ def map2(opt1: Option[_T1], opt2: Option[_T2], mapper: Callable[[_T1, _T2], _TRe
 
 
 @curry_flip(1)
+def apply(
+    value: Option[_TSource],
+    function: Option[Callable[[_TSource], _TResult]],
+) -> Option[_TResult]:
+    """Apply a function Option to a value Option.
+
+    The curried form supports ``value.pipe(option.apply(function))``.
+    """
+    return value.apply(function)
+
+
+@curry_flip(1)
 def starmap(option: Option[tuple[Unpack[_P]]], mapper: Callable[[*_P], _TResult]) -> Option[_TResult]:
     return option.starmap(mapper)
 
@@ -531,6 +566,7 @@ __all__ = [
     "Nothing",
     "Option",
     "Some",
+    "apply",
     "bind",
     "default_arg",
     "default_value",

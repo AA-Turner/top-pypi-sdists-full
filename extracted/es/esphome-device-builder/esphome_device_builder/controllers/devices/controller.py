@@ -31,6 +31,7 @@ from ...helpers.secrets_state import (
     wifi_secrets_defined,
     write_wifi_secrets,
 )
+from ...helpers.sibling_cli import find_esphome_cmd
 from ...helpers.storage import ShutdownCallback, drain_shutdown_callbacks
 from ...helpers.yaml import write_user_yaml
 from ...models import (
@@ -55,7 +56,6 @@ from .._device_mqtt_coordinator import DeviceMqttCoordinator
 from .._device_scanner import DeviceScanner, ScanChange
 from .._device_state_monitor import DeviceStateMonitor
 from .._reachability_tracker import ReachabilityTracker
-from ..firmware.helpers import _find_esphome_cmd
 from ..version_history import GIT_COMMIT_ERRORS
 from . import (
     add_component,
@@ -278,7 +278,7 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
         """Initialise — load state, scan files, start mDNS + ping + MQTT discovery."""
         self._stopped = False
         self._mqtt_coordinator.resume()
-        self.state.esphome_cmd = _find_esphome_cmd()
+        self.state.esphome_cmd = find_esphome_cmd()
         # Store seed + migrations + ignore-list are independent; all
         # must land before the scanner (the resolver reads off them).
         # TaskGroup so a failing leg cancels its siblings instead of

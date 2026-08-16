@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: mplhep
-Version: 1.3.2
+Version: 1.3.3
 Summary: Matplotlib styles for HEP
 Project-URL: Homepage, https://github.com/scikit-hep/mplhep
 Author-email: andrzejnovak <novak5andrzej@gmail.com>
@@ -164,7 +164,7 @@ https://github.com/firamath/firamath
 
 ### Citation
 
-If you've found this library helpful and are able to, please consider citing it. You can find us on [Zenodo](doi.org/10.5281/zenodo.3766157) as a permalink to the latest version.
+If you've found this library helpful and are able to, please consider citing it. You can find us on [Zenodo](https://doi.org/10.5281/zenodo.3766157) as a permalink to the latest version.
 
 BiBTeX:
 ```

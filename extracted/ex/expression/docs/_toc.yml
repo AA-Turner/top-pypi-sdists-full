@@ -1,0 +1,57 @@
+# Table of contents
+# Learn more at https://jupyterbook.org/customize/toc.html
+
+format: jb-book
+root: intro
+parts:
+- caption: Start here
+  chapters:
+  - file: guides/getting-started
+  - file: guides/choosing-a-type
+- caption: Core workflows
+  chapters:
+  - file: guides/pipelines
+  - file: guides/optional-values
+  - file: guides/error-handling
+  - file: guides/collection-types
+  - file: guides/domain-modeling
+- caption: Tutorials
+  chapters:
+  - file: tutorial/introduction
+  - file: tutorial/containers
+  - file: tutorial/optional_values
+  - file: tutorial/railway
+  - file: tutorial/data_modelling
+  - file: tutorial/effects
+- caption: Advanced
+  chapters:
+  - file: guides/effects
+  - file: guides/concepts
+  - file: tutorial/lambda_calculus
+  - file: tutorial/continuations
+- caption: API reference
+  chapters:
+  - file: reference/reference
+    sections:
+    - file: reference/core
+    - file: reference/collections
+    - file: reference/effects
+    - file: reference/extras
+    - file: reference/system
+    - file: reference/array
+    - file: reference/block
+    - file: reference/compose
+    - file: reference/curry
+    - file: reference/mailbox
+    - file: reference/map
+    - file: reference/misc
+    - file: reference/option
+    - file: reference/pipe
+    - file: reference/pipeline
+    - file: reference/result
+    - file: reference/seq
+    - file: reference/try
+    - file: reference/union
+- caption: About this documentation
+  chapters:
+  - file: contributing

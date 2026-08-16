@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 from operator import attrgetter, itemgetter
 from pathlib import Path
+from typing import Any
 
 from nutree.tree import Node, Tree
 
@@ -32,7 +33,7 @@ class FileSystemEntry:
         self.size = int(size)
         self.mdate = float(mdate) if mdate is not None else None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self.is_dir:
             return f"[{self.name}]"
         assert self.mdate is not None
@@ -44,7 +45,7 @@ class FileSystemTree(Tree[FileSystemEntry]):
     DEFAULT_KEY_MAP = {}  # don't replace 's' with 'str'
 
     @classmethod
-    def serialize_mapper(cls, node: Node, data: dict):
+    def serialize_mapper(cls, node: Node, data: dict[str, Any]) -> dict[str, Any]:
         """Callback for use with :meth:`~nutree.tree.Tree.save`."""
         inst = node.data
         if inst.is_dir:
@@ -54,7 +55,7 @@ class FileSystemTree(Tree[FileSystemEntry]):
         return data
 
     @classmethod
-    def deserialize_mapper(cls, parent: Node, data: dict):
+    def deserialize_mapper(cls, parent: Node, data: dict[str, Any]) -> FileSystemEntry:
         """Callback for use with :meth:`~nutree.tree.Tree.load`."""
         # v = data["v"]
         if "d" in data:
@@ -72,7 +73,7 @@ def load_tree_from_fs(path: str | Path, *, sort: bool = True) -> FileSystemTree:
     path = Path(path)
     tree = FileSystemTree(str(path))
 
-    def visit(node: Node, pth: Path):
+    def visit(node: Node, pth: Path) -> None:
         if sort:
             dirs = []
             files = []

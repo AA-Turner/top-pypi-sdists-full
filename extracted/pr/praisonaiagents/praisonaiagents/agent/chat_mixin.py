@@ -5,13 +5,14 @@ Contains all methods for chat completion, streaming, message building,
 and response processing. Extracted from agent.py for maintainability.
 """
 
+import asyncio
 import os
 import re
 import time
 import json
 import logging
 from praisonaiagents._logging import get_logger
-from ..errors import BudgetExceededError
+from ..errors import BudgetExceededError, ToolExecutionError
 
 # Shared lazy display helpers (cached, thread-safe; avoid circular imports)
 from ._lazy_display import _get_console, _get_live, _get_display_functions
@@ -26,8 +27,239 @@ if TYPE_CHECKING:
     pass
 
 
+class _TurnCancelToken:
+    """Track cancellation observed by one call without shared backend state."""
+
+    def __init__(
+        self,
+        source: Any,
+        *,
+        turn_id: Optional[int] = None,
+    ):
+        self._source = source
+        self._observed = False
+        self._turn_id = turn_id
+
+    def is_set(self) -> bool:
+        turn_checker = getattr(self._source, "_turn_is_cancelled", None)
+        if self._turn_id is not None and callable(turn_checker):
+            is_set = bool(turn_checker(self._turn_id))
+        else:
+            is_set = bool(getattr(self._source, "is_set", lambda: False)())
+        self._observed = self._observed or is_set
+        return is_set
+
+    @property
+    def reason(self):
+        return getattr(self._source, "reason", None)
+
+    def check(self) -> None:
+        if self.is_set():
+            raise InterruptedError(f"Operation cancelled: {self.reason or 'unknown'}")
+
+    def was_cancelled(self) -> bool:
+        return self._observed or self.is_set()
+
+    def close(self) -> None:
+        end_turn = getattr(self._source, "_end_turn", None)
+        if self._turn_id is not None and callable(end_turn):
+            end_turn(self._turn_id)
+            self._turn_id = None
+
+    def __getattr__(self, name: str):
+        return getattr(self._source, name)
+
+
 class ChatMixin:
     """Mixin providing chat methods for the Agent class."""
+
+    @property
+    def last_durable_run_id(self) -> Optional[str]:
+        """Identifier of the most recently started durable turn, if any."""
+        return getattr(self, "_last_durable_run_id", None)
+
+    def _get_durable_run_context(self):
+        execution = getattr(self, "execution", None)
+        if execution is None or not getattr(execution, "durable", False):
+            return None
+        from .durable import get_durable_run
+
+        return get_durable_run()
+
+    def _turn_cancel_token(self, source: Any, *, explicit: bool):
+        """Create per-turn cancellation state while consuming default requests once."""
+        if source is None:
+            return None
+        begin_turn = getattr(source, "_begin_turn", None)
+        if explicit or not callable(begin_turn):
+            return _TurnCancelToken(source)
+        return _TurnCancelToken(source, turn_id=begin_turn())
+
+    def _durable_sync_tool_executor(self, execute_tool_fn):
+        """Wrap tool execution only while an opt-in durable run is active."""
+        context = self._get_durable_run_context()
+        if context:
+            execute = context.wrap_sync(execute_tool_fn)
+            if execute is not None:
+                execute._accepts_durable_iteration = True
+            return execute
+        return execute_tool_fn
+
+    def _durable_async_tool_executor(self, execute_tool_fn):
+        """Async counterpart of :meth:`_durable_sync_tool_executor`."""
+        context = self._get_durable_run_context()
+        if context:
+            execute = context.wrap_async(execute_tool_fn)
+            if execute is not None:
+                execute._accepts_durable_iteration = True
+            return execute
+        return execute_tool_fn
+
+    def _memory_prefetch_scope(self) -> Dict[str, Any]:
+        """Return explicit identity filters for a shared memory backend."""
+        config = getattr(self, "_memory_config", None)
+        scope: Dict[str, Any] = {}
+        user_id = getattr(config, "user_id", None)
+        session_id = getattr(config, "session_id", None)
+        if user_id:
+            scope["user_id"] = user_id
+        if session_id:
+            scope["session_id"] = session_id
+            scope["metadata_filter"] = {"session_id": session_id}
+        return scope
+
+    @staticmethod
+    def _memory_prefetch_query(prompt: Any) -> str:
+        """Return the user-authored text used for turn-start memory lookup."""
+        if isinstance(prompt, str):
+            return prompt.strip()
+        if isinstance(prompt, list):
+            parts = []
+            for item in prompt:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    text = item.get("text")
+                    if text:
+                        parts.append(str(text))
+            return "\n".join(parts).strip()
+        return str(prompt).strip() if prompt is not None else ""
+
+    @staticmethod
+    def _memory_prefetch_text(item: Any) -> str:
+        """Extract display text from the common memory-adapter result shapes."""
+        if isinstance(item, str):
+            return item.strip()
+        if isinstance(item, dict):
+            for key in ("memory", "text", "content", "value"):
+                value = item.get(key)
+                if isinstance(value, str):
+                    return str(value).strip()
+            nested_item = item.get("item")
+            if nested_item is not None and nested_item is not item:
+                return ChatMixin._memory_prefetch_text(nested_item)
+        for attr in ("memory", "text", "content", "value"):
+            value = getattr(item, attr, None)
+            if isinstance(value, str):
+                return str(value).strip()
+        nested_item = getattr(item, "item", None)
+        if nested_item is not None and nested_item is not item:
+            return ChatMixin._memory_prefetch_text(nested_item)
+        return ""
+
+    def _format_memory_prefetch(self, results: Any, limit: int, token_budget: int) -> str:
+        """Format deduplicated memory hits inside a strict estimated-token budget."""
+        if not isinstance(results, (list, tuple)):
+            return ""
+
+        try:
+            from ..context.tokens import estimate_tokens_heuristic
+        except ImportError:  # pragma: no cover - core module is always present
+            def estimate_tokens_heuristic(text: str) -> int:
+                return max(1, len(text) // 4)
+
+        lines = []
+        seen = set()
+        for item in results:
+            text = self._memory_prefetch_text(item)
+            if not text or text in seen:
+                continue
+            seen.add(text)
+            lines.append(f"- {text}")
+            if len(lines) >= limit:
+                break
+
+        if not lines or token_budget <= 0:
+            return ""
+
+        rendered = "\n".join(lines)
+        if estimate_tokens_heuristic(rendered) <= token_budget:
+            return rendered
+
+        # Token estimation is monotonic for prefixes, so binary search keeps
+        # the largest safe prefix and makes truncation explicit to the model.
+        suffix = "…"
+        low, high = 0, len(rendered)
+        while low < high:
+            mid = (low + high + 1) // 2
+            candidate = rendered[:mid].rstrip() + suffix
+            if estimate_tokens_heuristic(candidate) <= token_budget:
+                low = mid
+            else:
+                high = mid - 1
+        return (rendered[:low].rstrip() + suffix) if low else ""
+
+    def _prefetch_memory(self, prompt: Any) -> str:
+        """Best-effort synchronous turn-start retrieval (default-off)."""
+        if not self.use_system_prompt:
+            return ""
+        config = getattr(self, "_memory_config", None)
+        memory = getattr(self, "_memory_instance", None)
+        if not config or not getattr(config, "prefetch", False) or memory is None:
+            return ""
+
+        try:
+            query = self._memory_prefetch_query(prompt)
+            if not query:
+                return ""
+            limit = max(0, int(getattr(config, "prefetch_limit", 5)))
+            budget = max(0, int(getattr(config, "prefetch_token_budget", 512)))
+            if not limit or not budget:
+                return ""
+            scope = self._memory_prefetch_scope()
+            if hasattr(memory, "search_long_term"):
+                results = memory.search_long_term(query, limit=limit, **scope)
+            elif hasattr(memory, "search"):
+                results = memory.search(query, limit=limit, **scope)
+            else:
+                return ""
+            return self._format_memory_prefetch(results, limit, budget)
+        except Exception as exc:
+            logging.debug("Memory prefetch failed; continuing without recalled context: %s", exc)
+            return ""
+
+    async def _aprefetch_memory(self, prompt: Any) -> str:
+        """Best-effort asynchronous turn-start retrieval (default-off)."""
+        if not self.use_system_prompt:
+            return ""
+        config = getattr(self, "_memory_config", None)
+        memory = getattr(self, "_memory_instance", None)
+        if not config or not getattr(config, "prefetch", False) or memory is None:
+            return ""
+
+        try:
+            query = self._memory_prefetch_query(prompt)
+            if not query:
+                return ""
+            limit = max(0, int(getattr(config, "prefetch_limit", 5)))
+            budget = max(0, int(getattr(config, "prefetch_token_budget", 512)))
+            if not limit or not budget:
+                return ""
+            results = await self.asearch_memory(
+                query, memory_type="long_term", limit=limit
+            )
+            return self._format_memory_prefetch(results, limit, budget)
+        except Exception as exc:
+            logging.debug("Async memory prefetch failed; continuing without recalled context: %s", exc)
+            return ""
 
     def _resolve_max_steps(self, default: int = 10) -> int:
         """Resolve the unified multi-step tool budget shared by both loops.
@@ -36,21 +268,30 @@ class ChatMixin:
         OpenAI-native and LiteLLM tool-execution loops); otherwise falls back to
         ``max_iter`` and finally ``default`` for backward compatibility.
         """
+        resolved = default
         execution = getattr(self, "execution", None)
         if execution is not None:
             resolver = getattr(execution, "resolved_max_steps", None)
+            used_resolver = False
             if callable(resolver):
                 try:
-                    return int(resolver())
+                    resolved = int(resolver())
+                    used_resolver = True
                 except Exception:
                     pass
-            max_steps = getattr(execution, "max_steps", None)
-            if max_steps is not None:
-                return int(max_steps)
-            max_iter = getattr(execution, "max_iter", None)
-            if max_iter is not None:
-                return int(max_iter)
-        return default
+            if not used_resolver:
+                max_steps = getattr(execution, "max_steps", None)
+                if max_steps is not None:
+                    resolved = int(max_steps)
+                else:
+                    max_iter = getattr(execution, "max_iter", None)
+                    if max_iter is not None:
+                        resolved = int(max_iter)
+
+        durable_context = self._get_durable_run_context()
+        if durable_context is not None and durable_context.replaying:
+            resolved -= durable_context.completed_steps
+        return max(0, resolved)
 
     def _resolve_max_tool_calls(self, default: int = 10) -> int:
         """Resolve the per-turn tool-call guardrail (independent of ``max_steps``)."""
@@ -87,7 +328,7 @@ class ChatMixin:
         except Exception:
             return ""
 
-    def _build_system_prompt(self, tools=None):
+    def _build_system_prompt(self, tools=None, memory_prefetch_context: str = ""):
         """Build the system prompt with tool information.
         
         Args:
@@ -109,7 +350,9 @@ class ChatMixin:
                 # Path-scoped glob rules are per-turn (they depend on the files
                 # touched so far) so they are appended after the cache, never
                 # baked into the cached base prompt.
-                return self._append_glob_rules_context(cached_prompt)
+                return self._append_system_prompt_suffix(
+                    self._append_glob_rules_context(cached_prompt)
+                )
         else:
             cache_key = None  # Don't cache when memory is enabled
             
@@ -176,6 +419,9 @@ Your Goal: {self.goal}"""
             learn_context = self.get_learn_context()
             if learn_context:
                 system_prompt += f"\n\n## Learned Context (Patterns and insights from past interactions)\n{learn_context}"
+
+        if memory_prefetch_context:
+            system_prompt += f"\n\n## Recalled memories\n{memory_prefetch_context}"
         
         # Add skills prompt if skills are configured
         if self._skills or self._skills_dirs:
@@ -283,7 +529,26 @@ Your Goal: {self.goal}"""
         
         # Note: Caching is done BEFORE session context injection to avoid cross-user leakage
         # Append per-turn path-scoped (glob) rules last so they are never cached.
-        return self._append_glob_rules_context(system_prompt)
+        return self._append_system_prompt_suffix(
+            self._append_glob_rules_context(system_prompt)
+        )
+
+    def _append_system_prompt_suffix(self, system_prompt):
+        """Append a per-invocation instruction from the environment.
+
+        Sourced from ``PRAISONAI_APPEND_SYSTEM_PROMPT`` (set by the CLI
+        ``--append-system-prompt`` flag or directly for CI). Appended at the
+        very END of the assembled prompt so the stable, cacheable prefix is
+        preserved (#2993). Never baked into the base-prompt cache and a no-op
+        when the variable is unset/empty.
+        """
+        if not system_prompt:
+            return system_prompt
+        import os
+        extra = os.environ.get("PRAISONAI_APPEND_SYSTEM_PROMPT")
+        if extra and extra.strip():
+            return f"{system_prompt}\n\n{extra.strip()}"
+        return system_prompt
 
     def _append_glob_rules_context(self, system_prompt):
         """Append path-scoped (activation: glob) rules for files touched this run.
@@ -468,7 +733,7 @@ Your Goal: {self.goal}"""
             )
             return False
 
-    def _build_messages(self, prompt, temperature=1.0, output_json=None, output_pydantic=None, tools=None, use_native_format=False):
+    def _build_messages(self, prompt, temperature=1.0, output_json=None, output_pydantic=None, tools=None, use_native_format=False, restore_durable=True, memory_prefetch_context: str = ""):
         """Build messages list for chat completion.
         
         Args:
@@ -491,6 +756,7 @@ Your Goal: {self.goal}"""
                 prompt=prompt,
                 system_prompt=self._build_system_prompt(
                     tools=tools,
+                    memory_prefetch_context=memory_prefetch_context,
                 ),
                 chat_history=self.chat_history,
                 output_json=None if use_native_format else output_json,
@@ -500,6 +766,7 @@ Your Goal: {self.goal}"""
             # Build messages manually
             system_prompt = self._build_system_prompt(
                 tools=tools,
+                memory_prefetch_context=memory_prefetch_context,
             )
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
@@ -551,6 +818,10 @@ Your Goal: {self.goal}"""
                     json_instruction = f"\nPlease respond with valid JSON matching this schema: {json.dumps(schema_model)}"
                     messages[-1]["content"] += json_instruction
         
+        durable_context = self._get_durable_run_context()
+        if durable_context is not None and restore_durable:
+            durable_context.restore_messages(messages)
+
         return messages, original_prompt
 
     def _format_tools_for_completion(self, tools=None):
@@ -1097,6 +1368,8 @@ Your Goal: {self.goal}"""
             logging.warning(f"BEFORE_COMPACTION hook failed: {e}")
             if getattr(self, '_strict_hooks', False):
                 raise
+
+        self._run_pre_compaction_memory_flush(messages, compactor)
         
         # Perform compaction
         compacted_msgs, result = compactor.compact(messages)
@@ -1154,6 +1427,38 @@ Your Goal: {self.goal}"""
             )
         except Exception as e:
             logging.debug(f"Failed to persist compaction checkpoint: {e}")
+
+    def _run_pre_compaction_memory_flush(self, messages, compactor):
+        """Run the default-off sync flush at the compactor's older boundary."""
+        try:
+            execution = getattr(self, "execution", None)
+            setting = getattr(execution, "pre_compaction_memory_flush", False)
+            older_slice = compactor.preview_older_slice(messages)
+            from ..compaction.memory_flush import run_pre_compaction_flush_sync
+
+            return run_pre_compaction_flush_sync(self, older_slice, setting)
+        except Exception as exc:
+            logging.warning(
+                "Pre-compaction memory flush failed; continuing compaction: %s",
+                exc,
+            )
+            return None
+
+    async def _arun_pre_compaction_memory_flush(self, messages, compactor):
+        """Await the default-off async flush at the compactor's older boundary."""
+        try:
+            execution = getattr(self, "execution", None)
+            setting = getattr(execution, "pre_compaction_memory_flush", False)
+            older_slice = compactor.preview_older_slice(messages)
+            from ..compaction.memory_flush import run_pre_compaction_flush
+
+            return await run_pre_compaction_flush(self, older_slice, setting)
+        except Exception as exc:
+            logging.warning(
+                "Async pre-compaction memory flush failed; continuing compaction: %s",
+                exc,
+            )
+            return None
 
     def _apply_tool_truncation(self, messages, compactor, policy, log_tag="tool-truncation"):
         """Apply targeted tool output truncation."""
@@ -1256,6 +1561,8 @@ Your Goal: {self.goal}"""
             logging.warning(f"BEFORE_COMPACTION hook failed: {e}")
             if getattr(self, '_strict_hooks', False):
                 raise
+
+        await self._arun_pre_compaction_memory_flush(messages, compactor)
         
         # Perform compaction
         compacted_msgs, result = compactor.compact(messages)
@@ -2051,7 +2358,9 @@ Your Goal: {self.goal}"""
                     max_tokens=getattr(self, 'max_tokens', None),
                     stream=True,  # Try streaming first
                     response_format=response_format,
-                    execute_tool_fn=getattr(self, 'execute_tool', None),
+                    execute_tool_fn=self._durable_sync_tool_executor(
+                        getattr(self, 'execute_tool', None)
+                    ),
                     console=self.console if (self.verbose or True) else None,  # Enable console for streaming
                     display_fn=self._display_generating if self.verbose else None,
                     stream_callback=stream_callback,
@@ -2062,7 +2371,11 @@ Your Goal: {self.goal}"""
                     task_name=task_name,
                     task_description=task_description,
                     task_id=task_id,
-                    agent_name=getattr(self, 'name', 'assistant')
+                    agent_name=getattr(self, 'name', 'assistant'),
+                    # Durable re-injection target for deferred tool results:
+                    # background jobs completing after this call must land in the
+                    # persistent history a later turn replays, not the loop copy.
+                    deferred_history_sink=getattr(self, 'chat_history', None),
                 )
                 return final_response
             except ValueError as e:
@@ -2090,7 +2403,9 @@ Your Goal: {self.goal}"""
                 max_tokens=getattr(self, 'max_tokens', None),
                 stream=stream,
                 response_format=response_format,
-                execute_tool_fn=getattr(self, 'execute_tool', None),
+                execute_tool_fn=self._durable_sync_tool_executor(
+                    getattr(self, 'execute_tool', None)
+                ),
                 console=self.console if (self.verbose or stream) else None,
                 display_fn=self._display_generating if self.verbose else None,
                 stream_callback=stream_callback,
@@ -2116,6 +2431,8 @@ Your Goal: {self.goal}"""
                     ]
                     or None
                 ),
+                # Durable re-injection target for deferred tool results (see above).
+                deferred_history_sink=getattr(self, 'chat_history', None),
             )
             return final_response
             
@@ -2180,6 +2497,35 @@ Your Goal: {self.goal}"""
                     agent_id=self.name
                 )
         
+        # Trigger BEFORE_LLM hook (parity with sync _chat_completion). Without
+        # this, hook-based features registered on BEFORE_LLM (e.g. PII
+        # redaction via enable_pii_redaction()) silently stop applying on the
+        # async path. Only build the input if a hook is actually registered.
+        _achat_start_time = time.time()
+        from ..hooks import HookEvent, BeforeLLMInput
+        if self._hook_runner.registry.has_hooks(HookEvent.BEFORE_LLM):
+            before_llm_input = BeforeLLMInput(
+                session_id=getattr(self, '_session_id', 'default'),
+                cwd=os.getcwd(),
+                event_name=HookEvent.BEFORE_LLM,
+                timestamp=str(time.time()),
+                agent_name=self.name,
+                messages=messages,
+                model=self.llm if isinstance(self.llm, str) else str(self.llm),
+                temperature=temperature
+            )
+            _before_llm_results = await self._hook_runner.execute(HookEvent.BEFORE_LLM, before_llm_input)
+            if self._hook_runner.is_blocked(_before_llm_results):
+                _block_reason = next(
+                    (getattr(r.output, "reason", None) for r in _before_llm_results
+                     if r.output and getattr(r.output, "is_denied", lambda: False)()),
+                    None,
+                ) or "Blocked by hook"
+                logging.warning(f"Agent {self.name} LLM request blocked by BEFORE_LLM hook: {_block_reason}")
+                return f"[LLM request blocked by hook: {_block_reason}]"
+            # Adopt any BEFORE_LLM hook mutations (e.g. PII redactor).
+            messages = before_llm_input.messages
+
         # Execute unified async dispatch with all necessary parameters
         # Includes all parameters from both legacy paths to ensure full compatibility
         try:
@@ -2193,7 +2539,9 @@ Your Goal: {self.goal}"""
                 max_tokens=getattr(self, 'max_tokens', None),
                 stream=stream,
                 response_format=response_format,
-                execute_tool_fn=getattr(self, 'execute_tool_async', None),
+                execute_tool_fn=self._durable_async_tool_executor(
+                    getattr(self, 'execute_tool_async', None)
+                ),
                 console=self.console if (self.verbose or stream) else None,
                 display_fn=self._display_generating if self.verbose else None,
                 stream_callback=stream_callback,
@@ -2256,6 +2604,22 @@ Your Goal: {self.goal}"""
                     )
                 elif callable(self._on_budget_exceeded):
                     self._on_budget_exceeded(current_cost, self._max_budget)
+
+            # Trigger AFTER_LLM hook (parity with sync _chat_completion).
+            from ..hooks import AfterLLMInput
+            if self._hook_runner.registry.has_hooks(HookEvent.AFTER_LLM):
+                after_llm_input = AfterLLMInput(
+                    session_id=getattr(self, '_session_id', 'default'),
+                    cwd=os.getcwd(),
+                    event_name=HookEvent.AFTER_LLM,
+                    timestamp=str(time.time()),
+                    agent_name=self.name,
+                    messages=messages,
+                    response=str(final_response),
+                    model=self.llm if isinstance(self.llm, str) else str(self.llm),
+                    latency_ms=(time.time() - _achat_start_time) * 1000
+                )
+                await self._hook_runner.execute(HookEvent.AFTER_LLM, after_llm_input)
 
             return final_response
 
@@ -2551,6 +2915,16 @@ Your Goal: {self.goal}"""
             except Exception as e:
                 logger.warning(f"Steering check failed, continuing without steering: {e}")
 
+        # Input-side guardrail validation (no-op unless the guardrail exposes
+        # validate_input). Runs before any backend/LLM dispatch so a rejected
+        # prompt never reaches the model.
+        if hasattr(self, '_validate_input_with_guardrail'):
+            _in_ok, _in_prompt, _in_err = self._validate_input_with_guardrail(prompt)
+            if not _in_ok:
+                logging.warning(f"Agent {self.name}: input blocked by guardrail: {_in_err}")
+                return None
+            prompt = _in_prompt
+
         # Check if external managed backend is configured
         if hasattr(self, 'backend') and self.backend is not None:
             # Extract kwargs for delegation, excluding 'self' and function locals
@@ -2576,17 +2950,55 @@ Your Goal: {self.goal}"""
         from ..trace.context_events import get_context_emitter
         _trace_emitter = get_context_emitter()
         _trace_emitter.agent_start(self.name, {"role": self.role, "goal": self.goal})
-        
+        durable_context = None
+        durable_token = None
         try:
             # C2 - cooperative cancellation: abort early if a pre-set token is given
-            _cancel = cancel_token if cancel_token is not None else getattr(self, "interrupt_controller", None)
+            cancel_source = cancel_token if cancel_token is not None else getattr(self, "interrupt_controller", None)
+            _cancel = self._turn_cancel_token(
+                cancel_source, explicit=cancel_token is not None
+            )
             if _cancel is not None and getattr(_cancel, "is_set", lambda: False)():
                 reason = getattr(_cancel, "reason", None) or "cancelled before LLM call"
                 raise InterruptedError(f"Agent chat cancelled: {reason}")
 
-            return self._chat_impl(prompt, temperature, tools, output_json, output_pydantic, reasoning_steps, stream, task_name, task_description, task_id, config, force_retrieval, skip_retrieval, attachments, _trace_emitter, tool_choice, seed=seed, cancel_token=_cancel)
+            if getattr(getattr(self, "execution", None), "durable", False):
+                from .durable import begin_durable_run
+
+                durable_context, durable_token = begin_durable_run(
+                    self, prompt if isinstance(prompt, str) else str(prompt)
+                )
+            result = self._chat_impl(prompt, temperature, tools, output_json, output_pydantic, reasoning_steps, stream, task_name, task_description, task_id, config, force_retrieval, skip_retrieval, attachments, _trace_emitter, tool_choice, seed=seed, cancel_token=_cancel)
+            if durable_context is not None:
+                outcome = (
+                    "cancelled"
+                    if _cancel is not None and _cancel.was_cancelled()
+                    else ("failed" if result is None else "succeeded")
+                )
+                durable_context.finalize(outcome)
+                self.execution.resume_run_id = None
+            return result
+        except ToolExecutionError as exc:
+            if durable_context is not None and not exc.is_retryable:
+                durable_context.finalize("failed")
+                self.execution.resume_run_id = None
+            raise
+        except InterruptedError:
+            if durable_context is not None:
+                durable_context.finalize("cancelled")
+                self.execution.resume_run_id = None
+            raise
         finally:
-            _trace_emitter.agent_end(self.name)
+            if durable_context is not None:
+                from .durable import end_durable_run
+
+                end_durable_run(durable_token)
+                durable_context.close()
+            try:
+                _trace_emitter.agent_end(self.name)
+            finally:
+                if _cancel is not None:
+                    _cancel.close()
 
     def _chat_impl(self, prompt, temperature, tools, output_json, output_pydantic, reasoning_steps, stream, task_name, task_description, task_id, config, force_retrieval, skip_retrieval, attachments, _trace_emitter, tool_choice=None, seed=None, cancel_token=None):
         """Internal chat implementation (extracted for trace wrapping)."""
@@ -2673,6 +3085,10 @@ Your Goal: {self.goal}"""
         # Use agent's stream setting if not explicitly provided
         if stream is None:
             stream = self.stream
+
+        # Query long-term memory exactly once for this turn. The default-off
+        # guard returns before touching the backend.
+        memory_prefetch_context = self._prefetch_memory(prompt)
         
         # Unified retrieval handling with policy-based decision
         # Uses token-aware context building (DRY - same path as RAG pipeline)
@@ -2711,6 +3127,9 @@ Your Goal: {self.goal}"""
                     prompt = f"{prompt}\n\n{formatted_context}"
 
         if self._using_custom_llm:
+            # Track messages THIS turn appends so a failure rolls back only our
+            # own messages, never a concurrent turn's (see memory_mixin).
+            _turn_token = self._begin_turn_tracking()
             try:
                 # Special handling for MCP tools when using provider/model format
                 # Security fix: Distinguish None (inherit) vs [] (explicit deny)
@@ -2775,7 +3194,9 @@ Your Goal: {self.goal}"""
                 
                 try:
                     # --- Proactive Context Budget Management (sync custom LLM path) ---
-                    system_prompt_for_llm = self._build_system_prompt(tools)
+                    system_prompt_for_llm = self._build_system_prompt(
+                        tools, memory_prefetch_context=memory_prefetch_context
+                    )
                     
                     # Apply proactive context budget analysis before any other processing
                     try:
@@ -2800,6 +3221,11 @@ Your Goal: {self.goal}"""
                         system_prompt=system_prompt_for_llm,
                         tools=tool_param,
                     )
+                    durable_context = self._get_durable_run_context()
+                    if durable_context is not None:
+                        processed_history = durable_context.restore_messages(
+                            list(processed_history)
+                        )
                     
                     # Pass everything to LLM class
                     # Use llm_prompt (which includes multimodal content if attachments present)
@@ -2824,8 +3250,11 @@ Your Goal: {self.goal}"""
                         task_name=task_name,
                         task_description=task_description,
                         task_id=task_id,
-                        execute_tool_fn=self.execute_tool,
+                        execute_tool_fn=self._durable_sync_tool_executor(
+                            self.execute_tool
+                        ),
                         parallel_tool_calls=getattr(getattr(self, "execution", None), "parallel_tool_calls", False),
+                        max_iterations=self._resolve_max_steps(),
                         max_tool_calls_per_turn=self._resolve_max_tool_calls(),
                         reasoning_steps=reasoning_steps,
                         stream=stream
@@ -2876,16 +3305,22 @@ Your Goal: {self.goal}"""
                     except Exception as e:
                         logging.error(f"Agent {self.name}: Guardrail validation failed for custom LLM: {e}")
                         # Rollback chat history on guardrail failure
-                        self._truncate_chat_history(chat_history_length)
+                        self._rollback_chat_history_to(chat_history_length)
                         return None
+                except ToolExecutionError:
+                    raise
                 except Exception as e:
                     # Rollback chat history if LLM call fails
-                    self._truncate_chat_history(chat_history_length)
+                    self._rollback_chat_history_to(chat_history_length)
                     _get_display_functions()['display_error'](f"Error in LLM chat: {e}")
                     return None
+            except ToolExecutionError:
+                raise
             except Exception as e:
                 _get_display_functions()['display_error'](f"Error in LLM chat: {e}")
                 return None
+            finally:
+                self._end_turn_tracking(_turn_token)
         else:
             # Determine if we should use native structured output
             schema_model = output_pydantic or output_json
@@ -2903,7 +3338,8 @@ Your Goal: {self.goal}"""
             # Pass llm_prompt (which includes multimodal content if attachments present)
             messages, original_prompt = self._build_messages(
                 llm_prompt, temperature, output_json, output_pydantic,
-                use_native_format=use_native_format
+                use_native_format=use_native_format,
+                memory_prefetch_context=memory_prefetch_context,
             )
             
 
@@ -2965,7 +3401,7 @@ Your Goal: {self.goal}"""
                         response = self._chat_completion(messages, temperature=temperature, tools=tools, reasoning_steps=reasoning_steps, stream=stream, task_name=task_name, task_description=task_description, task_id=task_id, response_format=response_format)
                         if not response:
                             # Rollback chat history on response failure
-                            self._truncate_chat_history(chat_history_length)
+                            self._rollback_chat_history_to(chat_history_length)
                             return None
 
                         # Handle None content (can happen with tool calls or empty responses)
@@ -2988,7 +3424,7 @@ Your Goal: {self.goal}"""
                             except Exception as e:
                                 logging.error(f"Agent {self.name}: Guardrail validation failed for JSON output: {e}")
                                 # Rollback chat history on guardrail failure
-                                self._truncate_chat_history(chat_history_length)
+                                self._rollback_chat_history_to(chat_history_length)
                                 return None
 
                         if not self.self_reflect:
@@ -3009,7 +3445,7 @@ Your Goal: {self.goal}"""
                                 except Exception as e:
                                     logging.error(f"Agent {self.name}: Guardrail validation failed for reasoning content: {e}")
                                     # Rollback chat history on guardrail failure
-                                    self._truncate_chat_history(chat_history_length)
+                                    self._rollback_chat_history_to(chat_history_length)
                                     return None
                             # Apply guardrail to regular response
                             try:
@@ -3020,7 +3456,7 @@ Your Goal: {self.goal}"""
                             except Exception as e:
                                 logging.error(f"Agent {self.name}: Guardrail validation failed: {e}")
                                 # Rollback chat history on guardrail failure
-                                self._truncate_chat_history(chat_history_length)
+                                self._rollback_chat_history_to(chat_history_length)
                                 return None
 
                         reflection_prompt = f"""
@@ -3084,7 +3520,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                 except Exception as e:
                                     logging.error(f"Agent {self.name}: Guardrail validation failed after reflection: {e}")
                                     # Rollback chat history on guardrail failure
-                                    self._truncate_chat_history(chat_history_length)
+                                    self._rollback_chat_history_to(chat_history_length)
                                     self._end_run(None, "error", {"error": str(e)})
                                     return None
 
@@ -3103,7 +3539,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                 except Exception as e:
                                     logging.error(f"Agent {self.name}: Guardrail validation failed after max reflections: {e}")
                                     # Rollback chat history on guardrail failure
-                                    self._truncate_chat_history(chat_history_length)
+                                    self._rollback_chat_history_to(chat_history_length)
                                     return None
                             
                             # If not satisfactory and not at max reflections, continue with regeneration
@@ -3127,28 +3563,20 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                     except Exception:
                         # Catch any exception from the inner try block and re-raise to outer handler
                         raise
+            except ToolExecutionError:
+                raise
             except Exception as e:
                 # Catch any exceptions that escape the while loop
                 _get_display_functions()['display_error'](f"Unexpected error in chat: {e}", console=self.console)
                 # Rollback chat history
-                self._truncate_chat_history(chat_history_length)
+                self._rollback_chat_history_to(chat_history_length)
                 return None
 
     def clean_json_output(self, output: str) -> str:
-        """Clean and extract JSON from response text.
-        
-        NOTE: This method is duplicated in agents.Agents.clean_json_output.
-        Keep both implementations in sync when modifying either.
-        """
-        cleaned = output.strip()
-        # Remove markdown code blocks if present
-        if cleaned.startswith("```json"):
-            cleaned = cleaned[len("```json"):].strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned[len("```"):].strip()
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3].strip()
-        return cleaned  
+        """Clean JSON output while preserving the legacy agent method."""
+        from ..main import clean_triple_backticks
+
+        return clean_triple_backticks(output)
 
     async def achat(self, prompt: str, temperature: float = 1.0, tools: Optional[List[Any]] = None, output_json: Optional[Any] = None, output_pydantic: Optional[Any] = None, reasoning_steps: bool = False, stream: Optional[bool] = None, task_name: Optional[str] = None, task_description: Optional[str] = None, task_id: Optional[str] = None, config: Optional[Dict[str, Any]] = None, force_retrieval: bool = False, skip_retrieval: bool = False, attachments: Optional[List[str]] = None, tool_choice: Optional[str] = None, seed: Optional[int] = None, cancel_token: Optional[Any] = None):
         """Async version of chat method with self-reflection support.
@@ -3171,29 +3599,118 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
             except Exception as e:
                 logger.warning(f"Steering check failed, continuing without steering: {e}")
 
+        # Input-side guardrail validation (parity with sync chat()). No-op
+        # unless the guardrail exposes validate_input; runs before any
+        # backend/LLM dispatch so a rejected prompt never reaches the model.
+        if hasattr(self, '_validate_input_with_guardrail'):
+            _in_ok, _in_prompt, _in_err = self._validate_input_with_guardrail(prompt)
+            if not _in_ok:
+                logging.warning(f"Agent {self.name}: input blocked by guardrail: {_in_err}")
+                return None
+            prompt = _in_prompt
+
+        # Check if external managed backend is configured (async parity with the
+        # sync chat() path). Without this the configured backend is silently
+        # ignored on the async path and execution falls through to direct-LLM.
+        if hasattr(self, 'backend') and self.backend is not None:
+            # Honour configured throttling and cooperative cancellation before
+            # handing off to the managed backend, so backend requests obey the
+            # same request limits and cancel token as direct-LLM calls instead
+            # of bypassing both guards.
+            if self._rate_limiter is not None:
+                await self._rate_limiter.acquire_async()
+            _cancel = cancel_token if cancel_token is not None else getattr(self, "interrupt_controller", None)
+            if _cancel is not None and getattr(_cancel, "is_set", lambda: False)():
+                reason = getattr(_cancel, "reason", None) or "cancelled before backend call"
+                raise InterruptedError(f"Agent chat cancelled: {reason}")
+            delegation_kwargs = {
+                'temperature': temperature,
+                'tools': tools,
+                'output_json': output_json,
+                'output_pydantic': output_pydantic,
+                'reasoning_steps': reasoning_steps,
+                'stream': stream,
+                'task_name': task_name,
+                'task_description': task_description,
+                'task_id': task_id,
+                'config': config,
+                'force_retrieval': force_retrieval,
+                'skip_retrieval': skip_retrieval,
+                'attachments': attachments,
+                'tool_choice': tool_choice,
+            }
+            return await self._adelegate_to_backend(prompt, **delegation_kwargs)
+
         # Emit context trace event (zero overhead when not set)
         from ..trace.context_events import get_context_emitter
         _trace_emitter = get_context_emitter()
         _trace_emitter.agent_start(self.name, {"role": self.role, "goal": self.goal})
-        
+        durable_context = None
+        durable_token = None
+        cancel_source = cancel_token if cancel_token is not None else getattr(self, "interrupt_controller", None)
+        _cancel = self._turn_cancel_token(
+            cancel_source, explicit=cancel_token is not None
+        )
         try:
-            return await self._achat_impl(
+            if getattr(getattr(self, "execution", None), "durable", False):
+                from .durable import abegin_durable_run
+
+                durable_context, durable_token = await abegin_durable_run(
+                    self, prompt if isinstance(prompt, str) else str(prompt)
+                )
+            result = await self._achat_impl(
                 prompt=prompt, temperature=temperature, tools=tools,
                 output_json=output_json, output_pydantic=output_pydantic,
                 reasoning_steps=reasoning_steps, stream=stream,
                 task_name=task_name, task_description=task_description, task_id=task_id,
                 config=config, force_retrieval=force_retrieval, skip_retrieval=skip_retrieval,
                 attachments=attachments, _trace_emitter=_trace_emitter, tool_choice=tool_choice,
-                seed=seed, cancel_token=cancel_token
+                seed=seed, cancel_token=_cancel
             )
+            if durable_context is not None:
+                outcome = (
+                    "cancelled"
+                    if _cancel is not None and _cancel.was_cancelled()
+                    else ("failed" if result is None else "succeeded")
+                )
+                await durable_context.afinalize(outcome)
+                self.execution.resume_run_id = None
+            return result
+        except ToolExecutionError as exc:
+            if durable_context is not None and not exc.is_retryable:
+                await durable_context.afinalize("failed")
+                self.execution.resume_run_id = None
+            raise
+        except (InterruptedError, asyncio.CancelledError):
+            if durable_context is not None:
+                await durable_context.afinalize("cancelled")
+                self.execution.resume_run_id = None
+            raise
         finally:
-            _trace_emitter.agent_end(self.name)
+            if durable_context is not None:
+                from .durable import end_durable_run
+
+                end_durable_run(durable_token)
+                await durable_context.aclose()
+            try:
+                _trace_emitter.agent_end(self.name)
+            finally:
+                if _cancel is not None:
+                    _cancel.close()
 
     async def _achat_impl(self, prompt, temperature, tools, output_json, output_pydantic, reasoning_steps, stream, task_name, task_description, task_id, config, force_retrieval, skip_retrieval, attachments, _trace_emitter, tool_choice=None, seed=None, cancel_token=None):
         """Internal async chat implementation (extracted for trace wrapping)."""
+        # Clear any stale per-turn ownership list from a prior turn on this task
+        # so this turn's rollback attribution starts clean (see memory_mixin).
+        self._clear_turn_tracking()
         # Reset the per-turn tool buffer so the self-improve review policy only
         # sees tools used in this turn (not during a nested skill-review turn).
         self._reset_turn_tools()
+        # Apply rate limiter if configured (before any LLM call) - async parity
+        # with the sync path in _chat_impl; without this, async bursts (astart,
+        # async_execution=True) would fire with zero throttling.
+        if self._rate_limiter is not None:
+            await self._rate_limiter.acquire_async()
         # C2 - cooperative cancellation: abort early if a pre-set token is given
         _cancel = cancel_token if cancel_token is not None else getattr(self, "interrupt_controller", None)
         if _cancel is not None and getattr(_cancel, "is_set", lambda: False)():
@@ -3256,6 +3773,10 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
         start_time = time.time()
         reasoning_steps = reasoning_steps or self.reasoning_steps
         try:
+            # Async adapters are awaited (sync adapters are offloaded by
+            # AsyncMemoryMixin), so turn-start retrieval never blocks the loop.
+            memory_prefetch_context = await self._aprefetch_memory(prompt)
+
             # Default to self.tools if tools argument is None
             if tools is None:
                 tools = self.tools
@@ -3276,6 +3797,11 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
             if self._using_custom_llm:
                 # Store chat history length for potential rollback
                 chat_history_length = len(self.chat_history)
+                # Track messages THIS turn appends so a failure rolls back only our
+                # own messages, never a concurrent turn's (see memory_mixin). Each
+                # achat() turn runs in its own task/context; _begin_turn_tracking()
+                # sets a fresh list, so sequential turns cannot leak into each other.
+                self._begin_turn_tracking()
                 
                 # Normalize prompt content for consistent chat history storage
                 normalized_content = prompt
@@ -3283,12 +3809,10 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                     # Extract text from multimodal prompts
                     normalized_content = next((item["text"] for item in prompt if item.get("type") == "text"), "")
                 
-                # Prevent duplicate messages
-                if not (self.chat_history and 
-                        self.chat_history[-1].get("role") == "user" and 
-                        self.chat_history[-1].get("content") == normalized_content):
-                    # Add user message to chat history BEFORE LLM call so handoffs can access it
-                    self._append_to_chat_history({"role": "user", "content": normalized_content})
+                # Add user message to chat history BEFORE LLM call so handoffs can access it.
+                # Use atomic check-then-act to prevent TOCTOU race conditions (matches sync chat()).
+                if self._add_to_chat_history_if_not_duplicate("user", normalized_content):
+                    self._persist_message("user", normalized_content)
 
                 # --- Proactive Context Budget Management (async custom LLM path) ---
                 try:
@@ -3312,11 +3836,20 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                     # Use the modified chat_history after compaction
                     pass
 
+                durable_context = self._get_durable_run_context()
+                if durable_context is not None:
+                    effective_history = await durable_context.arestore_messages(
+                        list(effective_history)
+                    )
+
                 try:
                     # C1 - per-call seed forwarding (async path)  
                     llm_kwargs = {
                         'prompt': prompt,
-                        'system_prompt': self._build_system_prompt(tools),
+                        'system_prompt': self._build_system_prompt(
+                            tools,
+                            memory_prefetch_context=memory_prefetch_context,
+                        ),
                         'chat_history': effective_history,
                         'temperature': temperature,
                         'tools': tools,
@@ -3334,8 +3867,11 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                         'task_name': task_name,
                         'task_description': task_description,
                         'task_id': task_id,
-                        'execute_tool_fn': self.execute_tool_async,
+                        'execute_tool_fn': self._durable_async_tool_executor(
+                            self.execute_tool_async
+                        ),
                         'parallel_tool_calls': getattr(getattr(self, "execution", None), "parallel_tool_calls", False),
+                        'max_iterations': self._resolve_max_steps(),
                         'max_tool_calls_per_turn': self._resolve_max_tool_calls(),
                         'reasoning_steps': reasoning_steps,
                         'stream': stream
@@ -3381,11 +3917,13 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                     except Exception as e:
                         logging.error(f"Agent {self.name}: Guardrail validation failed for custom LLM: {e}")
                         # Rollback chat history on guardrail failure
-                        self._truncate_chat_history(chat_history_length)
+                        self._rollback_chat_history_to(chat_history_length)
                         return None
+                except ToolExecutionError:
+                    raise
                 except Exception as e:
                     # Rollback chat history if LLM call fails
-                    self._truncate_chat_history(chat_history_length)
+                    self._rollback_chat_history_to(chat_history_length)
                     _get_display_functions()['display_error'](f"Error in LLM chat: {e}")
                     if get_logger().getEffectiveLevel() == logging.DEBUG:
                         total_time = time.time() - start_time
@@ -3394,7 +3932,17 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
 
             # For OpenAI client
             # Use the new _build_messages helper method
-            messages, original_prompt = self._build_messages(prompt, temperature, output_json, output_pydantic)
+            messages, original_prompt = self._build_messages(
+                prompt,
+                temperature,
+                output_json,
+                output_pydantic,
+                restore_durable=False,
+                memory_prefetch_context=memory_prefetch_context,
+            )
+            durable_context = self._get_durable_run_context()
+            if durable_context is not None:
+                messages = await durable_context.arestore_messages(messages)
             
             # Store chat history length for potential rollback
             chat_history_length = len(self.chat_history)
@@ -3479,7 +4027,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                         # Process response - mirror sync _chat_impl behavior (lines ~1544-1602)
                         if not response:
                             # Rollback chat history on response failure
-                            self._truncate_chat_history(chat_history_length)
+                            self._rollback_chat_history_to(chat_history_length)
                             return None
 
                         # Extract response content using the same method as sync
@@ -3492,8 +4040,10 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                             # Add to chat history and return raw response
                             # User message already added before LLM call via _build_messages
                             self._append_to_chat_history({"role": "assistant", "content": response_text})
-                            # Persist assistant message to DB
-                            self._persist_message("assistant", response_text)
+                            # Persist assistant message to DB (offloaded to a
+                            # worker thread so file-locked disk I/O doesn't
+                            # block the event loop on this async turn).
+                            await self._apersist_message("assistant", response_text)
                             # Apply guardrail validation even for JSON output
                             try:
                                 validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id)
@@ -3503,15 +4053,16 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                             except Exception as e:
                                 logging.error(f"Agent {self.name}: Guardrail validation failed for JSON output: {e}")
                                 # Rollback chat history on guardrail failure
-                                self._truncate_chat_history(chat_history_length)
+                                self._rollback_chat_history_to(chat_history_length)
                                 return None
 
                         # For regular responses (no self-reflection)
                         if not self.self_reflect:
                             # User message already added before LLM call via _build_messages
                             self._append_to_chat_history({"role": "assistant", "content": response_text})
-                            # Persist assistant message to DB (non-reflect path)
-                            self._persist_message("assistant", response_text)
+                            # Persist assistant message to DB (non-reflect path,
+                            # offloaded to a worker thread to avoid blocking the loop)
+                            await self._apersist_message("assistant", response_text)
                             if self.verbose:
                                 logging.debug(f"Agent {self.name} final response: {response_text}")
                             # Return only reasoning content if reasoning_steps is True
@@ -3525,7 +4076,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                 except Exception as e:
                                     logging.error(f"Agent {self.name}: Guardrail validation failed for reasoning content: {e}")
                                     # Rollback chat history on guardrail failure
-                                    self._truncate_chat_history(chat_history_length)
+                                    self._rollback_chat_history_to(chat_history_length)
                                     return None
                             else:
                                 # Apply guardrail to regular response content
@@ -3537,7 +4088,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                 except Exception as e:
                                     logging.error(f"Agent {self.name}: Guardrail validation failed: {e}")
                                     # Rollback chat history on guardrail failure
-                                    self._truncate_chat_history(chat_history_length)
+                                    self._rollback_chat_history_to(chat_history_length)
                                     return None
                         
                         # If self-reflection is enabled, implement reflection logic
@@ -3567,8 +4118,8 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                             _get_display_functions()['display_self_reflection'](f"Agent {self.name}: Self-reflection with structured output is not supported for custom LLM providers. Skipping reflection.", console=self.console)
                                         # Return the original response without reflection
                                         self._append_to_chat_history({"role": "assistant", "content": response_text})
-                                        # Persist assistant message to DB
-                                        self._persist_message("assistant", response_text)
+                                        # Persist assistant message to DB (offloaded to a worker thread)
+                                        await self._apersist_message("assistant", response_text)
                                         try:
                                             validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id)
                                             # Execute callback after validation
@@ -3577,7 +4128,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                         except Exception as e:
                                             logging.error(f"Agent {self.name}: Guardrail validation failed: {e}")
                                             # Rollback chat history on guardrail failure
-                                            self._truncate_chat_history(chat_history_length)
+                                            self._rollback_chat_history_to(chat_history_length)
                                             return None
                                     
                                     reflection_response = await self._openai_client.async_client.beta.chat.completions.parse(
@@ -3598,8 +4149,8 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                             _get_display_functions()['display_self_reflection']("Agent marked the response as satisfactory after meeting minimum reflections", console=self.console)
                                         # Add to chat history and return
                                         self._append_to_chat_history({"role": "assistant", "content": response_text})
-                                        # Persist assistant message to DB
-                                        self._persist_message("assistant", response_text)
+                                        # Persist assistant message to DB (offloaded to a worker thread)
+                                        await self._apersist_message("assistant", response_text)
                                         try:
                                             validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id)
                                             # Execute callback after validation
@@ -3608,7 +4159,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                         except Exception as e:
                                             logging.error(f"Agent {self.name}: Guardrail validation failed after reflection: {e}")
                                             # Rollback chat history on guardrail failure
-                                            self._truncate_chat_history(chat_history_length)
+                                            self._rollback_chat_history_to(chat_history_length)
                                             return None
                                     
                                     # Check if we've hit max reflections
@@ -3617,8 +4168,8 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                             _get_display_functions()['display_self_reflection']("Maximum reflection count reached, returning current response", console=self.console)
                                         # Add to chat history and return
                                         self._append_to_chat_history({"role": "assistant", "content": response_text})
-                                        # Persist assistant message to DB
-                                        self._persist_message("assistant", response_text)
+                                        # Persist assistant message to DB (offloaded to a worker thread)
+                                        await self._apersist_message("assistant", response_text)
                                         try:
                                             validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id)
                                             # Execute callback after validation
@@ -3627,7 +4178,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                         except Exception as e:
                                             logging.error(f"Agent {self.name}: Guardrail validation failed after max reflections: {e}")
                                             # Rollback chat history on guardrail failure
-                                            self._truncate_chat_history(chat_history_length)
+                                            self._rollback_chat_history_to(chat_history_length)
                                             return None
                                     
                                     # Regenerate response based on reflection
@@ -3667,8 +4218,8 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                     if reflection_count >= self.max_reflect:
                                         # Return original response after max reflection attempts
                                         self._append_to_chat_history({"role": "assistant", "content": response_text})
-                                        # Persist assistant message to DB
-                                        self._persist_message("assistant", response_text)
+                                        # Persist assistant message to DB (offloaded to a worker thread)
+                                        await self._apersist_message("assistant", response_text)
                                         try:
                                             validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id)
                                             # Execute callback after validation
@@ -3677,7 +4228,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                         except Exception as guard_e:
                                             logging.error(f"Agent {self.name}: Guardrail validation failed after reflection error: {guard_e}")
                                             # Rollback chat history on guardrail failure
-                                            self._truncate_chat_history(chat_history_length)
+                                            self._rollback_chat_history_to(chat_history_length)
                                             return None
                                     continue
                         
@@ -3828,14 +4379,18 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                         except Exception as e:
                             logging.error(f"Agent {self.name}: Guardrail validation failed for OpenAI client: {e}")
                             # Rollback chat history on guardrail failure
-                            self._truncate_chat_history(chat_history_length)
+                            self._rollback_chat_history_to(chat_history_length)
                             return None
+                except ToolExecutionError:
+                    raise
                 except Exception as e:
                     _get_display_functions()['display_error'](f"Error in chat completion: {e}")
                     if get_logger().getEffectiveLevel() == logging.DEBUG:
                         total_time = time.time() - start_time
                         logging.debug(f"Agent.achat failed in {total_time:.2f} seconds: {str(e)}")
                     return None
+        except ToolExecutionError:
+            raise
         except Exception as e:
             _get_display_functions()['display_error'](f"Error in achat: {e}")
             if get_logger().getEffectiveLevel() == logging.DEBUG:
@@ -3984,6 +4539,36 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
         self._auto_save_session()
 
     def _start_stream(self, prompt: str, **kwargs) -> Generator[str, None, None]:
+        """Own the durable context for the complete streaming generator."""
+        durable_context = None
+        durable_token = None
+        try:
+            if getattr(getattr(self, "execution", None), "durable", False):
+                from .durable import begin_durable_run
+
+                durable_context, durable_token = begin_durable_run(self, prompt)
+            yield from self._start_stream_impl(prompt, **kwargs)
+            if durable_context is not None:
+                durable_context.finalize("succeeded")
+                self.execution.resume_run_id = None
+        except ToolExecutionError as exc:
+            if durable_context is not None and not exc.is_retryable:
+                durable_context.finalize("failed")
+                self.execution.resume_run_id = None
+            raise
+        except (GeneratorExit, InterruptedError):
+            if durable_context is not None:
+                durable_context.finalize("cancelled")
+                self.execution.resume_run_id = None
+            raise
+        finally:
+            if durable_context is not None:
+                from .durable import end_durable_run
+
+                end_durable_run(durable_token)
+                durable_context.close()
+
+    def _start_stream_impl(self, prompt: str, **kwargs) -> Generator[str, None, None]:
         """Stream generator for real-time response chunks."""
         # Warn if an output guardrail is configured: token-level streaming
         # yields chunks before a full response exists to validate, so the
@@ -4003,6 +4588,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
             # Temporarily disable verbose mode to prevent console output conflicts during streaming
             original_verbose = self.verbose
             self.verbose = False
+            memory_prefetch_context = self._prefetch_memory(prompt)
             
             # For custom LLM path, use the new get_response_stream generator
             if self._using_custom_llm:
@@ -4059,10 +4645,19 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                 try:
                     # Use the new streaming generator from LLM class
                     response_content = ""
+                    stream_history = self.chat_history
+                    durable_context = self._get_durable_run_context()
+                    if durable_context is not None:
+                        stream_history = durable_context.restore_messages(
+                            list(stream_history)
+                        )
                     for chunk in self.llm_instance.get_response_stream(
                         prompt=actual_prompt,
-                        system_prompt=self._build_system_prompt(tool_param),
-                        chat_history=self.chat_history,
+                        system_prompt=self._build_system_prompt(
+                            tool_param,
+                            memory_prefetch_context=memory_prefetch_context,
+                        ),
+                        chat_history=stream_history,
                         temperature=kwargs.get('temperature', 1.0),
                         tools=tool_param,
                         output_json=kwargs.get('output_json'),
@@ -4075,7 +4670,9 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                         task_name=kwargs.get('task_name'),
                         task_description=kwargs.get('task_description'),
                         task_id=kwargs.get('task_id'),
-                        execute_tool_fn=self.execute_tool,
+                        execute_tool_fn=self._durable_sync_tool_executor(
+                            self.execute_tool
+                        ),
                         parallel_tool_calls=getattr(getattr(self, "execution", None), "parallel_tool_calls", False),
                         max_tool_calls_per_turn=self._resolve_max_tool_calls()
                     ):
@@ -4086,9 +4683,12 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                     if response_content:
                         self._append_to_chat_history({"role": "assistant", "content": response_content})
                         
+                except ToolExecutionError:
+                    self._rollback_chat_history_to(chat_history_length)
+                    raise
                 except Exception as e:
                     # Rollback chat history on error
-                    self._truncate_chat_history(chat_history_length)
+                    self._rollback_chat_history_to(chat_history_length)
                     logging.error(f"Custom LLM streaming error: {e}")
                     raise
                     
@@ -4117,7 +4717,8 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                 
                 # Build messages using the helper method
                 messages, original_prompt = self._build_messages(actual_prompt, kwargs.get('temperature', 1.0), 
-                                                               kwargs.get('output_json'), kwargs.get('output_pydantic'))
+                                                               kwargs.get('output_json'), kwargs.get('output_pydantic'),
+                                                               memory_prefetch_context=memory_prefetch_context)
                 
                 # Store chat history length for potential rollback
                 chat_history_length = len(self.chat_history)
@@ -4267,10 +4868,23 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                         logging.error(f"Failed to parse tool arguments as JSON: {json_error}")
                                         parsed_args = {}
                                     
-                                    tool_result = self.execute_tool(
-                                        tool_call['function']['name'], 
+                                    executor = self._durable_sync_tool_executor(
+                                        self.execute_tool
+                                    )
+                                    iteration_kwargs = (
+                                        {"_durable_iteration_index": 0}
+                                        if getattr(
+                                            executor,
+                                            "_accepts_durable_iteration",
+                                            False,
+                                        )
+                                        else {}
+                                    )
+                                    tool_result = executor(
+                                        tool_call['function']['name'],
                                         parsed_args,
-                                        tool_call_id=tool_call.get('id')
+                                        tool_call_id=tool_call.get('id'),
+                                        **iteration_kwargs,
                                     )
                                     # Add tool result to chat history (multimodal-aware)
                                     from .tool_execution import build_tool_result_message_pair
@@ -4294,6 +4908,8 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                         str(tool_result),
                                         tool_call_id=tool_call['id'],
                                     )
+                                except ToolExecutionError:
+                                    raise
                                 except Exception as tool_error:
                                     logging.error(f"Tool execution error in streaming: {tool_error}")
                                     # Add error result to chat history
@@ -4316,9 +4932,12 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                         if response_text:
                             self._append_to_chat_history({"role": "assistant", "content": response_text})
                         
+                except ToolExecutionError:
+                    self._rollback_chat_history_to(chat_history_length)
+                    raise
                 except Exception as e:
                     # Rollback chat history on error
-                    self._truncate_chat_history(chat_history_length)
+                    self._rollback_chat_history_to(chat_history_length)
                     logging.error(f"OpenAI streaming error: {e}")
                     # Fall back to simulated streaming
                     response = self.chat(prompt, **kwargs)
@@ -4335,6 +4954,9 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
             # Restore original verbose mode
             self.verbose = original_verbose
                     
+        except ToolExecutionError:
+            self.verbose = original_verbose
+            raise
         except Exception as e:
             # Restore verbose mode on any error
             self.verbose = original_verbose
@@ -4424,6 +5046,8 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                 logging.warning(f"BEFORE_COMPACTION hook failed: {e}")
                 if getattr(self, '_strict_hooks', False):
                     raise
+
+            self._run_pre_compaction_memory_flush(messages, _compactor)
             
             # Perform compaction
             if _strategy == CompactionStrategy.LLM_SUMMARIZE and _llm_fn:
@@ -4509,6 +5133,8 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                 logging.warning(f"BEFORE_COMPACTION hook failed: {e}")
                 if getattr(self, '_strict_hooks', False):
                     raise
+
+            await self._arun_pre_compaction_memory_flush(messages, _compactor)
             
             # Perform compaction (use async version when available)
             if _strategy == CompactionStrategy.LLM_SUMMARIZE and _llm_fn:

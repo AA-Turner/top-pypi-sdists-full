@@ -4,8 +4,6 @@
 Functions and declarations used by the :mod:`nutree.tree` and :mod:`nutree.node`
 modules.
 """
-# MyPy incorrctly flags 'Exception must be derived from BaseException'
-# mypy: disable-error-code="misc"
 
 from __future__ import annotations
 
@@ -13,29 +11,15 @@ import io
 import sys
 import warnings
 import zipfile
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from enum import Enum
 from pathlib import Path
-from typing import (
-    IO,
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Literal,
-    Union,
-)
+from typing import IO, TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:  # Imported by type checkers, but prevent circular includes
     from nutree.node import Node
     from nutree.tree import Tree
-
-    # TTree = TypeVar("TTree", bound=Tree)
-    # TNode = TypeVar("TNode", bound=Node)
-
-
-#: A sentinel object that can be used to detect if a parameter was passed.
-# sentinel = unittest.mock.sentinel
 
 #: Used as ID for the system root node
 ROOT_DATA_ID: str = "__root__"
@@ -52,12 +36,48 @@ class TreeError(RuntimeError):
     """Base class for all `nutree` errors."""
 
 
-class UniqueConstraintError(TreeError):
-    """Thrown when trying to add the same node_id to the same parent"""
+class StructureError(TreeError):
+    """Base class for errors thrown when the tree structure is invalid."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class DuplicateNodeIdError(StructureError):
+    """Thrown when trying to add the same node_id to the tree."""
+
+
+class UniqueConstraintError(StructureError):
+    """Thrown when trying to add the same data_id to the same parent.
+
+    This would violate the constraint of the tree being a 'SIMPLE directed
+    acyclic graph'.
+    Note that the tree does not allow to add the same data_id to a parent node
+    if check_dag is true (the default).
+    In TypedTrees, the data_id may be added to the same parent twice, as long as
+    it has a different kind.
+    """
+
+
+class CycleDetectedError(StructureError):
+    """Thrown when trying to add the same data_id to the same ancestor chain.
+
+    This would violate the constraint of the tree being a 'simple directed
+    ACYCLIC graph' and create a cycle.
+    In TypedTrees, the data_id may be added to the same ancestor chain more than
+    once, as long as it has a different kind.
+
+    Pass `check_dag=False` to the tree constructor to suppress this restriction.
+    """
 
 
 class AmbiguousMatchError(TreeError):
-    """Thrown when a single-value lookup found multiple matches."""
+    """Thrown when a single-value lookup found multiple matches.
+
+    Receiving this error indicates that the tree contains duplicate data values,
+    but the user expected a single match.
+    Use :meth:`find_all` or :meth:`find_first` instead to resolve this.
+    """
 
 
 class IterMethod(Enum):
@@ -95,7 +115,7 @@ class SkipBranch(IterationControl):
     If `and_self` is false, some iterators will consider the node's children only.
     """
 
-    def __init__(self, *, and_self=None):
+    def __init__(self, *, and_self: bool | None = None) -> None:
         self.and_self = and_self
 
 
@@ -112,21 +132,21 @@ class StopTraversal(IterationControl):
     ``StopTraversal(None)`` exception.
     """
 
-    def __init__(self, value=None):
+    def __init__(self, value: Any = None) -> None:
         self.value = value
 
 
 #: Type of ``Node.data_id``
-DataIdType = Union[str, int]
+DataIdType = str | int
 
 #: Type of ``Tree(..., calc_data_id)```
 CalcIdCallbackType = Callable[["Tree", Any], DataIdType]
 
-#: Type of ``format(..., repr=)```
-ReprArgType = Union[str, Callable[["Node"], str]]
+#: Type of ``format(..., repr=)``
+ReprArgType = str | Callable[["Node"], str]
 
 #: A dict of scalar values
-FlatJsonDictType = dict[str, Union[str, int, float, bool, None]]
+FlatJsonDictType = dict[str, str | int | float | bool | None]
 
 #: Type of ``tree.save(..., key_map)``
 KeyMapType = dict[str, str]
@@ -139,41 +159,41 @@ ValueMapType = dict[str, list[str]]
 ValueDictMapType = dict[str, dict[str, int]]
 
 #: Generic callback for `tree.to_dot()`, ...
-MapperCallbackType = Callable[["Node", dict], Union[None, Any]]
+DotMapperCallbackType = Callable[["Node", dict[str, Any]], None | Any]
 
 #: Callback for `tree.save()`
-SerializeMapperType = Callable[["Node", dict], Union[None, dict]]
+SerializeMapperType = Callable[["Node", dict[str, Any]], None | dict[str, Any]]
 
 #: Callback for `tree.load()`
-DeserializeMapperType = Callable[["Node", dict], Union[str, object]]
+DeserializeMapperType = Callable[["Node", dict[str, Any]], str | object]
 
 #: Generic callback for `tree.filter()`, `tree.copy()`, ...
 PredicateCallbackType = Callable[
-    ["Node"], Union[None, bool, IterationControl, type[IterationControl]]
+    ["Node"], None | bool | IterationControl | type[IterationControl]
 ]
 
-#:
-MatchArgumentType = Union[str, PredicateCallbackType, list, tuple, Any]
+#: Callback for `tree.find_all()`, `tree.find_first()`, ...
+MatchArgumentType = str | PredicateCallbackType | list | tuple | Any
 
-#:
+#: Callback for `tree.visit()`,  ...
 TraversalCallbackType = Callable[
     ["Node", Any],
-    Union[
-        None,
-        bool,
-        SkipBranch,
-        StopTraversal,
-        type[SkipBranch],
-        type[StopTraversal],
-        type[StopIteration],
-    ],
+    None
+    | bool
+    | SkipBranch
+    | StopTraversal
+    | type[SkipBranch]
+    | type[StopTraversal]
+    | type[StopIteration],
 ]
 #: Callback for `tree.sort(key=...)`
 SortKeyType = Callable[["Node"], Any]
 # SortKeyType = Callable[[Node], SupportsLess]
 
 #: Node connector prefixes, for use with ``format(style=...)`` argument.
-CONNECTORS = {
+CONNECTORS: dict[
+    str, tuple[str, str, str, str] | tuple[str, str, str, str, str, str]
+] = {
     "space1": (" ", " ", " ", " "),
     "space2": ("  ", "  ", "  ", "  "),
     "space3": ("   ", "   ", "   ", "   "),
@@ -213,35 +233,37 @@ CONNECTORS = {
 class DictWrapper:
     """Wrap a Python dict so it can be added to the tree.
 
-    Makes the dict hashable and comparable with `==`, so it can be used added to
+    Makes a dict hashable and comparable with `==`, so it can be added to
     the tree and can be checked for modifications during tree diffing.
 
     Initialized with a dictionary of values. The values can be accessed
     via the `node.data` attribute like `node.data["KEY"]`.
+
+    For Python 3.15 and later consider using ``frozendict`` instead of this class.
 
     See :ref:`generic-node-data` for details.
     """
 
     __slots__ = ("_dict",)
 
-    def __init__(self, dict_inst: dict | None = None, **values) -> None:
-        self._dict: dict = {}
+    def __init__(self, dict_inst: dict[Any, Any] | None = None, **values: Any) -> None:
+        self._dict: dict[Any, Any] = {}
         if dict_inst is not None:
             # A dictionary was passed: store a reference to that instance
             if not isinstance(dict_inst, dict):
                 raise TypeError("dict_inst must be a dictionary or None")
             if values:
-                raise ValueError("Cannot pass both dict_inst and **values")
+                raise TypeError("Cannot pass both dict_inst and **values")
             self._dict = dict_inst
         else:
             # Single keyword arguments are passed (probably from unpacked dict):
             # store them in a new dictionary
             self._dict = values
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}<{self._dict}>"
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         # We return the id of the dict object, which is unique and stable.
         # Calculating a hash from the dict content is too expensive and would
         # not work anyway, since the result is used as a key in a reference map
@@ -250,7 +272,7 @@ class DictWrapper:
         # multiple times to the same tree.
         return id(self._dict)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, DictWrapper):
             d2 = other._dict
         elif isinstance(other, dict):
@@ -268,7 +290,7 @@ class DictWrapper:
                 return False
         return True
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: Any) -> None:
         """Allow to access values as items.
 
         Example::
@@ -277,7 +299,7 @@ class DictWrapper:
         """
         self._dict[key] = value
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> Any:
         """Allow to access values as items.
 
         E.g. ``foo = node.data["foo"]`` instead of `` foo = node.data._dict["foo"]``.
@@ -304,7 +326,9 @@ class DictWrapper:
     #         raise AttributeError(name) from None
 
     @classmethod
-    def serialize_mapper(cls, nutree_node: Node, data: dict) -> Union[None, dict]:
+    def serialize_mapper(
+        cls, nutree_node: Node, data: dict[str, Any]
+    ) -> None | dict[str, Any]:
         """Serialize the data object to a dictionary.
 
         Example::
@@ -316,7 +340,9 @@ class DictWrapper:
         return nutree_node.data._dict.copy()
 
     @classmethod
-    def deserialize_mapper(cls, nutree_node: Node, data: dict) -> Union[str, object]:
+    def deserialize_mapper(
+        cls, nutree_node: Node, data: dict[str, Any]
+    ) -> str | object:
         """Serialize the data object to a dictionary.
 
         Example::
@@ -332,10 +358,11 @@ def get_version() -> str:
     return __version__
 
 
-def check_python_version(min_version: tuple[Union[str, int], Union[str, int]]) -> bool:
+def check_python_version(min_version: tuple[str | int, str | int]) -> bool:
     """Check for deprecated Python version."""
-    if sys.version_info < min_version:
-        min_ver = ".".join([str(s) for s in min_version[:3]])
+    min_version: tuple[int, ...] = tuple(map(int, min_version))[:2]
+    if sys.version_info[:2] < min_version:
+        min_ver = ".".join([str(s) for s in min_version])
         warnings.warn(
             f"Support for Python version less than `{min_ver}` is deprecated "
             f"(using {PYTHON_VERSION})",
@@ -346,10 +373,12 @@ def check_python_version(min_version: tuple[Union[str, int], Union[str, int]]) -
     return True
 
 
-def call_mapper(fn: MapperCallbackType | None, node: Node, data: dict) -> Any:
+def call_dot_mapper(
+    fn: DotMapperCallbackType | None, node: Node, data: dict[Any, Any]
+) -> Any:
     """Call the function and normalize result and exceptions.
 
-    Handles `MapperCallbackType`:
+    Handles `DotMapperCallbackType`:
     Call `fn(node, data)` if defined and return the result.
     If `fn` is undefined or returns `None`, return `data`.
     """
@@ -361,7 +390,9 @@ def call_mapper(fn: MapperCallbackType | None, node: Node, data: dict) -> Any:
     return res
 
 
-def call_predicate(fn: Callable, node: Node) -> IterationControl | None | Any:
+def call_predicate(
+    fn: PredicateCallbackType, node: Node
+) -> IterationControl | None | Any:
     """Call the function and normalize result and exceptions.
 
     Handles `PredicateCallbackType`:
@@ -373,7 +404,7 @@ def call_predicate(fn: Callable, node: Node) -> IterationControl | None | Any:
     try:
         res = fn(node)
         if res in (SkipBranch, SelectBranch, StopTraversal):
-            return res()
+            return res()  # ty: ignore[call-non-callable]
     except IterationControl as e:
         return e  # SkipBranch, SelectBranch, StopTraversal
     except StopIteration as e:  # Also accept this builtin exception
@@ -414,7 +445,7 @@ def call_traversal_cb(
             # Converts wrong syntax in exception handler...
             raise res
         else:
-            raise ValueError(
+            raise TypeError(
                 "callback should not return values except for "
                 f"None, False, SkipBranch, or StopTraversal: {res!r}."
             )

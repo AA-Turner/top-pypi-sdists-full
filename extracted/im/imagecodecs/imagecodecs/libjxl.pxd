@@ -1,6 +1,6 @@
 # imagecodecs/libjxl.pxd
 
-# Cython declarations for the `libjxl 0.11.2` library.
+# Cython declarations for the `libjxl 0.12.0` library.
 # https://github.com/libjxl/libjxl
 
 from libc.stdint cimport (
@@ -413,6 +413,7 @@ cdef extern from 'jxl/decode.h' nogil:
         JXL_DEC_NEED_PREVIEW_OUT_BUFFER
         JXL_DEC_NEED_IMAGE_OUT_BUFFER
         JXL_DEC_JPEG_NEED_MORE_OUTPUT
+        JXL_DEC_BOX_NEED_MORE_OUTPUT
         JXL_DEC_BASIC_INFO
         JXL_DEC_COLOR_ENCODING
         JXL_DEC_PREVIEW_IMAGE
@@ -782,6 +783,7 @@ cdef extern from 'jxl/encode.h' nogil:
         JXL_ENC_FRAME_SETTING_JPEG_KEEP_JUMBF
         JXL_ENC_FRAME_SETTING_USE_FULL_IMAGE_HEURISTICS
         JXL_ENC_FRAME_SETTING_DISABLE_PERCEPTUAL_HEURISTICS
+        JXL_ENC_FRAME_SETTING_OUTPUT_MODE
         JXL_ENC_FRAME_SETTING_FILL_ENUM
 
     JxlEncoder* JxlEncoderCreate(

@@ -89,6 +89,9 @@ def lzham_version():
 
 def lzham_check(const uint8_t[::1] data, /):
     """Return whether data is LZHAM encoded or None if unknown."""
+    if data.shape[0] < 7:
+        return False
+    return None
 
 
 def lzham_encode(
@@ -117,19 +120,19 @@ def lzham_encode(
     if out is None:
         if dstsize < 0:
             # TODO: use streaming APIs
-            dstsize = _compress_bound(src.nbytes)
+            dstsize = _compress_bound(src.shape[0])
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
     dstlen = <lzham_z_ulong> dst.nbytes  # validates overflow
     srclen = <lzham_z_ulong> src.nbytes  # validates overflow
 
     with nogil:
         ret = lzham_z_compress2(
-            <unsigned char*> &dst[0],
+            <unsigned char*> dst._data,
             &dstlen,
-            &src[0],
+            <const unsigned char*> src._data,
             srclen,
             compresslevel
         )
@@ -157,6 +160,9 @@ def lzham_decode(
     if data is out:
         raise ValueError('cannot decode in-place')
 
+    if src.shape[0] < 7:
+        raise ValueError('not a LZHAM encoded stream')
+
     out, dstsize, outgiven, outtype = _parse_output(out)
 
     if out is None and dstsize < 0:
@@ -166,15 +172,15 @@ def lzham_decode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
     dstlen = <lzham_z_ulong> dst.nbytes  # validates overflow
     srclen = <lzham_z_ulong> src.nbytes  # validates overflow
 
     with nogil:
         ret = lzham_z_uncompress(
-            <unsigned char*> &dst[0],
+            <unsigned char*> dst._data,
             &dstlen,
-            <const unsigned char*> &src[0],
+            <const unsigned char*> src._data,
             srclen
         )
     if ret != LZHAM_Z_OK:
@@ -189,14 +195,14 @@ cdef _lzham_decode(const uint8_t[::1] src, outtype):
     cdef:
         output_t* output = NULL
         lzham_z_stream stream
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         size_t incsize = _align_size_t(srcsize // 2)
         size_t size, left
         int ret
 
     try:
         with nogil:
-            stream.next_in = <unsigned char*> &src[0]
+            stream.next_in = <unsigned char*> src._data
             stream.avail_in = 0
             stream.zalloc = NULL
             stream.zfree = NULL
@@ -279,12 +285,12 @@ def lzham_crc32(data, /):
     """Return cyclic redundancy checksum CRC-32 of data."""
     cdef:
         const uint8_t[::1] src = _readable_input(data)
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         lzham_z_ulong crc = 0
 
     with nogil:
         crc = lzham_z_crc32(crc, NULL, 0)
-        crc = lzham_z_crc32(crc, <const unsigned char*> &src[0], srcsize)
+        crc = lzham_z_crc32(crc, <const unsigned char*> src._data, srcsize)
     return int(crc)
 
 
@@ -292,12 +298,14 @@ def lzham_adler32(data, /):
     """Return Adler-32 checksum of data."""
     cdef:
         const uint8_t[::1] src = _readable_input(data)
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         lzham_z_ulong adler
 
     with nogil:
         adler = lzham_z_adler32(0, NULL, 0)
-        adler = lzham_z_adler32(adler, <const unsigned char*> &src[0], srcsize)
+        adler = lzham_z_adler32(
+            adler, <const unsigned char*> src._data, srcsize
+        )
     return int(adler)
 
 

@@ -5,7 +5,7 @@ import logging
 import os
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from ddgs import DDGS
 from ddgs.utils import _expand_proxy_tb_alias
@@ -13,7 +13,7 @@ from ddgs.utils import _expand_proxy_tb_alias
 logger = logging.getLogger(__name__)
 
 # Create MCP server with secure defaults
-mcp = FastMCP("ddgs-search")
+mcp = MCPServer("ddgs-search")
 
 
 @mcp.tool()

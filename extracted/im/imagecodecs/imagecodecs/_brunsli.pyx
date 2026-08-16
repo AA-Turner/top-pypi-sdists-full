@@ -82,6 +82,18 @@ def brunsli_version():
 
 def brunsli_check(const uint8_t[::1] data, /):
     """Return whether data is BRUNSLI/JPEG encoded or None if unknown."""
+    cdef:
+        bytes sig = bytes(data[:10])
+
+    return (
+        sig[:6] == b'\x0A\x04\x42\xD2\xD5\x4E'
+        or sig[:4] == b'\xFF\xD8\xFF\xDB'
+        or sig[:4] == b'\xFF\xD8\xFF\xEE'
+        or sig[:4] == b'\xFF\xD8\xFF\xC3'
+        or sig[:4] == b'\xFF\xD8\xFF\xC4'
+        or (sig[:3] == b'\xFF\xD8\xFF' and sig[6:10] == b'JFIF')
+        or (sig[:3] == b'\xFF\xD8\xFF' and sig[6:10] == b'Exif')
+    )
 
 
 def brunsli_encode(
@@ -124,7 +136,7 @@ def brunsli_encode(
     else:
         # existing JPEG stream
         src = data
-    srcsize = src.nbytes
+    srcsize = src.shape[0]
 
     out, dstsize, outgiven, outtype = _parse_output(out)
 
@@ -134,7 +146,12 @@ def brunsli_encode(
 
     try:
         with nogil:
-            ret = EncodeBrunsli(srcsize, &src[0], sink, brunsli_sink_write)
+            ret = EncodeBrunsli(
+                srcsize,
+                <const unsigned char *> src._data,
+                sink,
+                brunsli_sink_write
+            )
         if ret != 1:
             raise BrunsliError('EncodeBrunsli', ret)
         if out is None:
@@ -144,10 +161,12 @@ def brunsli_encode(
             out = _create_output(outtype, dstsize, dstptr)
         if dstptr == NULL:
             dst = out
-            dstsize = dst.nbytes
+            dstsize = dst.shape[0]
             if <size_t> dstsize < sink.byteswritten:
                 raise ValueError('output too small')
-            memcpy(<void*> &dst[0], <const void*> sink.data, sink.byteswritten)
+            memcpy(
+                <void*> dst._data, <const void*> sink.data, sink.byteswritten
+            )
             del dst
             out = _return_output(out, dstsize, sink.byteswritten, outgiven)
     finally:
@@ -167,7 +186,7 @@ def brunsli_decode(
     """Return decoded BRUNSLI/JPEG image."""
     cdef:
         const uint8_t[::1] src = data
-        size_t srcsize = <size_t> src.nbytes
+        size_t srcsize = <size_t> src.shape[0]
         brunsli_sink_t* sink = NULL
         int ret
 
@@ -180,7 +199,9 @@ def brunsli_decode(
 
     try:
         with nogil:
-            ret = DecodeBrunsli(srcsize, &src[0], sink, brunsli_sink_write)
+            ret = DecodeBrunsli(
+                srcsize, <const uint8_t *> src._data, sink, brunsli_sink_write
+            )
         if ret != 1:
             raise BrunsliError('DecodeBrunsli', ret)
         out = jpeg8_decode(

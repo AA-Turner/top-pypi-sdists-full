@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: traceml
-Version: 1.3.0
+Version: 1.3.1
 Summary: Engine for ML/Data tracking, visualization, dashboards, and model UI for Polyaxon.
 Home-page: https://github.com/polyaxon/traceml
-Author: Polyaxon, Inc.
+Author: Polyaxon authors
 Author-email: contact@polyaxon.com
-Maintainer: Polyaxon, Inc.
+Maintainer: Polyaxon authors
 Maintainer-email: contact@polyaxon.com
 License: Apache 2.0
 Keywords: polyaxon,aws,s3,microsoft,azure,google cloud storage,gcs,deep-learning,machine-learning,data-science,neural-networks,artificial-intelligence,ai,reinforcement-learning,kubernetes,aws,microsoft,azure,google cloud,tensorFlow,pytorch,matplotlib,plotly,visualization,analytics

@@ -2817,6 +2817,7 @@ def query_connector_version_health_summary(
         version_id,
         is_destination=is_destination,
         days=days,
+        connector_definition_id=definition_id,
     )
     pinned_actor_rows = (
         query_actors_pinned_to_version(version_id) if include_pinned_disabled else None

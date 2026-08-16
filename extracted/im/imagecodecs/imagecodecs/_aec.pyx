@@ -134,7 +134,7 @@ def aec_encode(
             flags_ |= AEC_DATA_SIGNED
         bits_per_sample = <unsigned int> (view.itemsize * 8)
 
-    srcsize = src.nbytes
+    srcsize = src.shape[0]
 
     if bitspersample is not None:
         if bitspersample > bits_per_sample > 8:
@@ -155,14 +155,14 @@ def aec_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     try:
         with nogil:
             memset(<void*> &strm, 0, sizeof(aec_stream))
-            strm.next_in = <unsigned char*> &src[0]
+            strm.next_in = <unsigned char*> src._data
             strm.avail_in = srcsize
-            strm.next_out = <unsigned char*> &dst[0]
+            strm.next_out = <unsigned char*> dst._data
             strm.avail_out = dstsize
             strm.bits_per_sample = bits_per_sample
             strm.block_size = block_size
@@ -203,7 +203,7 @@ def aec_decode(
     cdef:
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         ssize_t byteswritten
         int ret = AEC_OK
@@ -249,14 +249,14 @@ def aec_decode(
         dst = out
     except ValueError:
         dst = numpy.ravel(out).view('uint8')
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     try:
         with nogil:
             memset(<void*> &strm, 0, sizeof(aec_stream))
-            strm.next_in = <unsigned char*> &src[0]
+            strm.next_in = <unsigned char*> src._data
             strm.avail_in = srcsize
-            strm.next_out = <unsigned char*> &dst[0]
+            strm.next_out = <unsigned char*> dst._data
             strm.avail_out = dstsize
             strm.bits_per_sample = bits_per_sample
             strm.block_size = block_size

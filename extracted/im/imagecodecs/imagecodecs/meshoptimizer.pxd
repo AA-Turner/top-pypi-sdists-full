@@ -1,6 +1,6 @@
 # imagecodecs/meshoptimizer.pxd
 
-# Cython declarations for the `meshoptimizer 1.1` library.
+# Cython declarations for the `meshoptimizer 1.2` library.
 # https://github.com/zeux/meshoptimizer
 
 cdef extern from 'meshoptimizer.h' nogil:
@@ -58,6 +58,25 @@ cdef extern from 'meshoptimizer.h' nogil:
         const unsigned int* indices,
         size_t index_count,
         const unsigned int* remap
+    )
+
+    size_t meshopt_filterIndexBuffer(
+        unsigned int* destination,
+        const unsigned int* indices,
+        size_t index_count,
+        const void* vertices,
+        size_t vertex_count,
+        size_t vertex_size,
+        size_t vertex_stride
+    )
+
+    size_t meshopt_filterIndexBufferMulti(
+        unsigned int* destination,
+        const unsigned int* indices,
+        size_t index_count,
+        size_t vertex_count,
+        const meshopt_Stream* streams,
+        size_t stream_count
     )
 
     void meshopt_generateShadowIndexBuffer(
@@ -724,6 +743,23 @@ cdef extern from 'meshoptimizer.h' nogil:
         int states
     )
 
+    int meshopt_TangentCompatible
+    int meshopt_TangentZeroFallback
+
+    void meshopt_generateTangents(
+        float* result,
+        const unsigned int* indices,
+        size_t index_count,
+        const float* vertex_positions,
+        size_t vertex_count,
+        size_t vertex_positions_stride,
+        const float* vertex_normals,
+        size_t vertex_normals_stride,
+        const float* vertex_uvs,
+        size_t vertex_uvs_stride,
+        unsigned int options
+    )
+
     unsigned short meshopt_quantizeHalf(
         float v
     )
@@ -735,6 +771,13 @@ cdef extern from 'meshoptimizer.h' nogil:
 
     float meshopt_dequantizeHalf(
         unsigned short h
+    )
+
+    int meshopt_computePositionExponent(
+        const float* minv,
+        const float* maxv,
+        int min_exp,
+        int max_bits
     )
 
     void meshopt_setAllocator(

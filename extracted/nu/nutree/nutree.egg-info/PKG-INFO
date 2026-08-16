@@ -1,13 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: nutree
-Version: 1.1.0
-Summary: A Python library for tree data structures with an intuitive, yet powerful, API.
-Home-page: https://github.com/mar10/nutree/
-Author: Martin Wendt
-Author-email: nutree@wwwendt.de
-Maintainer: Martin Wendt
-Maintainer-email: nutree@wwwendt.de
-License: MIT
+Version: 1.2.0
+Summary: Organize and query arbitrary Python objects as a tree — with clones, diffing, and graph export built in.
+Author-email: Martin Wendt <nutree@wwwendt.de>
+Maintainer-email: Martin Wendt <nutree@wwwendt.de>
+License: MIT License
+        
+        Copyright (c) 2021 Martin Wendt
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Homepage, https://github.com/mar10/nutree/
 Project-URL: Bug Tracker, https://github.com/mar10/nutree/issues
 Project-URL: Source Code, https://github.com/mar10/nutree
 Project-URL: Documentation, https://nutree.readthedocs.io/
@@ -21,12 +40,14 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: typing_extensions>=4.0
@@ -41,6 +62,7 @@ Requires-Dist: pydot; extra == "all"
 Requires-Dist: rdflib; extra == "all"
 Requires-Dist: graphviz; extra == "all"
 Requires-Dist: fabulist; extra == "all"
+Dynamic: license-file
 
 # ![logo](https://raw.githubusercontent.com/mar10/nutree/main/docs/nutree_48x48.png) nutree
 
@@ -49,31 +71,42 @@ Requires-Dist: fabulist; extra == "all"
 [![codecov](https://codecov.io/github/mar10/nutree/branch/main/graph/badge.svg?token=9xmAFm8Icl)](https://codecov.io/github/mar10/nutree)
 [![License](https://img.shields.io/pypi/l/nutree.svg)](https://github.com/mar10/nutree/blob/main/LICENSE.txt)
 [![Documentation Status](https://readthedocs.org/projects/nutree/badge/?version=latest)](http://nutree.readthedocs.io/)
-[![Released with: Yabs](https://img.shields.io/badge/released%20with-yabs-yellowgreen)](https://github.com/mar10/yabs)
-[![StackOverflow: nutree](https://img.shields.io/badge/StackOverflow-nutree-blue.svg)](https://stackoverflow.com/questions/tagged/nutree)
+[![Downloads](https://img.shields.io/pypi/dm/nutree.svg)](https://pypi.python.org/pypi/nutree/)
 
-> _Nutree_ is a Python library for tree data structures with an intuitive,
-> yet powerful, API.
+<!-- [![Released with: Yabs](https://img.shields.io/badge/released%20with-yabs-yellowgreen)](https://github.com/mar10/yabs) -->
+<!-- [![StackOverflow: nutree](https://img.shields.io/badge/StackOverflow-nutree-blue.svg)](https://stackoverflow.com/questions/tagged/nutree) -->
+
+> _Nutree_ lets you organize and query arbitrary Python objects as a tree — with clones, diffing, and graph export built in.
+
+Trees and nodes behave like familiar Python containers wherever that makes sense — `len(tree)` counts nodes, 
+`for node in tree: ...` walks the tree depth-first, and `value in tree` tests membership. 
+Lookup (`tree[value]`) matches by id or by the wrapped data (not by position, since a tree has no natural order). 
+
+> [!TIP]
+> [Take the Tour](https://nutree.readthedocs.io/en/latest/take_the_tour.html) and
+> [Read the Docs](https://nutree.readthedocs.io/) for more.
+
 
 **Nutree Facts**
 
-Handle multiple references of single objects ('clones') <br>
-Search by name pattern, id, or object reference <br>
-Compare two trees and calculate patches <br>
-Unobtrusive handling of arbitrary objects <br>
-Save as DOT file and graphwiz diagram <br>
-Nodes can be plain strings or objects <br>
-(De)Serialize to (compressed) JSON <br>
-Save as Mermaid flow diagram <br>
-Different traversal methods <br>
-Generate random trees <br>
-Convert to RDF graph <br>
-Fully type annotated <br>
-Typed child nodes <br>
-Pretty print <br>
-Navigation <br>
-Filtering <br>
-Fast <br>
+<a href="https://nutree.readthedocs.io/en/latest/ug_clones.html">Handle multiple references of single objects ('clones')</a> <br>
+<a href="https://nutree.readthedocs.io/en/latest/ug_search_and_navigate.html#searching">Search by name pattern, id, or object reference</a> <br>
+<a href="https://nutree.readthedocs.io/en/latest/ug_diff.html#diff-and-merge">Compare two trees and calculate patches</a> <br>
+<a href="https://nutree.readthedocs.io/en/latest/ug_objects.html#objects">Unobtrusive handling of arbitrary objects</a> <br>
+<a href="https://nutree.readthedocs.io/en/latest/ug_graphs.html#save-dot">Save as DOT file and graphwiz diagram</a> <br>
+<a href="https://nutree.readthedocs.io/en/latest/ug_objects.html#objects">Nodes can be plain strings or objects</a> <br>
+<a href="https://nutree.readthedocs.io/en/latest/ug_serialize.html#serialize">(De)Serialize to (compressed) JSON</a> <br>
+<a href="https://nutree.readthedocs.io/en/latest/ug_graphs.html#save-mermaid">Save as Mermaid flow diagram</a> <br>
+<a href="https://nutree.readthedocs.io/en/latest/ug_search_and_navigate.html#traversal">Multiple traversal methods</a> <br>
+<a href="https://nutree.readthedocs.io/en/latest/ug_randomize.html#randomize">Generate random trees</a> <br>
+<a href="https://nutree.readthedocs.io/en/latest/ug_graphs.html#save-rdf">Convert to RDF graph</a> <br>
+<a href="https://nutree.readthedocs.io/en/latest/rg_modules.html#api-reference">Fully type annotated</a> <br>
+<a href="https://nutree.readthedocs.io/en/latest/ug_graphs.html#typed-tree">Typed child nodes</a> <br>
+<a href="https://nutree.readthedocs.io/en/latest/ug_advanced.html#meta-data">Memory efficient</a> <br>
+<a href="https://nutree.readthedocs.io/en/latest/ug_pretty_print.html#pretty-print">Pretty print</a> <br>
+<a href="https://nutree.readthedocs.io/en/latest/ug_search_and_navigate.html#navigate">Navigation</a> <br>
+<a href="https://nutree.readthedocs.io/en/latest/ug_mutation.html#mutation">Filtering</a> <br>
+<a href="https://nutree.readthedocs.io/en/latest/ug_benchmarks.html">Fast</a> <br>
 
 **Example**
 
@@ -119,16 +152,18 @@ print(records_node.first_child())
 Node<'Let It Be', data_id=510268653885439170>
 ```
 
-Nodes may be strings or arbitrary objects:
+Nodes can holdarbitrary objects (not just strings):
 
 ```py
 alice = Person("Alice", age=23, guid="{123-456}")
 tree.add(alice)
 
 # Lookup nodes by object, data_id, name pattern, ...
-assert isinstance(tree[alice].data, Person)
+alice_node = tree[alice]
+assert isinstance(alice_node.data, Person)
 
 del tree[alice]
 ```
 
+[Take the Tour](https://nutree.readthedocs.io/en/latest/take_the_tour.html) and
 [Read the Docs](https://nutree.readthedocs.io/) for more.

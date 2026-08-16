@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-json-logger
-Version: 4.1.0
+Version: 4.2.0
 Summary: JSON Log Formatter for the Python Logging Package
 Author-email: Zakaria Zajac <zak@madzak.com>, Nicholas Hairs <info+python-json-logger@nicholashairs.com>
 Maintainer-email: Nicholas Hairs <info+python-json-logger@nicholashairs.com>
@@ -21,25 +21,6 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Provides-Extra: dev
-Requires-Dist: orjson; implementation_name != "pypy" and extra == "dev"
-Requires-Dist: msgspec; implementation_name != "pypy" and extra == "dev"
-Requires-Dist: validate-pyproject[all]; extra == "dev"
-Requires-Dist: black; extra == "dev"
-Requires-Dist: pylint; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: freezegun; extra == "dev"
-Requires-Dist: tzdata; extra == "dev"
-Requires-Dist: build; extra == "dev"
-Requires-Dist: mkdocs; extra == "dev"
-Requires-Dist: mkdocs-material>=8.5; extra == "dev"
-Requires-Dist: mkdocs-awesome-pages-plugin; extra == "dev"
-Requires-Dist: mdx_truly_sane_lists; extra == "dev"
-Requires-Dist: mkdocstrings[python]; extra == "dev"
-Requires-Dist: mkdocs-gen-files; extra == "dev"
-Requires-Dist: mkdocs-literate-nav; extra == "dev"
-Requires-Dist: mike; extra == "dev"
 Dynamic: license-file
 
 [![PyPi](https://img.shields.io/pypi/v/python-json-logger.svg)](https://pypi.python.org/pypi/python-json-logger/)

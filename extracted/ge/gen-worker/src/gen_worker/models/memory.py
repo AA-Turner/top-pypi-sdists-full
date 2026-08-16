@@ -32,6 +32,8 @@ import msgspec
 from ..component_vocab import component_vocabulary
 from .structure_only import STAMP as _STRUCTURE_ONLY
 import asyncio
+from ..hostfacts import cuda_ready
+from .. import hostfacts
 
 _LOG = logging.getLogger(__name__)
 
@@ -53,6 +55,59 @@ _GGUF_RESIDENT_MARGIN_GB = 0.5
 
 # Sentinel attribute set on pipelines to make apply_low_vram_config idempotent.
 _COZY_MODE_ATTR = "_cozy_low_vram_mode"
+
+#: Set on a module that reached a pipeline through `provision.load_slot`'s
+#: `components=` — i.e. one loaded ONCE and aliased into every lane sharing its
+#: content address (gw#479). It records what HAPPENED to the object, not a
+#: property anyone declared about it.
+SHARED_COMPONENT_ATTR = "_cozy_shared_component"
+
+
+def mark_shared_components(components: Optional[Dict[str, Any]]) -> int:
+    """Mark preloaded shared modules so no offload rung may hook them (ie#721).
+
+    A shared module is ALIASED into several pipelines. Moving it to the host
+    leaves every co-resident consumer on the device, and the failure is a fatal
+    `mat1 is on cuda:0, mat2 on cpu` in the middle of a generate — measured on
+    krea-2, qwen-image, z-image and hidream-o1-image (ie#480 finding 12).
+
+    Until th#1867 this was enforced by `Resources.strict_vram`, an author
+    declaration that the endpoint could not tolerate CPU-touching rungs. The
+    declaration deserved to go (it was a card-size claim in softer words) but it
+    was ALSO the only enforcer of an invariant `provision`'s docstring still
+    states. This restores the invariant from a MEASURED fact — this object was
+    injected as a shared component — instead of from an author's word.
+
+    Returns how many modules were marked, so a caller can assert on it.
+    """
+    n = 0
+    for mod in (components or {}).values():
+        # Only real modules can be hooked by an offload rung; a path string or
+        # a config object cannot, so marking it would be noise.
+        if mod is None or not hasattr(mod, "parameters"):
+            continue
+        try:
+            setattr(mod, SHARED_COMPONENT_ATTR, True)
+        except Exception:  # pragma: no cover - exotic __slots__ objects
+            continue
+        n += 1
+    return n
+
+
+def shared_component_names(pipeline: Any) -> List[str]:
+    """Names of this pipeline's components carrying the shared mark.
+
+    Read off the live objects, so it reflects what was actually injected rather
+    than what a manifest said would be.
+    """
+    out: List[str] = []
+    comps = getattr(pipeline, "components", None)
+    if not isinstance(comps, dict):
+        return out
+    for name, mod in comps.items():
+        if mod is not None and getattr(mod, SHARED_COMPONENT_ATTR, False):
+            out.append(str(name))
+    return sorted(out)
 
 # Authors declare ``Resources(vram_gb=X)`` as the TOTAL VRAM of the smallest
 # card they target ("runs on a 24 GB card") — a placement recommendation, not
@@ -131,14 +186,10 @@ def available_vram(device_index: int = 0) -> VramReading:
     :func:`get_available_vram_gb`; a caller that must DECIDE with it reads
     ``reason`` and says out loud what it does when the card is unreadable.
     """
-    try:
-        import torch
-
-        if not torch.cuda.is_available():
-            return VramReading(0.0, VRAM_NO_CUDA)
-        free, _total = torch.cuda.mem_get_info(device_index)
-    except Exception as exc:
-        _LOG.warning("free-VRAM probe failed: %s: %s", type(exc).__name__, exc)
+    if not hostfacts.cuda_ready():
+        return VramReading(0.0, VRAM_NO_CUDA)
+    free = hostfacts.free_vram_bytes(device_index)
+    if free is None:
         return VramReading(0.0, VRAM_UNREADABLE)
     return VramReading(float(free) / float(1024**3))
 
@@ -156,15 +207,8 @@ def get_available_vram_gb(device_index: int = 0) -> float:
 def get_total_vram_gb(device_index: int = 0) -> float:
     """TOTAL VRAM of the selected CUDA device — a per-SKU constant
     (pgw#750: deterministic placement inputs). 0.0 if no CUDA."""
-    try:
-        import torch
-
-        if not torch.cuda.is_available():
-            return 0.0
-        _free, total = torch.cuda.mem_get_info(device_index)
-        return float(total) / float(1024**3)
-    except Exception:
-        return 0.0
+    total = hostfacts.total_vram_bytes(device_index)
+    return float(total) / float(1024**3) if total is not None else 0.0
 
 
 def get_available_ram_gb() -> float:
@@ -252,24 +296,6 @@ def _read_cgroup_int(path: Path) -> Optional[int]:
     return value if 0 <= value < _CGROUP_UNLIMITED else None
 
 
-def _v2_cgroup_nodes(root: Path, proc_self_cgroup: Path) -> List[Path]:
-    """Cgroup-v2 dirs from root down to this process's own cgroup."""
-    rel = ""
-    try:
-        for line in proc_self_cgroup.read_text().splitlines():
-            if line.startswith("0::"):
-                rel = line[3:].strip().strip("/")
-                break
-    except OSError:
-        pass
-    nodes = [root]
-    node = root
-    for part in Path(rel).parts:
-        node = node / part
-        nodes.append(node)
-    return nodes
-
-
 def cgroup_memory_limit_bytes(
     root: Path = _CGROUP_ROOT,
     proc_self_cgroup: Path = _PROC_SELF_CGROUP,
@@ -280,7 +306,7 @@ def cgroup_memory_limit_bytes(
     and host cgroup namespaces); v1 fallback: ``memory/memory.limit_in_bytes``.
     """
     limits = [
-        v for node in _v2_cgroup_nodes(root, proc_self_cgroup)
+        v for node in hostfacts.cgroup_nodes(root, proc_self_cgroup)
         if (v := _read_cgroup_int(node / "memory.max")) is not None
     ]
     if limits:
@@ -293,7 +319,7 @@ def cgroup_memory_current_bytes(
     proc_self_cgroup: Path = _PROC_SELF_CGROUP,
 ) -> Optional[int]:
     """Current cgroup memory usage; reads the deepest available counter."""
-    for node in reversed(_v2_cgroup_nodes(root, proc_self_cgroup)):
+    for node in reversed(hostfacts.cgroup_nodes(root, proc_self_cgroup)):
         v = _read_cgroup_int(node / "memory.current")
         if v is not None:
             return v
@@ -337,7 +363,7 @@ def _cgroup_reclaimable_file_bytes(
     backing file) and pages still dirty or under writeback.
     """
     stats: Optional[Dict[str, int]] = None
-    for node in reversed(_v2_cgroup_nodes(root, proc_self_cgroup)):
+    for node in reversed(hostfacts.cgroup_nodes(root, proc_self_cgroup)):
         stats = _read_cgroup_stat(node / "memory.stat")
         if stats is not None:
             break
@@ -393,9 +419,17 @@ def probe_host_ram(
     *,
     root: Path = _CGROUP_ROOT,
     proc_self_cgroup: Path = _PROC_SELF_CGROUP,
+    meminfo: Optional[Path] = None,
     siblings: Optional[int] = None,
 ) -> HostRam:
-    """One truthful host-RAM snapshot: psutil meminfo min'd with the cgroup cap.
+    """The ONE effective host-RAM view: ``/proc/meminfo`` min'd with the
+    cgroup cap, with clean page cache credited back.
+
+    Every consumer that must answer "will this fit in host RAM" reads THIS —
+    the host-move guard, the residency demote floor, the staging admission and
+    (since pgw#897) the AOT compile pool, which used to parse ``/proc/meminfo``
+    and ``memory.stat`` itself with a NARROWER reclaimable definition and no
+    sibling divisor.
 
     ``siblings`` defaults to the compute-child count this process shares its
     cgroup with (pgw#783; 1 unless the process split is running G groups).
@@ -404,15 +438,9 @@ def probe_host_ram(
         from ..procsplit import host_siblings
 
         siblings = host_siblings()
-    meminfo_total = meminfo_available = 0.0
-    try:
-        import psutil
-
-        vm = psutil.virtual_memory()
-        meminfo_total = float(vm.total) / float(_GIB)
-        meminfo_available = float(vm.available) / float(_GIB)
-    except Exception:
-        pass
+    info = hostfacts.meminfo_kb(meminfo)
+    meminfo_total = float(info.get("MemTotal", 0)) * 1024.0 / float(_GIB)
+    meminfo_available = float(info.get("MemAvailable", 0)) * 1024.0 / float(_GIB)
     limit = cgroup_memory_limit_bytes(root, proc_self_cgroup)
     if limit is None:
         return _host_ram_share(HostRam(
@@ -485,7 +513,7 @@ def cuda_allocated_bytes(device_index: Optional[int] = None) -> int:
     try:
         import torch
 
-        if torch.cuda.is_available():
+        if cuda_ready():
             return int(torch.cuda.memory_allocated(device_index))
     except Exception:
         pass
@@ -739,7 +767,7 @@ def flush_memory() -> None:
     try:
         import torch
 
-        if torch.cuda.is_available():
+        if cuda_ready():
             torch.cuda.empty_cache()
             try:
                 torch.cuda.reset_peak_memory_stats()
@@ -769,7 +797,7 @@ async def aflush_memory(*, collect: bool = True, reset_peak: bool = False) -> No
         import torch
     except Exception:  # noqa: BLE001 — torch-free installs (cozy-local CLI)
         return
-    if not torch.cuda.is_available():
+    if not cuda_ready():
         return
     try:
         await asyncio.to_thread(torch.cuda.empty_cache)
@@ -796,7 +824,7 @@ def release_unused_pinned_host_cache() -> int:
         gc.collect()
         import torch
 
-        if not torch.cuda.is_available():
+        if not cuda_ready():
             return 0
         # Pinned frees can remain stream-dependent.  Finish prior CUDA work so
         # the host allocator can distinguish inactive blocks before flushing.
@@ -973,9 +1001,7 @@ def _call_if_present(obj: Any, method: str, **kwargs: Any) -> bool:
 
 def _move_pipeline_to_cpu(pipeline: Any) -> None:
     try:
-        import torch
-
-        if not torch.cuda.is_available():
+        if not cuda_ready():
             return
         if callable(getattr(pipeline, "to", None)):
             pipeline.to("cpu")
@@ -1031,25 +1057,59 @@ def _dtype_fragile_vae(pipeline: Any) -> Optional[Any]:
     return None
 
 
-def _pin_fragile_vae(pipeline: Any, applied: Dict[str, bool], log: logging.Logger) -> None:
-    """Keep a force_upcast VAE out of the diffusers CPU-offload hooks.
-    ``_exclude_from_cpu_offload`` is honored by BOTH the model and sequential
-    rungs, which move excluded components to the execution device
-    themselves."""
-    if _dtype_fragile_vae(pipeline) is None:
+def unhookable_components(pipeline: Any) -> List[str]:
+    """Components no offload rung may hook — the UNION of two independent
+    reasons, either of which alone is sufficient:
+
+    * **dtype-fragile** (gw#441/gw#469): a ``force_upcast`` VAE mutates dtype at
+      decode; hook-managed weights miss the runtime cast and decode fatals.
+    * **content-shared** (gw#479/ie#721): the module is aliased into other
+      pipelines, so moving it to the host strands its co-resident consumers on
+      the device — a fatal ``mat1 is on cuda:0, mat2 on cpu`` mid-generate.
+
+    Deliberately a UNION and not a precedence: a component can be one, the
+    other, or both, and each reason ALONE is enough. A proof that severs only
+    one of two independently sufficient terms says nothing about the other, so
+    both arms are red-proven separately.
+    """
+    names: List[str] = list(shared_component_names(pipeline))
+    if _dtype_fragile_vae(pipeline) is not None and "vae" not in names:
+        names.append("vae")
+    return sorted(names)
+
+
+def _pin_unhookable_components(
+    pipeline: Any, applied: Dict[str, bool], log: logging.Logger,
+) -> None:
+    """Keep dtype-fragile and content-shared components out of the diffusers
+    CPU-offload hooks. ``_exclude_from_cpu_offload`` is honored by BOTH the
+    model and sequential rungs, which move excluded components to the execution
+    device themselves."""
+    names = unhookable_components(pipeline)
+    if not names:
         return
     excl = list(getattr(pipeline, "_exclude_from_cpu_offload", None) or [])
-    if "vae" not in excl:
-        excl.append("vae")
+    for name in names:
+        if name not in excl:
+            excl.append(name)
     try:
         pipeline._exclude_from_cpu_offload = excl
     except Exception:
         return
-    applied["vae_resident"] = True
-    log.info(
-        "low_vram: force_upcast vae stays resident (excluded from offload "
-        "hooks — dtype-safety, gw#441/gw#469)"
-    )
+    if _dtype_fragile_vae(pipeline) is not None:
+        applied["vae_resident"] = True
+        log.info(
+            "low_vram: force_upcast vae stays resident (excluded from offload "
+            "hooks — dtype-safety, gw#441/gw#469)"
+        )
+    shared = shared_component_names(pipeline)
+    if shared:
+        applied["shared_resident"] = True
+        log.info(
+            "low_vram: %d content-shared component(s) stay resident (%s) — "
+            "moving one to the host strands its co-resident consumers on the "
+            "device (gw#479/ie#721)", len(shared), ", ".join(shared),
+        )
 
 
 def _apply_group_offload(
@@ -1062,7 +1122,7 @@ def _apply_group_offload(
         import torch
     except Exception:
         return False
-    if not torch.cuda.is_available():
+    if not cuda_ready():
         return False
 
     kwargs: Dict[str, Any] = {
@@ -1075,28 +1135,46 @@ def _apply_group_offload(
         kwargs["offload_to_disk_path"] = offload_to_disk_path
 
     fragile_vae = _dtype_fragile_vae(pipeline)
+    # ie#721: the group rung takes the SAME union the hook-based rungs do.
+    # `exclude_modules` keeps them out of the group hooks; the caller must then
+    # put them ON the device itself, exactly as the fragile-VAE path always has.
+    excluded = unhookable_components(pipeline)
+    shared = shared_component_names(pipeline)
 
-    def _keep_vae_resident() -> None:
-        if fragile_vae is None:
-            return
-        try:
-            fragile_vae.to("cuda")
-        except Exception as exc:
-            _LOG.warning("low_vram: resident vae move failed: %s", exc)
-        applied["vae_resident"] = True
-        _LOG.info(
-            "low_vram: force_upcast vae stays resident under group offload "
-            "(dtype-safety, gw#441/gw#469)"
-        )
+    def _keep_excluded_resident() -> None:
+        comps = getattr(pipeline, "components", None)
+        for name in excluded:
+            mod = comps.get(name) if isinstance(comps, dict) else None
+            if mod is None:
+                mod = getattr(pipeline, name, None)
+            if mod is None or not hasattr(mod, "to"):
+                continue
+            try:
+                mod.to("cuda")
+            except Exception as exc:
+                _LOG.warning("low_vram: resident move failed for %s: %s", name, exc)
+        if fragile_vae is not None:
+            applied["vae_resident"] = True
+            _LOG.info(
+                "low_vram: force_upcast vae stays resident under group offload "
+                "(dtype-safety, gw#441/gw#469)"
+            )
+        if shared:
+            applied["shared_resident"] = True
+            _LOG.info(
+                "low_vram: %d content-shared component(s) stay resident under "
+                "group offload (%s) — gw#479/ie#721",
+                len(shared), ", ".join(shared),
+            )
 
     fn = getattr(pipeline, "enable_group_offload", None)
     if callable(fn):
         try:
-            if fragile_vae is not None:
-                fn(**kwargs, exclude_modules=["vae"])
+            if excluded:
+                fn(**kwargs, exclude_modules=list(excluded))
             else:
                 fn(**kwargs)
-            _keep_vae_resident()
+            _keep_excluded_resident()
             applied["group_offload"] = True
             if offload_to_disk_path:
                 applied["disk_offload_path"] = True
@@ -1118,7 +1196,10 @@ def _apply_group_offload(
     for attr, mod in _module_attributes(pipeline):
         if mod is None:
             continue
-        if attr == "vae" and fragile_vae is not None:
+        # DELIBERATELY resident, not accidentally uncovered — so it is not added
+        # to `skipped` below, whose warning is about the silent kind. ie#721
+        # widened this from "the fragile vae" to every unhookable component.
+        if attr in excluded:
             continue
         mod_fn = getattr(mod, "enable_group_offload", None)
         if callable(mod_fn):
@@ -1154,7 +1235,7 @@ def _apply_group_offload(
             "their size", len(skipped), ", ".join(sorted(skipped)))
 
     if any_applied:
-        _keep_vae_resident()
+        _keep_excluded_resident()
         applied["group_offload"] = True
         if offload_to_disk_path:
             applied["disk_offload_path"] = True
@@ -1216,12 +1297,7 @@ def place_pipeline(
     card size to declare around (§1.35 amendment 2).
     """
     log = logger or _LOG
-    try:
-        import torch
-
-        if not torch.cuda.is_available():
-            return {"mode": "cpu"}
-    except Exception:
+    if not cuda_ready():
         return {"mode": "cpu"}
     effective = select_auto_mode(pipeline=pipeline) if mode == "auto" else mode
     if mode == "auto":
@@ -1255,6 +1331,26 @@ def place_pipeline(
             if fit_needed_gb > 0.0:
                 applied["fit_needed_gb"] = fit_needed_gb
                 applied["fit_available_gb"] = fit_available_gb
+            # DIAGNOSTIC ONLY — deliberately NOT an input to any budget check.
+            # Which components this placement forced to stay resident, so an
+            # operator asking "why is this pod's footprint higher than the rung
+            # implies" can read the answer instead of investigating it. It sits
+            # with `oom_demotions` / `fit_needed_gb` as reporting, not contract.
+            #
+            # It was briefly designed as a published input for the adoption
+            # headroom check (pgw#1255). That seam is RETIRED and must not be
+            # rebuilt: pgw#1265 checks `have >= need` where `have` is the
+            # DRIVER'S FREE-MEMORY FIGURE read at the decision point, so every
+            # byte these exclusions hold on the card is already subtracted by
+            # OBSERVATION — as is a sibling instance's weights, which no
+            # published set could have described. A measured quantity that
+            # already includes the effect beats two modules agreeing to exchange
+            # a computed one. Wiring this back in would reintroduce exactly the
+            # second derivation that seam existed to prevent.
+            #
+            # Always present, `[]` included, so a reader can tell "nothing was
+            # excluded" from "this build predates the field".
+            applied["resident_excluded"] = unhookable_components(pipeline)
             return applied
         except BaseException as exc:
             if not is_cuda_oom(exc):
@@ -1391,12 +1487,7 @@ def apply_low_vram_config(
         log.info("low_vram: vae_only applied (%s)", _applied_summary(applied))
         return applied
 
-    try:
-        import torch
-
-        cuda_ok = torch.cuda.is_available()
-    except Exception:
-        cuda_ok = False
+    cuda_ok = cuda_ready()
 
     if not cuda_ok:
         setattr(pipeline, _COZY_MODE_ATTR, "vae_only")
@@ -1413,7 +1504,7 @@ def apply_low_vram_config(
 
     if effective_mode == "model_offload":
         _refuse_cpu_offload("enable_model_cpu_offload")
-        _pin_fragile_vae(pipeline, applied, log)
+        _pin_unhookable_components(pipeline, applied, log)
         ok = _call_if_present(pipeline, "enable_model_cpu_offload")
         if not ok:
             try:
@@ -1434,7 +1525,7 @@ def apply_low_vram_config(
 
     if effective_mode == "sequential":
         _refuse_cpu_offload("enable_sequential_cpu_offload")
-        _pin_fragile_vae(pipeline, applied, log)
+        _pin_unhookable_components(pipeline, applied, log)
         _move_pipeline_to_cpu(pipeline)
         flush_memory()
         ok = _call_if_present(pipeline, "enable_sequential_cpu_offload")

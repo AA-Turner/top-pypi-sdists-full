@@ -8,7 +8,7 @@ from helpers import SimpleProvider
 
 from octodns.record import Record
 from octodns.record.exception import ValidationError
-from octodns.record.rr import RrParseError
+from octodns.record.rr import RdataParseError
 from octodns.record.tlsa import (
     TlsaRecord,
     TlsaValue,
@@ -124,23 +124,23 @@ class TestRecordTlsa(TestCase):
 
     def test_tsla_value_rdata_text(self):
         # empty string won't parse
-        with self.assertRaises(RrParseError):
+        with self.assertRaises(RdataParseError):
             TlsaValue.parse_rdata_text('')
 
         # single word won't parse
-        with self.assertRaises(RrParseError):
+        with self.assertRaises(RdataParseError):
             TlsaValue.parse_rdata_text('nope')
 
         # 2nd word won't parse
-        with self.assertRaises(RrParseError):
+        with self.assertRaises(RdataParseError):
             TlsaValue.parse_rdata_text('1 2')
 
         # 3rd word won't parse
-        with self.assertRaises(RrParseError):
+        with self.assertRaises(RdataParseError):
             TlsaValue.parse_rdata_text('1 2 3')
 
         # 5th word won't parse
-        with self.assertRaises(RrParseError):
+        with self.assertRaises(RdataParseError):
             TlsaValue.parse_rdata_text('1 2 3 abcd another')
 
         # non-ints
@@ -896,3 +896,37 @@ class TestTlsaValue(TestCase):
         self.assertEqual(
             'abab42ababababababab', got.certificate_association_data
         )
+
+    def test_hash(self):
+        a = TlsaValue(
+            {
+                'certificate_usage': 1,
+                'selector': 1,
+                'matching_type': 1,
+                'certificate_association_data': 'ABABABABABABABABAB',
+            }
+        )
+        same = TlsaValue(
+            {
+                'certificate_usage': 1,
+                'selector': 1,
+                'matching_type': 1,
+                'certificate_association_data': 'ABABABABABABABABAB',
+            }
+        )
+        different = TlsaValue(
+            {
+                'certificate_usage': 2,
+                'selector': 1,
+                'matching_type': 1,
+                'certificate_association_data': 'ABABABABABABABABAB',
+            }
+        )
+
+        self.assertEqual(hash(a), hash(same))
+        self.assertNotEqual(hash(a), hash(different))
+
+        values = {a, same, different}
+        self.assertEqual(2, len(values))
+        self.assertIn(a, values)
+        self.assertIn(different, values)

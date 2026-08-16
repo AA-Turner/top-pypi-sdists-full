@@ -3,6 +3,7 @@
 #
 
 from unittest import TestCase
+from warnings import catch_warnings, simplefilter
 
 from helpers import SimpleProvider
 
@@ -14,7 +15,7 @@ from octodns.record.caa import (
     CaaValueRfcValidator,
 )
 from octodns.record.exception import ValidationError
-from octodns.record.rr import RrParseError
+from octodns.record.rr import RdataParseError
 from octodns.zone import Zone
 
 
@@ -81,17 +82,46 @@ class TestRecordCaa(TestCase):
         # __repr__ doesn't blow up
         a.__repr__()
 
+    def test_caa_value_hash(self):
+        a = CaaValue({'flags': 0, 'tag': 'issue', 'value': 'ca.example.net'})
+        same = CaaValue({'flags': 0, 'tag': 'issue', 'value': 'ca.example.net'})
+        different = CaaValue(
+            {'flags': 128, 'tag': 'issue', 'value': 'ca.example.net'}
+        )
+
+        self.assertEqual(hash(a), hash(same))
+        self.assertNotEqual(hash(a), hash(different))
+
+        values = {a, same, different}
+        self.assertEqual(2, len(values))
+        self.assertIn(a, values)
+        self.assertIn(different, values)
+
     def test_caa_value_rdata_text(self):
+        value = CaaValue({'flags': 0, 'tag': 'issue', 'value': 'ca.example'})
+        self.assertEqual('0 issue "ca.example"', value.to_rdata_text())
+        self.assertEqual(
+            dict(value), CaaValue.from_rdata_text(value.to_rdata_text())
+        )
+
+        with catch_warnings(record=True) as caught:
+            simplefilter('always')
+            self.assertEqual(value.to_rdata_text(), value.rdata_text)
+            self.assertEqual(
+                dict(value), CaaValue.parse_rdata_text(value.to_rdata_text())
+            )
+        self.assertEqual(2, len(caught))
+
         # empty string won't parse
-        with self.assertRaises(RrParseError):
+        with self.assertRaises(RdataParseError):
             CaaValue.parse_rdata_text('')
 
         # single word won't parse
-        with self.assertRaises(RrParseError):
+        with self.assertRaises(RdataParseError):
             CaaValue.parse_rdata_text('nope')
 
         # 2nd word won't parse
-        with self.assertRaises(RrParseError):
+        with self.assertRaises(RdataParseError):
             CaaValue.parse_rdata_text('0 tag')
 
         # flags not an int, will parse

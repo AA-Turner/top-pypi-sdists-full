@@ -31,7 +31,7 @@
 
 """Unittests for the tifffile package.
 
-:Version: 2026.7.31
+:Version: 2026.8.16
 
 """
 
@@ -21914,7 +21914,7 @@ def test_write_zarr():
 @pytest.mark.parametrize('byteorder', ['<', '>'])
 @pytest.mark.parametrize('version', [0, 1])
 @pytest.mark.parametrize('zarr_format', [2, 3])
-def test_write_fsspec(caplog, zarr_format, version, byteorder):
+def test_write_fsspec(zarr_format, version, byteorder):
     """Test write fsspec for multi-series OME-TIFF."""
     data0 = random_data(numpy.uint8, (3, 252, 244))
     data1 = random_data(numpy.uint8, (219, 301, 3))
@@ -22065,14 +22065,11 @@ def test_write_fsspec(caplog, zarr_format, version, byteorder):
                 )
             assert_array_equal(tif.series[5].asarray(), data3)
 
-            if byteorder == '>' and zarr_format >= 3:
-                assert 'incompatible with zarr>=3.3' in caplog.text
-            else:
-                assert_fsspec(
-                    URL + filename + f'.v{version}.{zf}.s5.json',
-                    data3,
-                    zarr_format,
-                )
+            assert_fsspec(
+                URL + filename + f'.v{version}.{zf}.s5.json',
+                data3,
+                zarr_format,
+            )
 
 
 @pytest.mark.skipif(SKIP_FILE or SKIP_ZARR, reason=REASON)
@@ -24072,6 +24069,8 @@ def test_dependent_opentile():
 def test_dependent_aicsimageio():
     """Test aicsimageio package."""
     # https://github.com/AllenCellModeling/aicsimageio
+    pytest.skip('aicsimageio segfaults')
+
     tifffile.TIFF.RESUNIT = RESUNIT
 
     aicsimageio = pytest.importorskip('aicsimageio')

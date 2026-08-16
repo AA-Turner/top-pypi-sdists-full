@@ -72,11 +72,9 @@ def snappy_check(const uint8_t[::1] data, /):
     cdef:
         snappy_status ret
 
-    if data.nbytes < 1:
-        return False
     ret = snappy_validate_compressed_buffer(
-        <const char*> &data[0],
-        <size_t> data.nbytes
+        <const char*> data._data,
+        <size_t> data.shape[0]
     )
     return ret == SNAPPY_OK
 
@@ -91,7 +89,7 @@ def snappy_encode(
     cdef:
         const uint8_t[::1] src = _readable_input(data)
         const uint8_t[::1] dst  # must be const to write to bytes
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         ssize_t dstsize
         size_t output_length = snappy_max_compressed_length(<size_t> srcsize)
         snappy_status ret
@@ -109,7 +107,7 @@ def snappy_encode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
 
     if <size_t> dstsize < output_length:
         # snappy_compress requires at least (32+len(data)+len(data)/6) bytes
@@ -118,7 +116,7 @@ def snappy_encode(
             if buffer == NULL:
                 raise MemoryError('failed to allocate buffer')
             ret = snappy_compress(
-                <const char*> &src[0],
+                <const char*> src._data,
                 <size_t> srcsize,
                 buffer,
                 &output_length
@@ -129,15 +127,15 @@ def snappy_encode(
             if <size_t> dstsize < output_length:
                 free(buffer)
                 raise SnappyError('snappy_compress', SNAPPY_BUFFER_TOO_SMALL)
-            memcpy(<void*> &dst[0], <const void*> buffer, output_length)
+            memcpy(<void*> dst._data, <const void*> buffer, output_length)
             free(buffer)
     else:
         with nogil:
             output_length = <size_t> dstsize
             ret = snappy_compress(
-                <const char*> &src[0],
+                <const char*> src._data,
                 <size_t> srcsize,
-                <char*> &dst[0],
+                <char*> dst._data,
                 &output_length
             )
         if ret != SNAPPY_OK:
@@ -158,7 +156,7 @@ def snappy_decode(
         const uint8_t[::1] src = data
         const uint8_t[::1] dst  # must be const to write to bytes
         ssize_t dstsize
-        ssize_t srcsize = src.nbytes
+        ssize_t srcsize = src.shape[0]
         size_t output_length, result
         snappy_status ret
 
@@ -170,7 +168,7 @@ def snappy_decode(
     if out is None:
         if dstsize < 0:
             ret = snappy_uncompressed_length(
-                <const char*> &src[0],
+                <const char*> src._data,
                 <size_t> srcsize,
                 &result
             )
@@ -180,14 +178,14 @@ def snappy_decode(
         out = _create_output(outtype, dstsize)
 
     dst = out
-    dstsize = dst.nbytes
+    dstsize = dst.shape[0]
     output_length = <size_t> dstsize
 
     with nogil:
         ret = snappy_uncompress(
-            <const char*> &src[0],
+            <const char*> src._data,
             <size_t> srcsize,
-            <char*> &dst[0],
+            <char*> dst._data,
             &output_length
         )
     if ret != SNAPPY_OK:

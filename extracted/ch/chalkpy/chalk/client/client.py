@@ -95,6 +95,7 @@ from chalk.features.tag import BranchId, DeploymentId, EnvironmentId
 from chalk.ml import ModelClass, ModelEncoding, ModelRunCriterion, ModelType
 from chalk.parsed.branch_state import BranchGraphSummary
 from chalk.prompts import Prompt
+from chalk.queries.data_quality import DataQualityCheck
 
 
 class ChalkClient:
@@ -1184,6 +1185,8 @@ class ChalkClient:
         unload_resolvers: UnloadResolvers = None,
         feature_for_lower_upper_bound: FeatureReference | None = None,
         write_to: str | None = None,
+        input_checks: Collection[Union[str, DataQualityCheck]] = (),
+        output_checks: Collection[Union[str, DataQualityCheck]] = (),
     ) -> Dataset:
         """Compute feature values from the offline store or by running offline/online resolvers.
         See `Dataset` for more information.
@@ -1338,6 +1341,23 @@ class ChalkClient:
         write_to
             A storage URI (e.g. `s3://bucket/path`) to which the engine should write
             the query's output rows directly.
+        input_checks
+            Data quality checks over the query's input -- its spine, however it was
+            produced.
+        output_checks
+            Data quality checks over the query's computed output. They run before the rows
+            are written to the online and offline stores, so a failure stops the write.
+
+            >>> from chalk.client import ChalkClient
+            >>> from chalk.queries import Check
+            >>> ChalkClient().offline_query(
+            ...     output=[User.id, User.email],
+            ...     output_checks=[
+            ...         Check.sql_metric("count(*)", min=1, name="rows"),
+            ...         Check.sql_bad_rows('"user.email" IS NULL', name="missing_email"),
+            ...     ],
+            ...     wait=True,
+            ... )
 
         Other Parameters
         ----------------

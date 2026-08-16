@@ -79,15 +79,19 @@ class CLI(Client):
         filename: str,
         dryrun: bool = False,
         noninteractive: bool = False,
+        strict: bool = True,
     ) -> None:
         self.output_style = "json"
-        StateMachine(self).apply(filename, dryrun, noninteractive)
+        StateMachine(self).apply(filename, dryrun, noninteractive, strict=strict)
 
     def destroy(
         self,
         filename: str,
         dryrun: bool = False,
         noninteractive: bool = False,
+        strict: bool = True,
     ) -> None:
         self.output_style = "json"
-        StateMachine(self).apply(filename, dryrun, noninteractive, destroy=True)
+        StateMachine(self).apply(
+            filename, dryrun, noninteractive, destroy=True, strict=strict
+        )

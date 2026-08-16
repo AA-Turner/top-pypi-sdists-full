@@ -273,19 +273,17 @@ def test_ccitt_zarr(compression):
         encoded = bytes(fh.read(page.databytecounts[0]))
     spec = _array_spec(shape, 'uint8')
     if compression == 'ccittrle':
-        codec = zarr3codecs.Ccittrle(height=shape[0], width=shape[1])
+        codec = zarr3codecs.Ccittrle()
         expected = imagecodecs.ccittrle_decode(
             encoded, height=shape[0], width=shape[1]
         )
     elif compression == 'ccittfax3':
-        codec = zarr3codecs.Ccittfax3(
-            height=shape[0], width=shape[1], t4options=t4options
-        )
+        codec = zarr3codecs.Ccittfax3(t4options=t4options)
         expected = imagecodecs.ccittfax3_decode(
             encoded, height=shape[0], width=shape[1], t4options=t4options
         )
     else:
-        codec = zarr3codecs.Ccittfax4(height=shape[0], width=shape[1])
+        codec = zarr3codecs.Ccittfax4()
         expected = imagecodecs.ccittfax4_decode(
             encoded, height=shape[0], width=shape[1]
         )
@@ -352,24 +350,25 @@ def test_zarr_pipeline(pipeline):
     data = numpy.stack([data, data])
     shape = data.shape
     chunks = (1, 128, 128, 3)
+    serializer = None
 
     match pipeline:
         case 'delta_lzw':
             filters = [zarr3codecs.Delta(axis=-1)]
             compressors = [zarr3codecs.Lzw()]
         case 'bitshuffle_zstd':
-            filters = [zarr3codecs.Bitshuffle(blocksize=0)]
+            filters = []
+            serializer = zarr3codecs.Bitshuffle(blocksize=0)
             compressors = [zarr3codecs.Zstd(level=5)]
         case 'delta_bitshuffle_zstd':
-            filters = [
-                zarr3codecs.Delta(axis=-1),
-                zarr3codecs.Bitshuffle(blocksize=0),
-            ]
+            filters = [zarr3codecs.Delta(axis=-1)]
+            serializer = zarr3codecs.Bitshuffle(blocksize=0)
             compressors = [zarr3codecs.Zstd(level=5)]
         case 'floatpred_deflate':
             data = data.astype('float32')
             shape = data.shape
-            filters = [zarr3codecs.Floatpred(axis=-1)]
+            filters = []
+            serializer = zarr3codecs.Floatpred(axis=-1)
             compressors = [zarr3codecs.Deflate(level=6)]
         case 'xor_lzma':
             filters = [zarr3codecs.Xor(axis=-1)]
@@ -378,6 +377,9 @@ def test_zarr_pipeline(pipeline):
             raise RuntimeError
 
     store = zarr.storage.MemoryStore()
+    kwargs = {}
+    if serializer is not None:
+        kwargs['serializer'] = serializer
     z = zarr.create_array(
         store,
         shape=shape,
@@ -385,6 +387,45 @@ def test_zarr_pipeline(pipeline):
         dtype=data.dtype,
         filters=filters,
         compressors=compressors,
+        **kwargs,
+    )
+    z[:] = data
+    del z
+
+    z = zarr.open_array(store, mode='r')
+    assert_array_equal(z[:], data)
+    with contextlib.suppress(Exception):
+        store.close()
+
+
+@pytest.mark.parametrize(
+    'codec', ['jpeg2k', 'jpegxl', 'htj2k', 'exr', 'lerc', 'tiff']
+)
+@pytest.mark.parametrize('planar', [True, False])
+def test_planar(codec, planar):
+    """Test zarr planar option."""
+    # https://github.com/cgohlke/imagecodecs/issues/145
+    if not getattr(imagecodecs, codec.upper()).available:
+        pytest.skip(f'{codec} not found')
+
+    data = numpy.load(datafiles('rgb.u1.npy'))
+    data = numpy.moveaxis(data, -1, 0)  # planar
+    shape = data.shape
+    chunks = (1, 128, 128)
+    kwargs = {'planar': planar}
+
+    if codec == 'exr':
+        data = data.astype(numpy.float32)
+    elif codec == 'tiff':
+        kwargs = {'planarconfig': 'separate' if planar else 'contig'}
+
+    store = zarr.storage.MemoryStore()
+    z = zarr.create_array(
+        store,
+        shape=shape,
+        chunks=chunks,
+        dtype=data.dtype,
+        serializer=getattr(zarr3codecs, codec.capitalize())(**kwargs),
     )
     z[:] = data
     del z
@@ -412,6 +453,7 @@ def test_zarr_pipeline(pipeline):
         'brotli',
         'byteshuffle',
         'bz2',
+        'chunked',
         'cms',
         'deflate',
         'delta',
@@ -537,6 +579,8 @@ def test_zarr(codec, photometric):
             codec_obj = zarr3codecs.Byteshuffle(axis=axis)
         case 'bz2':
             codec_obj = zarr3codecs.Bz2(level=9)
+        case 'chunked':
+            codec_obj = zarr3codecs.Chunked(codec='lz4')
         case 'cms':
             if photometric == 'gray':
                 codec_obj = zarr3codecs.Cms(
@@ -640,8 +684,8 @@ def test_zarr(codec, photometric):
                 level=3,
                 items=1 if photometric == 'gray' else None,
             )
-        case 'packbits' if photometric == 'rgb':
-            codec_obj = zarr3codecs.Packbits(axis=-2)
+        # case 'packbits' if photometric == 'rgb':
+        #     codec_obj = zarr3codecs.Packbits(axis=-2)
         case 'packbits':
             codec_obj = zarr3codecs.Packbits()
         case 'packints':

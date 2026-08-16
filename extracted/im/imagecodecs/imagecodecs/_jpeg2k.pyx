@@ -180,7 +180,7 @@ def jpeg2k_encode(
         &layout,
     )
 
-    if srcsize > UINT32_MAX:
+    if <uint64_t> srcsize > UINT32_MAX:
         raise ValueError('tile size must not exceed 4 GB')
 
     if quality < 1 or quality > 1000:
@@ -271,8 +271,8 @@ def jpeg2k_encode(
 
     if out is not None:
         dst = out
-        dstsize = dst.nbytes
-        memopj.data = <OPJ_UINT8*> &dst[0]
+        dstsize = dst.shape[0]
+        memopj.data = <OPJ_UINT8*> dst._data
         memopj.size = dstsize
 
     try:
@@ -520,8 +520,8 @@ def jpeg2k_decode(
         raise Jpeg2kError('not a J2K or JP2 data stream')
 
     try:
-        memopj.data = <OPJ_UINT8*> &src[0]
-        memopj.size = src.nbytes
+        memopj.data = <OPJ_UINT8*> src._data
+        memopj.size = src.shape[0]
         memopj.offset = 0
         memopj.written = 0
         memopj.owner = 0
